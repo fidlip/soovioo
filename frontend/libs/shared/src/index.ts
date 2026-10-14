@@ -5,3 +5,5 @@ export * from './lib/evidence/student.model';
 export * from './lib/evidence/subject.model';
 export * from './lib/evidence/students-api.service';
 export * from './lib/evidence/subjects-api.service';
+export * from './lib/attendance/absence.model';
+export * from './lib/attendance/absences-api.service';

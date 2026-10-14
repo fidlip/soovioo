@@ -1,34 +1,9 @@
-<main class="grades">
-  <h1>Sova — Známky</h1>
+<nav>
+  <strong>Sova</strong>
+  <a routerLink="/grades">Známky</a>
+  <a routerLink="/absences">Docházka</a>
+</nav>
 
-  <form class="add-grade" (ngSubmit)="addGrade()">
-    <select name="student" [(ngModel)]="selectedStudentId">
-      @for (student of students(); track student.id) {
-        <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
-      }
-    </select>
-
-    <select name="subject" [(ngModel)]="selectedSubjectId">
-      @for (subject of subjects(); track subject.id) {
-        <option [value]="subject.id">{{ subject.name }}</option>
-      }
-    </select>
-
-    <input type="number" name="value" min="1" max="5" [(ngModel)]="value" />
-
-    <button type="submit">Zapsat známku</button>
-  </form>
-
-  <ul>
-    @for (grade of grades(); track grade.id) {
-      <li>
-        {{ grade.studentName }} — {{ grade.subjectName }}: <strong>{{ grade.value }}</strong>
-        @if (grade.note) {
-          <em>({{ grade.note }})</em>
-        }
-      </li>
-    } @empty {
-      <li>Zatím žádné známky.</li>
-    }
-  </ul>
+<main>
+  <router-outlet />
 </main>
