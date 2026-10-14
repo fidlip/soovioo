@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import {
   Grade,
   GradesApiService,
+  ReportCardApiService,
   Student,
   StudentsApiService,
   Subject,
@@ -18,6 +19,7 @@ export class GradesPage {
   private readonly gradesApi = inject(GradesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
+  private readonly reportCardApi = inject(ReportCardApiService);
 
   protected readonly grades = signal<Grade[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -59,6 +61,23 @@ export class GradesPage {
         next: () => this.reload(),
         error: (err) => console.error('addGrade failed', err),
       });
+  }
+
+  protected downloadReportCard(): void {
+    if (!this.selectedStudentId) {
+      return;
+    }
+    this.reportCardApi.downloadReportCard(this.selectedStudentId).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'vysvedceni.pdf';
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => console.error('downloadReportCard failed', err),
+    });
   }
 
   private reload(): void {

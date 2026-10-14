@@ -18,6 +18,8 @@
   <button type="submit">Zapsat známku</button>
 </form>
 
+<button type="button" (click)="downloadReportCard()">Stáhnout vysvědčení</button>
+
 <ul>
   @for (grade of grades(); track grade.id) {
     <li>
