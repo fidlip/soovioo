@@ -9,22 +9,38 @@ namespace Sova.Api.Grades;
 public class GradesController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Grade>>> GetGrades()
+    public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
     {
         var grades = await db.Grades
             .OrderByDescending(g => g.CreatedAt)
+            .Select(g => new GradeDto(
+                g.Id,
+                g.StudentId,
+                g.Student!.FirstName + " " + g.Student.LastName,
+                g.SubjectId,
+                g.Subject!.Name,
+                g.Value,
+                g.Note,
+                g.CreatedAt))
             .ToListAsync();
 
         return Ok(grades);
     }
 
     [HttpPost]
-    public async Task<ActionResult<Grade>> AddGrade(CreateGradeRequest request)
+    public async Task<ActionResult<GradeDto>> AddGrade(CreateGradeRequest request)
     {
+        var studentExists = await db.Students.AnyAsync(s => s.Id == request.StudentId);
+        var subjectExists = await db.Subjects.AnyAsync(s => s.Id == request.SubjectId);
+        if (!studentExists || !subjectExists)
+        {
+            return BadRequest("Unknown studentId or subjectId.");
+        }
+
         var grade = new Grade
         {
-            StudentName = request.StudentName,
-            Subject = request.Subject,
+            StudentId = request.StudentId,
+            SubjectId = request.SubjectId,
             Value = request.Value,
             Note = request.Note,
         };
@@ -32,8 +48,30 @@ public class GradesController(AppDbContext db) : ControllerBase
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetGrades), new { id = grade.Id }, grade);
+        var student = await db.Students.FindAsync(grade.StudentId);
+        var subject = await db.Subjects.FindAsync(grade.SubjectId);
+        var dto = new GradeDto(
+            grade.Id,
+            grade.StudentId,
+            $"{student!.FirstName} {student.LastName}",
+            grade.SubjectId,
+            subject!.Name,
+            grade.Value,
+            grade.Note,
+            grade.CreatedAt);
+
+        return CreatedAtAction(nameof(GetGrades), new { id = grade.Id }, dto);
     }
 }
 
-public record CreateGradeRequest(string StudentName, string Subject, int Value, string? Note);
+public record CreateGradeRequest(int StudentId, int SubjectId, int Value, string? Note);
+
+public record GradeDto(
+    int Id,
+    int StudentId,
+    string StudentName,
+    int SubjectId,
+    string SubjectName,
+    int Value,
+    string? Note,
+    DateTimeOffset CreatedAt);

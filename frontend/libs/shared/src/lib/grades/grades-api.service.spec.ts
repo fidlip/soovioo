@@ -33,15 +33,15 @@ describe('GradesApiService', () => {
   });
 
   it('posts a new grade to the configured base URL', () => {
-    service
-      .addGrade({ studentName: 'Jan Novák', subject: 'Matematika', value: 1 })
-      .subscribe();
+    service.addGrade({ studentId: 1, subjectId: 1, value: 1 }).subscribe();
     const req = httpMock.expectOne('http://test/api/grades');
     expect(req.request.method).toBe('POST');
     req.flush({
       id: 1,
+      studentId: 1,
       studentName: 'Jan Novák',
-      subject: 'Matematika',
+      subjectId: 1,
+      subjectName: 'Matematika',
       value: 1,
       createdAt: new Date().toISOString(),
     });

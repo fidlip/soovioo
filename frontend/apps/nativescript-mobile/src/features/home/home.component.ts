@@ -1,6 +1,13 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
-import { GradesApiService, Grade } from '@sova/shared';
+import {
+  Grade,
+  GradesApiService,
+  Student,
+  StudentsApiService,
+  Subject,
+  SubjectsApiService,
+} from '@sova/shared';
 
 @Component({
   selector: 'ns-home',
@@ -10,18 +17,33 @@ import { GradesApiService, Grade } from '@sova/shared';
 })
 export class HomeComponent {
   private readonly gradesApi = inject(GradesApiService);
+  private readonly studentsApi = inject(StudentsApiService);
+  private readonly subjectsApi = inject(SubjectsApiService);
 
   protected readonly grades = signal<Grade[]>([]);
+  private firstStudent: Student | undefined;
+  private firstSubject: Subject | undefined;
 
   constructor() {
     this.reload();
+    this.studentsApi.getStudents().subscribe({
+      next: (students) => (this.firstStudent = students[0]),
+      error: (err) => console.error('getStudents failed', err),
+    });
+    this.subjectsApi.getSubjects().subscribe({
+      next: (subjects) => (this.firstSubject = subjects[0]),
+      error: (err) => console.error('getSubjects failed', err),
+    });
   }
 
   protected addDemoGrade(): void {
+    if (!this.firstStudent || !this.firstSubject) {
+      return;
+    }
     this.gradesApi
       .addGrade({
-        studentName: 'Jan Novák',
-        subject: 'Matematika',
+        studentId: this.firstStudent.id,
+        subjectId: this.firstSubject.id,
         value: 1,
         note: 'Pololetní práce',
       })

@@ -1,15 +1,17 @@
 export interface Grade {
   id: number;
+  studentId: number;
   studentName: string;
-  subject: string;
+  subjectId: number;
+  subjectName: string;
   value: number;
   note?: string;
   createdAt: string;
 }
 
 export interface CreateGradeRequest {
-  studentName: string;
-  subject: string;
+  studentId: number;
+  subjectId: number;
   value: number;
   note?: string;
 }

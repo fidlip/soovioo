@@ -1,27 +1,60 @@
 import { Component, inject, signal } from '@angular/core';
-import { GradesApiService, Grade } from '@sova/shared';
+import { FormsModule } from '@angular/forms';
+import {
+  Grade,
+  GradesApiService,
+  Student,
+  StudentsApiService,
+  Subject,
+  SubjectsApiService,
+} from '@sova/shared';
 
 @Component({
   selector: 'app-root',
+  imports: [FormsModule],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
   private readonly gradesApi = inject(GradesApiService);
+  private readonly studentsApi = inject(StudentsApiService);
+  private readonly subjectsApi = inject(SubjectsApiService);
 
   protected readonly grades = signal<Grade[]>([]);
+  protected readonly students = signal<Student[]>([]);
+  protected readonly subjects = signal<Subject[]>([]);
+
+  protected selectedStudentId: number | null = null;
+  protected selectedSubjectId: number | null = null;
+  protected value = 1;
 
   constructor() {
     this.reload();
+    this.studentsApi.getStudents().subscribe({
+      next: (students) => {
+        this.students.set(students);
+        this.selectedStudentId ??= students[0]?.id ?? null;
+      },
+      error: (err) => console.error('getStudents failed', err),
+    });
+    this.subjectsApi.getSubjects().subscribe({
+      next: (subjects) => {
+        this.subjects.set(subjects);
+        this.selectedSubjectId ??= subjects[0]?.id ?? null;
+      },
+      error: (err) => console.error('getSubjects failed', err),
+    });
   }
 
-  protected addDemoGrade(): void {
+  protected addGrade(): void {
+    if (!this.selectedStudentId || !this.selectedSubjectId) {
+      return;
+    }
     this.gradesApi
       .addGrade({
-        studentName: 'Jan Novák',
-        subject: 'Matematika',
-        value: 1,
-        note: 'Pololetní práce',
+        studentId: this.selectedStudentId,
+        subjectId: this.selectedSubjectId,
+        value: this.value,
       })
       .subscribe({
         next: () => this.reload(),
