@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sova.Api.Attendance;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
+using Sova.Api.Messaging;
 using Sova.Api.Timetable;
 
 namespace Sova.Api.Data;
@@ -14,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Absence> Absences => Set<Absence>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
+    public DbSet<Message> Messages => Set<Message>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
