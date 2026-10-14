@@ -1,0 +1,50 @@
+import { provideHttpClient } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { API_BASE_URL } from '../api-base-url.token';
+import { MessagesApiService } from './messages-api.service';
+
+describe('MessagesApiService', () => {
+  let service: MessagesApiService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: API_BASE_URL, useValue: 'http://test' },
+      ],
+    });
+    service = TestBed.inject(MessagesApiService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('fetches messages for a student', () => {
+    service.getMessages(1).subscribe();
+    const req = httpMock.expectOne('http://test/api/students/1/messages');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('sends a message', () => {
+    service
+      .sendMessage(1, { senderName: 'Učitel', subject: 'S', body: 'B' })
+      .subscribe();
+    const req = httpMock.expectOne('http://test/api/students/1/messages');
+    expect(req.request.method).toBe('POST');
+    req.flush({});
+  });
+
+  it('marks a message as read', () => {
+    service.markRead(1, 2).subscribe();
+    const req = httpMock.expectOne('http://test/api/students/1/messages/2/read');
+    expect(req.request.method).toBe('POST');
+    req.flush(null);
+  });
+});

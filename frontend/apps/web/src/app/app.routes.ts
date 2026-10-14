@@ -1,6 +1,7 @@
 import { Route } from '@angular/router';
 import { AbsencesPage } from './absences-page/absences-page';
 import { GradesPage } from './grades-page/grades-page';
+import { MessagesPage } from './messages-page/messages-page';
 import { TimetablePage } from './timetable-page/timetable-page';
 
 export const appRoutes: Route[] = [
@@ -8,4 +9,5 @@ export const appRoutes: Route[] = [
   { path: 'grades', component: GradesPage },
   { path: 'absences', component: AbsencesPage },
   { path: 'timetable', component: TimetablePage },
+  { path: 'messages', component: MessagesPage },
 ];

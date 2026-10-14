@@ -18,5 +18,6 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Známky');
     expect(compiled.textContent).toContain('Docházka');
     expect(compiled.textContent).toContain('Rozvrh');
+    expect(compiled.textContent).toContain('Zprávy');
   });
 });

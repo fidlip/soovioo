@@ -1,0 +1,29 @@
+<h1>Zprávy</h1>
+
+<select name="student" [(ngModel)]="selectedStudentId" (ngModelChange)="onStudentChange()">
+  @for (student of students(); track student.id) {
+    <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
+  }
+</select>
+
+<form class="send-message" (ngSubmit)="send()">
+  <input type="text" name="senderName" placeholder="Odesílatel" [(ngModel)]="senderName" />
+  <input type="text" name="subject" placeholder="Předmět" [(ngModel)]="subject" />
+  <textarea name="body" placeholder="Text zprávy" [(ngModel)]="body"></textarea>
+  <button type="submit">Odeslat</button>
+</form>
+
+<ul>
+  @for (message of messages(); track message.id) {
+    <li>
+      <strong>{{ message.subject }}</strong> — {{ message.senderName }}
+      @if (!message.readAt) {
+        <em>(nepřečteno)</em>
+        <button type="button" (click)="markRead(message)">Označit jako přečtené</button>
+      }
+      <p>{{ message.body }}</p>
+    </li>
+  } @empty {
+    <li>Zatím žádné zprávy.</li>
+  }
+</ul>

@@ -10,3 +10,5 @@ export * from './lib/attendance/absence.model';
 export * from './lib/attendance/absences-api.service';
 export * from './lib/timetable/timetable-entry.model';
 export * from './lib/timetable/timetable-api.service';
+export * from './lib/messaging/message.model';
+export * from './lib/messaging/messages-api.service';
