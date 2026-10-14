@@ -22,6 +22,36 @@ namespace Sova.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Sova.Api.Attendance.Absence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ExcuseReason")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("Absences");
+                });
+
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>
                 {
                     b.Property<int>("Id")
@@ -145,6 +175,17 @@ namespace Sova.Api.Migrations
                     b.HasIndex("SubjectId");
 
                     b.ToTable("Grades");
+                });
+
+            modelBuilder.Entity("Sova.Api.Attendance.Absence", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.Student", b =>

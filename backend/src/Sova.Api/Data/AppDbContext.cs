@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Attendance;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
 
@@ -10,6 +11,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Student> Students => Set<Student>();
     public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
     public DbSet<Subject> Subjects => Set<Subject>();
+    public DbSet<Absence> Absences => Set<Absence>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
