@@ -1,17 +1,50 @@
-import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { API_BASE_URL, TokenStorage } from '@sova/shared';
 import { App } from './app';
 import { appRoutes } from './app.routes';
 
+class FakeTokenStorage implements TokenStorage {
+  constructor(private token: string | null) {}
+  getToken = () => this.token;
+  setToken = (token: string) => void (this.token = token);
+  clearToken = () => void (this.token = null);
+}
+
 describe('App', () => {
-  beforeEach(async () => {
+  it('shows a login link when logged out', async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(appRoutes)],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(appRoutes),
+        { provide: API_BASE_URL, useValue: 'http://test' },
+        { provide: TokenStorage, useValue: new FakeTokenStorage(null) },
+      ],
     }).compileComponents();
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Přihlásit se');
+    expect(compiled.textContent).not.toContain('Známky');
   });
 
-  it('renders navigation links', () => {
+  it('shows feature navigation when logged in', async () => {
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(appRoutes),
+        { provide: API_BASE_URL, useValue: 'http://test' },
+        { provide: TokenStorage, useValue: new FakeTokenStorage('fake-token') },
+      ],
+    }).compileComponents();
+
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;

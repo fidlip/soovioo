@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { AuthApiService } from '@sova/shared';
 
 @Component({
   selector: 'app-root',
@@ -8,5 +9,17 @@ import { RouterLink, RouterOutlet } from '@angular/router';
   styleUrl: './app.scss',
 })
 export class App {
+  private readonly authApi = inject(AuthApiService);
+  private readonly router = inject(Router);
+
   protected title = 'Sova';
+
+  protected isLoggedIn(): boolean {
+    return this.authApi.isLoggedIn();
+  }
+
+  protected logout(): void {
+    this.authApi.logout();
+    this.router.navigateByUrl('/login');
+  }
 }

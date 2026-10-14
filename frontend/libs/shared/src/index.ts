@@ -12,3 +12,7 @@ export * from './lib/timetable/timetable-entry.model';
 export * from './lib/timetable/timetable-api.service';
 export * from './lib/messaging/message.model';
 export * from './lib/messaging/messages-api.service';
+export * from './lib/auth/login-response.model';
+export * from './lib/auth/token-storage';
+export * from './lib/auth/auth-api.service';
+export * from './lib/auth/auth.interceptor';

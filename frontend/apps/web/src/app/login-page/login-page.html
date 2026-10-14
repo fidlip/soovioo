@@ -1,0 +1,16 @@
+<h1>Přihlášení</h1>
+
+<form (ngSubmit)="login()">
+  <input type="text" name="username" placeholder="Uživatelské jméno" [(ngModel)]="username" />
+  <input type="password" name="password" placeholder="Heslo" [(ngModel)]="password" />
+  <button type="submit">Přihlásit se</button>
+</form>
+
+@if (error()) {
+  <p class="error">{{ error() }}</p>
+}
+
+<p>
+  Demo účty: <code>admin/admin123</code>, <code>ucitel/ucitel123</code>,
+  <code>rodic/rodic123</code>
+</p>

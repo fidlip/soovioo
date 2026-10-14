@@ -1,9 +1,14 @@
 <nav>
   <strong>Sova</strong>
-  <a routerLink="/grades">Známky</a>
-  <a routerLink="/absences">Docházka</a>
-  <a routerLink="/timetable">Rozvrh</a>
-  <a routerLink="/messages">Zprávy</a>
+  @if (isLoggedIn()) {
+    <a routerLink="/grades">Známky</a>
+    <a routerLink="/absences">Docházka</a>
+    <a routerLink="/timetable">Rozvrh</a>
+    <a routerLink="/messages">Zprávy</a>
+    <button type="button" (click)="logout()">Odhlásit se</button>
+  } @else {
+    <a routerLink="/login">Přihlásit se</a>
+  }
 </nav>
 
 <main>
