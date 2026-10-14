@@ -1,0 +1,21 @@
+<h1>Rozvrh — 5.A</h1>
+
+<div class="timetable">
+  @for (day of days; track day) {
+    <section>
+      <h2>{{ dayLabels[day] }}</h2>
+      <ul>
+        @for (entry of entriesByDay().get(day); track entry.id) {
+          <li>
+            {{ entry.periodNumber }}. hodina — {{ entry.subjectName }}
+            @if (entry.weekParity !== 'Every') {
+              <em>({{ entry.weekParity === 'Odd' ? 'lichý týden' : 'sudý týden' }})</em>
+            }
+          </li>
+        } @empty {
+          <li>Volno</li>
+        }
+      </ul>
+    </section>
+  }
+</div>

@@ -17,5 +17,6 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Známky');
     expect(compiled.textContent).toContain('Docházka');
+    expect(compiled.textContent).toContain('Rozvrh');
   });
 });
