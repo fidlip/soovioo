@@ -13,7 +13,9 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes),
     provideHttpClient(withInterceptors([authInterceptor])),
-    { provide: API_BASE_URL, useValue: 'http://localhost:5080' },
+    // Same host the page was loaded from, so this also works when a phone
+    // on the LAN opens the dev server by IP instead of localhost.
+    { provide: API_BASE_URL, useValue: `http://${window.location.hostname}:5080` },
     { provide: TokenStorage, useClass: LocalTokenStorage },
   ],
 };

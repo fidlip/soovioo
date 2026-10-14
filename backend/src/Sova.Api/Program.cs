@@ -55,7 +55,11 @@ builder.Services.AddAuthorization();
 const string devCorsPolicy = "DevClients";
 builder.Services.AddCors(options =>
     options.AddPolicy(devCorsPolicy, policy =>
-        policy.WithOrigins("http://localhost:4200")
+        // Dev-only: any origin, since the dev server can be reached from a
+        // phone on the LAN by IP, not just http://localhost:4200. No
+        // cookies/credentials are used (Bearer tokens only), so this is safe
+        // to keep broad here. Tighten before any real deployment.
+        policy.AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod()));
 

@@ -50,6 +50,9 @@
       "continuous": true,
       "executor": "@angular/build:dev-server",
       "defaultConfiguration": "development",
+      "options": {
+        "allowedHosts": ["aorus"]
+      },
       "configurations": {
         "production": {
           "buildTarget": "web:build:production"
