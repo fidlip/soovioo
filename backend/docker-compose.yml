@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sova
+    ports:
+      - "5432:5432"
+    volumes:
+      - sova-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  sova-postgres-data:

@@ -1,0 +1,25 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# .NET backend
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/.vs/
+
+# Node / Nx frontend (also covered by frontend/.gitignore, kept here for repo-wide tooling)
+**/node_modules/
+**/dist/
+**/.nx/cache/
+**/.nx/workspace-data/
+**/.angular/
+**/*.log

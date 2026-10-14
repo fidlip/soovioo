@@ -1,0 +1,18 @@
+<main class="grades">
+  <h1>Sova — Známky</h1>
+
+  <button type="button" (click)="addDemoGrade()">Zapsat známku (ukázka)</button>
+
+  <ul>
+    @for (grade of grades(); track grade.id) {
+      <li>
+        {{ grade.studentName }} — {{ grade.subject }}: <strong>{{ grade.value }}</strong>
+        @if (grade.note) {
+          <em>({{ grade.note }})</em>
+        }
+      </li>
+    } @empty {
+      <li>Zatím žádné známky.</li>
+    }
+  </ul>
+</main>

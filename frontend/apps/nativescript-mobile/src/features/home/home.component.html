@@ -1,0 +1,20 @@
+<ActionBar title="Sova — Známky"></ActionBar>
+
+<GridLayout rows="auto, *">
+  <Button
+    row="0"
+    text="Zapsat známku (ukázka)"
+    (tap)="addDemoGrade()"
+  ></Button>
+
+  <ListView row="1" [items]="grades()">
+    <ng-template let-item="item">
+      <StackLayout class="p-4">
+        <Label
+          [text]="item.studentName + ' — ' + item.subject + ': ' + item.value"
+          class="text-lg"
+        ></Label>
+      </StackLayout>
+    </ng-template>
+  </ListView>
+</GridLayout>

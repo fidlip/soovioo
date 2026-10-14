@@ -1,0 +1,6 @@
+@Sova.Api_HostAddress = http://localhost:5247
+
+GET {{Sova.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
