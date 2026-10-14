@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
 
+[Authorize]
 [ApiController]
 [Route("api/subjects")]
 public class SubjectsController(AppDbContext db) : ControllerBase

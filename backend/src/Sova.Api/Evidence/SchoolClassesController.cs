@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
 
+[Authorize]
 [ApiController]
 [Route("api/school-classes")]
 public class SchoolClassesController(AppDbContext db) : ControllerBase

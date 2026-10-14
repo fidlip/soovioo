@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 
 namespace Sova.Api.Attendance;
 
+[Authorize]
 [ApiController]
 [Route("api/absences")]
 public class AbsencesController(AppDbContext db) : ControllerBase

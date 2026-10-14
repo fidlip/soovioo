@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 
 namespace Sova.Api.Grades;
 
+[Authorize]
 [ApiController]
 [Route("api/grades")]
 public class GradesController(AppDbContext db) : ControllerBase

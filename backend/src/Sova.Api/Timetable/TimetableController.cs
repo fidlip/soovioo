@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 
 namespace Sova.Api.Timetable;
 
+[Authorize]
 [ApiController]
 [Route("api/school-classes/{schoolClassId}/timetable")]
 public class TimetableController(AppDbContext db) : ControllerBase

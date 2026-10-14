@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 
 namespace Sova.Api.Messaging;
 
+[Authorize]
 [ApiController]
 [Route("api/students/{studentId}/messages")]
 public class MessagesController(AppDbContext db) : ControllerBase
