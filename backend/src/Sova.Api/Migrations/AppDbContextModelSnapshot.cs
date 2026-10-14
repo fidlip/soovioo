@@ -177,6 +177,76 @@ namespace Sova.Api.Migrations
                     b.ToTable("Grades");
                 });
 
+            modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WeekParity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("TimetableEntries");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            DayOfWeek = 1,
+                            PeriodNumber = 1,
+                            SchoolClassId = 1,
+                            SubjectId = 1,
+                            WeekParity = 0
+                        },
+                        new
+                        {
+                            Id = 2,
+                            DayOfWeek = 1,
+                            PeriodNumber = 2,
+                            SchoolClassId = 1,
+                            SubjectId = 2,
+                            WeekParity = 0
+                        },
+                        new
+                        {
+                            Id = 3,
+                            DayOfWeek = 2,
+                            PeriodNumber = 1,
+                            SchoolClassId = 1,
+                            SubjectId = 3,
+                            WeekParity = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            DayOfWeek = 3,
+                            PeriodNumber = 3,
+                            SchoolClassId = 1,
+                            SubjectId = 1,
+                            WeekParity = 0
+                        });
+                });
+
             modelBuilder.Entity("Sova.Api.Attendance.Absence", b =>
                 {
                     b.HasOne("Sova.Api.Evidence.Student", "Student")
@@ -214,6 +284,25 @@ namespace Sova.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Student");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SchoolClass");
 
                     b.Navigation("Subject");
                 });
