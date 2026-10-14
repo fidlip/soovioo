@@ -25,10 +25,16 @@ export class HomeComponent {
         value: 1,
         note: 'Pololetní práce',
       })
-      .subscribe(() => this.reload());
+      .subscribe({
+        next: () => this.reload(),
+        error: (err) => console.error('addGrade failed', err),
+      });
   }
 
   private reload(): void {
-    this.gradesApi.getGrades().subscribe((grades) => this.grades.set(grades));
+    this.gradesApi.getGrades().subscribe({
+      next: (grades) => this.grades.set(grades),
+      error: (err) => console.error('getGrades failed', err),
+    });
   }
 }
