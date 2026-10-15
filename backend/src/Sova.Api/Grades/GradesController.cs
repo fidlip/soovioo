@@ -31,6 +31,7 @@ public class GradesController(AppDbContext db) : ControllerBase
                 g.SubjectId,
                 g.Subject!.Name,
                 g.Value,
+                g.Weight,
                 g.Note,
                 g.CreatedAt))
             .ToListAsync();
@@ -54,6 +55,7 @@ public class GradesController(AppDbContext db) : ControllerBase
             StudentId = request.StudentId,
             SubjectId = request.SubjectId,
             Value = request.Value,
+            Weight = request.Weight,
             Note = request.Note,
         };
 
@@ -69,6 +71,7 @@ public class GradesController(AppDbContext db) : ControllerBase
             grade.SubjectId,
             subject!.Name,
             grade.Value,
+            grade.Weight,
             grade.Note,
             grade.CreatedAt);
 
@@ -76,7 +79,7 @@ public class GradesController(AppDbContext db) : ControllerBase
     }
 }
 
-public record CreateGradeRequest(int StudentId, int SubjectId, int Value, string? Note);
+public record CreateGradeRequest(int StudentId, int SubjectId, int Value, int Weight, string? Note);
 
 public record GradeDto(
     int Id,
@@ -85,5 +88,6 @@ public record GradeDto(
     int SubjectId,
     string SubjectName,
     int Value,
+    int Weight,
     string? Note,
     DateTimeOffset CreatedAt);

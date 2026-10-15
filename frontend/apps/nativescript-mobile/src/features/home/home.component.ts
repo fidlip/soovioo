@@ -52,6 +52,7 @@ export class HomeComponent {
         studentId: this.firstStudent.id,
         subjectId: this.firstSubject.id,
         value: 1,
+        weight: 2,
         note: 'Pololetní práce',
       })
       .subscribe({

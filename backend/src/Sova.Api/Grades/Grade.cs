@@ -13,6 +13,12 @@ public class Grade
     public Subject? Subject { get; set; }
 
     public required int Value { get; set; }
+
+    /// <summary>Weight in the weighted average (Czech convention — a test counts
+    /// more than homework). Defaults to 1 so ungraded callers behave like a
+    /// plain average.</summary>
+    public int Weight { get; set; } = 1;
+
     public string? Note { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

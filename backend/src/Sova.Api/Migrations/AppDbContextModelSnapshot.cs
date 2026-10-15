@@ -207,6 +207,9 @@ namespace Sova.Api.Migrations
                     b.Property<int>("Value")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Weight")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StudentId");

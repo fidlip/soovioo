@@ -30,13 +30,20 @@ public class ReportCardController(AppDbContext db) : ControllerBase
         var gradesBySubject = await db.Grades
             .Where(g => g.StudentId == studentId)
             .GroupBy(g => g.Subject!.Name)
-            .Select(g => new { Subject = g.Key, Average = g.Average(x => x.Value) })
+            .Select(g => new
+            {
+                Subject = g.Key,
+                WeightedSum = g.Sum(x => x.Value * x.Weight),
+                TotalWeight = g.Sum(x => x.Weight),
+            })
             .OrderBy(x => x.Subject)
             .ToListAsync();
 
         var pdfBytes = ReportCardDocument.Generate(
             student,
-            gradesBySubject.Select(g => (g.Subject, g.Average)).ToList());
+            gradesBySubject
+                .Select(g => (g.Subject, Average: g.WeightedSum / (double)g.TotalWeight))
+                .ToList());
 
         return File(pdfBytes, "application/pdf", $"vysvedceni-{student.LastName}.pdf");
     }

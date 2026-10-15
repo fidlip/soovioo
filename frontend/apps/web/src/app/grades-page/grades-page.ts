@@ -30,6 +30,7 @@ export class GradesPage {
   protected selectedStudentId: number | null = null;
   protected selectedSubjectId: number | null = null;
   protected value = 1;
+  protected weight = 1;
 
   constructor() {
     this.reload();
@@ -58,6 +59,7 @@ export class GradesPage {
         studentId: this.selectedStudentId,
         subjectId: this.selectedSubjectId,
         value: this.value,
+        weight: this.weight,
       })
       .subscribe({
         next: () => this.reload(),

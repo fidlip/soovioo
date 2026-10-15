@@ -44,6 +44,7 @@ describe('GradesPage', () => {
         subjectId: 1,
         subjectName: 'Matematika',
         value: 1,
+        weight: 1,
         createdAt: new Date().toISOString(),
       },
     ];

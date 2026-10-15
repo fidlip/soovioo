@@ -14,7 +14,7 @@
     <ng-template let-item="item">
       <StackLayout class="p-4">
         <Label
-          [text]="item.studentName + ' — ' + item.subjectName + ': ' + item.value + (item.note ? ' (' + item.note + ')' : '')"
+          [text]="item.studentName + ' — ' + item.subjectName + ': ' + item.value + ' (váha ' + item.weight + ')' + (item.note ? ' (' + item.note + ')' : '')"
           class="text-lg"
         ></Label>
       </StackLayout>
