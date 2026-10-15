@@ -6,12 +6,13 @@
   }
 </select>
 
-<form class="send-message" (ngSubmit)="send()">
-  <input type="text" name="senderName" placeholder="Odesílatel" [(ngModel)]="senderName" />
-  <input type="text" name="subject" placeholder="Předmět" [(ngModel)]="subject" />
-  <textarea name="body" placeholder="Text zprávy" [(ngModel)]="body"></textarea>
-  <button type="submit">Odeslat</button>
-</form>
+@if (canSendMessages()) {
+  <form class="send-message" (ngSubmit)="send()">
+    <input type="text" name="subject" placeholder="Předmět" [(ngModel)]="subject" />
+    <textarea name="body" placeholder="Text zprávy" [(ngModel)]="body"></textarea>
+    <button type="submit">Odeslat</button>
+  </form>
+}
 
 <ul>
   @for (message of messages(); track message.id) {

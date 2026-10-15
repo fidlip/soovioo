@@ -33,9 +33,7 @@ describe('MessagesApiService', () => {
   });
 
   it('sends a message', () => {
-    service
-      .sendMessage(1, { senderName: 'Učitel', subject: 'S', body: 'B' })
-      .subscribe();
+    service.sendMessage(1, { subject: 'S', body: 'B' }).subscribe();
     const req = httpMock.expectOne('http://test/api/students/1/messages');
     expect(req.request.method).toBe('POST');
     req.flush({});

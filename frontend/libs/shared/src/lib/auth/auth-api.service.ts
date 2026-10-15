@@ -24,4 +24,22 @@ export class AuthApiService {
   isLoggedIn(): boolean {
     return !!this.tokenStorage.getToken();
   }
+
+  /** Role claim from the stored JWT, or null if not logged in / unparseable. */
+  getRole(): string | null {
+    const token = this.tokenStorage.getToken();
+    if (!token) {
+      return null;
+    }
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return (
+        payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+        payload['role'] ??
+        null
+      );
+    } catch {
+      return null;
+    }
+  }
 }

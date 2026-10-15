@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  AuthApiService,
   Message,
   MessagesApiService,
   Student,
@@ -15,12 +16,12 @@ import {
 export class MessagesPage {
   private readonly messagesApi = inject(MessagesApiService);
   private readonly studentsApi = inject(StudentsApiService);
+  private readonly authApi = inject(AuthApiService);
 
   protected readonly messages = signal<Message[]>([]);
   protected readonly students = signal<Student[]>([]);
 
   protected selectedStudentId: number | null = null;
-  protected senderName = 'Mgr. Nováková';
   protected subject = '';
   protected body = '';
 
@@ -35,6 +36,11 @@ export class MessagesPage {
     });
   }
 
+  protected canSendMessages(): boolean {
+    const role = this.authApi.getRole();
+    return role === 'Teacher' || role === 'Admin';
+  }
+
   protected onStudentChange(): void {
     this.reload();
   }
@@ -45,7 +51,6 @@ export class MessagesPage {
     }
     this.messagesApi
       .sendMessage(this.selectedStudentId, {
-        senderName: this.senderName,
         subject: this.subject,
         body: this.body,
       })

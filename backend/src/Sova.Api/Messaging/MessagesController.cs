@@ -23,6 +23,7 @@ public class MessagesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<MessageDto>> SendMessage(int studentId, SendMessageRequest request)
     {
         var student = await db.Students.FindAsync(studentId);
@@ -34,7 +35,11 @@ public class MessagesController(AppDbContext db) : ControllerBase
         var message = new Message
         {
             StudentId = studentId,
-            SenderName = request.SenderName,
+            // Taken from the authenticated token, not from client input —
+            // otherwise any logged-in user (e.g. a parent) could put any
+            // name here and send a message that looks like it came from
+            // the teacher.
+            SenderName = User.Identity?.Name ?? "Neznámý uživatel",
             Subject = request.Subject,
             Body = request.Body,
         };
@@ -63,7 +68,7 @@ public class MessagesController(AppDbContext db) : ControllerBase
     }
 }
 
-public record SendMessageRequest(string SenderName, string Subject, string Body);
+public record SendMessageRequest(string Subject, string Body);
 
 public record MessageDto(
     int Id,
