@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Timetable;
@@ -8,7 +9,7 @@ namespace Sova.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/school-classes/{schoolClassId}/timetable")]
-public class TimetableController(AppDbContext db) : ControllerBase
+public class TimetableController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TimetableEntryDto>>> GetTimetable(int schoolClassId)
@@ -34,6 +35,14 @@ public class TimetableController(AppDbContext db) : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<TimetableEntryDto>> AddEntry(int schoolClassId, CreateTimetableEntryRequest request)
     {
+        // Both lookups are already scoped to the caller's school by the
+        // global query filter, so a cross-tenant id just 404s/400s here.
+        var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Unknown schoolClassId.");
+        }
+
         var subject = await db.Subjects.FindAsync(request.SubjectId);
         if (subject is null)
         {
@@ -47,6 +56,7 @@ public class TimetableController(AppDbContext db) : ControllerBase
             DayOfWeek = request.DayOfWeek,
             PeriodNumber = request.PeriodNumber,
             WeekParity = request.WeekParity,
+            SchoolId = currentSchool.SchoolId!.Value,
         };
 
         db.TimetableEntries.Add(entry);

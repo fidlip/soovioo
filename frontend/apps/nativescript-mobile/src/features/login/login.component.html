@@ -1,6 +1,7 @@
 <ActionBar title="Sova — Přihlášení"></ActionBar>
 
 <StackLayout class="p-4">
+  <TextField hint="Škola (slug)" [(ngModel)]="schoolSlug" autocorrect="false"></TextField>
   <TextField hint="Uživatelské jméno" [(ngModel)]="username" autocorrect="false"></TextField>
   <TextField hint="Heslo" secure="true" [(ngModel)]="password"></TextField>
   <Button text="Přihlásit se" (tap)="login()"></Button>

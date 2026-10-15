@@ -53,4 +53,9 @@ export class AuthApiService {
   isAdmin(): boolean {
     return this.getRole() === 'Admin';
   }
+
+  /** True for SuperAdmin — manages schools themselves, not any one school's data. */
+  isSuperAdmin(): boolean {
+    return this.getRole() === 'SuperAdmin';
+  }
 }

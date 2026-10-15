@@ -9,7 +9,7 @@ namespace Sova.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/students")]
-public class StudentsController(AppDbContext db) : ControllerBase
+public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents()
@@ -45,6 +45,7 @@ public class StudentsController(AppDbContext db) : ControllerBase
             FirstName = request.FirstName,
             LastName = request.LastName,
             SchoolClassId = request.SchoolClassId,
+            SchoolId = currentSchool.SchoolId!.Value,
         };
 
         db.Students.Add(student);

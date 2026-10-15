@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
@@ -8,7 +9,7 @@ namespace Sova.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/subjects")]
-public class SubjectsController(AppDbContext db) : ControllerBase
+public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Subject>>> GetSubjects()
@@ -20,7 +21,7 @@ public class SubjectsController(AppDbContext db) : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<Subject>> AddSubject(CreateSubjectRequest request)
     {
-        var subject = new Subject { Name = request.Name };
+        var subject = new Subject { Name = request.Name, SchoolId = currentSchool.SchoolId!.Value };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetSubjects), new { id = subject.Id }, subject);

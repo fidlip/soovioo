@@ -14,13 +14,20 @@ export class LoginComponent {
 
   protected username = '';
   protected password = '';
+  protected schoolSlug = 'demo';
   protected readonly error = signal<string | null>(null);
 
   protected login(): void {
     this.error.set(null);
-    this.authApi.login({ username: this.username, password: this.password }).subscribe({
-      next: () => this.router.navigate(['/grades'], { clearHistory: true }),
-      error: () => this.error.set('Neplatné přihlašovací údaje.'),
-    });
+    this.authApi
+      .login({
+        username: this.username,
+        password: this.password,
+        schoolSlug: this.schoolSlug.trim() || undefined,
+      })
+      .subscribe({
+        next: () => this.router.navigate(['/grades'], { clearHistory: true }),
+        error: () => this.error.set('Neplatné přihlašovací údaje.'),
+      });
   }
 }

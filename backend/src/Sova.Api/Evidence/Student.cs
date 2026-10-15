@@ -8,4 +8,7 @@ public class Student
 
     public int SchoolClassId { get; set; }
     public SchoolClass? SchoolClass { get; set; }
+
+    public int SchoolId { get; set; }
+    public School? School { get; set; }
 }

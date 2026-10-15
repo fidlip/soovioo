@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
@@ -8,7 +9,7 @@ namespace Sova.Api.Evidence;
 [Authorize(Roles = "Admin")]
 [ApiController]
 [Route("api/parent-student-links")]
-public class ParentStudentsController(AppDbContext db) : ControllerBase
+public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ParentStudentDto>>> GetLinks()
@@ -40,7 +41,12 @@ public class ParentStudentsController(AppDbContext db) : ControllerBase
             return BadRequest("Link already exists.");
         }
 
-        var link = new ParentStudent { UserId = request.UserId, StudentId = request.StudentId };
+        var link = new ParentStudent
+        {
+            UserId = request.UserId,
+            StudentId = request.StudentId,
+            SchoolId = currentSchool.SchoolId!.Value,
+        };
         db.ParentStudents.Add(link);
         await db.SaveChangesAsync();
 

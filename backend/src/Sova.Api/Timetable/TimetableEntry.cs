@@ -6,6 +6,9 @@ public class TimetableEntry
 {
     public int Id { get; set; }
 
+    public int SchoolId { get; set; }
+    public School? School { get; set; }
+
     public int SchoolClassId { get; set; }
     public SchoolClass? SchoolClass { get; set; }
 

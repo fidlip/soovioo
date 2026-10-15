@@ -25,6 +25,9 @@ builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("Default");
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -94,17 +97,22 @@ app.Run();
 
 static void SeedUsers(AppDbContext db)
 {
-    if (db.Users.Any())
+    // IgnoreQueryFilters: this runs with no authenticated caller, so the
+    // per-school filter would otherwise only ever see SuperAdmin rows and
+    // re-seed demo users on every startup.
+    if (db.Users.IgnoreQueryFilters().Any())
     {
         return;
     }
 
+    const int demoSchoolId = 1;
     var hasher = new PasswordHasher<User>();
     var demoUsers = new[]
     {
-        new User { Username = "admin", PasswordHash = "", Role = UserRole.Admin },
-        new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher },
-        new User { Username = "rodic", PasswordHash = "", Role = UserRole.Parent },
+        new User { Username = "superadmin", PasswordHash = "", Role = UserRole.SuperAdmin, SchoolId = null },
+        new User { Username = "admin", PasswordHash = "", Role = UserRole.Admin, SchoolId = demoSchoolId },
+        new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = demoSchoolId },
+        new User { Username = "rodic", PasswordHash = "", Role = UserRole.Parent, SchoolId = demoSchoolId },
     };
 
     foreach (var user in demoUsers)
@@ -116,6 +124,6 @@ static void SeedUsers(AppDbContext db)
     db.SaveChanges();
 
     var parent = demoUsers.First(u => u.Username == "rodic");
-    db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1 });
+    db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1, SchoolId = demoSchoolId });
     db.SaveChanges();
 }

@@ -9,7 +9,7 @@ namespace Sova.Api.Auth;
 [Authorize(Roles = "Admin")]
 [ApiController]
 [Route("api/users")]
-public class UsersController(AppDbContext db) : ControllerBase
+public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -32,7 +32,7 @@ public class UsersController(AppDbContext db) : ControllerBase
             return BadRequest("Username already exists.");
         }
 
-        if (!Enum.TryParse<UserRole>(request.Role, out var role))
+        if (!Enum.TryParse<UserRole>(request.Role, out var role) || role == UserRole.SuperAdmin)
         {
             return BadRequest("Unknown role.");
         }
@@ -42,6 +42,9 @@ public class UsersController(AppDbContext db) : ControllerBase
             Username = request.Username,
             PasswordHash = string.Empty,
             Role = role,
+            // Admin only ever manages their own school — never trust a
+            // client-supplied SchoolId here.
+            SchoolId = currentSchool.SchoolId,
         };
         user.PasswordHash = Hasher.HashPassword(user, request.Password);
 

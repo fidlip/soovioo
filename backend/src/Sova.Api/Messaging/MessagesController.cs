@@ -9,7 +9,7 @@ namespace Sova.Api.Messaging;
 [Authorize]
 [ApiController]
 [Route("api/students/{studentId}/messages")]
-public class MessagesController(AppDbContext db) : ControllerBase
+public class MessagesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<MessageDto>>> GetMessages(int studentId)
@@ -48,6 +48,7 @@ public class MessagesController(AppDbContext db) : ControllerBase
             SenderName = User.Identity?.Name ?? "Neznámý uživatel",
             Subject = request.Subject,
             Body = request.Body,
+            SchoolId = currentSchool.SchoolId!.Value,
         };
 
         db.Messages.Add(message);

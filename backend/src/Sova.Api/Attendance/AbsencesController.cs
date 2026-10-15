@@ -9,7 +9,7 @@ namespace Sova.Api.Attendance;
 [Authorize]
 [ApiController]
 [Route("api/absences")]
-public class AbsencesController(AppDbContext db) : ControllerBase
+public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AbsenceDto>>> GetAbsences()
@@ -46,7 +46,12 @@ public class AbsencesController(AppDbContext db) : ControllerBase
             return BadRequest("Unknown studentId.");
         }
 
-        var absence = new Absence { StudentId = request.StudentId, Date = request.Date };
+        var absence = new Absence
+        {
+            StudentId = request.StudentId,
+            Date = request.Date,
+            SchoolId = currentSchool.SchoolId!.Value,
+        };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
 

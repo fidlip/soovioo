@@ -9,7 +9,7 @@ namespace Sova.Api.Grades;
 [Authorize]
 [ApiController]
 [Route("api/grades")]
-public class GradesController(AppDbContext db) : ControllerBase
+public class GradesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
@@ -57,6 +57,7 @@ public class GradesController(AppDbContext db) : ControllerBase
             Value = request.Value,
             Weight = request.Weight,
             Note = request.Note,
+            SchoolId = currentSchool.SchoolId!.Value,
         };
 
         db.Grades.Add(grade);
