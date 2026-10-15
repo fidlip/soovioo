@@ -266,6 +266,25 @@ export class AdminPage {
    * partial file when the data isn't complete enough to export. */
   protected exportMatrika(): void {
     this.matrikaExportErrors.set([]);
+
+    const missing: string[] = [];
+    if (!this.matrikaContactName.trim()) {
+      missing.push('Chybí kontaktní osoba.');
+    }
+    if (!this.matrikaContactPhone.trim()) {
+      missing.push('Chybí telefon na kontaktní osobu.');
+    }
+    if (!this.matrikaContactEmail.trim()) {
+      missing.push('Chybí e-mail na kontaktní osobu.');
+    }
+    if (!this.matrikaCast.trim()) {
+      missing.push('Chybí číslo části (CAST).');
+    }
+    if (missing.length > 0) {
+      this.matrikaExportErrors.set(missing);
+      return;
+    }
+
     this.matrikaApi
       .exportBaseFile({
         cast: this.matrikaCast,
@@ -305,10 +324,20 @@ export class AdminPage {
     httpError.error
       .text()
       .then((text) => {
-        const parsed = JSON.parse(text) as { errors?: string[] };
-        this.matrikaExportErrors.set(parsed.errors ?? ['Export se nepovedl.']);
+        const parsed = JSON.parse(text) as { errors?: string[] | Record<string, string[]> };
+        this.matrikaExportErrors.set(this.flattenErrors(parsed.errors) ?? ['Export se nepovedl.']);
       })
       .catch(() => this.matrikaExportErrors.set(['Export se nepovedl.']));
+  }
+
+  /** Our own 400s send `{ errors: string[] }`; ASP.NET's automatic model
+   * validation (e.g. a required query param left empty) sends
+   * `{ errors: { field: string[] } }` instead — normalize both to a flat list. */
+  private flattenErrors(errors: string[] | Record<string, string[]> | undefined): string[] | null {
+    if (!errors) {
+      return null;
+    }
+    return Array.isArray(errors) ? errors : Object.values(errors).flat();
   }
 
   private showError(context: string, err: unknown): void {

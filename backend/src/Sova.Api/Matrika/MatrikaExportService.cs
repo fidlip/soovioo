@@ -50,6 +50,32 @@ public class MatrikaExportService(AppDbContext db, ICurrentSchoolContext current
             return MatrikaExportOutcome.Failed(["Škole chybí IZO — doplňte ho v nastavení školy."]);
         }
 
+        var headerErrors = new List<string>();
+        if (string.IsNullOrWhiteSpace(cast))
+        {
+            headerErrors.Add("Chybí číslo části (CAST).");
+        }
+
+        if (string.IsNullOrWhiteSpace(contactName))
+        {
+            headerErrors.Add("Chybí kontaktní osoba.");
+        }
+
+        if (string.IsNullOrWhiteSpace(contactPhone))
+        {
+            headerErrors.Add("Chybí telefon na kontaktní osobu.");
+        }
+
+        if (string.IsNullOrWhiteSpace(contactEmail))
+        {
+            headerErrors.Add("Chybí e-mail na kontaktní osobu.");
+        }
+
+        if (headerErrors.Count > 0)
+        {
+            return MatrikaExportOutcome.Failed(headerErrors);
+        }
+
         var students = await db.Students
             .Include(s => s.SchoolClass)
             .OrderBy(s => s.LastName)
