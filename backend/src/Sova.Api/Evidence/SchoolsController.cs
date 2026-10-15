@@ -81,10 +81,58 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 
         return Ok(new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo));
     }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<SchoolDto>> UpdateSchool(int id, UpdateSchoolRequest request)
+    {
+        var school = await db.Schools.FindAsync(id);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        if (await db.Schools.AnyAsync(s => s.Id != id && s.Slug == request.Slug))
+        {
+            return BadRequest("Slug already exists.");
+        }
+
+        school.Name = request.Name;
+        school.Slug = request.Slug;
+        await db.SaveChangesAsync();
+
+        return Ok(new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo));
+    }
+
+    /// <summary>Only allowed while the school is still empty (no users at
+    /// all — every school gets its first Admin at creation time, so this is
+    /// effectively "undo an accidental creation", never a real tenant with
+    /// data). A real tenant's data must never disappear via a silent cascade
+    /// delete — if that's ever needed, it needs its own deliberate,
+    /// confirmed, non-generic flow.</summary>
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteSchool(int id)
+    {
+        var school = await db.Schools.FindAsync(id);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        if (await db.Users.AnyAsync(u => u.SchoolId == id))
+        {
+            return BadRequest("Škola má uživatele — nelze smazat.");
+        }
+
+        db.Schools.Remove(school);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record CreateSchoolRequest(
     string Name, string Slug, string AdminUsername, string AdminPassword, string? Izo = null, string? RedIzo = null);
+
+public record UpdateSchoolRequest(string Name, string Slug);
 
 public record SetSchoolMatrikaIdsRequest(string? Izo, string? RedIzo);
 

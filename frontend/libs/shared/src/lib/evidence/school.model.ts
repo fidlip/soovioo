@@ -17,6 +17,11 @@ export interface CreateSchoolRequest {
   redIzo?: string;
 }
 
+export interface UpdateSchoolRequest {
+  name: string;
+  slug: string;
+}
+
 export interface SetSchoolMatrikaIdsRequest {
   izo: string | null;
   redIzo: string | null;

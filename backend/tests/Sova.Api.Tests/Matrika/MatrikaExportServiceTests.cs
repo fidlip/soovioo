@@ -41,7 +41,7 @@ public class MatrikaExportServiceTests
         SchoolClass schoolClass,
         string? rodneCislo = null,
         DateOnly? dateOfBirth = null,
-        Evidence.Gender? gender = null)
+        Gender? gender = null)
     {
         var student = new Student
         {
@@ -64,7 +64,7 @@ public class MatrikaExportServiceTests
         using var db = NewDb();
         SeedSchool(db);
         var schoolClass = SeedClass(db);
-        SeedStudent(db, schoolClass, rodneCislo: "0503109999", dateOfBirth: new DateOnly(2015, 3, 10), gender: Evidence.Gender.Male);
+        SeedStudent(db, schoolClass, rodneCislo: "0503109999", dateOfBirth: new DateOnly(2015, 3, 10), gender: Gender.Male);
 
         var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
             .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
@@ -75,9 +75,9 @@ public class MatrikaExportServiceTests
     }
 
     [Theory]
-    [InlineData(Evidence.Gender.Male, "150310X")] // RR=15, NN=03 (no +50), DD=10
-    [InlineData(Evidence.Gender.Female, "155310X")] // NN = 03 + 50 = 53
-    public async Task BuildsPseudoRodneCisloPerDocumentedRule(Evidence.Gender gender, string expectedPrefix)
+    [InlineData(Gender.Male, "150310X")] // RR=15, NN=03 (no +50), DD=10
+    [InlineData(Gender.Female, "155310X")] // NN = 03 + 50 = 53
+    public async Task BuildsPseudoRodneCisloPerDocumentedRule(Gender gender, string expectedPrefix)
     {
         using var db = NewDb();
         SeedSchool(db);
@@ -102,7 +102,7 @@ public class MatrikaExportServiceTests
         using var db = NewDb();
         SeedSchool(db);
         var schoolClass = SeedClass(db);
-        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, birthMonth, 15), gender: Evidence.Gender.Male);
+        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, birthMonth, 15), gender: Gender.Male);
 
         var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
             .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
@@ -118,7 +118,7 @@ public class MatrikaExportServiceTests
         using var db = NewDb();
         SeedSchool(db);
         var schoolClass = SeedClass(db);
-        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Evidence.Gender.Female);
+        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Gender.Female);
 
         var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
             .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
@@ -133,7 +133,7 @@ public class MatrikaExportServiceTests
         using var db = NewDb();
         SeedSchool(db, izo: "308000048");
         var schoolClass = SeedClass(db);
-        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Evidence.Gender.Male);
+        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Gender.Male);
 
         var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
             .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
@@ -178,7 +178,7 @@ public class MatrikaExportServiceTests
         using var db = NewDb();
         SeedSchool(db);
         var schoolClass = SeedClass(db, rocnik: null);
-        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Evidence.Gender.Male);
+        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Gender.Male);
 
         var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
             .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
@@ -208,7 +208,7 @@ public class MatrikaExportServiceTests
         using var db = NewDb();
         SeedSchool(db);
         var schoolClass = SeedClass(db);
-        SeedStudent(db, schoolClass, dateOfBirth: null, gender: Evidence.Gender.Male);
+        SeedStudent(db, schoolClass, dateOfBirth: null, gender: Gender.Male);
 
         var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
             .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");

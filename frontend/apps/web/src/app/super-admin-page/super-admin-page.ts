@@ -8,7 +8,7 @@ import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
-import { CreateSchoolRequest, School, SchoolsApiService } from '@sova/shared';
+import { CreateSchoolRequest, School, SchoolsApiService, UpdateSchoolRequest } from '@sova/shared';
 
 @Component({
   selector: 'app-super-admin-page',
@@ -26,6 +26,10 @@ export class SuperAdminPage {
   protected newAdminPassword = '';
   protected newSchoolIzo = '';
   protected newSchoolRedIzo = '';
+
+  protected editingSchoolId: number | null = null;
+  protected editName = '';
+  protected editSlug = '';
 
   protected error: string | null = null;
 
@@ -70,6 +74,48 @@ export class SuperAdminPage {
       },
       error: (err) => {
         console.error('addSchool failed', err);
+        this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
+      },
+    });
+  }
+
+  protected startEdit(school: School): void {
+    this.editingSchoolId = school.id;
+    this.editName = school.name;
+    this.editSlug = school.slug;
+    this.error = null;
+  }
+
+  protected cancelEdit(): void {
+    this.editingSchoolId = null;
+  }
+
+  protected saveEdit(): void {
+    if (this.editingSchoolId === null || !this.editName.trim() || !this.editSlug.trim()) {
+      return;
+    }
+    const request: UpdateSchoolRequest = { name: this.editName, slug: this.editSlug };
+    this.schoolsApi.updateSchool(this.editingSchoolId, request).subscribe({
+      next: () => {
+        this.editingSchoolId = null;
+        this.error = null;
+        this.reload();
+      },
+      error: (err) => {
+        console.error('updateSchool failed', err);
+        this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
+      },
+    });
+  }
+
+  protected deleteSchool(school: School): void {
+    this.schoolsApi.deleteSchool(school.id).subscribe({
+      next: () => {
+        this.error = null;
+        this.reload();
+      },
+      error: (err) => {
+        console.error('deleteSchool failed', err);
         this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
       },
     });
