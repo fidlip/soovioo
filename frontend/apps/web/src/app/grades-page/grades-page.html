@@ -1,39 +1,88 @@
-<h1>Známky</h1>
+<div class="mb-6 flex items-center justify-between gap-4">
+  <h1 class="mb-0">Známky</h1>
+  <p-button
+    label="Stáhnout vysvědčení"
+    icon="pi pi-download"
+    severity="secondary"
+    [outlined]="true"
+    (onClick)="downloadReportCard()"
+  />
+</div>
 
 @if (canAddGrade()) {
-  <form class="add-grade" (ngSubmit)="addGrade()">
-    <select name="student" [(ngModel)]="selectedStudentId">
-      @for (student of students(); track student.id) {
-        <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
-      }
-    </select>
+  <p-card header="Zapsat známku" styleClass="mb-6">
+    <form class="flex flex-wrap items-end gap-4" (ngSubmit)="addGrade()">
+      <div class="flex flex-col gap-1.5">
+        <label for="student" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
+        <p-select
+          inputId="student"
+          [options]="studentOptions()"
+          optionLabel="label"
+          optionValue="id"
+          [(ngModel)]="selectedStudentId"
+          name="student"
+          styleClass="w-52"
+        />
+      </div>
 
-    <select name="subject" [(ngModel)]="selectedSubjectId">
-      @for (subject of subjects(); track subject.id) {
-        <option [value]="subject.id">{{ subject.name }}</option>
-      }
-    </select>
+      <div class="flex flex-col gap-1.5">
+        <label for="subject" class="text-sm font-medium text-surface-600 dark:text-surface-300">Předmět</label>
+        <p-select
+          inputId="subject"
+          [options]="subjects()"
+          optionLabel="name"
+          optionValue="id"
+          [(ngModel)]="selectedSubjectId"
+          name="subject"
+          styleClass="w-48"
+        />
+      </div>
 
-    <input type="number" name="value" min="1" max="5" [(ngModel)]="value" />
+      <div class="flex flex-col gap-1.5">
+        <label for="value" class="text-sm font-medium text-surface-600 dark:text-surface-300">Známka</label>
+        <p-inputNumber
+          inputId="value"
+          [(ngModel)]="value"
+          name="value"
+          [min]="1"
+          [max]="5"
+          [showButtons]="true"
+          styleClass="w-28"
+        />
+      </div>
 
-    <input type="number" name="weight" min="1" max="10" title="Váha" [(ngModel)]="weight" />
+      <div class="flex flex-col gap-1.5">
+        <label for="weight" class="text-sm font-medium text-surface-600 dark:text-surface-300">Váha</label>
+        <p-inputNumber inputId="weight" [(ngModel)]="weight" name="weight" [min]="1" [max]="10" styleClass="w-24" />
+      </div>
 
-    <button type="submit">Zapsat známku</button>
-  </form>
+      <p-button type="submit" label="Zapsat" icon="pi pi-plus" />
+    </form>
+  </p-card>
 }
 
-<button type="button" (click)="downloadReportCard()">Stáhnout vysvědčení</button>
-
-<ul>
-  @for (grade of grades(); track grade.id) {
-    <li>
-      {{ grade.studentName }} — {{ grade.subjectName }}: <strong>{{ grade.value }}</strong>
-      (váha {{ grade.weight }})
-      @if (grade.note) {
-        <em>({{ grade.note }})</em>
-      }
-    </li>
-  } @empty {
-    <li>Zatím žádné známky.</li>
-  }
-</ul>
+<p-table [value]="grades()" dataKey="id" styleClass="rounded-border">
+  <ng-template pTemplate="header">
+    <tr>
+      <th>Žák</th>
+      <th>Předmět</th>
+      <th>Známka</th>
+      <th>Váha</th>
+      <th>Poznámka</th>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="body" let-grade>
+    <tr>
+      <td>{{ grade.studentName }}</td>
+      <td>{{ grade.subjectName }}</td>
+      <td><p-tag [value]="grade.value + ''" [severity]="gradeSeverity(grade.value)" [rounded]="true" /></td>
+      <td>{{ grade.weight }}</td>
+      <td class="text-surface-500">{{ grade.note }}</td>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td colspan="5" class="py-6 text-center text-surface-500">Zatím žádné známky.</td>
+    </tr>
+  </ng-template>
+</p-table>

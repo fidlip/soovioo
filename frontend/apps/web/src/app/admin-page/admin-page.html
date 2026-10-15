@@ -1,98 +1,168 @@
-<h1>Administrace</h1>
+<h1 class="mb-6">Administrace</h1>
 
 @if (!isAdmin()) {
-  <p>Tato stránka je dostupná jen pro roli Admin.</p>
+  <p class="text-surface-500">Tato stránka je dostupná jen pro roli Admin.</p>
 } @else {
   @if (error) {
-    <p class="error">{{ error }}</p>
+    <p-message severity="error" [text]="error" styleClass="mb-6 w-full" />
   }
 
-  <section>
-    <h2>Třídy</h2>
-    <ul>
-      @for (schoolClass of schoolClasses(); track schoolClass.id) {
-        <li>{{ schoolClass.name }}</li>
-      }
-    </ul>
-    <form (ngSubmit)="addSchoolClass()">
-      <input type="text" name="className" placeholder="Název třídy" [(ngModel)]="newSchoolClassName" />
-      <button type="submit">Přidat třídu</button>
-    </form>
-  </section>
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <p-card header="Třídy">
+      <p-table [value]="schoolClasses()" dataKey="id" styleClass="mb-4">
+        <ng-template pTemplate="body" let-schoolClass>
+          <tr>
+            <td>{{ schoolClass.name }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td class="py-3 text-surface-500">Žádné třídy.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+      <form class="flex gap-2" (ngSubmit)="addSchoolClass()">
+        <input
+          pInputText
+          type="text"
+          class="flex-1"
+          placeholder="Název třídy"
+          name="className"
+          [(ngModel)]="newSchoolClassName"
+        />
+        <p-button type="submit" icon="pi pi-plus" />
+      </form>
+    </p-card>
 
-  <section>
-    <h2>Předměty</h2>
-    <ul>
-      @for (subject of subjects(); track subject.id) {
-        <li>{{ subject.name }}</li>
-      }
-    </ul>
-    <form (ngSubmit)="addSubject()">
-      <input type="text" name="subjectName" placeholder="Název předmětu" [(ngModel)]="newSubjectName" />
-      <button type="submit">Přidat předmět</button>
-    </form>
-  </section>
+    <p-card header="Předměty">
+      <p-table [value]="subjects()" dataKey="id" styleClass="mb-4">
+        <ng-template pTemplate="body" let-subject>
+          <tr>
+            <td>{{ subject.name }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td class="py-3 text-surface-500">Žádné předměty.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+      <form class="flex gap-2" (ngSubmit)="addSubject()">
+        <input
+          pInputText
+          type="text"
+          class="flex-1"
+          placeholder="Název předmětu"
+          name="subjectName"
+          [(ngModel)]="newSubjectName"
+        />
+        <p-button type="submit" icon="pi pi-plus" />
+      </form>
+    </p-card>
 
-  <section>
-    <h2>Žáci</h2>
-    <ul>
-      @for (student of students(); track student.id) {
-        <li>{{ student.firstName }} {{ student.lastName }} — {{ student.schoolClassName }}</li>
-      }
-    </ul>
-    <form (ngSubmit)="addStudent()">
-      <input type="text" name="firstName" placeholder="Jméno" [(ngModel)]="newStudentFirstName" />
-      <input type="text" name="lastName" placeholder="Příjmení" [(ngModel)]="newStudentLastName" />
-      <select name="studentSchoolClass" [(ngModel)]="newStudentSchoolClassId">
-        @for (schoolClass of schoolClasses(); track schoolClass.id) {
-          <option [value]="schoolClass.id">{{ schoolClass.name }}</option>
-        }
-      </select>
-      <button type="submit">Přidat žáka</button>
-    </form>
-  </section>
+    <p-card header="Žáci" styleClass="lg:col-span-2">
+      <p-table [value]="students()" dataKey="id" styleClass="mb-4">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Jméno</th>
+            <th>Třída</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-student>
+          <tr>
+            <td>{{ student.firstName }} {{ student.lastName }}</td>
+            <td>{{ student.schoolClassName }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="2" class="py-3 text-surface-500">Žádní žáci.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+      <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addStudent()">
+        <input pInputText type="text" placeholder="Jméno" name="firstName" [(ngModel)]="newStudentFirstName" />
+        <input pInputText type="text" placeholder="Příjmení" name="lastName" [(ngModel)]="newStudentLastName" />
+        <p-select
+          [options]="schoolClasses()"
+          optionLabel="name"
+          optionValue="id"
+          [(ngModel)]="newStudentSchoolClassId"
+          name="studentSchoolClass"
+        />
+        <p-button type="submit" label="Přidat žáka" icon="pi pi-plus" />
+      </form>
+    </p-card>
 
-  <section>
-    <h2>Uživatelé</h2>
-    <ul>
-      @for (user of users(); track user.id) {
-        <li>{{ user.username }} ({{ user.role }})</li>
-      }
-    </ul>
-    <form (ngSubmit)="addUser()">
-      <input type="text" name="username" placeholder="Uživatelské jméno" [(ngModel)]="newUsername" />
-      <input type="password" name="password" placeholder="Heslo" [(ngModel)]="newPassword" />
-      <select name="role" [(ngModel)]="newUserRole">
-        <option value="Admin">Admin</option>
-        <option value="Teacher">Teacher</option>
-        <option value="Parent">Parent</option>
-      </select>
-      <button type="submit">Vytvořit uživatele</button>
-    </form>
-  </section>
+    <p-card header="Uživatelé" styleClass="lg:col-span-2">
+      <p-table [value]="users()" dataKey="id" styleClass="mb-4">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Jméno</th>
+            <th>Role</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-user>
+          <tr>
+            <td>{{ user.username }}</td>
+            <td><p-tag [value]="user.role" severity="secondary" /></td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="2" class="py-3 text-surface-500">Žádní uživatelé.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+      <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addUser()">
+        <input pInputText type="text" placeholder="Uživatelské jméno" name="username" [(ngModel)]="newUsername" />
+        <p-password
+          placeholder="Heslo"
+          name="password"
+          [(ngModel)]="newPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+        />
+        <p-select [options]="roleOptions" optionLabel="label" optionValue="value" [(ngModel)]="newUserRole" name="role" />
+        <p-button type="submit" label="Vytvořit uživatele" icon="pi pi-plus" />
+      </form>
+    </p-card>
 
-  <section>
-    <h2>Vazby rodič ↔ žák</h2>
-    <ul>
-      @for (link of links(); track link.userId + '-' + link.studentId) {
-        <li>
-          {{ link.username }} → {{ link.studentName }}
-          <button type="button" (click)="removeLink(link)">Zrušit</button>
-        </li>
-      }
-    </ul>
-    <form (ngSubmit)="addLink()">
-      <select name="linkUser" [(ngModel)]="newLinkUserId">
-        @for (user of users(); track user.id) {
-          <option [value]="user.id">{{ user.username }}</option>
-        }
-      </select>
-      <select name="linkStudent" [(ngModel)]="newLinkStudentId">
-        @for (student of students(); track student.id) {
-          <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
-        }
-      </select>
-      <button type="submit">Propojit</button>
-    </form>
-  </section>
+    <p-card header="Vazby rodič ↔ žák" styleClass="lg:col-span-2">
+      <p-table [value]="links()" styleClass="mb-4">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Rodič</th>
+            <th>Žák</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-link>
+          <tr>
+            <td>{{ link.username }}</td>
+            <td>{{ link.studentName }}</td>
+            <td class="text-right">
+              <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="removeLink(link)" />
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="3" class="py-3 text-surface-500">Žádné vazby.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+      <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addLink()">
+        <p-select [options]="users()" optionLabel="username" optionValue="id" [(ngModel)]="newLinkUserId" name="linkUser" />
+        <p-select
+          [options]="studentOptions()"
+          optionLabel="label"
+          optionValue="id"
+          [(ngModel)]="newLinkStudentId"
+          name="linkStudent"
+        />
+        <p-button type="submit" label="Propojit" icon="pi pi-link" />
+      </form>
+    </p-card>
+  </div>
 }

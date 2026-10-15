@@ -1,44 +1,86 @@
-<h1>Docházka</h1>
+<h1 class="mb-6">Docházka</h1>
 
 @if (canManageAbsences()) {
-  <form class="add-absence" (ngSubmit)="addAbsence()">
-    <select name="student" [(ngModel)]="selectedStudentId">
-      @for (student of students(); track student.id) {
-        <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
-      }
-    </select>
+  <p-card header="Zapsat absenci" styleClass="mb-6">
+    <form class="flex flex-wrap items-end gap-4" (ngSubmit)="addAbsence()">
+      <div class="flex flex-col gap-1.5">
+        <label for="student" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
+        <p-select
+          inputId="student"
+          [options]="studentOptions()"
+          optionLabel="label"
+          optionValue="id"
+          [(ngModel)]="selectedStudentId"
+          name="student"
+          styleClass="w-52"
+        />
+      </div>
 
-    <input type="date" name="date" [(ngModel)]="date" />
+      <div class="flex flex-col gap-1.5">
+        <label for="date" class="text-sm font-medium text-surface-600 dark:text-surface-300">Datum</label>
+        <input pInputText type="date" id="date" name="date" [(ngModel)]="date" />
+      </div>
 
-    <button type="submit">Zapsat absenci</button>
-  </form>
+      <p-button type="submit" label="Zapsat" icon="pi pi-plus" />
+    </form>
+  </p-card>
 }
 
-<ul>
-  @for (absence of absences(); track absence.id) {
-    <li>
-      {{ absence.studentName }} — {{ absence.date }} —
-      <strong>{{ absence.status }}</strong>
-      @if (absence.excuseReason) {
-        <em>({{ absence.excuseReason }})</em>
-      }
-
-      @if (absence.status === 'Unexcused') {
-        <input
-          type="text"
-          placeholder="Důvod omluvenky"
-          [(ngModel)]="excuseDrafts[absence.id]"
-          [ngModelOptions]="{ standalone: true }"
-        />
-        <button type="button" (click)="submitExcuse(absence)">Omluvit</button>
-      }
-
-      @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
-        <button type="button" (click)="review(absence, true)">Schválit</button>
-        <button type="button" (click)="review(absence, false)">Zamítnout</button>
-      }
-    </li>
-  } @empty {
-    <li>Žádné záznamy.</li>
-  }
-</ul>
+<p-table [value]="absences()" dataKey="id" styleClass="rounded-border">
+  <ng-template pTemplate="header">
+    <tr>
+      <th>Žák</th>
+      <th>Datum</th>
+      <th>Stav</th>
+      <th>Omluvenka</th>
+      <th></th>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="body" let-absence>
+    <tr>
+      <td>{{ absence.studentName }}</td>
+      <td>{{ absence.date }}</td>
+      <td><p-tag [value]="statusLabel(absence.status)" [severity]="statusSeverity(absence.status)" /></td>
+      <td class="text-surface-500">{{ absence.excuseReason }}</td>
+      <td>
+        @if (absence.status === 'Unexcused') {
+          <div class="flex items-center gap-2">
+            <input
+              pInputText
+              type="text"
+              placeholder="Důvod omluvenky"
+              class="w-48"
+              [(ngModel)]="excuseDrafts[absence.id]"
+              [ngModelOptions]="{ standalone: true }"
+            />
+            <p-button label="Omluvit" size="small" [outlined]="true" (onClick)="submitExcuse(absence)" />
+          </div>
+        }
+        @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
+          <div class="flex gap-2">
+            <p-button
+              label="Schválit"
+              icon="pi pi-check"
+              size="small"
+              severity="success"
+              (onClick)="review(absence, true)"
+            />
+            <p-button
+              label="Zamítnout"
+              icon="pi pi-times"
+              size="small"
+              severity="danger"
+              [outlined]="true"
+              (onClick)="review(absence, false)"
+            />
+          </div>
+        }
+      </td>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td colspan="5" class="py-6 text-center text-surface-500">Žádné záznamy.</td>
+    </tr>
+  </ng-template>
+</p-table>

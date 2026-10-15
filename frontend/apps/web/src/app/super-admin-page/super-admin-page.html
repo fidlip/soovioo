@@ -1,22 +1,63 @@
-<h1>Správa škol</h1>
+<h1 class="mb-6">Správa škol</h1>
 
-<section>
-  <h2>Školy</h2>
-  <ul>
-    @for (school of schools(); track school.id) {
-      <li>{{ school.name }} (<code>{{ school.slug }}</code>)</li>
-    }
-  </ul>
+<p-card header="Školy" styleClass="mb-6">
+  <p-table [value]="schools()" dataKey="id">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Název</th>
+        <th>Slug</th>
+        <th>Založena</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-school>
+      <tr>
+        <td>{{ school.name }}</td>
+        <td><code class="rounded bg-surface-100 px-1 py-0.5 font-mono dark:bg-surface-800">{{ school.slug }}</code></td>
+        <td class="text-surface-500">{{ school.createdAt | date: 'd.M.yyyy' }}</td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="3" class="py-6 text-center text-surface-500">Zatím žádné školy.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-card>
 
-  <form (ngSubmit)="addSchool()">
-    <input type="text" name="schoolName" placeholder="Název školy" [(ngModel)]="newSchoolName" />
-    <input type="text" name="schoolSlug" placeholder="Slug (do URL)" [(ngModel)]="newSchoolSlug" />
-    <input type="text" name="adminUsername" placeholder="Uživatelské jméno admina" [(ngModel)]="newAdminUsername" />
-    <input type="password" name="adminPassword" placeholder="Heslo admina" [(ngModel)]="newAdminPassword" />
-    <button type="submit">Založit školu</button>
-  </form>
-
+<p-card header="Založit novou školu">
   @if (error) {
-    <p class="error">{{ error }}</p>
+    <p-message severity="error" [text]="error" styleClass="mb-4 w-full" />
   }
-</section>
+
+  <form class="flex flex-wrap items-end gap-3" (ngSubmit)="addSchool()">
+    <div class="flex flex-col gap-1.5">
+      <label for="schoolName" class="text-sm font-medium text-surface-600 dark:text-surface-300">Název školy</label>
+      <input pInputText type="text" id="schoolName" name="schoolName" [(ngModel)]="newSchoolName" />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="schoolSlug" class="text-sm font-medium text-surface-600 dark:text-surface-300">Slug (do URL)</label>
+      <input pInputText type="text" id="schoolSlug" name="schoolSlug" [(ngModel)]="newSchoolSlug" />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="adminUsername" class="text-sm font-medium text-surface-600 dark:text-surface-300">
+        Uživatelské jméno admina
+      </label>
+      <input pInputText type="text" id="adminUsername" name="adminUsername" [(ngModel)]="newAdminUsername" />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="adminPassword" class="text-sm font-medium text-surface-600 dark:text-surface-300">Heslo admina</label>
+      <p-password
+        inputId="adminPassword"
+        name="adminPassword"
+        [(ngModel)]="newAdminPassword"
+        [toggleMask]="true"
+        [feedback]="false"
+      />
+    </div>
+
+    <p-button type="submit" label="Založit školu" icon="pi pi-plus" />
+  </form>
+</p-card>

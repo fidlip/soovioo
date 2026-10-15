@@ -1,1 +1,27 @@
-/* You can add global styles to this file, and also import other style files */
+@use '@openng/icons/openng-icons.css';
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: var(--p-surface-ground);
+  color: var(--p-text-color);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@layer tailwind-base, optimus, tailwind-utilities;
+
+@layer tailwind-base {
+  @tailwind base;
+}
+
+@layer tailwind-utilities {
+  @tailwind components;
+  @tailwind utilities;
+}

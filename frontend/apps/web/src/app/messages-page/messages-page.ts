@@ -1,5 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Button } from '@openng/optimus-ui/button';
+import { Card } from '@openng/optimus-ui/card';
+import { InputText } from '@openng/optimus-ui/inputtext';
+import { Select } from '@openng/optimus-ui/select';
+import { Tag } from '@openng/optimus-ui/tag';
+import { Textarea } from '@openng/optimus-ui/textarea';
 import {
   AuthApiService,
   Message,
@@ -10,7 +16,7 @@ import {
 
 @Component({
   selector: 'app-messages-page',
-  imports: [FormsModule],
+  imports: [FormsModule, Button, Card, InputText, Select, Tag, Textarea],
   templateUrl: './messages-page.html',
 })
 export class MessagesPage {
@@ -20,6 +26,11 @@ export class MessagesPage {
 
   protected readonly messages = signal<Message[]>([]);
   protected readonly students = signal<Student[]>([]);
+
+  /** p-select's optionLabel only takes a property path, not a function. */
+  protected readonly studentOptions = computed(() =>
+    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+  );
 
   protected selectedStudentId: number | null = null;
   protected subject = '';

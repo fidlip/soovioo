@@ -1,5 +1,14 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PrimeTemplate } from '@openng/optimus-ui/api';
+import { Button } from '@openng/optimus-ui/button';
+import { Card } from '@openng/optimus-ui/card';
+import { InputText } from '@openng/optimus-ui/inputtext';
+import { Message } from '@openng/optimus-ui/message';
+import { Password } from '@openng/optimus-ui/password';
+import { Select } from '@openng/optimus-ui/select';
+import { TableModule } from '@openng/optimus-ui/table';
+import { Tag } from '@openng/optimus-ui/tag';
 import {
   AppUser,
   AuthApiService,
@@ -15,9 +24,15 @@ import {
   UsersApiService,
 } from '@sova/shared';
 
+const ROLE_OPTIONS = [
+  { label: 'Admin', value: 'Admin' },
+  { label: 'Teacher', value: 'Teacher' },
+  { label: 'Parent', value: 'Parent' },
+];
+
 @Component({
   selector: 'app-admin-page',
-  imports: [FormsModule],
+  imports: [FormsModule, Button, Card, InputText, Message, Password, PrimeTemplate, Select, TableModule, Tag],
   templateUrl: './admin-page.html',
 })
 export class AdminPage {
@@ -33,6 +48,13 @@ export class AdminPage {
   protected readonly subjects = signal<Subject[]>([]);
   protected readonly users = signal<AppUser[]>([]);
   protected readonly links = signal<ParentStudentLink[]>([]);
+
+  protected readonly roleOptions = ROLE_OPTIONS;
+
+  /** p-select's optionLabel only takes a property path, not a function. */
+  protected readonly studentOptions = computed(() =>
+    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+  );
 
   protected newSchoolClassName = '';
   protected newSubjectName = '';

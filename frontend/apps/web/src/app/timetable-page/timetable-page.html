@@ -1,21 +1,23 @@
-<h1>Rozvrh — 5.A</h1>
+<h1 class="mb-6">Rozvrh — 5.A</h1>
 
-<div class="timetable">
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
   @for (day of days; track day) {
-    <section>
-      <h2>{{ dayLabels[day] }}</h2>
-      <ul>
+    <p-card [header]="dayLabels[day]">
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
         @for (entry of entriesByDay().get(day); track entry.id) {
-          <li>
-            {{ entry.periodNumber }}. hodina — {{ entry.subjectName }}
+          <li class="flex items-center justify-between gap-2 border-b border-surface-100 pb-2 last:border-0 last:pb-0 dark:border-surface-700">
+            <span>
+              <span class="font-semibold text-surface-900 dark:text-surface-0">{{ entry.periodNumber }}.</span>
+              {{ entry.subjectName }}
+            </span>
             @if (entry.weekParity !== 'Every') {
-              <em>({{ entry.weekParity === 'Odd' ? 'lichý týden' : 'sudý týden' }})</em>
+              <p-tag [value]="entry.weekParity === 'Odd' ? 'lichý' : 'sudý'" severity="secondary" />
             }
           </li>
         } @empty {
-          <li>Volno</li>
+          <li class="text-sm text-surface-400">Volno</li>
         }
       </ul>
-    </section>
+    </p-card>
   }
 </div>

@@ -1,30 +1,48 @@
-<h1>Zprávy</h1>
+<h1 class="mb-6">Zprávy</h1>
 
-<select name="student" [(ngModel)]="selectedStudentId" (ngModelChange)="onStudentChange()">
-  @for (student of students(); track student.id) {
-    <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
-  }
-</select>
+<div class="mb-6 flex max-w-xs flex-col gap-1.5">
+  <label for="student" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
+  <p-select
+    inputId="student"
+    [options]="studentOptions()"
+    optionLabel="label"
+    optionValue="id"
+    [(ngModel)]="selectedStudentId"
+    (ngModelChange)="onStudentChange()"
+    name="student"
+  />
+</div>
 
 @if (canSendMessages()) {
-  <form class="send-message" (ngSubmit)="send()">
-    <input type="text" name="subject" placeholder="Předmět" [(ngModel)]="subject" />
-    <textarea name="body" placeholder="Text zprávy" [(ngModel)]="body"></textarea>
-    <button type="submit">Odeslat</button>
-  </form>
+  <p-card header="Nová zpráva" styleClass="mb-6">
+    <form class="flex flex-col gap-3" (ngSubmit)="send()">
+      <input pInputText type="text" placeholder="Předmět" name="subject" [(ngModel)]="subject" />
+      <textarea pTextarea rows="3" placeholder="Text zprávy" name="body" [(ngModel)]="body"></textarea>
+      <p-button type="submit" label="Odeslat" icon="pi pi-send" styleClass="self-end" />
+    </form>
+  </p-card>
 }
 
-<ul>
+<div class="flex flex-col gap-3">
   @for (message of messages(); track message.id) {
-    <li>
-      <strong>{{ message.subject }}</strong> — {{ message.senderName }}
-      @if (!message.readAt) {
-        <em>(nepřečteno)</em>
-        <button type="button" (click)="markRead(message)">Označit jako přečtené</button>
-      }
-      <p>{{ message.body }}</p>
-    </li>
+    <p-card>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <strong class="text-surface-900 dark:text-surface-0">{{ message.subject }}</strong>
+            @if (!message.readAt) {
+              <p-tag value="nepřečteno" severity="info" />
+            }
+          </div>
+          <div class="text-sm text-surface-500">{{ message.senderName }}</div>
+        </div>
+        @if (!message.readAt) {
+          <p-button label="Označit jako přečtené" size="small" [text]="true" (onClick)="markRead(message)" />
+        }
+      </div>
+      <p class="mt-2 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200">{{ message.body }}</p>
+    </p-card>
   } @empty {
-    <li>Zatím žádné zprávy.</li>
+    <p class="text-surface-500">Zatím žádné zprávy.</p>
   }
-</ul>
+</div>

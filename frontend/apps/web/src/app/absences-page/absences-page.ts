@@ -1,16 +1,38 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PrimeTemplate } from '@openng/optimus-ui/api';
+import { Button } from '@openng/optimus-ui/button';
+import { Card } from '@openng/optimus-ui/card';
+import { InputText } from '@openng/optimus-ui/inputtext';
+import { Select } from '@openng/optimus-ui/select';
+import { TableModule } from '@openng/optimus-ui/table';
+import { Tag } from '@openng/optimus-ui/tag';
 import {
   Absence,
   AbsencesApiService,
+  AbsenceStatus,
   AuthApiService,
   Student,
   StudentsApiService,
 } from '@sova/shared';
 
+const STATUS_SEVERITY: Record<AbsenceStatus, 'success' | 'warn' | 'danger' | 'secondary'> = {
+  Unexcused: 'secondary',
+  PendingExcuse: 'warn',
+  Excused: 'success',
+  Rejected: 'danger',
+};
+
+const STATUS_LABEL: Record<AbsenceStatus, string> = {
+  Unexcused: 'Neomluveno',
+  PendingExcuse: 'Čeká na schválení',
+  Excused: 'Omluveno',
+  Rejected: 'Zamítnuto',
+};
+
 @Component({
   selector: 'app-absences-page',
-  imports: [FormsModule],
+  imports: [FormsModule, Button, Card, InputText, PrimeTemplate, Select, TableModule, Tag],
   templateUrl: './absences-page.html',
 })
 export class AbsencesPage {
@@ -20,6 +42,11 @@ export class AbsencesPage {
 
   protected readonly absences = signal<Absence[]>([]);
   protected readonly students = signal<Student[]>([]);
+
+  /** p-select's optionLabel only takes a property path, not a function. */
+  protected readonly studentOptions = computed(() =>
+    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+  );
 
   protected selectedStudentId: number | null = null;
   protected date = new Date().toISOString().slice(0, 10);
@@ -38,6 +65,14 @@ export class AbsencesPage {
 
   protected canManageAbsences(): boolean {
     return this.authApi.isTeacherOrAdmin();
+  }
+
+  protected statusSeverity(status: AbsenceStatus): 'success' | 'warn' | 'danger' | 'secondary' {
+    return STATUS_SEVERITY[status];
+  }
+
+  protected statusLabel(status: AbsenceStatus): string {
+    return STATUS_LABEL[status];
   }
 
   protected addAbsence(): void {

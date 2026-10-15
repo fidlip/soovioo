@@ -1,11 +1,12 @@
 import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { AuthApiService } from '@sova/shared';
 import { SchoolContextService } from './school-context';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, Button, ButtonDirective],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

@@ -1,5 +1,12 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PrimeTemplate } from '@openng/optimus-ui/api';
+import { Button } from '@openng/optimus-ui/button';
+import { Card } from '@openng/optimus-ui/card';
+import { InputNumber } from '@openng/optimus-ui/inputnumber';
+import { Select } from '@openng/optimus-ui/select';
+import { TableModule } from '@openng/optimus-ui/table';
+import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
   Grade,
@@ -13,7 +20,7 @@ import {
 
 @Component({
   selector: 'app-grades-page',
-  imports: [FormsModule],
+  imports: [FormsModule, Button, Card, InputNumber, PrimeTemplate, Select, TableModule, Tag],
   templateUrl: './grades-page.html',
 })
 export class GradesPage {
@@ -26,6 +33,11 @@ export class GradesPage {
   protected readonly grades = signal<Grade[]>([]);
   protected readonly students = signal<Student[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
+
+  /** p-select's optionLabel only takes a property path, not a function. */
+  protected readonly studentOptions = computed(() =>
+    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+  );
 
   protected selectedStudentId: number | null = null;
   protected selectedSubjectId: number | null = null;
@@ -69,6 +81,14 @@ export class GradesPage {
 
   protected canAddGrade(): boolean {
     return this.authApi.isTeacherOrAdmin();
+  }
+
+  /** Czech 1 (best) – 5 (worst) grading scale, mapped to a tag color. */
+  protected gradeSeverity(value: number): 'success' | 'warn' | 'danger' {
+    if (value <= 2) {
+      return 'success';
+    }
+    return value === 3 ? 'warn' : 'danger';
   }
 
   protected downloadReportCard(): void {
