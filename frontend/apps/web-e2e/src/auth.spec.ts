@@ -1,0 +1,52 @@
+import { expect, test } from '@playwright/test';
+
+/**
+ * Covers the slug-routing + auth-guard redirect chain and basic login/logout
+ * for the demo school, against the real backend (see ROADMAP.md — "Poznámky
+ * k prostředí": both dev servers must be running on their usual ports).
+ */
+
+test('unauthenticated visit redirects through the demo slug to login', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/demo\/login$/);
+});
+
+test('unauthenticated deep link redirects to login instead of the page', async ({ page }) => {
+  await page.goto('/demo/grades');
+  await expect(page).toHaveURL(/\/demo\/login$/);
+});
+
+test('wrong credentials show an error and stay on the login page', async ({ page }) => {
+  await page.goto('/demo/login');
+  await page.locator('#username').fill('admin');
+  await page.locator('#password').fill('not-the-right-password');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+
+  await expect(page.getByText('Neplatné přihlašovací údaje.')).toBeVisible();
+  await expect(page).toHaveURL(/\/demo\/login$/);
+});
+
+test('teacher can log in, see the nav, and log out', async ({ page }) => {
+  await page.goto('/demo/login');
+  await page.locator('#username').fill('ucitel');
+  await page.locator('#password').fill('ucitel123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+
+  await expect(page).toHaveURL(/\/demo\/grades$/);
+  await expect(page.getByRole('link', { name: 'Známky' })).toBeVisible();
+  // Teacher (not Admin) must not see the administration link.
+  await expect(page.getByRole('link', { name: 'Administrace' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Odhlásit se' }).click();
+  await expect(page).toHaveURL(/\/demo\/login$/);
+});
+
+test('admin sees the administration nav link', async ({ page }) => {
+  await page.goto('/demo/login');
+  await page.locator('#username').fill('admin');
+  await page.locator('#password').fill('admin123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+
+  await expect(page).toHaveURL(/\/demo\/grades$/);
+  await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
+});

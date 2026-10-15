@@ -36,20 +36,13 @@ export default defineConfig({
     reuseExistingServer: true,
     cwd: workspaceRoot,
   },
+  // Chromium only for now — keeps local/CI runs to a single browser install
+  // (`npx playwright install chromium`) instead of three. Add firefox/webkit
+  // back if/when real cross-browser coverage is worth the extra install time.
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
     },
 
     // Uncomment for mobile browsers support
