@@ -10,8 +10,13 @@ using QuestPDF.Infrastructure;
 using Sova.Api.Auth;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
+using Sova.Api.Matrika;
 
 QuestPDF.Settings.License = LicenseType.Community;
+
+// Windows-1250 is required (not .NET's default) for the matrika XML export —
+// it's not included by default outside .NET Framework.
+System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +32,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default");
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
+builder.Services.AddScoped<MatrikaExportService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));

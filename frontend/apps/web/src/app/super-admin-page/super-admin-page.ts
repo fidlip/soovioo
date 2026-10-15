@@ -24,6 +24,8 @@ export class SuperAdminPage {
   protected newSchoolSlug = '';
   protected newAdminUsername = '';
   protected newAdminPassword = '';
+  protected newSchoolIzo = '';
+  protected newSchoolRedIzo = '';
 
   protected error: string | null = null;
 
@@ -52,6 +54,8 @@ export class SuperAdminPage {
       slug: this.newSchoolSlug,
       adminUsername: this.newAdminUsername,
       adminPassword: this.newAdminPassword,
+      izo: this.newSchoolIzo || undefined,
+      redIzo: this.newSchoolRedIzo || undefined,
     };
     this.schoolsApi.addSchool(request).subscribe({
       next: () => {
@@ -59,6 +63,8 @@ export class SuperAdminPage {
         this.newSchoolSlug = '';
         this.newAdminUsername = '';
         this.newAdminPassword = '';
+        this.newSchoolIzo = '';
+        this.newSchoolRedIzo = '';
         this.error = null;
         this.reload();
       },

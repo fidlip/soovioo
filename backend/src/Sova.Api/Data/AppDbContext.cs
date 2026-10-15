@@ -66,13 +66,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 Name = "Demo škola",
                 Slug = "demo",
                 CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                // RED_IZO/IZO straight from MŠMT's own matrika test-portal
+                // screenshots (the "Osmá testová škola" walkthrough examples),
+                // so this is recognizably a documented test fixture rather
+                // than a made-up, real-looking identifier.
+                RedIzo = "700000089",
+                Izo = "308000048",
             });
 
         modelBuilder.Entity<SchoolClass>().HasData(
-            new SchoolClass { Id = 1, Name = "5.A", SchoolId = 1 });
+            new SchoolClass { Id = 1, Name = "5.A", SchoolId = 1, Rocnik = 5 });
 
         modelBuilder.Entity<Student>().HasData(
-            new Student { Id = 1, FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = 1 });
+            new Student
+            {
+                Id = 1,
+                FirstName = "Jan",
+                LastName = "Novák",
+                SchoolClassId = 1,
+                SchoolId = 1,
+                DateOfBirth = new DateOnly(2015, 3, 10),
+                Gender = Gender.Male,
+                // RodneCislo intentionally left unset, to exercise the
+                // pseudo-RODC construction path in MatrikaExportService.
+            });
 
         modelBuilder.Entity<Subject>().HasData(
             new Subject { Id = 1, Name = "Matematika", SchoolId = 1 },

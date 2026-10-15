@@ -21,11 +21,16 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<SchoolClass>> AddSchoolClass(CreateSchoolClassRequest request)
     {
-        var schoolClass = new SchoolClass { Name = request.Name, SchoolId = currentSchool.SchoolId!.Value };
+        var schoolClass = new SchoolClass
+        {
+            Name = request.Name,
+            Rocnik = request.Rocnik,
+            SchoolId = currentSchool.SchoolId!.Value,
+        };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetSchoolClasses), new { id = schoolClass.Id }, schoolClass);
     }
 }
 
-public record CreateSchoolClassRequest(string Name);
+public record CreateSchoolClassRequest(string Name, int? Rocnik = null);

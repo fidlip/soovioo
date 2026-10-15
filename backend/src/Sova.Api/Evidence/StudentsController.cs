@@ -24,7 +24,9 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         var students = await query
             .OrderBy(s => s.LastName)
-            .Select(s => new StudentDto(s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name))
+            .Select(s => new StudentDto(
+                s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name,
+                s.RodneCislo, s.DateOfBirth, s.Gender))
             .ToListAsync();
 
         return Ok(students);
@@ -46,16 +48,35 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             LastName = request.LastName,
             SchoolClassId = request.SchoolClassId,
             SchoolId = currentSchool.SchoolId!.Value,
+            RodneCislo = request.RodneCislo,
+            DateOfBirth = request.DateOfBirth,
+            Gender = request.Gender,
         };
 
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        var dto = new StudentDto(student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClass.Name);
+        var dto = new StudentDto(
+            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClass.Name,
+            student.RodneCislo, student.DateOfBirth, student.Gender);
         return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, dto);
     }
 }
 
-public record CreateStudentRequest(string FirstName, string LastName, int SchoolClassId);
+public record CreateStudentRequest(
+    string FirstName,
+    string LastName,
+    int SchoolClassId,
+    string? RodneCislo = null,
+    DateOnly? DateOfBirth = null,
+    Gender? Gender = null);
 
-public record StudentDto(int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName);
+public record StudentDto(
+    int Id,
+    string FirstName,
+    string LastName,
+    int SchoolClassId,
+    string SchoolClassName,
+    string? RodneCislo,
+    DateOnly? DateOfBirth,
+    Gender? Gender);

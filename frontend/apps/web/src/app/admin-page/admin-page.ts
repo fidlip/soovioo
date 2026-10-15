@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
@@ -13,6 +14,9 @@ import {
   AppUser,
   AuthApiService,
   CreateUserRequest,
+  Gender,
+  MatrikaApiService,
+  MySchoolApiService,
   ParentStudentLink,
   ParentStudentsApiService,
   SchoolClass,
@@ -30,9 +34,26 @@ const ROLE_OPTIONS = [
   { label: 'Parent', value: 'Parent' },
 ];
 
+const GENDER_OPTIONS: { label: string; value: Gender }[] = [
+  { label: 'Chlapec', value: 'Male' },
+  { label: 'Dívka', value: 'Female' },
+];
+
 @Component({
   selector: 'app-admin-page',
-  imports: [FormsModule, Button, Card, InputText, Message, Password, PrimeTemplate, Select, TableModule, Tag],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    InputNumber,
+    InputText,
+    Message,
+    Password,
+    PrimeTemplate,
+    Select,
+    TableModule,
+    Tag,
+  ],
   templateUrl: './admin-page.html',
 })
 export class AdminPage {
@@ -42,6 +63,8 @@ export class AdminPage {
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly usersApi = inject(UsersApiService);
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
+  private readonly mySchoolApi = inject(MySchoolApiService);
+  private readonly matrikaApi = inject(MatrikaApiService);
 
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
@@ -50,6 +73,7 @@ export class AdminPage {
   protected readonly links = signal<ParentStudentLink[]>([]);
 
   protected readonly roleOptions = ROLE_OPTIONS;
+  protected readonly genderOptions = GENDER_OPTIONS;
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
@@ -57,11 +81,15 @@ export class AdminPage {
   );
 
   protected newSchoolClassName = '';
+  protected newSchoolClassRocnik: number | null = null;
   protected newSubjectName = '';
 
   protected newStudentFirstName = '';
   protected newStudentLastName = '';
   protected newStudentSchoolClassId: number | null = null;
+  protected newStudentRodneCislo = '';
+  protected newStudentDateOfBirth = '';
+  protected newStudentGender: Gender | null = null;
 
   protected newUsername = '';
   protected newPassword = '';
@@ -70,10 +98,19 @@ export class AdminPage {
   protected newLinkUserId: number | null = null;
   protected newLinkStudentId: number | null = null;
 
+  protected readonly matrikaIzo = signal('');
+  protected readonly matrikaRedIzo = signal('');
+  protected matrikaContactName = '';
+  protected matrikaContactPhone = '';
+  protected matrikaContactEmail = '';
+  protected matrikaCast = '01';
+  protected readonly matrikaExportErrors = signal<string[]>([]);
+
   protected error: string | null = null;
 
   constructor() {
     this.reloadAll();
+    this.loadMySchool();
   }
 
   protected isAdmin(): boolean {
@@ -116,13 +153,16 @@ export class AdminPage {
     if (!this.newSchoolClassName.trim()) {
       return;
     }
-    this.schoolClassesApi.addSchoolClass({ name: this.newSchoolClassName }).subscribe({
-      next: () => {
-        this.newSchoolClassName = '';
-        this.reloadAll();
-      },
-      error: (err) => this.showError('addSchoolClass failed', err),
-    });
+    this.schoolClassesApi
+      .addSchoolClass({ name: this.newSchoolClassName, rocnik: this.newSchoolClassRocnik ?? undefined })
+      .subscribe({
+        next: () => {
+          this.newSchoolClassName = '';
+          this.newSchoolClassRocnik = null;
+          this.reloadAll();
+        },
+        error: (err) => this.showError('addSchoolClass failed', err),
+      });
   }
 
   protected addSubject(): void {
@@ -147,11 +187,17 @@ export class AdminPage {
         firstName: this.newStudentFirstName,
         lastName: this.newStudentLastName,
         schoolClassId: this.newStudentSchoolClassId,
+        rodneCislo: this.newStudentRodneCislo || undefined,
+        dateOfBirth: this.newStudentDateOfBirth || undefined,
+        gender: this.newStudentGender ?? undefined,
       })
       .subscribe({
         next: () => {
           this.newStudentFirstName = '';
           this.newStudentLastName = '';
+          this.newStudentRodneCislo = '';
+          this.newStudentDateOfBirth = '';
+          this.newStudentGender = null;
           this.reloadAll();
         },
         error: (err) => this.showError('addStudent failed', err),
@@ -194,6 +240,75 @@ export class AdminPage {
       next: () => this.reloadAll(),
       error: (err) => this.showError('removeLink failed', err),
     });
+  }
+
+  private loadMySchool(): void {
+    this.mySchoolApi.getMySchool().subscribe({
+      next: (school) => {
+        this.matrikaIzo.set(school.izo ?? '');
+        this.matrikaRedIzo.set(school.redIzo ?? '');
+      },
+      error: (err) => console.error('getMySchool failed', err),
+    });
+  }
+
+  protected saveMatrikaIds(): void {
+    this.mySchoolApi
+      .setMatrikaIds({ izo: this.matrikaIzo() || null, redIzo: this.matrikaRedIzo() || null })
+      .subscribe({
+        next: () => this.loadMySchool(),
+        error: (err) => this.showError('setMatrikaIds failed', err),
+      });
+  }
+
+  /** Pre-pilot skeleton export — see MatrikaExportService for what's (not)
+   * implemented yet. Shows per-student validation errors instead of a
+   * partial file when the data isn't complete enough to export. */
+  protected exportMatrika(): void {
+    this.matrikaExportErrors.set([]);
+    this.matrikaApi
+      .exportBaseFile({
+        cast: this.matrikaCast,
+        contactName: this.matrikaContactName,
+        contactPhone: this.matrikaContactPhone,
+        contactEmail: this.matrikaContactEmail,
+      })
+      .subscribe({
+        next: (response) => {
+          const blob = response.body;
+          if (!blob) {
+            return;
+          }
+          const fileName = this.extractFileName(response.headers.get('Content-Disposition')) ?? 'matrika-export.xml';
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (err) => this.handleMatrikaExportError(err),
+      });
+  }
+
+  private extractFileName(contentDisposition: string | null): string | null {
+    const match = contentDisposition?.match(/filename="?([^";]+)"?/);
+    return match?.[1] ?? null;
+  }
+
+  private handleMatrikaExportError(err: unknown): void {
+    const httpError = err as { error?: Blob };
+    if (!(httpError.error instanceof Blob)) {
+      this.matrikaExportErrors.set(['Export se nepovedl.']);
+      return;
+    }
+    httpError.error
+      .text()
+      .then((text) => {
+        const parsed = JSON.parse(text) as { errors?: string[] };
+        this.matrikaExportErrors.set(parsed.errors ?? ['Export se nepovedl.']);
+      })
+      .catch(() => this.matrikaExportErrors.set(['Export se nepovedl.']));
   }
 
   private showError(context: string, err: unknown): void {

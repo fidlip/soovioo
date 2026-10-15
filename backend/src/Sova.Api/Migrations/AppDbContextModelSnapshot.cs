@@ -122,8 +122,14 @@ namespace Sova.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Izo")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RedIzo")
                         .HasColumnType("text");
 
                     b.Property<string>("Slug")
@@ -142,7 +148,9 @@ namespace Sova.Api.Migrations
                         {
                             Id = 1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Izo = "308000048",
                             Name = "Demo škola",
+                            RedIzo = "700000089",
                             Slug = "demo"
                         });
                 });
@@ -159,6 +167,9 @@ namespace Sova.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("Rocnik")
+                        .HasColumnType("integer");
+
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
@@ -173,6 +184,7 @@ namespace Sova.Api.Migrations
                         {
                             Id = 1,
                             Name = "5.A",
+                            Rocnik = 5,
                             SchoolId = 1
                         });
                 });
@@ -185,12 +197,21 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("Gender")
+                        .HasColumnType("integer");
+
                     b.Property<string>("LastName")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RodneCislo")
                         .HasColumnType("text");
 
                     b.Property<int>("SchoolClassId")
@@ -211,7 +232,9 @@ namespace Sova.Api.Migrations
                         new
                         {
                             Id = 1,
+                            DateOfBirth = new DateOnly(2015, 3, 10),
                             FirstName = "Jan",
+                            Gender = 0,
                             LastName = "Novák",
                             SchoolClassId = 1,
                             SchoolId = 1

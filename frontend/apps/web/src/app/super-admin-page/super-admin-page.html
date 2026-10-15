@@ -6,6 +6,7 @@
       <tr>
         <th>Název</th>
         <th>Slug</th>
+        <th>IZO</th>
         <th>Založena</th>
       </tr>
     </ng-template>
@@ -13,12 +14,13 @@
       <tr>
         <td>{{ school.name }}</td>
         <td><code class="rounded bg-surface-100 px-1 py-0.5 font-mono dark:bg-surface-800">{{ school.slug }}</code></td>
+        <td class="text-surface-500">{{ school.izo ?? '—' }}</td>
         <td class="text-surface-500">{{ school.createdAt | date: 'd.M.yyyy' }}</td>
       </tr>
     </ng-template>
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="3" class="py-6 text-center text-surface-500">Zatím žádné školy.</td>
+        <td colspan="4" class="py-6 text-center text-surface-500">Zatím žádné školy.</td>
       </tr>
     </ng-template>
   </p-table>
@@ -56,6 +58,18 @@
         [toggleMask]="true"
         [feedback]="false"
       />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="schoolIzo" class="text-sm font-medium text-surface-600 dark:text-surface-300">IZO (nepovinné)</label>
+      <input pInputText type="text" id="schoolIzo" name="schoolIzo" [(ngModel)]="newSchoolIzo" />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="schoolRedIzo" class="text-sm font-medium text-surface-600 dark:text-surface-300">
+        RED_IZO (nepovinné)
+      </label>
+      <input pInputText type="text" id="schoolRedIzo" name="schoolRedIzo" [(ngModel)]="newSchoolRedIzo" />
     </div>
 
     <p-button type="submit" label="Založit školu" icon="pi pi-plus" />
