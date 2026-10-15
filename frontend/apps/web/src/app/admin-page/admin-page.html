@@ -163,9 +163,30 @@
       }
 
       <form class="flex flex-wrap items-end gap-2" (ngSubmit)="exportMatrika()">
-        <input pInputText type="text" placeholder="Kontaktní osoba" name="matrikaContactName" [(ngModel)]="matrikaContactName" />
-        <input pInputText type="text" placeholder="Telefon" name="matrikaContactPhone" [(ngModel)]="matrikaContactPhone" />
-        <input pInputText type="email" placeholder="E-mail" name="matrikaContactEmail" [(ngModel)]="matrikaContactEmail" />
+        <input
+          pInputText
+          type="text"
+          autocomplete="name"
+          placeholder="Kontaktní osoba"
+          name="matrikaContactName"
+          [(ngModel)]="matrikaContactName"
+        />
+        <input
+          pInputText
+          type="tel"
+          autocomplete="tel"
+          placeholder="Telefon"
+          name="matrikaContactPhone"
+          [(ngModel)]="matrikaContactPhone"
+        />
+        <input
+          pInputText
+          type="email"
+          autocomplete="email"
+          placeholder="E-mail"
+          name="matrikaContactEmail"
+          [(ngModel)]="matrikaContactEmail"
+        />
         <input pInputText type="text" placeholder="Část (CAST)" name="matrikaCast" [(ngModel)]="matrikaCast" class="w-24" />
         <p-button type="submit" label="Stáhnout export (XML)" icon="pi pi-download" />
       </form>
