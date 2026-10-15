@@ -41,8 +41,19 @@ builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
 builder.Services.AddHangfireServer();
 
+// SigningKey is deliberately NOT in appsettings.json — a real secret must
+// never ship in source control. For local dev it's set once via
+// `dotnet user-secrets set "Jwt:SigningKey" "..."` (see Poznámky k
+// prostředí in ROADMAP.md); for any real deployment it must come from the
+// environment or a secrets store (e.g. Jwt__SigningKey env var).
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing Jwt configuration section.");
+if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
+{
+    throw new InvalidOperationException(
+        "Jwt:SigningKey is not set. Run `dotnet user-secrets set \"Jwt:SigningKey\" \"<random 32+ char value>\"` " +
+        "for local dev, or set the Jwt__SigningKey environment variable for a real deployment.");
+}
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
 builder.Services
@@ -62,14 +73,28 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+// Dev: any origin, since the dev server is also reached from a phone on the
+// LAN by IP, not just http://localhost:4200. No cookies/credentials are used
+// (Bearer tokens only), so this is safe to keep broad — but ONLY while
+// actually running in Development (gated below), so a deployment that
+// forgets to set ASPNETCORE_ENVIRONMENT=Production doesn't silently inherit
+// an open CORS policy.
 const string devCorsPolicy = "DevClients";
 builder.Services.AddCors(options =>
     options.AddPolicy(devCorsPolicy, policy =>
-        // Dev-only: any origin, since the dev server can be reached from a
-        // phone on the LAN by IP, not just http://localhost:4200. No
-        // cookies/credentials are used (Bearer tokens only), so this is safe
-        // to keep broad here. Tighten before any real deployment.
         policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod()));
+
+// Non-dev: explicit allow-list from config (Cors:AllowedOrigins), e.g. the
+// school subdomains once a real domain exists. Unset = no CORS policy at
+// all, i.e. cross-origin browser requests are rejected by default — fail
+// closed rather than fail open while that topology isn't decided yet.
+const string prodCorsPolicy = "ProdClients";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+    options.AddPolicy(prodCorsPolicy, policy =>
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()));
 
@@ -90,7 +115,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors(devCorsPolicy);
+app.UseCors(app.Environment.IsDevelopment() ? devCorsPolicy : prodCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
