@@ -1,6 +1,6 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
-import { Absence, AbsencesApiService, Student, StudentsApiService } from '@sova/shared';
+import { Absence, AbsencesApiService, AuthApiService, Student, StudentsApiService } from '@sova/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
@@ -12,6 +12,7 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
 export class AbsencesComponent {
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly studentsApi = inject(StudentsApiService);
+  private readonly authApi = inject(AuthApiService);
 
   protected readonly absences = signal<Absence[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -23,6 +24,10 @@ export class AbsencesComponent {
       error: (err) => console.error('getStudents failed', err),
     });
     this.reload();
+  }
+
+  protected canManageAbsences(): boolean {
+    return this.authApi.isTeacherOrAdmin();
   }
 
   protected addAbsence(): void {

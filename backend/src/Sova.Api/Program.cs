@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using Sova.Api.Auth;
 using Sova.Api.Data;
+using Sova.Api.Evidence;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -112,5 +113,9 @@ static void SeedUsers(AppDbContext db)
     }
 
     db.Users.AddRange(demoUsers);
+    db.SaveChanges();
+
+    var parent = demoUsers.First(u => u.Username == "rodic");
+    db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1 });
     db.SaveChanges();
 }

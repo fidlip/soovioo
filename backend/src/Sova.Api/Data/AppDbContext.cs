@@ -18,9 +18,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
+
         modelBuilder.Entity<SchoolClass>().HasData(
             new SchoolClass { Id = 1, Name = "5.A" });
 

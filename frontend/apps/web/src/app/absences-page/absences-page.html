@@ -1,16 +1,18 @@
 <h1>Docházka</h1>
 
-<form class="add-absence" (ngSubmit)="addAbsence()">
-  <select name="student" [(ngModel)]="selectedStudentId">
-    @for (student of students(); track student.id) {
-      <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
-    }
-  </select>
+@if (canManageAbsences()) {
+  <form class="add-absence" (ngSubmit)="addAbsence()">
+    <select name="student" [(ngModel)]="selectedStudentId">
+      @for (student of students(); track student.id) {
+        <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
+      }
+    </select>
 
-  <input type="date" name="date" [(ngModel)]="date" />
+    <input type="date" name="date" [(ngModel)]="date" />
 
-  <button type="submit">Zapsat absenci</button>
-</form>
+    <button type="submit">Zapsat absenci</button>
+  </form>
+}
 
 <ul>
   @for (absence of absences(); track absence.id) {
@@ -31,7 +33,7 @@
         <button type="button" (click)="submitExcuse(absence)">Omluvit</button>
       }
 
-      @if (absence.status === 'PendingExcuse') {
+      @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
         <button type="button" (click)="review(absence, true)">Schválit</button>
         <button type="button" (click)="review(absence, false)">Zamítnout</button>
       }

@@ -31,6 +31,7 @@ public class TimetableController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<TimetableEntryDto>> AddEntry(int schoolClassId, CreateTimetableEntryRequest request)
     {
         var subject = await db.Subjects.FindAsync(request.SubjectId);

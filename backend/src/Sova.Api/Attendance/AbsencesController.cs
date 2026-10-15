@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Attendance;
@@ -13,7 +14,15 @@ public class AbsencesController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AbsenceDto>>> GetAbsences()
     {
-        var absences = await db.Absences
+        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+
+        var query = db.Absences.AsQueryable();
+        if (allowedStudentIds is not null)
+        {
+            query = query.Where(a => allowedStudentIds.Contains(a.StudentId));
+        }
+
+        var absences = await query
             .OrderByDescending(a => a.Date)
             .Select(a => new AbsenceDto(
                 a.Id,
@@ -28,6 +37,7 @@ public class AbsencesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<AbsenceDto>> AddAbsence(CreateAbsenceRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);
@@ -55,6 +65,11 @@ public class AbsencesController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
+        if (!await User.CanAccessStudentAsync(db, absence.StudentId))
+        {
+            return Forbid();
+        }
+
         absence.ExcuseReason = request.Reason;
         absence.Status = AbsenceStatus.PendingExcuse;
         await db.SaveChangesAsync();
@@ -62,6 +77,7 @@ public class AbsencesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("{id}/review")]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult> ReviewAbsence(int id, ReviewAbsenceRequest request)
     {
         var absence = await db.Absences.FindAsync(id);

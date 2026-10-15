@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import {
   Absence,
   AbsencesApiService,
+  AuthApiService,
   Student,
   StudentsApiService,
 } from '@sova/shared';
@@ -15,6 +16,7 @@ import {
 export class AbsencesPage {
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly studentsApi = inject(StudentsApiService);
+  private readonly authApi = inject(AuthApiService);
 
   protected readonly absences = signal<Absence[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -32,6 +34,10 @@ export class AbsencesPage {
       },
       error: (err) => console.error('getStudents failed', err),
     });
+  }
+
+  protected canManageAbsences(): boolean {
+    return this.authApi.isTeacherOrAdmin();
   }
 
   protected addAbsence(): void {

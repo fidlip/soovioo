@@ -37,8 +37,7 @@ export class MessagesPage {
   }
 
   protected canSendMessages(): boolean {
-    const role = this.authApi.getRole();
-    return role === 'Teacher' || role === 'Admin';
+    return this.authApi.isTeacherOrAdmin();
   }
 
   protected onStudentChange(): void {

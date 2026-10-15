@@ -5,7 +5,7 @@
 
   <StackLayout row="1" orientation="horizontal" class="p-4">
     <Label [text]="students()[selectedStudentIndex]?.firstName + ' ' + students()[selectedStudentIndex]?.lastName"></Label>
-    <Button text="Zapsat absenci (dnes)" (tap)="addAbsence()"></Button>
+    <Button text="Zapsat absenci (dnes)" (tap)="addAbsence()" *ngIf="canManageAbsences()"></Button>
   </StackLayout>
 
   <ListView row="2" [items]="absences()">
@@ -18,7 +18,7 @@
         @if (item.status === 'Unexcused') {
           <Button text="Omluvit (Nemoc)" (tap)="submitExcuse(item)"></Button>
         }
-        @if (item.status === 'PendingExcuse') {
+        @if (item.status === 'PendingExcuse' && canManageAbsences()) {
           <StackLayout orientation="horizontal">
             <Button text="Schválit" (tap)="review(item, true)"></Button>
             <Button text="Zamítnout" (tap)="review(item, false)"></Button>

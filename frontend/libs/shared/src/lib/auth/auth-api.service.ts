@@ -42,4 +42,10 @@ export class AuthApiService {
       return null;
     }
   }
+
+  /** True for Teacher/Admin — the roles allowed to write grades/absences/timetable/messages. */
+  isTeacherOrAdmin(): boolean {
+    const role = this.getRole();
+    return role === 'Teacher' || role === 'Admin';
+  }
 }

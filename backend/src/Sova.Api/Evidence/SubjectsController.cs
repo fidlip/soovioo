@@ -17,6 +17,7 @@ public class SubjectsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<Subject>> AddSubject(CreateSubjectRequest request)
     {
         var subject = new Subject { Name = request.Name };

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Grades;
@@ -13,6 +14,11 @@ public class ReportCardController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetReportCard(int studentId)
     {
+        if (!await User.CanAccessStudentAsync(db, studentId))
+        {
+            return Forbid();
+        }
+
         var student = await db.Students
             .Include(s => s.SchoolClass)
             .FirstOrDefaultAsync(s => s.Id == studentId);

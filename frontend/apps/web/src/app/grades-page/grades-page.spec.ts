@@ -4,8 +4,14 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL, Grade, Student, Subject } from '@sova/shared';
+import { API_BASE_URL, Grade, Student, Subject, TokenStorage } from '@sova/shared';
 import { GradesPage } from './grades-page';
+
+class FakeTokenStorage implements TokenStorage {
+  getToken = () => null;
+  setToken = () => undefined;
+  clearToken = () => undefined;
+}
 
 describe('GradesPage', () => {
   let httpMock: HttpTestingController;
@@ -17,6 +23,7 @@ describe('GradesPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://test' },
+        { provide: TokenStorage, useValue: new FakeTokenStorage() },
       ],
     }).compileComponents();
 

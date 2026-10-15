@@ -1,6 +1,7 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
 import {
+  AuthApiService,
   Grade,
   GradesApiService,
   Student,
@@ -20,6 +21,7 @@ export class HomeComponent {
   private readonly gradesApi = inject(GradesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
+  private readonly authApi = inject(AuthApiService);
 
   protected readonly grades = signal<Grade[]>([]);
   private firstStudent: Student | undefined;
@@ -35,6 +37,10 @@ export class HomeComponent {
       next: (subjects) => (this.firstSubject = subjects[0]),
       error: (err) => console.error('getSubjects failed', err),
     });
+  }
+
+  protected canAddGrade(): boolean {
+    return this.authApi.isTeacherOrAdmin();
   }
 
   protected addDemoGrade(): void {

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Grades;
@@ -13,7 +14,15 @@ public class GradesController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
     {
-        var grades = await db.Grades
+        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+
+        var query = db.Grades.AsQueryable();
+        if (allowedStudentIds is not null)
+        {
+            query = query.Where(g => allowedStudentIds.Contains(g.StudentId));
+        }
+
+        var grades = await query
             .OrderByDescending(g => g.CreatedAt)
             .Select(g => new GradeDto(
                 g.Id,
@@ -30,6 +39,7 @@ public class GradesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<GradeDto>> AddGrade(CreateGradeRequest request)
     {
         var studentExists = await db.Students.AnyAsync(s => s.Id == request.StudentId);

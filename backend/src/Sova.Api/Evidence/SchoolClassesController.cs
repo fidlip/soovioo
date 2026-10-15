@@ -17,6 +17,7 @@ public class SchoolClassesController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<SchoolClass>> AddSchoolClass(CreateSchoolClassRequest request)
     {
         var schoolClass = new SchoolClass { Name = request.Name };

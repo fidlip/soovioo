@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  AuthApiService,
   Grade,
   GradesApiService,
   ReportCardApiService,
@@ -20,6 +21,7 @@ export class GradesPage {
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly reportCardApi = inject(ReportCardApiService);
+  private readonly authApi = inject(AuthApiService);
 
   protected readonly grades = signal<Grade[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -61,6 +63,10 @@ export class GradesPage {
         next: () => this.reload(),
         error: (err) => console.error('addGrade failed', err),
       });
+  }
+
+  protected canAddGrade(): boolean {
+    return this.authApi.isTeacherOrAdmin();
   }
 
   protected downloadReportCard(): void {

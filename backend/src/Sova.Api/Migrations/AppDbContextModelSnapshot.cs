@@ -76,6 +76,21 @@ namespace Sova.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("ParentStudents");
+                });
+
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>
                 {
                     b.Property<int>("Id")
@@ -316,6 +331,25 @@ namespace Sova.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.Student", b =>

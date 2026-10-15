@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Messaging;
@@ -13,6 +14,11 @@ public class MessagesController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<MessageDto>>> GetMessages(int studentId)
     {
+        if (!await User.CanAccessStudentAsync(db, studentId))
+        {
+            return Forbid();
+        }
+
         var messages = await db.Messages
             .Where(m => m.StudentId == studentId)
             .OrderByDescending(m => m.SentAt)
@@ -56,6 +62,11 @@ public class MessagesController(AppDbContext db) : ControllerBase
     [HttpPost("{id}/read")]
     public async Task<ActionResult> MarkRead(int studentId, int id)
     {
+        if (!await User.CanAccessStudentAsync(db, studentId))
+        {
+            return Forbid();
+        }
+
         var message = await db.Messages.FirstOrDefaultAsync(m => m.Id == id && m.StudentId == studentId);
         if (message is null)
         {

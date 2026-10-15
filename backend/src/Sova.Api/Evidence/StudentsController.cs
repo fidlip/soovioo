@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
@@ -13,7 +14,15 @@ public class StudentsController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents()
     {
-        var students = await db.Students
+        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+
+        var query = db.Students.AsQueryable();
+        if (allowedStudentIds is not null)
+        {
+            query = query.Where(s => allowedStudentIds.Contains(s.Id));
+        }
+
+        var students = await query
             .OrderBy(s => s.LastName)
             .Select(s => new StudentDto(s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name))
             .ToListAsync();
@@ -22,6 +31,7 @@ public class StudentsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<StudentDto>> AddStudent(CreateStudentRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
