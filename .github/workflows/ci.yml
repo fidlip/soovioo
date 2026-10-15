@@ -52,5 +52,4 @@ jobs:
 
       - run: dotnet restore
       - run: dotnet build --no-restore
-      # No backend test project exists yet (see ROADMAP.md) — this is a
-      # compile check until one does.
+      - run: dotnet test --no-build

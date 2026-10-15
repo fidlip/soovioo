@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Sova.Api/Sova.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sova.Api.Tests/Sova.Api.Tests.csproj" />
+  </Folder>
 </Solution>
