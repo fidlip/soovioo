@@ -78,6 +78,51 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
         return CreatedAtAction(nameof(GetGrades), new { id = grade.Id }, dto);
     }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<GradeDto>> UpdateGrade(int id, CreateGradeRequest request)
+    {
+        var grade = await db.Grades.FindAsync(id);
+        if (grade is null)
+        {
+            return NotFound();
+        }
+
+        var student = await db.Students.FindAsync(request.StudentId);
+        var subject = await db.Subjects.FindAsync(request.SubjectId);
+        if (student is null || subject is null)
+        {
+            return BadRequest("Unknown studentId or subjectId.");
+        }
+
+        grade.StudentId = request.StudentId;
+        grade.SubjectId = request.SubjectId;
+        grade.Value = request.Value;
+        grade.Weight = request.Weight;
+        grade.Note = request.Note;
+        await db.SaveChangesAsync();
+
+        var dto = new GradeDto(
+            grade.Id, grade.StudentId, $"{student.FirstName} {student.LastName}",
+            grade.SubjectId, subject.Name, grade.Value, grade.Weight, grade.Note, grade.CreatedAt);
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteGrade(int id)
+    {
+        var grade = await db.Grades.FindAsync(id);
+        if (grade is null)
+        {
+            return NotFound();
+        }
+
+        db.Grades.Remove(grade);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record CreateGradeRequest(int StudentId, int SubjectId, int Value, int Weight, string? Note);

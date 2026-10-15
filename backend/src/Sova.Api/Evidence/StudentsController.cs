@@ -61,6 +61,60 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             student.RodneCislo, student.DateOfBirth, student.Gender);
         return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, dto);
     }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<StudentDto>> UpdateStudent(int id, CreateStudentRequest request)
+    {
+        var student = await db.Students.FindAsync(id);
+        if (student is null)
+        {
+            return NotFound();
+        }
+
+        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Unknown schoolClassId.");
+        }
+
+        student.FirstName = request.FirstName;
+        student.LastName = request.LastName;
+        student.SchoolClassId = request.SchoolClassId;
+        student.RodneCislo = request.RodneCislo;
+        student.DateOfBirth = request.DateOfBirth;
+        student.Gender = request.Gender;
+        await db.SaveChangesAsync();
+
+        var dto = new StudentDto(
+            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClass.Name,
+            student.RodneCislo, student.DateOfBirth, student.Gender);
+        return Ok(dto);
+    }
+
+    /// <summary>Unlike the other evidence entities, a student leaving the
+    /// school is a normal, expected event — so this actually removes their
+    /// records (grades, absences, messages, parent links) rather than
+    /// rejecting while any exist. There's no undo; the admin-page confirms
+    /// before calling this.</summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteStudent(int id)
+    {
+        var student = await db.Students.FindAsync(id);
+        if (student is null)
+        {
+            return NotFound();
+        }
+
+        db.Grades.RemoveRange(db.Grades.Where(g => g.StudentId == id));
+        db.Absences.RemoveRange(db.Absences.Where(a => a.StudentId == id));
+        db.Messages.RemoveRange(db.Messages.Where(m => m.StudentId == id));
+        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.StudentId == id));
+        db.Students.Remove(student);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record CreateStudentRequest(

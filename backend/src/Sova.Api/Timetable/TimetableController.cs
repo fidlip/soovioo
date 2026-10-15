@@ -67,6 +67,50 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity);
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<TimetableEntryDto>> UpdateEntry(
+        int schoolClassId, int id, CreateTimetableEntryRequest request)
+    {
+        var entry = await db.TimetableEntries.FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        var subject = await db.Subjects.FindAsync(request.SubjectId);
+        if (subject is null)
+        {
+            return BadRequest("Unknown subjectId.");
+        }
+
+        entry.SubjectId = request.SubjectId;
+        entry.DayOfWeek = request.DayOfWeek;
+        entry.PeriodNumber = request.PeriodNumber;
+        entry.WeekParity = request.WeekParity;
+        await db.SaveChangesAsync();
+
+        var dto = new TimetableEntryDto(
+            entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name,
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity);
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteEntry(int schoolClassId, int id)
+    {
+        var entry = await db.TimetableEntries.FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        db.TimetableEntries.Remove(entry);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record CreateTimetableEntryRequest(

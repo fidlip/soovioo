@@ -95,6 +95,50 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    /// <summary>Direct correction of a record (e.g. a teacher logged the
+    /// wrong date) — separate from the excuse/review workflow above, which
+    /// stays the normal path for actually processing an absence.</summary>
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<AbsenceDto>> UpdateAbsence(int id, CreateAbsenceRequest request)
+    {
+        var absence = await db.Absences.FindAsync(id);
+        if (absence is null)
+        {
+            return NotFound();
+        }
+
+        var student = await db.Students.FindAsync(request.StudentId);
+        if (student is null)
+        {
+            return BadRequest("Unknown studentId.");
+        }
+
+        absence.StudentId = request.StudentId;
+        absence.Date = request.Date;
+        await db.SaveChangesAsync();
+
+        var dto = new AbsenceDto(
+            absence.Id, absence.StudentId, $"{student.FirstName} {student.LastName}",
+            absence.Date, absence.Status, absence.ExcuseReason);
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteAbsence(int id)
+    {
+        var absence = await db.Absences.FindAsync(id);
+        if (absence is null)
+        {
+            return NotFound();
+        }
+
+        db.Absences.Remove(absence);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record CreateAbsenceRequest(int StudentId, DateOnly Date);

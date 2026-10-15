@@ -78,6 +78,24 @@ public class MessagesController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    /// <summary>No edit action exists for messages on purpose — a sent
+    /// message is immutable, like an email. Delete (e.g. sent by mistake)
+    /// is restricted to Teacher/Admin, same as sending.</summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteMessage(int studentId, int id)
+    {
+        var message = await db.Messages.FirstOrDefaultAsync(m => m.Id == id && m.StudentId == studentId);
+        if (message is null)
+        {
+            return NotFound();
+        }
+
+        db.Messages.Remove(message);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record SendMessageRequest(string Subject, string Body);

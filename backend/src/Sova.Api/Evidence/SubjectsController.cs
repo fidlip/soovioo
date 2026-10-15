@@ -26,6 +26,49 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetSubjects), new { id = subject.Id }, subject);
     }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<Subject>> UpdateSubject(int id, CreateSubjectRequest request)
+    {
+        var subject = await db.Subjects.FindAsync(id);
+        if (subject is null)
+        {
+            return NotFound();
+        }
+
+        subject.Name = request.Name;
+        await db.SaveChangesAsync();
+        return Ok(subject);
+    }
+
+    /// <summary>Rejected while any grade or timetable slot still references
+    /// the subject — a grade is a real academic record, never removed as a
+    /// side effect of tidying up the subject list.</summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteSubject(int id)
+    {
+        var subject = await db.Subjects.FindAsync(id);
+        if (subject is null)
+        {
+            return NotFound();
+        }
+
+        if (await db.Grades.AnyAsync(g => g.SubjectId == id))
+        {
+            return BadRequest("Předmět má zapsané známky — nelze smazat.");
+        }
+
+        if (await db.TimetableEntries.AnyAsync(e => e.SubjectId == id))
+        {
+            return BadRequest("Předmět je v rozvrhu — nelze smazat.");
+        }
+
+        db.Subjects.Remove(subject);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record CreateSubjectRequest(string Name);
