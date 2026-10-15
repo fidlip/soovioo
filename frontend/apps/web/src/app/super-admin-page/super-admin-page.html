@@ -1,0 +1,22 @@
+<h1>Správa škol</h1>
+
+<section>
+  <h2>Školy</h2>
+  <ul>
+    @for (school of schools(); track school.id) {
+      <li>{{ school.name }} (<code>{{ school.slug }}</code>)</li>
+    }
+  </ul>
+
+  <form (ngSubmit)="addSchool()">
+    <input type="text" name="schoolName" placeholder="Název školy" [(ngModel)]="newSchoolName" />
+    <input type="text" name="schoolSlug" placeholder="Slug (do URL)" [(ngModel)]="newSchoolSlug" />
+    <input type="text" name="adminUsername" placeholder="Uživatelské jméno admina" [(ngModel)]="newAdminUsername" />
+    <input type="password" name="adminPassword" placeholder="Heslo admina" [(ngModel)]="newAdminPassword" />
+    <button type="submit">Založit školu</button>
+  </form>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</section>

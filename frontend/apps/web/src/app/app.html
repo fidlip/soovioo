@@ -1,16 +1,19 @@
 <nav>
   <strong>Sova</strong>
-  @if (isLoggedIn()) {
-    <a routerLink="/grades">Známky</a>
-    <a routerLink="/absences">Docházka</a>
-    <a routerLink="/timetable">Rozvrh</a>
-    <a routerLink="/messages">Zprávy</a>
+  @if (isLoggedIn() && isSuperAdmin()) {
+    <a routerLink="/superadmin">Správa škol</a>
+    <button type="button" (click)="logout()">Odhlásit se</button>
+  } @else if (isLoggedIn()) {
+    <a [routerLink]="schoolContext.link('grades')">Známky</a>
+    <a [routerLink]="schoolContext.link('absences')">Docházka</a>
+    <a [routerLink]="schoolContext.link('timetable')">Rozvrh</a>
+    <a [routerLink]="schoolContext.link('messages')">Zprávy</a>
     @if (isAdmin()) {
-      <a routerLink="/admin">Administrace</a>
+      <a [routerLink]="schoolContext.link('admin')">Administrace</a>
     }
     <button type="button" (click)="logout()">Odhlásit se</button>
   } @else {
-    <a routerLink="/login">Přihlásit se</a>
+    <a [routerLink]="schoolContext.link('login')">Přihlásit se</a>
   }
 </nav>
 

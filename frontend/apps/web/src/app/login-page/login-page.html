@@ -1,4 +1,4 @@
-<h1>Přihlášení</h1>
+<h1>Přihlášení{{ schoolSlug ? ' — ' + schoolSlug : ' — SuperAdmin' }}</h1>
 
 <form (ngSubmit)="login()">
   <input type="text" name="username" placeholder="Uživatelské jméno" [(ngModel)]="username" />
@@ -10,7 +10,11 @@
   <p class="error">{{ error() }}</p>
 }
 
-<p>
-  Demo účty: <code>admin/admin123</code>, <code>ucitel/ucitel123</code>,
-  <code>rodic/rodic123</code>
-</p>
+@if (schoolSlug) {
+  <p>
+    Demo účty: <code>admin/admin123</code>, <code>ucitel/ucitel123</code>,
+    <code>rodic/rodic123</code>
+  </p>
+} @else {
+  <p>Demo účet: <code>superadmin/superadmin123</code></p>
+}
