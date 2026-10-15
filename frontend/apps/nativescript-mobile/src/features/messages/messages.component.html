@@ -1,0 +1,21 @@
+<ActionBar title="Sova — Zprávy"></ActionBar>
+
+<GridLayout rows="auto, auto, *">
+  <ns-nav-bar row="0"></ns-nav-bar>
+
+  <StackLayout row="1" class="p-4" *ngIf="canSendMessages()">
+    <TextField hint="Předmět" [(ngModel)]="subject"></TextField>
+    <TextView hint="Text zprávy" [(ngModel)]="body"></TextView>
+    <Button text="Odeslat" (tap)="send()"></Button>
+  </StackLayout>
+
+  <ListView row="2" [items]="messages()">
+    <ng-template let-item="item">
+      <StackLayout class="p-4">
+        <Label [text]="item.subject + ' — ' + item.senderName + (!item.readAt ? ' (nepřečteno)' : '')"></Label>
+        <Label [text]="item.body" textWrap="true"></Label>
+        <Button *ngIf="!item.readAt" text="Označit jako přečtené" (tap)="markRead(item)"></Button>
+      </StackLayout>
+    </ng-template>
+  </ListView>
+</GridLayout>

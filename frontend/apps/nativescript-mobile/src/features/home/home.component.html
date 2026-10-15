@@ -1,13 +1,15 @@
 <ActionBar title="Sova — Známky"></ActionBar>
 
-<GridLayout rows="auto, *">
+<GridLayout rows="auto, auto, *">
+  <ns-nav-bar row="0"></ns-nav-bar>
+
   <Button
-    row="0"
+    row="1"
     text="Zapsat známku (ukázka)"
     (tap)="addDemoGrade()"
   ></Button>
 
-  <ListView row="1" [items]="grades()">
+  <ListView row="2" [items]="grades()">
     <ng-template let-item="item">
       <StackLayout class="p-4">
         <Label

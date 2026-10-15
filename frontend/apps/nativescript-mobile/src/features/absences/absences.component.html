@@ -1,0 +1,30 @@
+<ActionBar title="Sova — Docházka"></ActionBar>
+
+<GridLayout rows="auto, auto, *">
+  <ns-nav-bar row="0"></ns-nav-bar>
+
+  <StackLayout row="1" orientation="horizontal" class="p-4">
+    <Label [text]="students()[selectedStudentIndex]?.firstName + ' ' + students()[selectedStudentIndex]?.lastName"></Label>
+    <Button text="Zapsat absenci (dnes)" (tap)="addAbsence()"></Button>
+  </StackLayout>
+
+  <ListView row="2" [items]="absences()">
+    <ng-template let-item="item">
+      <StackLayout class="p-4">
+        <Label [text]="item.studentName + ' — ' + item.date + ' — ' + item.status"></Label>
+        @if (item.excuseReason) {
+          <Label [text]="'(' + item.excuseReason + ')'"></Label>
+        }
+        @if (item.status === 'Unexcused') {
+          <Button text="Omluvit (Nemoc)" (tap)="submitExcuse(item)"></Button>
+        }
+        @if (item.status === 'PendingExcuse') {
+          <StackLayout orientation="horizontal">
+            <Button text="Schválit" (tap)="review(item, true)"></Button>
+            <Button text="Zamítnout" (tap)="review(item, false)"></Button>
+          </StackLayout>
+        }
+      </StackLayout>
+    </ng-template>
+  </ListView>
+</GridLayout>

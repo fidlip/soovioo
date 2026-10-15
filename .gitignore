@@ -26,3 +26,5 @@ backend/**/.vs/
 **/.nx/workspace-data/
 **/.angular/
 **/*.log
+
+.nx/polygraph

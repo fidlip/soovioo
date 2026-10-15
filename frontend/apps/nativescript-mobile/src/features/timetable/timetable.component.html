@@ -1,0 +1,20 @@
+<ActionBar title="Sova — Rozvrh (5.A)"></ActionBar>
+
+<GridLayout rows="auto, *">
+  <ns-nav-bar row="0"></ns-nav-bar>
+
+  <ScrollView row="1">
+    <StackLayout class="p-4">
+      @for (section of sections(); track section.day) {
+        <Label [text]="section.label" class="h2"></Label>
+        @for (entry of section.entries; track entry.id) {
+          <Label
+            [text]="entry.periodNumber + '. hodina — ' + entry.subjectName + (entry.weekParity !== 'Every' ? ' (' + (entry.weekParity === 'Odd' ? 'lichý týden' : 'sudý týden') + ')' : '')"
+          ></Label>
+        } @empty {
+          <Label text="Volno"></Label>
+        }
+      }
+    </StackLayout>
+  </ScrollView>
+</GridLayout>

@@ -8,11 +8,12 @@ import {
   Subject,
   SubjectsApiService,
 } from '@sova/shared';
+import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
   selector: 'ns-home',
   templateUrl: './home.component.html',
-  imports: [NativeScriptCommonModule],
+  imports: [NativeScriptCommonModule, NavBarComponent],
   schemas: [NO_ERRORS_SCHEMA],
 })
 export class HomeComponent {

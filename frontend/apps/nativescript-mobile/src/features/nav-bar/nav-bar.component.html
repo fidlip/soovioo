@@ -1,0 +1,9 @@
+<ScrollView orientation="horizontal">
+  <StackLayout orientation="horizontal" class="p-2">
+    <Button text="Známky" [nsRouterLink]="['/grades']"></Button>
+    <Button text="Docházka" [nsRouterLink]="['/absences']"></Button>
+    <Button text="Rozvrh" [nsRouterLink]="['/timetable']"></Button>
+    <Button text="Zprávy" [nsRouterLink]="['/messages']"></Button>
+    <Button text="Odhlásit" (tap)="logout()"></Button>
+  </StackLayout>
+</ScrollView>

@@ -1,0 +1,17 @@
+<ActionBar title="Sova — Přihlášení"></ActionBar>
+
+<StackLayout class="p-4">
+  <TextField hint="Uživatelské jméno" [(ngModel)]="username" autocorrect="false"></TextField>
+  <TextField hint="Heslo" secure="true" [(ngModel)]="password"></TextField>
+  <Button text="Přihlásit se" (tap)="login()"></Button>
+
+  @if (error()) {
+    <Label [text]="error()" class="error"></Label>
+  }
+
+  <Label
+    text="Demo účty: admin/admin123, ucitel/ucitel123, rodic/rodic123"
+    textWrap="true"
+    class="hint"
+  ></Label>
+</StackLayout>
