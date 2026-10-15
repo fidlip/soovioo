@@ -22,4 +22,8 @@ export class App {
     this.authApi.logout();
     this.router.navigateByUrl('/login');
   }
+
+  protected isAdmin(): boolean {
+    return this.authApi.isAdmin();
+  }
 }

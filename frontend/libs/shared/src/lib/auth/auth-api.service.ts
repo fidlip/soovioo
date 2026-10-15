@@ -48,4 +48,9 @@ export class AuthApiService {
     const role = this.getRole();
     return role === 'Teacher' || role === 'Admin';
   }
+
+  /** True for Admin — the only role allowed to manage users/classes/subjects/parent links. */
+  isAdmin(): boolean {
+    return this.getRole() === 'Admin';
+  }
 }

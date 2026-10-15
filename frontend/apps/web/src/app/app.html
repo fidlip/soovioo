@@ -5,6 +5,9 @@
     <a routerLink="/absences">Docházka</a>
     <a routerLink="/timetable">Rozvrh</a>
     <a routerLink="/messages">Zprávy</a>
+    @if (isAdmin()) {
+      <a routerLink="/admin">Administrace</a>
+    }
     <button type="button" (click)="logout()">Odhlásit se</button>
   } @else {
     <a routerLink="/login">Přihlásit se</a>

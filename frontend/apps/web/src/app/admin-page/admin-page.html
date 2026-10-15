@@ -1,0 +1,98 @@
+<h1>Administrace</h1>
+
+@if (!isAdmin()) {
+  <p>Tato stránka je dostupná jen pro roli Admin.</p>
+} @else {
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <section>
+    <h2>Třídy</h2>
+    <ul>
+      @for (schoolClass of schoolClasses(); track schoolClass.id) {
+        <li>{{ schoolClass.name }}</li>
+      }
+    </ul>
+    <form (ngSubmit)="addSchoolClass()">
+      <input type="text" name="className" placeholder="Název třídy" [(ngModel)]="newSchoolClassName" />
+      <button type="submit">Přidat třídu</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Předměty</h2>
+    <ul>
+      @for (subject of subjects(); track subject.id) {
+        <li>{{ subject.name }}</li>
+      }
+    </ul>
+    <form (ngSubmit)="addSubject()">
+      <input type="text" name="subjectName" placeholder="Název předmětu" [(ngModel)]="newSubjectName" />
+      <button type="submit">Přidat předmět</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Žáci</h2>
+    <ul>
+      @for (student of students(); track student.id) {
+        <li>{{ student.firstName }} {{ student.lastName }} — {{ student.schoolClassName }}</li>
+      }
+    </ul>
+    <form (ngSubmit)="addStudent()">
+      <input type="text" name="firstName" placeholder="Jméno" [(ngModel)]="newStudentFirstName" />
+      <input type="text" name="lastName" placeholder="Příjmení" [(ngModel)]="newStudentLastName" />
+      <select name="studentSchoolClass" [(ngModel)]="newStudentSchoolClassId">
+        @for (schoolClass of schoolClasses(); track schoolClass.id) {
+          <option [value]="schoolClass.id">{{ schoolClass.name }}</option>
+        }
+      </select>
+      <button type="submit">Přidat žáka</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Uživatelé</h2>
+    <ul>
+      @for (user of users(); track user.id) {
+        <li>{{ user.username }} ({{ user.role }})</li>
+      }
+    </ul>
+    <form (ngSubmit)="addUser()">
+      <input type="text" name="username" placeholder="Uživatelské jméno" [(ngModel)]="newUsername" />
+      <input type="password" name="password" placeholder="Heslo" [(ngModel)]="newPassword" />
+      <select name="role" [(ngModel)]="newUserRole">
+        <option value="Admin">Admin</option>
+        <option value="Teacher">Teacher</option>
+        <option value="Parent">Parent</option>
+      </select>
+      <button type="submit">Vytvořit uživatele</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Vazby rodič ↔ žák</h2>
+    <ul>
+      @for (link of links(); track link.userId + '-' + link.studentId) {
+        <li>
+          {{ link.username }} → {{ link.studentName }}
+          <button type="button" (click)="removeLink(link)">Zrušit</button>
+        </li>
+      }
+    </ul>
+    <form (ngSubmit)="addLink()">
+      <select name="linkUser" [(ngModel)]="newLinkUserId">
+        @for (user of users(); track user.id) {
+          <option [value]="user.id">{{ user.username }}</option>
+        }
+      </select>
+      <select name="linkStudent" [(ngModel)]="newLinkStudentId">
+        @for (student of students(); track student.id) {
+          <option [value]="student.id">{{ student.firstName }} {{ student.lastName }}</option>
+        }
+      </select>
+      <button type="submit">Propojit</button>
+    </form>
+  </section>
+}
