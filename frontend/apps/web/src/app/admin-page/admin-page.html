@@ -163,31 +163,49 @@
       }
 
       <form class="flex flex-wrap items-end gap-2" (ngSubmit)="exportMatrika()">
-        <input
-          pInputText
-          type="text"
-          autocomplete="name"
-          placeholder="Kontaktní osoba"
-          name="matrikaContactName"
-          [(ngModel)]="matrikaContactName"
-        />
-        <input
-          pInputText
-          type="tel"
-          autocomplete="tel"
-          placeholder="Telefon"
-          name="matrikaContactPhone"
-          [(ngModel)]="matrikaContactPhone"
-        />
-        <input
-          pInputText
-          type="email"
-          autocomplete="email"
-          placeholder="E-mail"
-          name="matrikaContactEmail"
-          [(ngModel)]="matrikaContactEmail"
-        />
-        <input pInputText type="text" placeholder="Část (CAST)" name="matrikaCast" [(ngModel)]="matrikaCast" class="w-24" />
+        <div class="flex flex-col gap-1.5">
+          <label for="matrikaContactName" class="text-sm font-medium text-surface-600 dark:text-surface-300">
+            Kontaktní osoba
+          </label>
+          <input
+            pInputText
+            type="text"
+            id="matrikaContactName"
+            autocomplete="name"
+            name="matrikaContactName"
+            [(ngModel)]="matrikaContactName"
+          />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="matrikaContactPhone" class="text-sm font-medium text-surface-600 dark:text-surface-300">
+            Telefon
+          </label>
+          <input
+            pInputText
+            type="tel"
+            id="matrikaContactPhone"
+            autocomplete="tel"
+            name="matrikaContactPhone"
+            [(ngModel)]="matrikaContactPhone"
+          />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="matrikaContactEmail" class="text-sm font-medium text-surface-600 dark:text-surface-300">
+            E-mail
+          </label>
+          <input
+            pInputText
+            type="email"
+            id="matrikaContactEmail"
+            autocomplete="email"
+            name="matrikaContactEmail"
+            [(ngModel)]="matrikaContactEmail"
+          />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="matrikaCast" class="text-sm font-medium text-surface-600 dark:text-surface-300">Část (CAST)</label>
+          <input pInputText type="text" id="matrikaCast" name="matrikaCast" [(ngModel)]="matrikaCast" class="w-24" />
+        </div>
         <p-button type="submit" label="Stáhnout export (XML)" icon="pi pi-download" />
       </form>
     </p-card>
