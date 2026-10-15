@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npx nx format:check --base=remotes/origin/main
+      - run: npx nx run-many -t lint
+      - run: npx nx run-many -t test
+      - run: npx nx run-many -t typecheck
+      # nativescript-mobile's build needs the Android/iOS native toolchain,
+      # which isn't installed here — it's built/verified on-device manually
+      # instead (see ROADMAP.md).
+      - run: npx nx run-many -t build --exclude=nativescript-mobile
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      # No backend test project exists yet (see ROADMAP.md) — this is a
+      # compile check until one does.
