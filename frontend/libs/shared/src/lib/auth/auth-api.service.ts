@@ -27,17 +27,33 @@ export class AuthApiService {
 
   /** Role claim from the stored JWT, or null if not logged in / unparseable. */
   getRole(): string | null {
+    return this.getClaim(
+      'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
+      'role',
+    );
+  }
+
+  /** Username claim from the stored JWT, or null if not logged in / unparseable. */
+  getUsername(): string | null {
+    return this.getClaim(
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+      'unique_name',
+    );
+  }
+
+  private getClaim(...keys: string[]): string | null {
     const token = this.tokenStorage.getToken();
     if (!token) {
       return null;
     }
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return (
-        payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
-        payload['role'] ??
-        null
-      );
+      for (const key of keys) {
+        if (payload[key] != null) {
+          return payload[key];
+        }
+      }
+      return null;
     } catch {
       return null;
     }

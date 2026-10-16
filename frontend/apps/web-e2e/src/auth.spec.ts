@@ -6,17 +6,23 @@ import { expect, test } from '@playwright/test';
  * k prostředí": both dev servers must be running on their usual ports).
  */
 
-test('unauthenticated visit redirects through the demo slug to login', async ({ page }) => {
+test('unauthenticated visit redirects through the demo slug to login', async ({
+  page,
+}) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/demo\/login$/);
 });
 
-test('unauthenticated deep link redirects to login instead of the page', async ({ page }) => {
+test('unauthenticated deep link redirects to login instead of the page', async ({
+  page,
+}) => {
   await page.goto('/demo/grades');
   await expect(page).toHaveURL(/\/demo\/login$/);
 });
 
-test('wrong credentials show an error and stay on the login page', async ({ page }) => {
+test('wrong credentials show an error and stay on the login page', async ({
+  page,
+}) => {
   await page.goto('/demo/login');
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('not-the-right-password');
@@ -37,7 +43,10 @@ test('teacher can log in, see the nav, and log out', async ({ page }) => {
   // Teacher (not Admin) must not see the administration link.
   await expect(page.getByRole('link', { name: 'Administrace' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Odhlásit se' }).click();
+  // "Odhlásit se" now lives inside the user menu (see app.html), behind the
+  // username button, not as its own top-level button.
+  await page.getByRole('button', { name: 'ucitel' }).click();
+  await page.getByText('Odhlásit se').click();
   await expect(page).toHaveURL(/\/demo\/login$/);
 });
 

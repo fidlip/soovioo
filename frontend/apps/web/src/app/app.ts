@@ -1,58 +1,42 @@
-import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import {
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { Button, ButtonDirective } from '@openng/optimus-ui/button';
+import { Menu } from '@openng/optimus-ui/menu';
+import { MenuItem } from '@openng/optimus-ui/api';
 import { AuthApiService } from '@sova/shared';
+import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
-
-const DARK_MODE_STORAGE_KEY = 'sova-dark-mode';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, Button, ButtonDirective],
+  imports: [
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    Button,
+    ButtonDirective,
+    Menu,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
+  private readonly darkModeService = inject(DarkModeService);
   protected readonly schoolContext = inject(SchoolContextService);
 
   protected title = 'Sova';
 
-  // Persisted choice wins; first-ever visit falls back to the OS
-  // preference instead of always defaulting to light.
-  protected readonly darkMode = signal(this.readInitialDarkMode());
-
-  constructor() {
-    this.applyDarkModeClass(this.darkMode());
-  }
+  protected readonly darkMode = this.darkModeService.darkMode;
 
   protected toggleDarkMode(): void {
-    const next = !this.darkMode();
-    this.darkMode.set(next);
-    this.applyDarkModeClass(next);
-    try {
-      localStorage.setItem(DARK_MODE_STORAGE_KEY, String(next));
-    } catch {
-      // Private browsing / blocked storage — the toggle still works for
-      // this page load, it just won't survive a reload.
-    }
-  }
-
-  private readInitialDarkMode(): boolean {
-    try {
-      const stored = localStorage.getItem(DARK_MODE_STORAGE_KEY);
-      if (stored !== null) {
-        return stored === 'true';
-      }
-    } catch {
-      // Fall through to the OS preference below.
-    }
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-  }
-
-  private applyDarkModeClass(enabled: boolean): void {
-    document.documentElement.classList.toggle('sova-dark', enabled);
+    this.darkModeService.toggle();
   }
 
   protected isLoggedIn(): boolean {
@@ -62,7 +46,9 @@ export class App {
   protected logout(): void {
     const wasSuperAdmin = this.authApi.isSuperAdmin();
     this.authApi.logout();
-    this.router.navigate(wasSuperAdmin ? ['/superadmin/login'] : this.schoolContext.link('login'));
+    this.router.navigate(
+      wasSuperAdmin ? ['/superadmin/login'] : this.schoolContext.link('login'),
+    );
   }
 
   protected isAdmin(): boolean {
@@ -71,5 +57,26 @@ export class App {
 
   protected isSuperAdmin(): boolean {
     return this.authApi.isSuperAdmin();
+  }
+
+  protected username(): string | undefined {
+    return this.authApi.getUsername() ?? undefined;
+  }
+
+  /** SuperAdmin lives outside the `:schoolSlug` route tree (see app.routes.ts),
+   * so its Settings link can't go through `SchoolContextService.link()`. */
+  protected userMenuItems(): MenuItem[] {
+    const settingsLink = this.isSuperAdmin()
+      ? ['/superadmin/settings']
+      : this.schoolContext.link('settings');
+    return [
+      { label: 'Nastavení', icon: 'pi pi-cog', routerLink: settingsLink },
+      { separator: true },
+      {
+        label: 'Odhlásit se',
+        icon: 'pi pi-sign-out',
+        command: () => this.logout(),
+      },
+    ];
   }
 }

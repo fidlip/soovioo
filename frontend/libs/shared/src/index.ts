@@ -34,5 +34,7 @@ export * from './lib/auth/token-storage';
 export * from './lib/auth/auth-api.service';
 export * from './lib/auth/auth.interceptor';
 export * from './lib/auth/users-api.service';
+export * from './lib/auth/my-profile.model';
+export * from './lib/auth/my-profile-api.service';
 export * from './lib/auth/teacher.model';
 export * from './lib/auth/teachers-api.service';

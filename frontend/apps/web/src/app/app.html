@@ -1,98 +1,118 @@
 <header
   class="sticky top-0 z-10 border-b border-surface-200 bg-surface-0/90 backdrop-blur dark:border-surface-700 dark:bg-surface-900/90"
 >
-  <div class="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3 sm:gap-6">
-    <span class="flex items-center gap-2 text-lg font-semibold text-surface-900 dark:text-surface-0">
+  <div class="flex items-center gap-2 px-4 py-3 sm:gap-6 sm:px-6 lg:px-8">
+    <span
+      class="flex items-center gap-2 text-lg font-semibold text-surface-900 dark:text-surface-0"
+    >
       <span class="text-2xl leading-none">🦉</span>
       Sova
     </span>
 
     @if (isLoggedIn() && isSuperAdmin()) {
-      <nav class="flex flex-1 gap-1 overflow-x-auto">
-        <a
-          routerLink="/superadmin"
-          routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-          class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-          >Správa škol</a
-        >
-      </nav>
-      <p-button
-        [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        size="small"
-        [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
-        (onClick)="toggleDarkMode()"
-      />
-      <p-button label="Odhlásit se" severity="secondary" [text]="true" size="small" (onClick)="logout()" />
+    <nav class="flex flex-1 gap-1 overflow-x-auto">
+      <a
+        routerLink="/superadmin"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Správa škol</a
+      >
+    </nav>
+    <p-button
+      [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+      severity="secondary"
+      [text]="true"
+      [rounded]="true"
+      size="small"
+      [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
+      (onClick)="toggleDarkMode()"
+    />
+    <p-button
+      [label]="username()"
+      icon="pi pi-user"
+      severity="secondary"
+      [text]="true"
+      size="small"
+      (onClick)="userMenu.toggle($event)"
+    />
+    <p-menu #userMenu [popup]="true" [model]="userMenuItems()" />
     } @else if (isLoggedIn()) {
-      <nav class="flex flex-1 gap-1 overflow-x-auto">
-        <a
-          [routerLink]="schoolContext.link('grades')"
-          routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-          class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-          >Známky</a
-        >
-        <a
-          [routerLink]="schoolContext.link('absences')"
-          routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-          class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-          >Docházka</a
-        >
-        <a
-          [routerLink]="schoolContext.link('timetable')"
-          routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-          class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-          >Rozvrh</a
-        >
-        <a
-          [routerLink]="schoolContext.link('events')"
-          routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-          class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-          >Kalendář</a
-        >
-        <a
-          [routerLink]="schoolContext.link('messages')"
-          routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-          class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-          >Zprávy</a
-        >
-        @if (isAdmin()) {
-          <a
-            [routerLink]="schoolContext.link('admin')"
-            routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-            class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-            >Administrace</a
-          >
-        }
-      </nav>
-      <p-button
-        [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        size="small"
-        [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
-        (onClick)="toggleDarkMode()"
-      />
-      <p-button label="Odhlásit se" severity="secondary" [text]="true" size="small" (onClick)="logout()" />
+    <nav class="flex flex-1 gap-1 overflow-x-auto">
+      <a
+        [routerLink]="schoolContext.link('grades')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Známky</a
+      >
+      <a
+        [routerLink]="schoolContext.link('absences')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Docházka</a
+      >
+      <a
+        [routerLink]="schoolContext.link('timetable')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Rozvrh</a
+      >
+      <a
+        [routerLink]="schoolContext.link('events')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Kalendář</a
+      >
+      <a
+        [routerLink]="schoolContext.link('messages')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Zprávy</a
+      >
+      @if (isAdmin()) {
+      <a
+        [routerLink]="schoolContext.link('admin')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Administrace</a
+      >
+      }
+    </nav>
+    <p-button
+      [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+      severity="secondary"
+      [text]="true"
+      [rounded]="true"
+      size="small"
+      [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
+      (onClick)="toggleDarkMode()"
+    />
+    <p-button
+      [label]="username()"
+      icon="pi pi-user"
+      severity="secondary"
+      [text]="true"
+      size="small"
+      (onClick)="userMenu.toggle($event)"
+    />
+    <p-menu #userMenu [popup]="true" [model]="userMenuItems()" />
     } @else {
-      <div class="flex-1"></div>
-      <p-button
-        [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        size="small"
-        [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
-        (onClick)="toggleDarkMode()"
-      />
-      <a [routerLink]="schoolContext.link('login')" pButton size="small">Přihlásit se</a>
+    <div class="flex-1"></div>
+    <p-button
+      [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+      severity="secondary"
+      [text]="true"
+      [rounded]="true"
+      size="small"
+      [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
+      (onClick)="toggleDarkMode()"
+    />
+    <a [routerLink]="schoolContext.link('login')" pButton size="small"
+      >Přihlásit se</a
+    >
     }
   </div>
 </header>
 
-<main class="mx-auto max-w-5xl px-4 py-8">
+<main class="px-4 py-8 sm:px-6 lg:px-8">
   <router-outlet />
 </main>

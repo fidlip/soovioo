@@ -7,6 +7,7 @@ import { GradesPage } from './grades-page/grades-page';
 import { LoginPage } from './login-page/login-page';
 import { MessagesPage } from './messages-page/messages-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
+import { SettingsPage } from './settings-page/settings-page';
 import { SuperAdminPage } from './super-admin-page/super-admin-page';
 import { TimetablePage } from './timetable-page/timetable-page';
 
@@ -19,6 +20,7 @@ const schoolRoutes: Route[] = [
   { path: 'events', component: EventsPage, canActivate: [authGuard] },
   { path: 'messages', component: MessagesPage, canActivate: [authGuard] },
   { path: 'admin', component: AdminPage, canActivate: [authGuard] },
+  { path: 'settings', component: SettingsPage, canActivate: [authGuard] },
 ];
 
 // SuperAdmin isn't tied to any school, so it lives outside the `:schoolSlug`
@@ -29,6 +31,11 @@ const schoolRoutes: Route[] = [
 const superAdminRoutes: Route[] = [
   { path: 'superadmin/login', component: LoginPage },
   { path: 'superadmin', component: SuperAdminPage, canActivate: [authGuard] },
+  {
+    path: 'superadmin/settings',
+    component: SettingsPage,
+    canActivate: [authGuard],
+  },
 ];
 
 // Dev/LAN: no real subdomain, so the school slug is the first path segment

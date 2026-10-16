@@ -1,0 +1,171 @@
+<h1 class="mb-4">Nastavení</h1>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  <p-card header="Profil">
+    @if (profile(); as p) {
+    <div class="flex flex-col gap-3">
+      <div
+        class="flex flex-wrap gap-4 text-sm text-surface-600 dark:text-surface-300"
+      >
+        <span><strong>Uživatelské jméno:</strong> {{ p.username }}</span>
+        <span><strong>Role:</strong> {{ p.role }}</span>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="phone"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >Telefon</label
+        >
+        <input
+          pInputText
+          id="phone"
+          name="phone"
+          class="w-full"
+          [(ngModel)]="phone"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="email"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >E-mail</label
+        >
+        <input
+          pInputText
+          id="email"
+          name="email"
+          class="w-full"
+          [(ngModel)]="email"
+        />
+      </div>
+
+      @if (profileSaved()) {
+      <p-message severity="success" text="Uloženo." />
+      }
+
+      <p-button
+        label="Uložit"
+        (onClick)="saveProfile()"
+        styleClass="self-start"
+      />
+    </div>
+    }
+  </p-card>
+
+  <p-card header="Změna hesla">
+    <form class="flex flex-col gap-3" (ngSubmit)="changePassword()">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="currentPassword"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+        >
+          Současné heslo
+        </label>
+        <p-password
+          inputId="currentPassword"
+          name="currentPassword"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          [(ngModel)]="currentPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="newPassword"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >Nové heslo</label
+        >
+        <p-password
+          inputId="newPassword"
+          name="newPassword"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          [(ngModel)]="newPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="confirmNewPassword"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+        >
+          Nové heslo znovu
+        </label>
+        <p-password
+          inputId="confirmNewPassword"
+          name="confirmNewPassword"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          [(ngModel)]="confirmNewPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+        />
+      </div>
+
+      @if (passwordError(); as err) {
+      <p-message severity="error" [text]="err" />
+      } @if (passwordChanged()) {
+      <p-message severity="success" text="Heslo bylo změněno." />
+      }
+
+      <p-button type="submit" label="Změnit heslo" styleClass="self-start" />
+    </form>
+  </p-card>
+
+  <p-card header="Vzhled">
+    <div class="flex items-center gap-3">
+      <p-toggleswitch
+        inputId="darkModeSwitch"
+        [ngModel]="darkModeService.darkMode()"
+        (onChange)="darkModeService.toggle()"
+      />
+      <label
+        for="darkModeSwitch"
+        class="text-sm text-surface-700 dark:text-surface-200"
+        >Tmavý režim</label
+      >
+    </div>
+  </p-card>
+
+  @if (showCalendarFeed) {
+  <p-card header="Odběr kalendáře">
+    @if (feedUrl(); as url) {
+    <div class="flex flex-col gap-2">
+      <p class="m-0 text-sm text-surface-500">
+        Odkaz pro odběr akcí ze školního kalendáře ve vlastním Google/Apple
+        kalendáři.
+      </p>
+      <input pInputText type="text" readonly [value]="url" class="w-full" />
+      <div class="flex flex-wrap gap-2">
+        <p-button
+          [label]="feedUrlCopied() ? 'Zkopírováno' : 'Kopírovat odkaz'"
+          size="small"
+          severity="secondary"
+          (onClick)="copyFeedUrl()"
+        />
+        <p-button
+          label="Nový odkaz"
+          size="small"
+          severity="secondary"
+          [text]="true"
+          (onClick)="regenerateFeedUrl()"
+        />
+      </div>
+      <p class="m-0 text-xs text-surface-500">
+        Vygenerování nového odkazu zneplatní ten předchozí — kalendáře
+        odebírající starý odkaz přestanou dostávat aktualizace.
+      </p>
+    </div>
+    } @else {
+    <p class="m-0 text-sm text-surface-500">Načítání odkazu…</p>
+    }
+  </p-card>
+  }
+</div>
