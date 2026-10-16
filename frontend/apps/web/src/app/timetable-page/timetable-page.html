@@ -1,16 +1,66 @@
 <h1 class="mb-6">Rozvrh — 5.A</h1>
 
 @if (canManageTimetable()) {
+  <p-card header="Časy hodin (zvonění)" styleClass="mb-6">
+    <p-table [value]="periods()" dataKey="periodNumber" styleClass="mb-4">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Hodina</th>
+          <th>Od</th>
+          <th>Do</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-period>
+        @if (editingPeriodNumber === period.periodNumber) {
+          <tr>
+            <td>{{ period.periodNumber }}.</td>
+            <td><input pInputText type="time" [(ngModel)]="editPeriodStartTime" name="editPeriodStartTime" /></td>
+            <td><input pInputText type="time" [(ngModel)]="editPeriodEndTime" name="editPeriodEndTime" /></td>
+            <td class="flex justify-end gap-1">
+              <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditPeriod()" />
+              <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditPeriod()" />
+            </td>
+          </tr>
+        } @else {
+          <tr>
+            <td>{{ period.periodNumber }}.</td>
+            <td>{{ period.startTime.slice(0, 5) }}</td>
+            <td>{{ period.endTime.slice(0, 5) }}</td>
+            <td class="flex justify-end gap-1">
+              <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditPeriod(period)" />
+              <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deletePeriod(period)" />
+            </td>
+          </tr>
+        }
+      </ng-template>
+    </p-table>
+    <form class="flex flex-wrap items-end gap-3" (ngSubmit)="addPeriod()">
+      <p-inputNumber
+        placeholder="Hodina"
+        [(ngModel)]="newPeriodNumberToConfigure"
+        name="newPeriodNumberToConfigure"
+        [min]="1"
+        [max]="12"
+        styleClass="w-24"
+        inputStyleClass="w-full"
+      />
+      <input pInputText type="time" [(ngModel)]="newPeriodStartTime" name="newPeriodStartTime" />
+      <input pInputText type="time" [(ngModel)]="newPeriodEndTime" name="newPeriodEndTime" />
+      <p-button type="submit" icon="pi pi-plus" label="Uložit čas" />
+    </form>
+  </p-card>
+
   <p-card header="Přidat hodinu" styleClass="mb-6">
     <form class="flex flex-wrap items-end gap-3" (ngSubmit)="addEntry()">
       <p-select
-        [options]="subjects()"
-        optionLabel="name"
+        [options]="subjectOptions()"
+        optionLabel="label"
         optionValue="id"
         placeholder="Předmět"
         [(ngModel)]="newSubjectId"
         name="newSubject"
-        styleClass="w-40"
+        styleClass="w-48"
       />
       <p-select
         [options]="dayOptions"
@@ -30,6 +80,16 @@
         inputStyleClass="w-full"
       />
       <p-select
+        [options]="teacherOptions()"
+        optionLabel="label"
+        optionValue="id"
+        placeholder="Vyučující"
+        [(ngModel)]="newTeacherId"
+        name="newTeacher"
+        [showClear]="true"
+        styleClass="w-40"
+      />
+      <p-select
         [options]="weekParityOptions"
         optionLabel="label"
         optionValue="value"
@@ -42,64 +102,77 @@
   </p-card>
 }
 
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+<div class="flex flex-col gap-4">
   @for (day of days; track day) {
     <p-card [header]="dayLabels[day]">
-      <ul class="m-0 flex list-none flex-col gap-2 p-0">
-        @for (entry of entriesByDay().get(day); track entry.id) {
+      <p-table [value]="entriesByDay().get(day) ?? []" dataKey="id">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Hodina</th>
+            <th>Čas</th>
+            <th>Předmět</th>
+            <th>Vyučující</th>
+            <th>Týden</th>
+            @if (canManageTimetable()) {
+              <th></th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-entry>
           @if (editingEntryId === entry.id) {
-            <li class="flex flex-col gap-2 border-b border-surface-100 pb-2 last:border-0 last:pb-0 dark:border-surface-700">
-              <p-select
-                [options]="subjects()"
-                optionLabel="name"
-                optionValue="id"
-                [(ngModel)]="editSubjectId"
-                name="editSubject"
-              />
-              <div class="flex gap-2">
-                <p-inputNumber
-                  [(ngModel)]="editPeriodNumber"
-                  name="editPeriod"
-                  [min]="1"
-                  [max]="12"
-                  styleClass="w-20"
-                  inputStyleClass="w-full"
-                />
+            <tr>
+              <td>
+                <p-inputNumber [(ngModel)]="editPeriodNumber" name="editPeriod" [min]="1" [max]="12" styleClass="w-16" inputStyleClass="w-full" />
+              </td>
+              <td class="text-surface-400">{{ periodTimeLabel(editPeriodNumber) }}</td>
+              <td>
+                <p-select [options]="subjectOptions()" optionLabel="label" optionValue="id" [(ngModel)]="editSubjectId" name="editSubject" />
+              </td>
+              <td>
                 <p-select
-                  [options]="weekParityOptions"
+                  [options]="teacherOptions()"
                   optionLabel="label"
-                  optionValue="value"
-                  [(ngModel)]="editWeekParity"
-                  name="editWeekParity"
-                  styleClass="flex-1"
+                  optionValue="id"
+                  placeholder="Vyučující"
+                  [(ngModel)]="editTeacherId"
+                  name="editTeacher"
+                  [showClear]="true"
                 />
-              </div>
-              <div class="flex justify-end gap-1">
+              </td>
+              <td>
+                <p-select [options]="weekParityOptions" optionLabel="label" optionValue="value" [(ngModel)]="editWeekParity" name="editWeekParity" />
+              </td>
+              <td class="flex justify-end gap-1">
                 <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditEntry()" />
                 <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditEntry()" />
-              </div>
-            </li>
+              </td>
+            </tr>
           } @else {
-            <li class="flex items-center justify-between gap-2 border-b border-surface-100 pb-2 last:border-0 last:pb-0 dark:border-surface-700">
-              <span>
-                <span class="font-semibold text-surface-900 dark:text-surface-0">{{ entry.periodNumber }}.</span>
-                {{ entry.subjectName }}
-              </span>
-              <div class="flex items-center gap-1">
+            <tr>
+              <td class="font-semibold text-surface-900 dark:text-surface-0">{{ entry.periodNumber }}.</td>
+              <td class="text-surface-500 dark:text-surface-400">{{ periodTimeLabel(entry.periodNumber) }}</td>
+              <td>{{ entry.subjectAbbreviation ?? entry.subjectName }}</td>
+              <td>{{ entry.teacherName ?? '—' }}</td>
+              <td>
                 @if (entry.weekParity !== 'Every') {
                   <p-tag [value]="entry.weekParity === 'Odd' ? 'lichý' : 'sudý'" severity="secondary" />
                 }
-                @if (canManageTimetable()) {
+              </td>
+              @if (canManageTimetable()) {
+                <td class="flex justify-end gap-1">
                   <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditEntry(entry)" />
                   <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteEntry(entry)" />
-                }
-              </div>
-            </li>
+                </td>
+              }
+            </tr>
           }
-        } @empty {
-          <li class="text-sm text-surface-400">Volno</li>
-        }
-      </ul>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6" class="text-sm text-surface-400">Volno</td>
+          </tr>
+        </ng-template>
+      </p-table>
     </p-card>
   }
 </div>

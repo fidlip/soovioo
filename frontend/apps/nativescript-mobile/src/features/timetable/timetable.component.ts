@@ -1,6 +1,12 @@
 import { Component, NO_ERRORS_SCHEMA, computed, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
-import { DayOfWeek, TimetableApiService, TimetableEntry } from '@sova/shared';
+import {
+  DayOfWeek,
+  SchoolPeriod,
+  SchoolPeriodsApiService,
+  TimetableApiService,
+  TimetableEntry,
+} from '@sova/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -31,8 +37,18 @@ interface DaySection {
 })
 export class TimetableComponent {
   private readonly timetableApi = inject(TimetableApiService);
+  private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
 
   private readonly entries = signal<TimetableEntry[]>([]);
+  private readonly periods = signal<SchoolPeriod[]>([]);
+
+  private readonly periodsByNumber = computed(() => {
+    const map = new Map<number, SchoolPeriod>();
+    for (const period of this.periods()) {
+      map.set(period.periodNumber, period);
+    }
+    return map;
+  });
 
   protected readonly sections = computed<DaySection[]>(() =>
     DAYS.map((day) => ({
@@ -49,5 +65,19 @@ export class TimetableComponent {
       next: (entries) => this.entries.set(entries),
       error: (err) => console.error('getTimetable failed', err),
     });
+    this.schoolPeriodsApi.getPeriods().subscribe({
+      next: (periods) => this.periods.set(periods),
+      error: (err) => console.error('getPeriods failed', err),
+    });
+  }
+
+  protected entryLabel(entry: TimetableEntry): string {
+    const subject = entry.subjectAbbreviation ?? entry.subjectName;
+    const period = this.periodsByNumber().get(entry.periodNumber);
+    const time = period ? ` ${period.startTime.slice(0, 5)}–${period.endTime.slice(0, 5)}` : '';
+    const teacher = entry.teacherName ? `, ${entry.teacherName}` : '';
+    const parity =
+      entry.weekParity !== 'Every' ? ` (${entry.weekParity === 'Odd' ? 'lichý týden' : 'sudý týden'})` : '';
+    return `${entry.periodNumber}.${time} — ${subject}${teacher}${parity}`;
   }
 }

@@ -8,9 +8,7 @@
       @for (section of sections(); track section.day) {
         <Label [text]="section.label" class="h2"></Label>
         @for (entry of section.entries; track entry.id) {
-          <Label
-            [text]="entry.periodNumber + '. hodina — ' + entry.subjectName + (entry.weekParity !== 'Every' ? ' (' + (entry.weekParity === 'Odd' ? 'lichý týden' : 'sudý týden') + ')' : '')"
-          ></Label>
+          <Label [text]="entryLabel(entry)"></Label>
         } @empty {
           <Label text="Volno"></Label>
         }
