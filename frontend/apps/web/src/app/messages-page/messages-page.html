@@ -15,7 +15,47 @@
 
 @if (canSendMessages()) {
   <p-card header="Nová zpráva" styleClass="mb-6">
+    @if (broadcastResult(); as result) {
+      <p-message severity="success" [text]="result" styleClass="mb-3 w-full" />
+    }
+    @if (broadcastError(); as error) {
+      <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
+    }
     <form class="flex flex-col gap-3" (ngSubmit)="send()">
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-col gap-1.5">
+          <label for="sendMode" class="text-sm font-medium text-surface-600 dark:text-surface-300">Komu</label>
+          <p-select
+            inputId="sendMode"
+            [options]="modeOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="sendMode"
+            name="sendMode"
+            styleClass="w-64"
+          />
+        </div>
+        @if (sendMode === 'class') {
+          <div class="flex flex-col gap-1.5">
+            <label for="broadcastClass" class="text-sm font-medium text-surface-600 dark:text-surface-300">Třída</label>
+            <p-select
+              inputId="broadcastClass"
+              [options]="broadcastClasses()"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="Vyberte třídu"
+              [(ngModel)]="selectedBroadcastClassId"
+              name="broadcastClass"
+              styleClass="w-40"
+            />
+          </div>
+        }
+      </div>
+      @if (sendMode === 'individual') {
+        <p class="m-0 text-sm text-surface-500">Odešle se do vlákna žáka vybraného nahoře.</p>
+      } @else if (sendMode === 'school') {
+        <p class="m-0 text-sm text-surface-500">Odešle se do vlákna každého žáka školy.</p>
+      }
       <input pInputText type="text" placeholder="Předmět" name="subject" [(ngModel)]="subject" />
       <textarea pTextarea rows="3" placeholder="Text zprávy" name="body" [(ngModel)]="body"></textarea>
       <p-button type="submit" label="Odeslat" icon="pi pi-send" styleClass="self-end" />

@@ -12,3 +12,8 @@ export interface SendMessageRequest {
   subject: string;
   body: string;
 }
+
+/** Fan-out send result — one Message row was created per recipient's thread. */
+export interface BroadcastResult {
+  recipientCount: number;
+}

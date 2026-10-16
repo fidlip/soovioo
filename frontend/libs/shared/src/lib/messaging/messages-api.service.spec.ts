@@ -45,4 +45,25 @@ describe('MessagesApiService', () => {
     expect(req.request.method).toBe('POST');
     req.flush(null);
   });
+
+  it('fetches broadcastable classes', () => {
+    service.getBroadcastableClasses().subscribe();
+    const req = httpMock.expectOne('http://test/api/messages/broadcastable-classes');
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('broadcasts to a class', () => {
+    service.broadcastToClass(1, { subject: 'S', body: 'B' }).subscribe();
+    const req = httpMock.expectOne('http://test/api/school-classes/1/messages/broadcast');
+    expect(req.request.method).toBe('POST');
+    req.flush({ recipientCount: 2 });
+  });
+
+  it('broadcasts to the whole school', () => {
+    service.broadcastToSchool({ subject: 'S', body: 'B' }).subscribe();
+    const req = httpMock.expectOne('http://test/api/messages/broadcast');
+    expect(req.request.method).toBe('POST');
+    req.flush({ recipientCount: 5 });
+  });
 });
