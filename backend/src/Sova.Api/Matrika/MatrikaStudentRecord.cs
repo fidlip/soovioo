@@ -11,4 +11,11 @@ public record MatrikaStudentRecord(
     string Pohlavi,
     string DatNaroz,
     string Rocnik,
-    string Trida);
+    string Trida,
+    // KSTPR/STPR/OBECB/OKRESB are optional pass-through fields: only emitted
+    // into the XML when the student record actually has them, rather than
+    // being required for export to succeed (unlike the fields above).
+    string? Kstpr = null,
+    string? Stpr = null,
+    string? Obecb = null,
+    string? Okresb = null);

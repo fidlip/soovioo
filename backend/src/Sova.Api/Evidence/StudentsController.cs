@@ -29,7 +29,9 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .OrderBy(s => s.LastName)
             .Select(s => new StudentDto(
                 s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name,
-                s.RodneCislo, s.DateOfBirth, s.Gender, s.Citizenship, s.Street, s.City, s.PostalCode,
+                s.RodneCislo, s.DateOfBirth, s.Gender, s.CitizenshipQualifier, s.CountryCode,
+                s.Country == null ? null : s.Country.Name, s.Street, s.MunicipalityCode,
+                s.Municipality == null ? null : s.Municipality.Name, s.PostalCode,
                 s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail))
             .ToListAsync();
 
@@ -55,9 +57,10 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             RodneCislo = request.RodneCislo,
             DateOfBirth = request.DateOfBirth,
             Gender = request.Gender,
-            Citizenship = request.Citizenship,
+            CitizenshipQualifier = request.CitizenshipQualifier,
+            CountryCode = request.CountryCode,
             Street = request.Street,
-            City = request.City,
+            MunicipalityCode = request.MunicipalityCode,
             PostalCode = request.PostalCode,
             CatchmentArea = request.CatchmentArea,
             EnrollmentDate = request.EnrollmentDate,
@@ -68,7 +71,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, ToDto(student, schoolClass.Name));
+        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, await ToDtoAsync(student, schoolClass.Name));
     }
 
     [HttpPut("{id:int}")]
@@ -93,9 +96,10 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         student.RodneCislo = request.RodneCislo;
         student.DateOfBirth = request.DateOfBirth;
         student.Gender = request.Gender;
-        student.Citizenship = request.Citizenship;
+        student.CitizenshipQualifier = request.CitizenshipQualifier;
+        student.CountryCode = request.CountryCode;
         student.Street = request.Street;
-        student.City = request.City;
+        student.MunicipalityCode = request.MunicipalityCode;
         student.PostalCode = request.PostalCode;
         student.CatchmentArea = request.CatchmentArea;
         student.EnrollmentDate = request.EnrollmentDate;
@@ -103,7 +107,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         student.ContactEmail = request.ContactEmail;
         await db.SaveChangesAsync();
 
-        return Ok(ToDto(student, schoolClass.Name));
+        return Ok(await ToDtoAsync(student, schoolClass.Name));
     }
 
     /// <summary>Unlike the other evidence entities, a student leaving the
@@ -130,11 +134,26 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         return NoContent();
     }
 
-    private static StudentDto ToDto(Student student, string schoolClassName) => new(
-        student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClassName,
-        student.RodneCislo, student.DateOfBirth, student.Gender, student.Citizenship, student.Street,
-        student.City, student.PostalCode, student.CatchmentArea, student.EnrollmentDate,
-        student.ContactPhone, student.ContactEmail);
+    // Country/Municipality names are looked up by code rather than via
+    // navigation properties, since student.Country/student.Municipality
+    // aren't populated after Add/Update without an extra Include — these
+    // two single-row lookups are cheaper than that.
+    private async Task<StudentDto> ToDtoAsync(Student student, string schoolClassName)
+    {
+        var countryName = student.CountryCode is null
+            ? null
+            : await db.Countries.Where(c => c.Code == student.CountryCode).Select(c => c.Name).FirstOrDefaultAsync();
+        var municipalityName = student.MunicipalityCode is null
+            ? null
+            : await db.Municipalities.Where(m => m.Code == student.MunicipalityCode).Select(m => m.Name).FirstOrDefaultAsync();
+
+        return new StudentDto(
+            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClassName,
+            student.RodneCislo, student.DateOfBirth, student.Gender, student.CitizenshipQualifier,
+            student.CountryCode, countryName, student.Street, student.MunicipalityCode, municipalityName,
+            student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,
+            student.ContactEmail);
+    }
 }
 
 public record CreateStudentRequest(
@@ -144,9 +163,10 @@ public record CreateStudentRequest(
     string? RodneCislo = null,
     DateOnly? DateOfBirth = null,
     Gender? Gender = null,
-    string? Citizenship = null,
+    string? CitizenshipQualifier = null,
+    string? CountryCode = null,
     string? Street = null,
-    string? City = null,
+    string? MunicipalityCode = null,
     string? PostalCode = null,
     bool? CatchmentArea = null,
     DateOnly? EnrollmentDate = null,
@@ -162,9 +182,12 @@ public record StudentDto(
     string? RodneCislo,
     DateOnly? DateOfBirth,
     Gender? Gender,
-    string? Citizenship,
+    string? CitizenshipQualifier,
+    string? CountryCode,
+    string? CountryName,
     string? Street,
-    string? City,
+    string? MunicipalityCode,
+    string? MunicipalityName,
     string? PostalCode,
     bool? CatchmentArea,
     DateOnly? EnrollmentDate,

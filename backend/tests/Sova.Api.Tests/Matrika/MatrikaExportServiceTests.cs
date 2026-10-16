@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
 using Sova.Api.Matrika;
+using Sova.Api.Reference;
 
 namespace Sova.Api.Tests.Matrika;
 
@@ -41,7 +42,10 @@ public class MatrikaExportServiceTests
         SchoolClass schoolClass,
         string? rodneCislo = null,
         DateOnly? dateOfBirth = null,
-        Gender? gender = null)
+        Gender? gender = null,
+        string? citizenshipQualifier = null,
+        string? countryCode = null,
+        string? municipalityCode = null)
     {
         var student = new Student
         {
@@ -52,6 +56,9 @@ public class MatrikaExportServiceTests
             RodneCislo = rodneCislo,
             DateOfBirth = dateOfBirth,
             Gender = gender,
+            CitizenshipQualifier = citizenshipQualifier,
+            CountryCode = countryCode,
+            MunicipalityCode = municipalityCode,
         };
         db.Students.Add(student);
         db.SaveChanges();
@@ -215,5 +222,48 @@ public class MatrikaExportServiceTests
 
         Assert.False(outcome.Success);
         Assert.Contains(outcome.Errors, e => e.Contains("narození"));
+    }
+
+    [Fact]
+    public async Task EmitsKstprStprObecbOkresbWhenStudentHasThem()
+    {
+        using var db = NewDb();
+        SeedSchool(db);
+        var schoolClass = SeedClass(db);
+        db.Districts.Add(new District { Code = "CZ0100", Name = "Praha" });
+        db.Municipalities.Add(new Municipality { Code = "500054", Name = "Praha 1", DistrictCode = "CZ0100" });
+        db.SaveChanges();
+        SeedStudent(
+            db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Gender.Male,
+            citizenshipQualifier: "3", countryCode: "203", municipalityCode: "500054");
+
+        var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
+            .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
+
+        Assert.True(outcome.Success, string.Join("; ", outcome.Errors));
+        var xml = DecodeXml(outcome.Content!);
+        Assert.Contains("<KSTPR>3</KSTPR>", xml);
+        Assert.Contains("<STPR>203</STPR>", xml);
+        Assert.Contains("<OBECB>500054</OBECB>", xml);
+        Assert.Contains("<OKRESB>CZ0100</OKRESB>", xml);
+    }
+
+    [Fact]
+    public async Task OmitsKstprStprObecbOkresbWhenStudentLacksThem()
+    {
+        using var db = NewDb();
+        SeedSchool(db);
+        var schoolClass = SeedClass(db);
+        SeedStudent(db, schoolClass, dateOfBirth: new DateOnly(2015, 3, 10), gender: Gender.Male);
+
+        var outcome = await new MatrikaExportService(db, new FakeCurrentSchoolContext(SchoolId))
+            .BuildBaseFileAsync(new DateOnly(2026, 9, 30), "01", "Jana Testová", "777123456", "jana@test.cz");
+
+        Assert.True(outcome.Success, string.Join("; ", outcome.Errors));
+        var xml = DecodeXml(outcome.Content!);
+        Assert.DoesNotContain("<KSTPR>", xml);
+        Assert.DoesNotContain("<STPR>", xml);
+        Assert.DoesNotContain("<OBECB>", xml);
+        Assert.DoesNotContain("<OKRESB>", xml);
     }
 }

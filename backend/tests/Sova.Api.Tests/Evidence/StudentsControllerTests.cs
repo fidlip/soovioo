@@ -6,6 +6,7 @@ using Sova.Api.Data;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
 using Sova.Api.Messaging;
+using Sova.Api.Reference;
 
 namespace Sova.Api.Tests.Evidence;
 
@@ -70,5 +71,28 @@ public class StudentsControllerTests
         Assert.Empty(db.Absences.Where(a => a.StudentId == student.Id));
         Assert.Empty(db.Messages.Where(m => m.StudentId == student.Id));
         Assert.Empty(db.ParentStudents.Where(ps => ps.StudentId == student.Id));
+    }
+
+    [Fact]
+    public async Task UpdateStudentResolvesCountryAndMunicipalityNamesForDisplay()
+    {
+        using var db = NewDb();
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        db.Countries.Add(new Country { Code = "203", Name = "Česká republika" });
+        db.Districts.Add(new District { Code = "CZ0100", Name = "Praha" });
+        db.Municipalities.Add(new Municipality { Code = "500054", Name = "Praha 1", DistrictCode = "CZ0100" });
+        await db.SaveChangesAsync();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        var result = await new StudentsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .UpdateStudent(student.Id, new CreateStudentRequest(
+                "Jan", "Novák", schoolClass.Id, CountryCode: "203", MunicipalityCode: "500054"));
+
+        var dto = Assert.IsType<StudentDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Česká republika", dto.CountryName);
+        Assert.Equal("Praha 1", dto.MunicipalityName);
     }
 }

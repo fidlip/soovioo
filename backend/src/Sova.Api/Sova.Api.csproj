@@ -20,4 +20,14 @@
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Matrika reference-data CSVs (Country/District/Municipality seed),
+         loaded at startup from AppContext.BaseDirectory — see Program.cs
+         SeedReferenceData. Must be copied next to the built DLL. -->
+    <None Remove="Data/Seed/*.csv" />
+    <Content Include="Data/Seed/*.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

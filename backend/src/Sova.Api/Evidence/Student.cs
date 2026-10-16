@@ -1,3 +1,5 @@
+using Sova.Api.Reference;
+
 namespace Sova.Api.Evidence;
 
 public enum Gender
@@ -32,17 +34,34 @@ public class Student
     /// item. Null until an admin fills it in.</summary>
     public Gender? Gender { get; set; }
 
-    /// <summary>KSTPR/STPR item for matrika — státní občanství. Free text/code
-    /// (the document confirms "203" for Czech citizens) rather than a strict
-    /// enum, since we don't have the full RAKO číselník. Null = not recorded.</summary>
-    public string? Citizenship { get; set; }
+    /// <summary>KSTPR item — RAKO kvalifikátor státního občanství ("3"=Občan
+    /// ČR, "5"=cizinec s trvalým pobytem, "6"=cizinec bez trvalého pobytu,
+    /// "A"=azylant, ...). Deliberately NOT the same thing as <see cref="CountryCode"/>
+    /// — matrika wants these as two separate items (an earlier version of this
+    /// field conflated them into one "Citizenship" string, which was wrong).
+    /// Small, stable codelist — kept as a plain string + a hardcoded option
+    /// list on the frontend (same pattern as Gender/role options) rather than
+    /// a whole reference table for 8 rows.</summary>
+    public string? CitizenshipQualifier { get; set; }
 
-    // Trvalé bydliště — the real postal address. Matrika's OBECB/OKRESB items
-    // want RAUJ/RAOR codelist codes we don't have yet (see MatrikaExportService),
-    // so this is the human-readable address real schools actually need for
-    // correspondence; code-mapping it is separate future work.
+    /// <summary>STPR item — the actual country of citizenship, from the RAST
+    /// číselník (<see cref="Reference.Country"/>). "203" = Česká republika is
+    /// the literal example the matrika documentation itself gives.</summary>
+    public string? CountryCode { get; set; }
+    public Country? Country { get; set; }
+
+    /// <summary>Ulice + číslo — trvalé bydliště, the part of the address
+    /// matrika doesn't code (OBECB/OKRESB are municipality/district level,
+    /// not street level). Real schools need this for correspondence.</summary>
     public string? Street { get; set; }
-    public string? City { get; set; }
+
+    /// <summary>OBECB item — FK into the RAUJ číselník
+    /// (<see cref="Reference.Municipality"/>), which already carries its own
+    /// district code, so OKRESB is derived from this rather than asked for
+    /// separately (see MatrikaExportService).</summary>
+    public string? MunicipalityCode { get; set; }
+    public Municipality? Municipality { get; set; }
+
     public string? PostalCode { get; set; }
 
     /// <summary>SP_OBVOD item — whether the student's permanent address falls

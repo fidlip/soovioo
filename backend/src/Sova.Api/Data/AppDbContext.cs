@@ -4,6 +4,7 @@ using Sova.Api.Auth;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
 using Sova.Api.Messaging;
+using Sova.Api.Reference;
 using Sova.Api.Timetable;
 
 namespace Sova.Api.Data;
@@ -22,9 +23,38 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
 
+    // Global matrika reference data (RAST/RAOR/RAUJ) — not tenant-scoped,
+    // shared by every school. Seeded once from CSV at startup; see
+    // Program.cs SeedReferenceData and Data/Seed/*.csv.
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<District> Districts => Set<District>();
+    public DbSet<Municipality> Municipalities => Set<Municipality>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
+
+        modelBuilder.Entity<Country>().HasKey(c => c.Code);
+        modelBuilder.Entity<District>().HasKey(d => d.Code);
+        modelBuilder.Entity<Municipality>().HasKey(m => m.Code);
+        // Restrict, not the default Cascade: deleting a district/country must
+        // never silently delete the municipalities/students that reference
+        // it — this is read-only reference data, not something a user edits.
+        modelBuilder.Entity<Municipality>()
+            .HasOne(m => m.District)
+            .WithMany()
+            .HasForeignKey(m => m.DistrictCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.Municipality)
+            .WithMany()
+            .HasForeignKey(s => s.MunicipalityCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.Country)
+            .WithMany()
+            .HasForeignKey(s => s.CountryCode)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<School>().HasIndex(s => s.Slug).IsUnique();
 
@@ -95,9 +125,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 Gender = Gender.Male,
                 // RodneCislo intentionally left unset, to exercise the
                 // pseudo-RODC construction path in MatrikaExportService.
-                Citizenship = "203", // ČR — the code the matrika documentation itself gives as the example
+                CitizenshipQualifier = "3", // RAKO: Občan ČR
+                // CountryCode/MunicipalityCode NOT set here on purpose: they're
+                // FKs into Country/Municipality, which are seeded from CSV at
+                // runtime (Program.cs), not via this migration-time HasData —
+                // 6400+ rows of C# object initializers in a migration isn't
+                // reasonable. Setting the FK here would make `dotnet ef
+                // database update` fail (the referenced row doesn't exist yet
+                // at migration time). Program.cs backfills both once the
+                // reference data is in, after Migrate() has run.
                 Street = "Žákovská 12",
-                City = "Praha 1",
                 PostalCode = "110 00",
                 CatchmentArea = true,
                 EnrollmentDate = new DateOnly(2020, 9, 1),

@@ -13,16 +13,18 @@ namespace Sova.Api.Matrika;
 /// https://msmt.gov.cz/media/wp-content/uploads/2026/09/2026_metodicke_poznamky.pdf
 ///
 /// This is a SKELETON, not a submission-ready generator:
-/// - Only the items we can derive with confidence from data Sova actually
-///   stores are implemented: RDAT, IZO, CAST, RODC, POHLAVI, DAT_NAROZ,
-///   ROCNIK, TRIDA.
-/// - Everything else the real "základní soubor" requires (KSTPR/STPR, ZPUSOB,
-///   ST_SKOLY, ZAHDAT/KOD_ZAH, UKONDAT/KOD_UKON, JAZYK_O, ...) is not produced
-///   yet — those need číselníky (RAPO, RAKO, RAST, RAUJ, RAOR, ...) we haven't
-///   fetched yet, plus more data capture on Student/SchoolClass.
+/// - Items derived with confidence from data Sova actually stores: RDAT,
+///   IZO, CAST, RODC, POHLAVI, DAT_NAROZ, ROCNIK, TRIDA — plus, as optional
+///   pass-through items (only emitted when present on the student), KSTPR,
+///   STPR, OBECB, OKRESB.
+/// - POHLAVI's RAPO code ("1"=muž, "2"=žena) is now CONFIRMED against the
+///   real RAPO číselník (sberdat.uiv.cz/login/ciselniky/ciselniky.xls) — see
+///   ROADMAP.md.
+/// - Everything else the real "základní soubor" requires (ZPUSOB, ST_SKOLY,
+///   ZAHDAT/KOD_ZAH, UKONDAT/KOD_UKON, JAZYK_O, ...) is still not produced —
+///   needs more data capture on Student/SchoolClass, not missing číselníky.
 /// - The anonymized "a" (SVP/nadání/IVP) and "b" (podpůrná opatření) files
 ///   aren't built at all yet.
-/// - POHLAVI's RAPO code (assumed "1"=muž/"2"=žena below) is unverified.
 /// - The export always treats the school as a single-part ZŠ ("Z" prefix,
 ///   CAST "01" by default) — multi-part schools and other school types
 ///   (SŠ/MŠ/konzervatoř/VOŠ) aren't modeled.
@@ -78,6 +80,7 @@ public class MatrikaExportService(AppDbContext db, ICurrentSchoolContext current
 
         var students = await db.Students
             .Include(s => s.SchoolClass)
+            .Include(s => s.Municipality)
             .OrderBy(s => s.LastName)
             .ThenBy(s => s.FirstName)
             .ToListAsync();
@@ -119,7 +122,12 @@ public class MatrikaExportService(AppDbContext db, ICurrentSchoolContext current
                 Pohlavi: student.Gender.Value == Gender.Female ? "2" : "1",
                 DatNaroz: BuildDatNaroz(student.DateOfBirth.Value),
                 Rocnik: student.SchoolClass!.Rocnik!.Value.ToString(),
-                Trida: student.SchoolClass.Name));
+                Trida: student.SchoolClass.Name,
+                Kstpr: student.CitizenshipQualifier,
+                Stpr: student.CountryCode,
+                Obecb: student.MunicipalityCode,
+                // OKRESB is derived, not stored directly — see Municipality.cs.
+                Okresb: student.Municipality?.DistrictCode));
         }
 
         if (errors.Count > 0)

@@ -11,6 +11,7 @@ using Sova.Api.Auth;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
 using Sova.Api.Matrika;
+using Sova.Api.Reference;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -105,6 +106,8 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
     SeedUsers(db);
+    SeedReferenceData(db);
+    BackfillDemoStudentReferenceCodes(db);
 }
 
 // Configure the HTTP request pipeline.
@@ -157,4 +160,134 @@ static void SeedUsers(AppDbContext db)
     var parent = demoUsers.First(u => u.Username == "rodic");
     db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1, SchoolId = demoSchoolId });
     db.SaveChanges();
+}
+
+// Countries/Districts/Municipalities are global matrika reference data
+// (RAST/RAOR/RAUJ), extracted from MŠMT's own published codelist workbook —
+// see ROADMAP.md for provenance. At 6400+ municipality rows, these go
+// through a plain CSV-at-startup load rather than EF migration HasData
+// (which would bloat the migration file enormously). Districts must be
+// inserted before municipalities (FK), hence the separate SaveChanges calls.
+static void SeedReferenceData(AppDbContext db)
+{
+    if (db.Countries.Any())
+    {
+        return;
+    }
+
+    var seedDir = Path.Combine(AppContext.BaseDirectory, "Data", "Seed");
+
+    db.Countries.AddRange(ReadCsvDataRows(Path.Combine(seedDir, "countries.csv"))
+        .Select(r => new Country { Code = r[0], Name = r[1] }));
+    db.SaveChanges();
+
+    db.Districts.AddRange(ReadCsvDataRows(Path.Combine(seedDir, "districts.csv"))
+        .Select(r => new District { Code = r[0], Name = NormalizeName(r[1]) }));
+    db.SaveChanges();
+
+    db.Municipalities.AddRange(ReadCsvDataRows(Path.Combine(seedDir, "municipalities.csv"))
+        .Select(r => new Municipality { Code = r[0], Name = r[1], DistrictCode = r[2] }));
+    db.SaveChanges();
+}
+
+// The demo student's municipality/country can't be set via migration-time
+// HasData (see AppDbContext.cs comment) since the referenced rows don't
+// exist until SeedReferenceData runs — so it's backfilled here instead,
+// once, guarded by the field still being null.
+static void BackfillDemoStudentReferenceCodes(AppDbContext db)
+{
+    var student = db.Students.IgnoreQueryFilters().FirstOrDefault(s => s.Id == 1 && s.MunicipalityCode == null);
+    if (student is null)
+    {
+        return;
+    }
+
+    student.MunicipalityCode = "500054"; // RAUJ: Praha 1 (district CZ0100 follows from this)
+    student.CountryCode = "203"; // RAST: Česká republika
+    db.SaveChanges();
+}
+
+static string NormalizeName(string name) => name.Replace('\n', ' ').Replace('\r', ' ').Trim();
+
+// Minimal RFC4180-ish CSV reader: the source file has a couple of fields
+// with embedded commas and one with an embedded newline (quoted), which a
+// naive line-and-Split(',') read silently mangles — this handles quotes,
+// "" escapes, and quoted embedded newlines correctly. Returns data rows
+// only (header row skipped).
+static List<string[]> ReadCsvDataRows(string path)
+{
+    var text = File.ReadAllText(path, Encoding.UTF8);
+    var rows = new List<string[]>();
+    var fields = new List<string>();
+    var field = new StringBuilder();
+    var inQuotes = false;
+
+    void EndField()
+    {
+        fields.Add(field.ToString());
+        field.Clear();
+    }
+
+    void EndRow()
+    {
+        EndField();
+        rows.Add(fields.ToArray());
+        fields.Clear();
+    }
+
+    var i = 0;
+    while (i < text.Length)
+    {
+        var c = text[i];
+        if (inQuotes)
+        {
+            if (c == '"')
+            {
+                if (i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    field.Append('"');
+                    i += 2;
+                    continue;
+                }
+
+                inQuotes = false;
+                i++;
+                continue;
+            }
+
+            field.Append(c);
+            i++;
+            continue;
+        }
+
+        switch (c)
+        {
+            case '"':
+                inQuotes = true;
+                i++;
+                break;
+            case ',':
+                EndField();
+                i++;
+                break;
+            case '\r':
+                i++;
+                break;
+            case '\n':
+                EndRow();
+                i++;
+                break;
+            default:
+                field.Append(c);
+                i++;
+                break;
+        }
+    }
+
+    if (field.Length > 0 || fields.Count > 0)
+    {
+        EndRow();
+    }
+
+    return rows.Skip(1).Where(r => r.Length > 1 && r.Any(f => f.Length > 0)).ToList();
 }

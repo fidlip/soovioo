@@ -39,7 +39,7 @@ public static class MatrikaXmlWriter
 
         foreach (var record in records)
         {
-            root.Add(new XElement(
+            var veta = new XElement(
                 "Veta",
                 new XElement("RDAT", record.Rdat),
                 new XElement("IZO", record.Izo),
@@ -48,7 +48,31 @@ public static class MatrikaXmlWriter
                 new XElement("POHLAVI", record.Pohlavi),
                 new XElement("DAT_NAROZ", record.DatNaroz),
                 new XElement("ROCNIK", record.Rocnik),
-                new XElement("TRIDA", record.Trida)));
+                new XElement("TRIDA", record.Trida));
+
+            // Optional pass-through items: only written when the student
+            // actually has them on file (see MatrikaStudentRecord).
+            if (!string.IsNullOrWhiteSpace(record.Kstpr))
+            {
+                veta.Add(new XElement("KSTPR", record.Kstpr));
+            }
+
+            if (!string.IsNullOrWhiteSpace(record.Stpr))
+            {
+                veta.Add(new XElement("STPR", record.Stpr));
+            }
+
+            if (!string.IsNullOrWhiteSpace(record.Obecb))
+            {
+                veta.Add(new XElement("OBECB", record.Obecb));
+            }
+
+            if (!string.IsNullOrWhiteSpace(record.Okresb))
+            {
+                veta.Add(new XElement("OKRESB", record.Okresb));
+            }
+
+            root.Add(veta);
         }
 
         var doc = new XDocument(new XDeclaration("1.0", "windows-1250", null), root);

@@ -239,16 +239,16 @@ namespace Sova.Api.Migrations
                     b.Property<bool?>("CatchmentArea")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Citizenship")
-                        .HasColumnType("text");
-
-                    b.Property<string>("City")
+                    b.Property<string>("CitizenshipQualifier")
                         .HasColumnType("text");
 
                     b.Property<string>("ContactEmail")
                         .HasColumnType("text");
 
                     b.Property<string>("ContactPhone")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CountryCode")
                         .HasColumnType("text");
 
                     b.Property<DateOnly?>("DateOfBirth")
@@ -268,6 +268,9 @@ namespace Sova.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("MunicipalityCode")
+                        .HasColumnType("text");
+
                     b.Property<string>("PostalCode")
                         .HasColumnType("text");
 
@@ -285,6 +288,10 @@ namespace Sova.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CountryCode");
+
+                    b.HasIndex("MunicipalityCode");
+
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
@@ -296,8 +303,7 @@ namespace Sova.Api.Migrations
                         {
                             Id = 1,
                             CatchmentArea = true,
-                            Citizenship = "203",
-                            City = "Praha 1",
+                            CitizenshipQualifier = "3",
                             ContactEmail = "rodic.novak@example.cz",
                             ContactPhone = "+420 777 123 456",
                             DateOfBirth = new DateOnly(2015, 3, 10),
@@ -439,6 +445,54 @@ namespace Sova.Api.Migrations
                     b.HasIndex("StudentId");
 
                     b.ToTable("Messages");
+                });
+
+            modelBuilder.Entity("Sova.Api.Reference.Country", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("Countries");
+                });
+
+            modelBuilder.Entity("Sova.Api.Reference.District", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("Districts");
+                });
+
+            modelBuilder.Entity("Sova.Api.Reference.Municipality", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DistrictCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("DistrictCode");
+
+                    b.ToTable("Municipalities");
                 });
 
             modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
@@ -594,6 +648,16 @@ namespace Sova.Api.Migrations
 
             modelBuilder.Entity("Sova.Api.Evidence.Student", b =>
                 {
+                    b.HasOne("Sova.Api.Reference.Country", "Country")
+                        .WithMany()
+                        .HasForeignKey("CountryCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Sova.Api.Reference.Municipality", "Municipality")
+                        .WithMany()
+                        .HasForeignKey("MunicipalityCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
                         .WithMany("Students")
                         .HasForeignKey("SchoolClassId")
@@ -605,6 +669,10 @@ namespace Sova.Api.Migrations
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Country");
+
+                    b.Navigation("Municipality");
 
                     b.Navigation("School");
 
@@ -666,6 +734,17 @@ namespace Sova.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Sova.Api.Reference.Municipality", b =>
+                {
+                    b.HasOne("Sova.Api.Reference.District", "District")
+                        .WithMany()
+                        .HasForeignKey("DistrictCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("District");
                 });
 
             modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
