@@ -19,6 +19,49 @@ public class SchoolsControllerTests
     }
 
     [Fact]
+    public async Task GetSchoolsIncludesStudentAndUserCounts()
+    {
+        using var db = NewDb();
+        var school = new School { Name = "Škola", Slug = "skola" };
+        var otherSchool = new School { Name = "Jiná škola", Slug = "jina" };
+        db.Schools.AddRange(school, otherSchool);
+        await db.SaveChangesAsync();
+        db.Users.AddRange(
+            new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = school.Id },
+            new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = school.Id });
+        db.Students.AddRange(
+            new Student { FirstName = "A", LastName = "A", SchoolId = school.Id },
+            new Student { FirstName = "B", LastName = "B", SchoolId = otherSchool.Id });
+        await db.SaveChangesAsync();
+
+        var result = await new SchoolsController(db).GetSchools();
+
+        var page = Assert.IsType<Sova.Api.Common.PagedResult<SchoolDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var dto = Assert.Single(page.Items, s => s.Id == school.Id);
+        Assert.Equal(2, dto.UserCount);
+        Assert.Equal(1, dto.StudentCount);
+        Assert.Equal(2, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetSchoolsPaginatesResults()
+    {
+        using var db = NewDb();
+        db.Schools.AddRange(
+            new School { Name = "A", Slug = "a" },
+            new School { Name = "B", Slug = "b" },
+            new School { Name = "C", Slug = "c" });
+        await db.SaveChangesAsync();
+
+        var result = await new SchoolsController(db).GetSchools(page: 2, pageSize: 1);
+
+        var page = Assert.IsType<Sova.Api.Common.PagedResult<SchoolDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(3, page.TotalCount);
+        Assert.Single(page.Items);
+        Assert.Equal("B", page.Items[0].Name);
+    }
+
+    [Fact]
     public async Task UpdateSchoolRenamesAndChangesSlug()
     {
         using var db = NewDb();

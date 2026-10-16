@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Auth;
+using Sova.Api.Common;
 using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
@@ -16,17 +17,28 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
+    /// <summary>Paginated — a real multi-tenant install can accumulate far
+    /// more schools than fit comfortably in one unpaginated table.</summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<SchoolDto>>> GetSchools()
+    public async Task<ActionResult<PagedResult<SchoolDto>>> GetSchools(int page = 1, int pageSize = 20)
     {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var totalCount = await db.Schools.CountAsync();
+
         var schools = await db.Schools
             .OrderBy(s => s.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(s => new SchoolDto(
                 s.Id, s.Name, s.Slug, s.CreatedAt, s.Izo, s.RedIzo,
-                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone))
+                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone,
+                db.Students.Count(st => st.SchoolId == s.Id),
+                db.Users.Count(u => u.SchoolId == s.Id)))
             .ToListAsync();
 
-        return Ok(schools);
+        return Ok(new PagedResult<SchoolDto>(schools, totalCount, page, pageSize));
     }
 
     /// <summary>Creates a school and its first Admin user in one step, so
@@ -61,7 +73,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         db.Users.Add(admin);
         await db.SaveChangesAsync();
 
-        var dto = ToDto(school);
+        var dto = await ToDtoAsync(db, school);
         return CreatedAtAction(nameof(GetSchools), new { id = school.Id }, dto);
     }
 
@@ -81,7 +93,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         school.RedIzo = request.RedIzo;
         await db.SaveChangesAsync();
 
-        return Ok(ToDto(school));
+        return Ok(await ToDtoAsync(db, school));
     }
 
     [HttpPut("{id:int}")]
@@ -102,12 +114,14 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         school.Slug = request.Slug;
         await db.SaveChangesAsync();
 
-        return Ok(ToDto(school));
+        return Ok(await ToDtoAsync(db, school));
     }
 
-    internal static SchoolDto ToDto(School school) => new(
+    internal static async Task<SchoolDto> ToDtoAsync(AppDbContext db, School school) => new(
         school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo,
-        school.Street, school.City, school.PostalCode, school.DirectorName, school.Email, school.Phone);
+        school.Street, school.City, school.PostalCode, school.DirectorName, school.Email, school.Phone,
+        await db.Students.CountAsync(s => s.SchoolId == school.Id),
+        await db.Users.CountAsync(u => u.SchoolId == school.Id));
 
     /// <summary>Only allowed while the school is still empty (no users at
     /// all — every school gets its first Admin at creation time, so this is
@@ -157,4 +171,6 @@ public record SchoolDto(
     string? PostalCode,
     string? DirectorName,
     string? Email,
-    string? Phone);
+    string? Phone,
+    int StudentCount,
+    int UserCount);

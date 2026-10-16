@@ -23,7 +23,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        return Ok(SchoolsController.ToDto(school));
+        return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
 
     [HttpPut("matrika-ids")]
@@ -39,7 +39,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         school.RedIzo = request.RedIzo;
         await db.SaveChangesAsync();
 
-        return Ok(SchoolsController.ToDto(school));
+        return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
 
     /// <summary>Institutional address/contact/director — used on real
@@ -61,6 +61,6 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         school.Phone = request.Phone;
         await db.SaveChangesAsync();
 
-        return Ok(SchoolsController.ToDto(school));
+        return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
 }
