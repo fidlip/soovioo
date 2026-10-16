@@ -6,19 +6,37 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
+import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
+import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import { CreateSchoolRequest, School, SchoolsApiService, UpdateSchoolRequest } from '@sova/shared';
+
+const DEFAULT_PAGE_SIZE = 10;
 
 @Component({
   selector: 'app-super-admin-page',
-  imports: [DatePipe, FormsModule, Button, Card, InputText, Message, Password, PrimeTemplate, TableModule],
+  imports: [
+    DatePipe,
+    FormsModule,
+    Button,
+    Card,
+    InputText,
+    Message,
+    Paginator,
+    Password,
+    PrimeTemplate,
+    TableModule,
+  ],
   templateUrl: './super-admin-page.html',
 })
 export class SuperAdminPage {
   private readonly schoolsApi = inject(SchoolsApiService);
 
   protected readonly schools = signal<School[]>([]);
+  protected readonly totalCount = signal(0);
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
 
   protected newSchoolName = '';
   protected newSchoolSlug = '';
@@ -40,9 +58,26 @@ export class SuperAdminPage {
     this.reload();
   }
 
+  protected onPageChange(event: PaginatorState): void {
+    this.page.set((event.page ?? 0) + 1);
+    this.pageSize.set(event.rows ?? DEFAULT_PAGE_SIZE);
+    this.reload();
+  }
+
   private reload(): void {
-    this.schoolsApi.getSchools().subscribe({
-      next: (schools) => this.schools.set(schools),
+    this.schoolsApi.getSchools(this.page(), this.pageSize()).subscribe({
+      next: (result) => {
+        // A delete can empty out the last page (e.g. the only school left on
+        // page 2 gets removed) — step back one page rather than show a
+        // confusing "no schools" table while schools still exist.
+        if (result.items.length === 0 && result.totalCount > 0 && this.page() > 1) {
+          this.page.set(this.page() - 1);
+          this.reload();
+          return;
+        }
+        this.schools.set(result.items);
+        this.totalCount.set(result.totalCount);
+      },
       error: (err) => console.error('getSchools failed', err),
     });
   }

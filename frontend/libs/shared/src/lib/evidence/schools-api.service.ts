@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
+import { PagedResult } from '../common/paged-result.model';
 import { CreateSchoolRequest, School, UpdateSchoolRequest } from './school.model';
 
 /** SuperAdmin-only — tenant management, see SchoolsController. */
@@ -10,8 +11,10 @@ export class SchoolsApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  getSchools(): Observable<School[]> {
-    return this.http.get<School[]>(`${this.baseUrl}/api/schools`);
+  getSchools(page = 1, pageSize = 20): Observable<PagedResult<School>> {
+    return this.http.get<PagedResult<School>>(`${this.baseUrl}/api/schools`, {
+      params: { page, pageSize },
+    });
   }
 
   addSchool(request: CreateSchoolRequest): Observable<School> {

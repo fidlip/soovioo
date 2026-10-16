@@ -14,6 +14,8 @@ export interface School {
   directorName: string | null;
   email: string | null;
   phone: string | null;
+  studentCount: number;
+  userCount: number;
 }
 
 export interface CreateSchoolRequest {
