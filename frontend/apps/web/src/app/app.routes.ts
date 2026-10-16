@@ -2,6 +2,7 @@ import { Route } from '@angular/router';
 import { AbsencesPage } from './absences-page/absences-page';
 import { AdminPage } from './admin-page/admin-page';
 import { authGuard } from './auth.guard';
+import { EventsPage } from './events-page/events-page';
 import { GradesPage } from './grades-page/grades-page';
 import { LoginPage } from './login-page/login-page';
 import { MessagesPage } from './messages-page/messages-page';
@@ -15,6 +16,7 @@ const schoolRoutes: Route[] = [
   { path: 'grades', component: GradesPage, canActivate: [authGuard] },
   { path: 'absences', component: AbsencesPage, canActivate: [authGuard] },
   { path: 'timetable', component: TimetablePage, canActivate: [authGuard] },
+  { path: 'events', component: EventsPage, canActivate: [authGuard] },
   { path: 'messages', component: MessagesPage, canActivate: [authGuard] },
   { path: 'admin', component: AdminPage, canActivate: [authGuard] },
 ];

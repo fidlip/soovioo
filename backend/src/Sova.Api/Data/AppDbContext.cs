@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Attendance;
 using Sova.Api.Auth;
+using Sova.Api.Events;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
 using Sova.Api.Messaging;
@@ -21,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<Event> Events => Set<Event>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
 
@@ -65,6 +67,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .HasIndex(u => u.Username)
             .IsUnique()
             .HasFilter("\"SchoolId\" IS NULL");
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.CalendarToken)
+            .IsUnique()
+            .HasFilter("\"CalendarToken\" IS NOT NULL");
 
         // Every tenant-scoped entity is filtered to the caller's school by
         // default — a missing `Where` in a controller can't leak another
@@ -90,6 +96,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
         modelBuilder.Entity<Message>().HasQueryFilter(m =>
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Event>().HasQueryFilter(e =>
+            currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
             currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId);
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Auth;
 using Sova.Api.Data;
+using Sova.Api.Events;
 using Sova.Api.Evidence;
 
 namespace Sova.Api.Tests.Data;
@@ -40,6 +41,9 @@ public class MultiTenancyQueryFilterTests
         seedDb.Users.AddRange(
             new User { Username = "admin.a", PasswordHash = "x", Role = UserRole.Admin, SchoolId = schoolA.Id },
             new User { Username = "admin.b", PasswordHash = "x", Role = UserRole.Admin, SchoolId = schoolB.Id });
+        seedDb.Events.AddRange(
+            new Event { Title = "Akce A", SchoolId = schoolA.Id, StartAt = DateTimeOffset.UtcNow, EndAt = DateTimeOffset.UtcNow.AddHours(1) },
+            new Event { Title = "Akce B", SchoolId = schoolB.Id, StartAt = DateTimeOffset.UtcNow, EndAt = DateTimeOffset.UtcNow.AddHours(1) });
         seedDb.SaveChanges();
 
         return (options, schoolA.Id, schoolB.Id);
@@ -90,6 +94,18 @@ public class MultiTenancyQueryFilterTests
         var students = db.Students.ToList();
 
         Assert.Equal(2, students.Count);
+    }
+
+    [Fact]
+    public void AdminOfSchoolASeesOnlySchoolAsEvents()
+    {
+        var (options, schoolAId, _) = SeedTwoSchools();
+        using var db = new AppDbContext(options, new FakeCurrentSchoolContext(schoolAId));
+
+        var events = db.Events.ToList();
+
+        Assert.Single(events);
+        Assert.Equal("Akce A", events[0].Title);
     }
 
     [Fact]

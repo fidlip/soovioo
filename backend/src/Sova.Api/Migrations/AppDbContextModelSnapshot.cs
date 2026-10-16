@@ -65,6 +65,9 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CalendarToken")
+                        .HasColumnType("text");
+
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
@@ -87,6 +90,10 @@ namespace Sova.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CalendarToken")
+                        .IsUnique()
+                        .HasFilter("\"CalendarToken\" IS NOT NULL");
+
                     b.HasIndex("Username")
                         .IsUnique()
                         .HasFilter("\"SchoolId\" IS NULL");
@@ -95,6 +102,54 @@ namespace Sova.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.Event", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllDay")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("EndAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("StartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
@@ -683,6 +738,23 @@ namespace Sova.Api.Migrations
                         .HasForeignKey("SchoolId");
 
                     b.Navigation("School");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.Event", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId");
+
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+
+                    b.Navigation("SchoolClass");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>

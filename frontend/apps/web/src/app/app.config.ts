@@ -5,11 +5,33 @@ import {
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withRouterConfig } from '@angular/router';
+import { Translation } from '@openng/optimus-ui/api';
 import { provideOptimus } from '@openng/optimus-ui/config';
 import { API_BASE_URL, TokenStorage, authInterceptor } from '@sova/shared';
 import { appRoutes } from './app.routes';
 import { LocalTokenStorage } from './local-token-storage';
 import { sovaTheme } from './theme';
+
+// optimus-ui (PrimeNG) components with their own locale-dependent text —
+// the DatePicker's month/day names and "today" button, for now — don't
+// follow Angular's LOCALE_ID or a page's `lang` attribute; they need this
+// explicit translation object, same as FullCalendar needs its own
+// `@fullcalendar/core/locales/cs` import (see events-page.ts).
+const csTranslation: Translation = {
+  dayNames: ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'],
+  dayNamesShort: ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'],
+  dayNamesMin: ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'],
+  monthNames: [
+    'leden', 'únor', 'březen', 'duben', 'květen', 'červen',
+    'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec',
+  ],
+  monthNamesShort: ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'],
+  today: 'Dnes',
+  clear: 'Vymazat',
+  firstDayOfWeek: 1,
+  dateFormat: 'dd.mm.yy',
+  weekHeader: 'Týd',
+};
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -21,6 +43,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor])),
     provideAnimations(),
     provideOptimus({
+      translation: csTranslation,
       theme: {
         preset: sovaTheme,
         options: {

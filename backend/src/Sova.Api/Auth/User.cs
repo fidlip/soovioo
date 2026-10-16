@@ -17,4 +17,11 @@ public class User
     // admin directly, separate from their login username.
     public string? Phone { get; set; }
     public string? Email { get; set; }
+
+    /// <summary>Secret used to authenticate the unauthenticated ICS feed
+    /// endpoint (<see cref="Events.CalendarFeedController"/>) — calendar
+    /// apps subscribing by URL can't send a Bearer token. Lazily generated
+    /// on first request, not at account creation, so existing rows stay
+    /// null until a user actually asks for their feed link.</summary>
+    public string? CalendarToken { get; set; }
 }
