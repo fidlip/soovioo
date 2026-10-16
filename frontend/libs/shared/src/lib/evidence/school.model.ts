@@ -6,6 +6,14 @@ export interface School {
   /** Matrika export fields — optional until an admin fills them in. */
   izo: string | null;
   redIzo: string | null;
+  /** Institutional address/contact/director — not sent to matrika, but used
+   * on real documents (report card letterhead). */
+  street: string | null;
+  city: string | null;
+  postalCode: string | null;
+  directorName: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 export interface CreateSchoolRequest {
@@ -25,4 +33,13 @@ export interface UpdateSchoolRequest {
 export interface SetSchoolMatrikaIdsRequest {
   izo: string | null;
   redIzo: string | null;
+}
+
+export interface SetSchoolDetailsRequest {
+  street: string | null;
+  city: string | null;
+  postalCode: string | null;
+  directorName: string | null;
+  email: string | null;
+  phone: string | null;
 }

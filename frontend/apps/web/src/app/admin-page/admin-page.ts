@@ -81,9 +81,15 @@ export class AdminPage {
     this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
   );
 
+  /** Třídní učitel candidates — Teacher role only. */
+  protected readonly teacherOptions = computed(() => this.users().filter((u) => u.role === 'Teacher'));
+
   protected newSchoolClassName = '';
   protected newSchoolClassRocnik: number | null = null;
+  protected newSchoolClassTeacherId: number | null = null;
+  protected newSchoolClassTeachingLanguage = '';
   protected newSubjectName = '';
+  protected newSubjectAbbreviation = '';
 
   protected newStudentFirstName = '';
   protected newStudentLastName = '';
@@ -91,10 +97,20 @@ export class AdminPage {
   protected newStudentRodneCislo = '';
   protected newStudentDateOfBirth = '';
   protected newStudentGender: Gender | null = null;
+  protected newStudentCitizenship = '';
+  protected newStudentStreet = '';
+  protected newStudentCity = '';
+  protected newStudentPostalCode = '';
+  protected newStudentCatchmentArea = false;
+  protected newStudentEnrollmentDate = '';
+  protected newStudentContactPhone = '';
+  protected newStudentContactEmail = '';
 
   protected newUsername = '';
   protected newPassword = '';
   protected newUserRole = 'Parent';
+  protected newUserPhone = '';
+  protected newUserEmail = '';
 
   protected newLinkUserId: number | null = null;
   protected newLinkStudentId: number | null = null;
@@ -102,9 +118,12 @@ export class AdminPage {
   protected editingSchoolClassId: number | null = null;
   protected editSchoolClassName = '';
   protected editSchoolClassRocnik: number | null = null;
+  protected editSchoolClassTeacherId: number | null = null;
+  protected editSchoolClassTeachingLanguage = '';
 
   protected editingSubjectId: number | null = null;
   protected editSubjectName = '';
+  protected editSubjectAbbreviation = '';
 
   protected editingStudentId: number | null = null;
   protected editStudentFirstName = '';
@@ -113,11 +132,28 @@ export class AdminPage {
   protected editStudentRodneCislo = '';
   protected editStudentDateOfBirth = '';
   protected editStudentGender: Gender | null = null;
+  protected editStudentCitizenship = '';
+  protected editStudentStreet = '';
+  protected editStudentCity = '';
+  protected editStudentPostalCode = '';
+  protected editStudentCatchmentArea = false;
+  protected editStudentEnrollmentDate = '';
+  protected editStudentContactPhone = '';
+  protected editStudentContactEmail = '';
 
   protected editingUserId: number | null = null;
   protected editUsername = '';
   protected editUserRole = 'Parent';
   protected editUserPassword = '';
+  protected editUserPhone = '';
+  protected editUserEmail = '';
+
+  protected readonly schoolStreet = signal('');
+  protected readonly schoolCity = signal('');
+  protected readonly schoolPostalCode = signal('');
+  protected readonly schoolDirectorName = signal('');
+  protected readonly schoolEmail = signal('');
+  protected readonly schoolPhone = signal('');
 
   protected readonly matrikaIzo = signal('');
   protected readonly matrikaRedIzo = signal('');
@@ -140,6 +176,13 @@ export class AdminPage {
 
   protected isAdmin(): boolean {
     return this.authApi.isAdmin();
+  }
+
+  protected classTeacherName(classTeacherId: number | null): string {
+    if (classTeacherId === null) {
+      return '—';
+    }
+    return this.users().find((u) => u.id === classTeacherId)?.username ?? '—';
   }
 
   private reloadAll(): void {
@@ -179,11 +222,18 @@ export class AdminPage {
       return;
     }
     this.schoolClassesApi
-      .addSchoolClass({ name: this.newSchoolClassName, rocnik: this.newSchoolClassRocnik ?? undefined })
+      .addSchoolClass({
+        name: this.newSchoolClassName,
+        rocnik: this.newSchoolClassRocnik ?? undefined,
+        classTeacherId: this.newSchoolClassTeacherId ?? undefined,
+        teachingLanguage: this.newSchoolClassTeachingLanguage || undefined,
+      })
       .subscribe({
         next: () => {
           this.newSchoolClassName = '';
           this.newSchoolClassRocnik = null;
+          this.newSchoolClassTeacherId = null;
+          this.newSchoolClassTeachingLanguage = '';
           this.reloadAll();
         },
         error: (err) => this.showError('addSchoolClass failed', err),
@@ -194,6 +244,8 @@ export class AdminPage {
     this.editingSchoolClassId = schoolClass.id;
     this.editSchoolClassName = schoolClass.name;
     this.editSchoolClassRocnik = schoolClass.rocnik;
+    this.editSchoolClassTeacherId = schoolClass.classTeacherId;
+    this.editSchoolClassTeachingLanguage = schoolClass.teachingLanguage ?? '';
   }
 
   protected cancelEditSchoolClass(): void {
@@ -208,6 +260,8 @@ export class AdminPage {
       .updateSchoolClass(this.editingSchoolClassId, {
         name: this.editSchoolClassName,
         rocnik: this.editSchoolClassRocnik ?? undefined,
+        classTeacherId: this.editSchoolClassTeacherId ?? undefined,
+        teachingLanguage: this.editSchoolClassTeachingLanguage || undefined,
       })
       .subscribe({
         next: () => {
@@ -229,18 +283,22 @@ export class AdminPage {
     if (!this.newSubjectName.trim()) {
       return;
     }
-    this.subjectsApi.addSubject({ name: this.newSubjectName }).subscribe({
-      next: () => {
-        this.newSubjectName = '';
-        this.reloadAll();
-      },
-      error: (err) => this.showError('addSubject failed', err),
-    });
+    this.subjectsApi
+      .addSubject({ name: this.newSubjectName, abbreviation: this.newSubjectAbbreviation || undefined })
+      .subscribe({
+        next: () => {
+          this.newSubjectName = '';
+          this.newSubjectAbbreviation = '';
+          this.reloadAll();
+        },
+        error: (err) => this.showError('addSubject failed', err),
+      });
   }
 
   protected startEditSubject(subject: Subject): void {
     this.editingSubjectId = subject.id;
     this.editSubjectName = subject.name;
+    this.editSubjectAbbreviation = subject.abbreviation ?? '';
   }
 
   protected cancelEditSubject(): void {
@@ -251,13 +309,18 @@ export class AdminPage {
     if (this.editingSubjectId === null || !this.editSubjectName.trim()) {
       return;
     }
-    this.subjectsApi.updateSubject(this.editingSubjectId, { name: this.editSubjectName }).subscribe({
-      next: () => {
-        this.editingSubjectId = null;
-        this.reloadAll();
-      },
-      error: (err) => this.showError('updateSubject failed', err),
-    });
+    this.subjectsApi
+      .updateSubject(this.editingSubjectId, {
+        name: this.editSubjectName,
+        abbreviation: this.editSubjectAbbreviation || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.editingSubjectId = null;
+          this.reloadAll();
+        },
+        error: (err) => this.showError('updateSubject failed', err),
+      });
   }
 
   protected deleteSubject(subject: Subject): void {
@@ -279,6 +342,14 @@ export class AdminPage {
         rodneCislo: this.newStudentRodneCislo || undefined,
         dateOfBirth: this.newStudentDateOfBirth || undefined,
         gender: this.newStudentGender ?? undefined,
+        citizenship: this.newStudentCitizenship || undefined,
+        street: this.newStudentStreet || undefined,
+        city: this.newStudentCity || undefined,
+        postalCode: this.newStudentPostalCode || undefined,
+        catchmentArea: this.newStudentCatchmentArea || undefined,
+        enrollmentDate: this.newStudentEnrollmentDate || undefined,
+        contactPhone: this.newStudentContactPhone || undefined,
+        contactEmail: this.newStudentContactEmail || undefined,
       })
       .subscribe({
         next: () => {
@@ -287,6 +358,14 @@ export class AdminPage {
           this.newStudentRodneCislo = '';
           this.newStudentDateOfBirth = '';
           this.newStudentGender = null;
+          this.newStudentCitizenship = '';
+          this.newStudentStreet = '';
+          this.newStudentCity = '';
+          this.newStudentPostalCode = '';
+          this.newStudentCatchmentArea = false;
+          this.newStudentEnrollmentDate = '';
+          this.newStudentContactPhone = '';
+          this.newStudentContactEmail = '';
           this.reloadAll();
         },
         error: (err) => this.showError('addStudent failed', err),
@@ -301,6 +380,14 @@ export class AdminPage {
     this.editStudentRodneCislo = student.rodneCislo ?? '';
     this.editStudentDateOfBirth = student.dateOfBirth ?? '';
     this.editStudentGender = student.gender;
+    this.editStudentCitizenship = student.citizenship ?? '';
+    this.editStudentStreet = student.street ?? '';
+    this.editStudentCity = student.city ?? '';
+    this.editStudentPostalCode = student.postalCode ?? '';
+    this.editStudentCatchmentArea = student.catchmentArea ?? false;
+    this.editStudentEnrollmentDate = student.enrollmentDate ?? '';
+    this.editStudentContactPhone = student.contactPhone ?? '';
+    this.editStudentContactEmail = student.contactEmail ?? '';
   }
 
   protected cancelEditStudent(): void {
@@ -324,6 +411,14 @@ export class AdminPage {
         rodneCislo: this.editStudentRodneCislo || undefined,
         dateOfBirth: this.editStudentDateOfBirth || undefined,
         gender: this.editStudentGender ?? undefined,
+        citizenship: this.editStudentCitizenship || undefined,
+        street: this.editStudentStreet || undefined,
+        city: this.editStudentCity || undefined,
+        postalCode: this.editStudentPostalCode || undefined,
+        catchmentArea: this.editStudentCatchmentArea || undefined,
+        enrollmentDate: this.editStudentEnrollmentDate || undefined,
+        contactPhone: this.editStudentContactPhone || undefined,
+        contactEmail: this.editStudentContactEmail || undefined,
       })
       .subscribe({
         next: () => {
@@ -355,11 +450,15 @@ export class AdminPage {
       username: this.newUsername,
       password: this.newPassword,
       role: this.newUserRole,
+      phone: this.newUserPhone || undefined,
+      email: this.newUserEmail || undefined,
     };
     this.usersApi.addUser(request).subscribe({
       next: () => {
         this.newUsername = '';
         this.newPassword = '';
+        this.newUserPhone = '';
+        this.newUserEmail = '';
         this.reloadAll();
       },
       error: (err) => this.showError('addUser failed', err),
@@ -371,6 +470,8 @@ export class AdminPage {
     this.editUsername = user.username;
     this.editUserRole = user.role;
     this.editUserPassword = '';
+    this.editUserPhone = user.phone ?? '';
+    this.editUserEmail = user.email ?? '';
   }
 
   protected cancelEditUser(): void {
@@ -385,6 +486,8 @@ export class AdminPage {
       username: this.editUsername,
       role: this.editUserRole,
       password: this.editUserPassword || undefined,
+      phone: this.editUserPhone || undefined,
+      email: this.editUserEmail || undefined,
     };
     this.usersApi.updateUser(this.editingUserId, request).subscribe({
       next: () => {
@@ -427,6 +530,12 @@ export class AdminPage {
       next: (school) => {
         this.matrikaIzo.set(school.izo ?? '');
         this.matrikaRedIzo.set(school.redIzo ?? '');
+        this.schoolStreet.set(school.street ?? '');
+        this.schoolCity.set(school.city ?? '');
+        this.schoolPostalCode.set(school.postalCode ?? '');
+        this.schoolDirectorName.set(school.directorName ?? '');
+        this.schoolEmail.set(school.email ?? '');
+        this.schoolPhone.set(school.phone ?? '');
       },
       error: (err) => console.error('getMySchool failed', err),
     });
@@ -438,6 +547,22 @@ export class AdminPage {
       .subscribe({
         next: () => this.loadMySchool(),
         error: (err) => this.showError('setMatrikaIds failed', err),
+      });
+  }
+
+  protected saveSchoolDetails(): void {
+    this.mySchoolApi
+      .setDetails({
+        street: this.schoolStreet() || null,
+        city: this.schoolCity() || null,
+        postalCode: this.schoolPostalCode() || null,
+        directorName: this.schoolDirectorName() || null,
+        email: this.schoolEmail() || null,
+        phone: this.schoolPhone() || null,
+      })
+      .subscribe({
+        next: () => this.loadMySchool(),
+        error: (err) => this.showError('setSchoolDetails failed', err),
       });
   }
 
