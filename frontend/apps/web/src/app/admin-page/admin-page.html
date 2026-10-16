@@ -230,16 +230,38 @@
                     [(ngModel)]="editStudentRodneCislo"
                     name="editStudentRodneCislo"
                   />
-                  <input
-                    pInputText
-                    type="text"
-                    placeholder="Státní občanství"
-                    [(ngModel)]="editStudentCitizenship"
-                    name="editStudentCitizenship"
-                    class="w-28"
+                  <p-select
+                    [options]="citizenshipQualifierOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Kvalifikátor občanství"
+                    [(ngModel)]="editStudentCitizenshipQualifier"
+                    name="editStudentCitizenshipQualifier"
+                    [filter]="true"
+                    styleClass="w-44"
+                  />
+                  <p-select
+                    [options]="countries()"
+                    optionLabel="name"
+                    optionValue="code"
+                    placeholder="Stát"
+                    [(ngModel)]="editStudentCountryCode"
+                    name="editStudentCountryCode"
+                    [filter]="true"
+                    styleClass="w-36"
                   />
                   <input pInputText type="text" placeholder="Ulice" [(ngModel)]="editStudentStreet" name="editStudentStreet" />
-                  <input pInputText type="text" placeholder="Obec" [(ngModel)]="editStudentCity" name="editStudentCity" />
+                  <p-autoComplete
+                    [(ngModel)]="editStudentMunicipality"
+                    name="editStudentMunicipality"
+                    [suggestions]="municipalitySuggestions()"
+                    (completeMethod)="searchMunicipalities($event)"
+                    optionLabel="name"
+                    dataKey="code"
+                    placeholder="Obec"
+                    styleClass="w-36"
+                    inputStyleClass="w-full"
+                  />
                   <input
                     pInputText
                     type="text"
@@ -320,16 +342,38 @@
           name="studentRodneCislo"
           [(ngModel)]="newStudentRodneCislo"
         />
-        <input
-          pInputText
-          type="text"
-          placeholder="Státní občanství"
-          name="studentCitizenship"
-          [(ngModel)]="newStudentCitizenship"
-          class="w-28"
+        <p-select
+          [options]="citizenshipQualifierOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Kvalifikátor občanství"
+          name="studentCitizenshipQualifier"
+          [(ngModel)]="newStudentCitizenshipQualifier"
+          [filter]="true"
+          styleClass="w-44"
+        />
+        <p-select
+          [options]="countries()"
+          optionLabel="name"
+          optionValue="code"
+          placeholder="Stát"
+          name="studentCountryCode"
+          [(ngModel)]="newStudentCountryCode"
+          [filter]="true"
+          styleClass="w-36"
         />
         <input pInputText type="text" placeholder="Ulice" name="studentStreet" [(ngModel)]="newStudentStreet" />
-        <input pInputText type="text" placeholder="Obec" name="studentCity" [(ngModel)]="newStudentCity" />
+        <p-autoComplete
+          [(ngModel)]="newStudentMunicipality"
+          name="studentMunicipality"
+          [suggestions]="municipalitySuggestions()"
+          (completeMethod)="searchMunicipalities($event)"
+          optionLabel="name"
+          dataKey="code"
+          placeholder="Obec"
+          styleClass="w-36"
+          inputStyleClass="w-full"
+        />
         <input
           pInputText
           type="text"

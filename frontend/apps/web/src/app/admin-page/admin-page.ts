@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AutoComplete, AutoCompleteCompleteEvent } from '@openng/optimus-ui/autocomplete';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -13,12 +14,15 @@ import { Tag } from '@openng/optimus-ui/tag';
 import {
   AppUser,
   AuthApiService,
+  Country,
   CreateUserRequest,
   Gender,
   MatrikaApiService,
+  Municipality,
   MySchoolApiService,
   ParentStudentLink,
   ParentStudentsApiService,
+  ReferenceApiService,
   SchoolClass,
   SchoolClassesApiService,
   Student,
@@ -40,9 +44,24 @@ const GENDER_OPTIONS: { label: string; value: Gender }[] = [
   { label: 'Dívka', value: 'Female' },
 ];
 
+/** RAKO kvalifikátor státního občanství — only 8 stable rows, so a hardcoded
+ * list (same pattern as GENDER_OPTIONS/ROLE_OPTIONS) rather than a DB table.
+ * See Student.CitizenshipQualifier. */
+const CITIZENSHIP_QUALIFIER_OPTIONS = [
+  { label: 'Občan ČR', value: '3' },
+  { label: 'Cizinec s trvalým pobytem v ČR', value: '5' },
+  { label: 'Cizinec bez trvalého pobytu v ČR', value: '6' },
+  { label: 'Azylant nebo žadatel o azyl', value: 'A' },
+  { label: 'Osoba s dočasnou ochranou v ČR', value: 'D' },
+  { label: 'Osoba s doplňkovou ochranou v ČR', value: 'K' },
+  { label: 'Osoba bez státního občanství', value: '0' },
+  { label: 'Občanství neznámé/neudané', value: '9' },
+];
+
 @Component({
   selector: 'app-admin-page',
   imports: [
+    AutoComplete,
     FormsModule,
     Button,
     Card,
@@ -66,15 +85,19 @@ export class AdminPage {
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
   private readonly mySchoolApi = inject(MySchoolApiService);
   private readonly matrikaApi = inject(MatrikaApiService);
+  private readonly referenceApi = inject(ReferenceApiService);
 
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
   protected readonly users = signal<AppUser[]>([]);
   protected readonly links = signal<ParentStudentLink[]>([]);
+  protected readonly countries = signal<Country[]>([]);
+  protected readonly municipalitySuggestions = signal<Municipality[]>([]);
 
   protected readonly roleOptions = ROLE_OPTIONS;
   protected readonly genderOptions = GENDER_OPTIONS;
+  protected readonly citizenshipQualifierOptions = CITIZENSHIP_QUALIFIER_OPTIONS;
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
@@ -97,9 +120,10 @@ export class AdminPage {
   protected newStudentRodneCislo = '';
   protected newStudentDateOfBirth = '';
   protected newStudentGender: Gender | null = null;
-  protected newStudentCitizenship = '';
+  protected newStudentCitizenshipQualifier: string | null = null;
+  protected newStudentCountryCode: string | null = null;
   protected newStudentStreet = '';
-  protected newStudentCity = '';
+  protected newStudentMunicipality: Municipality | null = null;
   protected newStudentPostalCode = '';
   protected newStudentCatchmentArea = false;
   protected newStudentEnrollmentDate = '';
@@ -132,9 +156,10 @@ export class AdminPage {
   protected editStudentRodneCislo = '';
   protected editStudentDateOfBirth = '';
   protected editStudentGender: Gender | null = null;
-  protected editStudentCitizenship = '';
+  protected editStudentCitizenshipQualifier: string | null = null;
+  protected editStudentCountryCode: string | null = null;
   protected editStudentStreet = '';
-  protected editStudentCity = '';
+  protected editStudentMunicipality: Municipality | null = null;
   protected editStudentPostalCode = '';
   protected editStudentCatchmentArea = false;
   protected editStudentEnrollmentDate = '';
@@ -172,6 +197,18 @@ export class AdminPage {
   constructor() {
     this.reloadAll();
     this.loadMySchool();
+    this.referenceApi.getCountries().subscribe({
+      next: (countries) => this.countries.set(countries),
+      error: (err) => console.error('getCountries failed', err),
+    });
+  }
+
+  /** p-autoComplete's completeMethod — backend ignores queries under 2 chars. */
+  protected searchMunicipalities(event: AutoCompleteCompleteEvent): void {
+    this.referenceApi.searchMunicipalities(event.query).subscribe({
+      next: (results) => this.municipalitySuggestions.set(results),
+      error: (err) => console.error('searchMunicipalities failed', err),
+    });
   }
 
   protected isAdmin(): boolean {
@@ -342,9 +379,10 @@ export class AdminPage {
         rodneCislo: this.newStudentRodneCislo || undefined,
         dateOfBirth: this.newStudentDateOfBirth || undefined,
         gender: this.newStudentGender ?? undefined,
-        citizenship: this.newStudentCitizenship || undefined,
+        citizenshipQualifier: this.newStudentCitizenshipQualifier || undefined,
+        countryCode: this.newStudentCountryCode || undefined,
         street: this.newStudentStreet || undefined,
-        city: this.newStudentCity || undefined,
+        municipalityCode: this.newStudentMunicipality?.code || undefined,
         postalCode: this.newStudentPostalCode || undefined,
         catchmentArea: this.newStudentCatchmentArea || undefined,
         enrollmentDate: this.newStudentEnrollmentDate || undefined,
@@ -358,9 +396,10 @@ export class AdminPage {
           this.newStudentRodneCislo = '';
           this.newStudentDateOfBirth = '';
           this.newStudentGender = null;
-          this.newStudentCitizenship = '';
+          this.newStudentCitizenshipQualifier = null;
+          this.newStudentCountryCode = null;
           this.newStudentStreet = '';
-          this.newStudentCity = '';
+          this.newStudentMunicipality = null;
           this.newStudentPostalCode = '';
           this.newStudentCatchmentArea = false;
           this.newStudentEnrollmentDate = '';
@@ -380,9 +419,12 @@ export class AdminPage {
     this.editStudentRodneCislo = student.rodneCislo ?? '';
     this.editStudentDateOfBirth = student.dateOfBirth ?? '';
     this.editStudentGender = student.gender;
-    this.editStudentCitizenship = student.citizenship ?? '';
+    this.editStudentCitizenshipQualifier = student.citizenshipQualifier;
+    this.editStudentCountryCode = student.countryCode;
     this.editStudentStreet = student.street ?? '';
-    this.editStudentCity = student.city ?? '';
+    this.editStudentMunicipality = student.municipalityCode
+      ? { code: student.municipalityCode, name: student.municipalityName ?? student.municipalityCode, districtCode: '' }
+      : null;
     this.editStudentPostalCode = student.postalCode ?? '';
     this.editStudentCatchmentArea = student.catchmentArea ?? false;
     this.editStudentEnrollmentDate = student.enrollmentDate ?? '';
@@ -411,9 +453,10 @@ export class AdminPage {
         rodneCislo: this.editStudentRodneCislo || undefined,
         dateOfBirth: this.editStudentDateOfBirth || undefined,
         gender: this.editStudentGender ?? undefined,
-        citizenship: this.editStudentCitizenship || undefined,
+        citizenshipQualifier: this.editStudentCitizenshipQualifier || undefined,
+        countryCode: this.editStudentCountryCode || undefined,
         street: this.editStudentStreet || undefined,
-        city: this.editStudentCity || undefined,
+        municipalityCode: this.editStudentMunicipality?.code || undefined,
         postalCode: this.editStudentPostalCode || undefined,
         catchmentArea: this.editStudentCatchmentArea || undefined,
         enrollmentDate: this.editStudentEnrollmentDate || undefined,

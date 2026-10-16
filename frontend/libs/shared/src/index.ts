@@ -13,6 +13,8 @@ export * from './lib/evidence/school-classes-api.service';
 export * from './lib/evidence/schools-api.service';
 export * from './lib/evidence/parent-students-api.service';
 export * from './lib/evidence/my-school-api.service';
+export * from './lib/evidence/reference.model';
+export * from './lib/evidence/reference-api.service';
 export * from './lib/matrika/matrika-export.model';
 export * from './lib/matrika/matrika-api.service';
 export * from './lib/attendance/absence.model';

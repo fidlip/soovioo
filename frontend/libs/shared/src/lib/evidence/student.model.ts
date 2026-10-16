@@ -10,11 +10,18 @@ export interface Student {
   rodneCislo: string | null;
   dateOfBirth: string | null;
   gender: Gender | null;
-  /** State citizenship code — matrika's own doc gives "203" as the ČR example. */
-  citizenship: string | null;
-  /** Trvalé bydliště — human-readable address (not yet mapped to matrika's OBECB/OKRESB codes). */
+  /** KSTPR — RAKO kvalifikátor státního občanství ("3"=Občan ČR, ...). Small,
+   * stable codelist — kept as a plain code + hardcoded options (see
+   * CITIZENSHIP_QUALIFIER_OPTIONS), not a reference table. */
+  citizenshipQualifier: string | null;
+  /** STPR — actual country of citizenship, RAST číselník code. */
+  countryCode: string | null;
+  countryName: string | null;
+  /** Trvalé bydliště — matrika doesn't code street-level addresses. */
   street: string | null;
-  city: string | null;
+  /** OBECB — RAUJ číselník code; OKRESB is derived from this on export. */
+  municipalityCode: string | null;
+  municipalityName: string | null;
   postalCode: string | null;
   /** SP_OBVOD — whether the address falls within the school's spádový obvod. */
   catchmentArea: boolean | null;
@@ -32,9 +39,10 @@ export interface CreateStudentRequest {
   rodneCislo?: string;
   dateOfBirth?: string;
   gender?: Gender;
-  citizenship?: string;
+  citizenshipQualifier?: string;
+  countryCode?: string;
   street?: string;
-  city?: string;
+  municipalityCode?: string;
   postalCode?: string;
   catchmentArea?: boolean;
   enrollmentDate?: string;
