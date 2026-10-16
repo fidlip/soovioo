@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
 using Sova.Api.Timetable;
@@ -75,5 +76,48 @@ public class TimetableControllerTests
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.TimetableEntries.FindAsync(entry.Id));
+    }
+
+    [Fact]
+    public async Task AddEntryAssignsTeacherAndReturnsName()
+    {
+        using var db = NewDb();
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        db.Subjects.Add(subject);
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+            .AddEntry(
+                schoolClass.Id,
+                new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, teacher.Id));
+
+        var dto = Assert.IsType<TimetableEntryDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(teacher.Id, dto.TeacherId);
+        Assert.Equal("ucitel", dto.TeacherName);
+    }
+
+    [Fact]
+    public async Task AddEntryRejectsNonTeacherUserAsTeacher()
+    {
+        using var db = NewDb();
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
+        // An Admin, not a Teacher — picking them as a timetable teacher is invalid.
+        var admin = new User { Username = "admin", PasswordHash = "", Role = UserRole.Admin, SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        db.Subjects.Add(subject);
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+            .AddEntry(
+                schoolClass.Id,
+                new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, admin.Id));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 }

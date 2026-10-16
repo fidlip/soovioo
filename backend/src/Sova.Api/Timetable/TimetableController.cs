@@ -23,9 +23,12 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.SchoolClassId,
                 e.SubjectId,
                 e.Subject!.Name,
+                e.Subject!.Abbreviation,
                 e.DayOfWeek,
                 e.PeriodNumber,
-                e.WeekParity))
+                e.WeekParity,
+                e.TeacherId,
+                e.Teacher == null ? null : e.Teacher.Username))
             .ToListAsync();
 
         return Ok(entries);
@@ -49,6 +52,12 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest("Unknown subjectId.");
         }
 
+        var teacher = await ResolveTeacherAsync(request.TeacherId);
+        if (request.TeacherId is not null && teacher is null)
+        {
+            return BadRequest("Unknown teacherId.");
+        }
+
         var entry = new TimetableEntry
         {
             SchoolClassId = schoolClassId,
@@ -56,6 +65,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             DayOfWeek = request.DayOfWeek,
             PeriodNumber = request.PeriodNumber,
             WeekParity = request.WeekParity,
+            TeacherId = request.TeacherId,
             SchoolId = currentSchool.SchoolId!.Value,
         };
 
@@ -63,8 +73,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         await db.SaveChangesAsync();
 
         var dto = new TimetableEntryDto(
-            entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity);
+            entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username);
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
 
@@ -85,16 +95,35 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest("Unknown subjectId.");
         }
 
+        var teacher = await ResolveTeacherAsync(request.TeacherId);
+        if (request.TeacherId is not null && teacher is null)
+        {
+            return BadRequest("Unknown teacherId.");
+        }
+
         entry.SubjectId = request.SubjectId;
         entry.DayOfWeek = request.DayOfWeek;
         entry.PeriodNumber = request.PeriodNumber;
         entry.WeekParity = request.WeekParity;
+        entry.TeacherId = request.TeacherId;
         await db.SaveChangesAsync();
 
         var dto = new TimetableEntryDto(
-            entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity);
+            entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username);
         return Ok(dto);
+    }
+
+    /// <summary>Null teacherId is valid (unassigned); a non-null id must
+    /// resolve to an actual Teacher in this school, not just any user.</summary>
+    private async Task<User?> ResolveTeacherAsync(int? teacherId)
+    {
+        if (teacherId is null)
+        {
+            return null;
+        }
+
+        return await db.Users.FirstOrDefaultAsync(u => u.Id == teacherId && u.Role == UserRole.Teacher);
     }
 
     [HttpDelete("{id:int}")]
@@ -117,13 +146,17 @@ public record CreateTimetableEntryRequest(
     int SubjectId,
     DayOfWeek DayOfWeek,
     int PeriodNumber,
-    WeekParity WeekParity);
+    WeekParity WeekParity,
+    int? TeacherId = null);
 
 public record TimetableEntryDto(
     int Id,
     int SchoolClassId,
     int SubjectId,
     string SubjectName,
+    string? SubjectAbbreviation,
     DayOfWeek DayOfWeek,
     int PeriodNumber,
-    WeekParity WeekParity);
+    WeekParity WeekParity,
+    int? TeacherId,
+    string? TeacherName);

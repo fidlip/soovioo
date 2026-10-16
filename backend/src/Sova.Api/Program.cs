@@ -106,6 +106,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
     SeedUsers(db);
+    BackfillDemoTimetableTeacher(db);
     SeedReferenceData(db);
     BackfillDemoStudentReferenceCodes(db);
 }
@@ -159,6 +160,42 @@ static void SeedUsers(AppDbContext db)
 
     var parent = demoUsers.First(u => u.Username == "rodic");
     db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1, SchoolId = demoSchoolId });
+    db.SaveChanges();
+}
+
+// TimetableEntry.HasData can't set TeacherId directly — "ucitel"'s Id isn't
+// known until SeedUsers runs (no FK target yet at migration time, same
+// reasoning as BackfillDemoStudentReferenceCodes below). Guarded by its own
+// still-null check, not folded into SeedUsers's "any users exist" guard —
+// that one short-circuits on every startup after the first, which would
+// otherwise skip this backfill forever on a DB that already had users
+// before this column existed. Scoped to the specific HasData-seeded demo
+// entries (Id 1-4), not "any entry anywhere with no teacher" — a real
+// school's intentionally-unassigned entries must never get silently
+// reassigned by a startup seed step.
+static void BackfillDemoTimetableTeacher(AppDbContext db)
+{
+    var teacher = db.Users.IgnoreQueryFilters().FirstOrDefault(u => u.Username == "ucitel");
+    if (teacher is null)
+    {
+        return;
+    }
+
+    int[] demoTimetableEntryIds = [1, 2, 3, 4];
+    var entries = db.TimetableEntries
+        .IgnoreQueryFilters()
+        .Where(e => demoTimetableEntryIds.Contains(e.Id) && e.TeacherId == null)
+        .ToList();
+    if (entries.Count == 0)
+    {
+        return;
+    }
+
+    foreach (var entry in entries)
+    {
+        entry.TeacherId = teacher.Id;
+    }
+
     db.SaveChanges();
 }
 

@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Absence> Absences => Set<Absence>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
+    public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
@@ -84,6 +85,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || a.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<TimetableEntry>().HasQueryFilter(t =>
             currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
+            currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
         modelBuilder.Entity<Message>().HasQueryFilter(m =>
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
@@ -152,5 +156,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             new TimetableEntry { Id = 2, SchoolId = 1, SchoolClassId = 1, SubjectId = 2, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 2, WeekParity = WeekParity.Every },
             new TimetableEntry { Id = 3, SchoolId = 1, SchoolClassId = 1, SubjectId = 3, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 1, WeekParity = WeekParity.Odd },
             new TimetableEntry { Id = 4, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, WeekParity = WeekParity.Every });
+        // TeacherId NOT set here on purpose: User rows (incl. "ucitel") don't
+        // exist yet at migration time, same reasoning as the Student
+        // Country/MunicipalityCode comment above — Program.cs SeedUsers
+        // backfills it once the demo teacher account exists.
+
+        // Typical ZŠ bell schedule — same times for every class, so this
+        // lives once per school rather than being re-entered per entry.
+        modelBuilder.Entity<SchoolPeriod>().HasData(
+            new SchoolPeriod { Id = 1, SchoolId = 1, PeriodNumber = 1, StartTime = new TimeOnly(8, 0), EndTime = new TimeOnly(8, 45) },
+            new SchoolPeriod { Id = 2, SchoolId = 1, PeriodNumber = 2, StartTime = new TimeOnly(8, 55), EndTime = new TimeOnly(9, 40) },
+            new SchoolPeriod { Id = 3, SchoolId = 1, PeriodNumber = 3, StartTime = new TimeOnly(10, 0), EndTime = new TimeOnly(10, 45) },
+            new SchoolPeriod { Id = 4, SchoolId = 1, PeriodNumber = 4, StartTime = new TimeOnly(10, 55), EndTime = new TimeOnly(11, 40) },
+            new SchoolPeriod { Id = 5, SchoolId = 1, PeriodNumber = 5, StartTime = new TimeOnly(11, 50), EndTime = new TimeOnly(12, 35) },
+            new SchoolPeriod { Id = 6, SchoolId = 1, PeriodNumber = 6, StartTime = new TimeOnly(12, 45), EndTime = new TimeOnly(13, 30) });
     }
 }

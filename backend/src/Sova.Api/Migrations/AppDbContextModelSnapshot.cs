@@ -495,6 +495,84 @@ namespace Sova.Api.Migrations
                     b.ToTable("Municipalities");
                 });
 
+            modelBuilder.Entity("Sova.Api.Timetable.SchoolPeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "PeriodNumber")
+                        .IsUnique();
+
+                    b.ToTable("SchoolPeriods");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            EndTime = new TimeOnly(8, 45, 0),
+                            PeriodNumber = 1,
+                            SchoolId = 1,
+                            StartTime = new TimeOnly(8, 0, 0)
+                        },
+                        new
+                        {
+                            Id = 2,
+                            EndTime = new TimeOnly(9, 40, 0),
+                            PeriodNumber = 2,
+                            SchoolId = 1,
+                            StartTime = new TimeOnly(8, 55, 0)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            EndTime = new TimeOnly(10, 45, 0),
+                            PeriodNumber = 3,
+                            SchoolId = 1,
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = 4,
+                            EndTime = new TimeOnly(11, 40, 0),
+                            PeriodNumber = 4,
+                            SchoolId = 1,
+                            StartTime = new TimeOnly(10, 55, 0)
+                        },
+                        new
+                        {
+                            Id = 5,
+                            EndTime = new TimeOnly(12, 35, 0),
+                            PeriodNumber = 5,
+                            SchoolId = 1,
+                            StartTime = new TimeOnly(11, 50, 0)
+                        },
+                        new
+                        {
+                            Id = 6,
+                            EndTime = new TimeOnly(13, 30, 0),
+                            PeriodNumber = 6,
+                            SchoolId = 1,
+                            StartTime = new TimeOnly(12, 45, 0)
+                        });
+                });
+
             modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -518,6 +596,9 @@ namespace Sova.Api.Migrations
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TeacherId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("WeekParity")
                         .HasColumnType("integer");
 
@@ -528,6 +609,8 @@ namespace Sova.Api.Migrations
                     b.HasIndex("SchoolId");
 
                     b.HasIndex("SubjectId");
+
+                    b.HasIndex("TeacherId");
 
                     b.ToTable("TimetableEntries");
 
@@ -747,6 +830,17 @@ namespace Sova.Api.Migrations
                     b.Navigation("District");
                 });
 
+            modelBuilder.Entity("Sova.Api.Timetable.SchoolPeriod", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
             modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
                 {
                     b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
@@ -767,11 +861,17 @@ namespace Sova.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Sova.Api.Auth.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId");
+
                     b.Navigation("School");
 
                     b.Navigation("SchoolClass");
 
                     b.Navigation("Subject");
+
+                    b.Navigation("Teacher");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>
