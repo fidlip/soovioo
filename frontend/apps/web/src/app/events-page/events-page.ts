@@ -28,6 +28,23 @@ const VIEW_OPTIONS: ViewOption[] = [
   { value: 'multiMonthYear', label: 'Rok' },
 ];
 
+const VIEW_STORAGE_KEY = 'sova-events-view';
+const DEFAULT_VIEW = 'dayGridMonth';
+
+/** Persisted choice wins (same pattern as dark mode in app.ts) — first-ever
+ * visit, private browsing, or a stale/unknown value all fall back to Měsíc. */
+function readInitialView(): string {
+  try {
+    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+    if (stored && VIEW_OPTIONS.some((o) => o.value === stored)) {
+      return stored;
+    }
+  } catch {
+    // Fall through to the default below.
+  }
+  return DEFAULT_VIEW;
+}
+
 // Fixed palette, not a free picker — distinct enough to tell events apart
 // at a glance, muted enough that FullCalendar's default white event text
 // stays readable on all of them.
@@ -85,7 +102,7 @@ export class EventsPage {
 
   protected readonly viewOptions = VIEW_OPTIONS;
   protected readonly colorPalette = COLOR_PALETTE;
-  protected readonly activeView = signal('dayGridMonth');
+  protected readonly activeView = signal(readInitialView());
 
   protected readonly events = signal<SchoolEvent[]>([]);
   protected readonly feedUrl = signal<string | null>(null);
@@ -160,6 +177,12 @@ export class EventsPage {
   protected changeView(view: string): void {
     this.activeView.set(view);
     this.calendar()?.getApi().changeView(view);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+      // Private browsing / blocked storage — the switch still works for
+      // this page load, it just won't survive a reload.
+    }
   }
 
   protected copyFeedUrl(): void {
