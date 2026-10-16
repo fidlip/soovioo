@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
+import { environment } from '../environments/environment';
 
 /** Dev fallback when no school is known yet (bare `/`). */
 export const DEFAULT_DEV_SLUG = 'demo';
@@ -9,18 +10,26 @@ export const DEFAULT_DEV_SLUG = 'demo';
  * Dev/LAN access (`localhost` or a bare IP) has no real subdomain to carry
  * the school, so the slug lives in the first path segment instead
  * (`/demo/grades`). A real deployment resolves it from the subdomain
- * (`demo.maindomain.cz/grades`) and routes stay unprefixed.
+ * (`demo.<mainDomain>/grades`) and routes stay unprefixed.
  */
 export function isPathBasedTenant(hostname: string = window.location.hostname): boolean {
   return hostname === 'localhost' || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
 }
 
-/** First label of the hostname, e.g. "demo" from "demo.maindomain.cz".
- * A bare two-label domain (the main domain itself, no subdomain) has no
- * tenant — that's the future landing/SuperAdmin entry point, not a school. */
-function subdomainSlug(hostname: string): string | null {
-  const parts = hostname.split('.');
-  return parts.length > 2 ? parts[0] : null;
+/** First label of the subdomain in front of `mainDomain`, e.g. "demo" from
+ * "demo.sova.cz" when `mainDomain` is "sova.cz". The bare main domain itself
+ * (no subdomain) has no tenant — that's the landing/SuperAdmin entry point,
+ * not a school. Matched directly against the configured domain (not guessed
+ * from segment count), so it works regardless of how many labels the real
+ * domain turns out to have (`sova.cz` vs e.g. `sova.co.uk`). A hostname that
+ * doesn't end in `mainDomain` at all (misconfiguration, or mid-migration to
+ * a new domain) fails closed to "no tenant" rather than guessing. */
+export function subdomainSlug(hostname: string, mainDomain: string = environment.mainDomain): string | null {
+  const suffix = `.${mainDomain}`;
+  if (!hostname.endsWith(suffix)) {
+    return null;
+  }
+  return hostname.slice(0, -suffix.length).split('.')[0] || null;
 }
 
 @Injectable({ providedIn: 'root' })
