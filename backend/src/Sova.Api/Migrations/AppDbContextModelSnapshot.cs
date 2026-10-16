@@ -115,6 +115,11 @@ namespace Sova.Api.Migrations
                     b.Property<bool>("AllDay")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("Audience")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Color")
                         .HasColumnType("text");
 
@@ -130,9 +135,6 @@ namespace Sova.Api.Migrations
                     b.Property<string>("Location")
                         .HasColumnType("text");
 
-                    b.Property<int?>("SchoolClassId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
@@ -145,11 +147,89 @@ namespace Sova.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SchoolId");
+
+                    b.ToTable("Events");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventParent", b =>
+                {
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EventId", "UserId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EventParents");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventSchoolClass", b =>
+                {
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EventId", "SchoolClassId");
+
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Events");
+                    b.ToTable("EventSchoolClasses");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventStudent", b =>
+                {
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EventId", "StudentId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("EventStudents");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventTeacher", b =>
+                {
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EventId", "UserId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EventTeachers");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
@@ -742,10 +822,6 @@ namespace Sova.Api.Migrations
 
             modelBuilder.Entity("Sova.Api.Events.Event", b =>
                 {
-                    b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
-                        .WithMany()
-                        .HasForeignKey("SchoolClassId");
-
                     b.HasOne("Sova.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
@@ -753,8 +829,114 @@ namespace Sova.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("School");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventParent", b =>
+                {
+                    b.HasOne("Sova.Api.Events.Event", "Event")
+                        .WithMany("Parents")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("School");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventSchoolClass", b =>
+                {
+                    b.HasOne("Sova.Api.Events.Event", "Event")
+                        .WithMany("SchoolClasses")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("School");
 
                     b.Navigation("SchoolClass");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventStudent", b =>
+                {
+                    b.HasOne("Sova.Api.Events.Event", "Event")
+                        .WithMany("Students")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("School");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.EventTeacher", b =>
+                {
+                    b.HasOne("Sova.Api.Events.Event", "Event")
+                        .WithMany("Teachers")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("School");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
@@ -944,6 +1126,17 @@ namespace Sova.Api.Migrations
                     b.Navigation("Subject");
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("Sova.Api.Events.Event", b =>
+                {
+                    b.Navigation("Parents");
+
+                    b.Navigation("SchoolClasses");
+
+                    b.Navigation("Students");
+
+                    b.Navigation("Teachers");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>

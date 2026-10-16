@@ -9,12 +9,6 @@ public class Event
     public int SchoolId { get; set; }
     public School? School { get; set; }
 
-    /// <summary>Null = celoškolní akce. Vyplněné = akce týkající se jedné
-    /// třídy, ale stejně jako u zpráv zůstává viditelná celé škole (je to
-    /// nástěnka, ne soukromá schránka) — slouží jen jako popisek/filtr.</summary>
-    public int? SchoolClassId { get; set; }
-    public SchoolClass? SchoolClass { get; set; }
-
     public required string Title { get; set; }
     public string? Description { get; set; }
     public string? Location { get; set; }
@@ -28,4 +22,14 @@ public class Event
     public string? Color { get; set; }
 
     public int CreatedByUserId { get; set; }
+
+    /// <summary>Who sees this event — see <see cref="EventAudience"/>. For
+    /// <see cref="EventAudience.Selected"/>, the actual recipients live in
+    /// the four collections below (any combination of them, not just one).</summary>
+    public EventAudience Audience { get; set; }
+
+    public ICollection<EventSchoolClass> SchoolClasses { get; set; } = new List<EventSchoolClass>();
+    public ICollection<EventTeacher> Teachers { get; set; } = new List<EventTeacher>();
+    public ICollection<EventParent> Parents { get; set; } = new List<EventParent>();
+    public ICollection<EventStudent> Students { get; set; } = new List<EventStudent>();
 }

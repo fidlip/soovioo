@@ -130,6 +130,7 @@
           hourFormat="24"
           [showTime]="!allDay()"
           [showIcon]="true"
+          appendTo="body"
         />
       </div>
       <div class="flex flex-col gap-1.5">
@@ -142,9 +143,148 @@
           hourFormat="24"
           [showTime]="!allDay()"
           [showIcon]="true"
+          appendTo="body"
         />
       </div>
     </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label class="text-sm font-medium text-surface-600 dark:text-surface-300">Příjemci</label>
+      <p-select
+        [options]="audienceOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="audience()"
+        (ngModelChange)="audience.set($event)"
+        name="audience"
+        styleClass="w-48"
+        appendTo="body"
+      />
+    </div>
+
+    @if (audience() === 'OnlyMe') {
+      <p-message severity="warn" text="Tuto akci uvidíte jen vy." styleClass="w-full" />
+    }
+
+    @if (audience() === 'Selected') {
+      <div class="flex flex-col gap-4 rounded-md border border-surface-200 p-3 dark:border-surface-700">
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Třídy</span>
+          <div class="flex flex-wrap gap-2">
+            <input
+              pInputText
+              type="text"
+              placeholder="Hledat třídu"
+              name="classFilterName"
+              class="max-w-40"
+              [(ngModel)]="classFilterName"
+            />
+            <p-select
+              [options]="rocnikOptions()"
+              placeholder="Ročník"
+              [showClear]="true"
+              name="classFilterRocnik"
+              styleClass="w-28"
+              appendTo="body"
+              [(ngModel)]="classFilterRocnik"
+            />
+          </div>
+          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
+            @for (c of filteredClasses(); track c.id) {
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" [checked]="selectedClassIds().includes(c.id)" (change)="toggleClassId(c.id)" />
+                {{ c.name }}
+                @if (c.rocnik) {
+                  <span class="text-surface-400">· {{ c.rocnik }}. ročník</span>
+                }
+              </label>
+            } @empty {
+              <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+            }
+          </div>
+        </div>
+
+        @if (isAdmin) {
+          <div class="flex flex-col gap-1.5">
+            <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Učitelé</span>
+            <input
+              pInputText
+              type="text"
+              placeholder="Hledat učitele"
+              name="teacherFilterName"
+              class="max-w-40"
+              [(ngModel)]="teacherFilterName"
+            />
+            <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
+              @for (t of filteredTeachers(); track t.id) {
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" [checked]="selectedTeacherIds().includes(t.id)" (change)="toggleTeacherId(t.id)" />
+                  {{ t.username }}
+                </label>
+              } @empty {
+                <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Rodiče</span>
+          <input
+            pInputText
+            type="text"
+            placeholder="Hledat rodiče"
+            name="parentFilterName"
+            class="max-w-40"
+            [(ngModel)]="parentFilterName"
+          />
+          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
+            @for (p of filteredParents(); track p.id) {
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" [checked]="selectedParentIds().includes(p.id)" (change)="toggleParentId(p.id)" />
+                {{ p.username }}
+              </label>
+            } @empty {
+              <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+            }
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Žáci</span>
+          <div class="flex flex-wrap gap-2">
+            <input
+              pInputText
+              type="text"
+              placeholder="Hledat žáka"
+              name="studentFilterName"
+              class="max-w-40"
+              [(ngModel)]="studentFilterName"
+            />
+            <p-select
+              [options]="rocnikOptions()"
+              placeholder="Ročník"
+              [showClear]="true"
+              name="studentFilterRocnik"
+              styleClass="w-28"
+              appendTo="body"
+              [(ngModel)]="studentFilterRocnik"
+            />
+          </div>
+          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
+            @for (s of filteredStudents(); track s.id) {
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" [checked]="selectedStudentIds().includes(s.id)" (change)="toggleStudentId(s.id)" />
+                {{ s.firstName }} {{ s.lastName }}
+                <span class="text-surface-400">· {{ s.schoolClassName }}</span>
+              </label>
+            } @empty {
+              <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+            }
+          </div>
+        </div>
+      </div>
+    }
 
     <div class="flex gap-2 self-end">
       @if (editingEventId()) {

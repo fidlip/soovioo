@@ -2,8 +2,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 using Sova.Api.Events;
+using Sova.Api.Evidence;
 
 namespace Sova.Api.Tests.Events;
 
@@ -45,7 +47,7 @@ public class EventsControllerTests
                 "Školní výlet", "Celodenní výlet do zoo", null,
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 5, 1, 16, 0, 0, TimeSpan.Zero),
-                AllDay: false));
+                AllDay: false, Audience: EventAudience.Everyone));
 
         var dto = Assert.IsType<EventDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal("Školní výlet", dto.Title);
@@ -65,7 +67,7 @@ public class EventsControllerTests
                 "Zelená akce", null, null,
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero),
-                AllDay: false, Color: "#1ABC9C"));
+                AllDay: false, Audience: EventAudience.Everyone, Color: "#1ABC9C"));
 
         var dto = Assert.IsType<EventDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal("#1ABC9C", dto.Color);
@@ -81,7 +83,7 @@ public class EventsControllerTests
                 "Špatná barva", null, null,
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero),
-                AllDay: false, Color: "red"));
+                AllDay: false, Audience: EventAudience.Everyone, Color: "red"));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -96,7 +98,7 @@ public class EventsControllerTests
                 "Neplatná akce", null, null,
                 new DateTimeOffset(2026, 5, 1, 16, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
-                AllDay: false));
+                AllDay: false, Audience: EventAudience.Everyone));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -112,6 +114,7 @@ public class EventsControllerTests
                 Title = "Akce v květnu",
                 StartAt = new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
                 EndAt = new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero),
+                Audience = EventAudience.Everyone,
             },
             new Event
             {
@@ -119,13 +122,13 @@ public class EventsControllerTests
                 Title = "Akce v červnu",
                 StartAt = new DateTimeOffset(2026, 6, 1, 8, 0, 0, TimeSpan.Zero),
                 EndAt = new DateTimeOffset(2026, 6, 1, 9, 0, 0, TimeSpan.Zero),
+                Audience = EventAudience.Everyone,
             });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 1, "Teacher").GetEvents(
             new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 6, 30, 0, 0, 0, TimeSpan.Zero),
-            null);
+            new DateTimeOffset(2026, 6, 30, 0, 0, 0, TimeSpan.Zero));
 
         var events = Assert.IsAssignableFrom<IEnumerable<EventDto>>(
             Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -143,6 +146,7 @@ public class EventsControllerTests
             Title = "Ke smazání",
             StartAt = DateTimeOffset.UtcNow,
             EndAt = DateTimeOffset.UtcNow.AddHours(1),
+            Audience = EventAudience.Everyone,
         };
         db.Events.Add(@event);
         await db.SaveChangesAsync();
@@ -151,5 +155,182 @@ public class EventsControllerTests
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Events.FindAsync(@event.Id));
+    }
+
+    /// <summary>Shared fixture for the audience/visibility tests below: two
+    /// classes, a teacher who owns only class A, a student in each class,
+    /// and a parent of each student.</summary>
+    private sealed class AudienceFixture
+    {
+        public required SchoolClass ClassA { get; init; }
+        public required SchoolClass ClassB { get; init; }
+        public required User TeacherA { get; init; }
+        public required User OtherTeacher { get; init; }
+        public required Student StudentA { get; init; }
+        public required Student StudentB { get; init; }
+        public required User ParentA { get; init; }
+        public required User ParentB { get; init; }
+
+        public static async Task<AudienceFixture> SeedAsync(AppDbContext db)
+        {
+            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+            var otherTeacher = new User { Username = "ucitelB", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+            db.Users.AddRange(teacherA, otherTeacher);
+            await db.SaveChangesAsync();
+
+            var classA = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacherA.Id };
+            var classB = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
+            db.SchoolClasses.AddRange(classA, classB);
+            await db.SaveChangesAsync();
+
+            var studentA = new Student { FirstName = "Žák", LastName = "A", SchoolId = SchoolId, SchoolClassId = classA.Id };
+            var studentB = new Student { FirstName = "Žák", LastName = "B", SchoolId = SchoolId, SchoolClassId = classB.Id };
+            db.Students.AddRange(studentA, studentB);
+            await db.SaveChangesAsync();
+
+            var parentA = new User { Username = "rodicA", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+            var parentB = new User { Username = "rodicB", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+            db.Users.AddRange(parentA, parentB);
+            await db.SaveChangesAsync();
+
+            db.ParentStudents.AddRange(
+                new ParentStudent { UserId = parentA.Id, StudentId = studentA.Id, SchoolId = SchoolId },
+                new ParentStudent { UserId = parentB.Id, StudentId = studentB.Id, SchoolId = SchoolId });
+            await db.SaveChangesAsync();
+
+            return new AudienceFixture
+            {
+                ClassA = classA, ClassB = classB, TeacherA = teacherA, OtherTeacher = otherTeacher,
+                StudentA = studentA, StudentB = studentB, ParentA = parentA, ParentB = parentB,
+            };
+        }
+    }
+
+    [Fact]
+    public async Task TeacherCannotTargetClassTheyDoNotTeach()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+
+        var result = await NewController(db, fx.TeacherA.Id, "Teacher")
+            .CreateEvent(new CreateEventRequest(
+                "Mimo dosah", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+                AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassB.Id]));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task TeacherCannotTargetOtherTeachers()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+
+        var result = await NewController(db, fx.TeacherA.Id, "Teacher")
+            .CreateEvent(new CreateEventRequest(
+                "Kolega", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+                AllDay: false, Audience: EventAudience.Selected, TeacherUserIds: [fx.OtherTeacher.Id]));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AdminSeesEveryEventRegardlessOfAudience()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+            "Soukromá poznámka učitele", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.OnlyMe));
+
+        var result = await NewController(db, 999, "Admin").GetEvents(null, null);
+
+        var events = Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Single(events);
+    }
+
+    [Fact]
+    public async Task OnlyMeIsInvisibleToOtherTeacherButVisibleToCreator()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+            "Soukromé", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.OnlyMe));
+
+        var otherTeacherResult = await NewController(db, fx.OtherTeacher.Id, "Teacher").GetEvents(null, null);
+        var creatorResult = await NewController(db, fx.TeacherA.Id, "Teacher").GetEvents(null, null);
+
+        Assert.Empty(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(otherTeacherResult.Result).Value));
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(creatorResult.Result).Value));
+    }
+
+    [Fact]
+    public async Task TeacherSeesEventTargetingTheirOwnClassButNotAnUnrelatedOne()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
+            "Pro třídu B", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassB.Id]));
+
+        var result = await NewController(db, fx.TeacherA.Id, "Teacher").GetEvents(null, null);
+
+        Assert.Empty(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value));
+    }
+
+    [Fact]
+    public async Task ParentSeesEventTargetingTheirChildsClassButNotAnUnrelatedOne()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
+            "Pro třídu A", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassA.Id]));
+
+        var parentAResult = await NewController(db, fx.ParentA.Id, "Parent").GetEvents(null, null);
+        var parentBResult = await NewController(db, fx.ParentB.Id, "Parent").GetEvents(null, null);
+
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(parentAResult.Result).Value));
+        Assert.Empty(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(parentBResult.Result).Value));
+    }
+
+    [Fact]
+    public async Task ParentSeesEventTargetingTheirChildDirectly()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+            "Pro žáka A", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, StudentIds: [fx.StudentA.Id]));
+
+        var result = await NewController(db, fx.ParentA.Id, "Parent").GetEvents(null, null);
+
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value));
+    }
+
+    [Fact]
+    public async Task EveryoneAudienceIsVisibleToAllRoles()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+            "Pro celou školu", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Everyone));
+
+        var parentResult = await NewController(db, fx.ParentB.Id, "Parent").GetEvents(null, null);
+        var otherTeacherResult = await NewController(db, fx.OtherTeacher.Id, "Teacher").GetEvents(null, null);
+
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(parentResult.Result).Value));
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(otherTeacherResult.Result).Value));
     }
 }

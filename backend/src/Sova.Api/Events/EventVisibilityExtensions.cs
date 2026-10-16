@@ -1,0 +1,75 @@
+using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
+using Sova.Api.Data;
+using Sova.Api.Evidence;
+
+namespace Sova.Api.Events;
+
+/// <summary>Resolves which events a given user may see — shared by
+/// <see cref="EventsController"/> (authenticated, ambient tenant filter
+/// already scopes `db.Events` to the caller's school) and
+/// <see cref="CalendarFeedController"/> (unauthenticated ICS request, no
+/// tenant context at all). To work identically in both, every query here
+/// uses <c>IgnoreQueryFilters()</c> plus an explicit <c>SchoolId</c> check
+/// rather than relying on the ambient filter.</summary>
+public static class EventVisibilityExtensions
+{
+    /// <summary>Admin sees every event in the school — a deliberate
+    /// oversight exception, not a bug: Admin needs the full picture for
+    /// school management regardless of who an event was addressed to.</summary>
+    public static IQueryable<Event> VisibleToAdmin(this AppDbContext db, int schoolId) =>
+        db.Events.IgnoreQueryFilters().Where(e => e.SchoolId == schoolId);
+
+    /// <summary>Teacher sees: their own creations, Everyone-audience events,
+    /// and Selected-audience events touching anything "theirs" — targeted at
+    /// them directly, at a class they teach, at one of their students, or at
+    /// a parent of one of their students. Also a deliberate oversight
+    /// exception (not just plain recipient matching), scoped to the
+    /// teacher's own classes rather than the whole school like Admin's.</summary>
+    public static async Task<IQueryable<Event>> VisibleToTeacherAsync(this AppDbContext db, int schoolId, int teacherUserId)
+    {
+        var classIds = await db.GetTeacherClassIdsAsync(teacherUserId);
+        var studentIds = await db.Students.IgnoreQueryFilters()
+            .Where(s => s.SchoolId == schoolId && classIds.Contains(s.SchoolClassId))
+            .Select(s => s.Id)
+            .ToListAsync();
+        var parentUserIds = await db.ParentStudents.IgnoreQueryFilters()
+            .Where(ps => ps.SchoolId == schoolId && studentIds.Contains(ps.StudentId))
+            .Select(ps => ps.UserId)
+            .ToListAsync();
+
+        return db.Events.IgnoreQueryFilters()
+            .Where(e => e.SchoolId == schoolId && (
+                e.CreatedByUserId == teacherUserId ||
+                e.Audience == EventAudience.Everyone ||
+                (e.Audience == EventAudience.Selected && (
+                    e.Teachers.Any(t => t.UserId == teacherUserId) ||
+                    e.SchoolClasses.Any(c => classIds.Contains(c.SchoolClassId)) ||
+                    e.Students.Any(s => studentIds.Contains(s.StudentId)) ||
+                    e.Parents.Any(p => parentUserIds.Contains(p.UserId))))));
+    }
+
+    /// <summary>Parent sees: Everyone-audience events, and Selected-audience
+    /// events targeted at them directly, at a class one of their children is
+    /// in, or at one of their children directly. No oversight exception —
+    /// "Pouze já" from a Teacher is genuinely invisible to every Parent.</summary>
+    public static async Task<IQueryable<Event>> VisibleToParentAsync(this AppDbContext db, int schoolId, int parentUserId)
+    {
+        var myStudentIds = await db.ParentStudents.IgnoreQueryFilters()
+            .Where(ps => ps.SchoolId == schoolId && ps.UserId == parentUserId)
+            .Select(ps => ps.StudentId)
+            .ToListAsync();
+        var myClassIds = await db.Students.IgnoreQueryFilters()
+            .Where(s => s.SchoolId == schoolId && myStudentIds.Contains(s.Id))
+            .Select(s => s.SchoolClassId)
+            .ToListAsync();
+
+        return db.Events.IgnoreQueryFilters()
+            .Where(e => e.SchoolId == schoolId && (
+                e.Audience == EventAudience.Everyone ||
+                (e.Audience == EventAudience.Selected && (
+                    e.Parents.Any(p => p.UserId == parentUserId) ||
+                    e.SchoolClasses.Any(c => myClassIds.Contains(c.SchoolClassId)) ||
+                    e.Students.Any(s => myStudentIds.Contains(s.StudentId))))));
+    }
+}

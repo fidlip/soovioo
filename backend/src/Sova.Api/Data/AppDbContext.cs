@@ -23,6 +23,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Event> Events => Set<Event>();
+    public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
+    public DbSet<EventTeacher> EventTeachers => Set<EventTeacher>();
+    public DbSet<EventParent> EventParents => Set<EventParent>();
+    public DbSet<EventStudent> EventStudents => Set<EventStudent>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
 
@@ -36,6 +40,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
+
+        // Audience recipient join tables — composite keys, same shape as
+        // ParentStudent above. Everyone/OnlyMe events keep these empty;
+        // only Selected ever populates them (see EventsController.SetRecipients).
+        modelBuilder.Entity<EventSchoolClass>().HasKey(x => new { x.EventId, x.SchoolClassId });
+        modelBuilder.Entity<EventTeacher>().HasKey(x => new { x.EventId, x.UserId });
+        modelBuilder.Entity<EventParent>().HasKey(x => new { x.EventId, x.UserId });
+        modelBuilder.Entity<EventStudent>().HasKey(x => new { x.EventId, x.StudentId });
+        // Default (0) is Everyone — see EventAudience's own doc comment for why.
+        modelBuilder.Entity<Event>().Property(e => e.Audience).HasDefaultValue(EventAudience.Everyone);
 
         modelBuilder.Entity<Country>().HasKey(c => c.Code);
         modelBuilder.Entity<District>().HasKey(d => d.Code);
@@ -98,6 +112,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Event>().HasQueryFilter(e =>
             currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<EventSchoolClass>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<EventTeacher>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<EventParent>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<EventStudent>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
             currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId);
 

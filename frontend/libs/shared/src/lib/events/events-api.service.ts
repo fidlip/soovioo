@@ -2,14 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { CalendarFeedUrl, CreateEventRequest, SchoolEvent } from './event.model';
+import { CalendarFeedUrl, CreateEventRequest, RecipientOptions, SchoolEvent } from './event.model';
 
 @Injectable({ providedIn: 'root' })
 export class EventsApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  getEvents(from?: Date, to?: Date, schoolClassId?: number): Observable<SchoolEvent[]> {
+  getEvents(from?: Date, to?: Date): Observable<SchoolEvent[]> {
     const params: Record<string, string> = {};
     if (from) {
       params['from'] = from.toISOString();
@@ -17,10 +17,13 @@ export class EventsApiService {
     if (to) {
       params['to'] = to.toISOString();
     }
-    if (schoolClassId) {
-      params['schoolClassId'] = schoolClassId.toString();
-    }
     return this.http.get<SchoolEvent[]>(`${this.baseUrl}/api/events`, { params });
+  }
+
+  /** Scoped server-side to what the caller (Teacher/Admin) may target —
+   * see EventsController.GetRecipientOptions. */
+  getRecipientOptions(): Observable<RecipientOptions> {
+    return this.http.get<RecipientOptions>(`${this.baseUrl}/api/events/recipient-options`);
   }
 
   createEvent(request: CreateEventRequest): Observable<SchoolEvent> {

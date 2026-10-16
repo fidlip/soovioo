@@ -31,7 +31,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
             return Ok(await db.SchoolClasses.OrderBy(c => c.Name).ToListAsync());
         }
 
-        var classIds = await GetTeacherClassIdsAsync(CurrentUserId());
+        var classIds = await db.GetTeacherClassIdsAsync(CurrentUserId());
         var classes = await db.SchoolClasses
             .Where(c => classIds.Contains(c.Id))
             .OrderBy(c => c.Name)
@@ -48,7 +48,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Unknown schoolClassId.");
         }
 
-        if (!User.IsInRole("Admin") && !await TeacherOwnsClassAsync(CurrentUserId(), schoolClassId))
+        if (!User.IsInRole("Admin") && !await db.TeacherOwnsClassAsync(CurrentUserId(), schoolClassId))
         {
             return Forbid();
         }
@@ -87,15 +87,6 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
 
         return new BroadcastResultDto(studentIds.Count);
     }
-
-    private async Task<bool> TeacherOwnsClassAsync(int teacherId, int schoolClassId) =>
-        await db.SchoolClasses.AnyAsync(c => c.Id == schoolClassId && c.ClassTeacherId == teacherId)
-            || await db.TimetableEntries.AnyAsync(t => t.SchoolClassId == schoolClassId && t.TeacherId == teacherId);
-
-    private async Task<List<int>> GetTeacherClassIdsAsync(int teacherId) =>
-        await db.SchoolClasses.Where(c => c.ClassTeacherId == teacherId).Select(c => c.Id)
-            .Union(db.TimetableEntries.Where(t => t.TeacherId == teacherId).Select(t => t.SchoolClassId))
-            .ToListAsync();
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

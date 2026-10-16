@@ -4,6 +4,7 @@ using Ical.Net.DataTypes;
 using Ical.Net.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Sova.Api.Auth;
 using Sova.Api.Data;
 
 namespace Sova.Api.Events;
@@ -30,9 +31,18 @@ public class CalendarFeedController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
-        var events = await db.Events.IgnoreQueryFilters()
-            .Where(e => e.SchoolId == user.SchoolId)
-            .ToListAsync();
+        // Same visibility rules as the in-app calendar (GetEvents) — a
+        // subscribed feed must not leak events this user couldn't see in
+        // the app itself.
+        var schoolId = user.SchoolId.Value;
+        var query = user.Role switch
+        {
+            UserRole.Admin => db.VisibleToAdmin(schoolId),
+            UserRole.Teacher => await db.VisibleToTeacherAsync(schoolId, user.Id),
+            UserRole.Parent => await db.VisibleToParentAsync(schoolId, user.Id),
+            _ => db.Events.Where(e => false),
+        };
+        var events = await query.ToListAsync();
 
         var calendar = new Calendar();
         foreach (var e in events)

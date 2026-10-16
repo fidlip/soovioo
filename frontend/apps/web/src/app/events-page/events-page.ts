@@ -15,10 +15,29 @@ import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Popover } from '@openng/optimus-ui/popover';
+import { Select } from '@openng/optimus-ui/select';
 import { Textarea } from '@openng/optimus-ui/textarea';
-import { AuthApiService, CreateEventRequest, EventsApiService, SchoolEvent } from '@sova/shared';
+import {
+  AuthApiService,
+  CreateEventRequest,
+  EventAudience,
+  EventsApiService,
+  PersonOption,
+  RecipientOptions,
+  SchoolClassOption,
+  SchoolEvent,
+  StudentOption,
+} from '@sova/shared';
 
 type ViewOption = { value: string; label: string };
+
+type AudienceOption = { value: EventAudience; label: string };
+
+const AUDIENCE_OPTIONS: AudienceOption[] = [
+  { value: 'OnlyMe', label: 'Pouze já' },
+  { value: 'Everyone', label: 'Všichni' },
+  { value: 'Selected', label: 'Výběr' },
+];
 
 const VIEW_OPTIONS: ViewOption[] = [
   { value: 'listWeek', label: 'List' },
@@ -90,6 +109,7 @@ function startOfDay(d: Date): Date {
     InputText,
     Message,
     Popover,
+    Select,
     Textarea,
   ],
   templateUrl: './events-page.html',
@@ -101,8 +121,10 @@ export class EventsPage {
   private readonly calendar = viewChild<FullCalendarComponent>('calendar');
 
   protected readonly viewOptions = VIEW_OPTIONS;
+  protected readonly audienceOptions = AUDIENCE_OPTIONS;
   protected readonly colorPalette = COLOR_PALETTE;
   protected readonly activeView = signal(readInitialView());
+  protected readonly isAdmin = this.authApi.isAdmin();
 
   protected readonly events = signal<SchoolEvent[]>([]);
   protected readonly feedUrl = signal<string | null>(null);
@@ -156,6 +178,23 @@ export class EventsPage {
   protected readonly startAt = signal(new Date());
   protected readonly endAt = signal(new Date(Date.now() + DEFAULT_DURATION_MS));
 
+  protected readonly audience = signal<EventAudience>('OnlyMe');
+  protected readonly selectedClassIds = signal<number[]>([]);
+  protected readonly selectedTeacherIds = signal<number[]>([]);
+  protected readonly selectedParentIds = signal<number[]>([]);
+  protected readonly selectedStudentIds = signal<number[]>([]);
+  protected readonly recipientOptions = signal<RecipientOptions | null>(null);
+
+  // Plain fields, not signals — read directly from the template via a
+  // method call, same filter pattern as admin-page.ts (ngModelChange's own
+  // event dispatch triggers change detection on this zoneless app regardless).
+  protected classFilterName = '';
+  protected classFilterRocnik: number | null = null;
+  protected studentFilterName = '';
+  protected studentFilterRocnik: number | null = null;
+  protected teacherFilterName = '';
+  protected parentFilterName = '';
+
   /** Od→Do gap the form currently remembers — reapplied whenever Od changes
    * so Do tracks it, and updated whenever Do is edited directly. Plain
    * field, not a signal: it's never read from the template, only used to
@@ -168,6 +207,12 @@ export class EventsPage {
       next: (result) => this.feedUrl.set(result.feedUrl),
       error: (err) => console.error('getCalendarFeedUrl failed', err),
     });
+    if (this.canManageEvents()) {
+      this.eventsApi.getRecipientOptions().subscribe({
+        next: (options) => this.recipientOptions.set(options),
+        error: (err) => console.error('getRecipientOptions failed', err),
+      });
+    }
   }
 
   protected canManageEvents(): boolean {
@@ -228,6 +273,59 @@ export class EventsPage {
     this.endAt.set(new Date(start.getTime() + this.durationMs));
   }
 
+  protected filteredClasses(): SchoolClassOption[] {
+    const name = this.classFilterName.trim().toLowerCase();
+    return (this.recipientOptions()?.classes ?? []).filter(
+      (c) =>
+        (!name || c.name.toLowerCase().includes(name)) &&
+        (this.classFilterRocnik === null || c.rocnik === this.classFilterRocnik),
+    );
+  }
+
+  protected filteredStudents(): StudentOption[] {
+    const name = this.studentFilterName.trim().toLowerCase();
+    return (this.recipientOptions()?.students ?? []).filter(
+      (s) =>
+        (!name || `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
+        (this.studentFilterRocnik === null || s.rocnik === this.studentFilterRocnik),
+    );
+  }
+
+  protected filteredTeachers(): PersonOption[] {
+    const name = this.teacherFilterName.trim().toLowerCase();
+    return (this.recipientOptions()?.teachers ?? []).filter((t) => !name || t.username.toLowerCase().includes(name));
+  }
+
+  protected filteredParents(): PersonOption[] {
+    const name = this.parentFilterName.trim().toLowerCase();
+    return (this.recipientOptions()?.parents ?? []).filter((p) => !name || p.username.toLowerCase().includes(name));
+  }
+
+  /** Every ročník that actually occurs among the caller's pickable classes
+   * — drives the ročník filter dropdown's options, so it never offers a
+   * grade that would just empty the list. */
+  protected rocnikOptions(): number[] {
+    const classes = this.recipientOptions()?.classes ?? [];
+    const rocniky = new Set(classes.map((c) => c.rocnik).filter((r): r is number => r != null));
+    return [...rocniky].sort((a, b) => a - b);
+  }
+
+  protected toggleClassId(id: number): void {
+    this.selectedClassIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  protected toggleTeacherId(id: number): void {
+    this.selectedTeacherIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  protected toggleParentId(id: number): void {
+    this.selectedParentIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  protected toggleStudentId(id: number): void {
+    this.selectedStudentIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
   protected onDialogVisibleChange(visible: boolean): void {
     this.dialogVisible.set(visible);
     if (!visible) {
@@ -256,6 +354,11 @@ export class EventsPage {
       startAt: start.toISOString(),
       endAt: end.toISOString(),
       color: this.color(),
+      audience: this.audience(),
+      schoolClassIds: this.selectedClassIds(),
+      teacherUserIds: this.selectedTeacherIds(),
+      parentUserIds: this.selectedParentIds(),
+      studentIds: this.selectedStudentIds(),
     };
 
     const editingId = this.editingEventId();
@@ -342,6 +445,11 @@ export class EventsPage {
     this.startAt.set(start);
     this.endAt.set(end);
     this.durationMs = Math.max(0, end.getTime() - start.getTime());
+    this.audience.set(event.audience);
+    this.selectedClassIds.set(event.schoolClassIds);
+    this.selectedTeacherIds.set(event.teacherUserIds);
+    this.selectedParentIds.set(event.parentUserIds);
+    this.selectedStudentIds.set(event.studentIds);
     this.dialogVisible.set(true);
   }
 
@@ -363,6 +471,17 @@ export class EventsPage {
     const now = new Date();
     this.startAt.set(now);
     this.endAt.set(new Date(now.getTime() + DEFAULT_DURATION_MS));
+    this.audience.set('OnlyMe');
+    this.selectedClassIds.set([]);
+    this.selectedTeacherIds.set([]);
+    this.selectedParentIds.set([]);
+    this.selectedStudentIds.set([]);
+    this.classFilterName = '';
+    this.classFilterRocnik = null;
+    this.studentFilterName = '';
+    this.studentFilterRocnik = null;
+    this.teacherFilterName = '';
+    this.parentFilterName = '';
   }
 
   private reload(): void {
