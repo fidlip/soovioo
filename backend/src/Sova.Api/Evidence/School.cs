@@ -22,4 +22,16 @@ public class School
     /// matrika.msmt.cz/profa.msmt.cz portal and the RED_IZO item used in the
     /// anonymized "b" (podpůrná opatření) file. Null until an admin fills it in.</summary>
     public string? RedIzo { get; set; }
+
+    // Institutional address/contact — not transmitted to matrika itself, but
+    // needed on real documents (report card letterhead, official
+    // correspondence) and for the school's own record-keeping.
+    public string? Street { get; set; }
+    public string? City { get; set; }
+    public string? PostalCode { get; set; }
+
+    /// <summary>Ředitel/ředitelka — appears on official documents.</summary>
+    public string? DirectorName { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
 }

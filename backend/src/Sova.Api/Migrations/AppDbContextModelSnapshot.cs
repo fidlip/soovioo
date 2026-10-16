@@ -65,8 +65,14 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
                         .HasColumnType("text");
 
                     b.Property<int>("Role")
@@ -119,8 +125,17 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("City")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DirectorName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
 
                     b.Property<string>("Izo")
                         .HasColumnType("text");
@@ -129,11 +144,20 @@ namespace Sova.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PostalCode")
+                        .HasColumnType("text");
+
                     b.Property<string>("RedIzo")
                         .HasColumnType("text");
 
                     b.Property<string>("Slug")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Street")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -147,11 +171,17 @@ namespace Sova.Api.Migrations
                         new
                         {
                             Id = 1,
+                            City = "Praha 1",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DirectorName = "Mgr. Jana Ředitelová",
+                            Email = "skola@demo.cz",
                             Izo = "308000048",
                             Name = "Demo škola",
+                            Phone = "+420 123 456 789",
+                            PostalCode = "110 00",
                             RedIzo = "700000089",
-                            Slug = "demo"
+                            Slug = "demo",
+                            Street = "Školní 8"
                         });
                 });
 
@@ -163,6 +193,9 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ClassTeacherId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -173,7 +206,12 @@ namespace Sova.Api.Migrations
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("TeachingLanguage")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ClassTeacherId");
 
                     b.HasIndex("SchoolId");
 
@@ -185,7 +223,8 @@ namespace Sova.Api.Migrations
                             Id = 1,
                             Name = "5.A",
                             Rocnik = 5,
-                            SchoolId = 1
+                            SchoolId = 1,
+                            TeachingLanguage = "čeština"
                         });
                 });
 
@@ -197,7 +236,25 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool?>("CatchmentArea")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Citizenship")
+                        .HasColumnType("text");
+
+                    b.Property<string>("City")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactPhone")
+                        .HasColumnType("text");
+
                     b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EnrollmentDate")
                         .HasColumnType("date");
 
                     b.Property<string>("FirstName")
@@ -211,6 +268,9 @@ namespace Sova.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PostalCode")
+                        .HasColumnType("text");
+
                     b.Property<string>("RodneCislo")
                         .HasColumnType("text");
 
@@ -219,6 +279,9 @@ namespace Sova.Api.Migrations
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Street")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -232,12 +295,20 @@ namespace Sova.Api.Migrations
                         new
                         {
                             Id = 1,
+                            CatchmentArea = true,
+                            Citizenship = "203",
+                            City = "Praha 1",
+                            ContactEmail = "rodic.novak@example.cz",
+                            ContactPhone = "+420 777 123 456",
                             DateOfBirth = new DateOnly(2015, 3, 10),
+                            EnrollmentDate = new DateOnly(2020, 9, 1),
                             FirstName = "Jan",
                             Gender = 0,
                             LastName = "Novák",
+                            PostalCode = "110 00",
                             SchoolClassId = 1,
-                            SchoolId = 1
+                            SchoolId = 1,
+                            Street = "Žákovská 12"
                         });
                 });
 
@@ -248,6 +319,9 @@ namespace Sova.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Abbreviation")
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -266,18 +340,21 @@ namespace Sova.Api.Migrations
                         new
                         {
                             Id = 1,
+                            Abbreviation = "M",
                             Name = "Matematika",
                             SchoolId = 1
                         },
                         new
                         {
                             Id = 2,
+                            Abbreviation = "Čj",
                             Name = "Český jazyk",
                             SchoolId = 1
                         },
                         new
                         {
                             Id = 3,
+                            Abbreviation = "Aj",
                             Name = "Anglický jazyk",
                             SchoolId = 1
                         });
@@ -500,11 +577,17 @@ namespace Sova.Api.Migrations
 
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>
                 {
+                    b.HasOne("Sova.Api.Auth.User", "ClassTeacher")
+                        .WithMany()
+                        .HasForeignKey("ClassTeacherId");
+
                     b.HasOne("Sova.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("ClassTeacher");
 
                     b.Navigation("School");
                 });

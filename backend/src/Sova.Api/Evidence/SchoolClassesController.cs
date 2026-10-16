@@ -25,6 +25,8 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         {
             Name = request.Name,
             Rocnik = request.Rocnik,
+            ClassTeacherId = request.ClassTeacherId,
+            TeachingLanguage = request.TeachingLanguage,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.SchoolClasses.Add(schoolClass);
@@ -44,6 +46,8 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
 
         schoolClass.Name = request.Name;
         schoolClass.Rocnik = request.Rocnik;
+        schoolClass.ClassTeacherId = request.ClassTeacherId;
+        schoolClass.TeachingLanguage = request.TeachingLanguage;
         await db.SaveChangesAsync();
         return Ok(schoolClass);
     }
@@ -73,4 +77,5 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     }
 }
 
-public record CreateSchoolClassRequest(string Name, int? Rocnik = null);
+public record CreateSchoolClassRequest(
+    string Name, int? Rocnik = null, int? ClassTeacherId = null, string? TeachingLanguage = null);

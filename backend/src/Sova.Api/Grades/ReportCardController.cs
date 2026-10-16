@@ -9,7 +9,7 @@ namespace Sova.Api.Grades;
 [Authorize]
 [ApiController]
 [Route("api/students/{studentId}/report-card")]
-public class ReportCardController(AppDbContext db) : ControllerBase
+public class ReportCardController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetReportCard(int studentId)
@@ -27,6 +27,8 @@ public class ReportCardController(AppDbContext db) : ControllerBase
             return NotFound();
         }
 
+        var school = currentSchool.SchoolId is { } schoolId ? await db.Schools.FindAsync(schoolId) : null;
+
         var gradesBySubject = await db.Grades
             .Where(g => g.StudentId == studentId)
             .GroupBy(g => g.Subject!.Name)
@@ -41,6 +43,7 @@ public class ReportCardController(AppDbContext db) : ControllerBase
 
         var pdfBytes = ReportCardDocument.Generate(
             student,
+            school,
             gradesBySubject
                 .Select(g => (g.Subject, Average: g.WeightedSum / (double)g.TotalWeight))
                 .ToList());

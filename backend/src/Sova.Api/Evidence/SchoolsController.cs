@@ -21,7 +21,9 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     {
         var schools = await db.Schools
             .OrderBy(s => s.Name)
-            .Select(s => new SchoolDto(s.Id, s.Name, s.Slug, s.CreatedAt, s.Izo, s.RedIzo))
+            .Select(s => new SchoolDto(
+                s.Id, s.Name, s.Slug, s.CreatedAt, s.Izo, s.RedIzo,
+                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone))
             .ToListAsync();
 
         return Ok(schools);
@@ -59,7 +61,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         db.Users.Add(admin);
         await db.SaveChangesAsync();
 
-        var dto = new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo);
+        var dto = ToDto(school);
         return CreatedAtAction(nameof(GetSchools), new { id = school.Id }, dto);
     }
 
@@ -79,7 +81,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         school.RedIzo = request.RedIzo;
         await db.SaveChangesAsync();
 
-        return Ok(new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo));
+        return Ok(ToDto(school));
     }
 
     [HttpPut("{id:int}")]
@@ -100,8 +102,12 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         school.Slug = request.Slug;
         await db.SaveChangesAsync();
 
-        return Ok(new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo));
+        return Ok(ToDto(school));
     }
+
+    internal static SchoolDto ToDto(School school) => new(
+        school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo,
+        school.Street, school.City, school.PostalCode, school.DirectorName, school.Email, school.Phone);
 
     /// <summary>Only allowed while the school is still empty (no users at
     /// all — every school gets its first Admin at creation time, so this is
@@ -136,4 +142,19 @@ public record UpdateSchoolRequest(string Name, string Slug);
 
 public record SetSchoolMatrikaIdsRequest(string? Izo, string? RedIzo);
 
-public record SchoolDto(int Id, string Name, string Slug, DateTimeOffset CreatedAt, string? Izo, string? RedIzo);
+public record SetSchoolDetailsRequest(
+    string? Street, string? City, string? PostalCode, string? DirectorName, string? Email, string? Phone);
+
+public record SchoolDto(
+    int Id,
+    string Name,
+    string Slug,
+    DateTimeOffset CreatedAt,
+    string? Izo,
+    string? RedIzo,
+    string? Street,
+    string? City,
+    string? PostalCode,
+    string? DirectorName,
+    string? Email,
+    string? Phone);

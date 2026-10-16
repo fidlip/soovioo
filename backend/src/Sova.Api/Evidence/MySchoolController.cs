@@ -23,7 +23,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        return Ok(new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo));
+        return Ok(SchoolsController.ToDto(school));
     }
 
     [HttpPut("matrika-ids")]
@@ -39,6 +39,28 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         school.RedIzo = request.RedIzo;
         await db.SaveChangesAsync();
 
-        return Ok(new SchoolDto(school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo));
+        return Ok(SchoolsController.ToDto(school));
+    }
+
+    /// <summary>Institutional address/contact/director — used on real
+    /// documents, not transmitted to matrika itself.</summary>
+    [HttpPut("details")]
+    public async Task<ActionResult<SchoolDto>> SetDetails(SetSchoolDetailsRequest request)
+    {
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        school.Street = request.Street;
+        school.City = request.City;
+        school.PostalCode = request.PostalCode;
+        school.DirectorName = request.DirectorName;
+        school.Email = request.Email;
+        school.Phone = request.Phone;
+        await db.SaveChangesAsync();
+
+        return Ok(SchoolsController.ToDto(school));
     }
 }

@@ -19,7 +19,7 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
     {
         var users = await db.Users
             .OrderBy(u => u.Username)
-            .Select(u => new UserDto(u.Id, u.Username, u.Role.ToString()))
+            .Select(u => new UserDto(u.Id, u.Username, u.Role.ToString(), u.Phone, u.Email))
             .ToListAsync();
 
         return Ok(users);
@@ -46,13 +46,15 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
             // Admin only ever manages their own school — never trust a
             // client-supplied SchoolId here.
             SchoolId = currentSchool.SchoolId,
+            Phone = request.Phone,
+            Email = request.Email,
         };
         user.PasswordHash = Hasher.HashPassword(user, request.Password);
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var dto = new UserDto(user.Id, user.Username, user.Role.ToString());
+        var dto = new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email);
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, dto);
     }
 
@@ -83,13 +85,15 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
 
         user.Username = request.Username;
         user.Role = role;
+        user.Phone = request.Phone;
+        user.Email = request.Email;
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             user.PasswordHash = Hasher.HashPassword(user, request.Password);
         }
 
         await db.SaveChangesAsync();
-        return Ok(new UserDto(user.Id, user.Username, user.Role.ToString()));
+        return Ok(new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email));
     }
 
     [HttpDelete("{id:int}")]
@@ -125,8 +129,8 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
         !await db.Users.AnyAsync(u => u.Id != userId && u.Role == UserRole.Admin);
 }
 
-public record CreateUserRequest(string Username, string Password, string Role);
+public record CreateUserRequest(string Username, string Password, string Role, string? Phone = null, string? Email = null);
 
-public record UpdateUserRequest(string Username, string Role, string? Password = null);
+public record UpdateUserRequest(string Username, string Role, string? Password = null, string? Phone = null, string? Email = null);
 
-public record UserDto(int Id, string Username, string Role);
+public record UserDto(int Id, string Username, string Role, string? Phone, string? Email);

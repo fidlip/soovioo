@@ -21,7 +21,12 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<Subject>> AddSubject(CreateSubjectRequest request)
     {
-        var subject = new Subject { Name = request.Name, SchoolId = currentSchool.SchoolId!.Value };
+        var subject = new Subject
+        {
+            Name = request.Name,
+            Abbreviation = request.Abbreviation,
+            SchoolId = currentSchool.SchoolId!.Value,
+        };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetSubjects), new { id = subject.Id }, subject);
@@ -38,6 +43,7 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         subject.Name = request.Name;
+        subject.Abbreviation = request.Abbreviation;
         await db.SaveChangesAsync();
         return Ok(subject);
     }
@@ -71,4 +77,4 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 }
 
-public record CreateSubjectRequest(string Name);
+public record CreateSubjectRequest(string Name, string? Abbreviation = null);

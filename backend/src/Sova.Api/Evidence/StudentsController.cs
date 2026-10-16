@@ -22,11 +22,15 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             query = query.Where(s => allowedStudentIds.Contains(s.Id));
         }
 
+        // Projected by hand (not via the ToDto helper below) so EF Core can
+        // translate this straight to SQL instead of materializing every
+        // column and mapping client-side.
         var students = await query
             .OrderBy(s => s.LastName)
             .Select(s => new StudentDto(
                 s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name,
-                s.RodneCislo, s.DateOfBirth, s.Gender))
+                s.RodneCislo, s.DateOfBirth, s.Gender, s.Citizenship, s.Street, s.City, s.PostalCode,
+                s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail))
             .ToListAsync();
 
         return Ok(students);
@@ -51,15 +55,20 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             RodneCislo = request.RodneCislo,
             DateOfBirth = request.DateOfBirth,
             Gender = request.Gender,
+            Citizenship = request.Citizenship,
+            Street = request.Street,
+            City = request.City,
+            PostalCode = request.PostalCode,
+            CatchmentArea = request.CatchmentArea,
+            EnrollmentDate = request.EnrollmentDate,
+            ContactPhone = request.ContactPhone,
+            ContactEmail = request.ContactEmail,
         };
 
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        var dto = new StudentDto(
-            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClass.Name,
-            student.RodneCislo, student.DateOfBirth, student.Gender);
-        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, dto);
+        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, ToDto(student, schoolClass.Name));
     }
 
     [HttpPut("{id:int}")]
@@ -84,12 +93,17 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         student.RodneCislo = request.RodneCislo;
         student.DateOfBirth = request.DateOfBirth;
         student.Gender = request.Gender;
+        student.Citizenship = request.Citizenship;
+        student.Street = request.Street;
+        student.City = request.City;
+        student.PostalCode = request.PostalCode;
+        student.CatchmentArea = request.CatchmentArea;
+        student.EnrollmentDate = request.EnrollmentDate;
+        student.ContactPhone = request.ContactPhone;
+        student.ContactEmail = request.ContactEmail;
         await db.SaveChangesAsync();
 
-        var dto = new StudentDto(
-            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClass.Name,
-            student.RodneCislo, student.DateOfBirth, student.Gender);
-        return Ok(dto);
+        return Ok(ToDto(student, schoolClass.Name));
     }
 
     /// <summary>Unlike the other evidence entities, a student leaving the
@@ -115,6 +129,12 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    private static StudentDto ToDto(Student student, string schoolClassName) => new(
+        student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClassName,
+        student.RodneCislo, student.DateOfBirth, student.Gender, student.Citizenship, student.Street,
+        student.City, student.PostalCode, student.CatchmentArea, student.EnrollmentDate,
+        student.ContactPhone, student.ContactEmail);
 }
 
 public record CreateStudentRequest(
@@ -123,7 +143,15 @@ public record CreateStudentRequest(
     int SchoolClassId,
     string? RodneCislo = null,
     DateOnly? DateOfBirth = null,
-    Gender? Gender = null);
+    Gender? Gender = null,
+    string? Citizenship = null,
+    string? Street = null,
+    string? City = null,
+    string? PostalCode = null,
+    bool? CatchmentArea = null,
+    DateOnly? EnrollmentDate = null,
+    string? ContactPhone = null,
+    string? ContactEmail = null);
 
 public record StudentDto(
     int Id,
@@ -133,4 +161,12 @@ public record StudentDto(
     string SchoolClassName,
     string? RodneCislo,
     DateOnly? DateOfBirth,
-    Gender? Gender);
+    Gender? Gender,
+    string? Citizenship,
+    string? Street,
+    string? City,
+    string? PostalCode,
+    bool? CatchmentArea,
+    DateOnly? EnrollmentDate,
+    string? ContactPhone,
+    string? ContactEmail);

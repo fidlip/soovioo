@@ -72,10 +72,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 // than a made-up, real-looking identifier.
                 RedIzo = "700000089",
                 Izo = "308000048",
+                Street = "Školní 8",
+                City = "Praha 1",
+                PostalCode = "110 00",
+                DirectorName = "Mgr. Jana Ředitelová",
+                Email = "skola@demo.cz",
+                Phone = "+420 123 456 789",
             });
 
         modelBuilder.Entity<SchoolClass>().HasData(
-            new SchoolClass { Id = 1, Name = "5.A", SchoolId = 1, Rocnik = 5 });
+            new SchoolClass { Id = 1, Name = "5.A", SchoolId = 1, Rocnik = 5, TeachingLanguage = "čeština" });
 
         modelBuilder.Entity<Student>().HasData(
             new Student
@@ -89,12 +95,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 Gender = Gender.Male,
                 // RodneCislo intentionally left unset, to exercise the
                 // pseudo-RODC construction path in MatrikaExportService.
+                Citizenship = "203", // ČR — the code the matrika documentation itself gives as the example
+                Street = "Žákovská 12",
+                City = "Praha 1",
+                PostalCode = "110 00",
+                CatchmentArea = true,
+                EnrollmentDate = new DateOnly(2020, 9, 1),
+                ContactPhone = "+420 777 123 456",
+                ContactEmail = "rodic.novak@example.cz",
             });
 
         modelBuilder.Entity<Subject>().HasData(
-            new Subject { Id = 1, Name = "Matematika", SchoolId = 1 },
-            new Subject { Id = 2, Name = "Český jazyk", SchoolId = 1 },
-            new Subject { Id = 3, Name = "Anglický jazyk", SchoolId = 1 });
+            new Subject { Id = 1, Name = "Matematika", SchoolId = 1, Abbreviation = "M" },
+            new Subject { Id = 2, Name = "Český jazyk", SchoolId = 1, Abbreviation = "Čj" },
+            new Subject { Id = 3, Name = "Anglický jazyk", SchoolId = 1, Abbreviation = "Aj" });
 
         modelBuilder.Entity<TimetableEntry>().HasData(
             new TimetableEntry { Id = 1, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Every },

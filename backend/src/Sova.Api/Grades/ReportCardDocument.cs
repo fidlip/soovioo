@@ -7,7 +7,8 @@ namespace Sova.Api.Grades;
 
 public static class ReportCardDocument
 {
-    public static byte[] Generate(Student student, IReadOnlyList<(string Subject, double Average)> grades)
+    public static byte[] Generate(
+        Student student, School? school, IReadOnlyList<(string Subject, double Average)> grades)
     {
         return Document.Create(container =>
         {
@@ -20,7 +21,17 @@ public static class ReportCardDocument
                 page.Header().Column(column =>
                 {
                     column.Item().Text("Vysvědčení").FontSize(20).Bold();
-                    column.Item().Text("Sova — školní informační systém").FontSize(10);
+                    // Falls back to the app name when the school hasn't
+                    // filled in its own details yet (MySchoolController).
+                    column.Item().Text(school?.Name ?? "Sova — školní informační systém").FontSize(10);
+                    if (school is { Street: not null, City: not null })
+                    {
+                        column.Item().Text($"{school.Street}, {school.PostalCode} {school.City}").FontSize(9);
+                    }
+                    if (school?.DirectorName is { } director)
+                    {
+                        column.Item().Text($"Ředitel/ka: {director}").FontSize(9);
+                    }
                 });
 
                 page.Content().PaddingTop(15).Column(column =>
