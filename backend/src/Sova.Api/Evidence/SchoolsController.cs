@@ -18,16 +18,26 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     private static readonly PasswordHasher<User> Hasher = new();
 
     /// <summary>Paginated — a real multi-tenant install can accumulate far
-    /// more schools than fit comfortably in one unpaginated table.</summary>
+    /// more schools than fit comfortably in one unpaginated table.
+    /// <paramref name="search"/> matches name or slug (case-insensitive,
+    /// substring) — filtered server-side, same as pagination, so the two
+    /// combine correctly instead of a client-side filter only ever seeing
+    /// whatever happened to be on the current page.</summary>
     [HttpGet]
-    public async Task<ActionResult<PagedResult<SchoolDto>>> GetSchools(int page = 1, int pageSize = 20)
+    public async Task<ActionResult<PagedResult<SchoolDto>>> GetSchools(int page = 1, int pageSize = 20, string? search = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var totalCount = await db.Schools.CountAsync();
+        var query = db.Schools.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(s => EF.Functions.ILike(s.Name, $"%{search}%") || EF.Functions.ILike(s.Slug, $"%{search}%"));
+        }
 
-        var schools = await db.Schools
+        var totalCount = await query.CountAsync();
+
+        var schools = await query
             .OrderBy(s => s.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
