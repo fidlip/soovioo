@@ -16,6 +16,15 @@
           >Správa škol</a
         >
       </nav>
+      <p-button
+        [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        size="small"
+        [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
+        (onClick)="toggleDarkMode()"
+      />
       <p-button label="Odhlásit se" severity="secondary" [text]="true" size="small" (onClick)="logout()" />
     } @else if (isLoggedIn()) {
       <nav class="flex flex-1 gap-1 overflow-x-auto">
@@ -52,9 +61,27 @@
           >
         }
       </nav>
+      <p-button
+        [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        size="small"
+        [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
+        (onClick)="toggleDarkMode()"
+      />
       <p-button label="Odhlásit se" severity="secondary" [text]="true" size="small" (onClick)="logout()" />
     } @else {
       <div class="flex-1"></div>
+      <p-button
+        [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        size="small"
+        [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
+        (onClick)="toggleDarkMode()"
+      />
       <a [routerLink]="schoolContext.link('login')" pButton size="small">Přihlásit se</a>
     }
   </div>
