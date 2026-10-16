@@ -1,7 +1,6 @@
 # System files
 .DS_Store
 Thumbs.db
-
 # Claude Code session-local state (root level only; frontend/.claude is intentional)
 /.claude/
 
@@ -28,3 +27,5 @@ backend/**/.vs/
 **/*.log
 
 .nx/polygraph
+
+IDEAS.md
