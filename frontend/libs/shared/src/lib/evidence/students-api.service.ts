@@ -16,4 +16,14 @@ export class StudentsApiService {
   addStudent(request: CreateStudentRequest): Observable<Student> {
     return this.http.post<Student>(`${this.baseUrl}/api/students`, request);
   }
+
+  updateStudent(id: number, request: CreateStudentRequest): Observable<Student> {
+    return this.http.put<Student>(`${this.baseUrl}/api/students/${id}`, request);
+  }
+
+  /** Also removes the student's grades, absences, messages and parent
+   * links — see StudentsController.DeleteStudent. */
+  deleteStudent(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/api/students/${id}`);
+  }
 }

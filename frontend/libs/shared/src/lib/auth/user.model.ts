@@ -9,3 +9,10 @@ export interface CreateUserRequest {
   password: string;
   role: string;
 }
+
+export interface UpdateUserRequest {
+  username: string;
+  role: string;
+  /** Omit to keep the current password. */
+  password?: string;
+}

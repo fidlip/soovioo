@@ -16,4 +16,13 @@ export class SubjectsApiService {
   addSubject(request: CreateSubjectRequest): Observable<Subject> {
     return this.http.post<Subject>(`${this.baseUrl}/api/subjects`, request);
   }
+
+  updateSubject(id: number, request: CreateSubjectRequest): Observable<Subject> {
+    return this.http.put<Subject>(`${this.baseUrl}/api/subjects/${id}`, request);
+  }
+
+  /** Rejected (400) while any grade or timetable entry references it. */
+  deleteSubject(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/api/subjects/${id}`);
+  }
 }

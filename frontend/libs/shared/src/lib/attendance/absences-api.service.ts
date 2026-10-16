@@ -17,6 +17,14 @@ export class AbsencesApiService {
     return this.http.post<Absence>(`${this.baseUrl}/api/absences`, request);
   }
 
+  updateAbsence(id: number, request: CreateAbsenceRequest): Observable<Absence> {
+    return this.http.put<Absence>(`${this.baseUrl}/api/absences/${id}`, request);
+  }
+
+  deleteAbsence(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/api/absences/${id}`);
+  }
+
   submitExcuse(id: number, reason: string): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/api/absences/${id}/excuse`, { reason });
   }

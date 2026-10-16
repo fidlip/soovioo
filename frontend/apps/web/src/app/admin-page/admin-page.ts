@@ -25,6 +25,7 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  UpdateUserRequest,
   UsersApiService,
 } from '@sova/shared';
 
@@ -98,6 +99,26 @@ export class AdminPage {
   protected newLinkUserId: number | null = null;
   protected newLinkStudentId: number | null = null;
 
+  protected editingSchoolClassId: number | null = null;
+  protected editSchoolClassName = '';
+  protected editSchoolClassRocnik: number | null = null;
+
+  protected editingSubjectId: number | null = null;
+  protected editSubjectName = '';
+
+  protected editingStudentId: number | null = null;
+  protected editStudentFirstName = '';
+  protected editStudentLastName = '';
+  protected editStudentSchoolClassId: number | null = null;
+  protected editStudentRodneCislo = '';
+  protected editStudentDateOfBirth = '';
+  protected editStudentGender: Gender | null = null;
+
+  protected editingUserId: number | null = null;
+  protected editUsername = '';
+  protected editUserRole = 'Parent';
+  protected editUserPassword = '';
+
   protected readonly matrikaIzo = signal('');
   protected readonly matrikaRedIzo = signal('');
   protected matrikaContactName = '';
@@ -106,7 +127,11 @@ export class AdminPage {
   protected matrikaCast = '01';
   protected readonly matrikaExportErrors = signal<string[]>([]);
 
-  protected error: string | null = null;
+  /** A signal, not a plain field — this app has no zone.js polyfill, so a
+   * plain-field write inside an RxJS subscribe callback doesn't reliably
+   * schedule change detection on its own (it only "works" by coincidence
+   * when some other signal write happens to run in the same tick). */
+  protected readonly error = signal<string | null>(null);
 
   constructor() {
     this.reloadAll();
@@ -165,6 +190,41 @@ export class AdminPage {
       });
   }
 
+  protected startEditSchoolClass(schoolClass: SchoolClass): void {
+    this.editingSchoolClassId = schoolClass.id;
+    this.editSchoolClassName = schoolClass.name;
+    this.editSchoolClassRocnik = schoolClass.rocnik;
+  }
+
+  protected cancelEditSchoolClass(): void {
+    this.editingSchoolClassId = null;
+  }
+
+  protected saveEditSchoolClass(): void {
+    if (this.editingSchoolClassId === null || !this.editSchoolClassName.trim()) {
+      return;
+    }
+    this.schoolClassesApi
+      .updateSchoolClass(this.editingSchoolClassId, {
+        name: this.editSchoolClassName,
+        rocnik: this.editSchoolClassRocnik ?? undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.editingSchoolClassId = null;
+          this.reloadAll();
+        },
+        error: (err) => this.showError('updateSchoolClass failed', err),
+      });
+  }
+
+  protected deleteSchoolClass(schoolClass: SchoolClass): void {
+    this.schoolClassesApi.deleteSchoolClass(schoolClass.id).subscribe({
+      next: () => this.reloadAll(),
+      error: (err) => this.showError('deleteSchoolClass failed', err),
+    });
+  }
+
   protected addSubject(): void {
     if (!this.newSubjectName.trim()) {
       return;
@@ -175,6 +235,35 @@ export class AdminPage {
         this.reloadAll();
       },
       error: (err) => this.showError('addSubject failed', err),
+    });
+  }
+
+  protected startEditSubject(subject: Subject): void {
+    this.editingSubjectId = subject.id;
+    this.editSubjectName = subject.name;
+  }
+
+  protected cancelEditSubject(): void {
+    this.editingSubjectId = null;
+  }
+
+  protected saveEditSubject(): void {
+    if (this.editingSubjectId === null || !this.editSubjectName.trim()) {
+      return;
+    }
+    this.subjectsApi.updateSubject(this.editingSubjectId, { name: this.editSubjectName }).subscribe({
+      next: () => {
+        this.editingSubjectId = null;
+        this.reloadAll();
+      },
+      error: (err) => this.showError('updateSubject failed', err),
+    });
+  }
+
+  protected deleteSubject(subject: Subject): void {
+    this.subjectsApi.deleteSubject(subject.id).subscribe({
+      next: () => this.reloadAll(),
+      error: (err) => this.showError('deleteSubject failed', err),
     });
   }
 
@@ -204,6 +293,60 @@ export class AdminPage {
       });
   }
 
+  protected startEditStudent(student: Student): void {
+    this.editingStudentId = student.id;
+    this.editStudentFirstName = student.firstName;
+    this.editStudentLastName = student.lastName;
+    this.editStudentSchoolClassId = student.schoolClassId;
+    this.editStudentRodneCislo = student.rodneCislo ?? '';
+    this.editStudentDateOfBirth = student.dateOfBirth ?? '';
+    this.editStudentGender = student.gender;
+  }
+
+  protected cancelEditStudent(): void {
+    this.editingStudentId = null;
+  }
+
+  protected saveEditStudent(): void {
+    if (
+      this.editingStudentId === null ||
+      !this.editStudentFirstName.trim() ||
+      !this.editStudentLastName.trim() ||
+      !this.editStudentSchoolClassId
+    ) {
+      return;
+    }
+    this.studentsApi
+      .updateStudent(this.editingStudentId, {
+        firstName: this.editStudentFirstName,
+        lastName: this.editStudentLastName,
+        schoolClassId: this.editStudentSchoolClassId,
+        rodneCislo: this.editStudentRodneCislo || undefined,
+        dateOfBirth: this.editStudentDateOfBirth || undefined,
+        gender: this.editStudentGender ?? undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.editingStudentId = null;
+          this.reloadAll();
+        },
+        error: (err) => this.showError('updateStudent failed', err),
+      });
+  }
+
+  /** Also removes the student's grades, absences, messages and parent
+   * links — see StudentsController.DeleteStudent. The confirm() here is the
+   * one place in this page a mistake can't be undone. */
+  protected deleteStudent(student: Student): void {
+    if (!confirm(`Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`)) {
+      return;
+    }
+    this.studentsApi.deleteStudent(student.id).subscribe({
+      next: () => this.reloadAll(),
+      error: (err) => this.showError('deleteStudent failed', err),
+    });
+  }
+
   protected addUser(): void {
     if (!this.newUsername.trim() || !this.newPassword.trim()) {
       return;
@@ -220,6 +363,43 @@ export class AdminPage {
         this.reloadAll();
       },
       error: (err) => this.showError('addUser failed', err),
+    });
+  }
+
+  protected startEditUser(user: AppUser): void {
+    this.editingUserId = user.id;
+    this.editUsername = user.username;
+    this.editUserRole = user.role;
+    this.editUserPassword = '';
+  }
+
+  protected cancelEditUser(): void {
+    this.editingUserId = null;
+  }
+
+  protected saveEditUser(): void {
+    if (this.editingUserId === null || !this.editUsername.trim()) {
+      return;
+    }
+    const request: UpdateUserRequest = {
+      username: this.editUsername,
+      role: this.editUserRole,
+      password: this.editUserPassword || undefined,
+    };
+    this.usersApi.updateUser(this.editingUserId, request).subscribe({
+      next: () => {
+        this.editingUserId = null;
+        this.reloadAll();
+      },
+      error: (err) => this.showError('updateUser failed', err),
+    });
+  }
+
+  /** Backend rejects (400) deleting yourself or the school's last Admin. */
+  protected deleteUser(user: AppUser): void {
+    this.usersApi.deleteUser(user.id).subscribe({
+      next: () => this.reloadAll(),
+      error: (err) => this.showError('deleteUser failed', err),
     });
   }
 
@@ -342,6 +522,6 @@ export class AdminPage {
 
   private showError(context: string, err: unknown): void {
     console.error(context, err);
-    this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
+    this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
   }
 }

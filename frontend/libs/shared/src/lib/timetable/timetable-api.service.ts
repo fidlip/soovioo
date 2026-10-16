@@ -24,4 +24,21 @@ export class TimetableApiService {
       request,
     );
   }
+
+  updateEntry(
+    schoolClassId: number,
+    id: number,
+    request: CreateTimetableEntryRequest,
+  ): Observable<TimetableEntry> {
+    return this.http.put<TimetableEntry>(
+      `${this.baseUrl}/api/school-classes/${schoolClassId}/timetable/${id}`,
+      request,
+    );
+  }
+
+  deleteEntry(schoolClassId: number, id: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/school-classes/${schoolClassId}/timetable/${id}`,
+    );
+  }
 }

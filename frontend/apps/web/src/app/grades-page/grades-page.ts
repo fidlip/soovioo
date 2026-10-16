@@ -4,6 +4,7 @@ import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
+import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
@@ -20,7 +21,7 @@ import {
 
 @Component({
   selector: 'app-grades-page',
-  imports: [FormsModule, Button, Card, InputNumber, PrimeTemplate, Select, TableModule, Tag],
+  imports: [FormsModule, Button, Card, InputNumber, InputText, PrimeTemplate, Select, TableModule, Tag],
   templateUrl: './grades-page.html',
 })
 export class GradesPage {
@@ -43,6 +44,13 @@ export class GradesPage {
   protected selectedSubjectId: number | null = null;
   protected value = 1;
   protected weight = 1;
+
+  protected editingGradeId: number | null = null;
+  protected editStudentId: number | null = null;
+  protected editSubjectId: number | null = null;
+  protected editValue = 1;
+  protected editWeight = 1;
+  protected editNote = '';
 
   constructor() {
     this.reload();
@@ -81,6 +89,47 @@ export class GradesPage {
 
   protected canAddGrade(): boolean {
     return this.authApi.isTeacherOrAdmin();
+  }
+
+  protected startEditGrade(grade: Grade): void {
+    this.editingGradeId = grade.id;
+    this.editStudentId = grade.studentId;
+    this.editSubjectId = grade.subjectId;
+    this.editValue = grade.value;
+    this.editWeight = grade.weight;
+    this.editNote = grade.note ?? '';
+  }
+
+  protected cancelEditGrade(): void {
+    this.editingGradeId = null;
+  }
+
+  protected saveEditGrade(): void {
+    if (this.editingGradeId === null || !this.editStudentId || !this.editSubjectId) {
+      return;
+    }
+    this.gradesApi
+      .updateGrade(this.editingGradeId, {
+        studentId: this.editStudentId,
+        subjectId: this.editSubjectId,
+        value: this.editValue,
+        weight: this.editWeight,
+        note: this.editNote || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.editingGradeId = null;
+          this.reload();
+        },
+        error: (err) => console.error('updateGrade failed', err),
+      });
+  }
+
+  protected deleteGrade(grade: Grade): void {
+    this.gradesApi.deleteGrade(grade.id).subscribe({
+      next: () => this.reload(),
+      error: (err) => console.error('deleteGrade failed', err),
+    });
   }
 
   /** Czech 1 (best) – 5 (worst) grading scale, mapped to a tag color. */

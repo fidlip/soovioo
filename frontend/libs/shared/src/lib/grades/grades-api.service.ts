@@ -16,4 +16,12 @@ export class GradesApiService {
   addGrade(request: CreateGradeRequest): Observable<Grade> {
     return this.http.post<Grade>(`${this.baseUrl}/api/grades`, request);
   }
+
+  updateGrade(id: number, request: CreateGradeRequest): Observable<Grade> {
+    return this.http.put<Grade>(`${this.baseUrl}/api/grades/${id}`, request);
+  }
+
+  deleteGrade(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/api/grades/${id}`);
+  }
 }

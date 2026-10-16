@@ -84,6 +84,18 @@ export class MessagesPage {
     });
   }
 
+  /** No edit action exists for messages on purpose — a sent message is
+   * immutable, like an email (see MessagesController). */
+  protected deleteMessage(message: Message): void {
+    if (!this.selectedStudentId) {
+      return;
+    }
+    this.messagesApi.deleteMessage(this.selectedStudentId, message.id).subscribe({
+      next: () => this.reload(),
+      error: (err) => console.error('deleteMessage failed', err),
+    });
+  }
+
   private reload(): void {
     if (!this.selectedStudentId) {
       return;

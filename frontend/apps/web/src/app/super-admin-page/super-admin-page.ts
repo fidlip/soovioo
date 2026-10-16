@@ -31,7 +31,10 @@ export class SuperAdminPage {
   protected editName = '';
   protected editSlug = '';
 
-  protected error: string | null = null;
+  /** A signal, not a plain field — this app has no zone.js polyfill, so a
+   * plain-field write inside an RxJS subscribe callback doesn't reliably
+   * schedule change detection on its own. */
+  protected readonly error = signal<string | null>(null);
 
   constructor() {
     this.reload();
@@ -69,12 +72,12 @@ export class SuperAdminPage {
         this.newAdminPassword = '';
         this.newSchoolIzo = '';
         this.newSchoolRedIzo = '';
-        this.error = null;
+        this.error.set(null);
         this.reload();
       },
       error: (err) => {
         console.error('addSchool failed', err);
-        this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
+        this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
       },
     });
   }
@@ -83,7 +86,7 @@ export class SuperAdminPage {
     this.editingSchoolId = school.id;
     this.editName = school.name;
     this.editSlug = school.slug;
-    this.error = null;
+    this.error.set(null);
   }
 
   protected cancelEdit(): void {
@@ -98,12 +101,12 @@ export class SuperAdminPage {
     this.schoolsApi.updateSchool(this.editingSchoolId, request).subscribe({
       next: () => {
         this.editingSchoolId = null;
-        this.error = null;
+        this.error.set(null);
         this.reload();
       },
       error: (err) => {
         console.error('updateSchool failed', err);
-        this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
+        this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
       },
     });
   }
@@ -111,12 +114,12 @@ export class SuperAdminPage {
   protected deleteSchool(school: School): void {
     this.schoolsApi.deleteSchool(school.id).subscribe({
       next: () => {
-        this.error = null;
+        this.error.set(null);
         this.reload();
       },
       error: (err) => {
         console.error('deleteSchool failed', err);
-        this.error = (err as { error?: string })?.error ?? 'Něco se nepovedlo.';
+        this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
       },
     });
   }

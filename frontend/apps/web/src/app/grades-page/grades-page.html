@@ -48,12 +48,21 @@
           [max]="5"
           [showButtons]="true"
           styleClass="w-28"
+          inputStyleClass="w-full"
         />
       </div>
 
       <div class="flex flex-col gap-1.5">
         <label for="weight" class="text-sm font-medium text-surface-600 dark:text-surface-300">Váha</label>
-        <p-inputNumber inputId="weight" [(ngModel)]="weight" name="weight" [min]="1" [max]="10" styleClass="w-24" />
+        <p-inputNumber
+          inputId="weight"
+          [(ngModel)]="weight"
+          name="weight"
+          [min]="1"
+          [max]="10"
+          styleClass="w-24"
+          inputStyleClass="w-full"
+        />
       </div>
 
       <p-button type="submit" label="Zapsat" icon="pi pi-plus" />
@@ -69,20 +78,79 @@
       <th>Známka</th>
       <th>Váha</th>
       <th>Poznámka</th>
+      @if (canAddGrade()) {
+        <th></th>
+      }
     </tr>
   </ng-template>
   <ng-template pTemplate="body" let-grade>
-    <tr>
-      <td>{{ grade.studentName }}</td>
-      <td>{{ grade.subjectName }}</td>
-      <td><p-tag [value]="grade.value + ''" [severity]="gradeSeverity(grade.value)" [rounded]="true" /></td>
-      <td>{{ grade.weight }}</td>
-      <td class="text-surface-500">{{ grade.note }}</td>
-    </tr>
+    @if (editingGradeId === grade.id) {
+      <tr>
+        <td>
+          <p-select
+            [options]="studentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            [(ngModel)]="editStudentId"
+            name="editGradeStudent"
+            styleClass="w-36"
+          />
+        </td>
+        <td>
+          <p-select
+            [options]="subjects()"
+            optionLabel="name"
+            optionValue="id"
+            [(ngModel)]="editSubjectId"
+            name="editGradeSubject"
+            styleClass="w-32"
+          />
+        </td>
+        <td>
+          <p-inputNumber
+            [(ngModel)]="editValue"
+            name="editGradeValue"
+            [min]="1"
+            [max]="5"
+            styleClass="w-20"
+            inputStyleClass="w-full"
+          />
+        </td>
+        <td>
+          <p-inputNumber
+            [(ngModel)]="editWeight"
+            name="editGradeWeight"
+            [min]="1"
+            [max]="10"
+            styleClass="w-20"
+            inputStyleClass="w-full"
+          />
+        </td>
+        <td><input pInputText type="text" [(ngModel)]="editNote" name="editGradeNote" /></td>
+        <td class="flex justify-end gap-1">
+          <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditGrade()" />
+          <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditGrade()" />
+        </td>
+      </tr>
+    } @else {
+      <tr>
+        <td>{{ grade.studentName }}</td>
+        <td>{{ grade.subjectName }}</td>
+        <td><p-tag [value]="grade.value + ''" [severity]="gradeSeverity(grade.value)" [rounded]="true" /></td>
+        <td>{{ grade.weight }}</td>
+        <td class="text-surface-500">{{ grade.note }}</td>
+        @if (canAddGrade()) {
+          <td class="flex justify-end gap-1">
+            <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditGrade(grade)" />
+            <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteGrade(grade)" />
+          </td>
+        }
+      </tr>
+    }
   </ng-template>
   <ng-template pTemplate="emptymessage">
     <tr>
-      <td colspan="5" class="py-6 text-center text-surface-500">Zatím žádné známky.</td>
+      <td colspan="6" class="py-6 text-center text-surface-500">Zatím žádné známky.</td>
     </tr>
   </ng-template>
 </p-table>

@@ -26,4 +26,10 @@ export class MessagesApiService {
       {},
     );
   }
+
+  deleteMessage(studentId: number, messageId: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}`,
+    );
+  }
 }

@@ -52,6 +52,10 @@ export class AbsencesPage {
   protected date = new Date().toISOString().slice(0, 10);
   protected excuseDrafts: Record<number, string> = {};
 
+  protected editingAbsenceId: number | null = null;
+  protected editStudentId: number | null = null;
+  protected editDate = '';
+
   constructor() {
     this.reload();
     this.studentsApi.getStudents().subscribe({
@@ -102,6 +106,38 @@ export class AbsencesPage {
     this.absencesApi.reviewAbsence(absence.id, approve).subscribe({
       next: () => this.reload(),
       error: (err) => console.error('reviewAbsence failed', err),
+    });
+  }
+
+  protected startEditAbsence(absence: Absence): void {
+    this.editingAbsenceId = absence.id;
+    this.editStudentId = absence.studentId;
+    this.editDate = absence.date;
+  }
+
+  protected cancelEditAbsence(): void {
+    this.editingAbsenceId = null;
+  }
+
+  protected saveEditAbsence(): void {
+    if (this.editingAbsenceId === null || !this.editStudentId) {
+      return;
+    }
+    this.absencesApi
+      .updateAbsence(this.editingAbsenceId, { studentId: this.editStudentId, date: this.editDate })
+      .subscribe({
+        next: () => {
+          this.editingAbsenceId = null;
+          this.reload();
+        },
+        error: (err) => console.error('updateAbsence failed', err),
+      });
+  }
+
+  protected deleteAbsence(absence: Absence): void {
+    this.absencesApi.deleteAbsence(absence.id).subscribe({
+      next: () => this.reload(),
+      error: (err) => console.error('deleteAbsence failed', err),
     });
   }
 

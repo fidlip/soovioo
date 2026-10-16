@@ -3,28 +3,51 @@
 @if (!isAdmin()) {
   <p class="text-surface-500">Tato stránka je dostupná jen pro roli Admin.</p>
 } @else {
-  @if (error) {
-    <p-message severity="error" [text]="error" styleClass="mb-6 w-full" />
+  @if (error(); as errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="mb-6 w-full" />
   }
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-    <p-card header="Třídy">
+    <p-card header="Třídy" styleClass="lg:col-span-2">
       <p-table [value]="schoolClasses()" dataKey="id" styleClass="mb-4">
         <ng-template pTemplate="header">
           <tr>
             <th>Název</th>
             <th>Ročník</th>
+            <th></th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-schoolClass>
-          <tr>
-            <td>{{ schoolClass.name }}</td>
-            <td>{{ schoolClass.rocnik ?? '—' }}</td>
-          </tr>
+          @if (editingSchoolClassId === schoolClass.id) {
+            <tr>
+              <td><input pInputText type="text" [(ngModel)]="editSchoolClassName" name="editSchoolClassName" /></td>
+              <td>
+                <p-inputNumber
+                  [(ngModel)]="editSchoolClassRocnik"
+                  name="editSchoolClassRocnik"
+                  styleClass="w-20"
+                  inputStyleClass="w-full"
+                />
+              </td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditSchoolClass()" />
+                <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditSchoolClass()" />
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>{{ schoolClass.name }}</td>
+              <td>{{ schoolClass.rocnik ?? '—' }}</td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditSchoolClass(schoolClass)" />
+                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteSchoolClass(schoolClass)" />
+              </td>
+            </tr>
+          }
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="2" class="py-3 text-surface-500">Žádné třídy.</td>
+            <td colspan="3" class="py-3 text-surface-500">Žádné třídy.</td>
           </tr>
         </ng-template>
       </p-table>
@@ -37,21 +60,41 @@
           name="className"
           [(ngModel)]="newSchoolClassName"
         />
-        <p-inputNumber placeholder="Ročník" name="classRocnik" [(ngModel)]="newSchoolClassRocnik" styleClass="w-28" />
+        <p-inputNumber
+          placeholder="Ročník"
+          name="classRocnik"
+          [(ngModel)]="newSchoolClassRocnik"
+          styleClass="w-28"
+          inputStyleClass="w-full"
+        />
         <p-button type="submit" icon="pi pi-plus" />
       </form>
     </p-card>
 
-    <p-card header="Předměty">
+    <p-card header="Předměty" styleClass="lg:col-span-2">
       <p-table [value]="subjects()" dataKey="id" styleClass="mb-4">
         <ng-template pTemplate="body" let-subject>
-          <tr>
-            <td>{{ subject.name }}</td>
-          </tr>
+          @if (editingSubjectId === subject.id) {
+            <tr>
+              <td><input pInputText type="text" [(ngModel)]="editSubjectName" name="editSubjectName" /></td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditSubject()" />
+                <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditSubject()" />
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>{{ subject.name }}</td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditSubject(subject)" />
+                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteSubject(subject)" />
+              </td>
+            </tr>
+          }
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td class="py-3 text-surface-500">Žádné předměty.</td>
+            <td colspan="2" class="py-3 text-surface-500">Žádné předměty.</td>
           </tr>
         </ng-template>
       </p-table>
@@ -76,19 +119,60 @@
             <th>Třída</th>
             <th>Narození</th>
             <th>Pohlaví</th>
+            <th></th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-student>
-          <tr>
-            <td>{{ student.firstName }} {{ student.lastName }}</td>
-            <td>{{ student.schoolClassName }}</td>
-            <td>{{ student.dateOfBirth ?? '—' }}</td>
-            <td>{{ student.gender === 'Female' ? 'Dívka' : student.gender === 'Male' ? 'Chlapec' : '—' }}</td>
-          </tr>
+          @if (editingStudentId === student.id) {
+            <tr>
+              <td class="flex gap-1">
+                <input pInputText type="text" [(ngModel)]="editStudentFirstName" name="editStudentFirstName" class="w-20" />
+                <input pInputText type="text" [(ngModel)]="editStudentLastName" name="editStudentLastName" class="w-24" />
+              </td>
+              <td>
+                <p-select
+                  [options]="schoolClasses()"
+                  optionLabel="name"
+                  optionValue="id"
+                  [(ngModel)]="editStudentSchoolClassId"
+                  name="editStudentSchoolClass"
+                  styleClass="w-28"
+                />
+              </td>
+              <td>
+                <input pInputText type="date" [(ngModel)]="editStudentDateOfBirth" name="editStudentDateOfBirth" />
+              </td>
+              <td>
+                <p-select
+                  [options]="genderOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  [(ngModel)]="editStudentGender"
+                  name="editStudentGender"
+                  styleClass="w-28"
+                />
+              </td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditStudent()" />
+                <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditStudent()" />
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>{{ student.firstName }} {{ student.lastName }}</td>
+              <td>{{ student.schoolClassName }}</td>
+              <td>{{ student.dateOfBirth ?? '—' }}</td>
+              <td>{{ student.gender === 'Female' ? 'Dívka' : student.gender === 'Male' ? 'Chlapec' : '—' }}</td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditStudent(student)" />
+                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteStudent(student)" />
+              </td>
+            </tr>
+          }
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="4" class="py-3 text-surface-500">Žádní žáci.</td>
+            <td colspan="5" class="py-3 text-surface-500">Žádní žáci.</td>
           </tr>
         </ng-template>
       </p-table>
@@ -216,17 +300,49 @@
           <tr>
             <th>Jméno</th>
             <th>Role</th>
+            <th></th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-user>
-          <tr>
-            <td>{{ user.username }}</td>
-            <td><p-tag [value]="user.role" severity="secondary" /></td>
-          </tr>
+          @if (editingUserId === user.id) {
+            <tr>
+              <td><input pInputText type="text" [(ngModel)]="editUsername" name="editUsername" /></td>
+              <td class="flex flex-wrap items-center gap-1">
+                <p-select
+                  [options]="roleOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  [(ngModel)]="editUserRole"
+                  name="editUserRole"
+                  styleClass="w-28"
+                />
+                <p-password
+                  placeholder="Nové heslo (nepovinné)"
+                  [(ngModel)]="editUserPassword"
+                  name="editUserPassword"
+                  [toggleMask]="true"
+                  [feedback]="false"
+                />
+              </td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditUser()" />
+                <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditUser()" />
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>{{ user.username }}</td>
+              <td><p-tag [value]="user.role" severity="secondary" /></td>
+              <td class="flex justify-end gap-1">
+                <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditUser(user)" />
+                <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteUser(user)" />
+              </td>
+            </tr>
+          }
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="2" class="py-3 text-surface-500">Žádní uživatelé.</td>
+            <td colspan="3" class="py-3 text-surface-500">Žádní uživatelé.</td>
           </tr>
         </ng-template>
       </p-table>

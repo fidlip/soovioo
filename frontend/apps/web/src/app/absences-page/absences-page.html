@@ -34,53 +34,83 @@
       <th>Stav</th>
       <th>Omluvenka</th>
       <th></th>
+      @if (canManageAbsences()) {
+        <th></th>
+      }
     </tr>
   </ng-template>
   <ng-template pTemplate="body" let-absence>
-    <tr>
-      <td>{{ absence.studentName }}</td>
-      <td>{{ absence.date }}</td>
-      <td><p-tag [value]="statusLabel(absence.status)" [severity]="statusSeverity(absence.status)" /></td>
-      <td class="text-surface-500">{{ absence.excuseReason }}</td>
-      <td>
-        @if (absence.status === 'Unexcused') {
-          <div class="flex items-center gap-2">
-            <input
-              pInputText
-              type="text"
-              placeholder="Důvod omluvenky"
-              class="w-48"
-              [(ngModel)]="excuseDrafts[absence.id]"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            <p-button label="Omluvit" size="small" [outlined]="true" (onClick)="submitExcuse(absence)" />
-          </div>
+    @if (editingAbsenceId === absence.id) {
+      <tr>
+        <td>
+          <p-select
+            [options]="studentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            [(ngModel)]="editStudentId"
+            name="editAbsenceStudent"
+            styleClass="w-40"
+          />
+        </td>
+        <td><input pInputText type="date" [(ngModel)]="editDate" name="editAbsenceDate" /></td>
+        <td colspan="3"></td>
+        <td class="flex justify-end gap-1">
+          <p-button icon="pi pi-check" size="small" [text]="true" (onClick)="saveEditAbsence()" />
+          <p-button icon="pi pi-times" size="small" severity="secondary" [text]="true" (onClick)="cancelEditAbsence()" />
+        </td>
+      </tr>
+    } @else {
+      <tr>
+        <td>{{ absence.studentName }}</td>
+        <td>{{ absence.date }}</td>
+        <td><p-tag [value]="statusLabel(absence.status)" [severity]="statusSeverity(absence.status)" /></td>
+        <td class="text-surface-500">{{ absence.excuseReason }}</td>
+        <td>
+          @if (absence.status === 'Unexcused') {
+            <div class="flex items-center gap-2">
+              <input
+                pInputText
+                type="text"
+                placeholder="Důvod omluvenky"
+                class="w-48"
+                [(ngModel)]="excuseDrafts[absence.id]"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <p-button label="Omluvit" size="small" [outlined]="true" (onClick)="submitExcuse(absence)" />
+            </div>
+          }
+          @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
+            <div class="flex gap-2">
+              <p-button
+                label="Schválit"
+                icon="pi pi-check"
+                size="small"
+                severity="success"
+                (onClick)="review(absence, true)"
+              />
+              <p-button
+                label="Zamítnout"
+                icon="pi pi-times"
+                size="small"
+                severity="danger"
+                [outlined]="true"
+                (onClick)="review(absence, false)"
+              />
+            </div>
+          }
+        </td>
+        @if (canManageAbsences()) {
+          <td class="flex justify-end gap-1">
+            <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditAbsence(absence)" />
+            <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteAbsence(absence)" />
+          </td>
         }
-        @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
-          <div class="flex gap-2">
-            <p-button
-              label="Schválit"
-              icon="pi pi-check"
-              size="small"
-              severity="success"
-              (onClick)="review(absence, true)"
-            />
-            <p-button
-              label="Zamítnout"
-              icon="pi pi-times"
-              size="small"
-              severity="danger"
-              [outlined]="true"
-              (onClick)="review(absence, false)"
-            />
-          </div>
-        }
-      </td>
-    </tr>
+      </tr>
+    }
   </ng-template>
   <ng-template pTemplate="emptymessage">
     <tr>
-      <td colspan="5" class="py-6 text-center text-surface-500">Žádné záznamy.</td>
+      <td colspan="6" class="py-6 text-center text-surface-500">Žádné záznamy.</td>
     </tr>
   </ng-template>
 </p-table>

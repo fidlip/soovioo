@@ -36,9 +36,14 @@
           </div>
           <div class="text-sm text-surface-500">{{ message.senderName }}</div>
         </div>
-        @if (!message.readAt) {
-          <p-button label="Označit jako přečtené" size="small" [text]="true" (onClick)="markRead(message)" />
-        }
+        <div class="flex items-center gap-1">
+          @if (!message.readAt) {
+            <p-button label="Označit jako přečtené" size="small" [text]="true" (onClick)="markRead(message)" />
+          }
+          @if (canSendMessages()) {
+            <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteMessage(message)" />
+          }
+        </div>
       </div>
       <p class="mt-2 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200">{{ message.body }}</p>
     </p-card>
