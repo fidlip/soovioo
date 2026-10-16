@@ -45,6 +45,11 @@ export class GradesPage {
   protected value = 1;
   protected weight = 1;
 
+  /** null = "all" — separate from selectedStudentId/selectedSubjectId above,
+   * which drive the add-grade form, not what's shown in the table. */
+  protected filterStudentId: number | null = null;
+  protected filterSubjectId: number | null = null;
+
   protected editingGradeId: number | null = null;
   protected editStudentId: number | null = null;
   protected editSubjectId: number | null = null;
@@ -130,6 +135,14 @@ export class GradesPage {
       next: () => this.reload(),
       error: (err) => console.error('deleteGrade failed', err),
     });
+  }
+
+  protected filteredGrades(): Grade[] {
+    return this.grades().filter(
+      (g) =>
+        (this.filterStudentId === null || g.studentId === this.filterStudentId) &&
+        (this.filterSubjectId === null || g.subjectId === this.filterSubjectId),
+    );
   }
 
   /** Czech 1 (best) – 5 (worst) grading scale, mapped to a tag color. */

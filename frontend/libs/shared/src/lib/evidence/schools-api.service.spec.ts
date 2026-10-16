@@ -38,4 +38,11 @@ describe('SchoolsApiService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ items: [], totalCount: 0, page: 2, pageSize: 10 });
   });
+
+  it('includes the search param only when given', () => {
+    service.getSchools(1, 20, 'demo').subscribe();
+    const req = httpMock.expectOne('http://test/api/schools?page=1&pageSize=20&search=demo');
+    expect(req.request.method).toBe('GET');
+    req.flush({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+  });
 });

@@ -26,7 +26,38 @@
   </p-card>
 }
 
-<p-table [value]="absences()" dataKey="id" styleClass="rounded-border">
+<div class="mb-3 flex flex-wrap items-end gap-3">
+  <div class="flex flex-col gap-1.5">
+    <label for="filterStudent" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
+    <p-select
+      inputId="filterStudent"
+      [options]="studentOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="Všichni žáci"
+      [(ngModel)]="filterStudentId"
+      [showClear]="true"
+      name="filterStudent"
+      styleClass="w-52"
+    />
+  </div>
+  <div class="flex flex-col gap-1.5">
+    <label for="filterStatus" class="text-sm font-medium text-surface-600 dark:text-surface-300">Stav</label>
+    <p-select
+      inputId="filterStatus"
+      [options]="statusFilterOptions"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Všechny stavy"
+      [(ngModel)]="filterStatus"
+      [showClear]="true"
+      name="filterStatus"
+      styleClass="w-48"
+    />
+  </div>
+</div>
+
+<p-table [value]="filteredAbsences()" dataKey="id" styleClass="rounded-border">
   <ng-template pTemplate="header">
     <tr>
       <th>Žák</th>

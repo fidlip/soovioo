@@ -52,6 +52,15 @@ export class AbsencesPage {
   protected date = new Date().toISOString().slice(0, 10);
   protected excuseDrafts: Record<number, string> = {};
 
+  /** null = "all" — separate from selectedStudentId above, which drives the
+   * add-absence form, not what's shown in the table. */
+  protected filterStudentId: number | null = null;
+  protected filterStatus: AbsenceStatus | null = null;
+  protected readonly statusFilterOptions = Object.entries(STATUS_LABEL).map(([value, label]) => ({
+    value: value as AbsenceStatus,
+    label,
+  }));
+
   protected editingAbsenceId: number | null = null;
   protected editStudentId: number | null = null;
   protected editDate = '';
@@ -77,6 +86,14 @@ export class AbsencesPage {
 
   protected statusLabel(status: AbsenceStatus): string {
     return STATUS_LABEL[status];
+  }
+
+  protected filteredAbsences(): Absence[] {
+    return this.absences().filter(
+      (a) =>
+        (this.filterStudentId === null || a.studentId === this.filterStudentId) &&
+        (this.filterStatus === null || a.status === this.filterStatus),
+    );
   }
 
   protected addAbsence(): void {

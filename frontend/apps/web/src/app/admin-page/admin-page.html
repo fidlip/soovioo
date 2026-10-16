@@ -171,7 +171,30 @@
     </p-card>
 
     <p-card header="Žáci" styleClass="lg:col-span-2">
-      <p-table [value]="students()" dataKey="id" styleClass="mb-4">
+      <div class="mb-3 flex flex-wrap items-end gap-2">
+        <input pInputText type="text" placeholder="Hledat jméno" [(ngModel)]="filterStudentName" name="filterStudentName" />
+        <p-select
+          [options]="schoolClasses()"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Všechny třídy"
+          [(ngModel)]="filterStudentSchoolClassId"
+          [showClear]="true"
+          name="filterStudentSchoolClassId"
+          styleClass="w-36"
+        />
+        <p-select
+          [options]="genderOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Vše"
+          [(ngModel)]="filterStudentGender"
+          [showClear]="true"
+          name="filterStudentGender"
+          styleClass="w-32"
+        />
+      </div>
+      <p-table [value]="filteredStudents()" dataKey="id" styleClass="mb-4">
         <ng-template pTemplate="header">
           <tr>
             <th>Jméno</th>
@@ -574,7 +597,19 @@
     </p-card>
 
     <p-card header="Uživatelé" styleClass="lg:col-span-2">
-      <p-table [value]="users()" dataKey="id" styleClass="mb-4">
+      <div class="mb-3 flex flex-wrap items-end gap-2">
+        <p-select
+          [options]="roleOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Všechny role"
+          [(ngModel)]="filterUserRole"
+          [showClear]="true"
+          name="filterUserRole"
+          styleClass="w-40"
+        />
+      </div>
+      <p-table [value]="filteredUsers()" dataKey="id" styleClass="mb-4">
         <ng-template pTemplate="header">
           <tr>
             <th>Jméno</th>

@@ -70,7 +70,38 @@
   </p-card>
 }
 
-<p-table [value]="grades()" dataKey="id" styleClass="rounded-border">
+<div class="mb-3 flex flex-wrap items-end gap-3">
+  <div class="flex flex-col gap-1.5">
+    <label for="filterStudent" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
+    <p-select
+      inputId="filterStudent"
+      [options]="studentOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="Všichni žáci"
+      [(ngModel)]="filterStudentId"
+      [showClear]="true"
+      name="filterStudent"
+      styleClass="w-52"
+    />
+  </div>
+  <div class="flex flex-col gap-1.5">
+    <label for="filterSubject" class="text-sm font-medium text-surface-600 dark:text-surface-300">Předmět</label>
+    <p-select
+      inputId="filterSubject"
+      [options]="subjects()"
+      optionLabel="name"
+      optionValue="id"
+      placeholder="Všechny předměty"
+      [(ngModel)]="filterSubjectId"
+      [showClear]="true"
+      name="filterSubject"
+      styleClass="w-48"
+    />
+  </div>
+</div>
+
+<p-table [value]="filteredGrades()" dataKey="id" styleClass="rounded-border">
   <ng-template pTemplate="header">
     <tr>
       <th>Žák</th>

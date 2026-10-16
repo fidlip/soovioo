@@ -5,6 +5,15 @@
 }
 
 <p-card header="Školy" styleClass="mb-6">
+  <input
+    pInputText
+    type="text"
+    placeholder="Hledat podle názvu nebo slugu"
+    [(ngModel)]="search"
+    (ngModelChange)="onSearchChange()"
+    name="search"
+    class="mb-3 w-72"
+  />
   <p-table [value]="schools()" dataKey="id">
     <ng-template pTemplate="header">
       <tr>

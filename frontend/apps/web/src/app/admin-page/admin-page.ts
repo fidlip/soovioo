@@ -136,6 +136,11 @@ export class AdminPage {
   protected newUserPhone = '';
   protected newUserEmail = '';
 
+  protected filterStudentName = '';
+  protected filterStudentSchoolClassId: number | null = null;
+  protected filterStudentGender: Gender | null = null;
+  protected filterUserRole: string | null = null;
+
   protected newLinkUserId: number | null = null;
   protected newLinkStudentId: number | null = null;
 
@@ -220,6 +225,20 @@ export class AdminPage {
       return '—';
     }
     return this.users().find((u) => u.id === classTeacherId)?.username ?? '—';
+  }
+
+  protected filteredStudents(): Student[] {
+    const name = this.filterStudentName.trim().toLowerCase();
+    return this.students().filter(
+      (s) =>
+        (!name || `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
+        (this.filterStudentSchoolClassId === null || s.schoolClassId === this.filterStudentSchoolClassId) &&
+        (this.filterStudentGender === null || s.gender === this.filterStudentGender),
+    );
+  }
+
+  protected filteredUsers(): AppUser[] {
+    return this.users().filter((u) => this.filterUserRole === null || u.role === this.filterUserRole);
   }
 
   private reloadAll(): void {

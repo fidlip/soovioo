@@ -11,9 +11,11 @@ export class SchoolsApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  getSchools(page = 1, pageSize = 20): Observable<PagedResult<School>> {
+  /** search matches name or slug (case-insensitive substring), filtered
+   * server-side alongside pagination. */
+  getSchools(page = 1, pageSize = 20, search?: string): Observable<PagedResult<School>> {
     return this.http.get<PagedResult<School>>(`${this.baseUrl}/api/schools`, {
-      params: { page, pageSize },
+      params: search ? { page, pageSize, search } : { page, pageSize },
     });
   }
 

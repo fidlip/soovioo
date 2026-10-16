@@ -24,6 +24,14 @@ const MODE_OPTIONS: { value: SendMode; label: string }[] = [
   { value: 'school', label: 'Celá škola' },
 ];
 
+type ReadFilter = 'all' | 'unread' | 'read';
+
+const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
+  { value: 'all', label: 'Vše' },
+  { value: 'unread', label: 'Nepřečtené' },
+  { value: 'read', label: 'Přečtené' },
+];
+
 @Component({
   selector: 'app-messages-page',
   imports: [FormsModule, Button, Card, InputText, PMessage, Select, Tag, Textarea],
@@ -56,6 +64,9 @@ export class MessagesPage {
   protected selectedBroadcastClassId: number | null = null;
   protected subject = '';
   protected body = '';
+
+  protected readonly readFilterOptions = READ_FILTER_OPTIONS;
+  protected readFilter: ReadFilter = 'all';
 
   constructor() {
     this.studentsApi.getStudents().subscribe({
@@ -133,6 +144,13 @@ export class MessagesPage {
       },
       error: (err) => this.handleSendError(err),
     });
+  }
+
+  protected filteredMessages(): Message[] {
+    if (this.readFilter === 'all') {
+      return this.messages();
+    }
+    return this.messages().filter((m) => (this.readFilter === 'unread' ? !m.readAt : !!m.readAt));
   }
 
   protected markRead(message: Message): void {

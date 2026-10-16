@@ -1,16 +1,30 @@
 <h1 class="mb-6">Zprávy</h1>
 
-<div class="mb-6 flex max-w-xs flex-col gap-1.5">
-  <label for="student" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
-  <p-select
-    inputId="student"
-    [options]="studentOptions()"
-    optionLabel="label"
-    optionValue="id"
-    [(ngModel)]="selectedStudentId"
-    (ngModelChange)="onStudentChange()"
-    name="student"
-  />
+<div class="mb-6 flex flex-wrap items-end gap-3">
+  <div class="flex max-w-xs flex-col gap-1.5">
+    <label for="student" class="text-sm font-medium text-surface-600 dark:text-surface-300">Žák</label>
+    <p-select
+      inputId="student"
+      [options]="studentOptions()"
+      optionLabel="label"
+      optionValue="id"
+      [(ngModel)]="selectedStudentId"
+      (ngModelChange)="onStudentChange()"
+      name="student"
+    />
+  </div>
+  <div class="flex flex-col gap-1.5">
+    <label for="readFilter" class="text-sm font-medium text-surface-600 dark:text-surface-300">Stav</label>
+    <p-select
+      inputId="readFilter"
+      [options]="readFilterOptions"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="readFilter"
+      name="readFilter"
+      styleClass="w-40"
+    />
+  </div>
 </div>
 
 @if (canSendMessages()) {
@@ -64,7 +78,7 @@
 }
 
 <div class="flex flex-col gap-3">
-  @for (message of messages(); track message.id) {
+  @for (message of filteredMessages(); track message.id) {
     <p-card>
       <div class="flex items-start justify-between gap-3">
         <div>

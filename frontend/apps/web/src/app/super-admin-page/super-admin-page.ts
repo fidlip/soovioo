@@ -38,6 +38,8 @@ export class SuperAdminPage {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
 
+  protected search = '';
+
   protected newSchoolName = '';
   protected newSchoolSlug = '';
   protected newAdminUsername = '';
@@ -64,8 +66,13 @@ export class SuperAdminPage {
     this.reload();
   }
 
+  protected onSearchChange(): void {
+    this.page.set(1);
+    this.reload();
+  }
+
   private reload(): void {
-    this.schoolsApi.getSchools(this.page(), this.pageSize()).subscribe({
+    this.schoolsApi.getSchools(this.page(), this.pageSize(), this.search.trim() || undefined).subscribe({
       next: (result) => {
         // A delete can empty out the last page (e.g. the only school left on
         // page 2 gets removed) — step back one page rather than show a
