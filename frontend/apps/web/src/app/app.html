@@ -39,6 +39,12 @@
     } @else if (isLoggedIn()) {
     <nav class="flex flex-1 gap-1 overflow-x-auto">
       <a
+        [routerLink]="schoolContext.link('home')"
+        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        >Domů</a
+      >
+      <a
         [routerLink]="schoolContext.link('grades')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
         class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"

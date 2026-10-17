@@ -38,7 +38,7 @@ test('teacher can log in, see the nav, and log out', async ({ page }) => {
   await page.locator('#password').fill('ucitel123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
-  await expect(page).toHaveURL(/\/demo\/grades$/);
+  await expect(page).toHaveURL(/\/demo\/home$/);
   await expect(page.getByRole('link', { name: 'Známky' })).toBeVisible();
   // Teacher (not Admin) must not see the administration link.
   await expect(page.getByRole('link', { name: 'Administrace' })).toHaveCount(0);
@@ -56,6 +56,6 @@ test('admin sees the administration nav link', async ({ page }) => {
   await page.locator('#password').fill('admin123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
-  await expect(page).toHaveURL(/\/demo\/grades$/);
+  await expect(page).toHaveURL(/\/demo\/home$/);
   await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
 });

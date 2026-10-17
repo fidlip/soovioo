@@ -170,12 +170,14 @@ public class EventsControllerTests
         public required Student StudentB { get; init; }
         public required User ParentA { get; init; }
         public required User ParentB { get; init; }
+        public required User StudentUserA { get; init; }
 
         public static async Task<AudienceFixture> SeedAsync(AppDbContext db)
         {
             var teacherA = new User { Username = "ucitelA", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
             var otherTeacher = new User { Username = "ucitelB", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-            db.Users.AddRange(teacherA, otherTeacher);
+            var studentUserA = new User { Username = "zakA", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+            db.Users.AddRange(teacherA, otherTeacher, studentUserA);
             await db.SaveChangesAsync();
 
             var classA = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacherA.Id };
@@ -183,7 +185,7 @@ public class EventsControllerTests
             db.SchoolClasses.AddRange(classA, classB);
             await db.SaveChangesAsync();
 
-            var studentA = new Student { FirstName = "Žák", LastName = "A", SchoolId = SchoolId, SchoolClassId = classA.Id };
+            var studentA = new Student { FirstName = "Žák", LastName = "A", SchoolId = SchoolId, SchoolClassId = classA.Id, UserId = studentUserA.Id };
             var studentB = new Student { FirstName = "Žák", LastName = "B", SchoolId = SchoolId, SchoolClassId = classB.Id };
             db.Students.AddRange(studentA, studentB);
             await db.SaveChangesAsync();
@@ -202,6 +204,7 @@ public class EventsControllerTests
             {
                 ClassA = classA, ClassB = classB, TeacherA = teacherA, OtherTeacher = otherTeacher,
                 StudentA = studentA, StudentB = studentB, ParentA = parentA, ParentB = parentB,
+                StudentUserA = studentUserA,
             };
         }
     }
@@ -327,10 +330,71 @@ public class EventsControllerTests
 
         var parentResult = await NewController(db, fx.ParentB.Id, "Parent").GetEvents(null, null);
         var otherTeacherResult = await NewController(db, fx.OtherTeacher.Id, "Teacher").GetEvents(null, null);
+        var studentResult = await NewController(db, fx.StudentUserA.Id, "Student").GetEvents(null, null);
 
         Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
             Assert.IsType<OkObjectResult>(parentResult.Result).Value));
         Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
             Assert.IsType<OkObjectResult>(otherTeacherResult.Result).Value));
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(studentResult.Result).Value));
+    }
+
+    [Fact]
+    public async Task StudentSeesEventTargetingTheirOwnClassButNotAnUnrelatedOne()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
+            "Pro třídu A", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassA.Id]));
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
+            "Pro třídu B", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassB.Id]));
+
+        var result = await NewController(db, fx.StudentUserA.Id, "Student").GetEvents(null, null);
+
+        var events = Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Single(events);
+        Assert.Equal("Pro třídu A", events.Single().Title);
+    }
+
+    [Fact]
+    public async Task StudentSeesEventTargetingThemselvesDirectly()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+            "Pro žáka A", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, StudentIds: [fx.StudentA.Id]));
+
+        var result = await NewController(db, fx.StudentUserA.Id, "Student").GetEvents(null, null);
+
+        Assert.Single(Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value));
+    }
+
+    [Fact]
+    public async Task StudentWithNoLinkedStudentSeesOnlyEveryoneAudience()
+    {
+        using var db = NewDb();
+        var fx = await AudienceFixture.SeedAsync(db);
+        var unlinkedStudentUser = new User { Username = "zakC", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        db.Users.Add(unlinkedStudentUser);
+        await db.SaveChangesAsync();
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
+            "Pro třídu A", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassA.Id]));
+        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+            "Pro celou školu", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            AllDay: false, Audience: EventAudience.Everyone));
+
+        var result = await NewController(db, unlinkedStudentUser.Id, "Student").GetEvents(null, null);
+
+        var events = Assert.IsAssignableFrom<IEnumerable<EventDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Single(events);
+        Assert.Equal("Pro celou školu", events.Single().Title);
     }
 }

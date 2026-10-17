@@ -18,7 +18,8 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
     /// <see cref="EventAudience"/> — see <see cref="EventVisibilityExtensions"/>
     /// for the exact rules (Admin: everything in the school; Teacher: own
     /// creations + Everyone + anything touching their classes/students;
-    /// Parent: Everyone + anything touching their own children).</summary>
+    /// Parent: Everyone + anything touching their own children; Student:
+    /// Everyone + anything touching themselves/their own class).</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EventDto>>> GetEvents(
         [FromQuery] DateTimeOffset? from, [FromQuery] DateTimeOffset? to)
@@ -35,7 +36,9 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             ? db.VisibleToAdmin(schoolId)
             : User.IsInRole("Teacher")
                 ? await db.VisibleToTeacherAsync(schoolId, CurrentUserId())
-                : await db.VisibleToParentAsync(schoolId, CurrentUserId());
+                : User.IsInRole("Student")
+                    ? await db.VisibleToStudentAsync(schoolId, CurrentUserId())
+                    : await db.VisibleToParentAsync(schoolId, CurrentUserId());
 
         if (from is not null)
         {

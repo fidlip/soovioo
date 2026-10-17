@@ -72,4 +72,31 @@ public static class EventVisibilityExtensions
                     e.SchoolClasses.Any(c => myClassIds.Contains(c.SchoolClassId)) ||
                     e.Students.Any(s => myStudentIds.Contains(s.StudentId))))));
     }
+
+    /// <summary>Student sees: Everyone-audience events, and Selected-audience
+    /// events targeted at their own class or at themselves directly — same
+    /// shape as Parent, just resolved via <see cref="Student.UserId"/>
+    /// (direct FK) instead of the <see cref="ParentStudent"/> join table.
+    /// No oversight exception, same as Parent. Empty query, not an error,
+    /// for an account not yet linked to any Student row.</summary>
+    public static async Task<IQueryable<Event>> VisibleToStudentAsync(this AppDbContext db, int schoolId, int studentUserId)
+    {
+        var myStudent = await db.Students.IgnoreQueryFilters()
+            .Where(s => s.SchoolId == schoolId && s.UserId == studentUserId)
+            .Select(s => new { s.Id, s.SchoolClassId })
+            .FirstOrDefaultAsync();
+        // Nullable locals, not an early return on "not linked yet" — Everyone
+        // audience must still show (same as Parent with no linked children),
+        // only the Selected-audience class/student matching has nothing to
+        // match against.
+        int? myStudentId = myStudent?.Id;
+        int? myClassId = myStudent?.SchoolClassId;
+
+        return db.Events.IgnoreQueryFilters()
+            .Where(e => e.SchoolId == schoolId && (
+                e.Audience == EventAudience.Everyone ||
+                (e.Audience == EventAudience.Selected && (
+                    (myClassId != null && e.SchoolClasses.Any(c => c.SchoolClassId == myClassId)) ||
+                    (myStudentId != null && e.Students.Any(s => s.StudentId == myStudentId))))));
+    }
 }

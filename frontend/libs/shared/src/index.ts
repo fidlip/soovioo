@@ -38,3 +38,5 @@ export * from './lib/auth/my-profile.model';
 export * from './lib/auth/my-profile-api.service';
 export * from './lib/auth/teacher.model';
 export * from './lib/auth/teachers-api.service';
+export * from './lib/dashboard/dashboard.model';
+export * from './lib/dashboard/dashboard-api.service';

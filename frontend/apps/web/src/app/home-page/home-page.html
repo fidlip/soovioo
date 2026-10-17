@@ -1,0 +1,159 @@
+<h1 class="mb-6">Domů</h1>
+
+@if (loadError()) {
+<p>Přehled se nepodařilo načíst.</p>
+} @else if (dashboard(); as d) {
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+  @if (authApi.isAdmin() && d.schoolCounts; as counts) {
+  <p-card header="Přehled školy">
+    <div class="flex flex-wrap gap-6">
+      <div>
+        <div
+          class="text-2xl font-semibold text-surface-900 dark:text-surface-0"
+        >
+          {{ counts.studentCount }}
+        </div>
+        <div class="text-sm text-surface-500">Žáci</div>
+      </div>
+      <div>
+        <div
+          class="text-2xl font-semibold text-surface-900 dark:text-surface-0"
+        >
+          {{ counts.teacherCount }}
+        </div>
+        <div class="text-sm text-surface-500">Učitelé</div>
+      </div>
+      <div>
+        <div
+          class="text-2xl font-semibold text-surface-900 dark:text-surface-0"
+        >
+          {{ counts.classCount }}
+        </div>
+        <div class="text-sm text-surface-500">Třídy</div>
+      </div>
+    </div>
+  </p-card>
+  } @if (!authApi.isAdmin()) {
+  <p-card header="Dnešní rozvrh">
+    @if (d.todayLessonsContext) {
+    <p class="mb-2 text-sm text-surface-500">{{ d.todayLessonsContext }}</p>
+    } @if (d.todayLessons.length === 0) {
+    <p class="text-sm text-surface-500">Dnes žádné hodiny.</p>
+    } @else {
+    <ul class="flex flex-col gap-1.5">
+      @for (lesson of d.todayLessons; track lesson.id) {
+      <li class="flex items-center justify-between gap-2 text-sm">
+        <span>{{ lesson.periodNumber }}. {{ lesson.subjectName }}</span>
+        @if (lesson.teacherName) {
+        <span class="text-surface-500">{{ lesson.teacherName }}</span>
+        }
+      </li>
+      }
+    </ul>
+    }
+    <p-button
+      label="Celý rozvrh"
+      size="small"
+      [text]="true"
+      styleClass="mt-3"
+      (onClick)="goTo('timetable')"
+    />
+  </p-card>
+  } @if (!authApi.isTeacherOrAdmin()) {
+  <p-card header="Poslední známky">
+    @if (d.recentGrades.length === 0) {
+    <p class="text-sm text-surface-500">Zatím žádné známky.</p>
+    } @else {
+    <ul class="flex flex-col gap-1.5">
+      @for (grade of d.recentGrades; track grade.id) {
+      <li class="flex items-center justify-between gap-2 text-sm">
+        <span>{{ grade.subjectName }}</span>
+        <p-tag [value]="grade.value.toString()" />
+      </li>
+      }
+    </ul>
+    }
+    <p-button
+      label="Všechny známky"
+      size="small"
+      [text]="true"
+      styleClass="mt-3"
+      (onClick)="goTo('grades')"
+    />
+  </p-card>
+  }
+
+  <p-card
+    [header]="authApi.isTeacherOrAdmin() ? 'Omluvenky ke schválení' : 'Nevyřízené absence'"
+  >
+    @if (d.pendingAbsences.length === 0) {
+    <p class="text-sm text-surface-500">Nic nevyřízeného.</p>
+    } @else {
+    <ul class="flex flex-col gap-1.5">
+      @for (absence of d.pendingAbsences; track absence.id) {
+      <li class="flex items-center justify-between gap-2 text-sm">
+        <span>{{ absence.studentName }} — {{ absence.date }}</span>
+        <p-tag
+          [value]="absenceStatusLabel(absence.status)"
+          [severity]="absenceStatusSeverity(absence.status)"
+        />
+      </li>
+      }
+    </ul>
+    }
+    <p-button
+      label="Celá docházka"
+      size="small"
+      [text]="true"
+      styleClass="mt-3"
+      (onClick)="goTo('absences')"
+    />
+  </p-card>
+
+  <p-card header="Zprávy">
+    @if (d.unreadMessageCount === 0) {
+    <p class="text-sm text-surface-500">Žádné nepřečtené zprávy.</p>
+    } @else {
+    <p class="text-sm">
+      <span class="text-2xl font-semibold text-surface-900 dark:text-surface-0"
+        >{{ d.unreadMessageCount }}</span
+      >
+      nepřečteno
+    </p>
+    }
+    <p-button
+      label="Všechny zprávy"
+      size="small"
+      [text]="true"
+      styleClass="mt-3"
+      (onClick)="goTo('messages')"
+    />
+  </p-card>
+
+  <p-card header="Nejbližší akce">
+    @if (d.upcomingEvents.length === 0) {
+    <p class="text-sm text-surface-500">Žádné nadcházející akce.</p>
+    } @else {
+    <ul class="flex flex-col gap-1.5">
+      @for (event of d.upcomingEvents; track event.id) {
+      <li class="flex items-center justify-between gap-2 text-sm">
+        <span>{{ event.title }}</span>
+        <span class="text-surface-500"
+          >{{ formatDateTime(event.startAt, event.allDay) }}</span
+        >
+      </li>
+      }
+    </ul>
+    }
+    <p-button
+      label="Celý kalendář"
+      size="small"
+      [text]="true"
+      styleClass="mt-3"
+      (onClick)="goTo('events')"
+    />
+  </p-card>
+</div>
+} @else {
+<p>Načítání…</p>
+}

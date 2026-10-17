@@ -40,7 +40,8 @@ export class SettingsPage {
   // Captured once at page load, before the password change below could flip
   // the underlying claim to false — otherwise the banner/redirect-on-success
   // would never get a chance to trigger.
-  protected readonly wasForcedPasswordChange = this.authApi.mustChangePassword();
+  protected readonly wasForcedPasswordChange =
+    this.authApi.mustChangePassword();
 
   protected readonly profile = signal<MyProfile | null>(null);
   protected phone = '';
@@ -120,7 +121,9 @@ export class SettingsPage {
             setTimeout(
               () =>
                 this.router.navigate(
-                  this.authApi.isSuperAdmin() ? ['/superadmin'] : this.schoolContext.link('grades'),
+                  this.authApi.isSuperAdmin()
+                    ? ['/superadmin']
+                    : this.schoolContext.link('home'),
                 ),
               1200,
             );

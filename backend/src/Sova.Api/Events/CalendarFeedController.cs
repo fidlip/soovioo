@@ -40,6 +40,7 @@ public class CalendarFeedController(AppDbContext db) : ControllerBase
             UserRole.Admin => db.VisibleToAdmin(schoolId),
             UserRole.Teacher => await db.VisibleToTeacherAsync(schoolId, user.Id),
             UserRole.Parent => await db.VisibleToParentAsync(schoolId, user.Id),
+            UserRole.Student => await db.VisibleToStudentAsync(schoolId, user.Id),
             _ => db.Events.Where(e => false),
         };
         var events = await query.ToListAsync();

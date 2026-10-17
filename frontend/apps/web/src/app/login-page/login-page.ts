@@ -37,16 +37,26 @@ export class LoginPage {
   protected login(): void {
     this.error.set(null);
     this.authApi
-      .login({ username: this.username, password: this.password, schoolSlug: this.schoolSlug ?? undefined })
+      .login({
+        username: this.username,
+        password: this.password,
+        schoolSlug: this.schoolSlug ?? undefined,
+      })
       .subscribe({
         next: (response) => {
           if (this.authApi.mustChangePassword()) {
             this.router.navigate(
-              response.role === 'SuperAdmin' ? ['/superadmin', 'settings'] : this.schoolContext.link('settings'),
+              response.role === 'SuperAdmin'
+                ? ['/superadmin', 'settings']
+                : this.schoolContext.link('settings'),
             );
             return;
           }
-          this.router.navigate(response.role === 'SuperAdmin' ? ['/superadmin'] : this.schoolContext.link('grades'));
+          this.router.navigate(
+            response.role === 'SuperAdmin'
+              ? ['/superadmin']
+              : this.schoolContext.link('home'),
+          );
         },
         error: () => this.error.set('Neplatné přihlašovací údaje.'),
       });

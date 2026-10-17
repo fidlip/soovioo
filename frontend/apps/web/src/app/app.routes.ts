@@ -4,6 +4,7 @@ import { AdminPage } from './admin-page/admin-page';
 import { authGuard } from './auth.guard';
 import { EventsPage } from './events-page/events-page';
 import { GradesPage } from './grades-page/grades-page';
+import { HomePage } from './home-page/home-page';
 import { LoginPage } from './login-page/login-page';
 import { MessagesPage } from './messages-page/messages-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
@@ -12,8 +13,9 @@ import { SuperAdminPage } from './super-admin-page/super-admin-page';
 import { TimetablePage } from './timetable-page/timetable-page';
 
 const schoolRoutes: Route[] = [
-  { path: '', redirectTo: 'grades', pathMatch: 'full' },
+  { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: 'login', component: LoginPage },
+  { path: 'home', component: HomePage, canActivate: [authGuard] },
   { path: 'grades', component: GradesPage, canActivate: [authGuard] },
   { path: 'absences', component: AbsencesPage, canActivate: [authGuard] },
   { path: 'timetable', component: TimetablePage, canActivate: [authGuard] },
