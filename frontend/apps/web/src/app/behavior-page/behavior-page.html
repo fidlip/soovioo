@@ -1,0 +1,265 @@
+<h1 class="mb-6">Chování</h1>
+
+<div class="flex flex-col gap-6">
+  <p-card header="Záznamy chování">
+    @if (canManageBehavior()) {
+    <div class="mb-3 flex justify-end">
+      <p-button
+        label="Nový záznam"
+        icon="pi pi-plus"
+        size="small"
+        (onClick)="openAddRecordDialog()"
+      />
+    </div>
+    }
+    <div class="flex flex-col gap-3">
+      @for (record of records(); track record.id) {
+      <div
+        class="flex items-start justify-between gap-3 rounded-border border border-surface-200 p-3 dark:border-surface-700"
+      >
+        <div>
+          <div class="flex items-center gap-2">
+            <strong class="text-surface-900 dark:text-surface-0"
+              >{{ record.studentName }}</strong
+            >
+            <p-tag
+              [value]="recordTypeLabel(record.type)"
+              [severity]="recordTypeSeverity(record.type)"
+            />
+            <span class="text-sm text-surface-500"
+              >{{ formatDate(record.date) }}</span
+            >
+          </div>
+          <p
+            class="mt-1 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200"
+          >
+            {{ record.text }}
+          </p>
+          <div class="mt-1 text-sm text-surface-500">
+            Zapsal: {{ record.recordedByName }}
+          </div>
+        </div>
+        @if (canManageRecord(record)) {
+        <p-button
+          icon="pi pi-trash"
+          size="small"
+          severity="danger"
+          [text]="true"
+          (onClick)="deleteRecord(record)"
+        />
+        }
+      </div>
+      } @empty {
+      <p class="text-surface-500">Zatím žádné záznamy.</p>
+      }
+    </div>
+  </p-card>
+
+  <p-card header="Klasifikace chování">
+    @if (canManageBehavior()) {
+    <div class="mb-3 flex justify-end">
+      <p-button
+        label="Nastavit klasifikaci"
+        icon="pi pi-plus"
+        size="small"
+        (onClick)="openSetClassificationDialog()"
+      />
+    </div>
+    }
+    <div class="flex flex-col gap-3">
+      @for (item of classifications(); track item.studentId + '-' +
+      item.schoolYearStartYear + '-' + item.halfYear) {
+      <div
+        class="flex items-center justify-between gap-3 rounded-border border border-surface-200 p-3 dark:border-surface-700"
+      >
+        <div>
+          <div class="flex items-center gap-2">
+            <strong class="text-surface-900 dark:text-surface-0"
+              >{{ item.studentName }}</strong
+            >
+            <span class="text-sm text-surface-500"
+              >{{ item.schoolYearStartYear }}/{{ item.schoolYearStartYear + 1 }}
+              — {{ halfYearLabel(item.halfYear) }}</span
+            >
+          </div>
+          <div class="mt-1 text-sm text-surface-500">
+            Nastavil: {{ item.setByName }}
+          </div>
+        </div>
+        <p-tag
+          [value]="classificationLabel(item.value)"
+          [severity]="classificationSeverity(item.value)"
+        />
+      </div>
+      } @empty {
+      <p class="text-surface-500">Zatím žádná klasifikace.</p>
+      }
+    </div>
+  </p-card>
+</div>
+
+<p-dialog
+  [visible]="recordDialogVisible()"
+  (visibleChange)="recordDialogVisible.set($event)"
+  header="Nový záznam chování"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (createError(); as error) {
+  <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
+  }
+  <form class="flex flex-col gap-3" (ngSubmit)="saveRecord()">
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="recordStudent"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Žák</label
+      >
+      <p-select
+        inputId="recordStudent"
+        [options]="studentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [ngModel]="newStudentId"
+        (ngModelChange)="newStudentId = $event; onNewStudentChange()"
+        name="recordStudent"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="recordType"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Typ</label
+      >
+      <p-select
+        inputId="recordType"
+        [options]="availableRecordTypes(newStudentId)"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="newType"
+        name="recordType"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <textarea
+      pTextarea
+      rows="3"
+      placeholder="Text"
+      name="recordText"
+      [(ngModel)]="newText"
+    ></textarea>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="recordDate"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Datum</label
+      >
+      <p-datePicker
+        inputId="recordDate"
+        [(ngModel)]="newDate"
+        name="recordDate"
+        dateFormat="dd.mm.yy"
+        [showIcon]="true"
+        appendTo="body"
+      />
+    </div>
+    <p-button
+      type="submit"
+      label="Zapsat"
+      icon="pi pi-check"
+      styleClass="self-start"
+    />
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="classificationDialogVisible()"
+  (visibleChange)="classificationDialogVisible.set($event)"
+  header="Nastavit klasifikaci"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (createError(); as error) {
+  <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
+  }
+  <form class="flex flex-col gap-3" (ngSubmit)="saveClassification()">
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="classStudent"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Žák</label
+      >
+      <p-select
+        inputId="classStudent"
+        [options]="studentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [ngModel]="classStudentId"
+        (ngModelChange)="classStudentId = $event; onClassStudentChange()"
+        name="classStudent"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="classYear"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Školní rok (začátek)</label
+        >
+        <p-inputNumber
+          inputId="classYear"
+          [(ngModel)]="classSchoolYearStartYear"
+          name="classYear"
+          [useGrouping]="false"
+          styleClass="w-32"
+          inputStyleClass="w-full"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="classHalfYear"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Pololetí</label
+        >
+        <p-select
+          inputId="classHalfYear"
+          [options]="halfYearOptions"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="classHalfYear"
+          name="classHalfYear"
+          appendTo="body"
+          styleClass="w-40"
+        />
+      </div>
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="classValue"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Klasifikace</label
+      >
+      <p-select
+        inputId="classValue"
+        [options]="availableClassificationValues(classStudentId)"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="classValue"
+        name="classValue"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <p-button
+      type="submit"
+      label="Uložit"
+      icon="pi pi-check"
+      styleClass="self-start"
+    />
+  </form>
+</p-dialog>

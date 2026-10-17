@@ -46,3 +46,5 @@ export * from './lib/dashboard/dashboard.model';
 export * from './lib/dashboard/dashboard-api.service';
 export * from './lib/homework/homework.model';
 export * from './lib/homework/homework-api.service';
+export * from './lib/behavior/behavior.model';
+export * from './lib/behavior/behavior-api.service';

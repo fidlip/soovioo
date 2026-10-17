@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Attendance;
 using Sova.Api.Auth;
+using Sova.Api.Behavior;
 using Sova.Api.Events;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
@@ -36,6 +37,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<HomeworkStudent> HomeworkStudents => Set<HomeworkStudent>();
     public DbSet<HomeworkCompletion> HomeworkCompletions => Set<HomeworkCompletion>();
     public DbSet<HomeworkAttachment> HomeworkAttachments => Set<HomeworkAttachment>();
+    public DbSet<BehaviorRecord> BehaviorRecords => Set<BehaviorRecord>();
+    public DbSet<BehaviorClassification> BehaviorClassifications => Set<BehaviorClassification>();
 
     // Global matrika reference data (RAST/RAOR/RAUJ) — not tenant-scoped,
     // shared by every school. Seeded once from CSV at startup; see
@@ -49,6 +52,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
         modelBuilder.Entity<HomeworkStudent>().HasKey(hs => new { hs.HomeworkId, hs.StudentId });
         modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
+        modelBuilder.Entity<BehaviorClassification>()
+            .HasKey(c => new { c.StudentId, c.SchoolYearStartYear, c.HalfYear });
 
         // Audience recipient join tables — composite keys, same shape as
         // ParentStudent above. Everyone/OnlyMe events keep these empty;
@@ -141,6 +146,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || hc.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<HomeworkAttachment>().HasQueryFilter(ha =>
             currentSchool.IsSuperAdmin || ha.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<BehaviorRecord>().HasQueryFilter(r =>
+            currentSchool.IsSuperAdmin || r.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<BehaviorClassification>().HasQueryFilter(c =>
+            currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Event>().HasQueryFilter(e =>
             currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<EventSchoolClass>().HasQueryFilter(x =>
