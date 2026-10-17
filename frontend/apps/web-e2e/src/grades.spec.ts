@@ -27,9 +27,14 @@ test('teacher can record a grade and see it appear in the table', async ({
   await expect(page.locator('table tbody tr').first()).toBeVisible();
   const rowsBefore = await page.locator('table tbody tr').count();
 
-  await page.locator('#value').fill('2');
-  await page.locator('#weight').fill('4');
-  await page.getByRole('button', { name: 'Zapsat' }).click();
+  await page.getByRole('button', { name: 'Zapsat známku' }).click();
+  await page.locator('#gradeValue').fill('2');
+  await page.locator('#gradeWeight').fill('4');
+  // Not getByRole('button', { name: 'Zapsat', exact: true }) — PrimeNG's
+  // icon span contributes a leading space to the computed accessible name
+  // (" Zapsat"), which an exact match never finds. The dialog's submit
+  // button is the only `type="submit"` button on the page.
+  await page.locator('button[type="submit"]').click();
 
   // Grades are listed newest-first (GradesController orders by CreatedAt
   // descending), so the row just submitted is always the first one —
@@ -45,6 +50,8 @@ test('parent does not see the grade-entry form, only their child’s grades', as
 }) => {
   await login(page, 'rodic', 'rodic123');
 
-  await expect(page.getByRole('button', { name: 'Zapsat' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Zapsat známku' })).toHaveCount(
+    0,
+  );
   await expect(page.locator('table tbody tr').first()).toBeVisible();
 });

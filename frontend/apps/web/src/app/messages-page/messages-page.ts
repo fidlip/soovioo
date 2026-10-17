@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message as PMessage } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
@@ -34,7 +35,17 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 
 @Component({
   selector: 'app-messages-page',
-  imports: [FormsModule, Button, Card, InputText, PMessage, Select, Tag, Textarea],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    Dialog,
+    InputText,
+    PMessage,
+    Select,
+    Tag,
+    Textarea,
+  ],
   templateUrl: './messages-page.html',
 })
 export class MessagesPage {
@@ -50,23 +61,29 @@ export class MessagesPage {
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
-    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+    this.students().map((s) => ({
+      id: s.id,
+      label: `${s.firstName} ${s.lastName}`,
+    })),
   );
 
   /** "Celá škola" only makes sense to offer to Admin — Teacher's school-wide
    * broadcast is rejected server-side anyway (see MessageBroadcastController). */
   protected readonly modeOptions = computed(() =>
-    this.authApi.isAdmin() ? MODE_OPTIONS : MODE_OPTIONS.filter((o) => o.value !== 'school'),
+    this.authApi.isAdmin()
+      ? MODE_OPTIONS
+      : MODE_OPTIONS.filter((o) => o.value !== 'school'),
   );
 
   protected selectedStudentId: number | null = null;
+  protected readonly readFilterOptions = READ_FILTER_OPTIONS;
+  protected readFilter: ReadFilter = 'all';
+
+  protected readonly messageDialogVisible = signal(false);
   protected sendMode: SendMode = 'individual';
   protected selectedBroadcastClassId: number | null = null;
   protected subject = '';
   protected body = '';
-
-  protected readonly readFilterOptions = READ_FILTER_OPTIONS;
-  protected readFilter: ReadFilter = 'all';
 
   constructor() {
     this.studentsApi.getStudents().subscribe({
@@ -96,6 +113,15 @@ export class MessagesPage {
     this.reload();
   }
 
+  protected openSendMessageDialog(): void {
+    this.broadcastResult.set(null);
+    this.broadcastError.set(null);
+    this.sendMode = 'individual';
+    this.subject = '';
+    this.body = '';
+    this.messageDialogVisible.set(true);
+  }
+
   protected send(): void {
     if (!this.subject || !this.body) {
       return;
@@ -108,7 +134,10 @@ export class MessagesPage {
         return;
       }
       this.messagesApi
-        .sendMessage(this.selectedStudentId, { subject: this.subject, body: this.body })
+        .sendMessage(this.selectedStudentId, {
+          subject: this.subject,
+          body: this.body,
+        })
         .subscribe({
           next: () => {
             this.clearForm();
@@ -124,10 +153,15 @@ export class MessagesPage {
         return;
       }
       this.messagesApi
-        .broadcastToClass(this.selectedBroadcastClassId, { subject: this.subject, body: this.body })
+        .broadcastToClass(this.selectedBroadcastClassId, {
+          subject: this.subject,
+          body: this.body,
+        })
         .subscribe({
           next: (result) => {
-            this.broadcastResult.set(`Odesláno ${result.recipientCount} žákům ve třídě.`);
+            this.broadcastResult.set(
+              `Odesláno ${result.recipientCount} žákům ve třídě.`,
+            );
             this.clearForm();
             this.reload();
           },
@@ -136,21 +170,27 @@ export class MessagesPage {
       return;
     }
 
-    this.messagesApi.broadcastToSchool({ subject: this.subject, body: this.body }).subscribe({
-      next: (result) => {
-        this.broadcastResult.set(`Odesláno ${result.recipientCount} žákům celé školy.`);
-        this.clearForm();
-        this.reload();
-      },
-      error: (err) => this.handleSendError(err),
-    });
+    this.messagesApi
+      .broadcastToSchool({ subject: this.subject, body: this.body })
+      .subscribe({
+        next: (result) => {
+          this.broadcastResult.set(
+            `Odesláno ${result.recipientCount} žákům celé školy.`,
+          );
+          this.clearForm();
+          this.reload();
+        },
+        error: (err) => this.handleSendError(err),
+      });
   }
 
   protected filteredMessages(): Message[] {
     if (this.readFilter === 'all') {
       return this.messages();
     }
-    return this.messages().filter((m) => (this.readFilter === 'unread' ? !m.readAt : !!m.readAt));
+    return this.messages().filter((m) =>
+      this.readFilter === 'unread' ? !m.readAt : !!m.readAt,
+    );
   }
 
   protected markRead(message: Message): void {
@@ -169,15 +209,18 @@ export class MessagesPage {
     if (!this.selectedStudentId) {
       return;
     }
-    this.messagesApi.deleteMessage(this.selectedStudentId, message.id).subscribe({
-      next: () => this.reload(),
-      error: (err) => console.error('deleteMessage failed', err),
-    });
+    this.messagesApi
+      .deleteMessage(this.selectedStudentId, message.id)
+      .subscribe({
+        next: () => this.reload(),
+        error: (err) => console.error('deleteMessage failed', err),
+      });
   }
 
   private clearForm(): void {
     this.subject = '';
     this.body = '';
+    this.messageDialogVisible.set(false);
   }
 
   private handleSendError(err: unknown): void {

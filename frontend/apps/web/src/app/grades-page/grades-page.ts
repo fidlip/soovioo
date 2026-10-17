@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
@@ -21,7 +22,18 @@ import {
 
 @Component({
   selector: 'app-grades-page',
-  imports: [FormsModule, Button, Card, InputNumber, InputText, PrimeTemplate, Select, TableModule, Tag],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    Dialog,
+    InputNumber,
+    InputText,
+    PrimeTemplate,
+    Select,
+    TableModule,
+    Tag,
+  ],
   templateUrl: './grades-page.html',
 })
 export class GradesPage {
@@ -37,59 +49,78 @@ export class GradesPage {
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
-    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+    this.students().map((s) => ({
+      id: s.id,
+      label: `${s.firstName} ${s.lastName}`,
+    })),
   );
 
-  protected selectedStudentId: number | null = null;
-  protected selectedSubjectId: number | null = null;
-  protected value = 1;
-  protected weight = 1;
-
-  /** null = "all" — separate from selectedStudentId/selectedSubjectId above,
-   * which drive the add-grade form, not what's shown in the table. */
+  /** null = "all" — separate from the dialog fields below, which drive the
+   * add/edit-grade form, not what's shown in the table. */
   protected filterStudentId: number | null = null;
   protected filterSubjectId: number | null = null;
 
+  protected readonly gradeDialogVisible = signal(false);
+  /** null = add mode, otherwise the grade being edited — same "new… fields
+   * double as shared add/edit dialog state" pattern as admin-page.ts. */
   protected editingGradeId: number | null = null;
-  protected editStudentId: number | null = null;
-  protected editSubjectId: number | null = null;
-  protected editValue = 1;
-  protected editWeight = 1;
-  protected editNote = '';
+  protected newStudentId: number | null = null;
+  protected newSubjectId: number | null = null;
+  protected newValue = 1;
+  protected newWeight = 1;
+  protected newNote = '';
+  /** Drives "Stáhnout vysvědčení" — separate from the dialog's newStudentId,
+   * which resets every time the dialog opens. */
+  protected reportCardStudentId: number | null = null;
 
   constructor() {
     this.reload();
     this.studentsApi.getStudents().subscribe({
       next: (students) => {
         this.students.set(students);
-        this.selectedStudentId ??= students[0]?.id ?? null;
+        this.reportCardStudentId ??= students[0]?.id ?? null;
       },
       error: (err) => console.error('getStudents failed', err),
     });
     this.subjectsApi.getSubjects().subscribe({
-      next: (subjects) => {
-        this.subjects.set(subjects);
-        this.selectedSubjectId ??= subjects[0]?.id ?? null;
-      },
+      next: (subjects) => this.subjects.set(subjects),
       error: (err) => console.error('getSubjects failed', err),
     });
   }
 
-  protected addGrade(): void {
-    if (!this.selectedStudentId || !this.selectedSubjectId) {
+  protected openAddGradeDialog(): void {
+    this.editingGradeId = null;
+    this.newStudentId = this.reportCardStudentId;
+    this.newSubjectId = this.subjects()[0]?.id ?? null;
+    this.newValue = 1;
+    this.newWeight = 1;
+    this.newNote = '';
+    this.gradeDialogVisible.set(true);
+  }
+
+  protected saveGrade(): void {
+    if (!this.newStudentId || !this.newSubjectId) {
       return;
     }
-    this.gradesApi
-      .addGrade({
-        studentId: this.selectedStudentId,
-        subjectId: this.selectedSubjectId,
-        value: this.value,
-        weight: this.weight,
-      })
-      .subscribe({
-        next: () => this.reload(),
-        error: (err) => console.error('addGrade failed', err),
-      });
+    const request = {
+      studentId: this.newStudentId,
+      subjectId: this.newSubjectId,
+      value: this.newValue,
+      weight: this.newWeight,
+      note: this.newNote || undefined,
+    };
+    const result =
+      this.editingGradeId === null
+        ? this.gradesApi.addGrade(request)
+        : this.gradesApi.updateGrade(this.editingGradeId, request);
+    result.subscribe({
+      next: () => {
+        this.gradeDialogVisible.set(false);
+        this.editingGradeId = null;
+        this.reload();
+      },
+      error: (err) => console.error('saveGrade failed', err),
+    });
   }
 
   protected canAddGrade(): boolean {
@@ -98,36 +129,12 @@ export class GradesPage {
 
   protected startEditGrade(grade: Grade): void {
     this.editingGradeId = grade.id;
-    this.editStudentId = grade.studentId;
-    this.editSubjectId = grade.subjectId;
-    this.editValue = grade.value;
-    this.editWeight = grade.weight;
-    this.editNote = grade.note ?? '';
-  }
-
-  protected cancelEditGrade(): void {
-    this.editingGradeId = null;
-  }
-
-  protected saveEditGrade(): void {
-    if (this.editingGradeId === null || !this.editStudentId || !this.editSubjectId) {
-      return;
-    }
-    this.gradesApi
-      .updateGrade(this.editingGradeId, {
-        studentId: this.editStudentId,
-        subjectId: this.editSubjectId,
-        value: this.editValue,
-        weight: this.editWeight,
-        note: this.editNote || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.editingGradeId = null;
-          this.reload();
-        },
-        error: (err) => console.error('updateGrade failed', err),
-      });
+    this.newStudentId = grade.studentId;
+    this.newSubjectId = grade.subjectId;
+    this.newValue = grade.value;
+    this.newWeight = grade.weight;
+    this.newNote = grade.note ?? '';
+    this.gradeDialogVisible.set(true);
   }
 
   protected deleteGrade(grade: Grade): void {
@@ -140,7 +147,8 @@ export class GradesPage {
   protected filteredGrades(): Grade[] {
     return this.grades().filter(
       (g) =>
-        (this.filterStudentId === null || g.studentId === this.filterStudentId) &&
+        (this.filterStudentId === null ||
+          g.studentId === this.filterStudentId) &&
         (this.filterSubjectId === null || g.subjectId === this.filterSubjectId),
     );
   }
@@ -154,10 +162,10 @@ export class GradesPage {
   }
 
   protected downloadReportCard(): void {
-    if (!this.selectedStudentId) {
+    if (!this.reportCardStudentId) {
       return;
     }
-    this.reportCardApi.downloadReportCard(this.selectedStudentId).subscribe({
+    this.reportCardApi.downloadReportCard(this.reportCardStudentId).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

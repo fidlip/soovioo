@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { DatePicker } from '@openng/optimus-ui/datepicker';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
@@ -16,7 +18,10 @@ import {
   StudentsApiService,
 } from '@sova/shared';
 
-const STATUS_SEVERITY: Record<AbsenceStatus, 'success' | 'warn' | 'danger' | 'secondary'> = {
+const STATUS_SEVERITY: Record<
+  AbsenceStatus,
+  'success' | 'warn' | 'danger' | 'secondary'
+> = {
   Unexcused: 'secondary',
   PendingExcuse: 'warn',
   Excused: 'success',
@@ -32,7 +37,18 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
 
 @Component({
   selector: 'app-absences-page',
-  imports: [FormsModule, Button, Card, InputText, PrimeTemplate, Select, TableModule, Tag],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    DatePicker,
+    Dialog,
+    InputText,
+    PrimeTemplate,
+    Select,
+    TableModule,
+    Tag,
+  ],
   templateUrl: './absences-page.html',
 })
 export class AbsencesPage {
@@ -45,33 +61,36 @@ export class AbsencesPage {
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
-    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+    this.students().map((s) => ({
+      id: s.id,
+      label: `${s.firstName} ${s.lastName}`,
+    })),
   );
 
-  protected selectedStudentId: number | null = null;
-  protected date = new Date().toISOString().slice(0, 10);
   protected excuseDrafts: Record<number, string> = {};
 
-  /** null = "all" — separate from selectedStudentId above, which drives the
-   * add-absence form, not what's shown in the table. */
+  /** null = "all" — separate from the dialog fields below, which drive the
+   * add/edit-absence form, not what's shown in the table. */
   protected filterStudentId: number | null = null;
   protected filterStatus: AbsenceStatus | null = null;
-  protected readonly statusFilterOptions = Object.entries(STATUS_LABEL).map(([value, label]) => ({
-    value: value as AbsenceStatus,
-    label,
-  }));
+  protected readonly statusFilterOptions = Object.entries(STATUS_LABEL).map(
+    ([value, label]) => ({
+      value: value as AbsenceStatus,
+      label,
+    }),
+  );
 
+  protected readonly absenceDialogVisible = signal(false);
+  /** null = add mode, otherwise the absence being edited — same "new…
+   * fields double as shared add/edit dialog state" pattern as admin-page.ts. */
   protected editingAbsenceId: number | null = null;
-  protected editStudentId: number | null = null;
-  protected editDate = '';
+  protected newStudentId: number | null = null;
+  protected newDate = new Date();
 
   constructor() {
     this.reload();
     this.studentsApi.getStudents().subscribe({
-      next: (students) => {
-        this.students.set(students);
-        this.selectedStudentId ??= students[0]?.id ?? null;
-      },
+      next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
     });
   }
@@ -87,7 +106,9 @@ export class AbsencesPage {
     return !this.authApi.isStudent();
   }
 
-  protected statusSeverity(status: AbsenceStatus): 'success' | 'warn' | 'danger' | 'secondary' {
+  protected statusSeverity(
+    status: AbsenceStatus,
+  ): 'success' | 'warn' | 'danger' | 'secondary' {
     return STATUS_SEVERITY[status];
   }
 
@@ -98,21 +119,39 @@ export class AbsencesPage {
   protected filteredAbsences(): Absence[] {
     return this.absences().filter(
       (a) =>
-        (this.filterStudentId === null || a.studentId === this.filterStudentId) &&
+        (this.filterStudentId === null ||
+          a.studentId === this.filterStudentId) &&
         (this.filterStatus === null || a.status === this.filterStatus),
     );
   }
 
-  protected addAbsence(): void {
-    if (!this.selectedStudentId) {
+  protected openAddAbsenceDialog(): void {
+    this.editingAbsenceId = null;
+    this.newStudentId = this.students()[0]?.id ?? null;
+    this.newDate = new Date();
+    this.absenceDialogVisible.set(true);
+  }
+
+  protected saveAbsence(): void {
+    if (!this.newStudentId) {
       return;
     }
-    this.absencesApi
-      .addAbsence({ studentId: this.selectedStudentId, date: this.date })
-      .subscribe({
-        next: () => this.reload(),
-        error: (err) => console.error('addAbsence failed', err),
-      });
+    const request = {
+      studentId: this.newStudentId,
+      date: this.toDateOnlyString(this.newDate),
+    };
+    const result =
+      this.editingAbsenceId === null
+        ? this.absencesApi.addAbsence(request)
+        : this.absencesApi.updateAbsence(this.editingAbsenceId, request);
+    result.subscribe({
+      next: () => {
+        this.absenceDialogVisible.set(false);
+        this.editingAbsenceId = null;
+        this.reload();
+      },
+      error: (err) => console.error('saveAbsence failed', err),
+    });
   }
 
   protected submitExcuse(absence: Absence): void {
@@ -135,27 +174,9 @@ export class AbsencesPage {
 
   protected startEditAbsence(absence: Absence): void {
     this.editingAbsenceId = absence.id;
-    this.editStudentId = absence.studentId;
-    this.editDate = absence.date;
-  }
-
-  protected cancelEditAbsence(): void {
-    this.editingAbsenceId = null;
-  }
-
-  protected saveEditAbsence(): void {
-    if (this.editingAbsenceId === null || !this.editStudentId) {
-      return;
-    }
-    this.absencesApi
-      .updateAbsence(this.editingAbsenceId, { studentId: this.editStudentId, date: this.editDate })
-      .subscribe({
-        next: () => {
-          this.editingAbsenceId = null;
-          this.reload();
-        },
-        error: (err) => console.error('updateAbsence failed', err),
-      });
+    this.newStudentId = absence.studentId;
+    this.newDate = new Date(absence.date);
+    this.absenceDialogVisible.set(true);
   }
 
   protected deleteAbsence(absence: Absence): void {
@@ -163,6 +184,16 @@ export class AbsencesPage {
       next: () => this.reload(),
       error: (err) => console.error('deleteAbsence failed', err),
     });
+  }
+
+  /** Local (not UTC) y-m-d — `toISOString().slice(0, 10)` converts through
+   * UTC first, which rolls local midnight back to the previous day in any
+   * timezone ahead of UTC (e.g. CET/CEST). */
+  private toDateOnlyString(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private reload(): void {
