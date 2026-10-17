@@ -8,14 +8,38 @@ import { Message as PMessage } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
 import { Textarea } from '@openng/optimus-ui/textarea';
+import { forkJoin } from 'rxjs';
 import {
   AuthApiService,
   Message,
+  MessageAttachment,
   MessagesApiService,
   SchoolClass,
   Student,
   StudentsApiService,
 } from '@sova/shared';
+
+/** Mirrors MessageAttachmentRules on the backend — client-side only gives
+ * faster feedback, the server still enforces this for real. */
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  '.pdf',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.txt',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx',
+  '.odt',
+  '.ods',
+  '.odp',
+];
 
 type SendMode = 'individual' | 'class' | 'school';
 
@@ -84,6 +108,12 @@ export class MessagesPage {
   protected selectedBroadcastClassId: number | null = null;
   protected subject = '';
   protected body = '';
+  protected selectedFile: File | null = null;
+  /** Client-side file-picker validation, shown inside the still-open dialog. */
+  protected readonly fileError = signal<string | null>(null);
+  /** Upload failure *after* the message itself already sent — the dialog
+   * has closed by then, so (like broadcastResult) this lives outside it. */
+  protected readonly attachmentUploadError = signal<string | null>(null);
 
   constructor() {
     this.studentsApi.getStudents().subscribe({
@@ -116,10 +146,34 @@ export class MessagesPage {
   protected openSendMessageDialog(): void {
     this.broadcastResult.set(null);
     this.broadcastError.set(null);
+    this.attachmentUploadError.set(null);
+    this.fileError.set(null);
     this.sendMode = 'individual';
     this.subject = '';
     this.body = '';
+    this.selectedFile = null;
     this.messageDialogVisible.set(true);
+  }
+
+  protected onFileSelected(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.fileError.set(null);
+    if (!file) {
+      this.selectedFile = null;
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      this.fileError.set('Soubor je příliš velký (max 10 MB).');
+      this.selectedFile = null;
+      return;
+    }
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(extension)) {
+      this.fileError.set('Nepovolený typ souboru.');
+      this.selectedFile = null;
+      return;
+    }
+    this.selectedFile = file;
   }
 
   protected send(): void {
@@ -133,16 +187,12 @@ export class MessagesPage {
       if (!this.selectedStudentId) {
         return;
       }
+      const studentId = this.selectedStudentId;
       this.messagesApi
-        .sendMessage(this.selectedStudentId, {
-          subject: this.subject,
-          body: this.body,
-        })
+        .sendMessage(studentId, { subject: this.subject, body: this.body })
         .subscribe({
-          next: () => {
-            this.clearForm();
-            this.reload();
-          },
+          next: (message) =>
+            this.afterSend([{ studentId, messageId: message.id }]),
           error: (err) => this.handleSendError(err),
         });
       return;
@@ -162,8 +212,7 @@ export class MessagesPage {
             this.broadcastResult.set(
               `Odesláno ${result.recipientCount} žákům ve třídě.`,
             );
-            this.clearForm();
-            this.reload();
+            this.afterSend(result.messages);
           },
           error: (err) => this.handleSendError(err),
         });
@@ -177,11 +226,46 @@ export class MessagesPage {
           this.broadcastResult.set(
             `Odesláno ${result.recipientCount} žákům celé školy.`,
           );
-          this.clearForm();
-          this.reload();
+          this.afterSend(result.messages);
         },
         error: (err) => this.handleSendError(err),
       });
+  }
+
+  /** Runs after every successful send/broadcast — uploads the picked file
+   * (if any) to each just-created message, then closes the dialog and
+   * reloads. One upload call per recipient (see MessagesApiService.
+   * uploadAttachment's doc comment for why that's fine here). */
+  private afterSend(
+    recipients: { studentId: number; messageId: number }[],
+  ): void {
+    const file = this.selectedFile;
+    if (!file) {
+      this.clearForm();
+      this.reload();
+      return;
+    }
+    forkJoin(
+      recipients.map((r) =>
+        this.messagesApi.uploadAttachment(r.studentId, r.messageId, file),
+      ),
+    ).subscribe({
+      next: () => {
+        this.clearForm();
+        this.reload();
+      },
+      error: (err) => {
+        console.error('uploadAttachment failed', err);
+        // The message itself was already sent — the dialog closes like any
+        // other success, but this warning (unlike broadcastError) has to
+        // live outside it for the same reason broadcastResult does.
+        this.attachmentUploadError.set(
+          'Zpráva byla odeslána, ale příloha se nepodařila nahrát.',
+        );
+        this.clearForm();
+        this.reload();
+      },
+    });
   }
 
   protected filteredMessages(): Message[] {
@@ -220,6 +304,7 @@ export class MessagesPage {
   private clearForm(): void {
     this.subject = '';
     this.body = '';
+    this.selectedFile = null;
     this.messageDialogVisible.set(false);
   }
 
@@ -240,5 +325,37 @@ export class MessagesPage {
       next: (messages) => this.messages.set(messages),
       error: (err) => console.error('getMessages failed', err),
     });
+  }
+
+  /** Same blob-download pattern as grades-page.ts's downloadReportCard —
+   * goes through HttpClient (so the auth interceptor attaches the bearer
+   * token) rather than a plain <a href>. */
+  protected downloadAttachment(
+    message: Message,
+    attachment: MessageAttachment,
+  ): void {
+    this.messagesApi
+      .downloadAttachment(message.studentId, message.id, attachment.id)
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = attachment.fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (err) => console.error('downloadAttachment failed', err),
+      });
+  }
+
+  protected formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${Math.round(bytes / 1024)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 }

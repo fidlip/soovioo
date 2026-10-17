@@ -74,7 +74,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
         var sentAt = DateTimeOffset.UtcNow;
         var schoolId = currentSchool.SchoolId!.Value;
 
-        db.Messages.AddRange(studentIds.Select(studentId => new Message
+        var messages = studentIds.Select(studentId => new Message
         {
             StudentId = studentId,
             SenderName = senderName,
@@ -82,13 +82,23 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
             Body = request.Body,
             SentAt = sentAt,
             SchoolId = schoolId,
-        }));
+        }).ToList();
+
+        db.Messages.AddRange(messages);
         await db.SaveChangesAsync();
 
-        return new BroadcastResultDto(studentIds.Count);
+        // Lets the caller attach a file to every fan-out copy afterwards
+        // (MessagesController.UploadAttachment, one call per message) —
+        // see MessageAttachment's doc comment for why each copy gets its
+        // own physical file rather than a shared one.
+        return new BroadcastResultDto(
+            studentIds.Count,
+            messages.Select(m => new BroadcastMessageRef(m.Id, m.StudentId)).ToList());
     }
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public record BroadcastResultDto(int RecipientCount);
+public record BroadcastMessageRef(int MessageId, int StudentId);
+
+public record BroadcastResultDto(int RecipientCount, IReadOnlyList<BroadcastMessageRef> Messages);

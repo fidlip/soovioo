@@ -60,6 +60,10 @@ public class MessageBroadcastControllerTests
         var dto = Assert.IsType<BroadcastResultDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(2, dto.RecipientCount);
         Assert.Equal(2, db.Messages.Count());
+        // Lets the caller attach a file to every fan-out copy afterwards
+        // (MessagesController.UploadAttachment) — see BroadcastMessageRef.
+        Assert.Equal(2, dto.Messages.Count);
+        Assert.All(dto.Messages, m => Assert.True(m.MessageId > 0));
     }
 
     [Fact]

@@ -41,29 +41,61 @@ describe('MessagesApiService', () => {
 
   it('marks a message as read', () => {
     service.markRead(1, 2).subscribe();
-    const req = httpMock.expectOne('http://test/api/students/1/messages/2/read');
+    const req = httpMock.expectOne(
+      'http://test/api/students/1/messages/2/read',
+    );
     expect(req.request.method).toBe('POST');
     req.flush(null);
   });
 
   it('fetches broadcastable classes', () => {
     service.getBroadcastableClasses().subscribe();
-    const req = httpMock.expectOne('http://test/api/messages/broadcastable-classes');
+    const req = httpMock.expectOne(
+      'http://test/api/messages/broadcastable-classes',
+    );
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
 
   it('broadcasts to a class', () => {
     service.broadcastToClass(1, { subject: 'S', body: 'B' }).subscribe();
-    const req = httpMock.expectOne('http://test/api/school-classes/1/messages/broadcast');
+    const req = httpMock.expectOne(
+      'http://test/api/school-classes/1/messages/broadcast',
+    );
     expect(req.request.method).toBe('POST');
-    req.flush({ recipientCount: 2 });
+    req.flush({ recipientCount: 2, messages: [] });
   });
 
   it('broadcasts to the whole school', () => {
     service.broadcastToSchool({ subject: 'S', body: 'B' }).subscribe();
     const req = httpMock.expectOne('http://test/api/messages/broadcast');
     expect(req.request.method).toBe('POST');
-    req.flush({ recipientCount: 5 });
+    req.flush({ recipientCount: 5, messages: [] });
+  });
+
+  it('uploads an attachment as multipart form data', () => {
+    const file = new File(['hello'], 'rozvrh.pdf', { type: 'application/pdf' });
+    service.uploadAttachment(1, 2, file).subscribe();
+    const req = httpMock.expectOne(
+      'http://test/api/students/1/messages/2/attachments',
+    );
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeInstanceOf(FormData);
+    req.flush({
+      id: 1,
+      fileName: 'rozvrh.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 5,
+    });
+  });
+
+  it('downloads an attachment as a blob', () => {
+    service.downloadAttachment(1, 2, 3).subscribe();
+    const req = httpMock.expectOne(
+      'http://test/api/students/1/messages/2/attachments/3',
+    );
+    expect(req.request.method).toBe('GET');
+    expect(req.request.responseType).toBe('blob');
+    req.flush(new Blob(['x']));
   });
 });

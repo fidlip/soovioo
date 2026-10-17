@@ -644,6 +644,42 @@ namespace Sova.Api.Migrations
                     b.ToTable("Messages");
                 });
 
+            modelBuilder.Entity("Sova.Api.Messaging.MessageAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MessageId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.ToTable("MessageAttachments");
+                });
+
             modelBuilder.Entity("Sova.Api.Reference.Country", b =>
                 {
                     b.Property<string>("Code")
@@ -1165,6 +1201,17 @@ namespace Sova.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Sova.Api.Messaging.MessageAttachment", b =>
+                {
+                    b.HasOne("Sova.Api.Messaging.Message", "Message")
+                        .WithMany("Attachments")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+                });
+
             modelBuilder.Entity("Sova.Api.Reference.Municipality", b =>
                 {
                     b.HasOne("Sova.Api.Reference.District", "District")
@@ -1240,6 +1287,11 @@ namespace Sova.Api.Migrations
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>
                 {
                     b.Navigation("Students");
+                });
+
+            modelBuilder.Entity("Sova.Api.Messaging.Message", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 #pragma warning restore 612, 618
         }

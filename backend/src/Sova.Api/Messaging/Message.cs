@@ -18,4 +18,6 @@ public class Message
 
     public DateTimeOffset SentAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ReadAt { get; set; }
+
+    public List<MessageAttachment> Attachments { get; set; } = [];
 }

@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
-import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
@@ -40,7 +39,6 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
   imports: [
     FormsModule,
     Button,
-    Card,
     DatePicker,
     Dialog,
     InputText,

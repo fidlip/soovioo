@@ -23,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
     public DbSet<EventTeacher> EventTeachers => Set<EventTeacher>();
@@ -123,6 +124,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
         modelBuilder.Entity<Message>().HasQueryFilter(m =>
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<MessageAttachment>().HasQueryFilter(a =>
+            currentSchool.IsSuperAdmin || a.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Event>().HasQueryFilter(e =>
             currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<EventSchoolClass>().HasQueryFilter(x =>

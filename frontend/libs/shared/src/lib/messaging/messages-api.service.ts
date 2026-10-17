@@ -3,7 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import { SchoolClass } from '../evidence/school-class.model';
-import { BroadcastResult, Message, SendMessageRequest } from './message.model';
+import {
+  BroadcastResult,
+  Message,
+  MessageAttachment,
+  SendMessageRequest,
+} from './message.model';
 
 @Injectable({ providedIn: 'root' })
 export class MessagesApiService {
@@ -11,10 +16,15 @@ export class MessagesApiService {
   private readonly baseUrl = inject(API_BASE_URL);
 
   getMessages(studentId: number): Observable<Message[]> {
-    return this.http.get<Message[]>(`${this.baseUrl}/api/students/${studentId}/messages`);
+    return this.http.get<Message[]>(
+      `${this.baseUrl}/api/students/${studentId}/messages`,
+    );
   }
 
-  sendMessage(studentId: number, request: SendMessageRequest): Observable<Message> {
+  sendMessage(
+    studentId: number,
+    request: SendMessageRequest,
+  ): Observable<Message> {
     return this.http.post<Message>(
       `${this.baseUrl}/api/students/${studentId}/messages`,
       request,
@@ -34,15 +44,46 @@ export class MessagesApiService {
     );
   }
 
+  /** A separate call after sendMessage/broadcast* rather than bundled into
+   * those (which stay plain JSON, incl. for the mobile app). */
+  uploadAttachment(
+    studentId: number,
+    messageId: number,
+    file: File,
+  ): Observable<MessageAttachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<MessageAttachment>(
+      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}/attachments`,
+      formData,
+    );
+  }
+
+  downloadAttachment(
+    studentId: number,
+    messageId: number,
+    attachmentId: number,
+  ): Observable<Blob> {
+    return this.http.get(
+      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}/attachments/${attachmentId}`,
+      { responseType: 'blob' },
+    );
+  }
+
   /** Classes the caller may broadcast to — every class for Admin, only ones
    * they teach (class teacher or has a timetable entry) for Teacher. */
   getBroadcastableClasses(): Observable<SchoolClass[]> {
-    return this.http.get<SchoolClass[]>(`${this.baseUrl}/api/messages/broadcastable-classes`);
+    return this.http.get<SchoolClass[]>(
+      `${this.baseUrl}/api/messages/broadcastable-classes`,
+    );
   }
 
   /** Sends one copy of the message into every student's thread in the class.
    * Rejected (403) for a Teacher who doesn't teach that class. */
-  broadcastToClass(schoolClassId: number, request: SendMessageRequest): Observable<BroadcastResult> {
+  broadcastToClass(
+    schoolClassId: number,
+    request: SendMessageRequest,
+  ): Observable<BroadcastResult> {
     return this.http.post<BroadcastResult>(
       `${this.baseUrl}/api/school-classes/${schoolClassId}/messages/broadcast`,
       request,
@@ -52,6 +93,9 @@ export class MessagesApiService {
   /** Sends one copy of the message into every student's thread in the
    * school. Admin only. */
   broadcastToSchool(request: SendMessageRequest): Observable<BroadcastResult> {
-    return this.http.post<BroadcastResult>(`${this.baseUrl}/api/messages/broadcast`, request);
+    return this.http.post<BroadcastResult>(
+      `${this.baseUrl}/api/messages/broadcast`,
+      request,
+    );
   }
 }

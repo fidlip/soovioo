@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
-import { Card } from '@openng/optimus-ui/card';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
@@ -25,7 +24,6 @@ import {
   imports: [
     FormsModule,
     Button,
-    Card,
     Dialog,
     InputNumber,
     InputText,

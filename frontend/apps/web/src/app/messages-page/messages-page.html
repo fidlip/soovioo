@@ -11,6 +11,8 @@
 
 @if (broadcastResult(); as result) {
 <p-message severity="success" [text]="result" styleClass="mb-3 w-full" />
+} @if (attachmentUploadError(); as error) {
+<p-message severity="warn" [text]="error" styleClass="mb-3 w-full" />
 }
 
 <div class="mb-6 flex flex-wrap items-end gap-3">
@@ -89,6 +91,20 @@
     >
       {{ message.body }}
     </p>
+    @if (message.attachments.length > 0) {
+    <div class="mt-3 flex flex-wrap gap-2">
+      @for (attachment of message.attachments; track attachment.id) {
+      <p-button
+        [label]="attachment.fileName + ' (' + formatFileSize(attachment.sizeBytes) + ')'"
+        icon="pi pi-paperclip"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="downloadAttachment(message, attachment)"
+      />
+      }
+    </div>
+    }
   </p-card>
   } @empty {
   <p class="text-surface-500">Zatím žádné zprávy.</p>
@@ -168,6 +184,27 @@
       name="body"
       [(ngModel)]="body"
     ></textarea>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="attachment"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příloha (nepovinné, max 10 MB)</label
+      >
+      <!-- Keyed by messageDialogVisible() so Angular recreates the DOM node
+           on every open — a native file input's displayed filename can't
+           be cleared any other way (setting .value from TS is the only
+           alternative, and even that only works via a direct element ref). -->
+      @if (messageDialogVisible()) {
+      <input
+        type="file"
+        id="attachment"
+        name="attachment"
+        (change)="onFileSelected($event)"
+      />
+      } @if (fileError(); as error) {
+      <p class="m-0 text-sm text-red-500">{{ error }}</p>
+      }
+    </div>
     <p-button
       type="submit"
       label="Odeslat"

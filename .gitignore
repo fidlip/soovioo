@@ -17,6 +17,9 @@ backend/**/bin/
 backend/**/obj/
 backend/**/*.user
 backend/**/.vs/
+# Uploaded message/homework attachments (local disk storage, see
+# MessageAttachmentStorageService) — user content, never committed.
+backend/**/AttachmentStorage/
 
 # Node / Nx frontend (also covered by frontend/.gitignore, kept here for repo-wide tooling)
 **/node_modules/

@@ -11,6 +11,7 @@ using Sova.Api.Auth;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
 using Sova.Api.Matrika;
+using Sova.Api.Messaging;
 using Sova.Api.Reference;
 
 QuestPDF.Settings.License = LicenseType.Community;
@@ -35,6 +36,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
 builder.Services.AddScoped<MatrikaExportService>();
 builder.Services.AddScoped<JwtTokenFactory>();
+builder.Services.AddScoped<MessageAttachmentStorageService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
