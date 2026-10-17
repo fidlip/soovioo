@@ -9,7 +9,11 @@
       (onClick)="subscribePopover.toggle($event)"
     />
     @if (canManageEvents()) {
-      <p-button icon="pi pi-plus" label="Nová akce" (onClick)="openCreateDialog()" />
+    <p-button
+      icon="pi pi-plus"
+      label="Nová akce"
+      (onClick)="openCreateDialog()"
+    />
     }
   </div>
 </div>
@@ -17,24 +21,30 @@
 <p-popover #subscribePopover>
   <div class="flex w-80 flex-col gap-2">
     @if (feedUrl(); as url) {
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300">
-        Odebírat v Google/Apple kalendáři
-      </span>
-      <a [href]="webcalUrl()" pButton size="small" icon="pi pi-calendar-plus" label="Přidat do kalendáře"></a>
-      <input pInputText type="text" readonly [value]="url" class="w-full" />
-      <p-button
-        [label]="feedUrlCopied() ? 'Zkopírováno' : 'Kopírovat odkaz'"
-        size="small"
-        severity="secondary"
-        [text]="true"
-        (onClick)="copyFeedUrl()"
-      />
-      <p class="m-0 text-sm text-surface-500">
-        Apple Kalendář: klikněte na „Přidat do kalendáře". Google Kalendář: Nastavení → Přidat kalendář → Z URL a
-        vložte zkopírovaný odkaz.
-      </p>
+    <span class="text-sm font-medium text-surface-600 dark:text-surface-300">
+      Odebírat v Google/Apple kalendáři
+    </span>
+    <a
+      [href]="webcalUrl()"
+      pButton
+      size="small"
+      icon="pi pi-calendar-plus"
+      label="Přidat do kalendáře"
+    ></a>
+    <input pInputText type="text" readonly [value]="url" class="w-full" />
+    <p-button
+      [label]="feedUrlCopied() ? 'Zkopírováno' : 'Kopírovat odkaz'"
+      size="small"
+      severity="secondary"
+      [text]="true"
+      (onClick)="copyFeedUrl()"
+    />
+    <p class="m-0 text-sm text-surface-500">
+      Apple Kalendář: klikněte na „Přidat do kalendáře". Google Kalendář:
+      Nastavení → Přidat kalendář → Z URL a vložte zkopírovaný odkaz.
+    </p>
     } @else {
-      <p class="m-0 text-sm text-surface-500">Načítání odkazu…</p>
+    <p class="m-0 text-sm text-surface-500">Načítání odkazu…</p>
     }
   </div>
 </p-popover>
@@ -42,13 +52,13 @@
 <p-card>
   <div class="mb-4 flex flex-wrap gap-1">
     @for (option of viewOptions; track option.value) {
-      <p-button
-        [label]="option.label"
-        size="small"
-        [severity]="activeView() === option.value ? 'primary' : 'secondary'"
-        [text]="activeView() !== option.value"
-        (onClick)="changeView(option.value)"
-      />
+    <p-button
+      [label]="option.label"
+      size="small"
+      [severity]="activeView() === option.value ? 'primary' : 'secondary'"
+      [text]="activeView() !== option.value"
+      (onClick)="changeView(option.value)"
+    />
     }
   </div>
   <full-calendar #calendar [options]="calendarOptions()" />
@@ -62,7 +72,7 @@
   styleClass="w-full max-w-lg"
 >
   @if (formError(); as error) {
-    <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
+  <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
   <form class="flex flex-col gap-3" (ngSubmit)="save()">
     <input
@@ -81,16 +91,21 @@
       [ngModel]="description()"
       (ngModelChange)="description.set($event)"
     ></textarea>
-    <input
-      pInputText
-      type="text"
-      placeholder="Místo (nepovinné)"
-      name="location"
+    <p-autoComplete
       [ngModel]="location()"
       (ngModelChange)="location.set($event)"
+      [suggestions]="locationSuggestions()"
+      (completeMethod)="searchLocations($event)"
+      placeholder="Místo (nepovinné)"
+      name="location"
+      styleClass="w-full"
+      inputStyleClass="w-full"
+      appendTo="body"
     />
 
-    <label class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300">
+    <label
+      class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300"
+    >
       <input
         type="checkbox"
         name="allDay"
@@ -101,27 +116,32 @@
     </label>
 
     <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Barva</span>
+      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Barva</span
+      >
       <div class="flex flex-wrap gap-2">
         @for (swatch of colorPalette; track swatch) {
-          <button
-            type="button"
-            class="h-7 w-7 rounded-full border-2 transition-transform"
-            [class.border-surface-900]="color() === swatch"
-            [class.dark:border-surface-0]="color() === swatch"
-            [class.border-transparent]="color() !== swatch"
-            [class.scale-110]="color() === swatch"
-            [style.background-color]="swatch"
-            [attr.aria-label]="swatch"
-            (click)="color.set(swatch)"
-          ></button>
+        <button
+          type="button"
+          class="h-7 w-7 rounded-full border-2 transition-transform"
+          [class.border-surface-900]="color() === swatch"
+          [class.dark:border-surface-0]="color() === swatch"
+          [class.border-transparent]="color() !== swatch"
+          [class.scale-110]="color() === swatch"
+          [style.background-color]="swatch"
+          [attr.aria-label]="swatch"
+          (click)="color.set(swatch)"
+        ></button>
         }
       </div>
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
       <div class="flex flex-col gap-1.5">
-        <label class="text-sm font-medium text-surface-600 dark:text-surface-300">Od</label>
+        <label
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Od</label
+        >
         <p-datePicker
           [ngModel]="startAt()"
           (ngModelChange)="onStartChanged($event)"
@@ -134,7 +154,10 @@
         />
       </div>
       <div class="flex flex-col gap-1.5">
-        <label class="text-sm font-medium text-surface-600 dark:text-surface-300">Do</label>
+        <label
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Do</label
+        >
         <p-datePicker
           [ngModel]="endAt()"
           (ngModelChange)="onEndChanged($event)"
@@ -149,7 +172,9 @@
     </div>
 
     <div class="flex flex-col gap-1.5">
-      <label class="text-sm font-medium text-surface-600 dark:text-surface-300">Příjemci</label>
+      <label class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příjemci</label
+      >
       <p-select
         [options]="audienceOptions"
         optionLabel="label"
@@ -163,135 +188,186 @@
     </div>
 
     @if (audience() === 'OnlyMe') {
-      <p-message severity="warn" text="Tuto akci uvidíte jen vy." styleClass="w-full" />
-    }
-
-    @if (audience() === 'Selected') {
-      <div class="flex flex-col gap-4 rounded-md border border-surface-200 p-3 dark:border-surface-700">
-        <div class="flex flex-col gap-1.5">
-          <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Třídy</span>
-          <div class="flex flex-wrap gap-2">
-            <input
-              pInputText
-              type="text"
-              placeholder="Hledat třídu"
-              name="classFilterName"
-              class="max-w-40"
-              [(ngModel)]="classFilterName"
-            />
-            <p-select
-              [options]="rocnikOptions()"
-              placeholder="Ročník"
-              [showClear]="true"
-              name="classFilterRocnik"
-              styleClass="w-28"
-              appendTo="body"
-              [(ngModel)]="classFilterRocnik"
-            />
-          </div>
-          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
-            @for (c of filteredClasses(); track c.id) {
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [checked]="selectedClassIds().includes(c.id)" (change)="toggleClassId(c.id)" />
-                {{ c.name }}
-                @if (c.rocnik) {
-                  <span class="text-surface-400">· {{ c.rocnik }}. ročník</span>
-                }
-              </label>
-            } @empty {
-              <span class="text-sm text-surface-400">Nic nenalezeno.</span>
-            }
-          </div>
-        </div>
-
-        @if (isAdmin) {
-          <div class="flex flex-col gap-1.5">
-            <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Učitelé</span>
-            <input
-              pInputText
-              type="text"
-              placeholder="Hledat učitele"
-              name="teacherFilterName"
-              class="max-w-40"
-              [(ngModel)]="teacherFilterName"
-            />
-            <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
-              @for (t of filteredTeachers(); track t.id) {
-                <label class="flex items-center gap-2 text-sm">
-                  <input type="checkbox" [checked]="selectedTeacherIds().includes(t.id)" (change)="toggleTeacherId(t.id)" />
-                  {{ t.username }}
-                </label>
-              } @empty {
-                <span class="text-sm text-surface-400">Nic nenalezeno.</span>
-              }
-            </div>
-          </div>
-        }
-
-        <div class="flex flex-col gap-1.5">
-          <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Rodiče</span>
+    <p-message
+      severity="warn"
+      text="Tuto akci uvidíte jen vy."
+      styleClass="w-full"
+    />
+    } @if (audience() === 'Selected') {
+    <div
+      class="flex flex-col gap-4 rounded-md border border-surface-200 p-3 dark:border-surface-700"
+    >
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Třídy</span
+        >
+        <div class="flex flex-wrap gap-2">
           <input
             pInputText
             type="text"
-            placeholder="Hledat rodiče"
-            name="parentFilterName"
+            placeholder="Hledat třídu"
+            name="classFilterName"
             class="max-w-40"
-            [(ngModel)]="parentFilterName"
+            [(ngModel)]="classFilterName"
           />
-          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
-            @for (p of filteredParents(); track p.id) {
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [checked]="selectedParentIds().includes(p.id)" (change)="toggleParentId(p.id)" />
-                {{ p.username }}
-              </label>
-            } @empty {
-              <span class="text-sm text-surface-400">Nic nenalezeno.</span>
-            }
-          </div>
+          <p-select
+            [options]="rocnikOptions()"
+            placeholder="Ročník"
+            [showClear]="true"
+            name="classFilterRocnik"
+            styleClass="w-28"
+            appendTo="body"
+            [(ngModel)]="classFilterRocnik"
+          />
         </div>
-
-        <div class="flex flex-col gap-1.5">
-          <span class="text-sm font-medium text-surface-600 dark:text-surface-300">Žáci</span>
-          <div class="flex flex-wrap gap-2">
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (c of filteredClasses(); track c.id) {
+          <label class="flex items-center gap-2 text-sm">
             <input
-              pInputText
-              type="text"
-              placeholder="Hledat žáka"
-              name="studentFilterName"
-              class="max-w-40"
-              [(ngModel)]="studentFilterName"
+              type="checkbox"
+              [checked]="selectedClassIds().includes(c.id)"
+              (change)="toggleClassId(c.id)"
             />
-            <p-select
-              [options]="rocnikOptions()"
-              placeholder="Ročník"
-              [showClear]="true"
-              name="studentFilterRocnik"
-              styleClass="w-28"
-              appendTo="body"
-              [(ngModel)]="studentFilterRocnik"
-            />
-          </div>
-          <div class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700">
-            @for (s of filteredStudents(); track s.id) {
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" [checked]="selectedStudentIds().includes(s.id)" (change)="toggleStudentId(s.id)" />
-                {{ s.firstName }} {{ s.lastName }}
-                <span class="text-surface-400">· {{ s.schoolClassName }}</span>
-              </label>
-            } @empty {
-              <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+            {{ c.name }} @if (c.rocnik) {
+            <span class="text-surface-400">· {{ c.rocnik }}. ročník</span>
             }
-          </div>
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
         </div>
       </div>
+
+      @if (isAdmin) {
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Učitelé</span
+        >
+        <input
+          pInputText
+          type="text"
+          placeholder="Hledat učitele"
+          name="teacherFilterName"
+          class="max-w-40"
+          [(ngModel)]="teacherFilterName"
+        />
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (t of filteredTeachers(); track t.id) {
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [checked]="selectedTeacherIds().includes(t.id)"
+              (change)="toggleTeacherId(t.id)"
+            />
+            {{ t.username }}
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
+        </div>
+      </div>
+      }
+
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Rodiče</span
+        >
+        <input
+          pInputText
+          type="text"
+          placeholder="Hledat rodiče"
+          name="parentFilterName"
+          class="max-w-40"
+          [(ngModel)]="parentFilterName"
+        />
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (p of filteredParents(); track p.id) {
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [checked]="selectedParentIds().includes(p.id)"
+              (change)="toggleParentId(p.id)"
+            />
+            {{ p.username }}
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Žáci</span
+        >
+        <div class="flex flex-wrap gap-2">
+          <input
+            pInputText
+            type="text"
+            placeholder="Hledat žáka"
+            name="studentFilterName"
+            class="max-w-40"
+            [(ngModel)]="studentFilterName"
+          />
+          <p-select
+            [options]="rocnikOptions()"
+            placeholder="Ročník"
+            [showClear]="true"
+            name="studentFilterRocnik"
+            styleClass="w-28"
+            appendTo="body"
+            [(ngModel)]="studentFilterRocnik"
+          />
+        </div>
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (s of filteredStudents(); track s.id) {
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [checked]="selectedStudentIds().includes(s.id)"
+              (change)="toggleStudentId(s.id)"
+            />
+            {{ s.firstName }} {{ s.lastName }}
+            <span class="text-surface-400">· {{ s.schoolClassName }}</span>
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
+        </div>
+      </div>
+    </div>
     }
 
     <div class="flex gap-2 self-end">
       @if (editingEventId()) {
-        <p-button type="button" label="Smazat" severity="danger" [text]="true" (onClick)="deleteEvent()" />
-        <p-button type="button" label="Zrušit" severity="secondary" [text]="true" (onClick)="cancelEdit()" />
+      <p-button
+        type="button"
+        label="Smazat"
+        severity="danger"
+        [text]="true"
+        (onClick)="deleteEvent()"
+      />
+      <p-button
+        type="button"
+        label="Zrušit"
+        severity="secondary"
+        [text]="true"
+        (onClick)="cancelEdit()"
+      />
       }
-      <p-button type="submit" [label]="editingEventId() ? 'Uložit' : 'Vytvořit'" icon="pi pi-check" />
+      <p-button
+        type="submit"
+        [label]="editingEventId() ? 'Uložit' : 'Vytvořit'"
+        icon="pi pi-check"
+      />
     </div>
   </form>
 </p-dialog>

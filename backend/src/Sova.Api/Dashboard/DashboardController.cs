@@ -130,7 +130,8 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
-                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : e.Teacher.Username))
+                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : e.Teacher.Username,
+                e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, null))
             .ToListAsync();
 
     /// <summary>Parent/Student: the first accessible student's own class
@@ -161,7 +162,8 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
-                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : e.Teacher.Username))
+                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : e.Teacher.Username,
+                e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, null))
             .ToListAsync();
 
         return (lessons, $"{student.FirstName} {student.LastName} ({student.SchoolClassName})");

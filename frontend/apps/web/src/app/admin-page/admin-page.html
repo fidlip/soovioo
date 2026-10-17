@@ -163,7 +163,7 @@
 } @else {
 <p-tabs [(value)]="activeTab">
   <p-tablist>
-    <p-tab value="classes">Třídy a předměty</p-tab>
+    <p-tab value="classes">Třídy, předměty a učebny</p-tab>
     <p-tab value="students">Studenti</p-tab>
     <p-tab value="users">Uživatelé a rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
@@ -240,6 +240,7 @@
                 <th>Název</th>
                 <th>Zkratka</th>
                 <th>Barva</th>
+                <th>Výchozí učebna</th>
                 <th></th>
               </tr>
             </ng-template>
@@ -258,6 +259,9 @@
                   } @else {
                   <span class="text-surface-400">—</span>
                   }
+                </td>
+                <td class="text-surface-500">
+                  {{ classroomName(subject.defaultClassroomId) }}
                 </td>
                 <td class="flex justify-end gap-1">
                   <p-button
@@ -278,9 +282,59 @@
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="4" class="py-3 text-surface-500">
+                <td colspan="5" class="py-3 text-surface-500">
                   Žádné předměty.
                 </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </p-card>
+
+        <p-card header="Učebny">
+          <div class="mb-3 flex justify-end">
+            <p-button
+              label="Nová učebna"
+              icon="pi pi-plus"
+              size="small"
+              (onClick)="openAddClassroomDialog()"
+            />
+          </div>
+          <p-table [value]="classrooms()" dataKey="id" styleClass="mb-4">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Název</th>
+                <th>Typ</th>
+                <th>Kapacita</th>
+                <th></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-classroom>
+              <tr>
+                <td>{{ classroom.name }}</td>
+                <td class="text-surface-500">{{ classroom.type ?? '—' }}</td>
+                <td class="text-surface-500">
+                  {{ classroom.capacity ?? '—' }}
+                </td>
+                <td class="flex justify-end gap-1">
+                  <p-button
+                    icon="pi pi-pencil"
+                    size="small"
+                    [text]="true"
+                    (onClick)="startEditClassroom(classroom)"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    size="small"
+                    severity="danger"
+                    [text]="true"
+                    (onClick)="deleteClassroom(classroom)"
+                  />
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="4" class="py-3 text-surface-500">Žádné učebny.</td>
               </tr>
             </ng-template>
           </p-table>
@@ -703,6 +757,17 @@
       ></button>
       }
     </div>
+    <p-select
+      [options]="classroomOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="Výchozí učebna"
+      [(ngModel)]="newSubjectDefaultClassroomId"
+      name="subjectDefaultClassroomId"
+      [showClear]="true"
+      styleClass="w-48"
+      appendTo="body"
+    />
     <p-button
       type="submit"
       [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"
@@ -963,6 +1028,46 @@
       label="Uložit"
       icon="pi pi-check"
       styleClass="self-start"
+    />
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="newClassroomDialogVisible()"
+  (visibleChange)="newClassroomDialogVisible.set($event)"
+  [header]="editingClassroomId === null ? 'Nová učebna' : 'Upravit učebnu'"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form class="flex flex-wrap items-center gap-2" (ngSubmit)="saveClassroom()">
+    <input
+      pInputText
+      type="text"
+      class="flex-1"
+      placeholder="Název (např. 12, Tělocvična)"
+      name="classroomName"
+      [(ngModel)]="newClassroomName"
+    />
+    <input
+      pInputText
+      type="text"
+      placeholder="Typ (nepovinné)"
+      name="classroomType"
+      [(ngModel)]="newClassroomType"
+      class="w-40"
+    />
+    <p-inputNumber
+      placeholder="Kapacita"
+      name="classroomCapacity"
+      [(ngModel)]="newClassroomCapacity"
+      [min]="1"
+      styleClass="w-28"
+      inputStyleClass="w-full"
+    />
+    <p-button
+      type="submit"
+      [label]="editingClassroomId === null ? 'Vytvořit' : 'Uložit'"
+      icon="pi pi-check"
     />
   </form>
 </p-dialog>

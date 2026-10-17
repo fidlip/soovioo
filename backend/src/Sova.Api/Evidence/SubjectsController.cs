@@ -30,11 +30,17 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Color must be a \"#rrggbb\" hex string.");
         }
 
+        if (request.DefaultClassroomId is not null && await db.Classrooms.FindAsync(request.DefaultClassroomId) is null)
+        {
+            return BadRequest("Unknown defaultClassroomId.");
+        }
+
         var subject = new Subject
         {
             Name = request.Name,
             Abbreviation = request.Abbreviation,
             Color = request.Color,
+            DefaultClassroomId = request.DefaultClassroomId,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.Subjects.Add(subject);
@@ -51,6 +57,11 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Color must be a \"#rrggbb\" hex string.");
         }
 
+        if (request.DefaultClassroomId is not null && await db.Classrooms.FindAsync(request.DefaultClassroomId) is null)
+        {
+            return BadRequest("Unknown defaultClassroomId.");
+        }
+
         var subject = await db.Subjects.FindAsync(id);
         if (subject is null)
         {
@@ -60,6 +71,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
         subject.Name = request.Name;
         subject.Abbreviation = request.Abbreviation;
         subject.Color = request.Color;
+        subject.DefaultClassroomId = request.DefaultClassroomId;
         await db.SaveChangesAsync();
         return Ok(subject);
     }
@@ -93,4 +105,5 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     }
 }
 
-public record CreateSubjectRequest(string Name, string? Abbreviation = null, string? Color = null);
+public record CreateSubjectRequest(
+    string Name, string? Abbreviation = null, string? Color = null, int? DefaultClassroomId = null);

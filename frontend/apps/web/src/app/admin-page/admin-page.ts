@@ -29,6 +29,8 @@ import { forkJoin, Observable } from 'rxjs';
 import {
   AppUser,
   AuthApiService,
+  Classroom,
+  ClassroomsApiService,
   Country,
   CreateUserRequest,
   Gender,
@@ -132,6 +134,7 @@ export class AdminPage {
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
+  private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly usersApi = inject(UsersApiService);
   private readonly parentsApi = inject(ParentsApiService);
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
@@ -150,6 +153,10 @@ export class AdminPage {
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
+  protected readonly classrooms = signal<Classroom[]>([]);
+  protected readonly classroomOptions = computed(() =>
+    this.classrooms().map((c) => ({ id: c.id, label: c.name })),
+  );
   protected readonly users = signal<AppUser[]>([]);
   protected readonly parents = signal<ParentUser[]>([]);
   protected readonly links = signal<ParentStudentLink[]>([]);
@@ -160,6 +167,7 @@ export class AdminPage {
 
   protected readonly newClassDialogVisible = signal(false);
   protected readonly newSubjectDialogVisible = signal(false);
+  protected readonly newClassroomDialogVisible = signal(false);
   protected readonly newStudentDialogVisible = signal(false);
   protected readonly newUserDialogVisible = signal(false);
   protected readonly editParentChildrenDialogVisible = signal(false);
@@ -232,6 +240,10 @@ export class AdminPage {
   protected newSubjectName = '';
   protected newSubjectAbbreviation = '';
   protected newSubjectColor: string | null = null;
+  protected newSubjectDefaultClassroomId: number | null = null;
+  protected newClassroomName = '';
+  protected newClassroomType = '';
+  protected newClassroomCapacity: number | null = null;
 
   protected newStudentFirstName = '';
   protected newStudentLastName = '';
@@ -264,6 +276,7 @@ export class AdminPage {
   // null = the dialog is in "add" mode; a row id = it's editing that row.
   protected editingSchoolClassId: number | null = null;
   protected editingSubjectId: number | null = null;
+  protected editingClassroomId: number | null = null;
   protected editingStudentId: number | null = null;
   protected editingUserId: number | null = null;
 
@@ -474,6 +487,10 @@ export class AdminPage {
       next: (subjects) => this.subjects.set(subjects),
       error: (err) => console.error('getSubjects failed', err),
     });
+    this.classroomsApi.getClassrooms().subscribe({
+      next: (classrooms) => this.classrooms.set(classrooms),
+      error: (err) => console.error('getClassrooms failed', err),
+    });
     this.usersApi.getUsers().subscribe({
       next: (users) => this.users.set(users),
       error: (err) => console.error('getUsers failed', err),
@@ -545,6 +562,7 @@ export class AdminPage {
     this.newSubjectName = '';
     this.newSubjectAbbreviation = '';
     this.newSubjectColor = null;
+    this.newSubjectDefaultClassroomId = null;
     this.newSubjectDialogVisible.set(true);
   }
 
@@ -553,6 +571,7 @@ export class AdminPage {
     this.newSubjectName = subject.name;
     this.newSubjectAbbreviation = subject.abbreviation ?? '';
     this.newSubjectColor = subject.color;
+    this.newSubjectDefaultClassroomId = subject.defaultClassroomId;
     this.newSubjectDialogVisible.set(true);
   }
 
@@ -564,6 +583,7 @@ export class AdminPage {
       name: this.newSubjectName,
       abbreviation: this.newSubjectAbbreviation || undefined,
       color: this.newSubjectColor || undefined,
+      defaultClassroomId: this.newSubjectDefaultClassroomId ?? undefined,
     };
     const result =
       this.editingSubjectId === null
@@ -583,6 +603,59 @@ export class AdminPage {
     this.subjectsApi.deleteSubject(subject.id).subscribe({
       next: () => this.reload(),
       error: (err) => this.showError('deleteSubject failed', err),
+    });
+  }
+
+  protected classroomName(classroomId: number | null): string {
+    if (classroomId === null) {
+      return '—';
+    }
+    return this.classrooms().find((c) => c.id === classroomId)?.name ?? '—';
+  }
+
+  protected openAddClassroomDialog(): void {
+    this.editingClassroomId = null;
+    this.newClassroomName = '';
+    this.newClassroomType = '';
+    this.newClassroomCapacity = null;
+    this.newClassroomDialogVisible.set(true);
+  }
+
+  protected startEditClassroom(classroom: Classroom): void {
+    this.editingClassroomId = classroom.id;
+    this.newClassroomName = classroom.name;
+    this.newClassroomType = classroom.type ?? '';
+    this.newClassroomCapacity = classroom.capacity;
+    this.newClassroomDialogVisible.set(true);
+  }
+
+  protected saveClassroom(): void {
+    if (!this.newClassroomName.trim()) {
+      return;
+    }
+    const request = {
+      name: this.newClassroomName,
+      type: this.newClassroomType || undefined,
+      capacity: this.newClassroomCapacity ?? undefined,
+    };
+    const result =
+      this.editingClassroomId === null
+        ? this.classroomsApi.addClassroom(request)
+        : this.classroomsApi.updateClassroom(this.editingClassroomId, request);
+    result.subscribe({
+      next: () => {
+        this.newClassroomDialogVisible.set(false);
+        this.editingClassroomId = null;
+        this.reload();
+      },
+      error: (err) => this.showError('saveClassroom failed', err),
+    });
+  }
+
+  protected deleteClassroom(classroom: Classroom): void {
+    this.classroomsApi.deleteClassroom(classroom.id).subscribe({
+      next: () => this.reload(),
+      error: (err) => this.showError('deleteClassroom failed', err),
     });
   }
 

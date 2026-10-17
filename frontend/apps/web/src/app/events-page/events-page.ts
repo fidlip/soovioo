@@ -1,13 +1,24 @@
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CalendarOptions, DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import {
+  CalendarOptions,
+  DateSelectArg,
+  EventClickArg,
+} from '@fullcalendar/core';
 import csLocale from '@fullcalendar/core/locales/cs';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
+import {
+  FullCalendarComponent,
+  FullCalendarModule,
+} from '@fullcalendar/angular';
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+} from '@openng/optimus-ui/autocomplete';
 import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
@@ -19,6 +30,8 @@ import { Select } from '@openng/optimus-ui/select';
 import { Textarea } from '@openng/optimus-ui/textarea';
 import {
   AuthApiService,
+  Classroom,
+  ClassroomsApiService,
   CreateEventRequest,
   EventAudience,
   EventsApiService,
@@ -99,6 +112,7 @@ function startOfDay(d: Date): Date {
 @Component({
   selector: 'app-events-page',
   imports: [
+    AutoComplete,
     FormsModule,
     FullCalendarModule,
     Button,
@@ -116,6 +130,7 @@ function startOfDay(d: Date): Date {
 })
 export class EventsPage {
   private readonly eventsApi = inject(EventsApiService);
+  private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly authApi = inject(AuthApiService);
 
   private readonly calendar = viewChild<FullCalendarComponent>('calendar');
@@ -132,10 +147,18 @@ export class EventsPage {
   protected readonly formError = signal<string | null>(null);
   protected readonly dialogVisible = signal(false);
 
-  protected readonly webcalUrl = computed(() => this.feedUrl()?.replace(/^https?:/, 'webcal:') ?? null);
+  protected readonly webcalUrl = computed(
+    () => this.feedUrl()?.replace(/^https?:/, 'webcal:') ?? null,
+  );
 
   protected readonly calendarOptions = computed<CalendarOptions>(() => ({
-    plugins: [dayGridPlugin, timeGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin],
+    plugins: [
+      dayGridPlugin,
+      timeGridPlugin,
+      listPlugin,
+      multiMonthPlugin,
+      interactionPlugin,
+    ],
     initialView: this.activeView(),
     locale: csLocale,
     headerToolbar: false,
@@ -173,6 +196,10 @@ export class EventsPage {
   protected readonly title = signal('');
   protected readonly description = signal('');
   protected readonly location = signal('');
+  /** Quick-fill suggestions for the free-text location field, sourced from
+   * existing classrooms — no new FK on Event, see ROADMAP "Správa učeben". */
+  protected readonly classrooms = signal<Classroom[]>([]);
+  protected readonly locationSuggestions = signal<string[]>([]);
   protected readonly color = signal(DEFAULT_COLOR);
   protected readonly allDay = signal(false);
   protected readonly startAt = signal(new Date());
@@ -212,11 +239,28 @@ export class EventsPage {
         next: (options) => this.recipientOptions.set(options),
         error: (err) => console.error('getRecipientOptions failed', err),
       });
+      this.classroomsApi.getClassrooms().subscribe({
+        next: (classrooms) => this.classrooms.set(classrooms),
+        error: (err) => console.error('getClassrooms failed', err),
+      });
     }
   }
 
   protected canManageEvents(): boolean {
     return this.authApi.isTeacherOrAdmin();
+  }
+
+  /** p-autoComplete's completeMethod — filters the already-loaded classroom
+   * list client-side (small, fixed set per school, no need for a backend
+   * round-trip like searchMunicipalities does for the much larger RAOR
+   * table). Free text typed by the user is still accepted either way. */
+  protected searchLocations(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.trim().toLowerCase();
+    this.locationSuggestions.set(
+      this.classrooms()
+        .map((c) => c.name)
+        .filter((name) => name.toLowerCase().includes(query)),
+    );
   }
 
   protected changeView(view: string): void {
@@ -278,7 +322,8 @@ export class EventsPage {
     return (this.recipientOptions()?.classes ?? []).filter(
       (c) =>
         (!name || c.name.toLowerCase().includes(name)) &&
-        (this.classFilterRocnik === null || c.rocnik === this.classFilterRocnik),
+        (this.classFilterRocnik === null ||
+          c.rocnik === this.classFilterRocnik),
     );
   }
 
@@ -286,19 +331,25 @@ export class EventsPage {
     const name = this.studentFilterName.trim().toLowerCase();
     return (this.recipientOptions()?.students ?? []).filter(
       (s) =>
-        (!name || `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
-        (this.studentFilterRocnik === null || s.rocnik === this.studentFilterRocnik),
+        (!name ||
+          `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
+        (this.studentFilterRocnik === null ||
+          s.rocnik === this.studentFilterRocnik),
     );
   }
 
   protected filteredTeachers(): PersonOption[] {
     const name = this.teacherFilterName.trim().toLowerCase();
-    return (this.recipientOptions()?.teachers ?? []).filter((t) => !name || t.username.toLowerCase().includes(name));
+    return (this.recipientOptions()?.teachers ?? []).filter(
+      (t) => !name || t.username.toLowerCase().includes(name),
+    );
   }
 
   protected filteredParents(): PersonOption[] {
     const name = this.parentFilterName.trim().toLowerCase();
-    return (this.recipientOptions()?.parents ?? []).filter((p) => !name || p.username.toLowerCase().includes(name));
+    return (this.recipientOptions()?.parents ?? []).filter(
+      (p) => !name || p.username.toLowerCase().includes(name),
+    );
   }
 
   /** Every ročník that actually occurs among the caller's pickable classes
@@ -306,24 +357,34 @@ export class EventsPage {
    * grade that would just empty the list. */
   protected rocnikOptions(): number[] {
     const classes = this.recipientOptions()?.classes ?? [];
-    const rocniky = new Set(classes.map((c) => c.rocnik).filter((r): r is number => r != null));
+    const rocniky = new Set(
+      classes.map((c) => c.rocnik).filter((r): r is number => r != null),
+    );
     return [...rocniky].sort((a, b) => a - b);
   }
 
   protected toggleClassId(id: number): void {
-    this.selectedClassIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    this.selectedClassIds.update((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
   }
 
   protected toggleTeacherId(id: number): void {
-    this.selectedTeacherIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    this.selectedTeacherIds.update((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
   }
 
   protected toggleParentId(id: number): void {
-    this.selectedParentIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    this.selectedParentIds.update((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
   }
 
   protected toggleStudentId(id: number): void {
-    this.selectedStudentIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    this.selectedStudentIds.update((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
   }
 
   protected onDialogVisibleChange(visible: boolean): void {
@@ -344,7 +405,9 @@ export class EventsPage {
     // All-day end is exclusive in the data model (iCal/FullCalendar
     // convention) but the form shows the last included day — so +1 day only
     // happens here, at the model boundary.
-    const end = this.allDay() ? new Date(endDisplay.getTime() + ONE_DAY_MS) : endDisplay;
+    const end = this.allDay()
+      ? new Date(endDisplay.getTime() + ONE_DAY_MS)
+      : endDisplay;
 
     const request: CreateEventRequest = {
       title: this.title(),
@@ -403,7 +466,9 @@ export class EventsPage {
     }
     this.resetForm();
 
-    const minimalMs = arg.allDay ? MINIMAL_ALLDAY_SELECTION_MS : MINIMAL_TIMED_SELECTION_MS;
+    const minimalMs = arg.allDay
+      ? MINIMAL_ALLDAY_SELECTION_MS
+      : MINIMAL_TIMED_SELECTION_MS;
     const isMinimalClick = arg.end.getTime() - arg.start.getTime() <= minimalMs;
 
     this.allDay.set(arg.allDay);
@@ -414,7 +479,9 @@ export class EventsPage {
       // instead of FullCalendar's trivial one-unit selection.
       this.endAt.set(new Date(arg.start.getTime() + this.durationMs));
     } else {
-      const displayEnd = arg.allDay ? new Date(arg.end.getTime() - ONE_DAY_MS) : arg.end;
+      const displayEnd = arg.allDay
+        ? new Date(arg.end.getTime() - ONE_DAY_MS)
+        : arg.end;
       this.endAt.set(displayEnd);
       this.durationMs = Math.max(0, displayEnd.getTime() - arg.start.getTime());
     }

@@ -86,4 +86,30 @@ public class SubjectsControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Subjects.FindAsync(subject.Id));
     }
+
+    [Fact]
+    public async Task AddSubjectAcceptsDefaultClassroom()
+    {
+        using var db = NewDb();
+        var classroom = new Classroom { Name = "Tělocvična", SchoolId = SchoolId };
+        db.Classrooms.Add(classroom);
+        await db.SaveChangesAsync();
+
+        var result = await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .AddSubject(new CreateSubjectRequest("Tělocvik", DefaultClassroomId: classroom.Id));
+
+        var dto = Assert.IsType<Subject>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(classroom.Id, dto.DefaultClassroomId);
+    }
+
+    [Fact]
+    public async Task AddSubjectRejectsUnknownDefaultClassroom()
+    {
+        using var db = NewDb();
+
+        var result = await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .AddSubject(new CreateSubjectRequest("Tělocvik", DefaultClassroomId: 999));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
 }

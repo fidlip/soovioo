@@ -235,6 +235,51 @@ namespace Sova.Api.Migrations
                     b.ToTable("EventTeachers");
                 });
 
+            modelBuilder.Entity("Sova.Api.Evidence.Classroom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.ToTable("Classrooms");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Name = "12",
+                            SchoolId = 1,
+                            Type = "kmenová"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Capacity = 30,
+                            Name = "Tělocvična",
+                            SchoolId = 1,
+                            Type = "tělocvična"
+                        });
+                });
+
             modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
                 {
                     b.Property<int>("UserId")
@@ -476,6 +521,9 @@ namespace Sova.Api.Migrations
                     b.Property<string>("Color")
                         .HasColumnType("text");
 
+                    b.Property<int?>("DefaultClassroomId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -484,6 +532,8 @@ namespace Sova.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultClassroomId");
 
                     b.HasIndex("SchoolId");
 
@@ -728,6 +778,9 @@ namespace Sova.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ClassroomId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("integer");
 
@@ -751,6 +804,8 @@ namespace Sova.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClassroomId");
+
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
@@ -765,6 +820,7 @@ namespace Sova.Api.Migrations
                         new
                         {
                             Id = 1,
+                            ClassroomId = 1,
                             DayOfWeek = 1,
                             PeriodNumber = 1,
                             SchoolClassId = 1,
@@ -951,6 +1007,17 @@ namespace Sova.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Sova.Api.Evidence.Classroom", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
             modelBuilder.Entity("Sova.Api.Evidence.ParentStudent", b =>
                 {
                     b.HasOne("Sova.Api.Evidence.School", "School")
@@ -1037,11 +1104,17 @@ namespace Sova.Api.Migrations
 
             modelBuilder.Entity("Sova.Api.Evidence.Subject", b =>
                 {
+                    b.HasOne("Sova.Api.Evidence.Classroom", "DefaultClassroom")
+                        .WithMany()
+                        .HasForeignKey("DefaultClassroomId");
+
                     b.HasOne("Sova.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("DefaultClassroom");
 
                     b.Navigation("School");
                 });
@@ -1116,6 +1189,10 @@ namespace Sova.Api.Migrations
 
             modelBuilder.Entity("Sova.Api.Timetable.TimetableEntry", b =>
                 {
+                    b.HasOne("Sova.Api.Evidence.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId");
+
                     b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
                         .WithMany()
                         .HasForeignKey("SchoolClassId")
@@ -1137,6 +1214,8 @@ namespace Sova.Api.Migrations
                     b.HasOne("Sova.Api.Auth.User", "Teacher")
                         .WithMany()
                         .HasForeignKey("TeacherId");
+
+                    b.Navigation("Classroom");
 
                     b.Navigation("School");
 

@@ -25,4 +25,9 @@ public class TimetableEntry
     /// (stejný vzor jako <see cref="SchoolClass.ClassTeacherId"/>).</summary>
     public int? TeacherId { get; set; }
     public User? Teacher { get; set; }
+
+    /// <summary>Defaults from Subject.DefaultClassroomId when the entry is
+    /// created, but overridable per entry (see TimetableController.AddEntry).</summary>
+    public int? ClassroomId { get; set; }
+    public Classroom? Classroom { get; set; }
 }

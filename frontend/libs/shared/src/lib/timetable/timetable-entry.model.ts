@@ -21,6 +21,11 @@ export interface TimetableEntry {
   weekParity: WeekParity;
   teacherId: number | null;
   teacherName: string | null;
+  classroomId: number | null;
+  classroomName: string | null;
+  /** Non-null only right after a successful add/update that collides with
+   * another entry's classroom — never populated on a plain GET. */
+  classroomConflict: string | null;
 }
 
 export interface CreateTimetableEntryRequest {
@@ -29,6 +34,7 @@ export interface CreateTimetableEntryRequest {
   periodNumber: number;
   weekParity: WeekParity;
   teacherId?: number | null;
+  classroomId?: number | null;
 }
 
 /** Same shape as TimetableEntry, plus which class each entry belongs to —
@@ -46,4 +52,6 @@ export interface TeacherTimetableEntry {
   weekParity: WeekParity;
   teacherId: number | null;
   teacherName: string | null;
+  classroomId: number | null;
+  classroomName: string | null;
 }

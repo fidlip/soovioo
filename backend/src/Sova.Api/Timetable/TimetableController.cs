@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Auth;
 using Sova.Api.Data;
+using Sova.Api.Evidence;
 
 namespace Sova.Api.Timetable;
 
@@ -28,7 +29,10 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.PeriodNumber,
                 e.WeekParity,
                 e.TeacherId,
-                e.Teacher == null ? null : e.Teacher.Username))
+                e.Teacher == null ? null : e.Teacher.Username,
+                e.ClassroomId,
+                e.Classroom == null ? null : e.Classroom.Name,
+                null))
             .ToListAsync();
 
         return Ok(entries);
@@ -60,7 +64,9 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.PeriodNumber,
                 e.WeekParity,
                 e.TeacherId,
-                e.Teacher == null ? null : e.Teacher.Username))
+                e.Teacher == null ? null : e.Teacher.Username,
+                e.ClassroomId,
+                e.Classroom == null ? null : e.Classroom.Name))
             .ToListAsync();
 
         return Ok(entries);
@@ -90,6 +96,12 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest("Unknown teacherId.");
         }
 
+        var classroom = await ResolveClassroomAsync(request.ClassroomId);
+        if (request.ClassroomId is not null && classroom is null)
+        {
+            return BadRequest("Unknown classroomId.");
+        }
+
         var entry = new TimetableEntry
         {
             SchoolClassId = schoolClassId,
@@ -98,15 +110,18 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             PeriodNumber = request.PeriodNumber,
             WeekParity = request.WeekParity,
             TeacherId = request.TeacherId,
+            ClassroomId = request.ClassroomId,
             SchoolId = currentSchool.SchoolId!.Value,
         };
 
         db.TimetableEntries.Add(entry);
         await db.SaveChangesAsync();
 
+        var conflict = await FindClassroomConflictAsync(entry);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username);
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username,
+            entry.ClassroomId, classroom?.Name, conflict);
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
 
@@ -133,16 +148,25 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest("Unknown teacherId.");
         }
 
+        var classroom = await ResolveClassroomAsync(request.ClassroomId);
+        if (request.ClassroomId is not null && classroom is null)
+        {
+            return BadRequest("Unknown classroomId.");
+        }
+
         entry.SubjectId = request.SubjectId;
         entry.DayOfWeek = request.DayOfWeek;
         entry.PeriodNumber = request.PeriodNumber;
         entry.WeekParity = request.WeekParity;
         entry.TeacherId = request.TeacherId;
+        entry.ClassroomId = request.ClassroomId;
         await db.SaveChangesAsync();
 
+        var conflict = await FindClassroomConflictAsync(entry);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username);
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username,
+            entry.ClassroomId, classroom?.Name, conflict);
         return Ok(dto);
     }
 
@@ -157,6 +181,47 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
 
         return await db.Users.FirstOrDefaultAsync(u => u.Id == teacherId && u.Role == UserRole.Teacher);
     }
+
+    private async Task<Classroom?> ResolveClassroomAsync(int? classroomId)
+    {
+        if (classroomId is null)
+        {
+            return null;
+        }
+
+        return await db.Classrooms.FindAsync(classroomId);
+    }
+
+    /// <summary>Non-blocking — collisions are reported back to the caller as
+    /// a warning string on the DTO, never rejected, so a real schedule
+    /// quirk (two classes briefly sharing a gym, a data-entry mistake to be
+    /// fixed later) can still be saved. Only checks other TimetableEntry
+    /// rows, not Events — cross-checking those is explicitly out of scope
+    /// for now (see ROADMAP).</summary>
+    private async Task<string?> FindClassroomConflictAsync(TimetableEntry entry)
+    {
+        if (entry.ClassroomId is null)
+        {
+            return null;
+        }
+
+        var candidates = await db.TimetableEntries
+            .Where(e =>
+                e.Id != entry.Id &&
+                e.ClassroomId == entry.ClassroomId &&
+                e.DayOfWeek == entry.DayOfWeek &&
+                e.PeriodNumber == entry.PeriodNumber)
+            .Select(e => new { e.WeekParity, e.SchoolClass!.Name, SubjectName = e.Subject!.Name })
+            .ToListAsync();
+
+        var conflict = candidates.FirstOrDefault(c => ParityOverlaps(c.WeekParity, entry.WeekParity));
+        return conflict is null
+            ? null
+            : $"Učebna je ve stejný čas obsazená — {conflict.Name} ({conflict.SubjectName}).";
+    }
+
+    private static bool ParityOverlaps(WeekParity a, WeekParity b) =>
+        a == WeekParity.Every || b == WeekParity.Every || a == b;
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Teacher,Admin")]
@@ -179,7 +244,8 @@ public record CreateTimetableEntryRequest(
     DayOfWeek DayOfWeek,
     int PeriodNumber,
     WeekParity WeekParity,
-    int? TeacherId = null);
+    int? TeacherId = null,
+    int? ClassroomId = null);
 
 public record TimetableEntryDto(
     int Id,
@@ -191,7 +257,13 @@ public record TimetableEntryDto(
     int PeriodNumber,
     WeekParity WeekParity,
     int? TeacherId,
-    string? TeacherName);
+    string? TeacherName,
+    int? ClassroomId,
+    string? ClassroomName,
+    /// <summary>Non-null only right after a successful add/update that
+    /// collides with another entry's classroom — GetTimetable always
+    /// returns null here, see FindClassroomConflictAsync's doc comment.</summary>
+    string? ClassroomConflict);
 
 /// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
 /// each entry belongs to — needed here (unlike the class-scoped DTO above)
@@ -207,4 +279,6 @@ public record TeacherTimetableEntryDto(
     int PeriodNumber,
     WeekParity WeekParity,
     int? TeacherId,
-    string? TeacherName);
+    string? TeacherName,
+    int? ClassroomId,
+    string? ClassroomName);

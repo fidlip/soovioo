@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Student> Students => Set<Student>();
     public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
     public DbSet<Subject> Subjects => Set<Subject>();
+    public DbSet<Classroom> Classrooms => Set<Classroom>();
     public DbSet<Absence> Absences => Set<Absence>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
@@ -107,6 +108,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Subject>().HasQueryFilter(s =>
             currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Classroom>().HasQueryFilter(c =>
+            currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Student>().HasQueryFilter(s =>
             currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Grade>().HasQueryFilter(g =>
@@ -191,8 +194,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             new Subject { Id = 2, Name = "Český jazyk", SchoolId = 1, Abbreviation = "Čj" },
             new Subject { Id = 3, Name = "Anglický jazyk", SchoolId = 1, Abbreviation = "Aj" });
 
+        modelBuilder.Entity<Classroom>().HasData(
+            new Classroom { Id = 1, Name = "12", SchoolId = 1, Type = "kmenová" },
+            new Classroom { Id = 2, Name = "Tělocvična", SchoolId = 1, Type = "tělocvična", Capacity = 30 });
+
         modelBuilder.Entity<TimetableEntry>().HasData(
-            new TimetableEntry { Id = 1, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Every },
+            new TimetableEntry { Id = 1, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Every, ClassroomId = 1 },
             new TimetableEntry { Id = 2, SchoolId = 1, SchoolClassId = 1, SubjectId = 2, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 2, WeekParity = WeekParity.Every },
             new TimetableEntry { Id = 3, SchoolId = 1, SchoolClassId = 1, SubjectId = 3, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 1, WeekParity = WeekParity.Odd },
             new TimetableEntry { Id = 4, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, WeekParity = WeekParity.Every });

@@ -1,5 +1,9 @@
 <h1 class="mb-6">Rozvrh</h1>
 
+@if (classroomConflictWarning(); as warning) {
+<p-message severity="warn" [text]="warning" styleClass="mb-4 w-full" />
+}
+
 <div class="mb-4 flex flex-wrap items-end gap-3">
   @if (authApi.isTeacherOrAdmin()) {
   <div class="flex flex-col gap-1.5">
@@ -261,6 +265,8 @@
             </div>
             @if (entry.teacherName) {
             <div class="text-surface-700">{{ entry.teacherName }}</div>
+            } @if (entry.classroomName) {
+            <div class="text-surface-500">{{ entry.classroomName }}</div>
             } @if (entry.weekParity !== 'Every') {
             <div class="text-surface-600">
               {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
@@ -292,7 +298,8 @@
         [options]="subjects()"
         optionLabel="name"
         optionValue="id"
-        [(ngModel)]="formSubjectId"
+        [ngModel]="formSubjectId"
+        (ngModelChange)="formSubjectId = $event; onFormSubjectChange()"
         name="formSubjectId"
         styleClass="w-full"
         appendTo="body"
@@ -337,6 +344,23 @@
         placeholder="Nepřiřazeno"
         [(ngModel)]="formTeacherId"
         name="formTeacherId"
+        [showClear]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Učebna</span
+      >
+      <p-select
+        [options]="classroomOptions()"
+        optionLabel="label"
+        optionValue="id"
+        placeholder="Nepřiřazeno"
+        [ngModel]="formClassroomId"
+        (ngModelChange)="formClassroomId = $event; onFormClassroomChange()"
+        name="formClassroomId"
         [showClear]="true"
         styleClass="w-full"
         appendTo="body"

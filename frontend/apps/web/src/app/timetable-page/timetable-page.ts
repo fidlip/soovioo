@@ -5,9 +5,12 @@ import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
+import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import {
   AuthApiService,
+  Classroom,
+  ClassroomsApiService,
   DayOfWeek,
   SchoolClass,
   SchoolClassesApiService,
@@ -66,6 +69,8 @@ interface GridEntry {
   weekParity: WeekParity;
   teacherId: number | null;
   teacherName: string | null;
+  classroomId: number | null;
+  classroomName: string | null;
 }
 
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
@@ -116,12 +121,22 @@ function formatShortDate(date: Date): string {
 
 @Component({
   selector: 'app-timetable-page',
-  imports: [FormsModule, Button, Card, DatePicker, Dialog, InputText, Select],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    DatePicker,
+    Dialog,
+    InputText,
+    Message,
+    Select,
+  ],
   templateUrl: './timetable-page.html',
 })
 export class TimetablePage {
   private readonly timetableApi = inject(TimetableApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
+  private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly teachersApi = inject(TeachersApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly studentsApi = inject(StudentsApiService);
@@ -134,6 +149,7 @@ export class TimetablePage {
   protected readonly weekParityOptions = WEEK_PARITY_OPTIONS;
 
   protected readonly subjects = signal<Subject[]>([]);
+  protected readonly classrooms = signal<Classroom[]>([]);
   protected readonly teachers = signal<Teacher[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -152,6 +168,9 @@ export class TimetablePage {
 
   protected readonly subjectsById = computed(
     () => new Map(this.subjects().map((s) => [s.id, s])),
+  );
+  protected readonly classroomOptions = computed(() =>
+    this.classrooms().map((c) => ({ id: c.id, label: c.name })),
   );
 
   protected readonly viewModeOptions = computed(() => {
@@ -256,6 +275,13 @@ export class TimetablePage {
   protected formPeriodNumber = 1;
   protected formWeekParity: WeekParity = 'Every';
   protected formTeacherId: number | null = null;
+  protected formClassroomId: number | null = null;
+  /** True once the user has picked a classroom by hand in the currently
+   * open dialog — stops onFormSubjectChange() from clobbering it. */
+  private formClassroomTouched = false;
+  /** Non-blocking warning from the last save — shown above the grid since
+   * the dialog closes on success, see saveEntry(). */
+  protected readonly classroomConflictWarning = signal<string | null>(null);
 
   protected newPeriodNumberToConfigure = 1;
   protected newPeriodStartTime = timeStringToDate('08:00');
@@ -275,6 +301,10 @@ export class TimetablePage {
         this.formSubjectId ??= subjects[0]?.id ?? null;
       },
       error: (err) => console.error('getSubjects failed', err),
+    });
+    this.classroomsApi.getClassrooms().subscribe({
+      next: (classrooms) => this.classrooms.set(classrooms),
+      error: (err) => console.error('getClassrooms failed', err),
     });
 
     if (this.authApi.isAdmin()) {
@@ -423,7 +453,8 @@ export class TimetablePage {
     const className = entry.schoolClassName
       ? ` — ${entry.schoolClassName}`
       : '';
-    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${parity}`;
+    const classroom = entry.classroomName ? ` — ${entry.classroomName}` : '';
+    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}`;
   }
 
   protected onCellClick(day: DayOfWeek, periodNumber: number): void {
@@ -446,6 +477,10 @@ export class TimetablePage {
     this.formPeriodNumber = periodNumber;
     this.formWeekParity = 'Every';
     this.formTeacherId = null;
+    this.formClassroomId =
+      this.subjectsById().get(this.formSubjectId ?? -1)?.defaultClassroomId ??
+      null;
+    this.formClassroomTouched = false;
     this.dialogVisible.set(true);
   }
 
@@ -457,11 +492,31 @@ export class TimetablePage {
     this.formPeriodNumber = entry.periodNumber;
     this.formWeekParity = entry.weekParity;
     this.formTeacherId = entry.teacherId;
+    this.formClassroomId = entry.classroomId;
+    // Editing already has a real classroom (or an intentional "none") —
+    // don't let a later subject change silently overwrite it.
+    this.formClassroomTouched = true;
     this.dialogVisible.set(true);
   }
 
   protected closeDialog(): void {
     this.dialogVisible.set(false);
+  }
+
+  /** Pre-fills the classroom from the newly picked subject's own default —
+   * still freely overridable right after, never re-applied once the user
+   * has touched the classroom field themselves (see formClassroomTouched). */
+  protected onFormSubjectChange(): void {
+    if (this.formClassroomTouched) {
+      return;
+    }
+    this.formClassroomId =
+      this.subjectsById().get(this.formSubjectId ?? -1)?.defaultClassroomId ??
+      null;
+  }
+
+  protected onFormClassroomChange(): void {
+    this.formClassroomTouched = true;
   }
 
   protected saveEntry(): void {
@@ -475,6 +530,7 @@ export class TimetablePage {
       periodNumber: this.formPeriodNumber,
       weekParity: this.formWeekParity,
       teacherId: this.formTeacherId,
+      classroomId: this.formClassroomId,
     };
     const editingId = this.editingEntryId();
     const result =
@@ -482,8 +538,9 @@ export class TimetablePage {
         ? this.timetableApi.addEntry(schoolClassId, request)
         : this.timetableApi.updateEntry(schoolClassId, editingId, request);
     result.subscribe({
-      next: () => {
+      next: (saved) => {
         this.dialogVisible.set(false);
+        this.classroomConflictWarning.set(saved.classroomConflict);
         this.reload();
       },
       error: (err) => console.error('saveEntry failed', err),
