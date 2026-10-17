@@ -75,6 +75,13 @@ export class AuthApiService {
     return this.getRole() === 'SuperAdmin';
   }
 
+  /** True for Student — a student logging in for themselves. Read-only,
+   * same agendas as Parent, but unlike Parent never allowed to submit their
+   * own excuse (see `AbsencesController.SubmitExcuse` on the backend). */
+  isStudent(): boolean {
+    return this.getRole() === 'Student';
+  }
+
   /** True when an Admin assigned this account's current password (new
    * account or reset) and its owner hasn't picked their own yet — forces a
    * redirect to Settings, see `auth.guard.ts`. */

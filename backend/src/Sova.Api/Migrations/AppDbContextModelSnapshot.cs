@@ -424,6 +424,9 @@ namespace Sova.Api.Migrations
                     b.Property<string>("Street")
                         .HasColumnType("text");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CountryCode");
@@ -433,6 +436,9 @@ namespace Sova.Api.Migrations
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("Students");
 
@@ -1010,6 +1016,11 @@ namespace Sova.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Sova.Api.Auth.User", "User")
+                        .WithOne()
+                        .HasForeignKey("Sova.Api.Evidence.Student", "UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Country");
 
                     b.Navigation("Municipality");
@@ -1017,6 +1028,8 @@ namespace Sova.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("SchoolClass");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Sova.Api.Evidence.Subject", b =>

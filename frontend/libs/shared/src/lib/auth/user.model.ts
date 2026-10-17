@@ -4,6 +4,8 @@ export interface AppUser {
   role: string;
   phone: string | null;
   email: string | null;
+  /** Set only for role Student — the one Student this account logs in as. */
+  studentId: number | null;
 }
 
 export interface CreateUserRequest {
@@ -12,6 +14,8 @@ export interface CreateUserRequest {
   role: string;
   phone?: string;
   email?: string;
+  /** Required when role is 'Student'. */
+  studentId?: number;
 }
 
 export interface UpdateUserRequest {
@@ -21,4 +25,6 @@ export interface UpdateUserRequest {
   password?: string;
   phone?: string;
   email?: string;
+  /** Required when role is 'Student'. */
+  studentId?: number;
 }

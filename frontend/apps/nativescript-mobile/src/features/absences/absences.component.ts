@@ -30,6 +30,13 @@ export class AbsencesComponent {
     return this.authApi.isTeacherOrAdmin();
   }
 
+  /** Unlike Parent, a Student may never submit their own excuse — the
+   * backend rejects it too (AbsencesController.SubmitExcuse), this just
+   * keeps the button from appearing in the first place. */
+  protected canSubmitExcuse(): boolean {
+    return !this.authApi.isStudent();
+  }
+
   protected addAbsence(): void {
     const student = this.students()[this.selectedStudentIndex];
     if (!student) {

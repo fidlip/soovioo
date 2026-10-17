@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Data;
+using Sova.Api.Evidence;
 
 namespace Sova.Api.Auth;
 
@@ -19,7 +20,9 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
     {
         var users = await db.Users
             .OrderBy(u => u.Username)
-            .Select(u => new UserDto(u.Id, u.Username, u.Role.ToString(), u.Phone, u.Email))
+            .Select(u => new UserDto(
+                u.Id, u.Username, u.Role.ToString(), u.Phone, u.Email,
+                db.Students.Where(s => s.UserId == u.Id).Select(s => (int?)s.Id).FirstOrDefault()))
             .ToListAsync();
 
         return Ok(users);
@@ -36,6 +39,12 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
         if (!Enum.TryParse<UserRole>(request.Role, out var role) || role == UserRole.SuperAdmin)
         {
             return BadRequest("Unknown role.");
+        }
+
+        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(role, request.StudentId, currentUserId: null);
+        if (linkError is not null)
+        {
+            return linkError;
         }
 
         var user = new User
@@ -57,7 +66,13 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var dto = new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email);
+        if (linkedStudent is not null)
+        {
+            linkedStudent.UserId = user.Id;
+            await db.SaveChangesAsync();
+        }
+
+        var dto = new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email, linkedStudent?.Id);
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, dto);
     }
 
@@ -86,6 +101,25 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
 
+        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(role, request.StudentId, currentUserId: id);
+        if (linkError is not null)
+        {
+            return linkError;
+        }
+
+        // Clear a stale link from before this update — role changed away
+        // from Student, or the linked student changed — before applying the
+        // (possibly different) one resolved above.
+        var previousLink = await db.Students.FirstOrDefaultAsync(s => s.UserId == id);
+        if (previousLink is not null && previousLink.Id != linkedStudent?.Id)
+        {
+            previousLink.UserId = null;
+        }
+        if (linkedStudent is not null)
+        {
+            linkedStudent.UserId = id;
+        }
+
         user.Username = request.Username;
         user.Role = role;
         user.Phone = request.Phone;
@@ -99,7 +133,7 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
         }
 
         await db.SaveChangesAsync();
-        return Ok(new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email));
+        return Ok(new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email, linkedStudent?.Id));
     }
 
     [HttpDelete("{id:int}")]
@@ -133,10 +167,49 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
     /// with no one able to manage it.</summary>
     private async Task<bool> IsLastAdminAsync(int userId) =>
         !await db.Users.AnyAsync(u => u.Id != userId && u.Role == UserRole.Admin);
+
+    /// <summary>Validates and resolves the <see cref="Student"/> a Student-role
+    /// account must link to (null/error otherwise). Doesn't write anything —
+    /// callers apply <c>Student.UserId</c> themselves once the rest of the
+    /// request has also validated, so a half-applied link never survives
+    /// an otherwise-rejected request. <paramref name="currentUserId"/> is the
+    /// user being updated (null when creating), so re-saving a Student
+    /// account with the same already-linked student isn't rejected as
+    /// "already taken".</summary>
+    private async Task<(Student? Student, ActionResult<UserDto>? Error)> ResolveStudentLinkAsync(
+        UserRole role, int? requestedStudentId, int? currentUserId)
+    {
+        if (role != UserRole.Student)
+        {
+            return (null, null);
+        }
+
+        if (requestedStudentId is not { } studentId)
+        {
+            return (null, BadRequest("Role Student vyžaduje vybraného žáka."));
+        }
+
+        var student = await db.Students.FindAsync(studentId);
+        if (student is null)
+        {
+            return (null, BadRequest("Unknown studentId."));
+        }
+
+        if (student.UserId is not null && student.UserId != currentUserId)
+        {
+            return (null, BadRequest("Tento žák už má uživatelský účet."));
+        }
+
+        return (student, null);
+    }
 }
 
-public record CreateUserRequest(string Username, string Password, string Role, string? Phone = null, string? Email = null);
+public record CreateUserRequest(
+    string Username, string Password, string Role, string? Phone = null, string? Email = null, int? StudentId = null);
 
-public record UpdateUserRequest(string Username, string Role, string? Password = null, string? Phone = null, string? Email = null);
+public record UpdateUserRequest(
+    string Username, string Role, string? Password = null, string? Phone = null, string? Email = null, int? StudentId = null);
 
-public record UserDto(int Id, string Username, string Role, string? Phone, string? Email);
+/// <summary><see cref="StudentId"/> is set only for role Student — the one
+/// <see cref="Evidence.Student"/> this account logs in as.</summary>
+public record UserDto(int Id, string Username, string Role, string? Phone, string? Email, int? StudentId = null);

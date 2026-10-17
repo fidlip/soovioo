@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Auth;
 using Sova.Api.Data;
+using Sova.Api.Evidence;
 
 namespace Sova.Api.Tests.Auth;
 
@@ -80,6 +81,86 @@ public class UsersControllerTests
         await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", "Teacher"));
 
         Assert.False((await db.Users.FindAsync(user.Id))!.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task AddUserWithStudentRoleRequiresStudentId()
+    {
+        using var db = NewDb();
+
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", "Student"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AddUserWithStudentRoleLinksTheStudent()
+    {
+        using var db = NewDb();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999)
+            .AddUser(new CreateUserRequest("zak", "heslo123", "Student", StudentId: student.Id));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(student.Id, dto.StudentId);
+        Assert.Equal(dto.Id, (await db.Students.FindAsync(student.Id))!.UserId);
+    }
+
+    [Fact]
+    public async Task AddUserWithStudentRoleRejectsAnAlreadyLinkedStudent()
+    {
+        using var db = NewDb();
+        var existingAccount = new User { Username = "zak1", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        db.Users.Add(existingAccount);
+        await db.SaveChangesAsync();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId, UserId = existingAccount.Id };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999)
+            .AddUser(new CreateUserRequest("zak2", "heslo123", "Student", StudentId: student.Id));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateUserCanRelinkStudentRoleToADifferentStudent()
+    {
+        using var db = NewDb();
+        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        db.Users.Add(studentUser);
+        await db.SaveChangesAsync();
+        var oldStudent = new Student { FirstName = "Starý", LastName = "Žák", SchoolClassId = 1, SchoolId = SchoolId, UserId = studentUser.Id };
+        var newStudent = new Student { FirstName = "Nový", LastName = "Žák", SchoolClassId = 1, SchoolId = SchoolId };
+        db.Students.AddRange(oldStudent, newStudent);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999)
+            .UpdateUser(studentUser.Id, new UpdateUserRequest("zak", "Student", StudentId: newStudent.Id));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newStudent.Id, dto.StudentId);
+        Assert.Null((await db.Students.FindAsync(oldStudent.Id))!.UserId);
+        Assert.Equal(studentUser.Id, (await db.Students.FindAsync(newStudent.Id))!.UserId);
+    }
+
+    [Fact]
+    public async Task UpdateUserAwayFromStudentRoleUnlinksTheStudent()
+    {
+        using var db = NewDb();
+        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        db.Users.Add(studentUser);
+        await db.SaveChangesAsync();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId, UserId = studentUser.Id };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        await NewController(db, 999).UpdateUser(studentUser.Id, new UpdateUserRequest("zak", "Parent"));
+
+        Assert.Null((await db.Students.FindAsync(student.Id))!.UserId);
     }
 
     [Fact]

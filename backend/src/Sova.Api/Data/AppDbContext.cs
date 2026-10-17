@@ -72,6 +72,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .WithMany()
             .HasForeignKey(s => s.CountryCode)
             .OnDelete(DeleteBehavior.Restrict);
+        // One-to-one, FK on the Student side (EF Core enforces uniqueness of
+        // Student.UserId automatically for this shape). SetNull: deleting the
+        // login account (e.g. an Admin resetting/removing it directly via
+        // UsersController) must not fail or cascade into deleting the
+        // Student record itself — it just un-links.
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.User)
+            .WithOne()
+            .HasForeignKey<Student>(s => s.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<School>().HasIndex(s => s.Slug).IsUnique();
 

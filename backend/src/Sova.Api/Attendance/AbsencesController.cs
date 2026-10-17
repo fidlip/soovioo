@@ -70,7 +70,10 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        if (!await User.CanAccessStudentAsync(db, absence.StudentId))
+        // A Student can read their own absences (CanAccessStudentAsync would
+        // allow it) but, per product decision, may never submit their own
+        // excuse — that stays a Parent/Teacher/Admin action.
+        if (User.IsInRole(nameof(UserRole.Student)) || !await User.CanAccessStudentAsync(db, absence.StudentId))
         {
             return Forbid();
         }

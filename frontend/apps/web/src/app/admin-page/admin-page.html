@@ -631,6 +631,17 @@
                   name="editUserRole"
                   styleClass="w-28"
                 />
+                @if (editUserRole === 'Student') {
+                  <p-select
+                    [options]="availableStudentOptions()"
+                    optionLabel="label"
+                    optionValue="id"
+                    placeholder="Žák"
+                    [(ngModel)]="editUserStudentId"
+                    name="editUserStudentId"
+                    styleClass="w-36"
+                  />
+                }
                 <p-password
                   placeholder="Nové heslo (nepovinné)"
                   [(ngModel)]="editUserPassword"
@@ -651,7 +662,12 @@
           } @else {
             <tr>
               <td>{{ user.username }}</td>
-              <td><p-tag [value]="user.role" severity="secondary" /></td>
+              <td class="flex flex-wrap items-center gap-1">
+                <p-tag [value]="user.role" severity="secondary" />
+                @if (user.role === 'Student') {
+                  <span class="text-sm text-surface-500">{{ studentName(user.studentId) }}</span>
+                }
+              </td>
               <td class="text-surface-500">{{ user.phone ?? user.email ?? '—' }}</td>
               <td class="flex justify-end gap-1">
                 <p-button icon="pi pi-pencil" size="small" [text]="true" (onClick)="startEditUser(user)" />
@@ -676,6 +692,17 @@
           [feedback]="false"
         />
         <p-select [options]="roleOptions" optionLabel="label" optionValue="value" [(ngModel)]="newUserRole" name="role" />
+        @if (newUserRole === 'Student') {
+          <p-select
+            [options]="availableStudentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            placeholder="Žák"
+            [(ngModel)]="newUserStudentId"
+            name="newUserStudentId"
+            styleClass="w-36"
+          />
+        }
         <input pInputText type="tel" placeholder="Telefon" name="userPhone" [(ngModel)]="newUserPhone" />
         <input pInputText type="email" placeholder="E-mail" name="userEmail" [(ngModel)]="newUserEmail" />
         <p-button type="submit" label="Vytvořit uživatele" icon="pi pi-plus" />

@@ -8,7 +8,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   token: string;
   username: string;
-  role: 'SuperAdmin' | 'Admin' | 'Teacher' | 'Parent';
+  role: 'SuperAdmin' | 'Admin' | 'Teacher' | 'Parent' | 'Student';
   schoolName: string | null;
   schoolSlug: string | null;
 }

@@ -74,6 +74,28 @@ public class StudentsControllerTests
     }
 
     [Fact]
+    public async Task DeleteStudentAlsoDeletesTheirOwnLoginAccount()
+    {
+        using var db = NewDb();
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        db.Users.Add(studentUser);
+        await db.SaveChangesAsync();
+        var student = new Student
+        {
+            FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId, UserId = studentUser.Id,
+        };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        var result = await new StudentsController(db, new FakeCurrentSchoolContext(SchoolId)).DeleteStudent(student.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Null(await db.Users.FindAsync(studentUser.Id));
+    }
+
+    [Fact]
     public async Task UpdateStudentResolvesCountryAndMunicipalityNamesForDisplay()
     {
         using var db = NewDb();

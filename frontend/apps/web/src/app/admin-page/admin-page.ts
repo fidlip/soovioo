@@ -37,6 +37,7 @@ const ROLE_OPTIONS = [
   { label: 'Admin', value: 'Admin' },
   { label: 'Teacher', value: 'Teacher' },
   { label: 'Parent', value: 'Parent' },
+  { label: 'Student', value: 'Student' },
 ];
 
 const GENDER_OPTIONS: { label: string; value: Gender }[] = [
@@ -107,6 +108,23 @@ export class AdminPage {
   /** Třídní učitel candidates — Teacher role only. */
   protected readonly teacherOptions = computed(() => this.users().filter((u) => u.role === 'Teacher'));
 
+  /** Students pickable for a new/edited Student-role account — excludes
+   * students that already have one, except the student currently linked to
+   * the account being edited (so re-saving it without changing the link
+   * doesn't disappear its own option from the list). A plain method, not a
+   * computed signal, because it depends on `editingUserId` — a plain field,
+   * not a signal (same reasoning as `filteredAbsences()` elsewhere): a
+   * computed here would go stale the moment editingUserId changes without
+   * `users()`/`studentOptions()` also changing. */
+  protected availableStudentOptions(): { id: number; label: string }[] {
+    const linkedElsewhere = new Set(
+      this.users()
+        .filter((u) => u.role === 'Student' && u.studentId !== null && u.id !== this.editingUserId)
+        .map((u) => u.studentId),
+    );
+    return this.studentOptions().filter((s) => !linkedElsewhere.has(s.id));
+  }
+
   protected newSchoolClassName = '';
   protected newSchoolClassRocnik: number | null = null;
   protected newSchoolClassTeacherId: number | null = null;
@@ -135,6 +153,7 @@ export class AdminPage {
   protected newUserRole = 'Parent';
   protected newUserPhone = '';
   protected newUserEmail = '';
+  protected newUserStudentId: number | null = null;
 
   protected filterStudentName = '';
   protected filterStudentSchoolClassId: number | null = null;
@@ -177,6 +196,7 @@ export class AdminPage {
   protected editUserPassword = '';
   protected editUserPhone = '';
   protected editUserEmail = '';
+  protected editUserStudentId: number | null = null;
 
   protected readonly schoolStreet = signal('');
   protected readonly schoolCity = signal('');
@@ -225,6 +245,14 @@ export class AdminPage {
       return '—';
     }
     return this.users().find((u) => u.id === classTeacherId)?.username ?? '—';
+  }
+
+  protected studentName(studentId: number | null): string {
+    if (studentId === null) {
+      return '—';
+    }
+    const student = this.students().find((s) => s.id === studentId);
+    return student ? `${student.firstName} ${student.lastName}` : '—';
   }
 
   protected filteredStudents(): Student[] {
@@ -514,6 +542,7 @@ export class AdminPage {
       role: this.newUserRole,
       phone: this.newUserPhone || undefined,
       email: this.newUserEmail || undefined,
+      studentId: this.newUserRole === 'Student' ? (this.newUserStudentId ?? undefined) : undefined,
     };
     this.usersApi.addUser(request).subscribe({
       next: () => {
@@ -521,6 +550,7 @@ export class AdminPage {
         this.newPassword = '';
         this.newUserPhone = '';
         this.newUserEmail = '';
+        this.newUserStudentId = null;
         this.reloadAll();
       },
       error: (err) => this.showError('addUser failed', err),
@@ -534,6 +564,7 @@ export class AdminPage {
     this.editUserPassword = '';
     this.editUserPhone = user.phone ?? '';
     this.editUserEmail = user.email ?? '';
+    this.editUserStudentId = user.studentId;
   }
 
   protected cancelEditUser(): void {
@@ -550,6 +581,7 @@ export class AdminPage {
       password: this.editUserPassword || undefined,
       phone: this.editUserPhone || undefined,
       email: this.editUserEmail || undefined,
+      studentId: this.editUserRole === 'Student' ? (this.editUserStudentId ?? undefined) : undefined,
     };
     this.usersApi.updateUser(this.editingUserId, request).subscribe({
       next: () => {

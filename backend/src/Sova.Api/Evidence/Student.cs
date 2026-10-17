@@ -1,3 +1,4 @@
+using Sova.Api.Auth;
 using Sova.Api.Reference;
 
 namespace Sova.Api.Evidence;
@@ -77,4 +78,16 @@ public class Student
     // an actual User; this is the "call this number if something happens" field).
     public string? ContactPhone { get; set; }
     public string? ContactEmail { get; set; }
+
+    /// <summary>The Student-role account that lets this student log in for
+    /// themselves (nullable — most students won't have one yet). Deliberately
+    /// a direct FK, not a join table like <see cref="ParentStudent"/>: a
+    /// student only ever has at most one own account, unlike a parent who may
+    /// be linked to several children. Set via <see cref="UsersController"/>
+    /// when an Admin creates/edits a Student-role user, cleared automatically
+    /// (see AppDbContext) if that account is deleted, and cleared explicitly
+    /// in <see cref="StudentsController.DeleteStudent"/> which deletes the
+    /// account outright — the student is gone, so is their login.</summary>
+    public int? UserId { get; set; }
+    public User? User { get; set; }
 }

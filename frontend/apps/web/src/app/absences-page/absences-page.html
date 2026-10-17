@@ -97,7 +97,7 @@
         <td><p-tag [value]="statusLabel(absence.status)" [severity]="statusSeverity(absence.status)" /></td>
         <td class="text-surface-500">{{ absence.excuseReason }}</td>
         <td>
-          @if (absence.status === 'Unexcused') {
+          @if (absence.status === 'Unexcused' && canSubmitExcuse()) {
             <div class="flex items-center gap-2">
               <input
                 pInputText

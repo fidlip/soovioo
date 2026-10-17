@@ -149,6 +149,7 @@ static void SeedUsers(AppDbContext db)
         new User { Username = "admin", PasswordHash = "", Role = UserRole.Admin, SchoolId = demoSchoolId },
         new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = demoSchoolId },
         new User { Username = "rodic", PasswordHash = "", Role = UserRole.Parent, SchoolId = demoSchoolId },
+        new User { Username = "zak", PasswordHash = "", Role = UserRole.Student, SchoolId = demoSchoolId },
     };
 
     foreach (var user in demoUsers)
@@ -161,6 +162,17 @@ static void SeedUsers(AppDbContext db)
 
     var parent = demoUsers.First(u => u.Username == "rodic");
     db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1, SchoolId = demoSchoolId });
+
+    // Demo Student-role account logs in as the same demo student ("Jan
+    // Novák", Id 1) the demo parent already sees — Student.UserId is a
+    // direct FK (see Student.cs), settable here directly rather than via a
+    // separate backfill: unlike TimetableEntry.TeacherId/Country/
+    // MunicipalityCode elsewhere in this file, the Student row this points
+    // at was already migrated in (HasData) before this function ever runs.
+    var studentUser = demoUsers.First(u => u.Username == "zak");
+    var demoStudent = db.Students.IgnoreQueryFilters().First(s => s.Id == 1);
+    demoStudent.UserId = studentUser.Id;
+
     db.SaveChanges();
 }
 

@@ -129,6 +129,18 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         db.Absences.RemoveRange(db.Absences.Where(a => a.StudentId == id));
         db.Messages.RemoveRange(db.Messages.Where(m => m.StudentId == id));
         db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.StudentId == id));
+        // The student's own login (role Student), if they had one — gone
+        // along with everything else, not just unlinked (SetNull in
+        // AppDbContext handles the "admin deletes the account directly via
+        // UsersController" case; this is the other direction).
+        if (student.UserId is { } linkedUserId)
+        {
+            var linkedUser = await db.Users.FindAsync(linkedUserId);
+            if (linkedUser is not null)
+            {
+                db.Users.Remove(linkedUser);
+            }
+        }
         db.Students.Remove(student);
         await db.SaveChangesAsync();
         return NoContent();

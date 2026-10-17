@@ -80,6 +80,13 @@ export class AbsencesPage {
     return this.authApi.isTeacherOrAdmin();
   }
 
+  /** Unlike Parent, a Student may never submit their own excuse — the
+   * backend rejects it too (AbsencesController.SubmitExcuse), this just
+   * keeps the button from appearing in the first place. */
+  protected canSubmitExcuse(): boolean {
+    return !this.authApi.isStudent();
+  }
+
   protected statusSeverity(status: AbsenceStatus): 'success' | 'warn' | 'danger' | 'secondary' {
     return STATUS_SEVERITY[status];
   }

@@ -15,7 +15,7 @@
         @if (item.excuseReason) {
           <Label [text]="'(' + item.excuseReason + ')'"></Label>
         }
-        @if (item.status === 'Unexcused') {
+        @if (item.status === 'Unexcused' && canSubmitExcuse()) {
           <Button text="Omluvit (Nemoc)" (tap)="submitExcuse(item)"></Button>
         }
         @if (item.status === 'PendingExcuse' && canManageAbsences()) {
