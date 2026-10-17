@@ -114,19 +114,21 @@
       <tr>
         <td class="py-1">{{ period.periodNumber }}.</td>
         <td>
-          <input
-            pInputText
-            type="time"
+          <p-datePicker
             [(ngModel)]="editPeriodStartTime"
             name="editPeriodStartTime"
+            [timeOnly]="true"
+            hourFormat="24"
+            appendTo="body"
           />
         </td>
         <td>
-          <input
-            pInputText
-            type="time"
+          <p-datePicker
             [(ngModel)]="editPeriodEndTime"
             name="editPeriodEndTime"
+            [timeOnly]="true"
+            hourFormat="24"
+            appendTo="body"
           />
         </td>
         <td class="flex justify-end gap-1 py-1">
@@ -180,17 +182,19 @@
       max="12"
       class="w-20"
     />
-    <input
-      pInputText
-      type="time"
+    <p-datePicker
       [(ngModel)]="newPeriodStartTime"
       name="newPeriodStartTime"
+      [timeOnly]="true"
+      hourFormat="24"
+      appendTo="body"
     />
-    <input
-      pInputText
-      type="time"
+    <p-datePicker
       [(ngModel)]="newPeriodEndTime"
       name="newPeriodEndTime"
+      [timeOnly]="true"
+      hourFormat="24"
+      appendTo="body"
     />
     <p-button type="submit" icon="pi pi-plus" label="Uložit čas" />
   </form>

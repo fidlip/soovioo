@@ -8,6 +8,7 @@ import {
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
@@ -106,6 +107,7 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
     FormsModule,
     Button,
     Card,
+    DatePicker,
     Dialog,
     InputNumber,
     InputText,
@@ -235,7 +237,7 @@ export class AdminPage {
   protected newStudentLastName = '';
   protected newStudentSchoolClassId: number | null = null;
   protected newStudentRodneCislo = '';
-  protected newStudentDateOfBirth = '';
+  protected newStudentDateOfBirth: Date | null = null;
   protected newStudentGender: Gender | null = null;
   protected newStudentCitizenshipQualifier: string | null = null;
   protected newStudentCountryCode: string | null = null;
@@ -243,7 +245,7 @@ export class AdminPage {
   protected newStudentMunicipality: Municipality | null = null;
   protected newStudentPostalCode = '';
   protected newStudentCatchmentArea = false;
-  protected newStudentEnrollmentDate = '';
+  protected newStudentEnrollmentDate: Date | null = null;
   protected newStudentContactPhone = '';
   protected newStudentContactEmail = '';
 
@@ -356,6 +358,16 @@ export class AdminPage {
     } else {
       this.reloadAll();
     }
+  }
+
+  /** Local (not UTC) y-m-d — `toISOString().slice(0, 10)` converts through
+   * UTC first, which rolls local midnight back to the previous day in any
+   * timezone ahead of UTC (e.g. CET/CEST). Same helper as absences-page.ts. */
+  private toDateOnlyString(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private reloadClassTeacherData(): void {
@@ -580,7 +592,7 @@ export class AdminPage {
     this.newStudentLastName = '';
     this.newStudentSchoolClassId = this.schoolClasses()[0]?.id ?? null;
     this.newStudentRodneCislo = '';
-    this.newStudentDateOfBirth = '';
+    this.newStudentDateOfBirth = null;
     this.newStudentGender = null;
     this.newStudentCitizenshipQualifier = null;
     this.newStudentCountryCode = null;
@@ -588,7 +600,7 @@ export class AdminPage {
     this.newStudentMunicipality = null;
     this.newStudentPostalCode = '';
     this.newStudentCatchmentArea = false;
-    this.newStudentEnrollmentDate = '';
+    this.newStudentEnrollmentDate = null;
     this.newStudentContactPhone = '';
     this.newStudentContactEmail = '';
     this.editingStudentParentIds = [];
@@ -604,7 +616,9 @@ export class AdminPage {
     this.newStudentLastName = student.lastName;
     this.newStudentSchoolClassId = student.schoolClassId;
     this.newStudentRodneCislo = student.rodneCislo ?? '';
-    this.newStudentDateOfBirth = student.dateOfBirth ?? '';
+    this.newStudentDateOfBirth = student.dateOfBirth
+      ? new Date(student.dateOfBirth)
+      : null;
     this.newStudentGender = student.gender;
     this.newStudentCitizenshipQualifier = student.citizenshipQualifier;
     this.newStudentCountryCode = student.countryCode;
@@ -618,7 +632,9 @@ export class AdminPage {
       : null;
     this.newStudentPostalCode = student.postalCode ?? '';
     this.newStudentCatchmentArea = student.catchmentArea ?? false;
-    this.newStudentEnrollmentDate = student.enrollmentDate ?? '';
+    this.newStudentEnrollmentDate = student.enrollmentDate
+      ? new Date(student.enrollmentDate)
+      : null;
     this.newStudentContactPhone = student.contactPhone ?? '';
     this.newStudentContactEmail = student.contactEmail ?? '';
     this.newStudentDialogVisible.set(true);
@@ -637,7 +653,9 @@ export class AdminPage {
       lastName: this.newStudentLastName,
       schoolClassId: this.newStudentSchoolClassId,
       rodneCislo: this.newStudentRodneCislo || undefined,
-      dateOfBirth: this.newStudentDateOfBirth || undefined,
+      dateOfBirth: this.newStudentDateOfBirth
+        ? this.toDateOnlyString(this.newStudentDateOfBirth)
+        : undefined,
       gender: this.newStudentGender ?? undefined,
       citizenshipQualifier: this.newStudentCitizenshipQualifier || undefined,
       countryCode: this.newStudentCountryCode || undefined,
@@ -645,7 +663,9 @@ export class AdminPage {
       municipalityCode: this.newStudentMunicipality?.code || undefined,
       postalCode: this.newStudentPostalCode || undefined,
       catchmentArea: this.newStudentCatchmentArea || undefined,
-      enrollmentDate: this.newStudentEnrollmentDate || undefined,
+      enrollmentDate: this.newStudentEnrollmentDate
+        ? this.toDateOnlyString(this.newStudentEnrollmentDate)
+        : undefined,
       contactPhone: this.newStudentContactPhone || undefined,
       contactEmail: this.newStudentContactEmail || undefined,
     };

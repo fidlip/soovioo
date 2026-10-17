@@ -738,12 +738,14 @@
       name="studentSchoolClass"
       appendTo="body"
     />
-    <input
-      pInputText
-      type="date"
-      placeholder="Datum narození"
-      name="studentDateOfBirth"
+    <p-datePicker
       [(ngModel)]="newStudentDateOfBirth"
+      name="studentDateOfBirth"
+      placeholder="Datum narození"
+      dateFormat="dd.mm.yy"
+      [showIcon]="true"
+      [showClear]="true"
+      appendTo="body"
     />
     <p-select
       [options]="genderOptions"
@@ -821,12 +823,14 @@
       />
       Spádová oblast
     </label>
-    <input
-      pInputText
-      type="date"
-      placeholder="Datum nástupu"
-      name="studentEnrollmentDate"
+    <p-datePicker
       [(ngModel)]="newStudentEnrollmentDate"
+      name="studentEnrollmentDate"
+      placeholder="Datum nástupu"
+      dateFormat="dd.mm.yy"
+      [showIcon]="true"
+      [showClear]="true"
+      appendTo="body"
     />
     <input
       pInputText

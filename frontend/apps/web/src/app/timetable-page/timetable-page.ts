@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
@@ -72,6 +73,21 @@ function toInputTime(value: string): string {
   return value.slice(0, 5);
 }
 
+/** p-datePicker's ngModel needs a Date even in timeOnly mode — only the
+ * hours/minutes are read back out via dateToTimeString(). */
+function timeStringToDate(hhmm: string): Date {
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function dateToTimeString(date: Date): string {
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 function mondayOf(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -100,7 +116,7 @@ function formatShortDate(date: Date): string {
 
 @Component({
   selector: 'app-timetable-page',
-  imports: [FormsModule, Button, Card, Dialog, InputText, Select],
+  imports: [FormsModule, Button, Card, DatePicker, Dialog, InputText, Select],
   templateUrl: './timetable-page.html',
 })
 export class TimetablePage {
@@ -242,11 +258,11 @@ export class TimetablePage {
   protected formTeacherId: number | null = null;
 
   protected newPeriodNumberToConfigure = 1;
-  protected newPeriodStartTime = '08:00';
-  protected newPeriodEndTime = '08:45';
+  protected newPeriodStartTime = timeStringToDate('08:00');
+  protected newPeriodEndTime = timeStringToDate('08:45');
   protected editingPeriodNumber: number | null = null;
-  protected editPeriodStartTime = '';
-  protected editPeriodEndTime = '';
+  protected editPeriodStartTime: Date | null = null;
+  protected editPeriodEndTime: Date | null = null;
 
   constructor() {
     this.schoolPeriodsApi.getPeriods().subscribe({
@@ -492,8 +508,10 @@ export class TimetablePage {
   protected addPeriod(): void {
     this.schoolPeriodsApi
       .upsertPeriod(this.newPeriodNumberToConfigure, {
-        startTime: this.toBackendTime(this.newPeriodStartTime),
-        endTime: this.toBackendTime(this.newPeriodEndTime),
+        startTime: this.toBackendTime(
+          dateToTimeString(this.newPeriodStartTime),
+        ),
+        endTime: this.toBackendTime(dateToTimeString(this.newPeriodEndTime)),
       })
       .subscribe({
         next: () => this.reloadPeriods(),
@@ -503,8 +521,8 @@ export class TimetablePage {
 
   protected startEditPeriod(period: SchoolPeriod): void {
     this.editingPeriodNumber = period.periodNumber;
-    this.editPeriodStartTime = toInputTime(period.startTime);
-    this.editPeriodEndTime = toInputTime(period.endTime);
+    this.editPeriodStartTime = timeStringToDate(toInputTime(period.startTime));
+    this.editPeriodEndTime = timeStringToDate(toInputTime(period.endTime));
   }
 
   protected cancelEditPeriod(): void {
@@ -512,13 +530,19 @@ export class TimetablePage {
   }
 
   protected saveEditPeriod(): void {
-    if (this.editingPeriodNumber === null) {
+    if (
+      this.editingPeriodNumber === null ||
+      !this.editPeriodStartTime ||
+      !this.editPeriodEndTime
+    ) {
       return;
     }
     this.schoolPeriodsApi
       .upsertPeriod(this.editingPeriodNumber, {
-        startTime: this.toBackendTime(this.editPeriodStartTime),
-        endTime: this.toBackendTime(this.editPeriodEndTime),
+        startTime: this.toBackendTime(
+          dateToTimeString(this.editPeriodStartTime),
+        ),
+        endTime: this.toBackendTime(dateToTimeString(this.editPeriodEndTime)),
       })
       .subscribe({
         next: () => {
