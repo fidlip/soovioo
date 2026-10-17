@@ -34,6 +34,29 @@ public class SubjectsControllerTests
     }
 
     [Fact]
+    public async Task AddSubjectAcceptsValidColor()
+    {
+        using var db = NewDb();
+
+        var result = await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .AddSubject(new CreateSubjectRequest("Matematika", Color: "#1ABC9C"));
+
+        var dto = Assert.IsType<Subject>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal("#1ABC9C", dto.Color);
+    }
+
+    [Fact]
+    public async Task AddSubjectRejectsMalformedColor()
+    {
+        using var db = NewDb();
+
+        var result = await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .AddSubject(new CreateSubjectRequest("Matematika", Color: "red"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
     public async Task DeleteSubjectRejectsWhenItHasGrades()
     {
         using var db = NewDb();

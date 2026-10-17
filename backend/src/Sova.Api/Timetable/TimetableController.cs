@@ -34,6 +34,38 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         return Ok(entries);
     }
 
+    /// <summary>A teacher's own schedule, across every class they teach —
+    /// unlike <see cref="GetTimetable"/>, not scoped to one class. Same
+    /// unrestricted-within-tenant visibility as the class view (see
+    /// ROADMAP — Rozvrh picker: Admin/Teacher may look up anyone, timetable
+    /// slots aren't considered sensitive the way grades/absences are).
+    /// Route is absolute (`/api/teachers/...`), not nested under this
+    /// controller's own `api/school-classes/{schoolClassId}/timetable`
+    /// prefix, since it isn't scoped to a class at all.</summary>
+    [HttpGet("/api/teachers/{teacherId:int}/timetable")]
+    public async Task<ActionResult<IEnumerable<TeacherTimetableEntryDto>>> GetTeacherTimetable(int teacherId)
+    {
+        var entries = await db.TimetableEntries
+            .Where(e => e.TeacherId == teacherId)
+            .OrderBy(e => e.DayOfWeek)
+            .ThenBy(e => e.PeriodNumber)
+            .Select(e => new TeacherTimetableEntryDto(
+                e.Id,
+                e.SchoolClassId,
+                e.SchoolClass!.Name,
+                e.SubjectId,
+                e.Subject!.Name,
+                e.Subject!.Abbreviation,
+                e.DayOfWeek,
+                e.PeriodNumber,
+                e.WeekParity,
+                e.TeacherId,
+                e.Teacher == null ? null : e.Teacher.Username))
+            .ToListAsync();
+
+        return Ok(entries);
+    }
+
     [HttpPost]
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<TimetableEntryDto>> AddEntry(int schoolClassId, CreateTimetableEntryRequest request)
@@ -152,6 +184,22 @@ public record CreateTimetableEntryRequest(
 public record TimetableEntryDto(
     int Id,
     int SchoolClassId,
+    int SubjectId,
+    string SubjectName,
+    string? SubjectAbbreviation,
+    DayOfWeek DayOfWeek,
+    int PeriodNumber,
+    WeekParity WeekParity,
+    int? TeacherId,
+    string? TeacherName);
+
+/// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
+/// each entry belongs to — needed here (unlike the class-scoped DTO above)
+/// because a teacher's entries can span several different classes.</summary>
+public record TeacherTimetableEntryDto(
+    int Id,
+    int SchoolClassId,
+    string SchoolClassName,
     int SubjectId,
     string SubjectName,
     string? SubjectAbbreviation,

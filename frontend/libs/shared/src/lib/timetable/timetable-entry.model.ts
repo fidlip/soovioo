@@ -30,3 +30,20 @@ export interface CreateTimetableEntryRequest {
   weekParity: WeekParity;
   teacherId?: number | null;
 }
+
+/** Same shape as TimetableEntry, plus which class each entry belongs to —
+ * needed here because a teacher's entries can span several different
+ * classes (unlike the class-scoped TimetableEntry above). */
+export interface TeacherTimetableEntry {
+  id: number;
+  schoolClassId: number;
+  schoolClassName: string;
+  subjectId: number;
+  subjectName: string;
+  subjectAbbreviation: string | null;
+  dayOfWeek: DayOfWeek;
+  periodNumber: number;
+  weekParity: WeekParity;
+  teacherId: number | null;
+  teacherName: string | null;
+}

@@ -1,28 +1,34 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
-import { InputNumber } from '@openng/optimus-ui/inputnumber';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
-import { TableModule } from '@openng/optimus-ui/table';
-import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
   DayOfWeek,
+  SchoolClass,
+  SchoolClassesApiService,
   SchoolPeriod,
   SchoolPeriodsApiService,
+  Student,
+  StudentsApiService,
   Subject,
   SubjectsApiService,
   Teacher,
   TeachersApiService,
   TimetableApiService,
-  TimetableEntry,
   WeekParity,
 } from '@sova/shared';
 
-const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAYS: DayOfWeek[] = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+];
 const DAY_LABELS: Record<DayOfWeek, string> = {
   Monday: 'Pondělí',
   Tuesday: 'Úterý',
@@ -41,103 +47,271 @@ const WEEK_PARITY_OPTIONS: { label: string; value: WeekParity }[] = [
   { label: 'Sudý týden', value: 'Even' },
 ];
 
-// Single demo class for now; a real class picker lands once auth/roles exist.
-const DEMO_SCHOOL_CLASS_ID = 1;
+type ViewMode = 'class' | 'teacher' | 'student';
+
+/** Common shape both `getTimetable` (class-scoped) and `getTeacherTimetable`
+ * (spans several classes) are normalized into — `schoolClassName` is only
+ * ever populated for the latter, since a class view already knows which
+ * class it's showing and doesn't need to repeat it per cell. */
+interface GridEntry {
+  id: number;
+  schoolClassId: number;
+  schoolClassName: string | null;
+  subjectId: number;
+  subjectName: string;
+  subjectAbbreviation: string | null;
+  dayOfWeek: DayOfWeek;
+  periodNumber: number;
+  weekParity: WeekParity;
+  teacherId: number | null;
+  teacherName: string | null;
+}
 
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
 function toInputTime(value: string): string {
   return value.slice(0, 5);
 }
 
-/** "HH:mm" (<input type="time">) -> "HH:mm:ss" (backend TimeOnly). */
-function toBackendTime(value: string): string {
-  return value.length === 5 ? `${value}:00` : value;
+function mondayOf(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1) - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** ISO 8601 week number — the "lichý/sudý týden" a TimetableEntry's
+ * WeekParity refers to has no other definition anywhere in this app yet
+ * (this page is the first thing that actually resolves "which week is
+ * this"), so this is the standard, unambiguous choice. */
+function isoWeekNumber(date: Date): number {
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
 }
 
 @Component({
   selector: 'app-timetable-page',
-  imports: [FormsModule, PrimeTemplate, Button, Card, InputNumber, InputText, Select, TableModule, Tag],
+  imports: [FormsModule, Button, Card, Dialog, InputText, Select],
   templateUrl: './timetable-page.html',
 })
 export class TimetablePage {
   private readonly timetableApi = inject(TimetableApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly teachersApi = inject(TeachersApiService);
+  private readonly schoolClassesApi = inject(SchoolClassesApiService);
+  private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
-  private readonly authApi = inject(AuthApiService);
+  protected readonly authApi = inject(AuthApiService);
 
   protected readonly days = DAYS;
   protected readonly dayLabels = DAY_LABELS;
   protected readonly dayOptions = DAY_OPTIONS;
   protected readonly weekParityOptions = WEEK_PARITY_OPTIONS;
-  protected readonly entries = signal<TimetableEntry[]>([]);
+
   protected readonly subjects = signal<Subject[]>([]);
   protected readonly teachers = signal<Teacher[]>([]);
+  protected readonly schoolClasses = signal<SchoolClass[]>([]);
+  protected readonly students = signal<Student[]>([]);
   protected readonly periods = signal<SchoolPeriod[]>([]);
+  protected readonly entries = signal<GridEntry[]>([]);
 
-  /** p-select's optionLabel only takes a property path, not a function. */
-  protected readonly subjectOptions = computed(() =>
-    this.subjects().map((s) => ({ id: s.id, label: s.abbreviation ? `${s.abbreviation} — ${s.name}` : s.name })),
+  /** Only Teacher/Admin ever see this — Parent picks among their own
+   * children directly (no "mode"), Student gets no picker at all. */
+  protected readonly viewMode = signal<ViewMode>('class');
+  protected readonly selectedClassId = signal<number | null>(null);
+  protected readonly selectedTeacherId = signal<number | null>(null);
+  protected readonly selectedStudentId = signal<number | null>(null);
+
+  protected readonly weekStart = signal(mondayOf(new Date()));
+  protected readonly editMode = signal(false);
+
+  protected readonly subjectsById = computed(
+    () => new Map(this.subjects().map((s) => [s.id, s])),
   );
 
+  protected readonly viewModeOptions = computed(() => {
+    if (this.authApi.isAdmin()) {
+      return [
+        { label: 'Třída', value: 'class' as ViewMode },
+        { label: 'Učitel', value: 'teacher' as ViewMode },
+      ];
+    }
+    return [
+      { label: 'Učitel', value: 'teacher' as ViewMode },
+      { label: 'Třída', value: 'class' as ViewMode },
+      { label: 'Žák', value: 'student' as ViewMode },
+    ];
+  });
+
+  protected readonly classOptions = computed(() =>
+    this.schoolClasses().map((c) => ({ id: c.id, label: c.name })),
+  );
   protected readonly teacherOptions = computed(() =>
     this.teachers().map((t) => ({ id: t.id, label: t.username })),
   );
+  protected readonly studentOptions = computed(() =>
+    this.students().map((s) => ({
+      id: s.id,
+      label: `${s.firstName} ${s.lastName} (${s.schoolClassName})`,
+    })),
+  );
 
-  protected readonly periodsByNumber = computed(() => {
-    const map = new Map<number, SchoolPeriod>();
-    for (const period of this.periods()) {
-      map.set(period.periodNumber, period);
-    }
-    return map;
-  });
-
-  protected readonly entriesByDay = computed(() => {
-    const grouped = new Map<DayOfWeek, TimetableEntry[]>();
-    for (const day of this.days) {
-      grouped.set(
-        day,
-        this.entries()
-          .filter((e) => e.dayOfWeek === day)
-          .sort((a, b) => a.periodNumber - b.periodNumber),
+  /** Left corner cell: which class/teacher/student is being shown, plus the
+   * displayed week's date range. */
+  protected readonly cornerLabel = computed(() => {
+    const mode = this.viewMode();
+    if (mode === 'class') {
+      return (
+        this.schoolClasses().find((c) => c.id === this.selectedClassId())
+          ?.name ?? ''
       );
     }
-    return grouped;
+    if (mode === 'teacher') {
+      return (
+        this.teachers().find((t) => t.id === this.selectedTeacherId())
+          ?.username ?? ''
+      );
+    }
+    const student = this.students().find(
+      (s) => s.id === this.selectedStudentId(),
+    );
+    return student
+      ? `${student.firstName} ${student.lastName} (${student.schoolClassName})`
+      : '';
   });
 
-  protected newSubjectId: number | null = null;
-  protected newDayOfWeek: DayOfWeek = 'Monday';
-  protected newPeriodNumber = 1;
-  protected newWeekParity: WeekParity = 'Every';
-  protected newTeacherId: number | null = null;
+  protected readonly weekLabel = computed(() => {
+    const start = this.weekStart();
+    const end = new Date(start);
+    end.setDate(end.getDate() + 4);
+    return `${formatShortDate(start)}–${formatShortDate(end)} (týden ${isoWeekNumber(start)})`;
+  });
 
-  protected editingEntryId: number | null = null;
-  protected editSubjectId: number | null = null;
-  protected editDayOfWeek: DayOfWeek = 'Monday';
-  protected editPeriodNumber = 1;
-  protected editWeekParity: WeekParity = 'Every';
-  protected editTeacherId: number | null = null;
+  protected readonly currentParity = computed<'Odd' | 'Even'>(() =>
+    isoWeekNumber(this.weekStart()) % 2 === 1 ? 'Odd' : 'Even',
+  );
+
+  protected readonly periodsByNumber = computed(
+    () => new Map(this.periods().map((p) => [p.periodNumber, p])),
+  );
+
+  protected readonly periodOptions = computed(() =>
+    this.periods().map((p) => ({
+      value: p.periodNumber,
+      label: `${p.periodNumber}. (${toInputTime(p.startTime)}–${toInputTime(p.endTime)})`,
+    })),
+  );
+
+  /** Entries visible for the currently displayed week — "Every" always
+   * shows, "Odd"/"Even" only on a matching week. */
+  protected readonly visibleEntries = computed(() =>
+    this.entries().filter(
+      (e) => e.weekParity === 'Every' || e.weekParity === this.currentParity(),
+    ),
+  );
+
+  protected readonly entryGrid = computed(() => {
+    const grid = new Map<DayOfWeek, Map<number, GridEntry>>();
+    for (const day of this.days) {
+      grid.set(day, new Map());
+    }
+    for (const entry of this.visibleEntries()) {
+      grid.get(entry.dayOfWeek)?.set(entry.periodNumber, entry);
+    }
+    return grid;
+  });
+
+  // Dialog state — add (no editingEntryId) or edit (editingEntryId set) a
+  // single TimetableEntry, triggered by clicking a grid cell.
+  protected readonly dialogVisible = signal(false);
+  protected readonly editingEntryId = signal<number | null>(null);
+  protected readonly editingEntrySchoolClassId = signal<number | null>(null);
+  protected formSubjectId: number | null = null;
+  protected formDayOfWeek: DayOfWeek = 'Monday';
+  protected formPeriodNumber = 1;
+  protected formWeekParity: WeekParity = 'Every';
+  protected formTeacherId: number | null = null;
 
   protected newPeriodNumberToConfigure = 1;
   protected newPeriodStartTime = '08:00';
   protected newPeriodEndTime = '08:45';
-
   protected editingPeriodNumber: number | null = null;
   protected editPeriodStartTime = '';
   protected editPeriodEndTime = '';
 
   constructor() {
-    this.reload();
-    this.reloadPeriods();
+    this.schoolPeriodsApi.getPeriods().subscribe({
+      next: (periods) => this.periods.set(periods),
+      error: (err) => console.error('getPeriods failed', err),
+    });
     this.subjectsApi.getSubjects().subscribe({
       next: (subjects) => {
         this.subjects.set(subjects);
-        this.newSubjectId ??= subjects[0]?.id ?? null;
+        this.formSubjectId ??= subjects[0]?.id ?? null;
       },
       error: (err) => console.error('getSubjects failed', err),
     });
+
+    if (this.authApi.isAdmin()) {
+      this.viewMode.set('class');
+      this.loadSchoolClasses(true);
+      this.loadTeachers(false);
+    } else if (this.authApi.isTeacher()) {
+      this.viewMode.set('teacher');
+      this.loadTeachers(true);
+      this.loadSchoolClasses(false);
+      this.studentsApi.getStudents().subscribe({
+        next: (students) => this.students.set(students),
+        error: (err) => console.error('getStudents failed', err),
+      });
+    } else {
+      // Parent/Student — no mode picker, just their own child(ren)/self.
+      this.viewMode.set('student');
+      this.studentsApi.getStudents().subscribe({
+        next: (students) => {
+          this.students.set(students);
+          this.selectedStudentId.set(students[0]?.id ?? null);
+          this.reload();
+        },
+        error: (err) => console.error('getStudents failed', err),
+      });
+    }
+  }
+
+  private loadSchoolClasses(selectFirst: boolean): void {
+    this.schoolClassesApi.getSchoolClasses().subscribe({
+      next: (classes) => {
+        this.schoolClasses.set(classes);
+        if (selectFirst) {
+          this.selectedClassId.set(classes[0]?.id ?? null);
+          this.reload();
+        }
+      },
+      error: (err) => console.error('getSchoolClasses failed', err),
+    });
+  }
+
+  private loadTeachers(selectSelf: boolean): void {
     this.teachersApi.getTeachers().subscribe({
-      next: (teachers) => this.teachers.set(teachers),
+      next: (teachers) => {
+        this.teachers.set(teachers);
+        if (selectSelf) {
+          const me = teachers.find(
+            (t) => t.username === this.authApi.getUsername(),
+          );
+          this.selectedTeacherId.set(me?.id ?? teachers[0]?.id ?? null);
+          this.reload();
+        }
+      },
       error: (err) => console.error('getTeachers failed', err),
     });
   }
@@ -146,66 +320,171 @@ export class TimetablePage {
     return this.authApi.isTeacherOrAdmin();
   }
 
-  protected periodTimeLabel(periodNumber: number): string {
-    const period = this.periodsByNumber().get(periodNumber);
-    return period ? `${toInputTime(period.startTime)}–${toInputTime(period.endTime)}` : '—';
+  /** Adding a brand new entry only makes sense picking a single class to
+   * add it to — teacher/student views span (or resolve to) a class
+   * implicitly, but offering "add" there would leave it ambiguous which
+   * class a newly clicked empty cell belongs to. Editing/deleting an
+   * existing entry works in every mode (see onCellClick). */
+  protected canAddEntries(): boolean {
+    return this.canManageTimetable() && this.viewMode() === 'class';
   }
 
-  protected addEntry(): void {
-    if (!this.newSubjectId) {
+  protected onViewModeChange(mode: ViewMode): void {
+    this.viewMode.set(mode);
+
+    // Each list may already be loaded (e.g. the class list, fetched once up
+    // front to populate the "Třída" picker option set for a Teacher without
+    // selecting one) without a *selection* having been made yet — so the
+    // condition to auto-pick the first option is "nothing selected", not
+    // "list not loaded".
+    if (mode === 'class' && this.selectedClassId() === null) {
+      this.loadSchoolClasses(true);
       return;
     }
-    this.timetableApi
-      .addEntry(DEMO_SCHOOL_CLASS_ID, {
-        subjectId: this.newSubjectId,
-        dayOfWeek: this.newDayOfWeek,
-        periodNumber: this.newPeriodNumber,
-        weekParity: this.newWeekParity,
-        teacherId: this.newTeacherId,
-      })
-      .subscribe({
-        next: () => this.reload(),
-        error: (err) => console.error('addEntry failed', err),
-      });
-  }
-
-  protected startEditEntry(entry: TimetableEntry): void {
-    this.editingEntryId = entry.id;
-    this.editSubjectId = entry.subjectId;
-    this.editDayOfWeek = entry.dayOfWeek;
-    this.editPeriodNumber = entry.periodNumber;
-    this.editWeekParity = entry.weekParity;
-    this.editTeacherId = entry.teacherId;
-  }
-
-  protected cancelEditEntry(): void {
-    this.editingEntryId = null;
-  }
-
-  protected saveEditEntry(): void {
-    if (this.editingEntryId === null || !this.editSubjectId) {
+    if (mode === 'teacher' && this.selectedTeacherId() === null) {
+      this.loadTeachers(true);
       return;
     }
-    this.timetableApi
-      .updateEntry(DEMO_SCHOOL_CLASS_ID, this.editingEntryId, {
-        subjectId: this.editSubjectId,
-        dayOfWeek: this.editDayOfWeek,
-        periodNumber: this.editPeriodNumber,
-        weekParity: this.editWeekParity,
-        teacherId: this.editTeacherId,
-      })
-      .subscribe({
-        next: () => {
-          this.editingEntryId = null;
+    if (mode === 'student' && this.selectedStudentId() === null) {
+      this.studentsApi.getStudents().subscribe({
+        next: (students) => {
+          this.students.set(students);
+          this.selectedStudentId.set(students[0]?.id ?? null);
           this.reload();
         },
-        error: (err) => console.error('updateEntry failed', err),
+        error: (err) => console.error('getStudents failed', err),
       });
+      return;
+    }
+    this.reload();
   }
 
-  protected deleteEntry(entry: TimetableEntry): void {
-    this.timetableApi.deleteEntry(DEMO_SCHOOL_CLASS_ID, entry.id).subscribe({
-      next: () => this.reload(),
+  protected onClassSelected(id: number): void {
+    this.selectedClassId.set(id);
+    this.reload();
+  }
+
+  protected onTeacherSelected(id: number): void {
+    this.selectedTeacherId.set(id);
+    this.reload();
+  }
+
+  protected onStudentSelected(id: number): void {
+    this.selectedStudentId.set(id);
+    this.reload();
+  }
+
+  protected previousWeek(): void {
+    const d = new Date(this.weekStart());
+    d.setDate(d.getDate() - 7);
+    this.weekStart.set(d);
+  }
+
+  protected nextWeek(): void {
+    const d = new Date(this.weekStart());
+    d.setDate(d.getDate() + 7);
+    this.weekStart.set(d);
+  }
+
+  protected thisWeek(): void {
+    this.weekStart.set(mondayOf(new Date()));
+  }
+
+  protected periodTimeLabel(periodNumber: number): string {
+    const period = this.periodsByNumber().get(periodNumber);
+    return period
+      ? `${toInputTime(period.startTime)}–${toInputTime(period.endTime)}`
+      : '—';
+  }
+
+  protected cellTitle(entry: GridEntry): string {
+    const parity =
+      entry.weekParity === 'Every'
+        ? ''
+        : entry.weekParity === 'Odd'
+          ? ' (lichý týden)'
+          : ' (sudý týden)';
+    const className = entry.schoolClassName
+      ? ` — ${entry.schoolClassName}`
+      : '';
+    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${parity}`;
+  }
+
+  protected onCellClick(day: DayOfWeek, periodNumber: number): void {
+    if (!this.editMode() || !this.canManageTimetable()) {
+      return;
+    }
+    const entry = this.entryGrid().get(day)?.get(periodNumber);
+    if (entry) {
+      this.openEditDialog(entry);
+    } else if (this.canAddEntries()) {
+      this.openAddDialog(day, periodNumber);
+    }
+  }
+
+  private openAddDialog(day: DayOfWeek, periodNumber: number): void {
+    this.editingEntryId.set(null);
+    this.editingEntrySchoolClassId.set(this.selectedClassId());
+    this.formSubjectId = this.subjects()[0]?.id ?? null;
+    this.formDayOfWeek = day;
+    this.formPeriodNumber = periodNumber;
+    this.formWeekParity = 'Every';
+    this.formTeacherId = null;
+    this.dialogVisible.set(true);
+  }
+
+  private openEditDialog(entry: GridEntry): void {
+    this.editingEntryId.set(entry.id);
+    this.editingEntrySchoolClassId.set(entry.schoolClassId);
+    this.formSubjectId = entry.subjectId;
+    this.formDayOfWeek = entry.dayOfWeek;
+    this.formPeriodNumber = entry.periodNumber;
+    this.formWeekParity = entry.weekParity;
+    this.formTeacherId = entry.teacherId;
+    this.dialogVisible.set(true);
+  }
+
+  protected closeDialog(): void {
+    this.dialogVisible.set(false);
+  }
+
+  protected saveEntry(): void {
+    const schoolClassId = this.editingEntrySchoolClassId();
+    if (!schoolClassId || !this.formSubjectId) {
+      return;
+    }
+    const request = {
+      subjectId: this.formSubjectId,
+      dayOfWeek: this.formDayOfWeek,
+      periodNumber: this.formPeriodNumber,
+      weekParity: this.formWeekParity,
+      teacherId: this.formTeacherId,
+    };
+    const editingId = this.editingEntryId();
+    const result =
+      editingId === null
+        ? this.timetableApi.addEntry(schoolClassId, request)
+        : this.timetableApi.updateEntry(schoolClassId, editingId, request);
+    result.subscribe({
+      next: () => {
+        this.dialogVisible.set(false);
+        this.reload();
+      },
+      error: (err) => console.error('saveEntry failed', err),
+    });
+  }
+
+  protected deleteEntry(): void {
+    const schoolClassId = this.editingEntrySchoolClassId();
+    const editingId = this.editingEntryId();
+    if (!schoolClassId || editingId === null) {
+      return;
+    }
+    this.timetableApi.deleteEntry(schoolClassId, editingId).subscribe({
+      next: () => {
+        this.dialogVisible.set(false);
+        this.reload();
+      },
       error: (err) => console.error('deleteEntry failed', err),
     });
   }
@@ -213,8 +492,8 @@ export class TimetablePage {
   protected addPeriod(): void {
     this.schoolPeriodsApi
       .upsertPeriod(this.newPeriodNumberToConfigure, {
-        startTime: toBackendTime(this.newPeriodStartTime),
-        endTime: toBackendTime(this.newPeriodEndTime),
+        startTime: this.toBackendTime(this.newPeriodStartTime),
+        endTime: this.toBackendTime(this.newPeriodEndTime),
       })
       .subscribe({
         next: () => this.reloadPeriods(),
@@ -238,8 +517,8 @@ export class TimetablePage {
     }
     this.schoolPeriodsApi
       .upsertPeriod(this.editingPeriodNumber, {
-        startTime: toBackendTime(this.editPeriodStartTime),
-        endTime: toBackendTime(this.editPeriodEndTime),
+        startTime: this.toBackendTime(this.editPeriodStartTime),
+        endTime: this.toBackendTime(this.editPeriodEndTime),
       })
       .subscribe({
         next: () => {
@@ -257,11 +536,51 @@ export class TimetablePage {
     });
   }
 
+  private toBackendTime(value: string): string {
+    return value.length === 5 ? `${value}:00` : value;
+  }
+
   private reload(): void {
-    this.timetableApi.getTimetable(DEMO_SCHOOL_CLASS_ID).subscribe({
-      next: (entries) => this.entries.set(entries),
-      error: (err) => console.error('getTimetable failed', err),
-    });
+    const mode = this.viewMode();
+    if (mode === 'class') {
+      const classId = this.selectedClassId();
+      if (!classId) {
+        this.entries.set([]);
+        return;
+      }
+      this.timetableApi.getTimetable(classId).subscribe({
+        next: (entries) =>
+          this.entries.set(
+            entries.map((e) => ({ ...e, schoolClassName: null })),
+          ),
+        error: (err) => console.error('getTimetable failed', err),
+      });
+    } else if (mode === 'teacher') {
+      const teacherId = this.selectedTeacherId();
+      if (!teacherId) {
+        this.entries.set([]);
+        return;
+      }
+      this.timetableApi.getTeacherTimetable(teacherId).subscribe({
+        next: (entries) => this.entries.set(entries),
+        error: (err) => console.error('getTeacherTimetable failed', err),
+      });
+    } else {
+      const student = this.students().find(
+        (s) => s.id === this.selectedStudentId(),
+      );
+      if (!student) {
+        this.entries.set([]);
+        return;
+      }
+      this.timetableApi.getTimetable(student.schoolClassId).subscribe({
+        next: (entries) =>
+          this.entries.set(
+            entries.map((e) => ({ ...e, schoolClassName: null })),
+          ),
+        error: (err) => console.error('getTimetable failed', err),
+      });
+    }
   }
 
   private reloadPeriods(): void {

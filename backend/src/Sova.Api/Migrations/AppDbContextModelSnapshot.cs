@@ -473,6 +473,9 @@ namespace Sova.Api.Migrations
                     b.Property<string>("Abbreviation")
                         .HasColumnType("text");
 
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");

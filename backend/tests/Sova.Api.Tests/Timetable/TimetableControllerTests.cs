@@ -120,4 +120,32 @@ public class TimetableControllerTests
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
+
+    [Fact]
+    public async Task GetTeacherTimetableSpansMultipleClassesAndExcludesOtherTeachers()
+    {
+        using var db = NewDb();
+        var classA = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        var classB = new SchoolClass { Name = "2.B", SchoolId = SchoolId };
+        var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = SchoolId };
+        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.SchoolClasses.AddRange(classA, classB);
+        db.Subjects.Add(subject);
+        db.Users.AddRange(teacher, otherTeacher);
+        await db.SaveChangesAsync();
+        db.TimetableEntries.AddRange(
+            new TimetableEntry { SchoolClassId = classA.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, TeacherId = teacher.Id },
+            new TimetableEntry { SchoolClassId = classB.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 2, TeacherId = teacher.Id },
+            new TimetableEntry { SchoolClassId = classA.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, TeacherId = otherTeacher.Id });
+        await db.SaveChangesAsync();
+
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId)).GetTeacherTimetable(teacher.Id);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<TeacherTimetableEntryDto>>(
+            Assert.IsType<OkObjectResult>(result.Result).Value).ToList();
+        Assert.Equal(2, entries.Count);
+        Assert.Contains(entries, e => e.SchoolClassName == "1.A");
+        Assert.Contains(entries, e => e.SchoolClassName == "2.B");
+    }
 }

@@ -1,6 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AutoComplete, AutoCompleteCompleteEvent } from '@openng/optimus-ui/autocomplete';
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+} from '@openng/optimus-ui/autocomplete';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -43,6 +46,22 @@ const ROLE_OPTIONS = [
 const GENDER_OPTIONS: { label: string; value: Gender }[] = [
   { label: 'Chlapec', value: 'Male' },
   { label: 'Dívka', value: 'Female' },
+];
+
+// Same fixed palette as events-page.ts's Event.Color picker (not a free
+// picker) — distinct enough at a glance, muted enough to keep cell text
+// readable on every swatch.
+const SUBJECT_COLOR_PALETTE = [
+  '#6366f1', // indigo
+  '#ef4444', // red
+  '#f97316', // orange
+  '#eab308', // yellow
+  '#22c55e', // green
+  '#14b8a6', // teal
+  '#3b82f6', // blue
+  '#a855f7', // purple
+  '#ec4899', // pink
+  '#64748b', // slate
 ];
 
 /** RAKO kvalifikátor státního občanství — only 8 stable rows, so a hardcoded
@@ -98,15 +117,22 @@ export class AdminPage {
 
   protected readonly roleOptions = ROLE_OPTIONS;
   protected readonly genderOptions = GENDER_OPTIONS;
-  protected readonly citizenshipQualifierOptions = CITIZENSHIP_QUALIFIER_OPTIONS;
+  protected readonly citizenshipQualifierOptions =
+    CITIZENSHIP_QUALIFIER_OPTIONS;
+  protected readonly subjectColorPalette = SUBJECT_COLOR_PALETTE;
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
-    this.students().map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+    this.students().map((s) => ({
+      id: s.id,
+      label: `${s.firstName} ${s.lastName}`,
+    })),
   );
 
   /** Třídní učitel candidates — Teacher role only. */
-  protected readonly teacherOptions = computed(() => this.users().filter((u) => u.role === 'Teacher'));
+  protected readonly teacherOptions = computed(() =>
+    this.users().filter((u) => u.role === 'Teacher'),
+  );
 
   /** Students pickable for a new/edited Student-role account — excludes
    * students that already have one, except the student currently linked to
@@ -119,7 +145,12 @@ export class AdminPage {
   protected availableStudentOptions(): { id: number; label: string }[] {
     const linkedElsewhere = new Set(
       this.users()
-        .filter((u) => u.role === 'Student' && u.studentId !== null && u.id !== this.editingUserId)
+        .filter(
+          (u) =>
+            u.role === 'Student' &&
+            u.studentId !== null &&
+            u.id !== this.editingUserId,
+        )
         .map((u) => u.studentId),
     );
     return this.studentOptions().filter((s) => !linkedElsewhere.has(s.id));
@@ -131,6 +162,7 @@ export class AdminPage {
   protected newSchoolClassTeachingLanguage = '';
   protected newSubjectName = '';
   protected newSubjectAbbreviation = '';
+  protected newSubjectColor: string | null = null;
 
   protected newStudentFirstName = '';
   protected newStudentLastName = '';
@@ -172,6 +204,7 @@ export class AdminPage {
   protected editingSubjectId: number | null = null;
   protected editSubjectName = '';
   protected editSubjectAbbreviation = '';
+  protected editSubjectColor: string | null = null;
 
   protected editingStudentId: number | null = null;
   protected editStudentFirstName = '';
@@ -259,14 +292,19 @@ export class AdminPage {
     const name = this.filterStudentName.trim().toLowerCase();
     return this.students().filter(
       (s) =>
-        (!name || `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
-        (this.filterStudentSchoolClassId === null || s.schoolClassId === this.filterStudentSchoolClassId) &&
-        (this.filterStudentGender === null || s.gender === this.filterStudentGender),
+        (!name ||
+          `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
+        (this.filterStudentSchoolClassId === null ||
+          s.schoolClassId === this.filterStudentSchoolClassId) &&
+        (this.filterStudentGender === null ||
+          s.gender === this.filterStudentGender),
     );
   }
 
   protected filteredUsers(): AppUser[] {
-    return this.users().filter((u) => this.filterUserRole === null || u.role === this.filterUserRole);
+    return this.users().filter(
+      (u) => this.filterUserRole === null || u.role === this.filterUserRole,
+    );
   }
 
   private reloadAll(): void {
@@ -337,7 +375,10 @@ export class AdminPage {
   }
 
   protected saveEditSchoolClass(): void {
-    if (this.editingSchoolClassId === null || !this.editSchoolClassName.trim()) {
+    if (
+      this.editingSchoolClassId === null ||
+      !this.editSchoolClassName.trim()
+    ) {
       return;
     }
     this.schoolClassesApi
@@ -368,11 +409,16 @@ export class AdminPage {
       return;
     }
     this.subjectsApi
-      .addSubject({ name: this.newSubjectName, abbreviation: this.newSubjectAbbreviation || undefined })
+      .addSubject({
+        name: this.newSubjectName,
+        abbreviation: this.newSubjectAbbreviation || undefined,
+        color: this.newSubjectColor || undefined,
+      })
       .subscribe({
         next: () => {
           this.newSubjectName = '';
           this.newSubjectAbbreviation = '';
+          this.newSubjectColor = null;
           this.reloadAll();
         },
         error: (err) => this.showError('addSubject failed', err),
@@ -383,6 +429,7 @@ export class AdminPage {
     this.editingSubjectId = subject.id;
     this.editSubjectName = subject.name;
     this.editSubjectAbbreviation = subject.abbreviation ?? '';
+    this.editSubjectColor = subject.color;
   }
 
   protected cancelEditSubject(): void {
@@ -397,6 +444,7 @@ export class AdminPage {
       .updateSubject(this.editingSubjectId, {
         name: this.editSubjectName,
         abbreviation: this.editSubjectAbbreviation || undefined,
+        color: this.editSubjectColor || undefined,
       })
       .subscribe({
         next: () => {
@@ -415,7 +463,11 @@ export class AdminPage {
   }
 
   protected addStudent(): void {
-    if (!this.newStudentFirstName.trim() || !this.newStudentLastName.trim() || !this.newStudentSchoolClassId) {
+    if (
+      !this.newStudentFirstName.trim() ||
+      !this.newStudentLastName.trim() ||
+      !this.newStudentSchoolClassId
+    ) {
       return;
     }
     this.studentsApi
@@ -470,7 +522,11 @@ export class AdminPage {
     this.editStudentCountryCode = student.countryCode;
     this.editStudentStreet = student.street ?? '';
     this.editStudentMunicipality = student.municipalityCode
-      ? { code: student.municipalityCode, name: student.municipalityName ?? student.municipalityCode, districtCode: '' }
+      ? {
+          code: student.municipalityCode,
+          name: student.municipalityName ?? student.municipalityCode,
+          districtCode: '',
+        }
       : null;
     this.editStudentPostalCode = student.postalCode ?? '';
     this.editStudentCatchmentArea = student.catchmentArea ?? false;
@@ -523,7 +579,11 @@ export class AdminPage {
    * links — see StudentsController.DeleteStudent. The confirm() here is the
    * one place in this page a mistake can't be undone. */
   protected deleteStudent(student: Student): void {
-    if (!confirm(`Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`)) {
+    if (
+      !confirm(
+        `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`,
+      )
+    ) {
       return;
     }
     this.studentsApi.deleteStudent(student.id).subscribe({
@@ -542,7 +602,10 @@ export class AdminPage {
       role: this.newUserRole,
       phone: this.newUserPhone || undefined,
       email: this.newUserEmail || undefined,
-      studentId: this.newUserRole === 'Student' ? (this.newUserStudentId ?? undefined) : undefined,
+      studentId:
+        this.newUserRole === 'Student'
+          ? (this.newUserStudentId ?? undefined)
+          : undefined,
     };
     this.usersApi.addUser(request).subscribe({
       next: () => {
@@ -581,7 +644,10 @@ export class AdminPage {
       password: this.editUserPassword || undefined,
       phone: this.editUserPhone || undefined,
       email: this.editUserEmail || undefined,
-      studentId: this.editUserRole === 'Student' ? (this.editUserStudentId ?? undefined) : undefined,
+      studentId:
+        this.editUserRole === 'Student'
+          ? (this.editUserStudentId ?? undefined)
+          : undefined,
     };
     this.usersApi.updateUser(this.editingUserId, request).subscribe({
       next: () => {
@@ -637,7 +703,10 @@ export class AdminPage {
 
   protected saveMatrikaIds(): void {
     this.mySchoolApi
-      .setMatrikaIds({ izo: this.matrikaIzo() || null, redIzo: this.matrikaRedIzo() || null })
+      .setMatrikaIds({
+        izo: this.matrikaIzo() || null,
+        redIzo: this.matrikaRedIzo() || null,
+      })
       .subscribe({
         next: () => this.loadMySchool(),
         error: (err) => this.showError('setMatrikaIds failed', err),
@@ -697,7 +766,9 @@ export class AdminPage {
           if (!blob) {
             return;
           }
-          const fileName = this.extractFileName(response.headers.get('Content-Disposition')) ?? 'matrika-export.xml';
+          const fileName =
+            this.extractFileName(response.headers.get('Content-Disposition')) ??
+            'matrika-export.xml';
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
@@ -723,8 +794,12 @@ export class AdminPage {
     httpError.error
       .text()
       .then((text) => {
-        const parsed = JSON.parse(text) as { errors?: string[] | Record<string, string[]> };
-        this.matrikaExportErrors.set(this.flattenErrors(parsed.errors) ?? ['Export se nepovedl.']);
+        const parsed = JSON.parse(text) as {
+          errors?: string[] | Record<string, string[]>;
+        };
+        this.matrikaExportErrors.set(
+          this.flattenErrors(parsed.errors) ?? ['Export se nepovedl.'],
+        );
       })
       .catch(() => this.matrikaExportErrors.set(['Export se nepovedl.']));
   }
@@ -732,7 +807,9 @@ export class AdminPage {
   /** Our own 400s send `{ errors: string[] }`; ASP.NET's automatic model
    * validation (e.g. a required query param left empty) sends
    * `{ errors: { field: string[] } }` instead — normalize both to a flat list. */
-  private flattenErrors(errors: string[] | Record<string, string[]> | undefined): string[] | null {
+  private flattenErrors(
+    errors: string[] | Record<string, string[]> | undefined,
+  ): string[] | null {
     if (!errors) {
       return null;
     }

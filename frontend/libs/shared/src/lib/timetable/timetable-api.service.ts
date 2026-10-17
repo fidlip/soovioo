@@ -2,7 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { CreateTimetableEntryRequest, TimetableEntry } from './timetable-entry.model';
+import {
+  CreateTimetableEntryRequest,
+  TeacherTimetableEntry,
+  TimetableEntry,
+} from './timetable-entry.model';
 
 @Injectable({ providedIn: 'root' })
 export class TimetableApiService {
@@ -12,6 +16,14 @@ export class TimetableApiService {
   getTimetable(schoolClassId: number): Observable<TimetableEntry[]> {
     return this.http.get<TimetableEntry[]>(
       `${this.baseUrl}/api/school-classes/${schoolClassId}/timetable`,
+    );
+  }
+
+  /** A teacher's own schedule across every class they teach — unlike
+   * getTimetable, not scoped to one class. */
+  getTeacherTimetable(teacherId: number): Observable<TeacherTimetableEntry[]> {
+    return this.http.get<TeacherTimetableEntry[]>(
+      `${this.baseUrl}/api/teachers/${teacherId}/timetable`,
     );
   }
 

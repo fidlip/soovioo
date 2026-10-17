@@ -65,6 +65,12 @@ export class AuthApiService {
     return role === 'Teacher' || role === 'Admin';
   }
 
+  /** True for Teacher specifically — e.g. the Rozvrh page defaults a
+   * Teacher's view to their own schedule, which doesn't apply to Admin. */
+  isTeacher(): boolean {
+    return this.getRole() === 'Teacher';
+  }
+
   /** True for Admin — the only role allowed to manage users/classes/subjects/parent links. */
   isAdmin(): boolean {
     return this.getRole() === 'Admin';

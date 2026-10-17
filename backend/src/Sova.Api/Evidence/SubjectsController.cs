@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,8 +10,11 @@ namespace Sova.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/subjects")]
-public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
+    [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
+    private static partial Regex HexColorPattern();
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Subject>>> GetSubjects()
     {
@@ -21,10 +25,16 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<Subject>> AddSubject(CreateSubjectRequest request)
     {
+        if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
+        {
+            return BadRequest("Color must be a \"#rrggbb\" hex string.");
+        }
+
         var subject = new Subject
         {
             Name = request.Name,
             Abbreviation = request.Abbreviation,
+            Color = request.Color,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.Subjects.Add(subject);
@@ -36,6 +46,11 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<Subject>> UpdateSubject(int id, CreateSubjectRequest request)
     {
+        if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
+        {
+            return BadRequest("Color must be a \"#rrggbb\" hex string.");
+        }
+
         var subject = await db.Subjects.FindAsync(id);
         if (subject is null)
         {
@@ -44,6 +59,7 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         subject.Name = request.Name;
         subject.Abbreviation = request.Abbreviation;
+        subject.Color = request.Color;
         await db.SaveChangesAsync();
         return Ok(subject);
     }
@@ -77,4 +93,4 @@ public class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 }
 
-public record CreateSubjectRequest(string Name, string? Abbreviation = null);
+public record CreateSubjectRequest(string Name, string? Abbreviation = null, string? Color = null);
