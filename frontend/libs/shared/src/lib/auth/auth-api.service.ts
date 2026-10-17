@@ -41,6 +41,17 @@ export class AuthApiService {
     );
   }
 
+  /** Numeric user id claim from the stored JWT (ClaimTypes.NameIdentifier),
+   * or null if not logged in / unparseable. */
+  getUserId(): number | null {
+    const raw = this.getClaim(
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
+      'nameid',
+    );
+    const id = raw === null ? NaN : Number(raw);
+    return Number.isNaN(id) ? null : id;
+  }
+
   private getClaim(...keys: string[]): string | null {
     const token = this.tokenStorage.getToken();
     if (!token) {

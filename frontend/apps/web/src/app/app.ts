@@ -55,6 +55,15 @@ export class App {
     return this.authApi.isAdmin();
   }
 
+  /** Shows the Administrace nav link to any Teacher, not just class
+   * teachers — AdminPage itself resolves whether they're actually a class
+   * teacher of something (restricted view) or not (same "jen pro ... "
+   * denial as before), since that needs an async lookup this synchronous
+   * nav check can't do. */
+  protected isTeacher(): boolean {
+    return this.authApi.isTeacher();
+  }
+
   protected isSuperAdmin(): boolean {
     return this.authApi.isSuperAdmin();
   }

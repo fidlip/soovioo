@@ -74,7 +74,7 @@
         class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
         >Zprávy</a
       >
-      @if (isAdmin()) {
+      @if (isAdmin() || isTeacher()) {
       <a
         [routerLink]="schoolContext.link('admin')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +7,12 @@ using Sova.Api.Data;
 
 namespace Sova.Api.Evidence;
 
-[Authorize(Roles = "Admin")]
+/// <summary>Admin manages every link in the school. A Teacher only gets in
+/// here at all as a class teacher (třídní učitel) — restricted-Administrace
+/// access (see ROADMAP "Administrace — redesign") — scoped to links
+/// touching their own class's students, same restriction as
+/// <see cref="StudentsController"/>.</summary>
+[Authorize(Roles = "Teacher,Admin")]
 [ApiController]
 [Route("api/parent-student-links")]
 public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
@@ -14,7 +20,14 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ParentStudentDto>>> GetLinks()
     {
-        var links = await db.ParentStudents
+        var query = db.ParentStudents.AsQueryable();
+        if (!User.IsInRole(nameof(UserRole.Admin)))
+        {
+            var ownClassIds = await db.GetOwnClassIdsAsClassTeacherAsync(CurrentUserId());
+            query = query.Where(ps => ownClassIds.Contains(ps.Student!.SchoolClassId));
+        }
+
+        var links = await query
             .OrderBy(ps => ps.User!.Username)
             .Select(ps => new ParentStudentDto(
                 ps.UserId,
@@ -34,6 +47,11 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
         if (user is null || student is null)
         {
             return BadRequest("Unknown userId or studentId.");
+        }
+
+        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
+        {
+            return Forbid();
         }
 
         if (await db.ParentStudents.AnyAsync(ps => ps.UserId == request.UserId && ps.StudentId == request.StudentId))
@@ -63,10 +81,21 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
             return NotFound();
         }
 
+        if (!User.IsInRole(nameof(UserRole.Admin)))
+        {
+            var student = await db.Students.FindAsync(studentId);
+            if (student is null || !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
+            {
+                return Forbid();
+            }
+        }
+
         db.ParentStudents.Remove(link);
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateParentStudentLinkRequest(int UserId, int StudentId);

@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -7,6 +8,7 @@ import {
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
@@ -14,6 +16,13 @@ import { Password } from '@openng/optimus-ui/password';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
+import {
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+} from '@openng/optimus-ui/tabs';
 import {
   AppUser,
   AuthApiService,
@@ -23,6 +32,8 @@ import {
   MatrikaApiService,
   Municipality,
   MySchoolApiService,
+  Parent as ParentUser,
+  ParentsApiService,
   ParentStudentLink,
   ParentStudentsApiService,
   ReferenceApiService,
@@ -35,6 +46,14 @@ import {
   UpdateUserRequest,
   UsersApiService,
 } from '@sova/shared';
+
+/** Admin: full access to every tab. ClassTeacher: a Teacher who owns at
+ * least one class (SchoolClass.classTeacherId) gets a cut-down page — just
+ * their own class's students and parent↔student links, nothing else (see
+ * ROADMAP "Administrace — redesign"). Denied: anyone else who reaches this
+ * route (a Teacher who isn't a class teacher of anything, or a non-Teacher
+ * non-Admin navigating here directly). */
+type AccessLevel = 'admin' | 'classTeacher' | 'denied' | 'loading';
 
 const ROLE_OPTIONS = [
   { label: 'Admin', value: 'Admin' },
@@ -85,13 +104,20 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
     FormsModule,
     Button,
     Card,
+    Dialog,
     InputNumber,
     InputText,
     Message,
+    NgTemplateOutlet,
     Password,
     PrimeTemplate,
     Select,
+    Tab,
     TableModule,
+    TabList,
+    TabPanel,
+    TabPanels,
+    Tabs,
     Tag,
   ],
   templateUrl: './admin-page.html',
@@ -102,18 +128,35 @@ export class AdminPage {
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly usersApi = inject(UsersApiService);
+  private readonly parentsApi = inject(ParentsApiService);
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
   private readonly mySchoolApi = inject(MySchoolApiService);
   private readonly matrikaApi = inject(MatrikaApiService);
   private readonly referenceApi = inject(ReferenceApiService);
 
+  protected readonly accessLevel = signal<AccessLevel>('loading');
+  /** Only populated (and only relevant) for accessLevel 'classTeacher' —
+   * which SchoolClass ids the current Teacher is the class teacher of.
+   * Drives client-side filtering of `students`/`schoolClasses` below, since
+   * the backend already scopes the write endpoints but GetStudents/
+   * GetSchoolClasses stay unrestricted reads for any Teacher/Admin. */
+  private ownClassIds: number[] = [];
+
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
   protected readonly users = signal<AppUser[]>([]);
+  protected readonly parents = signal<ParentUser[]>([]);
   protected readonly links = signal<ParentStudentLink[]>([]);
   protected readonly countries = signal<Country[]>([]);
   protected readonly municipalitySuggestions = signal<Municipality[]>([]);
+
+  protected readonly activeTab = signal('classes');
+
+  protected readonly newClassDialogVisible = signal(false);
+  protected readonly newSubjectDialogVisible = signal(false);
+  protected readonly newStudentDialogVisible = signal(false);
+  protected readonly newUserDialogVisible = signal(false);
 
   protected readonly roleOptions = ROLE_OPTIONS;
   protected readonly genderOptions = GENDER_OPTIONS;
@@ -133,6 +176,16 @@ export class AdminPage {
   protected readonly teacherOptions = computed(() =>
     this.users().filter((u) => u.role === 'Teacher'),
   );
+
+  /** Parent↔student link form's "Rodič" picker — Admin picks from the full
+   * `users()` list (unchanged from before; not restricted to Parent role,
+   * a pre-existing looseness out of scope here), a class teacher only ever
+   * has the narrow name-only `parents()` list (`UsersApiService` is
+   * Admin-only) — both shapes carry `id`/`username`, which is all the
+   * picker needs. */
+  protected readonly linkUserOptions = computed<
+    { id: number; username: string }[]
+  >(() => (this.accessLevel() === 'admin' ? this.users() : this.parents()));
 
   /** Students pickable for a new/edited Student-role account — excludes
    * students that already have one, except the student currently linked to
@@ -253,11 +306,86 @@ export class AdminPage {
   protected readonly error = signal<string | null>(null);
 
   constructor() {
-    this.reloadAll();
-    this.loadMySchool();
-    this.referenceApi.getCountries().subscribe({
-      next: (countries) => this.countries.set(countries),
-      error: (err) => console.error('getCountries failed', err),
+    if (this.authApi.isAdmin()) {
+      this.accessLevel.set('admin');
+      this.reload();
+      this.loadMySchool();
+      this.referenceApi.getCountries().subscribe({
+        next: (countries) => this.countries.set(countries),
+        error: (err) => console.error('getCountries failed', err),
+      });
+    } else if (this.authApi.isTeacher()) {
+      this.resolveClassTeacherAccess();
+    } else {
+      this.accessLevel.set('denied');
+    }
+  }
+
+  /** A Teacher only gets into this page at all as the class teacher
+   * (`SchoolClass.classTeacherId`) of at least one class — resolved
+   * client-side from the already-unrestricted `GET /api/school-classes`
+   * read (same call Admin's full view makes), not a dedicated "am I a
+   * class teacher" endpoint. A Teacher who owns no class is denied, same
+   * as any other non-Admin landing here directly. */
+  private resolveClassTeacherAccess(): void {
+    this.schoolClassesApi.getSchoolClasses().subscribe({
+      next: (classes) => {
+        const myId = this.authApi.getUserId();
+        this.ownClassIds = classes
+          .filter((c) => c.classTeacherId === myId)
+          .map((c) => c.id);
+        if (this.ownClassIds.length === 0) {
+          this.accessLevel.set('denied');
+          return;
+        }
+        this.accessLevel.set('classTeacher');
+        this.schoolClasses.set(
+          classes.filter((c) => this.ownClassIds.includes(c.id)),
+        );
+        this.reloadClassTeacherData();
+      },
+      error: (err) => {
+        console.error('getSchoolClasses failed', err);
+        this.accessLevel.set('denied');
+      },
+    });
+  }
+
+  /** Dispatches to whichever reload matches the resolved access level —
+   * every mutation handler below (addStudent, addLink, ...) calls this
+   * rather than `reloadAll`/`reloadClassTeacherData` directly, so the same
+   * handler works correctly regardless of which view is active. */
+  private reload(): void {
+    if (this.accessLevel() === 'classTeacher') {
+      this.reloadClassTeacherData();
+    } else {
+      this.reloadAll();
+    }
+  }
+
+  private reloadClassTeacherData(): void {
+    this.studentsApi.getStudents().subscribe({
+      next: (students) => {
+        const scoped = students.filter((s) =>
+          this.ownClassIds.includes(s.schoolClassId),
+        );
+        this.students.set(scoped);
+        this.newStudentSchoolClassId ??= this.ownClassIds[0] ?? null;
+      },
+      error: (err) => console.error('getStudents failed', err),
+    });
+    // Already scoped server-side for a Teacher caller — see
+    // ParentStudentsController.GetLinks.
+    this.parentStudentsApi.getLinks().subscribe({
+      next: (links) => this.links.set(links),
+      error: (err) => console.error('getLinks failed', err),
+    });
+    this.parentsApi.getParents().subscribe({
+      next: (parents) => {
+        this.parents.set(parents);
+        this.newLinkUserId ??= parents[0]?.id ?? null;
+      },
+      error: (err) => console.error('getParents failed', err),
     });
   }
 
@@ -267,10 +395,6 @@ export class AdminPage {
       next: (results) => this.municipalitySuggestions.set(results),
       error: (err) => console.error('searchMunicipalities failed', err),
     });
-  }
-
-  protected isAdmin(): boolean {
-    return this.authApi.isAdmin();
   }
 
   protected classTeacherName(classTeacherId: number | null): string {
@@ -356,7 +480,8 @@ export class AdminPage {
           this.newSchoolClassRocnik = null;
           this.newSchoolClassTeacherId = null;
           this.newSchoolClassTeachingLanguage = '';
-          this.reloadAll();
+          this.newClassDialogVisible.set(false);
+          this.reload();
         },
         error: (err) => this.showError('addSchoolClass failed', err),
       });
@@ -391,7 +516,7 @@ export class AdminPage {
       .subscribe({
         next: () => {
           this.editingSchoolClassId = null;
-          this.reloadAll();
+          this.reload();
         },
         error: (err) => this.showError('updateSchoolClass failed', err),
       });
@@ -399,7 +524,7 @@ export class AdminPage {
 
   protected deleteSchoolClass(schoolClass: SchoolClass): void {
     this.schoolClassesApi.deleteSchoolClass(schoolClass.id).subscribe({
-      next: () => this.reloadAll(),
+      next: () => this.reload(),
       error: (err) => this.showError('deleteSchoolClass failed', err),
     });
   }
@@ -419,7 +544,8 @@ export class AdminPage {
           this.newSubjectName = '';
           this.newSubjectAbbreviation = '';
           this.newSubjectColor = null;
-          this.reloadAll();
+          this.newSubjectDialogVisible.set(false);
+          this.reload();
         },
         error: (err) => this.showError('addSubject failed', err),
       });
@@ -449,7 +575,7 @@ export class AdminPage {
       .subscribe({
         next: () => {
           this.editingSubjectId = null;
-          this.reloadAll();
+          this.reload();
         },
         error: (err) => this.showError('updateSubject failed', err),
       });
@@ -457,7 +583,7 @@ export class AdminPage {
 
   protected deleteSubject(subject: Subject): void {
     this.subjectsApi.deleteSubject(subject.id).subscribe({
-      next: () => this.reloadAll(),
+      next: () => this.reload(),
       error: (err) => this.showError('deleteSubject failed', err),
     });
   }
@@ -504,7 +630,8 @@ export class AdminPage {
           this.newStudentEnrollmentDate = '';
           this.newStudentContactPhone = '';
           this.newStudentContactEmail = '';
-          this.reloadAll();
+          this.newStudentDialogVisible.set(false);
+          this.reload();
         },
         error: (err) => this.showError('addStudent failed', err),
       });
@@ -569,7 +696,7 @@ export class AdminPage {
       .subscribe({
         next: () => {
           this.editingStudentId = null;
-          this.reloadAll();
+          this.reload();
         },
         error: (err) => this.showError('updateStudent failed', err),
       });
@@ -587,7 +714,7 @@ export class AdminPage {
       return;
     }
     this.studentsApi.deleteStudent(student.id).subscribe({
-      next: () => this.reloadAll(),
+      next: () => this.reload(),
       error: (err) => this.showError('deleteStudent failed', err),
     });
   }
@@ -614,7 +741,8 @@ export class AdminPage {
         this.newUserPhone = '';
         this.newUserEmail = '';
         this.newUserStudentId = null;
-        this.reloadAll();
+        this.newUserDialogVisible.set(false);
+        this.reload();
       },
       error: (err) => this.showError('addUser failed', err),
     });
@@ -652,7 +780,7 @@ export class AdminPage {
     this.usersApi.updateUser(this.editingUserId, request).subscribe({
       next: () => {
         this.editingUserId = null;
-        this.reloadAll();
+        this.reload();
       },
       error: (err) => this.showError('updateUser failed', err),
     });
@@ -661,7 +789,7 @@ export class AdminPage {
   /** Backend rejects (400) deleting yourself or the school's last Admin. */
   protected deleteUser(user: AppUser): void {
     this.usersApi.deleteUser(user.id).subscribe({
-      next: () => this.reloadAll(),
+      next: () => this.reload(),
       error: (err) => this.showError('deleteUser failed', err),
     });
   }
@@ -673,14 +801,14 @@ export class AdminPage {
     this.parentStudentsApi
       .addLink({ userId: this.newLinkUserId, studentId: this.newLinkStudentId })
       .subscribe({
-        next: () => this.reloadAll(),
+        next: () => this.reload(),
         error: (err) => this.showError('addLink failed', err),
       });
   }
 
   protected removeLink(link: ParentStudentLink): void {
     this.parentStudentsApi.removeLink(link.userId, link.studentId).subscribe({
-      next: () => this.reloadAll(),
+      next: () => this.reload(),
       error: (err) => this.showError('removeLink failed', err),
     });
   }

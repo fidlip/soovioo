@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,11 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Unknown schoolClassId.");
         }
 
+        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), request.SchoolClassId))
+        {
+            return Forbid();
+        }
+
         var student = new Student
         {
             FirstName = request.FirstName,
@@ -90,6 +96,19 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Unknown schoolClassId.");
         }
 
+        if (!User.IsInRole(nameof(UserRole.Admin)))
+        {
+            var teacherId = CurrentUserId();
+            // Both the student's current class and the (possibly different)
+            // target class must be the teacher's own — otherwise either side
+            // of the move could reach outside their class.
+            if (!await db.IsClassTeacherOfAsync(teacherId, student.SchoolClassId)
+                || !await db.IsClassTeacherOfAsync(teacherId, request.SchoolClassId))
+            {
+                return Forbid();
+            }
+        }
+
         student.FirstName = request.FirstName;
         student.LastName = request.LastName;
         student.SchoolClassId = request.SchoolClassId;
@@ -125,6 +144,11 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
+        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
+        {
+            return Forbid();
+        }
+
         db.Grades.RemoveRange(db.Grades.Where(g => g.StudentId == id));
         db.Absences.RemoveRange(db.Absences.Where(a => a.StudentId == id));
         db.Messages.RemoveRange(db.Messages.Where(m => m.StudentId == id));
@@ -150,6 +174,8 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     // navigation properties, since student.Country/student.Municipality
     // aren't populated after Add/Update without an extra Include — these
     // two single-row lookups are cheaper than that.
+    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     private async Task<StudentDto> ToDtoAsync(Student student, string schoolClassName)
     {
         var countryName = student.CountryCode is null

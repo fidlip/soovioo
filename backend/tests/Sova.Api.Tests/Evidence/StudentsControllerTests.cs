@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Attendance;
@@ -22,6 +24,20 @@ public class StudentsControllerTests
         return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
     }
 
+    private static StudentsController NewController(AppDbContext db, int currentUserId, string role = "Admin")
+    {
+        var identity = new ClaimsIdentity([
+            new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString()), new Claim(ClaimTypes.Role, role),
+        ]);
+        return new StudentsController(db, new FakeCurrentSchoolContext(SchoolId))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+            },
+        };
+    }
+
     [Fact]
     public async Task UpdateStudentChangesFieldsAndClass()
     {
@@ -34,7 +50,7 @@ public class StudentsControllerTests
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        var result = await new StudentsController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await NewController(db, 999)
             .UpdateStudent(student.Id, new CreateStudentRequest("Honza", "Novák", classB.Id));
 
         var dto = Assert.IsType<StudentDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -63,7 +79,7 @@ public class StudentsControllerTests
         db.ParentStudents.Add(new ParentStudent { StudentId = student.Id, UserId = parent.Id, SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
-        var result = await new StudentsController(db, new FakeCurrentSchoolContext(SchoolId)).DeleteStudent(student.Id);
+        var result = await NewController(db, 999).DeleteStudent(student.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Students.FindAsync(student.Id));
@@ -89,7 +105,7 @@ public class StudentsControllerTests
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        var result = await new StudentsController(db, new FakeCurrentSchoolContext(SchoolId)).DeleteStudent(student.Id);
+        var result = await NewController(db, 999).DeleteStudent(student.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Users.FindAsync(studentUser.Id));
@@ -109,12 +125,89 @@ public class StudentsControllerTests
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        var result = await new StudentsController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await NewController(db, 999)
             .UpdateStudent(student.Id, new CreateStudentRequest(
                 "Jan", "Novák", schoolClass.Id, CountryCode: "203", MunicipalityCode: "500054"));
 
         var dto = Assert.IsType<StudentDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal("Česká republika", dto.CountryName);
         Assert.Equal("Praha 1", dto.MunicipalityName);
+    }
+
+    [Fact]
+    public async Task ClassTeacherCanAddStudentToTheirOwnClass()
+    {
+        using var db = NewDb();
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+        var ownClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
+        db.SchoolClasses.Add(ownClass);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, teacher.Id, "Teacher")
+            .AddStudent(new CreateStudentRequest("Jan", "Novák", ownClass.Id));
+
+        Assert.IsType<CreatedAtActionResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task NonClassTeacherCannotAddStudentToAnyClass()
+    {
+        using var db = NewDb();
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+        // Not the class teacher of this class — just an ordinary Teacher.
+        var otherClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        db.SchoolClasses.Add(otherClass);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, teacher.Id, "Teacher")
+            .AddStudent(new CreateStudentRequest("Jan", "Novák", otherClass.Id));
+
+        Assert.IsType<ForbidResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task ClassTeacherCannotMoveAStudentIntoAClassTheyDoNotOwn()
+    {
+        using var db = NewDb();
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+        var ownClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
+        var otherClass = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
+        db.SchoolClasses.AddRange(ownClass, otherClass);
+        await db.SaveChangesAsync();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = ownClass.Id, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, teacher.Id, "Teacher")
+            .UpdateStudent(student.Id, new CreateStudentRequest("Jan", "Novák", otherClass.Id));
+
+        Assert.IsType<ForbidResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task ClassTeacherCannotDeleteAStudentFromAnotherClass()
+    {
+        using var db = NewDb();
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+        db.SchoolClasses.Add(new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id });
+        var otherClass = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
+        db.SchoolClasses.Add(otherClass);
+        await db.SaveChangesAsync();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = otherClass.Id, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, teacher.Id, "Teacher").DeleteStudent(student.Id);
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.NotNull(await db.Students.FindAsync(student.Id));
     }
 }
