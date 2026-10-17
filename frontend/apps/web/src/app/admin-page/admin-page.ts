@@ -12,6 +12,7 @@ import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
+import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Password } from '@openng/optimus-ui/password';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
@@ -23,6 +24,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
+import { forkJoin, Observable } from 'rxjs';
 import {
   AppUser,
   AuthApiService,
@@ -108,6 +110,7 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
     InputNumber,
     InputText,
     Message,
+    MultiSelect,
     NgTemplateOutlet,
     Password,
     PrimeTemplate,
@@ -157,6 +160,7 @@ export class AdminPage {
   protected readonly newSubjectDialogVisible = signal(false);
   protected readonly newStudentDialogVisible = signal(false);
   protected readonly newUserDialogVisible = signal(false);
+  protected readonly editParentChildrenDialogVisible = signal(false);
 
   protected readonly roleOptions = ROLE_OPTIONS;
   protected readonly genderOptions = GENDER_OPTIONS;
@@ -177,15 +181,21 @@ export class AdminPage {
     this.users().filter((u) => u.role === 'Teacher'),
   );
 
-  /** Parent↔student link form's "Rodič" picker — Admin picks from the full
-   * `users()` list (unchanged from before; not restricted to Parent role,
-   * a pre-existing looseness out of scope here), a class teacher only ever
-   * has the narrow name-only `parents()` list (`UsersApiService` is
-   * Admin-only) — both shapes carry `id`/`username`, which is all the
-   * picker needs. */
-  protected readonly linkUserOptions = computed<
-    { id: number; username: string }[]
-  >(() => (this.accessLevel() === 'admin' ? this.users() : this.parents()));
+  /** "Rodiče" overview list — Admin sees every Parent-role account; a class
+   * teacher only sees ones already linked to one of their own-class
+   * students (their `links()` is already server-scoped — see
+   * ParentStudentsController.GetLinks), so an unrelated parent elsewhere in
+   * the school isn't shown. The multi-select picker *inside* the dialogs
+   * below (both directions) always uses the full `parents()` — scoping
+   * there is enforced by the backend per student, not by hiding the parent
+   * account from the picker. */
+  protected readonly visibleParents = computed(() =>
+    this.accessLevel() === 'admin'
+      ? this.parents()
+      : this.parents().filter((p) =>
+          this.links().some((l) => l.userId === p.id),
+        ),
+  );
 
   /** Students pickable for a new/edited Student-role account — excludes
    * students that already have one, except the student currently linked to
@@ -209,6 +219,10 @@ export class AdminPage {
     return this.studentOptions().filter((s) => !linkedElsewhere.has(s.id));
   }
 
+  // The "new…" fields below double as the dialog's form state for BOTH
+  // adding and editing — one dialog, one set of fields, same pattern as
+  // Rozvrh's "Nová hodina"/"Upravit hodinu" dialog. Which mode it's in is
+  // just "is editingXId null" (see openAddXDialog/startEditX/saveX below).
   protected newSchoolClassName = '';
   protected newSchoolClassRocnik: number | null = null;
   protected newSchoolClassTeacherId: number | null = null;
@@ -245,44 +259,25 @@ export class AdminPage {
   protected filterStudentGender: Gender | null = null;
   protected filterUserRole: string | null = null;
 
-  protected newLinkUserId: number | null = null;
-  protected newLinkStudentId: number | null = null;
-
+  // null = the dialog is in "add" mode; a row id = it's editing that row.
   protected editingSchoolClassId: number | null = null;
-  protected editSchoolClassName = '';
-  protected editSchoolClassRocnik: number | null = null;
-  protected editSchoolClassTeacherId: number | null = null;
-  protected editSchoolClassTeachingLanguage = '';
-
   protected editingSubjectId: number | null = null;
-  protected editSubjectName = '';
-  protected editSubjectAbbreviation = '';
-  protected editSubjectColor: string | null = null;
-
   protected editingStudentId: number | null = null;
-  protected editStudentFirstName = '';
-  protected editStudentLastName = '';
-  protected editStudentSchoolClassId: number | null = null;
-  protected editStudentRodneCislo = '';
-  protected editStudentDateOfBirth = '';
-  protected editStudentGender: Gender | null = null;
-  protected editStudentCitizenshipQualifier: string | null = null;
-  protected editStudentCountryCode: string | null = null;
-  protected editStudentStreet = '';
-  protected editStudentMunicipality: Municipality | null = null;
-  protected editStudentPostalCode = '';
-  protected editStudentCatchmentArea = false;
-  protected editStudentEnrollmentDate = '';
-  protected editStudentContactPhone = '';
-  protected editStudentContactEmail = '';
-
   protected editingUserId: number | null = null;
-  protected editUsername = '';
-  protected editUserRole = 'Parent';
-  protected editUserPassword = '';
-  protected editUserPhone = '';
-  protected editUserEmail = '';
-  protected editUserStudentId: number | null = null;
+
+  /** Multi-select state for the Student dialog's "Rodiče" field — only
+   * meaningful (and only shown) when editing an existing student
+   * (editingStudentId !== null); a brand new student has no id yet to
+   * attach ParentStudent links to. */
+  protected editingStudentParentIds: number[] = [];
+
+  /** "Rodiče" section's own edit dialog — null editingParentId means the
+   * dialog isn't open (unlike the other entities above, there's no "add a
+   * parent" mode here: a Parent-role account is created from the
+   * Uživatelé tab like any other user, this dialog only ever edits an
+   * existing one's children). */
+  protected editingParentId: number | null = null;
+  protected editingParentChildIds: number[] = [];
 
   protected readonly schoolStreet = signal('');
   protected readonly schoolCity = signal('');
@@ -381,10 +376,7 @@ export class AdminPage {
       error: (err) => console.error('getLinks failed', err),
     });
     this.parentsApi.getParents().subscribe({
-      next: (parents) => {
-        this.parents.set(parents);
-        this.newLinkUserId ??= parents[0]?.id ?? null;
-      },
+      next: (parents) => this.parents.set(parents),
       error: (err) => console.error('getParents failed', err),
     });
   }
@@ -410,6 +402,26 @@ export class AdminPage {
     }
     const student = this.students().find((s) => s.id === studentId);
     return student ? `${student.firstName} ${student.lastName}` : '—';
+  }
+
+  /** All parents assigned to a student, joined on one line — no limit on
+   * how many (grandparents, step-parents...), so the caller (the Studenti
+   * table) truncates with an ellipsis + title tooltip rather than this
+   * method itself picking a cutoff. */
+  protected studentParentNames(studentId: number): string {
+    const names = this.links()
+      .filter((l) => l.studentId === studentId)
+      .map((l) => l.username);
+    return names.length > 0 ? names.join(', ') : '—';
+  }
+
+  /** Mirror of studentParentNames() for the Rodiče table — all children
+   * assigned to a parent, joined on one line. */
+  protected parentChildNames(userId: number): string {
+    const names = this.links()
+      .filter((l) => l.userId === userId)
+      .map((l) => l.studentName);
+    return names.length > 0 ? names.join(', ') : '—';
   }
 
   protected filteredStudents(): Student[] {
@@ -451,75 +463,62 @@ export class AdminPage {
       error: (err) => console.error('getSubjects failed', err),
     });
     this.usersApi.getUsers().subscribe({
-      next: (users) => {
-        this.users.set(users);
-        this.newLinkUserId ??= users[0]?.id ?? null;
-      },
+      next: (users) => this.users.set(users),
       error: (err) => console.error('getUsers failed', err),
     });
     this.parentStudentsApi.getLinks().subscribe({
       next: (links) => this.links.set(links),
       error: (err) => console.error('getLinks failed', err),
     });
+    this.parentsApi.getParents().subscribe({
+      next: (parents) => this.parents.set(parents),
+      error: (err) => console.error('getParents failed', err),
+    });
   }
 
-  protected addSchoolClass(): void {
-    if (!this.newSchoolClassName.trim()) {
-      return;
-    }
-    this.schoolClassesApi
-      .addSchoolClass({
-        name: this.newSchoolClassName,
-        rocnik: this.newSchoolClassRocnik ?? undefined,
-        classTeacherId: this.newSchoolClassTeacherId ?? undefined,
-        teachingLanguage: this.newSchoolClassTeachingLanguage || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.newSchoolClassName = '';
-          this.newSchoolClassRocnik = null;
-          this.newSchoolClassTeacherId = null;
-          this.newSchoolClassTeachingLanguage = '';
-          this.newClassDialogVisible.set(false);
-          this.reload();
-        },
-        error: (err) => this.showError('addSchoolClass failed', err),
-      });
+  protected openAddClassDialog(): void {
+    this.editingSchoolClassId = null;
+    this.newSchoolClassName = '';
+    this.newSchoolClassRocnik = null;
+    this.newSchoolClassTeacherId = null;
+    this.newSchoolClassTeachingLanguage = '';
+    this.newClassDialogVisible.set(true);
   }
 
   protected startEditSchoolClass(schoolClass: SchoolClass): void {
     this.editingSchoolClassId = schoolClass.id;
-    this.editSchoolClassName = schoolClass.name;
-    this.editSchoolClassRocnik = schoolClass.rocnik;
-    this.editSchoolClassTeacherId = schoolClass.classTeacherId;
-    this.editSchoolClassTeachingLanguage = schoolClass.teachingLanguage ?? '';
+    this.newSchoolClassName = schoolClass.name;
+    this.newSchoolClassRocnik = schoolClass.rocnik;
+    this.newSchoolClassTeacherId = schoolClass.classTeacherId;
+    this.newSchoolClassTeachingLanguage = schoolClass.teachingLanguage ?? '';
+    this.newClassDialogVisible.set(true);
   }
 
-  protected cancelEditSchoolClass(): void {
-    this.editingSchoolClassId = null;
-  }
-
-  protected saveEditSchoolClass(): void {
-    if (
-      this.editingSchoolClassId === null ||
-      !this.editSchoolClassName.trim()
-    ) {
+  protected saveSchoolClass(): void {
+    if (!this.newSchoolClassName.trim()) {
       return;
     }
-    this.schoolClassesApi
-      .updateSchoolClass(this.editingSchoolClassId, {
-        name: this.editSchoolClassName,
-        rocnik: this.editSchoolClassRocnik ?? undefined,
-        classTeacherId: this.editSchoolClassTeacherId ?? undefined,
-        teachingLanguage: this.editSchoolClassTeachingLanguage || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.editingSchoolClassId = null;
-          this.reload();
-        },
-        error: (err) => this.showError('updateSchoolClass failed', err),
-      });
+    const request = {
+      name: this.newSchoolClassName,
+      rocnik: this.newSchoolClassRocnik ?? undefined,
+      classTeacherId: this.newSchoolClassTeacherId ?? undefined,
+      teachingLanguage: this.newSchoolClassTeachingLanguage || undefined,
+    };
+    const result =
+      this.editingSchoolClassId === null
+        ? this.schoolClassesApi.addSchoolClass(request)
+        : this.schoolClassesApi.updateSchoolClass(
+            this.editingSchoolClassId,
+            request,
+          );
+    result.subscribe({
+      next: () => {
+        this.newClassDialogVisible.set(false);
+        this.editingSchoolClassId = null;
+        this.reload();
+      },
+      error: (err) => this.showError('saveSchoolClass failed', err),
+    });
   }
 
   protected deleteSchoolClass(schoolClass: SchoolClass): void {
@@ -529,56 +528,43 @@ export class AdminPage {
     });
   }
 
-  protected addSubject(): void {
-    if (!this.newSubjectName.trim()) {
-      return;
-    }
-    this.subjectsApi
-      .addSubject({
-        name: this.newSubjectName,
-        abbreviation: this.newSubjectAbbreviation || undefined,
-        color: this.newSubjectColor || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.newSubjectName = '';
-          this.newSubjectAbbreviation = '';
-          this.newSubjectColor = null;
-          this.newSubjectDialogVisible.set(false);
-          this.reload();
-        },
-        error: (err) => this.showError('addSubject failed', err),
-      });
+  protected openAddSubjectDialog(): void {
+    this.editingSubjectId = null;
+    this.newSubjectName = '';
+    this.newSubjectAbbreviation = '';
+    this.newSubjectColor = null;
+    this.newSubjectDialogVisible.set(true);
   }
 
   protected startEditSubject(subject: Subject): void {
     this.editingSubjectId = subject.id;
-    this.editSubjectName = subject.name;
-    this.editSubjectAbbreviation = subject.abbreviation ?? '';
-    this.editSubjectColor = subject.color;
+    this.newSubjectName = subject.name;
+    this.newSubjectAbbreviation = subject.abbreviation ?? '';
+    this.newSubjectColor = subject.color;
+    this.newSubjectDialogVisible.set(true);
   }
 
-  protected cancelEditSubject(): void {
-    this.editingSubjectId = null;
-  }
-
-  protected saveEditSubject(): void {
-    if (this.editingSubjectId === null || !this.editSubjectName.trim()) {
+  protected saveSubject(): void {
+    if (!this.newSubjectName.trim()) {
       return;
     }
-    this.subjectsApi
-      .updateSubject(this.editingSubjectId, {
-        name: this.editSubjectName,
-        abbreviation: this.editSubjectAbbreviation || undefined,
-        color: this.editSubjectColor || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.editingSubjectId = null;
-          this.reload();
-        },
-        error: (err) => this.showError('updateSubject failed', err),
-      });
+    const request = {
+      name: this.newSubjectName,
+      abbreviation: this.newSubjectAbbreviation || undefined,
+      color: this.newSubjectColor || undefined,
+    };
+    const result =
+      this.editingSubjectId === null
+        ? this.subjectsApi.addSubject(request)
+        : this.subjectsApi.updateSubject(this.editingSubjectId, request);
+    result.subscribe({
+      next: () => {
+        this.newSubjectDialogVisible.set(false);
+        this.editingSubjectId = null;
+        this.reload();
+      },
+      error: (err) => this.showError('saveSubject failed', err),
+    });
   }
 
   protected deleteSubject(subject: Subject): void {
@@ -588,7 +574,57 @@ export class AdminPage {
     });
   }
 
-  protected addStudent(): void {
+  protected openAddStudentDialog(): void {
+    this.editingStudentId = null;
+    this.newStudentFirstName = '';
+    this.newStudentLastName = '';
+    this.newStudentSchoolClassId = this.schoolClasses()[0]?.id ?? null;
+    this.newStudentRodneCislo = '';
+    this.newStudentDateOfBirth = '';
+    this.newStudentGender = null;
+    this.newStudentCitizenshipQualifier = null;
+    this.newStudentCountryCode = null;
+    this.newStudentStreet = '';
+    this.newStudentMunicipality = null;
+    this.newStudentPostalCode = '';
+    this.newStudentCatchmentArea = false;
+    this.newStudentEnrollmentDate = '';
+    this.newStudentContactPhone = '';
+    this.newStudentContactEmail = '';
+    this.editingStudentParentIds = [];
+    this.newStudentDialogVisible.set(true);
+  }
+
+  protected startEditStudent(student: Student): void {
+    this.editingStudentId = student.id;
+    this.editingStudentParentIds = this.links()
+      .filter((l) => l.studentId === student.id)
+      .map((l) => l.userId);
+    this.newStudentFirstName = student.firstName;
+    this.newStudentLastName = student.lastName;
+    this.newStudentSchoolClassId = student.schoolClassId;
+    this.newStudentRodneCislo = student.rodneCislo ?? '';
+    this.newStudentDateOfBirth = student.dateOfBirth ?? '';
+    this.newStudentGender = student.gender;
+    this.newStudentCitizenshipQualifier = student.citizenshipQualifier;
+    this.newStudentCountryCode = student.countryCode;
+    this.newStudentStreet = student.street ?? '';
+    this.newStudentMunicipality = student.municipalityCode
+      ? {
+          code: student.municipalityCode,
+          name: student.municipalityName ?? student.municipalityCode,
+          districtCode: '',
+        }
+      : null;
+    this.newStudentPostalCode = student.postalCode ?? '';
+    this.newStudentCatchmentArea = student.catchmentArea ?? false;
+    this.newStudentEnrollmentDate = student.enrollmentDate ?? '';
+    this.newStudentContactPhone = student.contactPhone ?? '';
+    this.newStudentContactEmail = student.contactEmail ?? '';
+    this.newStudentDialogVisible.set(true);
+  }
+
+  protected saveStudent(): void {
     if (
       !this.newStudentFirstName.trim() ||
       !this.newStudentLastName.trim() ||
@@ -596,110 +632,63 @@ export class AdminPage {
     ) {
       return;
     }
-    this.studentsApi
-      .addStudent({
-        firstName: this.newStudentFirstName,
-        lastName: this.newStudentLastName,
-        schoolClassId: this.newStudentSchoolClassId,
-        rodneCislo: this.newStudentRodneCislo || undefined,
-        dateOfBirth: this.newStudentDateOfBirth || undefined,
-        gender: this.newStudentGender ?? undefined,
-        citizenshipQualifier: this.newStudentCitizenshipQualifier || undefined,
-        countryCode: this.newStudentCountryCode || undefined,
-        street: this.newStudentStreet || undefined,
-        municipalityCode: this.newStudentMunicipality?.code || undefined,
-        postalCode: this.newStudentPostalCode || undefined,
-        catchmentArea: this.newStudentCatchmentArea || undefined,
-        enrollmentDate: this.newStudentEnrollmentDate || undefined,
-        contactPhone: this.newStudentContactPhone || undefined,
-        contactEmail: this.newStudentContactEmail || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.newStudentFirstName = '';
-          this.newStudentLastName = '';
-          this.newStudentRodneCislo = '';
-          this.newStudentDateOfBirth = '';
-          this.newStudentGender = null;
-          this.newStudentCitizenshipQualifier = null;
-          this.newStudentCountryCode = null;
-          this.newStudentStreet = '';
-          this.newStudentMunicipality = null;
-          this.newStudentPostalCode = '';
-          this.newStudentCatchmentArea = false;
-          this.newStudentEnrollmentDate = '';
-          this.newStudentContactPhone = '';
-          this.newStudentContactEmail = '';
+    const request = {
+      firstName: this.newStudentFirstName,
+      lastName: this.newStudentLastName,
+      schoolClassId: this.newStudentSchoolClassId,
+      rodneCislo: this.newStudentRodneCislo || undefined,
+      dateOfBirth: this.newStudentDateOfBirth || undefined,
+      gender: this.newStudentGender ?? undefined,
+      citizenshipQualifier: this.newStudentCitizenshipQualifier || undefined,
+      countryCode: this.newStudentCountryCode || undefined,
+      street: this.newStudentStreet || undefined,
+      municipalityCode: this.newStudentMunicipality?.code || undefined,
+      postalCode: this.newStudentPostalCode || undefined,
+      catchmentArea: this.newStudentCatchmentArea || undefined,
+      enrollmentDate: this.newStudentEnrollmentDate || undefined,
+      contactPhone: this.newStudentContactPhone || undefined,
+      contactEmail: this.newStudentContactEmail || undefined,
+    };
+    const editingId = this.editingStudentId;
+    const result =
+      editingId === null
+        ? this.studentsApi.addStudent(request)
+        : this.studentsApi.updateStudent(editingId, request);
+    result.subscribe({
+      next: () => {
+        if (editingId === null) {
+          // A brand new student has no id yet to attach ParentStudent links
+          // to — the "Rodiče" field is hidden for "add" (see the dialog
+          // template), so there's never anything to diff here.
           this.newStudentDialogVisible.set(false);
           this.reload();
-        },
-        error: (err) => this.showError('addStudent failed', err),
-      });
-  }
-
-  protected startEditStudent(student: Student): void {
-    this.editingStudentId = student.id;
-    this.editStudentFirstName = student.firstName;
-    this.editStudentLastName = student.lastName;
-    this.editStudentSchoolClassId = student.schoolClassId;
-    this.editStudentRodneCislo = student.rodneCislo ?? '';
-    this.editStudentDateOfBirth = student.dateOfBirth ?? '';
-    this.editStudentGender = student.gender;
-    this.editStudentCitizenshipQualifier = student.citizenshipQualifier;
-    this.editStudentCountryCode = student.countryCode;
-    this.editStudentStreet = student.street ?? '';
-    this.editStudentMunicipality = student.municipalityCode
-      ? {
-          code: student.municipalityCode,
-          name: student.municipalityName ?? student.municipalityCode,
-          districtCode: '',
+          return;
         }
-      : null;
-    this.editStudentPostalCode = student.postalCode ?? '';
-    this.editStudentCatchmentArea = student.catchmentArea ?? false;
-    this.editStudentEnrollmentDate = student.enrollmentDate ?? '';
-    this.editStudentContactPhone = student.contactPhone ?? '';
-    this.editStudentContactEmail = student.contactEmail ?? '';
-  }
-
-  protected cancelEditStudent(): void {
-    this.editingStudentId = null;
-  }
-
-  protected saveEditStudent(): void {
-    if (
-      this.editingStudentId === null ||
-      !this.editStudentFirstName.trim() ||
-      !this.editStudentLastName.trim() ||
-      !this.editStudentSchoolClassId
-    ) {
-      return;
-    }
-    this.studentsApi
-      .updateStudent(this.editingStudentId, {
-        firstName: this.editStudentFirstName,
-        lastName: this.editStudentLastName,
-        schoolClassId: this.editStudentSchoolClassId,
-        rodneCislo: this.editStudentRodneCislo || undefined,
-        dateOfBirth: this.editStudentDateOfBirth || undefined,
-        gender: this.editStudentGender ?? undefined,
-        citizenshipQualifier: this.editStudentCitizenshipQualifier || undefined,
-        countryCode: this.editStudentCountryCode || undefined,
-        street: this.editStudentStreet || undefined,
-        municipalityCode: this.editStudentMunicipality?.code || undefined,
-        postalCode: this.editStudentPostalCode || undefined,
-        catchmentArea: this.editStudentCatchmentArea || undefined,
-        enrollmentDate: this.editStudentEnrollmentDate || undefined,
-        contactPhone: this.editStudentContactPhone || undefined,
-        contactEmail: this.editStudentContactEmail || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.editingStudentId = null;
-          this.reload();
-        },
-        error: (err) => this.showError('updateStudent failed', err),
-      });
+        const currentParentIds = this.links()
+          .filter((l) => l.studentId === editingId)
+          .map((l) => l.userId);
+        const toAdd = this.editingStudentParentIds.filter(
+          (id) => !currentParentIds.includes(id),
+        );
+        const toRemove = currentParentIds.filter(
+          (id) => !this.editingStudentParentIds.includes(id),
+        );
+        this.applyLinkChanges(
+          toAdd.map((userId) =>
+            this.parentStudentsApi.addLink({ userId, studentId: editingId }),
+          ),
+          toRemove.map((userId) =>
+            this.parentStudentsApi.removeLink(userId, editingId),
+          ),
+          () => {
+            this.newStudentDialogVisible.set(false);
+            this.editingStudentId = null;
+            this.reload();
+          },
+        );
+      },
+      error: (err) => this.showError('saveStudent failed', err),
+    });
   }
 
   /** Also removes the student's grades, absences, messages and parent
@@ -719,66 +708,70 @@ export class AdminPage {
     });
   }
 
-  protected addUser(): void {
-    if (!this.newUsername.trim() || !this.newPassword.trim()) {
-      return;
-    }
-    const request: CreateUserRequest = {
-      username: this.newUsername,
-      password: this.newPassword,
-      role: this.newUserRole,
-      phone: this.newUserPhone || undefined,
-      email: this.newUserEmail || undefined,
-      studentId:
-        this.newUserRole === 'Student'
-          ? (this.newUserStudentId ?? undefined)
-          : undefined,
-    };
-    this.usersApi.addUser(request).subscribe({
-      next: () => {
-        this.newUsername = '';
-        this.newPassword = '';
-        this.newUserPhone = '';
-        this.newUserEmail = '';
-        this.newUserStudentId = null;
-        this.newUserDialogVisible.set(false);
-        this.reload();
-      },
-      error: (err) => this.showError('addUser failed', err),
-    });
+  protected openAddUserDialog(): void {
+    this.editingUserId = null;
+    this.newUsername = '';
+    this.newPassword = '';
+    this.newUserRole = 'Parent';
+    this.newUserPhone = '';
+    this.newUserEmail = '';
+    this.newUserStudentId = null;
+    this.newUserDialogVisible.set(true);
   }
 
   protected startEditUser(user: AppUser): void {
     this.editingUserId = user.id;
-    this.editUsername = user.username;
-    this.editUserRole = user.role;
-    this.editUserPassword = '';
-    this.editUserPhone = user.phone ?? '';
-    this.editUserEmail = user.email ?? '';
-    this.editUserStudentId = user.studentId;
+    this.newUsername = user.username;
+    this.newUserRole = user.role;
+    this.newPassword = ''; // left blank = keep the current password
+    this.newUserPhone = user.phone ?? '';
+    this.newUserEmail = user.email ?? '';
+    this.newUserStudentId = user.studentId;
+    this.newUserDialogVisible.set(true);
   }
 
-  protected cancelEditUser(): void {
-    this.editingUserId = null;
-  }
-
-  protected saveEditUser(): void {
-    if (this.editingUserId === null || !this.editUsername.trim()) {
+  protected saveUser(): void {
+    if (!this.newUsername.trim()) {
       return;
     }
+    const studentId =
+      this.newUserRole === 'Student'
+        ? (this.newUserStudentId ?? undefined)
+        : undefined;
+
+    if (this.editingUserId === null) {
+      if (!this.newPassword.trim()) {
+        return;
+      }
+      const request: CreateUserRequest = {
+        username: this.newUsername,
+        password: this.newPassword,
+        role: this.newUserRole,
+        phone: this.newUserPhone || undefined,
+        email: this.newUserEmail || undefined,
+        studentId,
+      };
+      this.usersApi.addUser(request).subscribe({
+        next: () => {
+          this.newUserDialogVisible.set(false);
+          this.reload();
+        },
+        error: (err) => this.showError('addUser failed', err),
+      });
+      return;
+    }
+
     const request: UpdateUserRequest = {
-      username: this.editUsername,
-      role: this.editUserRole,
-      password: this.editUserPassword || undefined,
-      phone: this.editUserPhone || undefined,
-      email: this.editUserEmail || undefined,
-      studentId:
-        this.editUserRole === 'Student'
-          ? (this.editUserStudentId ?? undefined)
-          : undefined,
+      username: this.newUsername,
+      role: this.newUserRole,
+      password: this.newPassword || undefined,
+      phone: this.newUserPhone || undefined,
+      email: this.newUserEmail || undefined,
+      studentId,
     };
     this.usersApi.updateUser(this.editingUserId, request).subscribe({
       next: () => {
+        this.newUserDialogVisible.set(false);
         this.editingUserId = null;
         this.reload();
       },
@@ -794,22 +787,65 @@ export class AdminPage {
     });
   }
 
-  protected addLink(): void {
-    if (!this.newLinkUserId || !this.newLinkStudentId) {
-      return;
-    }
-    this.parentStudentsApi
-      .addLink({ userId: this.newLinkUserId, studentId: this.newLinkStudentId })
-      .subscribe({
-        next: () => this.reload(),
-        error: (err) => this.showError('addLink failed', err),
-      });
+  protected openEditParentChildrenDialog(parent: AppUser): void {
+    this.editingParentId = parent.id;
+    this.editingParentChildIds = this.links()
+      .filter((l) => l.userId === parent.id)
+      .map((l) => l.studentId);
+    this.editParentChildrenDialogVisible.set(true);
   }
 
-  protected removeLink(link: ParentStudentLink): void {
-    this.parentStudentsApi.removeLink(link.userId, link.studentId).subscribe({
-      next: () => this.reload(),
-      error: (err) => this.showError('removeLink failed', err),
+  protected saveParentChildren(): void {
+    if (this.editingParentId === null) {
+      return;
+    }
+    const parentId = this.editingParentId;
+    const currentStudentIds = this.links()
+      .filter((l) => l.userId === parentId)
+      .map((l) => l.studentId);
+    const toAdd = this.editingParentChildIds.filter(
+      (id) => !currentStudentIds.includes(id),
+    );
+    const toRemove = currentStudentIds.filter(
+      (id) => !this.editingParentChildIds.includes(id),
+    );
+    this.applyLinkChanges(
+      [
+        ...toAdd.map((studentId) =>
+          this.parentStudentsApi.addLink({ userId: parentId, studentId }),
+        ),
+      ],
+      [
+        ...toRemove.map((studentId) =>
+          this.parentStudentsApi.removeLink(parentId, studentId),
+        ),
+      ],
+      () => {
+        this.editParentChildrenDialogVisible.set(false);
+        this.editingParentId = null;
+        this.reload();
+      },
+    );
+  }
+
+  /** Runs a batch of ParentStudent add/remove calls (built by the caller,
+   * since "add"/"remove" need different arguments and there's no single
+   * endpoint for "set the full set at once") and reloads once they've all
+   * settled — shared by saveParentChildren() above and saveStudent()'s own
+   * "Rodiče" diff below, so the fan-out/reload plumbing isn't duplicated. */
+  private applyLinkChanges(
+    additions: Observable<unknown>[],
+    removals: Observable<unknown>[],
+    onDone: () => void,
+  ): void {
+    const requests = [...additions, ...removals];
+    if (requests.length === 0) {
+      onDone();
+      return;
+    }
+    forkJoin(requests).subscribe({
+      next: () => onDone(),
+      error: (err) => this.showError('saving parent↔student links failed', err),
     });
   }
 

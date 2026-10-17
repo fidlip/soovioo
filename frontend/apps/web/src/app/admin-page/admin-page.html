@@ -18,7 +18,7 @@
 
 <!-- ============================= STUDENTS (shared by both access levels) ============================= -->
 <ng-template #studentsCard>
-  <p-card header="Žáci">
+  <p-card header="Studenti">
     <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
       <div class="flex flex-wrap items-end gap-2">
         <input
@@ -52,10 +52,10 @@
         />
       </div>
       <p-button
-        label="Nový žák"
+        label="Nový student"
         icon="pi pi-plus"
         size="small"
-        (onClick)="newStudentDialogVisible.set(true)"
+        (onClick)="openAddStudentDialog()"
       />
     </div>
     <p-table [value]="filteredStudents()" dataKey="id" styleClass="mb-4">
@@ -65,166 +65,11 @@
           <th>Třída</th>
           <th>Narození</th>
           <th>Pohlaví</th>
-          <th>Kontakt</th>
+          <th>Rodiče</th>
           <th></th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-student>
-        @if (editingStudentId === student.id) {
-        <tr>
-          <td class="flex gap-1">
-            <input
-              pInputText
-              type="text"
-              [(ngModel)]="editStudentFirstName"
-              name="editStudentFirstName"
-              class="w-20"
-            />
-            <input
-              pInputText
-              type="text"
-              [(ngModel)]="editStudentLastName"
-              name="editStudentLastName"
-              class="w-24"
-            />
-          </td>
-          <td>
-            <p-select
-              [options]="schoolClasses()"
-              optionLabel="name"
-              optionValue="id"
-              [(ngModel)]="editStudentSchoolClassId"
-              name="editStudentSchoolClass"
-              styleClass="w-28"
-            />
-          </td>
-          <td>
-            <input
-              pInputText
-              type="date"
-              [(ngModel)]="editStudentDateOfBirth"
-              name="editStudentDateOfBirth"
-            />
-          </td>
-          <td>
-            <p-select
-              [options]="genderOptions"
-              optionLabel="label"
-              optionValue="value"
-              [(ngModel)]="editStudentGender"
-              name="editStudentGender"
-              styleClass="w-28"
-            />
-          </td>
-          <td>
-            <input
-              pInputText
-              type="tel"
-              [(ngModel)]="editStudentContactPhone"
-              name="editStudentContactPhone"
-              class="w-28"
-            />
-          </td>
-          <td class="flex justify-end gap-1">
-            <p-button
-              icon="pi pi-check"
-              size="small"
-              [text]="true"
-              (onClick)="saveEditStudent()"
-            />
-            <p-button
-              icon="pi pi-times"
-              size="small"
-              severity="secondary"
-              [text]="true"
-              (onClick)="cancelEditStudent()"
-            />
-          </td>
-        </tr>
-        <tr>
-          <td colspan="6">
-            <div class="flex flex-wrap items-end gap-2 pb-2">
-              <input
-                pInputText
-                type="text"
-                placeholder="Rodné číslo"
-                [(ngModel)]="editStudentRodneCislo"
-                name="editStudentRodneCislo"
-              />
-              <p-select
-                [options]="citizenshipQualifierOptions"
-                optionLabel="label"
-                optionValue="value"
-                placeholder="Kvalifikátor občanství"
-                [(ngModel)]="editStudentCitizenshipQualifier"
-                name="editStudentCitizenshipQualifier"
-                [filter]="true"
-                styleClass="w-44"
-              />
-              <p-select
-                [options]="countries()"
-                optionLabel="name"
-                optionValue="code"
-                placeholder="Stát"
-                [(ngModel)]="editStudentCountryCode"
-                name="editStudentCountryCode"
-                [filter]="true"
-                styleClass="w-36"
-              />
-              <input
-                pInputText
-                type="text"
-                placeholder="Ulice"
-                [(ngModel)]="editStudentStreet"
-                name="editStudentStreet"
-              />
-              <p-autoComplete
-                [(ngModel)]="editStudentMunicipality"
-                name="editStudentMunicipality"
-                [suggestions]="municipalitySuggestions()"
-                (completeMethod)="searchMunicipalities($event)"
-                optionLabel="name"
-                dataKey="code"
-                placeholder="Obec"
-                styleClass="w-36"
-                inputStyleClass="w-full"
-              />
-              <input
-                pInputText
-                type="text"
-                placeholder="PSČ"
-                [(ngModel)]="editStudentPostalCode"
-                name="editStudentPostalCode"
-                class="w-20"
-              />
-              <label
-                class="flex items-center gap-1.5 text-sm text-surface-600 dark:text-surface-300"
-              >
-                <input
-                  type="checkbox"
-                  [(ngModel)]="editStudentCatchmentArea"
-                  name="editStudentCatchmentArea"
-                  [ngModelOptions]="{ standalone: true }"
-                />
-                Spádová oblast
-              </label>
-              <input
-                pInputText
-                type="date"
-                [(ngModel)]="editStudentEnrollmentDate"
-                name="editStudentEnrollmentDate"
-              />
-              <input
-                pInputText
-                type="email"
-                placeholder="Kontaktní e-mail"
-                [(ngModel)]="editStudentContactEmail"
-                name="editStudentContactEmail"
-              />
-            </div>
-          </td>
-        </tr>
-        } @else {
         <tr>
           <td>{{ student.firstName }} {{ student.lastName }}</td>
           <td>{{ student.schoolClassName }}</td>
@@ -233,7 +78,12 @@
             {{ student.gender === 'Female' ? 'Dívka' : student.gender === 'Male'
             ? 'Chlapec' : '—' }}
           </td>
-          <td class="text-surface-500">{{ student.contactPhone ?? '—' }}</td>
+          <td
+            class="max-w-48 overflow-hidden text-ellipsis whitespace-nowrap text-surface-500"
+            [title]="studentParentNames(student.id)"
+          >
+            {{ studentParentNames(student.id) }}
+          </td>
           <td class="flex justify-end gap-1">
             <p-button
               icon="pi pi-pencil"
@@ -250,80 +100,70 @@
             />
           </td>
         </tr>
-        }
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="6" class="py-3 text-surface-500">Žádní žáci.</td>
+          <td colspan="6" class="py-3 text-surface-500">Žádní studenti.</td>
         </tr>
       </ng-template>
     </p-table>
   </p-card>
 </ng-template>
 
-<!-- ============================= PARENT LINKS (shared by both access levels) ============================= -->
-<ng-template #linksCard>
-  <p-card header="Vazby rodič ↔ žák">
-    <p-table [value]="links()" styleClass="mb-4">
+<!-- ============================= PARENTS (shared by both access levels) ============================= -->
+<ng-template #parentsCard>
+  <p-card header="Rodiče">
+    <p class="mt-0 mb-3 text-sm text-surface-500">
+      Rodičovské účty se vytvářejí na kartě Uživatelé — tady se jen přiřazují
+      jejich děti.
+    </p>
+    <p-table [value]="visibleParents()" dataKey="id" styleClass="mb-4">
       <ng-template pTemplate="header">
         <tr>
-          <th>Rodič</th>
-          <th>Žák</th>
+          <th>Jméno</th>
+          <th>Děti</th>
           <th></th>
         </tr>
       </ng-template>
-      <ng-template pTemplate="body" let-link>
+      <ng-template pTemplate="body" let-parent>
         <tr>
-          <td>{{ link.username }}</td>
-          <td>{{ link.studentName }}</td>
+          <td>{{ parent.username }}</td>
+          <td
+            class="max-w-64 overflow-hidden text-ellipsis whitespace-nowrap text-surface-500"
+            [title]="parentChildNames(parent.id)"
+          >
+            {{ parentChildNames(parent.id) }}
+          </td>
           <td class="text-right">
             <p-button
-              icon="pi pi-trash"
+              icon="pi pi-pencil"
               size="small"
-              severity="danger"
               [text]="true"
-              (onClick)="removeLink(link)"
+              (onClick)="openEditParentChildrenDialog(parent)"
             />
           </td>
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="3" class="py-3 text-surface-500">Žádné vazby.</td>
+          <td colspan="3" class="py-3 text-surface-500">Žádní rodiče.</td>
         </tr>
       </ng-template>
     </p-table>
-    <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addLink()">
-      <p-select
-        [options]="linkUserOptions()"
-        optionLabel="username"
-        optionValue="id"
-        [(ngModel)]="newLinkUserId"
-        name="linkUser"
-      />
-      <p-select
-        [options]="studentOptions()"
-        optionLabel="label"
-        optionValue="id"
-        [(ngModel)]="newLinkStudentId"
-        name="linkStudent"
-      />
-      <p-button type="submit" label="Propojit" icon="pi pi-link" />
-    </form>
   </p-card>
 </ng-template>
 
 @if (accessLevel() === 'classTeacher') {
 <div class="grid grid-cols-1 gap-6">
   <ng-container [ngTemplateOutlet]="studentsCard" />
-  <ng-container [ngTemplateOutlet]="linksCard" />
+  <ng-container [ngTemplateOutlet]="parentsCard" />
 </div>
 } @else {
 <p-tabs [(value)]="activeTab">
   <p-tablist>
     <p-tab value="classes">Třídy a předměty</p-tab>
-    <p-tab value="students">Žáci</p-tab>
-    <p-tab value="users">Uživatelé a vazby</p-tab>
+    <p-tab value="students">Studenti</p-tab>
+    <p-tab value="users">Uživatelé a rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
   </p-tablist>
   <p-tabpanels>
@@ -335,7 +175,7 @@
               label="Nová třída"
               icon="pi pi-plus"
               size="small"
-              (onClick)="newClassDialogVisible.set(true)"
+              (onClick)="openAddClassDialog()"
             />
           </div>
           <p-table [value]="schoolClasses()" dataKey="id" styleClass="mb-4">
@@ -349,61 +189,6 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-schoolClass>
-              @if (editingSchoolClassId === schoolClass.id) {
-              <tr>
-                <td>
-                  <input
-                    pInputText
-                    type="text"
-                    [(ngModel)]="editSchoolClassName"
-                    name="editSchoolClassName"
-                  />
-                </td>
-                <td>
-                  <p-inputNumber
-                    [(ngModel)]="editSchoolClassRocnik"
-                    name="editSchoolClassRocnik"
-                    styleClass="w-20"
-                    inputStyleClass="w-full"
-                  />
-                </td>
-                <td>
-                  <p-select
-                    [options]="teacherOptions()"
-                    optionLabel="username"
-                    optionValue="id"
-                    [(ngModel)]="editSchoolClassTeacherId"
-                    name="editSchoolClassTeacherId"
-                    styleClass="w-32"
-                    placeholder="—"
-                  />
-                </td>
-                <td>
-                  <input
-                    pInputText
-                    type="text"
-                    [(ngModel)]="editSchoolClassTeachingLanguage"
-                    name="editSchoolClassTeachingLanguage"
-                    class="w-24"
-                  />
-                </td>
-                <td class="flex justify-end gap-1">
-                  <p-button
-                    icon="pi pi-check"
-                    size="small"
-                    [text]="true"
-                    (onClick)="saveEditSchoolClass()"
-                  />
-                  <p-button
-                    icon="pi pi-times"
-                    size="small"
-                    severity="secondary"
-                    [text]="true"
-                    (onClick)="cancelEditSchoolClass()"
-                  />
-                </td>
-              </tr>
-              } @else {
               <tr>
                 <td>{{ schoolClass.name }}</td>
                 <td>{{ schoolClass.rocnik ?? '—' }}</td>
@@ -429,7 +214,6 @@
                   />
                 </td>
               </tr>
-              }
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
@@ -445,7 +229,7 @@
               label="Nový předmět"
               icon="pi pi-plus"
               size="small"
-              (onClick)="newSubjectDialogVisible.set(true)"
+              (onClick)="openAddSubjectDialog()"
             />
           </div>
           <p-table [value]="subjects()" dataKey="id" styleClass="mb-4">
@@ -458,59 +242,6 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-subject>
-              @if (editingSubjectId === subject.id) {
-              <tr>
-                <td>
-                  <input
-                    pInputText
-                    type="text"
-                    [(ngModel)]="editSubjectName"
-                    name="editSubjectName"
-                  />
-                </td>
-                <td>
-                  <input
-                    pInputText
-                    type="text"
-                    [(ngModel)]="editSubjectAbbreviation"
-                    name="editSubjectAbbreviation"
-                    class="w-16"
-                  />
-                </td>
-                <td>
-                  <div class="flex flex-wrap gap-1">
-                    @for (swatch of subjectColorPalette; track swatch) {
-                    <button
-                      type="button"
-                      class="h-5 w-5 rounded-full border-2 transition-transform"
-                      [class.border-surface-900]="editSubjectColor === swatch"
-                      [class.dark:border-surface-0]="editSubjectColor === swatch"
-                      [class.border-transparent]="editSubjectColor !== swatch"
-                      [class.scale-110]="editSubjectColor === swatch"
-                      [style.background-color]="swatch"
-                      [attr.aria-label]="swatch"
-                      (click)="editSubjectColor = swatch"
-                    ></button>
-                    }
-                  </div>
-                </td>
-                <td class="flex justify-end gap-1">
-                  <p-button
-                    icon="pi pi-check"
-                    size="small"
-                    [text]="true"
-                    (onClick)="saveEditSubject()"
-                  />
-                  <p-button
-                    icon="pi pi-times"
-                    size="small"
-                    severity="secondary"
-                    [text]="true"
-                    (onClick)="cancelEditSubject()"
-                  />
-                </td>
-              </tr>
-              } @else {
               <tr>
                 <td>{{ subject.name }}</td>
                 <td class="text-surface-500">
@@ -542,7 +273,6 @@
                   />
                 </td>
               </tr>
-              }
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
@@ -580,7 +310,7 @@
               label="Nový uživatel"
               icon="pi pi-plus"
               size="small"
-              (onClick)="newUserDialogVisible.set(true)"
+              (onClick)="openAddUserDialog()"
             />
           </div>
           <p-table [value]="filteredUsers()" dataKey="id" styleClass="mb-4">
@@ -593,78 +323,6 @@
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-user>
-              @if (editingUserId === user.id) {
-              <tr>
-                <td>
-                  <input
-                    pInputText
-                    type="text"
-                    [(ngModel)]="editUsername"
-                    name="editUsername"
-                  />
-                </td>
-                <td class="flex flex-wrap items-center gap-1">
-                  <p-select
-                    [options]="roleOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    [(ngModel)]="editUserRole"
-                    name="editUserRole"
-                    styleClass="w-28"
-                  />
-                  @if (editUserRole === 'Student') {
-                  <p-select
-                    [options]="availableStudentOptions()"
-                    optionLabel="label"
-                    optionValue="id"
-                    placeholder="Žák"
-                    [(ngModel)]="editUserStudentId"
-                    name="editUserStudentId"
-                    styleClass="w-36"
-                  />
-                  }
-                  <p-password
-                    placeholder="Nové heslo (nepovinné)"
-                    [(ngModel)]="editUserPassword"
-                    name="editUserPassword"
-                    [toggleMask]="true"
-                    [feedback]="false"
-                  />
-                </td>
-                <td class="flex gap-1">
-                  <input
-                    pInputText
-                    type="tel"
-                    placeholder="Telefon"
-                    [(ngModel)]="editUserPhone"
-                    name="editUserPhone"
-                    class="w-28"
-                  />
-                  <input
-                    pInputText
-                    type="email"
-                    placeholder="E-mail"
-                    [(ngModel)]="editUserEmail"
-                    name="editUserEmail"
-                  />
-                </td>
-                <td class="flex justify-end gap-1">
-                  <p-button
-                    icon="pi pi-check"
-                    size="small"
-                    [text]="true"
-                    (onClick)="saveEditUser()"
-                  />
-                  <p-button
-                    icon="pi pi-times"
-                    size="small"
-                    severity="secondary"
-                    [text]="true"
-                    (onClick)="cancelEditUser()"
-                  />
-                </td>
-              </tr>
-              } @else {
               <tr>
                 <td>{{ user.username }}</td>
                 <td class="flex flex-wrap items-center gap-1">
@@ -694,7 +352,6 @@
                   />
                 </td>
               </tr>
-              }
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
@@ -706,7 +363,7 @@
           </p-table>
         </p-card>
 
-        <ng-container [ngTemplateOutlet]="linksCard" />
+        <ng-container [ngTemplateOutlet]="parentsCard" />
       </div>
     </p-tabpanel>
 
@@ -954,16 +611,16 @@
 </p-tabs>
 }
 
-<!-- ============================= CREATE DIALOGS ============================= -->
+<!-- ============================= DIALOGS (add AND edit — one dialog per entity) ============================= -->
 
 <p-dialog
   [visible]="newClassDialogVisible()"
   (visibleChange)="newClassDialogVisible.set($event)"
-  header="Nová třída"
+  [header]="editingSchoolClassId === null ? 'Nová třída' : 'Upravit třídu'"
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addSchoolClass()">
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="saveSchoolClass()">
     <input
       pInputText
       type="text"
@@ -986,6 +643,7 @@
       [(ngModel)]="newSchoolClassTeacherId"
       name="classTeacher"
       styleClass="w-40"
+      appendTo="body"
     />
     <input
       pInputText
@@ -995,18 +653,22 @@
       [(ngModel)]="newSchoolClassTeachingLanguage"
       class="w-36"
     />
-    <p-button type="submit" label="Vytvořit" icon="pi pi-plus" />
+    <p-button
+      type="submit"
+      [label]="editingSchoolClassId === null ? 'Vytvořit' : 'Uložit'"
+      icon="pi pi-check"
+    />
   </form>
 </p-dialog>
 
 <p-dialog
   [visible]="newSubjectDialogVisible()"
   (visibleChange)="newSubjectDialogVisible.set($event)"
-  header="Nový předmět"
+  [header]="editingSubjectId === null ? 'Nový předmět' : 'Upravit předmět'"
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-center gap-2" (ngSubmit)="addSubject()">
+  <form class="flex flex-wrap items-center gap-2" (ngSubmit)="saveSubject()">
     <input
       pInputText
       type="text"
@@ -1038,18 +700,22 @@
       ></button>
       }
     </div>
-    <p-button type="submit" label="Vytvořit" icon="pi pi-plus" />
+    <p-button
+      type="submit"
+      [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"
+      icon="pi pi-check"
+    />
   </form>
 </p-dialog>
 
 <p-dialog
   [visible]="newStudentDialogVisible()"
   (visibleChange)="newStudentDialogVisible.set($event)"
-  header="Nový žák"
+  [header]="editingStudentId === null ? 'Nový student' : 'Upravit studenta'"
   [modal]="true"
   styleClass="w-full max-w-2xl"
 >
-  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addStudent()">
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="saveStudent()">
     <input
       pInputText
       type="text"
@@ -1070,6 +736,7 @@
       optionValue="id"
       [(ngModel)]="newStudentSchoolClassId"
       name="studentSchoolClass"
+      appendTo="body"
     />
     <input
       pInputText
@@ -1085,6 +752,7 @@
       placeholder="Pohlaví"
       [(ngModel)]="newStudentGender"
       name="studentGender"
+      appendTo="body"
     />
     <input
       pInputText
@@ -1102,6 +770,7 @@
       [(ngModel)]="newStudentCitizenshipQualifier"
       [filter]="true"
       styleClass="w-44"
+      appendTo="body"
     />
     <p-select
       [options]="countries()"
@@ -1112,6 +781,7 @@
       [(ngModel)]="newStudentCountryCode"
       [filter]="true"
       styleClass="w-36"
+      appendTo="body"
     />
     <input
       pInputText
@@ -1130,6 +800,7 @@
       placeholder="Obec"
       styleClass="w-36"
       inputStyleClass="w-full"
+      appendTo="body"
     />
     <input
       pInputText
@@ -1171,18 +842,40 @@
       name="studentContactEmail"
       [(ngModel)]="newStudentContactEmail"
     />
-    <p-button type="submit" label="Přidat žáka" icon="pi pi-plus" />
+    @if (editingStudentId !== null) {
+    <div class="flex w-full flex-col gap-1.5">
+      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Rodiče</span
+      >
+      <p-multiSelect
+        [options]="parents()"
+        optionLabel="username"
+        optionValue="id"
+        placeholder="Žádní rodiče přiřazeni"
+        display="chip"
+        [(ngModel)]="editingStudentParentIds"
+        name="studentParents"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    }
+    <p-button
+      type="submit"
+      [label]="editingStudentId === null ? 'Přidat studenta' : 'Uložit'"
+      icon="pi pi-check"
+    />
   </form>
 </p-dialog>
 
 <p-dialog
   [visible]="newUserDialogVisible()"
   (visibleChange)="newUserDialogVisible.set($event)"
-  header="Nový uživatel"
+  [header]="editingUserId === null ? 'Nový uživatel' : 'Upravit uživatele'"
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="addUser()">
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="saveUser()">
     <input
       pInputText
       type="text"
@@ -1191,7 +884,7 @@
       [(ngModel)]="newUsername"
     />
     <p-password
-      placeholder="Heslo"
+      [placeholder]="editingUserId === null ? 'Heslo' : 'Nové heslo (nepovinné)'"
       name="password"
       [(ngModel)]="newPassword"
       [toggleMask]="true"
@@ -1203,16 +896,18 @@
       optionValue="value"
       [(ngModel)]="newUserRole"
       name="role"
+      appendTo="body"
     />
     @if (newUserRole === 'Student') {
     <p-select
       [options]="availableStudentOptions()"
       optionLabel="label"
       optionValue="id"
-      placeholder="Žák"
+      placeholder="Student"
       [(ngModel)]="newUserStudentId"
       name="newUserStudentId"
       styleClass="w-36"
+      appendTo="body"
     />
     }
     <input
@@ -1229,7 +924,39 @@
       name="userEmail"
       [(ngModel)]="newUserEmail"
     />
-    <p-button type="submit" label="Vytvořit uživatele" icon="pi pi-plus" />
+    <p-button
+      type="submit"
+      [label]="editingUserId === null ? 'Vytvořit uživatele' : 'Uložit'"
+      icon="pi pi-check"
+    />
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="editParentChildrenDialogVisible()"
+  (visibleChange)="editParentChildrenDialogVisible.set($event)"
+  header="Upravit děti"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form class="flex flex-col gap-3" (ngSubmit)="saveParentChildren()">
+    <p-multiSelect
+      [options]="studentOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="Žádné děti přiřazeny"
+      display="chip"
+      [(ngModel)]="editingParentChildIds"
+      name="parentChildren"
+      styleClass="w-full"
+      appendTo="body"
+    />
+    <p-button
+      type="submit"
+      label="Uložit"
+      icon="pi pi-check"
+      styleClass="self-start"
+    />
   </form>
 </p-dialog>
 }

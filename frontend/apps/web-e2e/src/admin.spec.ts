@@ -19,9 +19,9 @@ test('admin sees the full tabbed Administrace page', async ({ page }) => {
   await expect(
     page.getByRole('tab', { name: 'Třídy a předměty' }),
   ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Žáci' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Studenti' })).toBeVisible();
   await expect(
-    page.getByRole('tab', { name: 'Uživatelé a vazby' }),
+    page.getByRole('tab', { name: 'Uživatelé a rodiče' }),
   ).toBeVisible();
   await expect(
     page.getByRole('tab', { name: 'Škola a matrika' }),
@@ -37,10 +37,13 @@ test('class teacher sees only their own class, no tabs', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Třídy a předměty' })).toHaveCount(
     0,
   );
-  await expect(page.getByText('Žáci')).toBeVisible();
-  await expect(page.getByText('Vazby rodič ↔ žák')).toBeVisible();
+  await expect(page.getByText('Studenti')).toBeVisible();
+  // "Rodiče" appears multiple times (intro text, table column header, card
+  // title) in this no-tabs classTeacher layout, so assert on the first hit.
+  await expect(page.getByText('Rodiče').first()).toBeVisible();
   // 5.A's demo student, not any student from an unrelated class — appears
-  // twice (Žáci table + Vazby rodič↔žák table), so assert on the first hit.
+  // twice (Studenti table + the "Rodiče" tooltip title), so assert on the
+  // first hit.
   await expect(page.getByText('Jan Novák').first()).toBeVisible();
 });
 
