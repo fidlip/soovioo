@@ -12,6 +12,7 @@ using Sova.Api.Data;
 using Sova.Api.Evidence;
 using Sova.Api.Matrika;
 using Sova.Api.Messaging;
+using Sova.Api.Payments;
 using Sova.Api.Reference;
 
 QuestPDF.Settings.License = LicenseType.Community;
@@ -112,6 +113,19 @@ using (var scope = app.Services.CreateScope())
     BackfillDemoTimetableTeacher(db);
     SeedReferenceData(db);
     BackfillDemoStudentReferenceCodes(db);
+
+    // First real Hangfire job in this codebase (Hangfire itself was already
+    // wired up via AddHangfire/AddHangfireServer above) — generates each
+    // recurring Payment's next installment once its due date arrives. Runs
+    // with no HTTP context, hence PaymentRecipientGenerator's explicit
+    // IgnoreQueryFilters()+SchoolId filtering instead of relying on the
+    // normal per-request query filter. Uses the DI-resolved
+    // IRecurringJobManager, not the static RecurringJob facade — the latter
+    // reads JobStorage.Current, which isn't set yet this early (it's only
+    // initialized once Hangfire's own hosted service starts with app.Run()).
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<PaymentRecurringInstallmentsJob>(
+        "payment-recurring-installments", job => job.RunAsync(), Cron.Daily);
 }
 
 // Configure the HTTP request pipeline.

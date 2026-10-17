@@ -260,6 +260,7 @@ export class AdminPage {
   protected newStudentEnrollmentDate: Date | null = null;
   protected newStudentContactPhone = '';
   protected newStudentContactEmail = '';
+  protected newStudentDefaultVariableSymbol = '';
 
   protected newUsername = '';
   protected newPassword = '';
@@ -300,6 +301,7 @@ export class AdminPage {
   protected readonly schoolDirectorName = signal('');
   protected readonly schoolEmail = signal('');
   protected readonly schoolPhone = signal('');
+  protected readonly schoolBankAccountNumber = signal('');
 
   protected readonly matrikaIzo = signal('');
   protected readonly matrikaRedIzo = signal('');
@@ -676,6 +678,7 @@ export class AdminPage {
     this.newStudentEnrollmentDate = null;
     this.newStudentContactPhone = '';
     this.newStudentContactEmail = '';
+    this.newStudentDefaultVariableSymbol = '';
     this.editingStudentParentIds = [];
     this.newStudentDialogVisible.set(true);
   }
@@ -710,6 +713,7 @@ export class AdminPage {
       : null;
     this.newStudentContactPhone = student.contactPhone ?? '';
     this.newStudentContactEmail = student.contactEmail ?? '';
+    this.newStudentDefaultVariableSymbol = student.defaultVariableSymbol ?? '';
     this.newStudentDialogVisible.set(true);
   }
 
@@ -741,6 +745,7 @@ export class AdminPage {
         : undefined,
       contactPhone: this.newStudentContactPhone || undefined,
       contactEmail: this.newStudentContactEmail || undefined,
+      defaultVariableSymbol: this.newStudentDefaultVariableSymbol || undefined,
     };
     const editingId = this.editingStudentId;
     const result =
@@ -953,6 +958,7 @@ export class AdminPage {
         this.schoolDirectorName.set(school.directorName ?? '');
         this.schoolEmail.set(school.email ?? '');
         this.schoolPhone.set(school.phone ?? '');
+        this.schoolBankAccountNumber.set(school.bankAccountNumber ?? '');
       },
       error: (err) => console.error('getMySchool failed', err),
     });
@@ -983,6 +989,20 @@ export class AdminPage {
       .subscribe({
         next: () => this.loadMySchool(),
         error: (err) => this.showError('setSchoolDetails failed', err),
+      });
+  }
+
+  /** The account Platby's client-generated SPAYD QR codes pay into — see
+   * ROADMAP "Správa financí". Separate from saveSchoolDetails: it's not an
+   * institutional-document field, it's payment plumbing. */
+  protected saveSchoolBankAccount(): void {
+    this.mySchoolApi
+      .setBankAccount({
+        bankAccountNumber: this.schoolBankAccountNumber() || null,
+      })
+      .subscribe({
+        next: () => this.loadMySchool(),
+        error: (err) => this.showError('setBankAccount failed', err),
       });
   }
 

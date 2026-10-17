@@ -33,7 +33,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 s.RodneCislo, s.DateOfBirth, s.Gender, s.CitizenshipQualifier, s.CountryCode,
                 s.Country == null ? null : s.Country.Name, s.Street, s.MunicipalityCode,
                 s.Municipality == null ? null : s.Municipality.Name, s.PostalCode,
-                s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail))
+                s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail, s.DefaultVariableSymbol))
             .ToListAsync();
 
         return Ok(students);
@@ -72,6 +72,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             EnrollmentDate = request.EnrollmentDate,
             ContactPhone = request.ContactPhone,
             ContactEmail = request.ContactEmail,
+            DefaultVariableSymbol = request.DefaultVariableSymbol,
         };
 
         db.Students.Add(student);
@@ -124,6 +125,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         student.EnrollmentDate = request.EnrollmentDate;
         student.ContactPhone = request.ContactPhone;
         student.ContactEmail = request.ContactEmail;
+        student.DefaultVariableSymbol = request.DefaultVariableSymbol;
         await db.SaveChangesAsync();
 
         return Ok(await ToDtoAsync(student, schoolClass.Name));
@@ -190,7 +192,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             student.RodneCislo, student.DateOfBirth, student.Gender, student.CitizenshipQualifier,
             student.CountryCode, countryName, student.Street, student.MunicipalityCode, municipalityName,
             student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,
-            student.ContactEmail);
+            student.ContactEmail, student.DefaultVariableSymbol);
     }
 }
 
@@ -209,7 +211,8 @@ public record CreateStudentRequest(
     bool? CatchmentArea = null,
     DateOnly? EnrollmentDate = null,
     string? ContactPhone = null,
-    string? ContactEmail = null);
+    string? ContactEmail = null,
+    string? DefaultVariableSymbol = null);
 
 public record StudentDto(
     int Id,
@@ -230,4 +233,5 @@ public record StudentDto(
     bool? CatchmentArea,
     DateOnly? EnrollmentDate,
     string? ContactPhone,
-    string? ContactEmail);
+    string? ContactEmail,
+    string? DefaultVariableSymbol);

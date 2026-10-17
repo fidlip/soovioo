@@ -90,4 +90,10 @@ public class Student
     /// account outright — the student is gone, so is their login.</summary>
     public int? UserId { get; set; }
     public User? User { get; set; }
+
+    /// <summary>Default variable symbol used when generating this student's
+    /// <see cref="Payments.PaymentRecipient"/> rows — overridable per-payment
+    /// (see <see cref="Payments.PaymentRecipient.VariableSymbol"/>, nullable,
+    /// null = fall back to this field). Null until an admin fills it in.</summary>
+    public string? DefaultVariableSymbol { get; set; }
 }

@@ -14,6 +14,8 @@ export interface School {
   directorName: string | null;
   email: string | null;
   phone: string | null;
+  /** The account Payments' client-generated SPAYD QR codes pay into. */
+  bankAccountNumber: string | null;
   studentCount: number;
   userCount: number;
 }
@@ -44,4 +46,8 @@ export interface SetSchoolDetailsRequest {
   directorName: string | null;
   email: string | null;
   phone: string | null;
+}
+
+export interface SetSchoolBankAccountRequest {
+  bankAccountNumber: string | null;
 }

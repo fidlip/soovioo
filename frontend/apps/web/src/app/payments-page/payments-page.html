@@ -1,0 +1,410 @@
+<div class="print:hidden">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <h1 class="m-0">Platby</h1>
+    @if (canManagePayments()) {
+    <p-button
+      icon="pi pi-plus"
+      label="Nová platba"
+      (onClick)="openCreateDialog()"
+    />
+    }
+  </div>
+
+  @if (canManagePayments() && !bankAccountNumber()) {
+  <p-message
+    severity="warn"
+    text="Škola nemá nastavený bankovní účet — QR platba se nevygeneruje. Nastavte ho v Administraci na záložce Škola a matrika."
+    styleClass="mb-4 w-full"
+  />
+  }
+
+  <div class="flex flex-col gap-3">
+    @for (payment of payments(); track payment.id) {
+    <p-card>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <strong class="text-surface-900 dark:text-surface-0"
+              >{{ payment.title }}</strong
+            >
+            <p-tag
+              [value]="amountTypeLabel(payment.amountType)"
+              severity="info"
+            />
+            <p-tag
+              [value]="recurrenceLabel(payment.recurrence)"
+              severity="secondary"
+            />
+            <span class="text-sm text-surface-500"
+              >Splatnost {{ formatDate(payment.dueDate) }}</span
+            >
+          </div>
+          @if (payment.description) {
+          <p
+            class="mt-1 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200"
+          >
+            {{ payment.description }}
+          </p>
+          } @if (payment.recurrence !== 'None' && payment.recurrenceEndDate) {
+          <div class="mt-1 text-sm text-surface-500">
+            Opakuje se do {{ formatDate(payment.recurrenceEndDate) }}
+          </div>
+          }
+        </div>
+        <div class="flex items-center gap-1">
+          <p-button
+            [label]="isExpanded(payment.id) ? 'Skrýt žáky' : 'Zobrazit žáky'"
+            size="small"
+            severity="secondary"
+            [text]="true"
+            (onClick)="toggleExpanded(payment.id)"
+          />
+          @if (canManagePayments()) {
+          <p-button
+            icon="pi pi-trash"
+            size="small"
+            severity="danger"
+            [text]="true"
+            (onClick)="deletePayment(payment)"
+          />
+          }
+        </div>
+      </div>
+
+      @if (isExpanded(payment.id)) {
+      <div
+        class="mt-3 flex flex-col gap-2 border-t border-surface-200 pt-3 dark:border-surface-700"
+      >
+        @for (recipient of payment.recipients; track recipient.id) {
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 rounded-border border border-surface-200 p-2 dark:border-surface-700"
+        >
+          <div>
+            <div class="flex items-center gap-2">
+              <strong class="text-surface-900 dark:text-surface-0"
+                >{{ recipient.studentName }}</strong
+              >
+              <span class="text-sm text-surface-500"
+                >{{ recipient.amount }} Kč</span
+              >
+              @if (payment.recurrence !== 'None') {
+              <span class="text-sm text-surface-400"
+                >· splátka {{ formatDate(recipient.installmentDueDate) }}</span
+              >
+              }
+            </div>
+            <div class="text-sm text-surface-500">
+              @if (recipient.effectiveVariableSymbol) { VS: {{
+              recipient.effectiveVariableSymbol }} } @else { Bez variabilního
+              symbolu }
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            @if (!recipient.paid && qrDataUrlFor(recipient.id)) {
+            <img
+              [src]="qrDataUrlFor(recipient.id)"
+              alt="QR platba"
+              class="h-20 w-20"
+            />
+            }
+            <p-tag
+              [value]="recipient.paid ? 'Zaplaceno' : 'Nezaplaceno'"
+              [severity]="recipient.paid ? 'success' : 'warn'"
+            />
+            @if (canManagePayments()) {
+            <p-button
+              [label]="recipient.paid ? 'Zrušit zaplacení' : 'Označit jako zaplaceno'"
+              size="small"
+              severity="secondary"
+              [text]="true"
+              (onClick)="setPaid(recipient, !recipient.paid)"
+            />
+            }
+            <p-button
+              icon="pi pi-print"
+              label="Tisk doklad"
+              size="small"
+              severity="secondary"
+              [text]="true"
+              (onClick)="printReceipt(payment, recipient)"
+            />
+          </div>
+        </div>
+        } @empty {
+        <span class="text-sm text-surface-400"
+          >Žádní žáci nejsou touto platbou cíleni.</span
+        >
+        }
+      </div>
+      }
+    </p-card>
+    } @empty {
+    <p class="text-surface-500">Zatím žádné platby.</p>
+    }
+  </div>
+</div>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="onDialogVisibleChange($event)"
+  header="Nová platba"
+  [modal]="true"
+  styleClass="w-full max-w-lg print:hidden"
+>
+  @if (formError(); as error) {
+  <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
+  }
+  <form class="flex flex-col gap-3" (ngSubmit)="save()">
+    <input
+      pInputText
+      type="text"
+      placeholder="Název platby"
+      name="paymentTitle"
+      [(ngModel)]="newTitle"
+    />
+    <textarea
+      pTextarea
+      rows="2"
+      placeholder="Popis (nepovinné)"
+      name="paymentDescription"
+      [(ngModel)]="newDescription"
+    ></textarea>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="dueDate"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Termín splatnosti</label
+        >
+        <p-datePicker
+          inputId="dueDate"
+          [(ngModel)]="newDueDate"
+          name="dueDate"
+          dateFormat="dd.mm.yy"
+          [showIcon]="true"
+          appendTo="body"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="amountType"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Typ částky</label
+        >
+        <p-select
+          inputId="amountType"
+          [options]="amountTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="newAmountType"
+          name="amountType"
+          styleClass="w-56"
+          appendTo="body"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="amount"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >
+          {{ newAmountType === 'TotalSplitEvenly' ? 'Celková částka (Kč)' :
+          'Částka na žáka (Kč)' }}
+        </label>
+        <p-inputNumber
+          inputId="amount"
+          [(ngModel)]="newAmount"
+          name="amount"
+          mode="decimal"
+          [minFractionDigits]="2"
+          [maxFractionDigits]="2"
+          styleClass="w-36"
+          inputStyleClass="w-full"
+        />
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="recurrence"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Opakování</label
+        >
+        <p-select
+          inputId="recurrence"
+          [options]="recurrenceOptions"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="newRecurrence"
+          name="recurrence"
+          styleClass="w-56"
+          appendTo="body"
+        />
+      </div>
+      @if (newRecurrence !== 'None') {
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="recurrenceEndDate"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >
+          Konec opakování (nepovinné, výchozí konec škol. roku)
+        </label>
+        <p-datePicker
+          inputId="recurrenceEndDate"
+          [(ngModel)]="newRecurrenceEndDate"
+          name="recurrenceEndDate"
+          dateFormat="dd.mm.yy"
+          [showIcon]="true"
+          [showClear]="true"
+          appendTo="body"
+        />
+      </div>
+      }
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="audience"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příjemci</label
+      >
+      <p-select
+        [options]="audienceOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="newAudience"
+        name="audience"
+        styleClass="w-56"
+        appendTo="body"
+      />
+    </div>
+
+    @if (newAudience === 'Selected') {
+    <div
+      class="flex flex-col gap-4 rounded-md border border-surface-200 p-3 dark:border-surface-700"
+    >
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Třídy</span
+        >
+        <input
+          pInputText
+          type="text"
+          placeholder="Hledat třídu"
+          name="classFilterName"
+          class="max-w-40"
+          [(ngModel)]="classFilterName"
+        />
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (c of filteredClasses(); track c.id) {
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [checked]="selectedClassIds.includes(c.id)"
+              (change)="toggleClassId(c.id)"
+            />
+            {{ c.name }}
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Rodiče</span
+        >
+        <input
+          pInputText
+          type="text"
+          placeholder="Hledat rodiče"
+          name="parentFilterName"
+          class="max-w-40"
+          [(ngModel)]="parentFilterName"
+        />
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (p of filteredParents(); track p.id) {
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [checked]="selectedParentIds.includes(p.id)"
+              (change)="toggleParentId(p.id)"
+            />
+            {{ p.username }}
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Žáci</span
+        >
+        <input
+          pInputText
+          type="text"
+          placeholder="Hledat žáka"
+          name="studentFilterName"
+          class="max-w-40"
+          [(ngModel)]="studentFilterName"
+        />
+        <div
+          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        >
+          @for (s of filteredStudents(); track s.id) {
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [checked]="selectedStudentIds.includes(s.id)"
+              (change)="toggleStudentId(s.id)"
+            />
+            {{ s.firstName }} {{ s.lastName }}
+            <span class="text-surface-400">· {{ s.schoolClassName }}</span>
+          </label>
+          } @empty {
+          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          }
+        </div>
+      </div>
+    </div>
+    }
+
+    <p-button
+      type="submit"
+      label="Vytvořit"
+      icon="pi pi-check"
+      styleClass="self-start"
+    />
+  </form>
+</p-dialog>
+
+<!-- Printable receipt — hidden on screen, the only thing visible when
+     printing (everything else above is print:hidden). Not a real fiscal
+     document, see ROADMAP "Správa financí". -->
+<div class="hidden print:block">
+  @if (printTarget(); as target) {
+  <h2>Příjmový doklad</h2>
+  <p><strong>{{ target.payment.title }}</strong></p>
+  @if (target.payment.description) {
+  <p>{{ target.payment.description }}</p>
+  }
+  <p>Žák: {{ target.recipient.studentName }}</p>
+  <p>Částka: {{ target.recipient.amount }} Kč</p>
+  @if (target.recipient.effectiveVariableSymbol) {
+  <p>Variabilní symbol: {{ target.recipient.effectiveVariableSymbol }}</p>
+  }
+  <p>Splatnost: {{ formatDate(target.recipient.installmentDueDate) }}</p>
+  <p>Stav: {{ target.recipient.paid ? 'Zaplaceno' : 'Nezaplaceno' }}</p>
+  @if (target.recipient.paidAt) {
+  <p>Datum zaplacení: {{ target.recipient.paidAt }}</p>
+  } }
+</div>

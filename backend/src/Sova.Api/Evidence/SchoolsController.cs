@@ -43,7 +43,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
             .Take(pageSize)
             .Select(s => new SchoolDto(
                 s.Id, s.Name, s.Slug, s.CreatedAt, s.Izo, s.RedIzo,
-                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone,
+                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone, s.BankAccountNumber,
                 db.Students.Count(st => st.SchoolId == s.Id),
                 db.Users.Count(u => u.SchoolId == s.Id)))
             .ToListAsync();
@@ -130,6 +130,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     internal static async Task<SchoolDto> ToDtoAsync(AppDbContext db, School school) => new(
         school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo,
         school.Street, school.City, school.PostalCode, school.DirectorName, school.Email, school.Phone,
+        school.BankAccountNumber,
         await db.Students.CountAsync(s => s.SchoolId == school.Id),
         await db.Users.CountAsync(u => u.SchoolId == school.Id));
 
@@ -182,5 +183,6 @@ public record SchoolDto(
     string? DirectorName,
     string? Email,
     string? Phone,
+    string? BankAccountNumber,
     int StudentCount,
     int UserCount);

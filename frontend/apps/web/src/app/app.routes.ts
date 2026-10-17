@@ -9,6 +9,7 @@ import { HomePage } from './home-page/home-page';
 import { HomeworkPage } from './homework-page/homework-page';
 import { LoginPage } from './login-page/login-page';
 import { MessagesPage } from './messages-page/messages-page';
+import { PaymentsPage } from './payments-page/payments-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
 import { SettingsPage } from './settings-page/settings-page';
 import { SuperAdminPage } from './super-admin-page/super-admin-page';
@@ -25,6 +26,7 @@ const schoolRoutes: Route[] = [
   { path: 'messages', component: MessagesPage, canActivate: [authGuard] },
   { path: 'homework', component: HomeworkPage, canActivate: [authGuard] },
   { path: 'behavior', component: BehaviorPage, canActivate: [authGuard] },
+  { path: 'payments', component: PaymentsPage, canActivate: [authGuard] },
   { path: 'admin', component: AdminPage, canActivate: [authGuard] },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard] },
 ];

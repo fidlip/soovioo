@@ -30,6 +30,9 @@ export interface Student {
   /** Emergency/guardian contact, independent of whether a parent has a Sova account. */
   contactPhone: string | null;
   contactEmail: string | null;
+  /** Default variable symbol used when generating this student's Payment
+   * recipient rows — overridable per-payment. */
+  defaultVariableSymbol: string | null;
 }
 
 export interface CreateStudentRequest {
@@ -48,4 +51,5 @@ export interface CreateStudentRequest {
   enrollmentDate?: string;
   contactPhone?: string;
   contactEmail?: string;
+  defaultVariableSymbol?: string;
 }

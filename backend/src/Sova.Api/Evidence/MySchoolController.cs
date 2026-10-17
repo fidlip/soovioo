@@ -63,4 +63,24 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
+
+    /// <summary>The account payments (Payments) get paid into — used to
+    /// build the client-generated SPAYD QR string. Without it set, the
+    /// frontend just skips rendering a QR code.</summary>
+    [HttpPut("bank-account")]
+    public async Task<ActionResult<SchoolDto>> SetBankAccount(SetSchoolBankAccountRequest request)
+    {
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        school.BankAccountNumber = request.BankAccountNumber;
+        await db.SaveChangesAsync();
+
+        return Ok(await SchoolsController.ToDtoAsync(db, school));
+    }
 }
+
+public record SetSchoolBankAccountRequest(string? BankAccountNumber);

@@ -34,4 +34,10 @@ public class School
     public string? DirectorName { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }
+
+    /// <summary>Used to build the SPAYD QR string for payments (see
+    /// <c>Payments</c>) — the account recipients pay into. Null until an
+    /// admin fills it in; without it, the frontend simply skips rendering a
+    /// QR code.</summary>
+    public string? BankAccountNumber { get; set; }
 }

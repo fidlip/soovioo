@@ -48,3 +48,5 @@ export * from './lib/homework/homework.model';
 export * from './lib/homework/homework-api.service';
 export * from './lib/behavior/behavior.model';
 export * from './lib/behavior/behavior-api.service';
+export * from './lib/payments/payment.model';
+export * from './lib/payments/payments-api.service';

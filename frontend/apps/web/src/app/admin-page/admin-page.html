@@ -532,6 +532,39 @@
           </form>
         </p-card>
 
+        <p-card header="Platby">
+          <p class="mt-0 mb-4 text-sm text-surface-500">
+            Bankovní účet, na který se generuje QR platba u plateb (Platby) —
+            viz ROADMAP "Správa financí".
+          </p>
+          <form
+            class="flex flex-wrap items-end gap-2"
+            (ngSubmit)="saveSchoolBankAccount()"
+          >
+            <div class="flex flex-col gap-1.5">
+              <label
+                for="schoolBankAccountNumber"
+                class="text-sm font-medium text-surface-600 dark:text-surface-300"
+                >Číslo bankovního účtu</label
+              >
+              <input
+                pInputText
+                id="schoolBankAccountNumber"
+                name="schoolBankAccountNumber"
+                placeholder="123456789/0100"
+                [ngModel]="schoolBankAccountNumber()"
+                (ngModelChange)="schoolBankAccountNumber.set($event)"
+              />
+            </div>
+            <p-button
+              type="submit"
+              label="Uložit"
+              severity="secondary"
+              [outlined]="true"
+            />
+          </form>
+        </p-card>
+
         <p-card header="Matrika (MŠMT)">
           <p class="mt-0 mb-4 text-sm text-surface-500">
             Pre-pilotní export pro ověření na testovacím serveru MŠMT — viz
@@ -913,6 +946,13 @@
       placeholder="Kontaktní e-mail"
       name="studentContactEmail"
       [(ngModel)]="newStudentContactEmail"
+    />
+    <input
+      pInputText
+      type="text"
+      placeholder="Výchozí variabilní symbol (platby)"
+      name="studentDefaultVariableSymbol"
+      [(ngModel)]="newStudentDefaultVariableSymbol"
     />
     @if (editingStudentId !== null) {
     <div class="flex w-full flex-col gap-1.5">

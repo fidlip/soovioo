@@ -7,6 +7,7 @@ using Sova.Api.Evidence;
 using Sova.Api.Grades;
 using Sova.Api.Homework;
 using Sova.Api.Messaging;
+using Sova.Api.Payments;
 using Sova.Api.Reference;
 using Sova.Api.Timetable;
 
@@ -39,6 +40,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<HomeworkAttachment> HomeworkAttachments => Set<HomeworkAttachment>();
     public DbSet<BehaviorRecord> BehaviorRecords => Set<BehaviorRecord>();
     public DbSet<BehaviorClassification> BehaviorClassifications => Set<BehaviorClassification>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PaymentRecipient> PaymentRecipients => Set<PaymentRecipient>();
+    public DbSet<PaymentSchoolClass> PaymentSchoolClasses => Set<PaymentSchoolClass>();
+    public DbSet<PaymentParent> PaymentParents => Set<PaymentParent>();
+    public DbSet<PaymentStudent> PaymentStudents => Set<PaymentStudent>();
 
     // Global matrika reference data (RAST/RAOR/RAUJ) — not tenant-scoped,
     // shared by every school. Seeded once from CSV at startup; see
@@ -64,6 +70,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<EventStudent>().HasKey(x => new { x.EventId, x.StudentId });
         // Default (0) is Everyone — see EventAudience's own doc comment for why.
         modelBuilder.Entity<Event>().Property(e => e.Audience).HasDefaultValue(EventAudience.Everyone);
+
+        // Same shape, for Payment's smaller audience/recipient join tables.
+        modelBuilder.Entity<PaymentSchoolClass>().HasKey(x => new { x.PaymentId, x.SchoolClassId });
+        modelBuilder.Entity<PaymentParent>().HasKey(x => new { x.PaymentId, x.UserId });
+        modelBuilder.Entity<PaymentStudent>().HasKey(x => new { x.PaymentId, x.StudentId });
+        modelBuilder.Entity<Payment>().Property(p => p.Audience).HasDefaultValue(PaymentAudience.Everyone);
 
         modelBuilder.Entity<Country>().HasKey(c => c.Code);
         modelBuilder.Entity<District>().HasKey(d => d.Code);
@@ -162,6 +174,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
             currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Payment>().HasQueryFilter(p =>
+            currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<PaymentRecipient>().HasQueryFilter(r =>
+            currentSchool.IsSuperAdmin || r.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<PaymentSchoolClass>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<PaymentParent>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<PaymentStudent>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
 
         modelBuilder.Entity<School>().HasData(
             new School
