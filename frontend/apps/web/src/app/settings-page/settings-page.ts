@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { InputText } from '@openng/optimus-ui/inputtext';
@@ -13,6 +14,7 @@ import {
   MyProfileApiService,
 } from '@sova/shared';
 import { DarkModeService } from '../dark-mode.service';
+import { SchoolContextService } from '../school-context';
 
 @Component({
   selector: 'app-settings-page',
@@ -31,7 +33,14 @@ export class SettingsPage {
   private readonly profileApi = inject(MyProfileApiService);
   private readonly eventsApi = inject(EventsApiService);
   private readonly authApi = inject(AuthApiService);
+  private readonly router = inject(Router);
+  private readonly schoolContext = inject(SchoolContextService);
   protected readonly darkModeService = inject(DarkModeService);
+
+  // Captured once at page load, before the password change below could flip
+  // the underlying claim to false — otherwise the banner/redirect-on-success
+  // would never get a chance to trigger.
+  protected readonly wasForcedPasswordChange = this.authApi.mustChangePassword();
 
   protected readonly profile = signal<MyProfile | null>(null);
   protected phone = '';
@@ -104,6 +113,18 @@ export class SettingsPage {
           this.currentPassword = '';
           this.newPassword = '';
           this.confirmNewPassword = '';
+          if (this.wasForcedPasswordChange) {
+            // Give the success message a moment on screen, then leave —
+            // the forced-change redirect that brought the user here no
+            // longer applies once their own password is in place.
+            setTimeout(
+              () =>
+                this.router.navigate(
+                  this.authApi.isSuperAdmin() ? ['/superadmin'] : this.schoolContext.link('grades'),
+                ),
+              1200,
+            );
+          }
         },
         error: () => this.passwordError.set('Současné heslo nesouhlasí.'),
       });

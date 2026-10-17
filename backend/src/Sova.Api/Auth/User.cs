@@ -24,4 +24,12 @@ public class User
     /// on first request, not at account creation, so existing rows stay
     /// null until a user actually asks for their feed link.</summary>
     public string? CalendarToken { get; set; }
+
+    /// <summary>Set whenever an Admin assigns a password on this account
+    /// (creation or reset) — cleared only when the user picks their own
+    /// password via <see cref="MyProfileController.ChangePassword"/>. Forces
+    /// a redirect to Settings on every login until then (see
+    /// <c>auth.guard.ts</c>). Fallback for proper invite-by-email onboarding,
+    /// which needs mail infrastructure the project doesn't have yet.</summary>
+    public bool MustChangePassword { get; set; }
 }

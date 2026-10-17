@@ -34,6 +34,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
 builder.Services.AddScoped<MatrikaExportService>();
+builder.Services.AddScoped<JwtTokenFactory>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));

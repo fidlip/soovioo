@@ -48,6 +48,9 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
             SchoolId = currentSchool.SchoolId,
             Phone = request.Phone,
             Email = request.Email,
+            // Admin picked this password, not the account's owner — force a
+            // change on first login (see User.MustChangePassword).
+            MustChangePassword = true,
         };
         user.PasswordHash = Hasher.HashPassword(user, request.Password);
 
@@ -90,6 +93,9 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             user.PasswordHash = Hasher.HashPassword(user, request.Password);
+            // Admin reset this password on the user's behalf — same forced
+            // first-login change as a brand new account, see AddUser above.
+            user.MustChangePassword = true;
         }
 
         await db.SaveChangesAsync();

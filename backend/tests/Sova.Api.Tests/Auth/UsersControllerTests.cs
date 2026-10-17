@@ -46,6 +46,43 @@ public class UsersControllerTests
     }
 
     [Fact]
+    public async Task AddUserForcesPasswordChangeOnFirstLogin()
+    {
+        using var db = NewDb();
+
+        await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", "Teacher"));
+
+        var created = await db.Users.SingleAsync(u => u.Username == "novy");
+        Assert.True(created.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task UpdateUserWithNewPasswordForcesPasswordChange()
+    {
+        using var db = NewDb();
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitel", "Teacher", "nove-heslo"));
+
+        Assert.True((await db.Users.FindAsync(user.Id))!.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task UpdateUserWithoutPasswordLeavesMustChangePasswordUnchanged()
+    {
+        using var db = NewDb();
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, MustChangePassword = false };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", "Teacher"));
+
+        Assert.False((await db.Users.FindAsync(user.Id))!.MustChangePassword);
+    }
+
+    [Fact]
     public async Task DeleteUserRejectsDeletingYourself()
     {
         using var db = NewDb();

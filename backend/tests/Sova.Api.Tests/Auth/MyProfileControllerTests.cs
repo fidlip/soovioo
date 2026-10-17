@@ -1,8 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Sova.Api.Auth;
 using Sova.Api.Data;
 
@@ -13,6 +15,9 @@ public class MyProfileControllerTests
     private const int SchoolId = 1;
     private static readonly PasswordHasher<User> Hasher = new();
 
+    private static readonly JwtTokenFactory TokenFactory = new(Options.Create(
+        new JwtOptions { SigningKey = "test-signing-key-at-least-32-chars-long", Issuer = "sova-tests", Audience = "sova-tests" }));
+
     private static AppDbContext NewDb() =>
         new(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
@@ -21,7 +26,7 @@ public class MyProfileControllerTests
     private static MyProfileController NewController(AppDbContext db, int currentUserId)
     {
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString())]);
-        return new MyProfileController(db)
+        return new MyProfileController(db, TokenFactory)
         {
             ControllerContext = new ControllerContext
             {
@@ -65,7 +70,7 @@ public class MyProfileControllerTests
 
         var result = await NewController(db, user.Id).ChangePassword(new ChangePasswordRequest("spatne", "nove-heslo"));
 
-        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Equal(originalHash, (await db.Users.FindAsync(user.Id))!.PasswordHash);
     }
 
@@ -79,10 +84,28 @@ public class MyProfileControllerTests
 
         var result = await NewController(db, user.Id).ChangePassword(new ChangePasswordRequest("heslo123", "nove-heslo"));
 
-        Assert.IsType<NoContentResult>(result);
+        var dto = Assert.IsType<ChangePasswordResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.NotEmpty(dto.Token);
         var reloaded = await db.Users.FindAsync(user.Id) ?? throw new InvalidOperationException();
         Assert.Equal(
             PasswordVerificationResult.Success,
             Hasher.VerifyHashedPassword(reloaded, reloaded.PasswordHash, "nove-heslo"));
+    }
+
+    [Fact]
+    public async Task ChangePasswordClearsMustChangePasswordFlagAndReissuesToken()
+    {
+        using var db = NewDb();
+        var user = NewUser("heslo123");
+        user.MustChangePassword = true;
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, user.Id).ChangePassword(new ChangePasswordRequest("heslo123", "nove-heslo"));
+
+        var dto = Assert.IsType<ChangePasswordResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(dto.Token);
+        Assert.Equal("false", jwt.Claims.Single(c => c.Type == "mustChangePassword").Value);
+        Assert.False((await db.Users.FindAsync(user.Id))!.MustChangePassword);
     }
 }

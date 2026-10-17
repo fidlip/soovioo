@@ -1,11 +1,6 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
 
@@ -13,7 +8,7 @@ namespace Sova.Api.Auth;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AppDbContext db, IOptions<JwtOptions> jwtOptions) : ControllerBase
+public class AuthController(AppDbContext db, JwtTokenFactory tokenFactory) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -48,28 +43,7 @@ public class AuthController(AppDbContext db, IOptions<JwtOptions> jwtOptions) : 
             return Unauthorized();
         }
 
-        var options = jwtOptions.Value;
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Role, user.Role.ToString()),
-        };
-        if (user.SchoolId is { } userSchoolId)
-        {
-            claims.Add(new Claim("schoolId", userSchoolId.ToString()));
-        }
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: options.Issuer,
-            audience: options.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(8),
-            signingCredentials: credentials);
-
-        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+        var tokenString = tokenFactory.CreateToken(user);
         return Ok(new LoginResponse(tokenString, user.Username, user.Role.ToString(), school?.Name, school?.Slug));
     }
 }

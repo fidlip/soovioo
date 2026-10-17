@@ -14,3 +14,7 @@ export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
+
+export interface ChangePasswordResponse {
+  token: string;
+}

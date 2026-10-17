@@ -74,4 +74,11 @@ export class AuthApiService {
   isSuperAdmin(): boolean {
     return this.getRole() === 'SuperAdmin';
   }
+
+  /** True when an Admin assigned this account's current password (new
+   * account or reset) and its owner hasn't picked their own yet — forces a
+   * redirect to Settings, see `auth.guard.ts`. */
+  mustChangePassword(): boolean {
+    return this.getClaim('mustChangePassword') === 'true';
+  }
 }

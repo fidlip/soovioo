@@ -1,5 +1,13 @@
 <h1 class="mb-4">Nastavení</h1>
 
+@if (wasForcedPasswordChange) {
+<p-message
+  severity="warn"
+  text="Vaše heslo vám nastavil administrátor. Z bezpečnostních důvodů si prosím nastavte vlastní, než budete moct pokračovat do aplikace."
+  styleClass="mb-4 w-full"
+/>
+}
+
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
   <p-card header="Profil">
     @if (profile(); as p) {

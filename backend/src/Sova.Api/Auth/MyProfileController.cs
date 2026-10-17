@@ -14,7 +14,7 @@ namespace Sova.Api.Auth;
 [Authorize]
 [ApiController]
 [Route("api/users/me")]
-public class MyProfileController(AppDbContext db) : ControllerBase
+public class MyProfileController(AppDbContext db, JwtTokenFactory tokenFactory) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -35,8 +35,13 @@ public class MyProfileController(AppDbContext db) : ControllerBase
         return Ok(ToDto(user));
     }
 
+    /// <summary>Returns a freshly signed token, not 204 — the caller may be
+    /// clearing a <see cref="User.MustChangePassword"/> forced redirect, and
+    /// the token they're still holding has the old (true) claim baked in.
+    /// Re-login would need the new password repeated right after they just
+    /// typed it once; reissuing here avoids that.</summary>
     [HttpPost("change-password")]
-    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    public async Task<ActionResult<ChangePasswordResponse>> ChangePassword(ChangePasswordRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword))
         {
@@ -50,8 +55,9 @@ public class MyProfileController(AppDbContext db) : ControllerBase
         }
 
         user.PasswordHash = Hasher.HashPassword(user, request.NewPassword);
+        user.MustChangePassword = false;
         await db.SaveChangesAsync();
-        return NoContent();
+        return Ok(new ChangePasswordResponse(tokenFactory.CreateToken(user)));
     }
 
     private async Task<User> CurrentUserAsync()
@@ -69,3 +75,5 @@ public record MyProfileDto(string Username, string Role, string? Phone, string? 
 public record UpdateMyProfileRequest(string? Phone, string? Email);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public record ChangePasswordResponse(string Token);
