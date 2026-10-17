@@ -89,14 +89,34 @@
     @if (d.pendingAbsences.length === 0) {
     <p class="text-sm text-surface-500">Nic nevyřízeného.</p>
     } @else {
-    <ul class="flex flex-col gap-1.5">
+    <ul class="flex flex-col gap-2">
       @for (absence of d.pendingAbsences; track absence.id) {
-      <li class="flex items-center justify-between gap-2 text-sm">
-        <span>{{ absence.studentName }} — {{ absence.date }}</span>
-        <p-tag
-          [value]="absenceStatusLabel(absence.status)"
-          [severity]="absenceStatusSeverity(absence.status)"
-        />
+      <li class="flex flex-col gap-1 text-sm">
+        <div class="flex items-center justify-between gap-2">
+          <span>{{ absence.studentName }} — {{ absence.date }}</span>
+          <p-tag
+            [value]="absenceStatusLabel(absence.status)"
+            [severity]="absenceStatusSeverity(absence.status)"
+          />
+        </div>
+        @if (absence.status === 'Unexcused' && canSubmitExcuse()) {
+        <div class="flex items-center gap-2">
+          <input
+            pInputText
+            type="text"
+            placeholder="Důvod omluvenky"
+            class="w-full"
+            [(ngModel)]="excuseDrafts[absence.id]"
+            [ngModelOptions]="{ standalone: true }"
+          />
+          <p-button
+            label="Omluvit"
+            size="small"
+            [outlined]="true"
+            (onClick)="submitExcuse(absence.id)"
+          />
+        </div>
+        }
       </li>
       }
     </ul>
@@ -139,7 +159,8 @@
       <li class="flex items-center justify-between gap-2 text-sm">
         <span>{{ event.title }}</span>
         <span class="text-surface-500"
-          >{{ formatDateTime(event.startAt, event.allDay) }}</span
+          >{{ formatEventRange(event.startAt, event.endAt, event.allDay)
+          }}</span
         >
       </li>
       }
