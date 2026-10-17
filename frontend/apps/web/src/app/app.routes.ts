@@ -5,6 +5,7 @@ import { authGuard } from './auth.guard';
 import { EventsPage } from './events-page/events-page';
 import { GradesPage } from './grades-page/grades-page';
 import { HomePage } from './home-page/home-page';
+import { HomeworkPage } from './homework-page/homework-page';
 import { LoginPage } from './login-page/login-page';
 import { MessagesPage } from './messages-page/messages-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
@@ -21,6 +22,7 @@ const schoolRoutes: Route[] = [
   { path: 'timetable', component: TimetablePage, canActivate: [authGuard] },
   { path: 'events', component: EventsPage, canActivate: [authGuard] },
   { path: 'messages', component: MessagesPage, canActivate: [authGuard] },
+  { path: 'homework', component: HomeworkPage, canActivate: [authGuard] },
   { path: 'admin', component: AdminPage, canActivate: [authGuard] },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard] },
 ];

@@ -603,6 +603,126 @@ namespace Sova.Api.Migrations
                     b.ToTable("Grades");
                 });
 
+            modelBuilder.Entity("Sova.Api.Homework.Homework", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("RequiresCompletion")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("Homework");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.HomeworkAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("HomeworkId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HomeworkId");
+
+                    b.ToTable("HomeworkAttachments");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.HomeworkCompletion", b =>
+                {
+                    b.Property<int>("HomeworkId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("HomeworkId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("HomeworkCompletions");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.HomeworkStudent", b =>
+                {
+                    b.Property<int>("HomeworkId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("HomeworkId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("HomeworkStudents");
+                });
+
             modelBuilder.Entity("Sova.Api.Messaging.Message", b =>
                 {
                     b.Property<int>("Id")
@@ -1182,6 +1302,82 @@ namespace Sova.Api.Migrations
                     b.Navigation("Subject");
                 });
 
+            modelBuilder.Entity("Sova.Api.Homework.Homework", b =>
+                {
+                    b.HasOne("Sova.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+
+                    b.Navigation("SchoolClass");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.HomeworkAttachment", b =>
+                {
+                    b.HasOne("Sova.Api.Homework.Homework", "Homework")
+                        .WithMany("Attachments")
+                        .HasForeignKey("HomeworkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Homework");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.HomeworkCompletion", b =>
+                {
+                    b.HasOne("Sova.Api.Homework.Homework", "Homework")
+                        .WithMany("Completions")
+                        .HasForeignKey("HomeworkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Homework");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.HomeworkStudent", b =>
+                {
+                    b.HasOne("Sova.Api.Homework.Homework", "Homework")
+                        .WithMany("Students")
+                        .HasForeignKey("HomeworkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Sova.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Homework");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("Sova.Api.Messaging.Message", b =>
                 {
                     b.HasOne("Sova.Api.Evidence.School", "School")
@@ -1286,6 +1482,15 @@ namespace Sova.Api.Migrations
 
             modelBuilder.Entity("Sova.Api.Evidence.SchoolClass", b =>
                 {
+                    b.Navigation("Students");
+                });
+
+            modelBuilder.Entity("Sova.Api.Homework.Homework", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Completions");
+
                     b.Navigation("Students");
                 });
 

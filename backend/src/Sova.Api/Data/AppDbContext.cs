@@ -4,6 +4,7 @@ using Sova.Api.Auth;
 using Sova.Api.Events;
 using Sova.Api.Evidence;
 using Sova.Api.Grades;
+using Sova.Api.Homework;
 using Sova.Api.Messaging;
 using Sova.Api.Reference;
 using Sova.Api.Timetable;
@@ -31,6 +32,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<EventStudent> EventStudents => Set<EventStudent>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
+    public DbSet<Homework.Homework> Homework => Set<Homework.Homework>();
+    public DbSet<HomeworkStudent> HomeworkStudents => Set<HomeworkStudent>();
+    public DbSet<HomeworkCompletion> HomeworkCompletions => Set<HomeworkCompletion>();
+    public DbSet<HomeworkAttachment> HomeworkAttachments => Set<HomeworkAttachment>();
 
     // Global matrika reference data (RAST/RAOR/RAUJ) — not tenant-scoped,
     // shared by every school. Seeded once from CSV at startup; see
@@ -42,6 +47,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
+        modelBuilder.Entity<HomeworkStudent>().HasKey(hs => new { hs.HomeworkId, hs.StudentId });
+        modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
 
         // Audience recipient join tables — composite keys, same shape as
         // ParentStudent above. Everyone/OnlyMe events keep these empty;
@@ -126,6 +133,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<MessageAttachment>().HasQueryFilter(a =>
             currentSchool.IsSuperAdmin || a.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Homework.Homework>().HasQueryFilter(h =>
+            currentSchool.IsSuperAdmin || h.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<HomeworkStudent>().HasQueryFilter(hs =>
+            currentSchool.IsSuperAdmin || hs.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<HomeworkCompletion>().HasQueryFilter(hc =>
+            currentSchool.IsSuperAdmin || hc.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<HomeworkAttachment>().HasQueryFilter(ha =>
+            currentSchool.IsSuperAdmin || ha.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Event>().HasQueryFilter(e =>
             currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<EventSchoolClass>().HasQueryFilter(x =>

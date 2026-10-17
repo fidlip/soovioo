@@ -1,0 +1,282 @@
+<div class="mb-6 flex items-center justify-between gap-4">
+  <h1 class="mb-0">Domácí úkoly</h1>
+  @if (canManageHomework()) {
+  <p-button
+    label="Nový úkol"
+    icon="pi pi-plus"
+    (onClick)="openAddHomeworkDialog()"
+  />
+  }
+</div>
+
+@if (attachmentUploadError(); as error) {
+<p-message severity="warn" [text]="error" styleClass="mb-3 w-full" />
+}
+
+<div class="mb-6 flex flex-wrap items-end gap-3">
+  <div class="flex flex-col gap-1.5">
+    <label
+      for="filterClass"
+      class="text-sm font-medium text-surface-600 dark:text-surface-300"
+      >Třída</label
+    >
+    <p-select
+      inputId="filterClass"
+      [options]="classOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="Všechny třídy"
+      [(ngModel)]="filterClassId"
+      [showClear]="true"
+      name="filterClass"
+      appendTo="body"
+      styleClass="w-52"
+    />
+  </div>
+  <div class="flex flex-col gap-1.5">
+    <label
+      for="filterSubject"
+      class="text-sm font-medium text-surface-600 dark:text-surface-300"
+      >Předmět</label
+    >
+    <p-select
+      inputId="filterSubject"
+      [options]="subjects()"
+      optionLabel="name"
+      optionValue="id"
+      placeholder="Všechny předměty"
+      [(ngModel)]="filterSubjectId"
+      [showClear]="true"
+      name="filterSubject"
+      appendTo="body"
+      styleClass="w-48"
+    />
+  </div>
+</div>
+
+<div class="flex flex-col gap-3">
+  @for (item of filteredHomework(); track item.id) {
+  <p-card>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <strong class="text-surface-900 dark:text-surface-0"
+            >{{ item.subjectName }}</strong
+          >
+          <span class="text-sm text-surface-500"
+            >{{ item.schoolClassName }}</span
+          >
+          <p-tag
+            [value]="'Termín ' + formatDueDate(item.dueDate)"
+            severity="info"
+          />
+        </div>
+        <div class="text-sm text-surface-500">{{ item.createdByName }}</div>
+      </div>
+      @if (canManageHomework()) {
+      <p-button
+        icon="pi pi-trash"
+        size="small"
+        severity="danger"
+        [text]="true"
+        (onClick)="deleteHomework(item)"
+      />
+      }
+    </div>
+    <p
+      class="mt-2 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200"
+    >
+      {{ item.text }}
+    </p>
+
+    @if (item.attachments.length > 0) {
+    <div class="mt-3 flex flex-wrap gap-2">
+      @for (attachment of item.attachments; track attachment.id) {
+      <p-button
+        [label]="attachment.fileName + ' (' + formatFileSize(attachment.sizeBytes) + ')'"
+        icon="pi pi-paperclip"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="downloadAttachment(item, attachment)"
+      />
+      }
+    </div>
+    } @if (item.requiresCompletion) {
+    <div
+      class="mt-3 flex flex-wrap gap-3 border-t border-surface-200 pt-3 dark:border-surface-700"
+    >
+      @for (student of targetedStudents(item); track student.id) {
+      <label
+        class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300"
+      >
+        <input
+          type="checkbox"
+          [checked]="isCompletedBy(item, student.id)"
+          [disabled]="isCompletedBy(item, student.id)"
+          (change)="markComplete(item, student.id)"
+        />
+        {{ student.firstName }} {{ student.lastName }} — {{ isCompletedBy(item,
+        student.id) ? 'splněno' : 'nesplněno' }}
+      </label>
+      }
+    </div>
+    }
+  </p-card>
+  } @empty {
+  <p class="text-surface-500">Zatím žádné domácí úkoly.</p>
+  }
+</div>
+
+<p-dialog
+  [visible]="homeworkDialogVisible()"
+  (visibleChange)="homeworkDialogVisible.set($event)"
+  header="Nový úkol"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (createError(); as error) {
+  <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
+  }
+  <form class="flex flex-col gap-3" (ngSubmit)="saveHomework()">
+    @if (authApi.isAdmin()) {
+    <div class="flex flex-wrap gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="newClass"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Třída</label
+        >
+        <p-select
+          inputId="newClass"
+          [options]="classOptions()"
+          optionLabel="label"
+          optionValue="id"
+          [(ngModel)]="newSchoolClassId"
+          name="newClass"
+          appendTo="body"
+          styleClass="w-48"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="newSubject"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Předmět</label
+        >
+        <p-select
+          inputId="newSubject"
+          [options]="subjects()"
+          optionLabel="name"
+          optionValue="id"
+          [(ngModel)]="newSubjectId"
+          name="newSubject"
+          appendTo="body"
+          styleClass="w-48"
+        />
+      </div>
+    </div>
+    } @else {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newAssignment"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Třída a předmět</label
+      >
+      <p-select
+        inputId="newAssignment"
+        [options]="teachingAssignmentOptions()"
+        optionLabel="label"
+        optionValue="key"
+        [ngModel]="selectedAssignmentKey"
+        (ngModelChange)="selectedAssignmentKey = $event; onAssignmentChange()"
+        name="newAssignment"
+        placeholder="Nevyučujete žádnou třídu"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    }
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newTargetStudents"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Komu (nepovinné — prázdné = celá třída)</label
+      >
+      <p-multiSelect
+        inputId="newTargetStudents"
+        [options]="newClassStudentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        placeholder="Celá třída"
+        display="chip"
+        [(ngModel)]="newTargetStudentIds"
+        name="newTargetStudents"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+
+    <textarea
+      pTextarea
+      rows="3"
+      placeholder="Zadání úkolu"
+      name="newText"
+      [(ngModel)]="newText"
+    ></textarea>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="newDueDate"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Termín</label
+        >
+        <p-datePicker
+          inputId="newDueDate"
+          [(ngModel)]="newDueDate"
+          name="newDueDate"
+          dateFormat="dd.mm.yy"
+          [showIcon]="true"
+          appendTo="body"
+        />
+      </div>
+      <label
+        class="flex items-center gap-2 pb-2 text-sm text-surface-600 dark:text-surface-300"
+      >
+        <input
+          type="checkbox"
+          name="newRequiresCompletion"
+          [(ngModel)]="newRequiresCompletion"
+        />
+        Vyžadovat potvrzení splnění
+      </label>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newAttachment"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příloha (nepovinné, max 10 MB)</label
+      >
+      @if (homeworkDialogVisible()) {
+      <input
+        type="file"
+        id="newAttachment"
+        name="newAttachment"
+        (change)="onFileSelected($event)"
+      />
+      } @if (fileError(); as error) {
+      <p class="m-0 text-sm text-red-500">{{ error }}</p>
+      }
+    </div>
+
+    <p-button
+      type="submit"
+      label="Zadat"
+      icon="pi pi-check"
+      styleClass="self-end"
+    />
+  </form>
+</p-dialog>

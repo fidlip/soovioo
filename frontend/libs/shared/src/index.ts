@@ -44,3 +44,5 @@ export * from './lib/auth/parent.model';
 export * from './lib/auth/parents-api.service';
 export * from './lib/dashboard/dashboard.model';
 export * from './lib/dashboard/dashboard-api.service';
+export * from './lib/homework/homework.model';
+export * from './lib/homework/homework-api.service';
