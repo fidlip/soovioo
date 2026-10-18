@@ -1,120 +1,140 @@
-@if (!hideHeader()) {
+@if (showSidebar()) {
+<!-- Mobile only (< md): thin top bar whose hamburger opens the sidebar as a
+     drawer. Hidden from md up, where the sidebar is always on screen. -->
+<header
+  class="app-topbar sticky top-0 z-10 flex items-center gap-3 border-b border-surface-200 bg-surface-0/90 px-4 py-2 backdrop-blur dark:border-surface-700 dark:bg-surface-900/90"
+>
+  <button
+    type="button"
+    class="app-icon-button text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
+    aria-label="Otevřít menu"
+    aria-controls="app-sidebar"
+    [attr.aria-expanded]="drawerOpen()"
+    (click)="drawerOpen.set(true)"
+  >
+    <i class="pi pi-bars"></i>
+  </button>
+  <img
+    src="/images/logo-inline.svg"
+    alt="Soovioo"
+    class="h-6 w-auto dark:brightness-0 dark:invert"
+  />
+</header>
+
+@if (drawerOpen()) {
+<div class="app-backdrop" aria-hidden="true" (click)="drawerOpen.set(false)"></div>
+}
+
+<aside
+  id="app-sidebar"
+  class="app-sidebar border-r border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900"
+  [class.collapsed]="collapsed()"
+  [class.open]="drawerOpen()"
+>
+  <div class="app-sidebar-logo">
+    <img
+      src="/images/logo-inline.svg"
+      alt="Soovioo"
+      class="logo-full h-6 w-auto dark:brightness-0 dark:invert"
+    />
+    <img
+      src="/images/logo.svg"
+      alt="Soovioo"
+      class="logo-mark h-7 w-auto dark:brightness-0 dark:invert"
+    />
+    <button
+      type="button"
+      class="app-drawer-close app-icon-button text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Zavřít menu"
+      (click)="drawerOpen.set(false)"
+    >
+      <i class="pi pi-times"></i>
+    </button>
+  </div>
+
+  <nav class="app-sidebar-nav" aria-label="Hlavní navigace">
+    @if (isSuperAdmin()) {
+    <a
+      routerLink="/superadmin"
+      [routerLinkActiveOptions]="{ exact: true }"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Správa škol"
+      title="Správa škol"
+      ><app-icon name="school" /><span class="app-nav-label">Správa škol</span></a
+    >
+    } @else { @for (item of navItems(); track item.icon) { @if (!item.staffOnly ||
+    isAdmin() || isTeacher()) {
+    <a
+      [routerLink]="item.link"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="item.label"
+      [title]="item.label"
+      ><app-icon [name]="item.icon" /><span class="app-nav-label">{{
+        item.label
+      }}</span></a
+    >
+    } } }
+  </nav>
+
+  <div
+    class="app-sidebar-footer border-t border-surface-200 dark:border-surface-700"
+  >
+    <button
+      type="button"
+      class="app-nav-link app-collapse-toggle text-surface-500 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800"
+      [attr.aria-label]="collapsed() ? 'Rozbalit menu' : 'Sbalit menu'"
+      [title]="collapsed() ? 'Rozbalit menu' : 'Sbalit menu'"
+      [attr.aria-expanded]="!collapsed()"
+      (click)="toggleCollapsed()"
+    >
+      <i
+        class="pi"
+        [class.pi-angle-double-left]="!collapsed()"
+        [class.pi-angle-double-right]="collapsed()"
+      ></i>
+      <span class="app-nav-label">Sbalit menu</span>
+    </button>
+    <button
+      type="button"
+      class="app-nav-link text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
+      [attr.aria-label]="username()"
+      [title]="username() ?? ''"
+      (click)="userMenu.toggle($event)"
+    >
+      <i class="pi pi-user"></i>
+      <span class="app-nav-label truncate">{{ username() }}</span>
+    </button>
+    <p-menu
+      #userMenu
+      [popup]="true"
+      [model]="isSuperAdmin() ? superAdminUserMenuItems() : userMenuItems()"
+    />
+  </div>
+</aside>
+} @else if (!hideHeader()) {
 <header
   class="sticky top-0 z-10 border-b border-surface-200 bg-surface-0/90 backdrop-blur dark:border-surface-700 dark:bg-surface-900/90"
 >
-  <div class="flex items-center gap-2 px-4 py-3 sm:gap-6 sm:px-6 lg:px-8">
-    <span
-      class="flex items-center gap-2 text-lg font-semibold text-surface-900 dark:text-surface-0"
-    >
-      <img
-        src="/images/logo-inline.svg"
-        alt="Soovioo"
-        class="h-6 w-auto dark:brightness-0 dark:invert"
-      />
-    </span>
-
-    @if (isLoggedIn() && isSuperAdmin()) {
-    <nav class="flex flex-1 gap-1 overflow-x-auto">
-      <a
-        routerLink="/superadmin"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="school" />Správa škol</a
-      >
-    </nav>
-    <p-button
-      [label]="username()"
-      icon="pi pi-user"
-      severity="secondary"
-      [text]="true"
-      size="small"
-      (onClick)="userMenu.toggle($event)"
+  <div class="flex items-center gap-2 px-4 py-3 sm:px-6 lg:px-8">
+    <img
+      src="/images/logo-inline.svg"
+      alt="Soovioo"
+      class="h-6 w-auto dark:brightness-0 dark:invert"
     />
-    <p-menu #userMenu [popup]="true" [model]="userMenuItems()" />
-    } @else if (isLoggedIn()) {
-    <nav class="flex flex-1 gap-1 overflow-x-auto">
-      <a
-        [routerLink]="schoolContext.link('home')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="home" />Domů</a
-      >
-      <a
-        [routerLink]="schoolContext.link('grades')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="grades" />Známky</a
-      >
-      <a
-        [routerLink]="schoolContext.link('absences')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="absences" />Docházka</a
-      >
-      <a
-        [routerLink]="schoolContext.link('timetable')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="timetable" />Rozvrh</a
-      >
-      <a
-        [routerLink]="schoolContext.link('events')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="events" />Kalendář</a
-      >
-      <a
-        [routerLink]="schoolContext.link('messages')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="messages" />Zprávy</a
-      >
-      <a
-        [routerLink]="schoolContext.link('homework')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="homework" />Domácí úkoly</a
-      >
-      <a
-        [routerLink]="schoolContext.link('behavior')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="behavior" />Chování</a
-      >
-      <a
-        [routerLink]="schoolContext.link('payments')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="payments" />Platby</a
-      >
-      @if (isAdmin() || isTeacher()) {
-      <a
-        [routerLink]="schoolContext.link('admin')"
-        routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        ><app-icon name="admin" />Administrace</a
-      >
-      }
-    </nav>
-    <p-button
-      [label]="username()"
-      icon="pi pi-user"
-      severity="secondary"
-      [text]="true"
-      size="small"
-      (onClick)="userMenu.toggle($event)"
-    />
-    <p-menu #userMenu [popup]="true" [model]="userMenuItems()" />
-    } @else {
     <div class="flex-1"></div>
     <a [routerLink]="schoolContext.link('login')" pButton size="small"
       >Přihlásit se</a
     >
-    }
   </div>
 </header>
 }
 
-<main class="px-4 py-8 sm:px-6 lg:px-8">
+<main
+  class="app-main px-4 py-8 sm:px-6 lg:px-8"
+  [class.with-sidebar]="showSidebar()"
+  [class.sidebar-collapsed]="collapsed()"
+>
   <router-outlet />
 </main>

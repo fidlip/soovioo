@@ -1,5 +1,5 @@
-import { Component, computed, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
   NavigationEnd,
@@ -8,14 +8,27 @@ import {
   RouterLinkActive,
   RouterOutlet,
 } from '@angular/router';
-import { Button, ButtonDirective } from '@openng/optimus-ui/button';
+import { ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { filter, map } from 'rxjs';
 import { AuthApiService } from '@soovioo/shared';
-import { AppIcon } from './app-icon';
+import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'soovioo-sidebar-collapsed';
+
+/** md..lg in Tailwind terms — the sidebar starts collapsed to icons here. */
+const TABLET_QUERY = '(min-width: 768px) and (max-width: 1023.98px)';
+
+interface NavItem {
+  label: string;
+  icon: AppIconName;
+  link: string[];
+  /** Administrace — shown to admins and teachers only. */
+  staffOnly?: boolean;
+}
 
 @Component({
   selector: 'app-root',
@@ -23,13 +36,13 @@ import { SchoolContextService } from './school-context';
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
-    Button,
     ButtonDirective,
     Menu,
     AppIcon,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
+  host: { '(document:keydown.escape)': 'drawerOpen.set(false)' },
 })
 export class App {
   private readonly authApi = inject(AuthApiService);
@@ -41,11 +54,29 @@ export class App {
     // <html> on every page — the toggle itself lives on the Nastavení page,
     // not in the header.
     inject(DarkModeService);
+
+    const tabletQuery = window.matchMedia?.(TABLET_QUERY);
+    if (tabletQuery) {
+      const onChange = (e: MediaQueryListEvent) => this.isTablet.set(e.matches);
+      tabletQuery.addEventListener('change', onChange);
+      inject(DestroyRef).onDestroy(() =>
+        tabletQuery.removeEventListener('change', onChange),
+      );
+    }
+
+    // The mobile drawer covers the page, so close it once a link in it has
+    // done its job.
+    this.router.events
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.drawerOpen.set(false));
   }
 
   protected title = 'Soovioo';
 
-  /** Routes opt out of the app header via `data: { hideHeader: true }`
+  /** Routes opt out of the app shell (sidebar / header) via `data: { hideHeader: true }`
    * (login and accept-invite pages). Read from the deepest activated route,
    * since the flag sits on a child of the `:schoolSlug` route in path-based
    * tenant mode. */
@@ -64,6 +95,77 @@ export class App {
     while (route.firstChild) route = route.firstChild;
     return route;
   }
+
+  /** Sidebar for logged-in users everywhere except the auth pages. A plain
+   * method, not a computed: `AuthApiService` isn't signal-based. */
+  protected showSidebar(): boolean {
+    return !this.hideHeader() && this.isLoggedIn();
+  }
+
+  /** Mobile (< md) drawer. Below md the sidebar is off-canvas and the CSS
+   * ignores `collapsed`, so the drawer always shows labels. */
+  protected readonly drawerOpen = signal(false);
+
+  private readonly isTablet = signal(
+    window.matchMedia?.(TABLET_QUERY).matches ?? false,
+  );
+
+  /** Desktop choice, persisted. Tablet keeps its own session-only state so
+   * expanding the sidebar on a narrow window doesn't flip the desktop
+   * default. */
+  private readonly desktopCollapsed = signal(App.readStoredCollapsed());
+  private readonly tabletCollapsed = signal(true);
+
+  protected readonly collapsed = computed(() =>
+    this.isTablet() ? this.tabletCollapsed() : this.desktopCollapsed(),
+  );
+
+  protected toggleCollapsed(): void {
+    if (this.isTablet()) {
+      this.tabletCollapsed.update((c) => !c);
+      return;
+    }
+    const next = !this.desktopCollapsed();
+    this.desktopCollapsed.set(next);
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+    } catch {
+      // Blocked storage — the choice just won't survive a reload.
+    }
+  }
+
+  private static readStoredCollapsed(): boolean {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /** School-agenda links. Computed (stable object references for `@for`)
+   * and therefore auth-independent — the template filters `staffOnly`
+   * items itself, since `AuthApiService` checks aren't signals and a
+   * computed would never see a login/logout. */
+  protected readonly navItems = computed<NavItem[]>(() => {
+    const link = (path: string) => this.schoolContext.link(path);
+    return [
+      { label: 'Domů', icon: 'home', link: link('home') },
+      { label: 'Známky', icon: 'grades', link: link('grades') },
+      { label: 'Docházka', icon: 'absences', link: link('absences') },
+      { label: 'Rozvrh', icon: 'timetable', link: link('timetable') },
+      { label: 'Kalendář', icon: 'events', link: link('events') },
+      { label: 'Zprávy', icon: 'messages', link: link('messages') },
+      { label: 'Domácí úkoly', icon: 'homework', link: link('homework') },
+      { label: 'Chování', icon: 'behavior', link: link('behavior') },
+      { label: 'Platby', icon: 'payments', link: link('payments') },
+      {
+        label: 'Administrace',
+        icon: 'admin',
+        link: link('admin'),
+        staffOnly: true,
+      },
+    ];
+  });
 
   protected isLoggedIn(): boolean {
     return this.authApi.isLoggedIn();
@@ -98,23 +200,29 @@ export class App {
     return this.authApi.getUsername() ?? undefined;
   }
 
-  /** SuperAdmin lives outside the `:schoolSlug` route tree (see app.routes.ts),
-   * so its Settings link can't go through `SchoolContextService.link()`.
+  /** Must be `computed()`s, not plain methods called from the template:
+   * p-menu's `@for` tracks items by object reference, so a method re-run on
+   * every change-detection cycle handed it a brand-new array/objects each
+   * time, tearing the `<li>`/`<a>` elements down and rebuilding them
+   * constantly. If that teardown landed between a real mouse's mousedown and
+   * mouseup — never between a test's synthetic click() — the browser dropped
+   * the click, which is why the first click on a menu item did nothing and
+   * only the second one (hitting a settled DOM) worked.
    *
-   * Must be a `computed()`, not a plain method called from the template
-   * (`[model]="userMenuItems()"`): p-menu's `@for` tracks items by object
-   * reference, so a method re-run on every change-detection cycle handed it
-   * a brand-new array/objects each time, tearing the `<li>`/`<a>` elements
-   * down and rebuilding them constantly. If that teardown landed between a
-   * real mouse's mousedown and mouseup — never between a test's synthetic
-   * click() — the browser dropped the click, which is why the first click
-   * on a menu item did nothing and only the second one (hitting a settled
-   * DOM) worked. `computed()` caches the array and only rebuilds it when
-   * `schoolContext.link()`'s underlying slug signal actually changes. */
-  protected readonly userMenuItems = computed<MenuItem[]>(() => {
-    const settingsLink = this.isSuperAdmin()
-      ? ['/superadmin/settings']
-      : this.schoolContext.link('settings');
+   * Two of them, picked in the template, rather than one branching on
+   * `isSuperAdmin()`: that check isn't a signal, so a single computed would
+   * stay stuck on whichever role it first saw. SuperAdmin lives outside the
+   * `:schoolSlug` route tree (see app.routes.ts), so its Settings link can't
+   * go through `SchoolContextService.link()`. */
+  protected readonly userMenuItems = computed<MenuItem[]>(() =>
+    this.buildUserMenu(this.schoolContext.link('settings')),
+  );
+
+  protected readonly superAdminUserMenuItems = computed<MenuItem[]>(() =>
+    this.buildUserMenu(['/superadmin/settings']),
+  );
+
+  private buildUserMenu(settingsLink: string[]): MenuItem[] {
     return [
       { label: 'Nastavení', icon: 'pi pi-cog', routerLink: settingsLink },
       { separator: true },
@@ -124,5 +232,5 @@ export class App {
         command: () => this.logout(),
       },
     ];
-  });
+  }
 }

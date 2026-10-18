@@ -53,4 +53,33 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Rozvrh');
     expect(compiled.textContent).toContain('Zprávy');
   });
+
+  it('remembers a collapsed sidebar across reloads', async () => {
+    localStorage.removeItem('soovioo-sidebar-collapsed');
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(appRoutes),
+        { provide: API_BASE_URL, useValue: 'http://test' },
+        { provide: TokenStorage, useValue: new FakeTokenStorage('fake-token') },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const sidebar = compiled.querySelector('aside') as HTMLElement;
+    expect(sidebar.classList).not.toContain('collapsed');
+
+    (
+      compiled.querySelector('.app-collapse-toggle') as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+
+    expect(sidebar.classList).toContain('collapsed');
+    expect(localStorage.getItem('soovioo-sidebar-collapsed')).toBe('true');
+    localStorage.removeItem('soovioo-sidebar-collapsed');
+  });
 });
