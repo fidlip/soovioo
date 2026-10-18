@@ -68,9 +68,7 @@ public class AuthSessionService(
             });
         }
 
-        var school = user.SchoolId is { } schoolId
-            ? await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId)
-            : null;
+        var school = await SchoolOfAsync(user);
         return new LoginResponse(
             tokenFactory.CreateToken(user, school),
             user.Username,
@@ -79,6 +77,16 @@ public class AuthSessionService(
             school?.Slug,
             useCookie ? null : refresh.Token);
     }
+
+    /// <summary>Just a new access token for the current session (refresh
+    /// token untouched) — e.g. after switching the active role.</summary>
+    public async Task<string> IssueAccessTokenAsync(User user) =>
+        tokenFactory.CreateToken(user, await SchoolOfAsync(user));
+
+    private async Task<Evidence.School?> SchoolOfAsync(User user) =>
+        user.SchoolId is { } schoolId
+            ? await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId)
+            : null;
 
     public void ClearCookie(HttpContext http) =>
         http.Response.Cookies.Delete(CookieName, new CookieOptions

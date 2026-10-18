@@ -104,4 +104,35 @@ public class MyProfileControllerTests
         Assert.Equal("false", jwt.Claims.Single(c => c.Type == "mustChangePassword").Value);
         Assert.False((await db.Users.FindAsync(user.Id))!.MustChangePassword);
     }
+
+    [Fact]
+    public async Task SwitchRoleIssuesTokenWithNewActiveRole()
+    {
+        using var db = NewDb();
+        var user = NewUser("heslo123");
+        user.Role = UserRole.Parent;
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest("Teacher"));
+
+        var response = Assert.IsType<SwitchRoleResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(response.Token);
+        Assert.Equal("Teacher", token.Claims.First(c => c.Type == ClaimTypes.Role || c.Type == "role").Value);
+        Assert.Equal("Teacher,Parent", token.Claims.First(c => c.Type == "roles").Value);
+        Assert.Equal(UserRole.Teacher, (await db.Users.SingleAsync()).Role);
+    }
+
+    [Fact]
+    public async Task SwitchRoleRejectsRoleTheAccountDoesNotHave()
+    {
+        using var db = NewDb();
+        var user = NewUser("heslo123");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest("Admin"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
 }

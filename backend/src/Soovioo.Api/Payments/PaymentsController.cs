@@ -84,7 +84,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 .Select(c => new PaymentSchoolClassOptionDto(c.Id, c.Name, c.Rocnik))
                 .ToListAsync();
             var parents = await db.Users
-                .Where(u => u.Role == UserRole.Parent)
+                .Where(u => u.Roles.Contains(UserRole.Parent))
                 .OrderBy(u => u.Username)
                 .Select(u => new PaymentPersonOptionDto(u.Id, u.Username))
                 .ToListAsync();
@@ -275,7 +275,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             var classIds = await db.SchoolClasses.Where(c => c.SchoolId == schoolId).Select(c => c.Id).ToListAsync();
             var parentIds = await db.Users
-                .Where(u => u.SchoolId == schoolId && u.Role == UserRole.Parent).Select(u => u.Id).ToListAsync();
+                .Where(u => u.SchoolId == schoolId && u.Roles.Contains(UserRole.Parent)).Select(u => u.Id).ToListAsync();
             var studentIds = await db.Students.Where(s => s.SchoolId == schoolId).Select(s => s.Id).ToListAsync();
             return new AllowedRecipientIds(classIds.ToHashSet(), parentIds.ToHashSet(), studentIds.ToHashSet());
         }

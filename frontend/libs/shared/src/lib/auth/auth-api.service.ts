@@ -146,6 +146,22 @@ export class AuthApiService {
     return Number.isNaN(id) ? null : id;
   }
 
+  /** Every role the account may switch between (`roles` claim) — the
+   * active one is `getRole()`. */
+  getRoles(): string[] {
+    return this.getClaim('roles')?.split(',').filter(Boolean) ?? [];
+  }
+
+  /** Makes another of `getRoles()` the active one — the backend remembers
+   * it and hands back an access token carrying it. */
+  switchRole(role: string): Observable<void> {
+    return this.http
+      .post<{ token: string }>(`${this.baseUrl}/api/users/me/active-role`, {
+        role,
+      })
+      .pipe(map((response) => this.store(response)));
+  }
+
   /** ZŠ/SŠ of the user's school (`schoolType` claim) — drives "žák" vs.
    * "student" in the UI, see `localizeStudentTerm`. Null for SuperAdmin. */
   getSchoolType(): SchoolType | null {

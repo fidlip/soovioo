@@ -75,6 +75,23 @@ public class MyProfileController(
         return Ok(new ChangePasswordResponse(session.Token, session.RefreshToken));
     }
 
+    /// <summary>Makes another of the caller's <see cref="User.Roles"/> the
+    /// active one and returns an access token carrying it. Persisted on the
+    /// user, so it's also what the next login/refresh starts in.</summary>
+    [HttpPost("active-role")]
+    public async Task<ActionResult<SwitchRoleResponse>> SwitchRole(SwitchRoleRequest request)
+    {
+        var user = await CurrentUserAsync();
+        if (!Enum.TryParse<UserRole>(request.Role, out var role) || !user.Roles.Contains(role))
+        {
+            return BadRequest("Tuto roli účet nemá.");
+        }
+
+        user.Role = role;
+        await db.SaveChangesAsync();
+        return Ok(new SwitchRoleResponse(await sessions.IssueAccessTokenAsync(user)));
+    }
+
     private async Task<User> CurrentUserAsync()
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -86,6 +103,10 @@ public class MyProfileController(
 }
 
 public record MyProfileDto(string Username, string Role, string? Phone, string? Email);
+
+public record SwitchRoleRequest(string Role);
+
+public record SwitchRoleResponse(string Token);
 
 public record UpdateMyProfileRequest(string? Phone, string? Email);
 

@@ -12,7 +12,11 @@ import { ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { filter, map } from 'rxjs';
-import { AuthApiService } from '@soovioo/shared';
+import {
+  AuthApiService,
+  ROLE_LABELS,
+  localizeStudentTerm,
+} from '@soovioo/shared';
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
@@ -206,6 +210,62 @@ export class App {
 
   protected isSuperAdmin(): boolean {
     return this.authApi.isSuperAdmin();
+  }
+
+  /** Accounts with several roles (e.g. a teacher who is also a parent) get
+   * a "Jako: …" switcher in the sidebar. */
+  protected hasSeveralRoles(): boolean {
+    return this.authApi.getRoles().length > 1;
+  }
+
+  protected activeRoleLabel(): string {
+    return this.roleLabel(this.authApi.getRole() ?? '');
+  }
+
+  private roleLabel(role: string): string {
+    return localizeStudentTerm(
+      ROLE_LABELS[role] ?? role,
+      this.authApi.getSchoolType(),
+    );
+  }
+
+  /** Same stable-reference requirement as userMenuItems below, but the
+   * roles come from the token (not a signal) — cached per roles+active. */
+  private roleMenuCache: { key: string; items: MenuItem[] } | null = null;
+
+  protected roleMenuItems(): MenuItem[] {
+    const roles = this.authApi.getRoles();
+    const active = this.authApi.getRole();
+    const key = `${roles.join(',')}|${active}`;
+    if (this.roleMenuCache?.key !== key) {
+      this.roleMenuCache = {
+        key,
+        items: roles.map((role) => ({
+          label: this.roleLabel(role),
+          icon: role === active ? 'pi pi-check' : 'pi pi-fw',
+          command: () => this.switchRole(role),
+        })),
+      };
+    }
+    return this.roleMenuCache.items;
+  }
+
+  /** Every page decides what to show by the role once, when it's created —
+   * a full reload onto Home is the simplest way to make all of them
+   * re-decide. */
+  private switchRole(role: string): void {
+    if (role === this.authApi.getRole()) {
+      return;
+    }
+    this.authApi.switchRole(role).subscribe({
+      next: () =>
+        window.location.assign(
+          this.router.serializeUrl(
+            this.router.createUrlTree(this.schoolContext.link('home')),
+          ),
+        ),
+      error: (err) => console.error('switchRole failed', err),
+    });
   }
 
   protected username(): string | undefined {

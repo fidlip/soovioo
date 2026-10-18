@@ -273,7 +273,7 @@ public class AuthSessionTests
             },
         };
 
-        await users.UpdateUser(user.Id, new UpdateUserRequest("ucitel", "Teacher", Password: "reset-heslo"));
+        await users.UpdateUser(user.Id, new UpdateUserRequest("ucitel", ["Teacher"], Password: "reset-heslo"));
 
         Assert.IsType<UnauthorizedResult>((await Controller().Refresh(new RefreshRequest(token))).Result);
     }

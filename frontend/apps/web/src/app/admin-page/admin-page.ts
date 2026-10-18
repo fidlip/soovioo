@@ -51,6 +51,7 @@ import {
   UpdateUserRequest,
   UsersApiService,
   localizeStudentTerm,
+  ROLE_LABELS,
   SchoolType,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
@@ -64,12 +65,7 @@ import { TermPipe } from '../term.pipe';
  * non-Admin navigating here directly). */
 type AccessLevel = 'admin' | 'classTeacher' | 'denied' | 'loading';
 
-const ROLE_OPTIONS = [
-  { label: 'Admin', value: 'Admin' },
-  { label: 'Teacher', value: 'Teacher' },
-  { label: 'Parent', value: 'Parent' },
-  { label: 'Student', value: 'Student' },
-];
+const ROLES = ['Admin', 'Teacher', 'Parent', 'Student'];
 
 const GENDER_OPTIONS: { label: string; value: Gender }[] = [
   { label: 'Chlapec', value: 'Male' },
@@ -178,7 +174,13 @@ export class AdminPage {
   protected readonly newUserDialogVisible = signal(false);
   protected readonly editParentChildrenDialogVisible = signal(false);
 
-  protected readonly roleOptions = ROLE_OPTIONS;
+  protected readonly roleOptions = ROLES.map((value) => ({
+    value,
+    label: localizeStudentTerm(
+      ROLE_LABELS[value],
+      this.authApi.getSchoolType(),
+    ),
+  }));
   protected readonly genderOptions = GENDER_OPTIONS;
   protected readonly citizenshipQualifierOptions =
     CITIZENSHIP_QUALIFIER_OPTIONS;
@@ -194,7 +196,7 @@ export class AdminPage {
 
   /** Třídní učitel candidates — Teacher role only. */
   protected readonly teacherOptions = computed(() =>
-    this.users().filter((u) => u.role === 'Teacher'),
+    this.users().filter((u) => u.roles.includes('Teacher')),
   );
 
   /** "Rodiče" overview list — Admin sees every Parent-role account; a class
@@ -226,7 +228,7 @@ export class AdminPage {
       this.users()
         .filter(
           (u) =>
-            u.role === 'Student' &&
+            u.roles.includes('Student') &&
             u.studentId !== null &&
             u.id !== this.editingUserId,
         )
@@ -270,7 +272,7 @@ export class AdminPage {
 
   protected newUsername = '';
   protected newPassword = '';
-  protected newUserRole = 'Parent';
+  protected newUserRoles: string[] = ['Parent'];
   protected newUserPhone = '';
   protected newUserEmail = '';
   protected newUserStudentId: number | null = null;
@@ -477,9 +479,24 @@ export class AdminPage {
     );
   }
 
+  protected teacherClassNames(teacherId: number): string {
+    return this.schoolClasses()
+      .filter((c) => c.classTeacherId === teacherId)
+      .map((c) => c.name)
+      .join(', ');
+  }
+
+  protected roleLabel(role: string): string {
+    return localizeStudentTerm(
+      ROLE_LABELS[role] ?? role,
+      this.authApi.getSchoolType(),
+    );
+  }
+
   protected filteredUsers(): AppUser[] {
     return this.users().filter(
-      (u) => this.filterUserRole === null || u.role === this.filterUserRole,
+      (u) =>
+        this.filterUserRole === null || u.roles.includes(this.filterUserRole),
     );
   }
 
@@ -826,7 +843,7 @@ export class AdminPage {
     this.editingUserId = null;
     this.newUsername = '';
     this.newPassword = '';
-    this.newUserRole = 'Parent';
+    this.newUserRoles = ['Parent'];
     this.newUserPhone = '';
     this.newUserEmail = '';
     this.newUserStudentId = null;
@@ -836,7 +853,7 @@ export class AdminPage {
   protected startEditUser(user: AppUser): void {
     this.editingUserId = user.id;
     this.newUsername = user.username;
-    this.newUserRole = user.role;
+    this.newUserRoles = [...user.roles];
     this.newPassword = ''; // left blank = keep the current password
     this.newUserPhone = user.phone ?? '';
     this.newUserEmail = user.email ?? '';
@@ -848,10 +865,9 @@ export class AdminPage {
     if (!this.newUsername.trim()) {
       return;
     }
-    const studentId =
-      this.newUserRole === 'Student'
-        ? (this.newUserStudentId ?? undefined)
-        : undefined;
+    const studentId = this.newUserRoles.includes('Student')
+      ? (this.newUserStudentId ?? undefined)
+      : undefined;
 
     if (this.editingUserId === null) {
       if (!this.newPassword.trim()) {
@@ -860,7 +876,7 @@ export class AdminPage {
       const request: CreateUserRequest = {
         username: this.newUsername,
         password: this.newPassword,
-        role: this.newUserRole,
+        roles: this.newUserRoles,
         phone: this.newUserPhone || undefined,
         email: this.newUserEmail || undefined,
         studentId,
@@ -877,7 +893,7 @@ export class AdminPage {
 
     const request: UpdateUserRequest = {
       username: this.newUsername,
-      role: this.newUserRole,
+      roles: this.newUserRoles,
       password: this.newPassword || undefined,
       phone: this.newUserPhone || undefined,
       email: this.newUserEmail || undefined,

@@ -47,7 +47,7 @@ public class UsersControllerTests
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", "Teacher"));
+        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", ["Teacher"]));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal("ucitelka", dto.Username);
@@ -58,7 +58,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
 
-        await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", "Teacher"));
+        await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", ["Teacher"]));
 
         var created = await db.Users.SingleAsync(u => u.Username == "novy");
         Assert.True(created.MustChangePassword);
@@ -72,7 +72,7 @@ public class UsersControllerTests
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitel", "Teacher", "nove-heslo"));
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitel", ["Teacher"], "nove-heslo"));
 
         Assert.True((await db.Users.FindAsync(user.Id))!.MustChangePassword);
     }
@@ -85,7 +85,7 @@ public class UsersControllerTests
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", "Teacher"));
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", ["Teacher"]));
 
         Assert.False((await db.Users.FindAsync(user.Id))!.MustChangePassword);
     }
@@ -95,7 +95,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", "Student"));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", ["Student"]));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -109,7 +109,7 @@ public class UsersControllerTests
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999)
-            .AddUser(new CreateUserRequest("zak", "heslo123", "Student", StudentId: student.Id));
+            .AddUser(new CreateUserRequest("zak", "heslo123", ["Student"], StudentId: student.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal(student.Id, dto.StudentId);
@@ -128,7 +128,7 @@ public class UsersControllerTests
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999)
-            .AddUser(new CreateUserRequest("zak2", "heslo123", "Student", StudentId: student.Id));
+            .AddUser(new CreateUserRequest("zak2", "heslo123", ["Student"], StudentId: student.Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -146,7 +146,7 @@ public class UsersControllerTests
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999)
-            .UpdateUser(studentUser.Id, new UpdateUserRequest("zak", "Student", StudentId: newStudent.Id));
+            .UpdateUser(studentUser.Id, new UpdateUserRequest("zak", ["Student"], StudentId: newStudent.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(newStudent.Id, dto.StudentId);
@@ -165,7 +165,7 @@ public class UsersControllerTests
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        await NewController(db, 999).UpdateUser(studentUser.Id, new UpdateUserRequest("zak", "Parent"));
+        await NewController(db, 999).UpdateUser(studentUser.Id, new UpdateUserRequest("zak", ["Parent"]));
 
         Assert.Null((await db.Students.FindAsync(student.Id))!.UserId);
     }
@@ -268,5 +268,42 @@ public class UsersControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Users.FindAsync(parent.Id));
         Assert.Empty(db.ParentStudents.Where(ps => ps.UserId == parent.Id));
+    }
+
+    [Fact]
+    public async Task AddUserWithSeveralRolesStartsInTheFirstOne()
+    {
+        using var db = NewDb();
+
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("ucitelka", "heslo123", ["Parent", "Teacher"]));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal("Teacher", dto.Role);
+        Assert.Equal(["Teacher", "Parent"], dto.Roles);
+    }
+
+    [Fact]
+    public async Task StudentRoleCannotBeCombined()
+    {
+        using var db = NewDb();
+
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", ["Student", "Parent"]));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task RemovingTheActiveRoleFallsBackToAnotherOne()
+    {
+        using var db = NewDb();
+        var user = new User { Username = "ucitelka", PasswordHash = "x", Roles = [UserRole.Teacher, UserRole.Parent], Role = UserRole.Parent, SchoolId = SchoolId };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", ["Teacher"]));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Teacher", dto.Role);
+        Assert.Equal(["Teacher"], dto.Roles);
     }
 }

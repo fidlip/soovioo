@@ -7,7 +7,30 @@ public class User
     public int Id { get; set; }
     public required string Username { get; set; }
     public required string PasswordHash { get; set; }
-    public UserRole Role { get; set; }
+    private UserRole role;
+
+    /// <summary>The <em>active</em> role — the one the JWT's role claim
+    /// carries, so every <c>[Authorize(Roles = …)]</c>/<c>IsInRole</c> check
+    /// works against it unchanged. Always one of <see cref="Roles"/> (setting
+    /// it adds it there). Persisted, so the last choice made in the role
+    /// switcher survives a new login.</summary>
+    public UserRole Role
+    {
+        get => role;
+        set
+        {
+            role = value;
+            if (!Roles.Contains(value))
+            {
+                Roles.Add(value);
+            }
+        }
+    }
+
+    /// <summary>Every role the account may act as (e.g. a teacher who is also
+    /// a parent at the same school). Query "users with role X" against this,
+    /// never against <see cref="Role"/>.</summary>
+    public List<UserRole> Roles { get; set; } = [];
 
     /// <summary>Null only for SuperAdmin — every other role belongs to one School.</summary>
     public int? SchoolId { get; set; }

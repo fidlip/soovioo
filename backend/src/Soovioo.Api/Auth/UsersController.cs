@@ -28,12 +28,15 @@ public class UsersController(
     {
         var users = await db.Users
             .OrderBy(u => u.Username)
-            .Select(u => new UserDto(
-                u.Id, u.Username, u.Role.ToString(), u.Phone, u.Email,
-                db.Students.Where(s => s.UserId == u.Id).Select(s => (int?)s.Id).FirstOrDefault()))
+            .Select(u => new
+            {
+                u.Id, u.Username, u.Role, u.Roles, u.Phone, u.Email,
+                StudentId = db.Students.Where(s => s.UserId == u.Id).Select(s => (int?)s.Id).FirstOrDefault(),
+            })
             .ToListAsync();
 
-        return Ok(users);
+        return Ok(users.Select(u => new UserDto(
+            u.Id, u.Username, u.Role.ToString(), RoleNames(u.Roles), u.Phone, u.Email, u.StudentId)));
     }
 
     [HttpPost]
@@ -44,12 +47,13 @@ public class UsersController(
             return BadRequest("Username already exists.");
         }
 
-        if (!Enum.TryParse<UserRole>(request.Role, out var role) || role == UserRole.SuperAdmin)
+        var (roles, rolesError) = ParseRoles(request.Roles);
+        if (rolesError is not null)
         {
-            return BadRequest("Unknown role.");
+            return rolesError;
         }
 
-        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(role, request.StudentId, currentUserId: null);
+        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(roles, request.StudentId, currentUserId: null);
         if (linkError is not null)
         {
             return linkError;
@@ -59,7 +63,8 @@ public class UsersController(
         {
             Username = request.Username,
             PasswordHash = string.Empty,
-            Role = role,
+            Roles = roles,
+            Role = roles[0],
             // Admin only ever manages their own school — never trust a
             // client-supplied SchoolId here.
             SchoolId = currentSchool.SchoolId,
@@ -80,7 +85,7 @@ public class UsersController(
             await db.SaveChangesAsync();
         }
 
-        var dto = new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email, linkedStudent?.Id);
+        var dto = ToDto(user, linkedStudent?.Id);
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, dto);
     }
 
@@ -99,17 +104,18 @@ public class UsersController(
             return BadRequest("Username already exists.");
         }
 
-        if (!Enum.TryParse<UserRole>(request.Role, out var role) || role == UserRole.SuperAdmin)
+        var (roles, rolesError) = ParseRoles(request.Roles);
+        if (rolesError is not null)
         {
-            return BadRequest("Unknown role.");
+            return rolesError;
         }
 
-        if (user.Role == UserRole.Admin && role != UserRole.Admin && await IsLastAdminAsync(id))
+        if (user.Roles.Contains(UserRole.Admin) && !roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
         {
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
 
-        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(role, request.StudentId, currentUserId: id);
+        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(roles, request.StudentId, currentUserId: id);
         if (linkError is not null)
         {
             return linkError;
@@ -129,7 +135,11 @@ public class UsersController(
         }
 
         user.Username = request.Username;
-        user.Role = role;
+        // Keep the active role when it survived the edit, otherwise fall
+        // back to the first remaining one (ParseRoles sorts them).
+        var activeRole = roles.Contains(user.Role) ? user.Role : roles[0];
+        user.Roles = roles;
+        user.Role = activeRole;
         user.Phone = request.Phone;
         user.Email = request.Email;
         if (!string.IsNullOrWhiteSpace(request.Password))
@@ -146,7 +156,7 @@ public class UsersController(
             // Whoever knew the old password shouldn't stay signed in on it.
             await refreshTokens.RevokeAllForUserAsync(user.Id);
         }
-        return Ok(new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email, linkedStudent?.Id));
+        return Ok(ToDto(user, linkedStudent?.Id));
     }
 
     [HttpDelete("{id:int}")]
@@ -164,7 +174,7 @@ public class UsersController(
             return BadRequest("Nelze smazat vlastní účet.");
         }
 
-        if (user.Role == UserRole.Admin && await IsLastAdminAsync(id))
+        if (user.Roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
         {
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
@@ -230,13 +240,45 @@ public class UsersController(
         return $"{origin}/accept-invite?token={Uri.EscapeDataString(token)}";
     }
 
+    /// <summary>Distinct, in enum order (Admin, Teacher, Parent, Student) so
+    /// the first one is a sensible default active role. Student can't be
+    /// combined — a pupil's account is never also staff or a parent.</summary>
+    private (List<UserRole> Roles, ActionResult<UserDto>? Error) ParseRoles(IReadOnlyList<string>? names)
+    {
+        var roles = new List<UserRole>();
+        foreach (var name in names ?? [])
+        {
+            if (!Enum.TryParse<UserRole>(name, out var parsed) || parsed == UserRole.SuperAdmin)
+            {
+                return ([], BadRequest("Unknown role."));
+            }
+            roles.Add(parsed);
+        }
+        roles = roles.Distinct().Order().ToList();
+        if (roles.Count == 0)
+        {
+            return ([], BadRequest("Vyberte aspoň jednu roli."));
+        }
+        if (roles.Contains(UserRole.Student) && roles.Count > 1)
+        {
+            return ([], BadRequest("Roli Student nelze kombinovat s jinou."));
+        }
+        return (roles, null);
+    }
+
+    private static IReadOnlyList<string> RoleNames(IEnumerable<UserRole> roles) =>
+        roles.Order().Select(r => r.ToString()).ToList();
+
+    private static UserDto ToDto(User user, int? studentId) =>
+        new(user.Id, user.Username, user.Role.ToString(), RoleNames(user.Roles), user.Phone, user.Email, studentId);
+
     private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     /// <summary>True if <paramref name="userId"/> is the only Admin left for
     /// the current school — deleting/demoting them would leave the school
     /// with no one able to manage it.</summary>
     private async Task<bool> IsLastAdminAsync(int userId) =>
-        !await db.Users.AnyAsync(u => u.Id != userId && u.Role == UserRole.Admin);
+        !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Contains(UserRole.Admin));
 
     /// <summary>Validates and resolves the <see cref="Student"/> a Student-role
     /// account must link to (null/error otherwise). Doesn't write anything —
@@ -247,9 +289,9 @@ public class UsersController(
     /// account with the same already-linked student isn't rejected as
     /// "already taken".</summary>
     private async Task<(Student? Student, ActionResult<UserDto>? Error)> ResolveStudentLinkAsync(
-        UserRole role, int? requestedStudentId, int? currentUserId)
+        List<UserRole> roles, int? requestedStudentId, int? currentUserId)
     {
-        if (role != UserRole.Student)
+        if (!roles.Contains(UserRole.Student))
         {
             return (null, null);
         }
@@ -275,11 +317,14 @@ public class UsersController(
 }
 
 public record CreateUserRequest(
-    string Username, string Password, string Role, string? Phone = null, string? Email = null, int? StudentId = null);
+    string Username, string Password, IReadOnlyList<string> Roles, string? Phone = null, string? Email = null, int? StudentId = null);
 
 public record UpdateUserRequest(
-    string Username, string Role, string? Password = null, string? Phone = null, string? Email = null, int? StudentId = null);
+    string Username, IReadOnlyList<string> Roles, string? Password = null, string? Phone = null, string? Email = null, int? StudentId = null);
 
-/// <summary><see cref="StudentId"/> is set only for role Student — the one
-/// <see cref="Evidence.Student"/> this account logs in as.</summary>
-public record UserDto(int Id, string Username, string Role, string? Phone, string? Email, int? StudentId = null);
+/// <summary><see cref="Role"/> is the active one, <see cref="Roles"/> all
+/// the account may switch between. <see cref="StudentId"/> is set only for
+/// role Student — the one <see cref="Evidence.Student"/> this account logs
+/// in as.</summary>
+public record UserDto(
+    int Id, string Username, string Role, IReadOnlyList<string> Roles, string? Phone, string? Email, int? StudentId = null);

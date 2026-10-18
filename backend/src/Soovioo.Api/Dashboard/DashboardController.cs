@@ -126,7 +126,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             schoolCounts = new SchoolCountsDto(
                 await db.Students.CountAsync(),
-                await db.Users.CountAsync(u => u.Role == UserRole.Teacher),
+                await db.Users.CountAsync(u => u.Roles.Contains(UserRole.Teacher)),
                 await db.SchoolClasses.CountAsync());
         }
 

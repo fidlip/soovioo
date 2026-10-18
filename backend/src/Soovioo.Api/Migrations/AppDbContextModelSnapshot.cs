@@ -135,6 +135,10 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
+                    b.PrimitiveCollection<int[]>("Roles")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
                     b.Property<int?>("SchoolId")
                         .HasColumnType("integer");
 

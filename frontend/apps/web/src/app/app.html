@@ -96,6 +96,19 @@
       ></i>
       <span class="app-nav-label">Sbalit menu</span>
     </button>
+    @if (hasSeveralRoles()) {
+    <button
+      type="button"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="'Přepnout roli, teď: ' + activeRoleLabel()"
+      [title]="'Přepnout roli'"
+      (click)="roleMenu.toggle($event)"
+    >
+      <i class="pi pi-users"></i>
+      <span class="app-nav-label truncate">Jako: {{ activeRoleLabel() }}</span>
+    </button>
+    <p-menu #roleMenu [popup]="true" [model]="roleMenuItems()" />
+    }
     <button
       type="button"
       class="app-nav-link text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"

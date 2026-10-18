@@ -20,7 +20,7 @@ public class ParentsController(AppDbContext db) : ControllerBase
     public async Task<ActionResult<IEnumerable<ParentDto>>> GetParents()
     {
         var parents = await db.Users
-            .Where(u => u.Role == UserRole.Parent)
+            .Where(u => u.Roles.Contains(UserRole.Parent))
             .OrderBy(u => u.Username)
             .Select(u => new ParentDto(u.Id, u.Username))
             .ToListAsync();

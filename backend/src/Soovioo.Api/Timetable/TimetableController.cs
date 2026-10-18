@@ -179,7 +179,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return null;
         }
 
-        return await db.Users.FirstOrDefaultAsync(u => u.Id == teacherId && u.Role == UserRole.Teacher);
+        return await db.Users.FirstOrDefaultAsync(u => u.Id == teacherId && u.Roles.Contains(UserRole.Teacher));
     }
 
     private async Task<Classroom?> ResolveClassroomAsync(int? classroomId)
