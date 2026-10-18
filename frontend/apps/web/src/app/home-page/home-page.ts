@@ -1,7 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { Button } from '@openng/optimus-ui/button';
+import { RouterLink } from '@angular/router';
+import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Tag } from '@openng/optimus-ui/tag';
@@ -15,7 +15,7 @@ import {
   DashboardApiService,
 } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
-import { AppIcon } from '../app-icon';
+import { AppIcon, AppIconName } from '../app-icon';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -57,6 +57,26 @@ const RECORD_TYPE_SEVERITY: Record<
   DutkaReditele: 'danger',
 };
 
+type WidgetId =
+  | 'school'
+  | 'timetable'
+  | 'grades'
+  | 'absences'
+  | 'messages'
+  | 'behavior'
+  | 'events';
+
+interface Widget {
+  id: WidgetId;
+  title: string;
+  icon: AppIconName;
+  /** Agenda path (see SchoolContextService.link). */
+  link: string;
+  linkLabel: string;
+  /** False = nothing new/pending — the widget collapses into a chip. */
+  hasContent: boolean;
+}
+
 /** Role-specific widget set, per the roadmap's "Home page (dashboard)" spec:
  * Parent/Student get their own schedule/grades/absences; Teacher/Admin get
  * the operational view (today's lessons taught, absences awaiting review);
@@ -65,20 +85,112 @@ const RECORD_TYPE_SEVERITY: Record<
  * for the shared access-control reasoning. */
 @Component({
   selector: 'app-home-page',
-  imports: [AppIcon, Button, Card, FormsModule, InputText, Tag],
+  imports: [
+    AppIcon,
+    Button,
+    ButtonDirective,
+    Card,
+    FormsModule,
+    InputText,
+    RouterLink,
+    Tag,
+  ],
   templateUrl: './home-page.html',
 })
 export class HomePage {
   private readonly dashboardApi = inject(DashboardApiService);
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly behaviorApi = inject(BehaviorApiService);
-  private readonly router = inject(Router);
   protected readonly authApi = inject(AuthApiService);
   protected readonly schoolContext = inject(SchoolContextService);
 
   protected readonly dashboard = signal<Dashboard | null>(null);
   protected readonly loadError = signal(false);
   protected excuseDrafts: Record<number, string> = {};
+
+  /** Fixed order on purpose — every widget keeps its place, so the page can
+   * be scanned by position. Only the empty ones move out of the grid (see
+   * activeWidgets/emptyWidgets). */
+  private readonly widgets = computed<Widget[]>(() => {
+    const d = this.dashboard();
+    if (!d) {
+      return [];
+    }
+    const isAdmin = this.authApi.isAdmin();
+    const isStaff = this.authApi.isTeacherOrAdmin();
+    const widgets: Widget[] = [];
+    if (isAdmin) {
+      widgets.push({
+        id: 'school',
+        title: 'Přehled školy',
+        icon: 'school',
+        link: 'admin',
+        linkLabel: 'Administrace',
+        hasContent: d.schoolCounts !== null,
+      });
+    } else {
+      widgets.push({
+        id: 'timetable',
+        title: 'Dnešní rozvrh',
+        icon: 'timetable',
+        link: 'timetable',
+        linkLabel: 'Celý rozvrh',
+        hasContent: d.todayLessons.length > 0,
+      });
+    }
+    if (!isStaff) {
+      widgets.push({
+        id: 'grades',
+        title: 'Poslední známky',
+        icon: 'grades',
+        link: 'grades',
+        linkLabel: 'Všechny známky',
+        hasContent: d.recentGrades.length > 0,
+      });
+    }
+    widgets.push(
+      {
+        id: 'absences',
+        title: isStaff ? 'Omluvenky ke schválení' : 'Nevyřízené absence',
+        icon: 'absences',
+        link: 'absences',
+        linkLabel: 'Celá docházka',
+        hasContent: d.pendingAbsences.length > 0,
+      },
+      {
+        id: 'messages',
+        title: 'Zprávy',
+        icon: 'messages',
+        link: 'messages',
+        linkLabel: 'Všechny zprávy',
+        hasContent: d.unreadMessageCount > 0,
+      },
+      {
+        id: 'behavior',
+        title: 'Chování',
+        icon: 'behavior',
+        link: 'behavior',
+        linkLabel: 'Celé chování',
+        hasContent: d.unreadBehaviorRecords.length > 0,
+      },
+      {
+        id: 'events',
+        title: 'Nejbližší akce',
+        icon: 'events',
+        link: 'events',
+        linkLabel: 'Celý kalendář',
+        hasContent: d.upcomingEvents.length > 0,
+      },
+    );
+    return widgets;
+  });
+
+  protected readonly activeWidgets = computed(() =>
+    this.widgets().filter((w) => w.hasContent),
+  );
+  protected readonly emptyWidgets = computed(() =>
+    this.widgets().filter((w) => !w.hasContent),
+  );
 
   constructor() {
     this.reload();
@@ -145,10 +257,6 @@ export class HomePage {
       return `${startDate} ${startTime}–${endTime}`;
     }
     return `${startDate} ${startTime} – ${end.toLocaleDateString('cs-CZ')} ${endTime}`;
-  }
-
-  protected goTo(path: string): void {
-    this.router.navigate(this.schoolContext.link(path));
   }
 
   protected recordTypeLabel(type: BehaviorRecordType): string {

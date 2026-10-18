@@ -1,16 +1,29 @@
-<h1 class="mb-6 flex items-center gap-3"><app-icon name="home" />Domů</h1>
-
 @if (loadError()) {
 <p>Přehled se nepodařilo načíst.</p>
 } @else if (dashboard(); as d) {
-<div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-  @if (authApi.isAdmin() && d.schoolCounts; as counts) {
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+  @for (widget of activeWidgets(); track widget.id) {
   <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="school" />Přehled školy</span
-      ></ng-template
-    >
+    <ng-template #title>
+      <div class="flex items-center justify-between gap-2">
+        <span class="flex items-center gap-2"
+          ><app-icon [name]="widget.icon" />{{ widget.title }}</span
+        >
+        <a
+          pButton
+          [routerLink]="schoolContext.link(widget.link)"
+          icon="pi pi-arrow-up-right"
+          size="small"
+          severity="secondary"
+          [text]="true"
+          [rounded]="true"
+          [attr.aria-label]="widget.linkLabel"
+          [title]="widget.linkLabel"
+        ></a>
+      </div>
+    </ng-template>
+
+    @switch (widget.id) { @case ('school') { @if (d.schoolCounts; as counts) {
     <div class="flex flex-wrap gap-6">
       <div>
         <div
@@ -37,20 +50,10 @@
         <div class="text-sm text-surface-500">Třídy</div>
       </div>
     </div>
-  </p-card>
-  } @if (!authApi.isAdmin()) {
-  <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="timetable" />Dnešní rozvrh</span
-      ></ng-template
-    >
-    @if (d.todayLessonsContext) {
+    } } @case ('timetable') { @if (d.todayLessonsContext) {
     <p class="mb-2 text-sm text-surface-500">{{ d.todayLessonsContext }}</p>
-    } @if (d.todayLessons.length === 0) {
-    <p class="text-sm text-surface-500">Dnes žádné hodiny.</p>
-    } @else {
-    <ul class="flex flex-col gap-1.5">
+    }
+    <ul class="m-0 flex list-none flex-col p-0 gap-1.5">
       @for (lesson of d.todayLessons; track lesson.id) {
       <li class="flex items-center justify-between gap-2 text-sm">
         <span>{{ lesson.periodNumber }}. {{ lesson.subjectName }}</span>
@@ -60,26 +63,8 @@
       </li>
       }
     </ul>
-    }
-    <p-button
-      label="Celý rozvrh"
-      size="small"
-      [text]="true"
-      styleClass="mt-3"
-      (onClick)="goTo('timetable')"
-    />
-  </p-card>
-  } @if (!authApi.isTeacherOrAdmin()) {
-  <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="grades" />Poslední známky</span
-      ></ng-template
-    >
-    @if (d.recentGrades.length === 0) {
-    <p class="text-sm text-surface-500">Zatím žádné známky.</p>
-    } @else {
-    <ul class="flex flex-col gap-1.5">
+    } @case ('grades') {
+    <ul class="m-0 flex list-none flex-col p-0 gap-1.5">
       @for (grade of d.recentGrades; track grade.id) {
       <li class="flex items-center justify-between gap-2 text-sm">
         <span>{{ grade.subjectName }}</span>
@@ -87,28 +72,8 @@
       </li>
       }
     </ul>
-    }
-    <p-button
-      label="Všechny známky"
-      size="small"
-      [text]="true"
-      styleClass="mt-3"
-      (onClick)="goTo('grades')"
-    />
-  </p-card>
-  }
-
-  <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="absences" />{{ authApi.isTeacherOrAdmin() ? 'Omluvenky
-        ke schválení' : 'Nevyřízené absence' }}</span
-      ></ng-template
-    >
-    @if (d.pendingAbsences.length === 0) {
-    <p class="text-sm text-surface-500">Nic nevyřízeného.</p>
-    } @else {
-    <ul class="flex flex-col gap-2">
+    } @case ('absences') {
+    <ul class="m-0 flex list-none flex-col p-0 gap-2">
       @for (absence of d.pendingAbsences; track absence.id) {
       <li class="flex flex-col gap-1 text-sm">
         <div class="flex items-center justify-between gap-2">
@@ -139,51 +104,15 @@
       </li>
       }
     </ul>
-    }
-    <p-button
-      label="Celá docházka"
-      size="small"
-      [text]="true"
-      styleClass="mt-3"
-      (onClick)="goTo('absences')"
-    />
-  </p-card>
-
-  <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="messages" />Zprávy</span
-      ></ng-template
-    >
-    @if (d.unreadMessageCount === 0) {
-    <p class="text-sm text-surface-500">Žádné nepřečtené zprávy.</p>
-    } @else {
+    } @case ('messages') {
     <p class="text-sm">
       <span class="text-2xl font-semibold text-surface-900 dark:text-surface-0"
         >{{ d.unreadMessageCount }}</span
       >
       nepřečteno
     </p>
-    }
-    <p-button
-      label="Všechny zprávy"
-      size="small"
-      [text]="true"
-      styleClass="mt-3"
-      (onClick)="goTo('messages')"
-    />
-  </p-card>
-
-  <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="behavior" />Chování</span
-      ></ng-template
-    >
-    @if (d.unreadBehaviorRecords.length === 0) {
-    <p class="text-sm text-surface-500">Žádné nepřečtené záznamy.</p>
-    } @else {
-    <ul class="flex flex-col gap-2">
+    } @case ('behavior') {
+    <ul class="m-0 flex list-none flex-col p-0 gap-2">
       @for (record of d.unreadBehaviorRecords; track record.id) {
       <li class="flex flex-col gap-1 text-sm">
         <div class="flex items-center justify-between gap-2">
@@ -205,26 +134,8 @@
       </li>
       }
     </ul>
-    }
-    <p-button
-      label="Celé chování"
-      size="small"
-      [text]="true"
-      styleClass="mt-3"
-      (onClick)="goTo('behavior')"
-    />
-  </p-card>
-
-  <p-card>
-    <ng-template #title
-      ><span class="flex items-center gap-2"
-        ><app-icon name="events" />Nejbližší akce</span
-      ></ng-template
-    >
-    @if (d.upcomingEvents.length === 0) {
-    <p class="text-sm text-surface-500">Žádné nadcházející akce.</p>
-    } @else {
-    <ul class="flex flex-col gap-1.5">
+    } @case ('events') {
+    <ul class="m-0 flex list-none flex-col p-0 gap-1.5">
       @for (event of d.upcomingEvents; track event.id) {
       <li class="flex items-center justify-between gap-2 text-sm">
         <span>{{ event.title }}</span>
@@ -235,16 +146,23 @@
       </li>
       }
     </ul>
-    }
-    <p-button
-      label="Celý kalendář"
-      size="small"
-      [text]="true"
-      styleClass="mt-3"
-      (onClick)="goTo('events')"
-    />
+    } }
   </p-card>
+  }
 </div>
-} @else {
+
+@if (emptyWidgets().length > 0) {
+<div class="mt-4 flex flex-wrap items-center gap-2">
+  <span class="text-sm text-surface-500">Nic nového:</span>
+  @for (widget of emptyWidgets(); track widget.id) {
+  <a
+    [routerLink]="schoolContext.link(widget.link)"
+    class="inline-flex items-center gap-2 rounded-full border border-surface-200 bg-surface-0 px-3 py-1 text-sm text-surface-700 no-underline hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800"
+    [title]="widget.linkLabel"
+    ><app-icon [name]="widget.icon" />{{ widget.title }}</a
+  >
+  }
+</div>
+} } @else {
 <p>Načítání…</p>
 }
