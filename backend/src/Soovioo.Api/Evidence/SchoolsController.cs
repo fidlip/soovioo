@@ -43,7 +43,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
             .Take(pageSize)
             .Select(s => new SchoolDto(
                 s.Id, s.Name, s.Slug, s.CreatedAt, s.Izo, s.RedIzo,
-                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone, s.BankAccountNumber,
+                s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone, s.BankAccountNumber, s.Type,
                 db.Students.Count(st => st.SchoolId == s.Id),
                 db.Users.Count(u => u.SchoolId == s.Id)))
             .ToListAsync();
@@ -131,6 +131,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         school.Id, school.Name, school.Slug, school.CreatedAt, school.Izo, school.RedIzo,
         school.Street, school.City, school.PostalCode, school.DirectorName, school.Email, school.Phone,
         school.BankAccountNumber,
+        school.Type,
         await db.Students.CountAsync(s => s.SchoolId == school.Id),
         await db.Users.CountAsync(u => u.SchoolId == school.Id));
 
@@ -167,6 +168,8 @@ public record UpdateSchoolRequest(string Name, string Slug);
 
 public record SetSchoolMatrikaIdsRequest(string? Izo, string? RedIzo);
 
+public record SetSchoolTypeRequest(SchoolType Type);
+
 public record SetSchoolDetailsRequest(
     string? Street, string? City, string? PostalCode, string? DirectorName, string? Email, string? Phone);
 
@@ -184,5 +187,6 @@ public record SchoolDto(
     string? Email,
     string? Phone,
     string? BankAccountNumber,
+    SchoolType Type,
     int StudentCount,
     int UserCount);

@@ -1,3 +1,5 @@
+import { SchoolType } from './student-term';
+
 export interface School {
   id: number;
   name: string;
@@ -16,6 +18,7 @@ export interface School {
   phone: string | null;
   /** The account Payments' client-generated SPAYD QR codes pay into. */
   bankAccountNumber: string | null;
+  type: SchoolType;
   studentCount: number;
   userCount: number;
 }
@@ -46,6 +49,10 @@ export interface SetSchoolDetailsRequest {
   directorName: string | null;
   email: string | null;
   phone: string | null;
+}
+
+export interface SetSchoolTypeRequest {
+  type: SchoolType;
 }
 
 export interface SetSchoolBankAccountRequest {

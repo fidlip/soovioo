@@ -22,7 +22,7 @@
     <label
       for="student"
       class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Žák</label
+      >{{ 'Žák' | term }}</label
     >
     <p-select
       inputId="student"
@@ -165,11 +165,11 @@
     </div>
     @if (sendMode === 'individual') {
     <p class="m-0 text-sm text-surface-500">
-      Odešle se do vlákna žáka vybraného nahoře.
+      {{ 'Odešle se do vlákna žáka vybraného nahoře.' | term }}
     </p>
     } @else if (sendMode === 'school') {
     <p class="m-0 text-sm text-surface-500">
-      Odešle se do vlákna každého žáka školy.
+      {{ 'Odešle se do vlákna každého žáka školy.' | term }}
     </p>
     }
     <input

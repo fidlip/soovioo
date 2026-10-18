@@ -47,6 +47,7 @@ import {
   StudentOption,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 type ViewOption = { value: string; label: string };
 
@@ -118,6 +119,7 @@ function startOfDay(d: Date): Date {
 @Component({
   selector: 'app-events-page',
   imports: [
+    TermPipe,
     AppIcon,
     AutoComplete,
     FormsModule,

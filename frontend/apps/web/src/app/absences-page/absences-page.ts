@@ -17,6 +17,7 @@ import {
   StudentsApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -38,6 +39,7 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
 @Component({
   selector: 'app-absences-page',
   imports: [
+    TermPipe,
     AppIcon,
     FormsModule,
     Button,

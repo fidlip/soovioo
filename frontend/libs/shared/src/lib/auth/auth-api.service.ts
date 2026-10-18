@@ -15,6 +15,7 @@ import { API_BASE_URL } from '../api-base-url.token';
 import { AUTH_REFRESH_VIA_COOKIE, CSRF_HEADER } from './auth-session.config';
 import { LoginRequest, LoginResponse } from './login-response.model';
 import { TokenStorage } from './token-storage';
+import { SchoolType } from '../evidence/student-term';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
@@ -143,6 +144,13 @@ export class AuthApiService {
     );
     const id = raw === null ? NaN : Number(raw);
     return Number.isNaN(id) ? null : id;
+  }
+
+  /** ZŠ/SŠ of the user's school (`schoolType` claim) — drives "žák" vs.
+   * "student" in the UI, see `localizeStudentTerm`. Null for SuperAdmin. */
+  getSchoolType(): SchoolType | null {
+    const value = this.getClaim('schoolType');
+    return value === 'Elementary' || value === 'Secondary' ? value : null;
   }
 
   /** Request options for the endpoints that read or set the refresh cookie

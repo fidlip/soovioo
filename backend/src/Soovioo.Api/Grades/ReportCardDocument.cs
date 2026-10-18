@@ -36,7 +36,7 @@ public static class ReportCardDocument
 
                 page.Content().PaddingTop(15).Column(column =>
                 {
-                    column.Item().Text($"Žák: {student.FirstName} {student.LastName}");
+                    column.Item().Text(StudentTerm.Localize("Žák", school?.Type ?? SchoolType.Elementary) + $": {student.FirstName} {student.LastName}");
                     column.Item().Text($"Třída: {student.SchoolClass?.Name}");
                     column.Item().PaddingTop(15);
 

@@ -55,7 +55,7 @@
         </div>
         <div class="flex items-center gap-1">
           <p-button
-            [label]="isExpanded(payment.id) ? 'Skrýt žáky' : 'Zobrazit žáky'"
+            [label]="(isExpanded(payment.id) ? 'Skrýt žáky' : 'Zobrazit žáky') | term"
             size="small"
             severity="secondary"
             [text]="true"
@@ -135,7 +135,7 @@
         </div>
         } @empty {
         <span class="text-sm text-surface-400"
-          >Žádní žáci nejsou touto platbou cíleni.</span
+          >{{ 'Žádní žáci nejsou touto platbou cíleni.' | term }}</span
         >
         }
       </div>
@@ -212,7 +212,7 @@
           class="text-sm font-medium text-surface-600 dark:text-surface-300"
         >
           {{ newAmountType === 'TotalSplitEvenly' ? 'Celková částka (Kč)' :
-          'Částka na žáka (Kč)' }}
+          ('Částka na žáka (Kč)' | term) }}
         </label>
         <p-inputNumber
           inputId="amount"
@@ -349,12 +349,12 @@
 
       <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Žáci</span
+          >{{ 'Žáci' | term }}</span
         >
         <input
           pInputText
           type="text"
-          placeholder="Hledat žáka"
+          [placeholder]="'Hledat žáka' | term"
           name="studentFilterName"
           class="max-w-40"
           [(ngModel)]="studentFilterName"
@@ -399,7 +399,7 @@
   @if (target.payment.description) {
   <p>{{ target.payment.description }}</p>
   }
-  <p>Žák: {{ target.recipient.studentName }}</p>
+  <p>{{ 'Žák' | term }}: {{ target.recipient.studentName }}</p>
   <p>Částka: {{ target.recipient.amount }} Kč</p>
   @if (target.recipient.effectiveVariableSymbol) {
   <p>Variabilní symbol: {{ target.recipient.effectiveVariableSymbol }}</p>

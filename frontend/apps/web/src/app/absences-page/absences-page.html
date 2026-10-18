@@ -16,14 +16,14 @@
     <label
       for="filterStudent"
       class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Žák</label
+      >{{ 'Žák' | term }}</label
     >
     <p-select
       inputId="filterStudent"
       [options]="studentOptions()"
       optionLabel="label"
       optionValue="id"
-      placeholder="Všichni žáci"
+      [placeholder]="'Všichni žáci' | term"
       [(ngModel)]="filterStudentId"
       [showClear]="true"
       name="filterStudent"
@@ -55,7 +55,7 @@
 <p-table [value]="filteredAbsences()" dataKey="id" styleClass="rounded-border">
   <ng-template pTemplate="header">
     <tr>
-      <th>Žák</th>
+      <th>{{ 'Žák' | term }}</th>
       <th>Datum</th>
       <th>Stav</th>
       <th>Omluvenka</th>
@@ -154,7 +154,7 @@
       <label
         for="absenceStudent"
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Žák</label
+        >{{ 'Žák' | term }}</label
       >
       <p-select
         inputId="absenceStudent"

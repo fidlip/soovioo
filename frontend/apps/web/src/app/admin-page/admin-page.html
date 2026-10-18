@@ -11,8 +11,8 @@
 </p>
 } @else { @if (accessLevel() === 'classTeacher') {
 <p class="mb-6 text-sm text-surface-500">
-  Jste třídní učitel — vidíte a upravujete jen žáky své třídy a jejich vazby na
-  rodiče.
+  {{ 'Jste třídní učitel — vidíte a upravujete jen žáky své třídy a jejich vazby
+  na rodiče.' | term }}
 </p>
 } @if (error(); as errorMessage) {
 <p-message severity="error" [text]="errorMessage" styleClass="mb-6 w-full" />
@@ -26,7 +26,7 @@
 
 <!-- ============================= STUDENTS (shared by both access levels) ============================= -->
 <ng-template #studentsCard>
-  <p-card header="Studenti">
+  <p-card [header]="'Studenti' | term">
     <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
       <div class="flex flex-wrap items-end gap-2">
         <input
@@ -62,7 +62,7 @@
         />
       </div>
       <p-button
-        label="Nový student"
+        [label]="'Nový student' | term"
         icon="pi pi-plus"
         size="small"
         (onClick)="openAddStudentDialog()"
@@ -113,7 +113,9 @@
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="6" class="py-3 text-surface-500">Žádní studenti.</td>
+          <td colspan="6" class="py-3 text-surface-500">
+            {{ 'Žádní studenti.' | term }}
+          </td>
         </tr>
       </ng-template>
     </p-table>
@@ -172,7 +174,7 @@
 <p-tabs [(value)]="activeTab">
   <p-tablist>
     <p-tab value="classes">Třídy, předměty a učebny</p-tab>
-    <p-tab value="students">Studenti</p-tab>
+    <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
     <p-tab value="users">Uživatelé a rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
   </p-tablist>
@@ -442,6 +444,42 @@
 
     <p-tabpanel value="school">
       <div class="flex flex-col gap-6 pt-4">
+        <p-card header="Typ školy">
+          <p class="mt-0 mb-4 text-sm text-surface-500">
+            Určuje, jestli celá aplikace (včetně vysvědčení) mluví o žácích
+            (ZŠ), nebo o studentech (SŠ).
+          </p>
+          <form
+            class="flex flex-wrap items-end gap-2"
+            (ngSubmit)="saveSchoolType()"
+          >
+            <div class="flex flex-col gap-1.5">
+              <label
+                for="schoolType"
+                class="text-sm font-medium text-surface-600 dark:text-surface-300"
+                >Typ</label
+              >
+              <p-select
+                inputId="schoolType"
+                [options]="schoolTypeOptions"
+                optionLabel="label"
+                optionValue="value"
+                [ngModel]="schoolType()"
+                (ngModelChange)="schoolType.set($event)"
+                name="schoolType"
+                styleClass="w-56"
+                appendTo="body"
+              />
+            </div>
+            <p-button
+              type="submit"
+              label="Uložit"
+              severity="secondary"
+              [outlined]="true"
+            />
+          </form>
+        </p-card>
+
         <p-card header="Údaje o škole">
           <p class="mt-0 mb-4 text-sm text-surface-500">
             Používá se na oficiálních dokumentech (hlavička vysvědčení) —
@@ -828,7 +866,7 @@
 <p-dialog
   [visible]="newStudentDialogVisible()"
   (visibleChange)="newStudentDialogVisible.set($event)"
-  [header]="editingStudentId === null ? 'Nový student' : 'Upravit studenta'"
+  [header]="(editingStudentId === null ? 'Nový student' : 'Upravit studenta') | term"
   [modal]="true"
   styleClass="w-full max-w-2xl"
 >
@@ -990,7 +1028,7 @@
     }
     <p-button
       type="submit"
-      [label]="editingStudentId === null ? 'Přidat studenta' : 'Uložit'"
+      [label]="(editingStudentId === null ? 'Přidat studenta' : 'Uložit') | term"
       icon="pi pi-check"
     />
   </form>
@@ -1031,7 +1069,7 @@
       [options]="availableStudentOptions()"
       optionLabel="label"
       optionValue="id"
-      placeholder="Student"
+      [placeholder]="'Student' | term"
       [(ngModel)]="newUserStudentId"
       name="newUserStudentId"
       styleClass="w-36"

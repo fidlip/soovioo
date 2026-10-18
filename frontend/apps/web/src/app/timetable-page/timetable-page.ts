@@ -33,8 +33,10 @@ import {
   TeachersApiService,
   TimetableApiService,
   WeekParity,
+  localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -147,6 +149,7 @@ function formatShortDate(date: Date): string {
 @Component({
   selector: 'app-timetable-page',
   imports: [
+    TermPipe,
     AppIcon,
     FormsModule,
     Button,
@@ -217,7 +220,10 @@ export class TimetablePage {
     return [
       { label: 'Učitel', value: 'teacher' as ViewMode },
       { label: 'Třída', value: 'class' as ViewMode },
-      { label: 'Žák', value: 'student' as ViewMode },
+      {
+        label: localizeStudentTerm('Žák', this.authApi.getSchoolType()),
+        value: 'student' as ViewMode,
+      },
     ];
   });
 

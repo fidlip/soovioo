@@ -469,6 +469,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Street")
                         .HasColumnType("text");
 
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Slug")
@@ -490,7 +493,8 @@ namespace Soovioo.Api.Migrations
                             PostalCode = "110 00",
                             RedIzo = "700000089",
                             Slug = "demo",
-                            Street = "Školní 8"
+                            Street = "Školní 8",
+                            Type = 0
                         });
                 });
 

@@ -7,6 +7,7 @@ import {
   SetSchoolBankAccountRequest,
   SetSchoolDetailsRequest,
   SetSchoolMatrikaIdsRequest,
+  SetSchoolTypeRequest,
 } from './school.model';
 
 /** Admin self-service for their own school's settings — see MySchoolController. */
@@ -24,6 +25,10 @@ export class MySchoolApiService {
       `${this.baseUrl}/api/my-school/matrika-ids`,
       request,
     );
+  }
+
+  setType(request: SetSchoolTypeRequest): Observable<School> {
+    return this.http.put<School>(`${this.baseUrl}/api/my-school/type`, request);
   }
 
   setDetails(request: SetSchoolDetailsRequest): Observable<School> {

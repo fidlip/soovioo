@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Auth;
 
@@ -14,7 +15,10 @@ namespace Soovioo.Api.Auth;
 /// see <see cref="AuthSessionService"/>.</summary>
 public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
 {
-    public string CreateToken(User user)
+    /// <param name="school">The user's school, if any — its type rides along
+    /// as the <c>schoolType</c> claim so every client can pick "žák" vs.
+    /// "student" without an extra request.</param>
+    public string CreateToken(User user, School? school = null)
     {
         var options = jwtOptions.Value;
         var claims = new List<Claim>
@@ -27,6 +31,10 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
         if (user.SchoolId is { } userSchoolId)
         {
             claims.Add(new Claim("schoolId", userSchoolId.ToString()));
+        }
+        if (school is not null)
+        {
+            claims.Add(new Claim("schoolType", school.Type.ToString()));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey));

@@ -42,6 +42,23 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
 
+    /// <summary>ZŠ/SŠ — switches "žák"/"student" across the UI. Takes effect
+    /// for each user with their next access token (≤ 15 min).</summary>
+    [HttpPut("type")]
+    public async Task<ActionResult<SchoolDto>> SetType(SetSchoolTypeRequest request)
+    {
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        school.Type = request.Type;
+        await db.SaveChangesAsync();
+
+        return Ok(await SchoolsController.ToDtoAsync(db, school));
+    }
+
     /// <summary>Institutional address/contact/director — used on real
     /// documents, not transmitted to matrika itself.</summary>
     [HttpPut("details")]

@@ -23,6 +23,7 @@ import {
   StudentsApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',
@@ -68,6 +69,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
 @Component({
   selector: 'app-behavior-page',
   imports: [
+    TermPipe,
     AppIcon,
     Button,
     Card,

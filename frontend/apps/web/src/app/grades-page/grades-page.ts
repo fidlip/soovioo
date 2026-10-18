@@ -16,8 +16,10 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 
 /** "2026-10-18" (DateOnly) -> local Date, without the UTC shift
@@ -54,6 +56,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
 @Component({
   selector: 'app-grades-page',
   imports: [
+    TermPipe,
     AppIcon,
     FormsModule,
     Button,
@@ -114,13 +117,21 @@ export class GradesPage {
    * groups need. */
   protected readonly groups = computed<GroupLevel<Grade>[]>(() => {
     if (this.isStaff()) {
-      return [DATE_GROUP, STUDENT_GROUP];
+      return [DATE_GROUP, this.studentGroup];
     }
     const distinctStudents = new Set(
       this.filteredGrades().map((g) => g.studentId),
     );
-    return distinctStudents.size > 1 ? [STUDENT_GROUP] : [];
+    return distinctStudents.size > 1 ? [this.studentGroup] : [];
   });
+
+  private readonly studentGroup: GroupLevel<Grade> = {
+    ...STUDENT_GROUP,
+    label: localizeStudentTerm(
+      STUDENT_GROUP.label,
+      this.authApi.getSchoolType(),
+    ),
+  };
 
   protected readonly gradeId = (grade: Grade) => grade.id;
   protected readonly formatDate = formatDate;

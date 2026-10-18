@@ -25,7 +25,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
-import { forkJoin, Observable } from 'rxjs';
+import { forkJoin, Observable, switchMap } from 'rxjs';
 import {
   AppUser,
   AuthApiService,
@@ -50,8 +50,11 @@ import {
   SubjectsApiService,
   UpdateUserRequest,
   UsersApiService,
+  localizeStudentTerm,
+  SchoolType,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 /** Admin: full access to every tab. ClassTeacher: a Teacher who owns at
  * least one class (SchoolClass.classTeacherId) gets a cut-down page — just
@@ -106,6 +109,7 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
 @Component({
   selector: 'app-admin-page',
   imports: [
+    TermPipe,
     AppIcon,
     AutoComplete,
     FormsModule,
@@ -304,6 +308,12 @@ export class AdminPage {
   protected readonly schoolEmail = signal('');
   protected readonly schoolPhone = signal('');
   protected readonly schoolBankAccountNumber = signal('');
+  protected readonly schoolType = signal<SchoolType>('Elementary');
+  protected readonly schoolTypeOptions: { value: SchoolType; label: string }[] =
+    [
+      { value: 'Elementary', label: 'Základní škola (žáci)' },
+      { value: 'Secondary', label: 'Střední škola (studenti)' },
+    ];
 
   protected readonly matrikaIzo = signal('');
   protected readonly matrikaRedIzo = signal('');
@@ -798,7 +808,10 @@ export class AdminPage {
   protected deleteStudent(student: Student): void {
     if (
       !confirm(
-        `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`,
+        localizeStudentTerm(
+          `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`,
+          this.authApi.getSchoolType(),
+        ),
       )
     ) {
       return;
@@ -972,6 +985,7 @@ export class AdminPage {
         this.schoolEmail.set(school.email ?? '');
         this.schoolPhone.set(school.phone ?? '');
         this.schoolBankAccountNumber.set(school.bankAccountNumber ?? '');
+        this.schoolType.set(school.type);
       },
       error: (err) => console.error('getMySchool failed', err),
     });
@@ -986,6 +1000,19 @@ export class AdminPage {
       .subscribe({
         next: () => this.loadMySchool(),
         error: (err) => this.showError('setMatrikaIds failed', err),
+      });
+  }
+
+  /** The type travels in the access token (`schoolType` claim) — fetch a
+   * fresh one and reload, so every already-rendered "žák"/"student" text
+   * (pure `term` pipe) switches at once. */
+  protected saveSchoolType(): void {
+    this.mySchoolApi
+      .setType({ type: this.schoolType() })
+      .pipe(switchMap(() => this.authApi.refresh()))
+      .subscribe({
+        next: () => window.location.reload(),
+        error: (err) => this.showError('setSchoolType failed', err),
       });
   }
 

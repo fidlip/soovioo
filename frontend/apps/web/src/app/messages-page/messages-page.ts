@@ -17,8 +17,10 @@ import {
   SchoolClass,
   Student,
   StudentsApiService,
+  localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -61,6 +63,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 @Component({
   selector: 'app-messages-page',
   imports: [
+    TermPipe,
     AppIcon,
     FormsModule,
     Button,
@@ -78,6 +81,8 @@ export class MessagesPage {
   private readonly messagesApi = inject(MessagesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
+  private readonly term = (text: string) =>
+    localizeStudentTerm(text, this.authApi.getSchoolType());
 
   protected readonly messages = signal<Message[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -96,9 +101,9 @@ export class MessagesPage {
   /** "Celá škola" only makes sense to offer to Admin — Teacher's school-wide
    * broadcast is rejected server-side anyway (see MessageBroadcastController). */
   protected readonly modeOptions = computed(() =>
-    this.authApi.isAdmin()
-      ? MODE_OPTIONS
-      : MODE_OPTIONS.filter((o) => o.value !== 'school'),
+    MODE_OPTIONS.filter(
+      (o) => this.authApi.isAdmin() || o.value !== 'school',
+    ).map((o) => ({ ...o, label: this.term(o.label) })),
   );
 
   protected selectedStudentId: number | null = null;
@@ -212,7 +217,7 @@ export class MessagesPage {
         .subscribe({
           next: (result) => {
             this.broadcastResult.set(
-              `Odesláno ${result.recipientCount} žákům ve třídě.`,
+              this.term(`Odesláno ${result.recipientCount} žákům ve třídě.`),
             );
             this.afterSend(result.messages);
           },
@@ -226,7 +231,7 @@ export class MessagesPage {
       .subscribe({
         next: (result) => {
           this.broadcastResult.set(
-            `Odesláno ${result.recipientCount} žákům celé školy.`,
+            this.term(`Odesláno ${result.recipientCount} žákům celé školy.`),
           );
           this.afterSend(result.messages);
         },

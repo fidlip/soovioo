@@ -13,6 +13,8 @@ public class School
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    public SchoolType Type { get; set; } = SchoolType.Elementary;
+
     /// <summary>Resortní identifikátor školy (RÚIAN/školský rejstřík) — identifies
     /// this school in the IZO item of every matrika record. Null until an admin
     /// fills it in; required before a matrika export can be generated.</summary>

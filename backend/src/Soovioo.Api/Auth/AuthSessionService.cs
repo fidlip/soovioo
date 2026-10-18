@@ -72,7 +72,7 @@ public class AuthSessionService(
             ? await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId)
             : null;
         return new LoginResponse(
-            tokenFactory.CreateToken(user),
+            tokenFactory.CreateToken(user, school),
             user.Username,
             user.Role.ToString(),
             school?.Name,

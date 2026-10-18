@@ -24,8 +24,10 @@ import {
   PaymentSchoolClassOption,
   PaymentStudentOption,
   PaymentsApiService,
+  localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { TermPipe } from '../term.pipe';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type AmountTypeOption = { value: PaymentAmountType; label: string };
@@ -64,6 +66,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    TermPipe,
     AppIcon,
     Button,
     Card,
@@ -83,8 +86,16 @@ export class PaymentsPage {
   private readonly paymentsApi = inject(PaymentsApiService);
   protected readonly authApi = inject(AuthApiService);
 
-  protected readonly audienceOptions = AUDIENCE_OPTIONS;
-  protected readonly amountTypeOptions = AMOUNT_TYPE_OPTIONS;
+  private readonly term = (text: string) =>
+    localizeStudentTerm(text, this.authApi.getSchoolType());
+  protected readonly audienceOptions = AUDIENCE_OPTIONS.map((o) => ({
+    ...o,
+    label: this.term(o.label),
+  }));
+  protected readonly amountTypeOptions = AMOUNT_TYPE_OPTIONS.map((o) => ({
+    ...o,
+    label: this.term(o.label),
+  }));
   protected readonly recurrenceOptions = RECURRENCE_OPTIONS;
 
   protected readonly payments = signal<Payment[]>([]);
@@ -173,7 +184,7 @@ export class PaymentsPage {
   }
 
   protected amountTypeLabel(amountType: PaymentAmountType): string {
-    return AMOUNT_TYPE_LABELS[amountType];
+    return this.term(AMOUNT_TYPE_LABELS[amountType]);
   }
 
   protected isExpanded(paymentId: number): boolean {

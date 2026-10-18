@@ -8,6 +8,7 @@ export * from './lib/evidence/subject.model';
 export * from './lib/evidence/classroom.model';
 export * from './lib/evidence/school-class.model';
 export * from './lib/evidence/school.model';
+export * from './lib/evidence/student-term';
 export * from './lib/evidence/parent-student-link.model';
 export * from './lib/evidence/students-api.service';
 export * from './lib/evidence/subjects-api.service';

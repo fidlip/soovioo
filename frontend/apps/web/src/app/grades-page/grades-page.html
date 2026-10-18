@@ -15,14 +15,14 @@
     <label
       for="filterStudent"
       class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Žák</label
+      >{{ 'Žák' | term }}</label
     >
     <p-select
       inputId="filterStudent"
       [options]="studentOptions()"
       optionLabel="label"
       optionValue="id"
-      placeholder="Všichni žáci"
+      [placeholder]="'Všichni žáci' | term"
       [(ngModel)]="filterStudentId"
       [showClear]="true"
       name="filterStudent"
@@ -195,7 +195,7 @@
       <label
         for="gradeStudent"
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Žák</label
+        >{{ 'Žák' | term }}</label
       >
       <p-select
         inputId="gradeStudent"
