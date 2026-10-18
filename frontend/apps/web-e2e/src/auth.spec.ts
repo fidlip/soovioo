@@ -44,11 +44,15 @@ test('teacher can log in, see the nav, and log out', async ({ page }) => {
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
   await expect(page).toHaveURL(/\/demo\/home$/);
-  await expect(page.getByRole('link', { name: 'Známky' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Známky', exact: true }),
+  ).toBeVisible();
   // The demo "ucitel" account is the class teacher (ClassTeacherId) of 5.A,
   // so it gets the Administrace link too — a restricted view (own class's
   // students + parent links only), see admin-page.ts AccessLevel.
-  await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Administrace', exact: true }),
+  ).toBeVisible();
 
   // "Odhlásit se" now lives inside the user menu (see app.html), behind the
   // username button, not as its own top-level button.
@@ -64,5 +68,7 @@ test('admin sees the administration nav link', async ({ page }) => {
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
   await expect(page).toHaveURL(/\/demo\/home$/);
-  await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Administrace', exact: true }),
+  ).toBeVisible();
 });

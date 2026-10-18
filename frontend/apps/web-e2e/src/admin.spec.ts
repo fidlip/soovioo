@@ -14,7 +14,7 @@ async function login(
 
 test('admin sees the full tabbed Administrace page', async ({ page }) => {
   await login(page, 'admin', 'admin123');
-  await page.getByRole('link', { name: 'Administrace' }).click();
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
 
   await expect(
     page.getByRole('tab', { name: 'Třídy, předměty a učebny' }),
@@ -31,7 +31,7 @@ test('admin sees the full tabbed Administrace page', async ({ page }) => {
 test('class teacher sees only their own class, no tabs', async ({ page }) => {
   // Demo "ucitel" account is the class teacher (ClassTeacherId) of 5.A.
   await login(page, 'ucitel', 'ucitel123');
-  await page.getByRole('link', { name: 'Administrace' }).click();
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
 
   await expect(page.getByText('Jste třídní učitel')).toBeVisible();
   await expect(
@@ -50,7 +50,9 @@ test('class teacher sees only their own class, no tabs', async ({ page }) => {
 test('parent is denied the Administrace page', async ({ page }) => {
   await login(page, 'rodic', 'rodic123');
 
-  await expect(page.getByRole('link', { name: 'Administrace' })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Administrace', exact: true }),
+  ).toHaveCount(0);
   await page.goto('/demo/admin');
   await expect(page.getByText('Tato stránka je dostupná')).toBeVisible();
 });

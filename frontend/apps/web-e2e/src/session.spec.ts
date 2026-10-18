@@ -30,7 +30,9 @@ test('a reload keeps the user signed in without any token in storage', async ({
   await page.reload();
 
   await expect(page).toHaveURL(/\/demo\/home$/);
-  await expect(page.getByRole('link', { name: 'Známky' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Známky', exact: true }),
+  ).toBeVisible();
   const stored = await page.evaluate(() => JSON.stringify(localStorage));
   expect(stored).not.toMatch(/eyJ/); // no JWT anywhere in localStorage
   const cookie = await refreshCookie(page);

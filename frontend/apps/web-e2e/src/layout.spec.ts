@@ -22,7 +22,9 @@ test('desktop sidebar collapses to icons and remembers it after reload', async (
   await page.reload();
   await expect(sidebar).toHaveClass(/collapsed/);
   // Labels are hidden, but links stay reachable by their aria-label.
-  await expect(page.getByRole('link', { name: 'Známky' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Známky', exact: true }),
+  ).toBeVisible();
 });
 
 test('mobile drawer opens from the hamburger and closes after navigating', async ({
@@ -30,7 +32,7 @@ test('mobile drawer opens from the hamburger and closes after navigating', async
 }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await login(page);
-  const gradesLink = page.getByRole('link', { name: 'Známky' });
+  const gradesLink = page.getByRole('link', { name: 'Známky', exact: true });
   await expect(gradesLink).toBeHidden();
 
   await page.getByRole('button', { name: 'Otevřít menu' }).click();

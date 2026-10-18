@@ -125,7 +125,7 @@ export class HomePage {
         title: 'Přehled školy',
         icon: 'school',
         link: 'admin',
-        linkLabel: 'Administrace',
+        linkLabel: 'Přejít do administrace',
         hasContent: d.schoolCounts !== null,
       });
     } else {
