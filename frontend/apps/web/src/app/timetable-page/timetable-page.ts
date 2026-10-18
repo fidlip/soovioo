@@ -1,4 +1,13 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -43,6 +52,21 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   Saturday: 'Sobota',
   Sunday: 'Neděle',
 };
+
+const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {
+  Monday: 'Po',
+  Tuesday: 'Út',
+  Wednesday: 'St',
+  Thursday: 'Čt',
+  Friday: 'Pá',
+  Saturday: 'So',
+  Sunday: 'Ne',
+};
+
+/** Fixed grid geometry — header and body are separate tables (see the
+ * template), so both must lay their columns out identically. */
+const DAY_COLUMN_WIDTH_REM = 3;
+const PERIOD_COLUMN_MIN_WIDTH_REM = 7;
 
 const DAY_OPTIONS = DAYS.map((value) => ({ value, label: DAY_LABELS[value] }));
 
@@ -144,9 +168,17 @@ export class TimetablePage {
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
   protected readonly authApi = inject(AuthApiService);
+  private readonly injector = inject(Injector);
+
+  private readonly headerScroller =
+    viewChild.required<ElementRef<HTMLElement>>('headerScroller');
+  private readonly bodyScroller =
+    viewChild.required<ElementRef<HTMLElement>>('bodyScroller');
 
   protected readonly days = DAYS;
   protected readonly dayLabels = DAY_LABELS;
+  protected readonly dayShortLabels = DAY_SHORT_LABELS;
+  protected readonly dayColumnWidth = `${DAY_COLUMN_WIDTH_REM}rem`;
   protected readonly dayOptions = DAY_OPTIONS;
   protected readonly weekParityOptions = WEEK_PARITY_OPTIONS;
 
@@ -202,30 +234,6 @@ export class TimetablePage {
     })),
   );
 
-  /** Left corner cell: which class/teacher/student is being shown, plus the
-   * displayed week's date range. */
-  protected readonly cornerLabel = computed(() => {
-    const mode = this.viewMode();
-    if (mode === 'class') {
-      return (
-        this.schoolClasses().find((c) => c.id === this.selectedClassId())
-          ?.name ?? ''
-      );
-    }
-    if (mode === 'teacher') {
-      return (
-        this.teachers().find((t) => t.id === this.selectedTeacherId())
-          ?.username ?? ''
-      );
-    }
-    const student = this.students().find(
-      (s) => s.id === this.selectedStudentId(),
-    );
-    return student
-      ? `${student.firstName} ${student.lastName} (${student.schoolClassName})`
-      : '';
-  });
-
   protected readonly weekLabel = computed(() => {
     const start = this.weekStart();
     const end = new Date(start);
@@ -254,6 +262,22 @@ export class TimetablePage {
     this.entries().filter(
       (e) => e.weekParity === 'Every' || e.weekParity === this.currentParity(),
     ),
+  );
+
+  /** Periods with at least one entry this week — empty columns are hidden,
+   * except while editing, where every period must stay clickable to add an
+   * entry into it. */
+  protected readonly displayedPeriods = computed(() => {
+    if (this.editMode()) {
+      return this.periods();
+    }
+    const used = new Set(this.visibleEntries().map((e) => e.periodNumber));
+    return this.periods().filter((p) => used.has(p.periodNumber));
+  });
+
+  protected readonly tableMinWidth = computed(
+    () =>
+      `${DAY_COLUMN_WIDTH_REM + this.displayedPeriods().length * PERIOD_COLUMN_MIN_WIDTH_REM}rem`,
   );
 
   protected readonly entryGrid = computed(() => {
@@ -436,6 +460,49 @@ export class TimetablePage {
 
   protected thisWeek(): void {
     this.weekStart.set(mondayOf(new Date()));
+    this.scrollToCurrentPeriodAfterRender();
+  }
+
+  protected syncHeaderScroll(): void {
+    this.headerScroller().nativeElement.scrollLeft =
+      this.bodyScroller().nativeElement.scrollLeft;
+  }
+
+  /** On the current week, scrolls the grid horizontally so the period that's
+   * running now (or the next one today) is the first column right of the
+   * sticky day column — on a phone the morning periods would otherwise push
+   * it off screen. No-op on other weeks, weekends and after the last period. */
+  private scrollToCurrentPeriodAfterRender(): void {
+    afterNextRender(
+      () => {
+        const now = new Date();
+        const day = now.getDay();
+        if (
+          day === 0 ||
+          day === 6 ||
+          mondayOf(now).getTime() !== this.weekStart().getTime()
+        ) {
+          return;
+        }
+        const nowTime = dateToTimeString(now);
+        const current = this.displayedPeriods().find(
+          (p) => toInputTime(p.endTime) > nowTime,
+        );
+        if (!current) {
+          return;
+        }
+        const body = this.bodyScroller().nativeElement;
+        const cell = body.querySelector<HTMLElement>(
+          `td[data-period="${current.periodNumber}"]`,
+        );
+        const dayColumn = body.querySelector<HTMLElement>('tbody th');
+        if (!cell || !dayColumn) {
+          return;
+        }
+        body.scrollLeft = cell.offsetLeft - dayColumn.offsetWidth;
+      },
+      { injector: this.injector },
+    );
   }
 
   protected periodTimeLabel(periodNumber: number): string {
@@ -633,7 +700,7 @@ export class TimetablePage {
       }
       this.timetableApi.getTimetable(classId).subscribe({
         next: (entries) =>
-          this.entries.set(
+          this.setEntries(
             entries.map((e) => ({ ...e, schoolClassName: null })),
           ),
         error: (err) => console.error('getTimetable failed', err),
@@ -645,7 +712,7 @@ export class TimetablePage {
         return;
       }
       this.timetableApi.getTeacherTimetable(teacherId).subscribe({
-        next: (entries) => this.entries.set(entries),
+        next: (entries) => this.setEntries(entries),
         error: (err) => console.error('getTeacherTimetable failed', err),
       });
     } else {
@@ -658,12 +725,17 @@ export class TimetablePage {
       }
       this.timetableApi.getTimetable(student.schoolClassId).subscribe({
         next: (entries) =>
-          this.entries.set(
+          this.setEntries(
             entries.map((e) => ({ ...e, schoolClassName: null })),
           ),
         error: (err) => console.error('getTimetable failed', err),
       });
     }
+  }
+
+  private setEntries(entries: GridEntry[]): void {
+    this.entries.set(entries);
+    this.scrollToCurrentPeriodAfterRender();
   }
 
   private reloadPeriods(): void {

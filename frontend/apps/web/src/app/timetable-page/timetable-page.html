@@ -1,6 +1,16 @@
-<h1 class="mb-6 flex items-center gap-3">
-  <app-icon name="timetable" />Rozvrh
-</h1>
+<div class="mb-6 flex items-center justify-between gap-4">
+  <h1 class="mb-0 flex items-center gap-3">
+    <app-icon name="timetable" />Rozvrh
+  </h1>
+  @if (canManageTimetable()) {
+  <p-button
+    [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
+    [icon]="editMode() ? 'pi pi-check' : 'pi pi-pencil'"
+    [severity]="editMode() ? 'secondary' : 'primary'"
+    (onClick)="editMode.set(!editMode())"
+  />
+  }
+</div>
 
 @if (classroomConflictWarning(); as warning) {
 <p-message severity="warn" [text]="warning" styleClass="mb-4 w-full" />
@@ -94,17 +104,6 @@
       (onClick)="nextWeek()"
     />
   </div>
-
-  @if (canManageTimetable()) {
-  <div class="ml-auto flex items-end">
-    <p-button
-      [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
-      [severity]="editMode() ? 'secondary' : 'primary'"
-      size="small"
-      (onClick)="editMode.set(!editMode())"
-    />
-  </div>
-  }
 </div>
 
 @if (editMode() && canManageTimetable()) {
@@ -211,77 +210,114 @@
 </p-card>
 }
 
-<div
-  class="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-700"
->
-  <table class="w-full border-collapse text-sm">
-    <thead>
-      <tr>
-        <th
-          class="w-40 border-b border-r border-surface-200 bg-surface-50 p-2 text-left align-bottom dark:border-surface-700 dark:bg-surface-800"
-        >
-          <div class="font-semibold text-surface-900 dark:text-surface-0">
-            {{ cornerLabel() }}
-          </div>
-        </th>
-        @for (period of periods(); track period.periodNumber) {
-        <th
-          class="min-w-28 border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium text-surface-600 last:border-r-0 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
-        >
-          <div>{{ period.periodNumber }}.</div>
-          <div class="text-xs font-normal text-surface-400">
-            {{ period.startTime.slice(0, 5) }}–{{ period.endTime.slice(0, 5) }}
-          </div>
-        </th>
-        }
-      </tr>
-    </thead>
-    <tbody>
-      @for (day of days; track day) {
-      <tr>
-        <th
-          class="border-b border-r border-surface-200 bg-surface-50 p-2 text-left font-medium text-surface-700 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200"
-        >
-          {{ dayLabels[day] }}
-        </th>
-        @for (period of periods(); track period.periodNumber) { @let entry =
-        entryGrid().get(day)?.get(period.periodNumber);
-        <td
-          class="border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
-          [class.cursor-pointer]="editMode() && canManageTimetable()"
-          [class.hover:bg-surface-100]="editMode() && canManageTimetable()"
-          [class.dark:hover:bg-surface-800]="editMode() && canManageTimetable()"
-          [title]="entry ? cellTitle(entry) : ''"
-          (click)="onCellClick(day, period.periodNumber)"
-        >
-          @if (entry) {
-          <div
-            class="rounded px-2 py-1 text-xs"
-            [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
+<!-- Two tables sharing one fixed column layout: the header lives outside the
+     horizontally scrolling body so it can stick to the page (below the mobile
+     top bar) on vertical scroll; its scrollLeft follows the body's. -->
+<div class="rounded-lg border border-surface-200 dark:border-surface-700">
+  <div
+    #headerScroller
+    class="sticky z-[5] overflow-hidden rounded-t-lg"
+    style="top: var(--app-topbar-height)"
+  >
+    <table
+      class="w-full table-fixed border-collapse text-sm"
+      [style.min-width]="tableMinWidth()"
+    >
+      <colgroup>
+        <col [style.width]="dayColumnWidth" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th
+            class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-left align-bottom dark:border-surface-700 dark:bg-surface-800"
+          ></th>
+          @for (period of displayedPeriods(); track period.periodNumber) {
+          <th
+            class="border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium leading-tight text-surface-600 last:border-r-0 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
           >
-            <div class="font-semibold text-surface-900">
-              {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
-              (entry.schoolClassName) {
-              <span class="font-normal">({{ entry.schoolClassName }})</span>
+            <div class="font-semibold text-surface-900 dark:text-surface-0">
+              {{ period.periodNumber }}.
+            </div>
+            <div class="text-xs font-normal text-surface-500">
+              {{ period.startTime.slice(0, 5) }}
+            </div>
+            <div class="text-xs font-normal text-surface-400">
+              {{ period.endTime.slice(0, 5) }}
+            </div>
+          </th>
+          }
+        </tr>
+      </thead>
+    </table>
+  </div>
+  <div
+    #bodyScroller
+    class="overflow-x-auto rounded-b-lg"
+    (scroll)="syncHeaderScroll()"
+  >
+    <table
+      class="w-full table-fixed border-collapse text-sm"
+      [style.min-width]="tableMinWidth()"
+    >
+      <colgroup>
+        <col [style.width]="dayColumnWidth" />
+      </colgroup>
+      <tbody>
+        @for (day of days; track day; let firstDay = $first) {
+        <tr>
+          <th
+            class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium text-surface-700 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200"
+            [title]="dayLabels[day]"
+          >
+            {{ dayShortLabels[day] }}
+          </th>
+          @for (period of displayedPeriods(); track period.periodNumber) { @let
+          entry = entryGrid().get(day)?.get(period.periodNumber);
+          <td
+            class="border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
+            [attr.data-period]="period.periodNumber"
+            [class.cursor-pointer]="editMode() && canManageTimetable()"
+            [class.hover:bg-surface-100]="editMode() && canManageTimetable()"
+            [class.dark:hover:bg-surface-800]="editMode() && canManageTimetable()"
+            [title]="entry ? cellTitle(entry) : ''"
+            (click)="onCellClick(day, period.periodNumber)"
+          >
+            @if (entry) {
+            <div
+              class="rounded px-2 py-1 text-xs"
+              [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
+            >
+              <div class="font-semibold text-surface-900">
+                {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
+                (entry.schoolClassName) {
+                <span class="font-normal">({{ entry.schoolClassName }})</span>
+                }
+              </div>
+              @if (entry.teacherName) {
+              <div class="text-surface-700">{{ entry.teacherName }}</div>
+              } @if (entry.classroomName) {
+              <div class="text-surface-500">{{ entry.classroomName }}</div>
+              } @if (entry.weekParity !== 'Every') {
+              <div class="text-surface-600">
+                {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
+              </div>
               }
             </div>
-            @if (entry.teacherName) {
-            <div class="text-surface-700">{{ entry.teacherName }}</div>
-            } @if (entry.classroomName) {
-            <div class="text-surface-500">{{ entry.classroomName }}</div>
-            } @if (entry.weekParity !== 'Every') {
-            <div class="text-surface-600">
-              {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
-            </div>
             }
-          </div>
-          }
-        </td>
+          </td>
+          } @empty { @if (firstDay) {
+          <td
+            class="border-b border-surface-200 p-4 text-center text-surface-500 dark:border-surface-700"
+            [attr.rowspan]="days.length"
+          >
+            V tomto týdnu nejsou žádné hodiny.
+          </td>
+          } }
+        </tr>
         }
-      </tr>
-      }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <p-dialog
