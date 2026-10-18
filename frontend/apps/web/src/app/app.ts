@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import {
   Router,
   RouterLink,
@@ -73,8 +73,19 @@ export class App {
   }
 
   /** SuperAdmin lives outside the `:schoolSlug` route tree (see app.routes.ts),
-   * so its Settings link can't go through `SchoolContextService.link()`. */
-  protected userMenuItems(): MenuItem[] {
+   * so its Settings link can't go through `SchoolContextService.link()`.
+   *
+   * Must be a `computed()`, not a plain method called from the template
+   * (`[model]="userMenuItems()"`): p-menu's `@for` tracks items by object
+   * reference, so a method re-run on every change-detection cycle handed it
+   * a brand-new array/objects each time, tearing the `<li>`/`<a>` elements
+   * down and rebuilding them constantly. If that teardown landed between a
+   * real mouse's mousedown and mouseup — never between a test's synthetic
+   * click() — the browser dropped the click, which is why the first click
+   * on a menu item did nothing and only the second one (hitting a settled
+   * DOM) worked. `computed()` caches the array and only rebuilds it when
+   * `schoolContext.link()`'s underlying slug signal actually changes. */
+  protected readonly userMenuItems = computed<MenuItem[]>(() => {
     const settingsLink = this.isSuperAdmin()
       ? ['/superadmin/settings']
       : this.schoolContext.link('settings');
@@ -87,5 +98,5 @@ export class App {
         command: () => this.logout(),
       },
     ];
-  }
+  });
 }
