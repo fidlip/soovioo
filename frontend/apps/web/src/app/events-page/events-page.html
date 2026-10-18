@@ -26,13 +26,10 @@
     <span class="text-sm font-medium text-surface-600 dark:text-surface-300">
       Odebírat v Google/Apple kalendáři
     </span>
-    <a
-      [href]="webcalUrl()"
-      pButton
-      size="small"
-      icon="pi pi-calendar-plus"
-      label="Přidat do kalendáře"
-    ></a>
+    <a [href]="webcalUrl()" pButton size="small" class="no-underline">
+      <i class="pi pi-calendar-plus" pButtonIcon></i>
+      <span pButtonLabel>Přidat do kalendáře</span>
+    </a>
     <input pInputText type="text" readonly [value]="url" class="w-full" />
     <p-button
       [label]="feedUrlCopied() ? 'Zkopírováno' : 'Kopírovat odkaz'"
@@ -141,10 +138,12 @@
     <div class="flex flex-wrap items-end gap-3">
       <div class="flex flex-col gap-1.5">
         <label
+          for="eventStartAt"
           class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >Od</label
         >
         <p-datePicker
+          inputId="eventStartAt"
           [ngModel]="startAt()"
           (ngModelChange)="onStartChanged($event)"
           name="startAt"
@@ -157,10 +156,12 @@
       </div>
       <div class="flex flex-col gap-1.5">
         <label
+          for="eventEndAt"
           class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >Do</label
         >
         <p-datePicker
+          inputId="eventEndAt"
           [ngModel]="endAt()"
           (ngModelChange)="onEndChanged($event)"
           name="endAt"
@@ -174,10 +175,13 @@
     </div>
 
     <div class="flex flex-col gap-1.5">
-      <label class="text-sm font-medium text-surface-600 dark:text-surface-300"
+      <label
+        for="eventAudience"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
         >Příjemci</label
       >
       <p-select
+        inputId="eventAudience"
         [options]="audienceOptions"
         optionLabel="label"
         optionValue="value"

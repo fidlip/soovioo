@@ -19,7 +19,12 @@ import {
   AutoComplete,
   AutoCompleteCompleteEvent,
 } from '@openng/optimus-ui/autocomplete';
-import { Button, ButtonDirective } from '@openng/optimus-ui/button';
+import {
+  Button,
+  ButtonDirective,
+  ButtonIcon,
+  ButtonLabel,
+} from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -119,6 +124,8 @@ function startOfDay(d: Date): Date {
     FullCalendarModule,
     Button,
     ButtonDirective,
+    ButtonIcon,
+    ButtonLabel,
     Card,
     DatePicker,
     Dialog,
