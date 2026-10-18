@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Messaging;
 
@@ -72,13 +73,16 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     private async Task<BroadcastResultDto> SendToStudentsAsync(List<int> studentIds, BroadcastRequest request)
     {
         var senderId = CurrentUserId();
-        var senderName = User.Identity?.Name ?? "Neznámý uživatel";
+        var senderName = (await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == senderId)) is { } sender
+            ? PersonNames.Display(sender)
+            : User.Identity?.Name ?? "Neznámý uživatel";
         var now = DateTimeOffset.UtcNow;
         var schoolId = currentSchool.SchoolId!.Value;
 
         var parentLinks = await db.ParentStudents
             .Where(ps => studentIds.Contains(ps.StudentId))
-            .Select(ps => new { ps.StudentId, ps.UserId })
+            .ParentAccountLinks()
+            .Select(l => new { l.StudentId, l.UserId })
             .ToListAsync();
         var ownAccounts = await db.Students
             .Where(s => studentIds.Contains(s.Id) && s.UserId != null)

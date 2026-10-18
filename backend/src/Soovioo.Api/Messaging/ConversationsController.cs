@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Messaging;
 
@@ -33,7 +34,7 @@ public class ConversationsController(
                 c.StudentId,
                 StudentName = c.Student == null ? null : c.Student.FirstName + " " + c.Student.LastName,
                 c.LastMessageAt,
-                Participants = c.Participants.Select(p => p.User!.Username).ToList(),
+                Participants = c.Participants.Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
                 LastMessage = c.Messages.OrderByDescending(m => m.SentAt)
                     .Select(m => new { m.SenderName, m.Body }).FirstOrDefault(),
                 Unread = c.Messages.Any(m =>
@@ -104,7 +105,7 @@ public class ConversationsController(
             }
         }
 
-        var conversation = NewConversation(request.Subject, request.StudentId, me, recipients, request.Body);
+        var conversation = await NewConversationAsync(request.Subject, request.StudentId, me, recipients, request.Body);
         db.Conversations.Add(conversation);
         await db.SaveChangesAsync();
 
@@ -132,7 +133,7 @@ public class ConversationsController(
         {
             ConversationId = id,
             SenderUserId = CurrentUserId(),
-            SenderName = SenderName(),
+            SenderName = await SenderNameAsync(),
             Body = request.Body,
             SentAt = now,
             SchoolId = conversation.SchoolId,
@@ -298,8 +299,9 @@ public class ConversationsController(
         return conversation;
     }
 
-    private Conversation NewConversation(string subject, int? studentId, int me, List<int> recipients, string body) =>
-        NewConversation(subject, studentId, me, SenderName(), recipients, body,
+    private async Task<Conversation> NewConversationAsync(
+        string subject, int? studentId, int me, List<int> recipients, string body) =>
+        NewConversation(subject, studentId, me, await SenderNameAsync(), recipients, body,
             currentSchool.SchoolId!.Value, DateTimeOffset.UtcNow);
 
     private async Task<List<ContactDto>> ContactsForStudentAsync(int studentId)
@@ -318,7 +320,8 @@ public class ConversationsController(
         {
             userIds.Add(ct);
         }
-        var names = await db.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Username);
+        var names = (await db.Users.Include(u => u.Person).Where(u => userIds.Contains(u.Id)).ToListAsync())
+            .ToDictionary(u => u.Id, PersonNames.Display);
 
         return userIds
             .Where(names.ContainsKey)
@@ -347,7 +350,7 @@ public class ConversationsController(
         var me = CurrentUserId();
         return await db.Conversations
             .Include(c => c.Student)
-            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Participants).ThenInclude(p => p.User).ThenInclude(u => u!.Person)
             .Include(c => c.Messages).ThenInclude(m => m.Attachments)
             .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.Id == id && c.Participants.Any(p => p.UserId == me));
@@ -358,7 +361,7 @@ public class ConversationsController(
         c.Subject,
         c.StudentId,
         c.Student is null ? null : $"{c.Student.FirstName} {c.Student.LastName}",
-        c.Participants.Select(p => new ParticipantDto(p.UserId, p.User?.Username ?? "?")).OrderBy(p => p.Name).ToList(),
+        c.Participants.Select(p => new ParticipantDto(p.UserId, p.User is null ? "?" : PersonNames.Display(p.User))).OrderBy(p => p.Name).ToList(),
         c.Messages.OrderBy(m => m.SentAt).Select(ToDto).ToList());
 
     private static MessageDto ToDto(Message m) => new(
@@ -368,7 +371,12 @@ public class ConversationsController(
     private static string? Preview(string? body) =>
         body is null ? null : body.Length <= 120 ? body : body[..120] + "…";
 
-    private string SenderName() => User.Identity?.Name ?? "Neznámý uživatel";
+    /// <summary>Snapshot of the sender's display name at send time.</summary>
+    private async Task<string> SenderNameAsync()
+    {
+        var me = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == CurrentUserId());
+        return me is null ? User.Identity?.Name ?? "Neznámý uživatel" : PersonNames.Display(me);
+    }
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
@@ -379,7 +387,8 @@ public static class ConversationQueries
     /// account and all linked parents.</summary>
     public static async Task<List<int>> FamilyUserIdsAsync(this AppDbContext db, int studentId)
     {
-        var parents = await db.ParentStudents.Where(ps => ps.StudentId == studentId).Select(ps => ps.UserId).ToListAsync();
+        var parents = await db.ParentStudents.Where(ps => ps.StudentId == studentId)
+            .ParentAccountLinks().Select(l => l.UserId).ToListAsync();
         var own = await db.Students.Where(s => s.Id == studentId && s.UserId != null).Select(s => s.UserId!.Value).ToListAsync();
         return parents.Concat(own).Distinct().ToList();
     }

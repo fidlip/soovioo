@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Evidence;
 
@@ -59,9 +60,8 @@ public class ParentStudentsControllerTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db);
-        db.ParentStudents.AddRange(
-            new ParentStudent { UserId = fx.Parent.Id, StudentId = fx.OwnStudent.Id, SchoolId = SchoolId },
-            new ParentStudent { UserId = fx.Parent.Id, StudentId = fx.OtherStudent.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(fx.Parent.Id, fx.OwnStudent.Id, SchoolId);
+        await db.LinkChildAsync(fx.Parent.Id, fx.OtherStudent.Id, SchoolId);
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999, "Admin").GetLinks();
@@ -76,9 +76,8 @@ public class ParentStudentsControllerTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db);
-        db.ParentStudents.AddRange(
-            new ParentStudent { UserId = fx.Parent.Id, StudentId = fx.OwnStudent.Id, SchoolId = SchoolId },
-            new ParentStudent { UserId = fx.Parent.Id, StudentId = fx.OtherStudent.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(fx.Parent.Id, fx.OwnStudent.Id, SchoolId);
+        await db.LinkChildAsync(fx.Parent.Id, fx.OtherStudent.Id, SchoolId);
         await db.SaveChangesAsync();
 
         var result = await NewController(db, fx.Teacher.Id, "Teacher").GetLinks();
@@ -118,12 +117,12 @@ public class ParentStudentsControllerTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db);
-        db.ParentStudents.Add(new ParentStudent { UserId = fx.Parent.Id, StudentId = fx.OtherStudent.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(fx.Parent.Id, fx.OtherStudent.Id, SchoolId);
         await db.SaveChangesAsync();
 
         var result = await NewController(db, fx.Teacher.Id, "Teacher").RemoveLink(fx.Parent.Id, fx.OtherStudent.Id);
 
         Assert.IsType<ForbidResult>(result);
-        Assert.NotNull(await db.ParentStudents.FindAsync(fx.Parent.Id, fx.OtherStudent.Id));
+        Assert.Contains(fx.OtherStudent.Id, db.ChildIdsOf(fx.Parent.Id));
     }
 }

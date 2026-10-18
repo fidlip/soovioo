@@ -79,6 +79,7 @@ export interface PaymentSchoolClassOption {
 export interface PaymentPersonOption {
   id: number;
   username: string;
+  name: string;
 }
 
 export interface PaymentStudentOption {

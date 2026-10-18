@@ -4,6 +4,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Behavior;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Homework;
 using Soovioo.Api.Messaging;
@@ -36,6 +37,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<EventStudent> EventStudents => Set<EventStudent>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
+    public DbSet<Person> Persons => Set<Person>();
+    public DbSet<TeacherProfile> TeacherProfiles => Set<TeacherProfile>();
+    public DbSet<ParentProfile> ParentProfiles => Set<ParentProfile>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Homework.Homework> Homework => Set<Homework.Homework>();
     public DbSet<HomeworkStudent> HomeworkStudents => Set<HomeworkStudent>();
@@ -58,7 +62,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
+        modelBuilder.Entity<Person>()
+            .HasOne(p => p.User).WithOne(u => u.Person)
+            .HasForeignKey<Person>(p => p.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<TeacherProfile>().HasKey(t => t.PersonId);
+        modelBuilder.Entity<TeacherProfile>()
+            .HasOne(t => t.Person).WithOne(p => p.TeacherProfile)
+            .HasForeignKey<TeacherProfile>(t => t.PersonId);
+        modelBuilder.Entity<ParentProfile>().HasKey(pp => pp.PersonId);
+        modelBuilder.Entity<ParentProfile>()
+            .HasOne(pp => pp.Person).WithOne(p => p.ParentProfile)
+            .HasForeignKey<ParentProfile>(pp => pp.PersonId);
+        modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.ParentProfileId, ps.StudentId });
+        modelBuilder.Entity<ParentStudent>()
+            .HasOne(ps => ps.ParentProfile).WithMany(pp => pp.Children)
+            .HasForeignKey(ps => ps.ParentProfileId);
         modelBuilder.Entity<ConversationParticipant>().HasKey(p => new { p.ConversationId, p.UserId });
         // A deleted account leaves the conversations it wrote in readable for
         // the others — just without a link to the sender.
@@ -196,6 +215,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<EventStudent>().HasQueryFilter(x =>
             currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Person>().HasQueryFilter(p =>
+            currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<TeacherProfile>().HasQueryFilter(t =>
+            currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<ParentProfile>().HasQueryFilter(pp =>
+            currentSchool.IsSuperAdmin || pp.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
             currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Payment>().HasQueryFilter(p =>

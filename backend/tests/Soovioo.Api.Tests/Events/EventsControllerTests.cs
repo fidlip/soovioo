@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Events;
 
@@ -195,9 +196,8 @@ public class EventsControllerTests
             db.Users.AddRange(parentA, parentB);
             await db.SaveChangesAsync();
 
-            db.ParentStudents.AddRange(
-                new ParentStudent { UserId = parentA.Id, StudentId = studentA.Id, SchoolId = SchoolId },
-                new ParentStudent { UserId = parentB.Id, StudentId = studentB.Id, SchoolId = SchoolId });
+            await db.LinkChildAsync(parentA.Id, studentA.Id, SchoolId);
+            await db.LinkChildAsync(parentB.Id, studentB.Id, SchoolId);
             await db.SaveChangesAsync();
 
             return new AudienceFixture

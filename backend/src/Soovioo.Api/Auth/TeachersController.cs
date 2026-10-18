@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Auth;
 
@@ -19,11 +20,12 @@ public class TeachersController(AppDbContext db) : ControllerBase
         var teachers = await db.Users
             .Where(u => u.Roles.Contains(UserRole.Teacher))
             .OrderBy(u => u.Username)
-            .Select(u => new TeacherDto(u.Id, u.Username))
+            .Select(u => new TeacherDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();
 
         return Ok(teachers);
     }
 }
 
-public record TeacherDto(int Id, string Username);
+/// <param name="Name">Display name — what pickers show.</param>
+public record TeacherDto(int Id, string Username, string Name);

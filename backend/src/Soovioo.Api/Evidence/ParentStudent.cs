@@ -1,12 +1,14 @@
-using Soovioo.Api.Auth;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Evidence;
 
-/// <summary>Links a Parent-role user to the student(s) they may see/act on.</summary>
+/// <summary>One child of a <see cref="People.ParentProfile"/> — the pupils a
+/// parent may see/act on. Queries starting from a login account go through
+/// <c>ParentProfile.Person.UserId</c>; see <see cref="ParentLinkQueries"/>.</summary>
 public class ParentStudent
 {
-    public int UserId { get; set; }
-    public User? User { get; set; }
+    public int ParentProfileId { get; set; }
+    public ParentProfile? ParentProfile { get; set; }
 
     public int StudentId { get; set; }
     public Student? Student { get; set; }

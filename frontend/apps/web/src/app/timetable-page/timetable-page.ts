@@ -231,7 +231,7 @@ export class TimetablePage {
     this.schoolClasses().map((c) => ({ id: c.id, label: c.name })),
   );
   protected readonly teacherOptions = computed(() =>
-    this.teachers().map((t) => ({ id: t.id, label: t.username })),
+    this.teachers().map((t) => ({ id: t.id, label: t.name })),
   );
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({

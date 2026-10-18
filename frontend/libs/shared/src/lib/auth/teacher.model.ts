@@ -4,4 +4,6 @@
 export interface Teacher {
   id: number;
   username: string;
+  /** Display name ("Jana Nováková", or the username). */
+  name: string;
 }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Soovioo.Api.Data;
 using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Auth;
 
@@ -30,13 +31,14 @@ public class UsersController(
             .OrderBy(u => u.Username)
             .Select(u => new
             {
-                u.Id, u.Username, u.Role, u.Roles, u.Phone, u.Email,
+                User = u,
+                u.Person,
+                u.Person!.TeacherProfile,
                 StudentId = db.Students.Where(s => s.UserId == u.Id).Select(s => (int?)s.Id).FirstOrDefault(),
             })
             .ToListAsync();
 
-        return Ok(users.Select(u => new UserDto(
-            u.Id, u.Username, u.Role.ToString(), RoleNames(u.Roles), u.Phone, u.Email, u.StudentId)));
+        return Ok(users.Select(u => ToDto(u.User, u.StudentId)));
     }
 
     [HttpPost]
@@ -68,8 +70,6 @@ public class UsersController(
             // Admin only ever manages their own school — never trust a
             // client-supplied SchoolId here.
             SchoolId = currentSchool.SchoolId,
-            Phone = request.Phone,
-            Email = request.Email,
             // Admin picked this password, not the account's owner — force a
             // change on first login (see User.MustChangePassword).
             MustChangePassword = true,
@@ -77,6 +77,8 @@ public class UsersController(
         user.PasswordHash = Hasher.HashPassword(user, request.Password);
 
         db.Users.Add(user);
+        await db.SaveChangesAsync();
+        await ApplyPersonAsync(user, roles, request.FirstName, request.LastName, request.Phone, request.Email);
         await db.SaveChangesAsync();
 
         if (linkedStudent is not null)
@@ -93,7 +95,7 @@ public class UsersController(
     [HttpPut("{id:int}")]
     public async Task<ActionResult<UserDto>> UpdateUser(int id, UpdateUserRequest request)
     {
-        var user = await db.Users.FindAsync(id);
+        var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
         {
             return NotFound();
@@ -140,8 +142,7 @@ public class UsersController(
         var activeRole = roles.Contains(user.Role) ? user.Role : roles[0];
         user.Roles = roles;
         user.Role = activeRole;
-        user.Phone = request.Phone;
-        user.Email = request.Email;
+        await ApplyPersonAsync(user, roles, request.FirstName, request.LastName, request.Phone, request.Email);
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             user.PasswordHash = Hasher.HashPassword(user, request.Password);
@@ -179,10 +180,29 @@ public class UsersController(
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
 
-        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.UserId == id));
+        // The Person (with its profiles and parent↔child links) goes with
+        // the account — see Person.UserId.
+        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.ParentProfile!.Person!.UserId == id));
         db.Users.Remove(user);
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    /// <summary>Teacher-only data (TeacherProfile) — currently the aprobace.</summary>
+    [HttpPut("{id:int}/teacher-profile")]
+    public async Task<ActionResult<UserDto>> SetTeacherProfile(int id, SetTeacherProfileRequest request)
+    {
+        var user = await db.Users.Include(u => u.Person).ThenInclude(p => p!.TeacherProfile)
+            .FirstOrDefaultAsync(u => u.Id == id);
+        if (user is null || !user.Roles.Contains(UserRole.Teacher))
+        {
+            return NotFound();
+        }
+
+        var profile = await db.EnsureTeacherProfileAsync(user);
+        profile.Qualification = string.IsNullOrWhiteSpace(request.Qualification) ? null : request.Qualification.Trim();
+        await db.SaveChangesAsync();
+        return Ok(ToDto(user, await db.Students.Where(s => s.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
     }
 
     /// <summary>E-mails <paramref name="id"/> a one-time link to set their own
@@ -193,13 +213,14 @@ public class UsersController(
     [HttpPost("{id:int}/invite")]
     public async Task<IActionResult> SendInvite(int id)
     {
-        var user = await db.Users.FindAsync(id);
+        var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
         {
             return NotFound();
         }
 
-        if (string.IsNullOrWhiteSpace(user.Email))
+        var email = user.Person?.Email;
+        if (string.IsNullOrWhiteSpace(email))
         {
             return BadRequest("Uživatel nemá vyplněný e-mail.");
         }
@@ -227,7 +248,7 @@ public class UsersController(
             <p><a href="{link}">{link}</a></p>
             <p>Odkaz je platný 7 dní.</p>
             """;
-        await emailSender.SendAsync(user.Email, subject, body);
+        await emailSender.SendAsync(email, subject, body);
 
         return NoContent();
     }
@@ -270,7 +291,30 @@ public class UsersController(
         roles.Order().Select(r => r.ToString()).ToList();
 
     private static UserDto ToDto(User user, int? studentId) =>
-        new(user.Id, user.Username, user.Role.ToString(), RoleNames(user.Roles), user.Phone, user.Email, studentId);
+        new(user.Id, user.Username, user.Person?.FirstName ?? "", user.Person?.LastName ?? "",
+            PersonNames.Display(user), user.Role.ToString(), RoleNames(user.Roles),
+            user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification);
+
+    /// <summary>Writes name/contacts to the account's Person and creates the
+    /// profile of every role it now has (profiles of removed roles stay, so
+    /// re-adding a role restores e.g. a parent's children).</summary>
+    private async Task ApplyPersonAsync(
+        User user, List<UserRole> roles, string? firstName, string? lastName, string? phone, string? email)
+    {
+        var person = await db.EnsurePersonAsync(user);
+        person.FirstName = firstName?.Trim() ?? "";
+        person.LastName = string.IsNullOrWhiteSpace(lastName) ? person.LastName : lastName.Trim();
+        person.Phone = phone;
+        person.Email = email;
+        if (roles.Contains(UserRole.Teacher))
+        {
+            await db.EnsureTeacherProfileAsync(user);
+        }
+        if (roles.Contains(UserRole.Parent))
+        {
+            await db.EnsureParentProfileAsync(user);
+        }
+    }
 
     private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
@@ -316,15 +360,24 @@ public class UsersController(
     }
 }
 
+/// <param name="LastName">Empty = keep the current one (a new account
+/// falls back to the username).</param>
 public record CreateUserRequest(
-    string Username, string Password, IReadOnlyList<string> Roles, string? Phone = null, string? Email = null, int? StudentId = null);
+    string Username, string Password, IReadOnlyList<string> Roles, string? Phone = null, string? Email = null,
+    int? StudentId = null, string? FirstName = null, string? LastName = null);
 
 public record UpdateUserRequest(
-    string Username, IReadOnlyList<string> Roles, string? Password = null, string? Phone = null, string? Email = null, int? StudentId = null);
+    string Username, IReadOnlyList<string> Roles, string? Password = null, string? Phone = null, string? Email = null,
+    int? StudentId = null, string? FirstName = null, string? LastName = null);
 
 /// <summary><see cref="Role"/> is the active one, <see cref="Roles"/> all
 /// the account may switch between. <see cref="StudentId"/> is set only for
 /// role Student — the one <see cref="Evidence.Student"/> this account logs
 /// in as.</summary>
+public record SetTeacherProfileRequest(string? Qualification);
+
+/// <param name="Name">Display name (first + last, or the username).</param>
+/// <param name="Qualification">Teachers' aprobace (TeacherProfile).</param>
 public record UserDto(
-    int Id, string Username, string Role, IReadOnlyList<string> Roles, string? Phone, string? Email, int? StudentId = null);
+    int Id, string Username, string FirstName, string LastName, string Name, string Role, IReadOnlyList<string> Roles,
+    string? Phone, string? Email, int? StudentId = null, string? Qualification = null);

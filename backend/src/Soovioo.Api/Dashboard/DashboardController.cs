@@ -10,6 +10,7 @@ using Soovioo.Api.Events;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Timetable;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Dashboard;
 
@@ -142,7 +143,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
-                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : e.Teacher.Username,
+                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, null))
             .ToListAsync();
 
@@ -174,7 +175,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
-                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : e.Teacher.Username,
+                e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, null))
             .ToListAsync();
 

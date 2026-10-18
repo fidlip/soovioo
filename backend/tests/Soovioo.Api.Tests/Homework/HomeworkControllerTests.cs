@@ -8,6 +8,7 @@ using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Timetable;
 using HomeworkEntity = Soovioo.Api.Homework.Homework;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Homework;
 
@@ -157,7 +158,7 @@ public class HomeworkControllerTests
         db.Users.Add(parentUser);
         db.Students.Add(student);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parentUser.Id, StudentId = student.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
         db.Homework.Add(new HomeworkEntity
         {
             SchoolClassId = schoolClass.Id, SubjectId = subject.Id, Text = "Celá třída", DueDate = new DateOnly(2026, 10, 24),
@@ -204,7 +205,7 @@ public class HomeworkControllerTests
         db.Users.Add(parentUser);
         db.Students.AddRange(myKid, otherKid);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parentUser.Id, StudentId = myKid.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parentUser.Id, myKid.Id, SchoolId);
         var narrowed = new HomeworkEntity
         {
             SchoolClassId = schoolClass.Id, SubjectId = subject.Id, Text = "Jen pro vybrané", DueDate = new DateOnly(2026, 10, 24),

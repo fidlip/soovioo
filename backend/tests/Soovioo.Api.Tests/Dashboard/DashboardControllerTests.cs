@@ -10,6 +10,7 @@ using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Timetable;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Dashboard;
 
@@ -115,7 +116,7 @@ public class DashboardControllerTests
         var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(student, otherStudent);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = student.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parent.Id, student.Id, SchoolId);
         db.Grades.Add(new Grade { StudentId = student.Id, SubjectId = subject.Id, Value = 1, SchoolId = SchoolId });
         db.Grades.Add(new Grade { StudentId = otherStudent.Id, SubjectId = subject.Id, Value = 5, SchoolId = SchoolId });
         db.TimetableEntries.AddRange(
@@ -152,7 +153,7 @@ public class DashboardControllerTests
         var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = myStudent.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);
         var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
@@ -189,7 +190,7 @@ public class DashboardControllerTests
         var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = myStudent.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);
         db.BehaviorRecords.AddRange(
             new Soovioo.Api.Behavior.BehaviorRecord
             {

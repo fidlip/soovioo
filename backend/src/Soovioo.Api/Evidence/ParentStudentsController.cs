@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Evidence;
 
@@ -28,15 +29,22 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
         }
 
         var links = await query
-            .OrderBy(ps => ps.User!.Username)
-            .Select(ps => new ParentStudentDto(
-                ps.UserId,
-                ps.User!.Username,
+            .Where(ps => ps.ParentProfile!.Person!.UserId != null)
+            .Select(ps => new
+            {
+                UserId = ps.ParentProfile!.Person!.UserId!.Value,
+                ps.ParentProfile.Person.User!.Username,
+                ps.ParentProfile.Person.FirstName,
+                ps.ParentProfile.Person.LastName,
                 ps.StudentId,
-                ps.Student!.FirstName + " " + ps.Student.LastName))
+                StudentName = ps.Student!.FirstName + " " + ps.Student.LastName,
+            })
             .ToListAsync();
 
-        return Ok(links);
+        return Ok(links
+            .Select(l => new ParentStudentDto(
+                l.UserId, l.Username, Display(l.FirstName, l.LastName, l.Username), l.StudentId, l.StudentName))
+            .OrderBy(l => l.ParentName));
     }
 
     [HttpPost]
@@ -54,28 +62,25 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
             return Forbid();
         }
 
-        if (await db.ParentStudents.AnyAsync(ps => ps.UserId == request.UserId && ps.StudentId == request.StudentId))
+        if (await db.ChildIdsOf(request.UserId).AnyAsync(id => id == request.StudentId))
         {
             return BadRequest("Link already exists.");
         }
 
-        var link = new ParentStudent
-        {
-            UserId = request.UserId,
-            StudentId = request.StudentId,
-            SchoolId = currentSchool.SchoolId!.Value,
-        };
-        db.ParentStudents.Add(link);
+        await db.LinkChildAsync(request.UserId, request.StudentId, currentSchool.SchoolId!.Value);
         await db.SaveChangesAsync();
 
-        var dto = new ParentStudentDto(user.Id, user.Username, student.Id, $"{student.FirstName} {student.LastName}");
+        var person = await db.EnsurePersonAsync(user);
+        var dto = new ParentStudentDto(
+            user.Id, user.Username, PersonNames.Display(person, user.Username), student.Id, $"{student.FirstName} {student.LastName}");
         return CreatedAtAction(nameof(GetLinks), dto);
     }
 
     [HttpDelete("{userId:int}/{studentId:int}")]
     public async Task<IActionResult> RemoveLink(int userId, int studentId)
     {
-        var link = await db.ParentStudents.FindAsync(userId, studentId);
+        var link = await db.ParentStudents
+            .FirstOrDefaultAsync(ps => ps.ParentProfile!.Person!.UserId == userId && ps.StudentId == studentId);
         if (link is null)
         {
             return NotFound();
@@ -95,9 +100,12 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
         return NoContent();
     }
 
+    private static string Display(string firstName, string lastName, string username) =>
+        $"{firstName} {lastName}".Trim() is { Length: > 0 } name ? name : username;
+
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateParentStudentLinkRequest(int UserId, int StudentId);
 
-public record ParentStudentDto(int UserId, string Username, int StudentId, string StudentName);
+public record ParentStudentDto(int UserId, string Username, string ParentName, int StudentId, string StudentName);

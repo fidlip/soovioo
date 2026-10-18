@@ -113,9 +113,6 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("CalendarToken")
                         .HasColumnType("text");
 
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
                     b.Property<string>("InvitationToken")
                         .HasColumnType("text");
 
@@ -127,9 +124,6 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Phone")
                         .HasColumnType("text");
 
                     b.Property<int>("Role")
@@ -409,7 +403,7 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Evidence.ParentStudent", b =>
                 {
-                    b.Property<int>("UserId")
+                    b.Property<int>("ParentProfileId")
                         .HasColumnType("integer");
 
                     b.Property<int>("StudentId")
@@ -418,7 +412,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
-                    b.HasKey("UserId", "StudentId");
+                    b.HasKey("ParentProfileId", "StudentId");
 
                     b.HasIndex("SchoolId");
 
@@ -1154,6 +1148,73 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("PaymentStudents");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.People.ParentProfile", b =>
+                {
+                    b.Property<int>("PersonId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("PersonId");
+
+                    b.ToTable("ParentProfiles");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.Person", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("Persons");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.TeacherProfile", b =>
+                {
+                    b.Property<int>("PersonId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Qualification")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("PersonId");
+
+                    b.ToTable("TeacherProfiles");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Reference.Country", b =>
                 {
                     b.Property<string>("Code")
@@ -1571,6 +1632,12 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Evidence.ParentStudent", b =>
                 {
+                    b.HasOne("Soovioo.Api.People.ParentProfile", "ParentProfile")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
@@ -1583,17 +1650,11 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Auth.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("ParentProfile");
 
                     b.Navigation("School");
 
                     b.Navigation("Student");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Evidence.SchoolClass", b =>
@@ -1973,6 +2034,44 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.People.ParentProfile", b =>
+                {
+                    b.HasOne("Soovioo.Api.People.Person", "Person")
+                        .WithOne("ParentProfile")
+                        .HasForeignKey("Soovioo.Api.People.ParentProfile", "PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Person");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.Person", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId");
+
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithOne("Person")
+                        .HasForeignKey("Soovioo.Api.People.Person", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("School");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.TeacherProfile", b =>
+                {
+                    b.HasOne("Soovioo.Api.People.Person", "Person")
+                        .WithOne("TeacherProfile")
+                        .HasForeignKey("Soovioo.Api.People.TeacherProfile", "PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Person");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Reference.Municipality", b =>
                 {
                     b.HasOne("Soovioo.Api.Reference.District", "District")
@@ -2034,6 +2133,11 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Auth.User", b =>
+                {
+                    b.Navigation("Person");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Events.Event", b =>
                 {
                     b.Navigation("Parents");
@@ -2080,6 +2184,18 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("SchoolClasses");
 
                     b.Navigation("Students");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.ParentProfile", b =>
+                {
+                    b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.Person", b =>
+                {
+                    b.Navigation("ParentProfile");
+
+                    b.Navigation("TeacherProfile");
                 });
 #pragma warning restore 612, 618
         }

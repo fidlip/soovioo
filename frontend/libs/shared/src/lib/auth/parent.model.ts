@@ -4,4 +4,6 @@
 export interface Parent {
   id: number;
   username: string;
+  /** Display name ("Petr Novák", or the username). */
+  name: string;
 }

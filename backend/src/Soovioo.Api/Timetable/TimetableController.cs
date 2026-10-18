@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Timetable;
 
@@ -29,7 +30,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.PeriodNumber,
                 e.WeekParity,
                 e.TeacherId,
-                e.Teacher == null ? null : e.Teacher.Username,
+                e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.Name,
                 null))
@@ -64,7 +65,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.PeriodNumber,
                 e.WeekParity,
                 e.TeacherId,
-                e.Teacher == null ? null : e.Teacher.Username,
+                e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.Name))
             .ToListAsync();
@@ -120,7 +121,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var conflict = await FindClassroomConflictAsync(entry);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username,
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
             entry.ClassroomId, classroom?.Name, conflict);
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
@@ -165,7 +166,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var conflict = await FindClassroomConflictAsync(entry);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher?.Username,
+            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
             entry.ClassroomId, classroom?.Name, conflict);
         return Ok(dto);
     }
@@ -179,7 +180,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return null;
         }
 
-        return await db.Users.FirstOrDefaultAsync(u => u.Id == teacherId && u.Roles.Contains(UserRole.Teacher));
+        return await db.Users.Include(u => u.Person)
+            .FirstOrDefaultAsync(u => u.Id == teacherId && u.Roles.Contains(UserRole.Teacher));
     }
 
     private async Task<Classroom?> ResolveClassroomAsync(int? classroomId)

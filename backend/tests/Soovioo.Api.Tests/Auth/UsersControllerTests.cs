@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Auth;
 
@@ -219,7 +220,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
-        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, Email = "a@b.cz" };
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, Person = new Soovioo.Api.People.Person { Email = "a@b.cz", SchoolId = SchoolId } };
         db.Users.Add(user);
         await db.SaveChangesAsync();
         var emailSender = new FakeEmailSender();
@@ -241,7 +242,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
-        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, Email = "a@b.cz" };
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, Person = new Soovioo.Api.People.Person { Email = "a@b.cz", SchoolId = SchoolId } };
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
@@ -260,14 +261,14 @@ public class UsersControllerTests
         var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Users.AddRange(admin, parent);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new Soovioo.Api.Evidence.ParentStudent { UserId = parent.Id, StudentId = 1, SchoolId = SchoolId });
+        await db.LinkChildAsync(parent.Id, 1, SchoolId);
         await db.SaveChangesAsync();
 
         var result = await NewController(db, admin.Id).DeleteUser(parent.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Users.FindAsync(parent.Id));
-        Assert.Empty(db.ParentStudents.Where(ps => ps.UserId == parent.Id));
+        Assert.Empty(db.ChildIdsOf(parent.Id));
     }
 
     [Fact]
@@ -305,5 +306,51 @@ public class UsersControllerTests
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal("Teacher", dto.Role);
         Assert.Equal(["Teacher"], dto.Roles);
+    }
+
+    [Fact]
+    public async Task AddUserCreatesPersonWithProfilesOfItsRoles()
+    {
+        using var db = NewDb();
+
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest(
+            "novakova", "heslo123", ["Teacher", "Parent"], Phone: "777", Email: "j@n.cz",
+            FirstName: "Jana", LastName: "Nováková"));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal("Jana Nováková", dto.Name);
+        Assert.Equal("j@n.cz", dto.Email);
+        var person = await db.Persons.Include(p => p.TeacherProfile).Include(p => p.ParentProfile).SingleAsync();
+        Assert.Equal(dto.Id, person.UserId);
+        Assert.NotNull(person.TeacherProfile);
+        Assert.NotNull(person.ParentProfile);
+    }
+
+    [Fact]
+    public async Task RemovingParentRoleKeepsChildrenForWhenItComesBack()
+    {
+        using var db = NewDb();
+        var created = await NewController(db, 999).AddUser(new CreateUserRequest("mama", "heslo123", ["Parent"]));
+        var id = ((UserDto)((CreatedAtActionResult)created.Result!).Value!).Id;
+        await db.LinkChildAsync(id, 42, SchoolId);
+        await db.SaveChangesAsync();
+
+        await NewController(db, 999).UpdateUser(id, new UpdateUserRequest("mama", ["Teacher"]));
+        await NewController(db, 999).UpdateUser(id, new UpdateUserRequest("mama", ["Teacher", "Parent"]));
+
+        Assert.Equal([42], db.ChildIdsOf(id));
+    }
+
+    [Fact]
+    public async Task SetTeacherProfileStoresQualification()
+    {
+        using var db = NewDb();
+        var created = await NewController(db, 999).AddUser(new CreateUserRequest("ucitel", "heslo123", ["Teacher"]));
+        var id = ((UserDto)((CreatedAtActionResult)created.Result!).Value!).Id;
+
+        var result = await NewController(db, 999).SetTeacherProfile(id, new SetTeacherProfileRequest(" M, F "));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("M, F", dto.Qualification);
     }
 }

@@ -7,6 +7,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Timetable;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Messaging;
 
@@ -70,7 +71,7 @@ public class ConversationsControllerTests
         w.Student.UserId = w.StudentUser.Id;
         db.Students.Add(w.Student);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = w.Parent.Id, StudentId = w.Student.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(w.Parent.Id, w.Student.Id, SchoolId);
         db.TimetableEntries.Add(new TimetableEntry
         {
             SchoolClassId = schoolClass.Id, SubjectId = math.Id, TeacherId = w.MathTeacher.Id,

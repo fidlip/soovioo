@@ -221,7 +221,7 @@ export class PaymentsPage {
   protected filteredParents(): PaymentPersonOption[] {
     const name = this.parentFilterName.trim().toLowerCase();
     return (this.recipientOptions()?.parents ?? []).filter(
-      (p) => !name || p.username.toLowerCase().includes(name),
+      (p) => !name || p.name.toLowerCase().includes(name),
     );
   }
 

@@ -352,14 +352,14 @@ export class EventsPage {
   protected filteredTeachers(): PersonOption[] {
     const name = this.teacherFilterName.trim().toLowerCase();
     return (this.recipientOptions()?.teachers ?? []).filter(
-      (t) => !name || t.username.toLowerCase().includes(name),
+      (t) => !name || t.name.toLowerCase().includes(name),
     );
   }
 
   protected filteredParents(): PersonOption[] {
     const name = this.parentFilterName.trim().toLowerCase();
     return (this.recipientOptions()?.parents ?? []).filter(
-      (p) => !name || p.username.toLowerCase().includes(name),
+      (p) => !name || p.name.toLowerCase().includes(name),
     );
   }
 

@@ -1,6 +1,10 @@
 export interface AppUser {
   id: number;
   username: string;
+  firstName: string;
+  lastName: string;
+  /** Display name ("Jana Nováková", or the username). */
+  name: string;
   /** The active role (what the account currently acts as). */
   role: string;
   /** Every role the account may switch between. */
@@ -9,11 +13,15 @@ export interface AppUser {
   email: string | null;
   /** Set only for role Student — the one Student this account logs in as. */
   studentId: number | null;
+  /** Teachers' aprobace (TeacherProfile). */
+  qualification: string | null;
 }
 
 export interface CreateUserRequest {
   username: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
   /** At least one; 'Student' can't be combined with others. */
   roles: string[];
   phone?: string;
@@ -24,6 +32,9 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   username: string;
+  firstName?: string;
+  /** Empty keeps the current surname. */
+  lastName?: string;
   roles: string[];
   /** Omit to keep the current password. */
   password?: string;

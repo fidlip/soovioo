@@ -52,6 +52,7 @@ export interface SchoolClassOption {
 export interface PersonOption {
   id: number;
   username: string;
+  name: string;
 }
 
 export interface StudentOption {

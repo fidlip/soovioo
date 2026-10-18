@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Behavior;
 
@@ -185,7 +186,7 @@ public class BehaviorControllerTests
         var parentUser = new User { Username = "rodic2", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parentUser.Id, StudentId = student.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
         await db.SaveChangesAsync();
 
         var result = await NewController(db, parentUser.Id, "Parent").GetBehaviorRecords();
@@ -279,7 +280,7 @@ public class BehaviorControllerTests
         var parentUser = new User { Username = "rodic4", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parentUser.Id, StudentId = student.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
         await db.SaveChangesAsync();
         var record = await db.BehaviorRecords.FirstAsync();
         var controller = NewController(db, parentUser.Id, "Parent");

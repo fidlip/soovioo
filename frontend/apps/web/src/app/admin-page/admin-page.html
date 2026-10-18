@@ -141,7 +141,7 @@
       </ng-template>
       <ng-template pTemplate="body" let-parent>
         <tr>
-          <td>{{ parent.username }}</td>
+          <td>{{ parent.name }}</td>
           <td
             class="max-w-64 overflow-hidden text-ellipsis whitespace-nowrap text-surface-500"
             [title]="parentChildNames(parent.id)"
@@ -399,7 +399,14 @@
             </ng-template>
             <ng-template pTemplate="body" let-user>
               <tr>
-                <td>{{ user.username }}</td>
+                <td>
+                  <div>{{ user.name }}</div>
+                  @if (user.name !== user.username) {
+                  <div class="text-xs text-surface-500">
+                    {{ user.username }}
+                  </div>
+                  }
+                </td>
                 <td>
                   <div class="flex flex-wrap items-center gap-1">
                     @for (role of user.roles; track role) {
@@ -460,14 +467,17 @@
             <ng-template pTemplate="header">
               <tr>
                 <th>Jméno</th>
+                <th>Aprobace</th>
                 <th>Třídní učitel</th>
                 <th>Kontakt</th>
                 <th>Další role</th>
+                <th></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-teacher>
               <tr>
-                <td>{{ teacher.username }}</td>
+                <td>{{ teacher.name }}</td>
+                <td>{{ teacher.qualification ?? '—' }}</td>
                 <td>{{ teacherClassNames(teacher.id) || '—' }}</td>
                 <td class="text-surface-500">
                   {{ teacher.phone ?? teacher.email ?? '—' }}
@@ -478,11 +488,20 @@
                   <p-tag [value]="roleLabel(role)" severity="secondary" />
                   } }
                 </td>
+                <td class="text-right">
+                  <p-button
+                    icon="pi pi-pencil"
+                    size="small"
+                    [text]="true"
+                    ariaLabel="Upravit aprobaci"
+                    (onClick)="openQualificationDialog(teacher)"
+                  />
+                </td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="4" class="py-3 text-surface-500">
+                <td colspan="6" class="py-3 text-surface-500">
                   Žádní učitelé.
                 </td>
               </tr>
@@ -832,7 +851,7 @@
     />
     <p-select
       [options]="teacherOptions()"
-      optionLabel="username"
+      optionLabel="name"
       optionValue="id"
       placeholder="Třídní učitel"
       [(ngModel)]="newSchoolClassTeacherId"
@@ -1066,7 +1085,7 @@
       >
       <p-multiSelect
         [options]="parents()"
-        optionLabel="username"
+        optionLabel="name"
         optionValue="id"
         placeholder="Žádní rodiče přiřazeni"
         display="chip"
@@ -1092,64 +1111,138 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="saveUser()">
-    <input
-      pInputText
-      type="text"
-      placeholder="Uživatelské jméno"
-      name="username"
-      [(ngModel)]="newUsername"
-    />
-    <p-password
-      [placeholder]="editingUserId === null ? 'Heslo' : 'Nové heslo (nepovinné)'"
-      name="password"
-      [(ngModel)]="newPassword"
-      [toggleMask]="true"
-      [feedback]="false"
-    />
-    <p-multiSelect
-      [options]="roleOptions"
-      optionLabel="label"
-      optionValue="value"
-      [(ngModel)]="newUserRoles"
-      name="roles"
-      placeholder="Role"
-      display="chip"
-      [showHeader]="false"
-      styleClass="w-60"
-      appendTo="body"
-    />
+  <form class="grid grid-cols-1 gap-3 sm:grid-cols-2" (ngSubmit)="saveUser()">
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="userFirstName"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Jméno</label
+      >
+      <input
+        pInputText
+        id="userFirstName"
+        name="userFirstName"
+        [(ngModel)]="newUserFirstName"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="userLastName"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příjmení</label
+      >
+      <input
+        pInputText
+        id="userLastName"
+        name="userLastName"
+        [(ngModel)]="newUserLastName"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="username"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Uživatelské jméno</label
+      >
+      <input
+        pInputText
+        id="username"
+        name="username"
+        [(ngModel)]="newUsername"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="password"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >{{ editingUserId === null ? 'Heslo' : 'Nové heslo (nepovinné)'
+        }}</label
+      >
+      <p-password
+        inputId="password"
+        name="password"
+        [(ngModel)]="newPassword"
+        [toggleMask]="true"
+        [feedback]="false"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="roles"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Role</label
+      >
+      <p-multiSelect
+        inputId="roles"
+        [options]="roleOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="newUserRoles"
+        name="roles"
+        display="chip"
+        [showHeader]="false"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
     @if (newUserRoles.includes('Student')) {
-    <p-select
-      [options]="availableStudentOptions()"
-      optionLabel="label"
-      optionValue="id"
-      [placeholder]="'Student' | term"
-      [(ngModel)]="newUserStudentId"
-      name="newUserStudentId"
-      styleClass="w-36"
-      appendTo="body"
-    />
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newUserStudentId"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >{{ 'Žák' | term }}</label
+      >
+      <p-select
+        inputId="newUserStudentId"
+        [options]="availableStudentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="newUserStudentId"
+        name="newUserStudentId"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    } @else {
+    <div></div>
     }
-    <input
-      pInputText
-      type="tel"
-      placeholder="Telefon"
-      name="userPhone"
-      [(ngModel)]="newUserPhone"
-    />
-    <input
-      pInputText
-      type="email"
-      placeholder="E-mail"
-      name="userEmail"
-      [(ngModel)]="newUserEmail"
-    />
-    <p-button
-      type="submit"
-      [label]="editingUserId === null ? 'Vytvořit uživatele' : 'Uložit'"
-      icon="pi pi-check"
-    />
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="userPhone"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Telefon</label
+      >
+      <input
+        pInputText
+        type="tel"
+        id="userPhone"
+        name="userPhone"
+        [(ngModel)]="newUserPhone"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="userEmail"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >E-mail</label
+      >
+      <input
+        pInputText
+        type="email"
+        id="userEmail"
+        name="userEmail"
+        [(ngModel)]="newUserEmail"
+      />
+    </div>
+    <div class="sm:col-span-2">
+      <p-button
+        type="submit"
+        [label]="editingUserId === null ? 'Vytvořit uživatele' : 'Uložit'"
+        icon="pi pi-check"
+      />
+    </div>
   </form>
 </p-dialog>
 
@@ -1221,3 +1314,28 @@
   </form>
 </p-dialog>
 }
+
+<p-dialog
+  [visible]="qualificationDialogVisible()"
+  (visibleChange)="qualificationDialogVisible.set($event)"
+  [header]="'Aprobace — ' + (qualificationTeacher?.name ?? '')"
+  [modal]="true"
+  styleClass="w-full max-w-md"
+>
+  <form class="flex flex-col gap-3" (ngSubmit)="saveQualification()">
+    <input
+      pInputText
+      type="text"
+      placeholder="např. M, F"
+      name="qualification"
+      aria-label="Aprobace"
+      [(ngModel)]="qualification"
+    />
+    <p-button
+      type="submit"
+      label="Uložit"
+      icon="pi pi-check"
+      styleClass="self-start"
+    />
+  </form>
+</p-dialog>

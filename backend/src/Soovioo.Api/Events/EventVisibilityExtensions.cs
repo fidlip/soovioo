@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Events;
 
@@ -35,7 +36,8 @@ public static class EventVisibilityExtensions
             .ToListAsync();
         var parentUserIds = await db.ParentStudents.IgnoreQueryFilters()
             .Where(ps => ps.SchoolId == schoolId && studentIds.Contains(ps.StudentId))
-            .Select(ps => ps.UserId)
+            .ParentAccountLinks()
+            .Select(l => l.UserId)
             .ToListAsync();
 
         return db.Events.IgnoreQueryFilters()
@@ -56,7 +58,7 @@ public static class EventVisibilityExtensions
     public static async Task<IQueryable<Event>> VisibleToParentAsync(this AppDbContext db, int schoolId, int parentUserId)
     {
         var myStudentIds = await db.ParentStudents.IgnoreQueryFilters()
-            .Where(ps => ps.SchoolId == schoolId && ps.UserId == parentUserId)
+            .Where(ps => ps.SchoolId == schoolId && ps.ParentProfile!.Person!.UserId == parentUserId)
             .Select(ps => ps.StudentId)
             .ToListAsync();
         var myClassIds = await db.Students.IgnoreQueryFilters()

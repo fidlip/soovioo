@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Payments;
 
@@ -67,7 +68,9 @@ public static class PaymentRecipientGenerator
             .Select(s => s.Id)
             .ToListAsync();
         var fromParents = await db.ParentStudents.IgnoreQueryFilters()
-            .Where(ps => ps.SchoolId == payment.SchoolId && parentUserIds.Contains(ps.UserId))
+            .Where(ps => ps.SchoolId == payment.SchoolId
+                && ps.ParentProfile!.Person!.UserId != null
+                && parentUserIds.Contains(ps.ParentProfile.Person.UserId.Value))
             .Select(ps => ps.StudentId)
             .ToListAsync();
 

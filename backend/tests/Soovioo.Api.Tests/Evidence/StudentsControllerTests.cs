@@ -9,6 +9,7 @@ using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Reference;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Evidence;
 
@@ -76,7 +77,7 @@ public class StudentsControllerTests
         db.Grades.Add(new Grade { StudentId = student.Id, SubjectId = subject.Id, Value = 1, SchoolId = SchoolId });
         db.Absences.Add(new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId });
         db.Conversations.Add(new Conversation { StudentId = student.Id, Subject = "s", SchoolId = SchoolId });
-        db.ParentStudents.Add(new ParentStudent { StudentId = student.Id, UserId = parent.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parent.Id, student.Id, SchoolId);
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999).DeleteStudent(student.Id);

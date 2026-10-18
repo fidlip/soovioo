@@ -273,6 +273,8 @@ export class AdminPage {
   protected newUsername = '';
   protected newPassword = '';
   protected newUserRoles: string[] = ['Parent'];
+  protected newUserFirstName = '';
+  protected newUserLastName = '';
   protected newUserPhone = '';
   protected newUserEmail = '';
   protected newUserStudentId: number | null = null;
@@ -435,7 +437,7 @@ export class AdminPage {
     if (classTeacherId === null) {
       return '—';
     }
-    return this.users().find((u) => u.id === classTeacherId)?.username ?? '—';
+    return this.users().find((u) => u.id === classTeacherId)?.name ?? '—';
   }
 
   protected studentName(studentId: number | null): string {
@@ -453,7 +455,7 @@ export class AdminPage {
   protected studentParentNames(studentId: number): string {
     const names = this.links()
       .filter((l) => l.studentId === studentId)
-      .map((l) => l.username);
+      .map((l) => l.parentName);
     return names.length > 0 ? names.join(', ') : '—';
   }
 
@@ -477,6 +479,33 @@ export class AdminPage {
         (this.filterStudentGender === null ||
           s.gender === this.filterStudentGender),
     );
+  }
+
+  // Aprobace dialog (Učitelé card).
+  protected readonly qualificationDialogVisible = signal(false);
+  protected qualificationTeacher: AppUser | null = null;
+  protected qualification = '';
+
+  protected openQualificationDialog(teacher: AppUser): void {
+    this.qualificationTeacher = teacher;
+    this.qualification = teacher.qualification ?? '';
+    this.qualificationDialogVisible.set(true);
+  }
+
+  protected saveQualification(): void {
+    const teacher = this.qualificationTeacher;
+    if (!teacher) {
+      return;
+    }
+    this.usersApi
+      .setTeacherProfile(teacher.id, this.qualification || null)
+      .subscribe({
+        next: () => {
+          this.qualificationDialogVisible.set(false);
+          this.reload();
+        },
+        error: (err) => this.showError('setTeacherProfile failed', err),
+      });
   }
 
   protected teacherClassNames(teacherId: number): string {
@@ -844,6 +873,8 @@ export class AdminPage {
     this.newUsername = '';
     this.newPassword = '';
     this.newUserRoles = ['Parent'];
+    this.newUserFirstName = '';
+    this.newUserLastName = '';
     this.newUserPhone = '';
     this.newUserEmail = '';
     this.newUserStudentId = null;
@@ -855,6 +886,8 @@ export class AdminPage {
     this.newUsername = user.username;
     this.newUserRoles = [...user.roles];
     this.newPassword = ''; // left blank = keep the current password
+    this.newUserFirstName = user.firstName;
+    this.newUserLastName = user.lastName;
     this.newUserPhone = user.phone ?? '';
     this.newUserEmail = user.email ?? '';
     this.newUserStudentId = user.studentId;
@@ -876,6 +909,8 @@ export class AdminPage {
       const request: CreateUserRequest = {
         username: this.newUsername,
         password: this.newPassword,
+        firstName: this.newUserFirstName,
+        lastName: this.newUserLastName,
         roles: this.newUserRoles,
         phone: this.newUserPhone || undefined,
         email: this.newUserEmail || undefined,
@@ -893,6 +928,8 @@ export class AdminPage {
 
     const request: UpdateUserRequest = {
       username: this.newUsername,
+      firstName: this.newUserFirstName,
+      lastName: this.newUserLastName,
       roles: this.newUserRoles,
       password: this.newPassword || undefined,
       phone: this.newUserPhone || undefined,

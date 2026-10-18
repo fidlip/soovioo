@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Auth;
 
@@ -32,8 +33,9 @@ public class MyProfileController(
     public async Task<ActionResult<MyProfileDto>> UpdateProfile(UpdateMyProfileRequest request)
     {
         var user = await CurrentUserAsync();
-        user.Phone = request.Phone;
-        user.Email = request.Email;
+        var person = await db.EnsurePersonAsync(user);
+        person.Phone = request.Phone;
+        person.Email = request.Email;
         await db.SaveChangesAsync();
         return Ok(ToDto(user));
     }
@@ -95,14 +97,14 @@ public class MyProfileController(
     private async Task<User> CurrentUserAsync()
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        return await db.Users.FirstAsync(u => u.Id == userId);
+        return await db.Users.Include(u => u.Person).FirstAsync(u => u.Id == userId);
     }
 
     private static MyProfileDto ToDto(User user) =>
-        new(user.Username, user.Role.ToString(), user.Phone, user.Email);
+        new(user.Username, PersonNames.Display(user), user.Role.ToString(), user.Person?.Phone, user.Person?.Email);
 }
 
-public record MyProfileDto(string Username, string Role, string? Phone, string? Email);
+public record MyProfileDto(string Username, string Name, string Role, string? Phone, string? Email);
 
 public record SwitchRoleRequest(string Role);
 

@@ -36,10 +36,9 @@ public class User
     public int? SchoolId { get; set; }
     public School? School { get; set; }
 
-    // Staff/contact info — real schools track how to reach a teacher or
-    // admin directly, separate from their login username.
-    public string? Phone { get; set; }
-    public string? Email { get; set; }
+    /// <summary>Name and contacts of the human behind the account (null only
+    /// for SuperAdmin) — see <see cref="People.Person"/>.</summary>
+    public People.Person? Person { get; set; }
 
     /// <summary>Secret used to authenticate the unauthenticated ICS feed
     /// endpoint (<see cref="Events.CalendarFeedController"/>) — calendar

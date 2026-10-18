@@ -6,6 +6,7 @@ using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Attendance;
 
@@ -101,7 +102,7 @@ public class AbsencesControllerTests
         var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
-        db.ParentStudents.Add(new ParentStudent { UserId = parentUser.Id, StudentId = student.Id, SchoolId = SchoolId });
+        await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
         var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 1, 1), SchoolId = SchoolId };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();

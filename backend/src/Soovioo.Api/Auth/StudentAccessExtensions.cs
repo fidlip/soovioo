@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Auth;
 
@@ -34,10 +35,7 @@ public static class StudentAccessExtensions
             return ownStudentId is { } id ? [id] : [];
         }
 
-        var studentIds = await db.ParentStudents
-            .Where(ps => ps.UserId == userId)
-            .Select(ps => ps.StudentId)
-            .ToListAsync();
+        var studentIds = await db.ChildIdsOf(userId).ToListAsync();
 
         return studentIds.ToHashSet();
     }

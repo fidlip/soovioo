@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Payments;
 
@@ -86,7 +87,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             var parents = await db.Users
                 .Where(u => u.Roles.Contains(UserRole.Parent))
                 .OrderBy(u => u.Username)
-                .Select(u => new PaymentPersonOptionDto(u.Id, u.Username))
+                .Select(u => new PaymentPersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
             var students = await db.Students
                 .OrderBy(s => s.LastName)
@@ -109,11 +110,11 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .ToListAsync();
         var myStudentIds = myStudents.Select(s => s.Id).ToList();
         var myParents = await db.ParentStudents
-            .Where(ps => myStudentIds.Contains(ps.StudentId))
-            .Select(ps => ps.User!)
+            .Where(ps => myStudentIds.Contains(ps.StudentId) && ps.ParentProfile!.Person!.UserId != null)
+            .Select(ps => ps.ParentProfile!.Person!.User!)
             .Distinct()
             .OrderBy(u => u.Username)
-            .Select(u => new PaymentPersonOptionDto(u.Id, u.Username))
+            .Select(u => new PaymentPersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();
 
         return Ok(new PaymentRecipientOptionsDto(myClasses, myParents, myStudents));
@@ -285,7 +286,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
         var myStudentIds = await db.Students
             .Where(s => myClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync();
         var myParentIds = await db.ParentStudents
-            .Where(ps => myStudentIds.Contains(ps.StudentId)).Select(ps => ps.UserId).Distinct().ToListAsync();
+            .Where(ps => myStudentIds.Contains(ps.StudentId)).ParentAccountLinks().Select(l => l.UserId).Distinct().ToListAsync();
         return new AllowedRecipientIds(myClassIds.ToHashSet(), myParentIds.ToHashSet(), myStudentIds.ToHashSet());
     }
 
@@ -386,6 +387,6 @@ public record PaymentRecipientOptionsDto(
     IEnumerable<PaymentStudentOptionDto> Students);
 
 public record PaymentSchoolClassOptionDto(int Id, string Name, int? Rocnik);
-public record PaymentPersonOptionDto(int Id, string Username);
+public record PaymentPersonOptionDto(int Id, string Username, string Name);
 public record PaymentStudentOptionDto(int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName);
 public record PaymentBankAccountDto(string? BankAccountNumber);

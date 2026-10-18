@@ -1,5 +1,7 @@
 export interface MyProfile {
   username: string;
+  /** Display name ("Jana Nováková", or the username). */
+  name: string;
   role: string;
   phone: string | null;
   email: string | null;

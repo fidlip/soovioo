@@ -14,6 +14,7 @@ using Soovioo.Api.Evidence;
 using Soovioo.Api.Matrika;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Payments;
+using Soovioo.Api.People;
 using Soovioo.Api.Reference;
 
 QuestPDF.Settings.License = LicenseType.Community;
@@ -128,6 +129,7 @@ using (var scope = app.Services.CreateScope())
     SeedUsers(db);
     BackfillDemoTimetableTeacher(db);
     BackfillDemoClassTeacher(db);
+    BackfillDemoPersonNames(db);
     SeedReferenceData(db);
     BackfillDemoStudentReferenceCodes(db);
 
@@ -195,8 +197,31 @@ static void SeedUsers(AppDbContext db)
     db.Users.AddRange(demoUsers);
     db.SaveChanges();
 
-    var parent = demoUsers.First(u => u.Username == "rodic");
-    db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = 1, SchoolId = demoSchoolId });
+    // The humans behind the demo accounts (see People/Person.cs) — pupil
+    // "zak" gets the demo student's own name.
+    Person DemoPerson(string username, string firstName, string lastName)
+    {
+        var person = new Person
+        {
+            UserId = demoUsers.First(u => u.Username == username).Id,
+            FirstName = firstName,
+            LastName = lastName,
+            SchoolId = demoSchoolId,
+        };
+        db.Persons.Add(person);
+        return person;
+    }
+    DemoPerson("admin", "Alena", "Správcová");
+    var teacherPerson = DemoPerson("ucitel", "Jana", "Učitelová");
+    var parentPerson = DemoPerson("rodic", "Petr", "Novák");
+    DemoPerson("zak", "Jan", "Novák");
+    db.TeacherProfiles.Add(new TeacherProfile { Person = teacherPerson, SchoolId = demoSchoolId, Qualification = "M, Čj" });
+    db.ParentProfiles.Add(new ParentProfile
+    {
+        Person = parentPerson,
+        SchoolId = demoSchoolId,
+        Children = [new ParentStudent { StudentId = 1, SchoolId = demoSchoolId }],
+    });
 
     // Demo Student-role account logs in as the same demo student ("Jan
     // Novák", Id 1) the demo parent already sees — Student.UserId is a
@@ -270,6 +295,31 @@ static void BackfillDemoClassTeacher(AppDbContext db)
 // through a plain CSV-at-startup load rather than EF migration HasData
 // (which would bloat the migration file enormously). Districts must be
 // inserted before municipalities (FK), hence the separate SaveChanges calls.
+// Persons came after the demo accounts: on a DB that already had them, the
+// AddPersonsAndRoleProfiles migration names everyone after their username.
+// Give the demo accounts the same real names a fresh seed (SeedUsers) uses —
+// only while they still carry that placeholder, never over a real edit.
+static void BackfillDemoPersonNames(AppDbContext db)
+{
+    (string Username, string FirstName, string LastName)[] demoNames =
+    [
+        ("admin", "Alena", "Správcová"),
+        ("ucitel", "Jana", "Učitelová"),
+        ("rodic", "Petr", "Novák"),
+    ];
+    foreach (var (username, firstName, lastName) in demoNames)
+    {
+        var person = db.Persons.IgnoreQueryFilters()
+            .FirstOrDefault(p => p.SchoolId == 1 && p.User!.Username == username);
+        if (person is not null && person.FirstName == "" && person.LastName == username)
+        {
+            person.FirstName = firstName;
+            person.LastName = lastName;
+        }
+    }
+    db.SaveChanges();
+}
+
 static void SeedReferenceData(AppDbContext db)
 {
     if (db.Countries.Any())

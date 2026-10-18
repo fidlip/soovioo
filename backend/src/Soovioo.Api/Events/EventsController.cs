@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Events;
 
@@ -81,12 +82,12 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             var teachers = await db.Users
                 .Where(u => u.Roles.Contains(UserRole.Teacher))
                 .OrderBy(u => u.Username)
-                .Select(u => new PersonOptionDto(u.Id, u.Username))
+                .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
             var parents = await db.Users
                 .Where(u => u.Roles.Contains(UserRole.Parent))
                 .OrderBy(u => u.Username)
-                .Select(u => new PersonOptionDto(u.Id, u.Username))
+                .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
             var students = await db.Students
                 .OrderBy(s => s.LastName)
@@ -109,11 +110,11 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             .ToListAsync();
         var myStudentIds = myStudents.Select(s => s.Id).ToList();
         var myParents = await db.ParentStudents
-            .Where(ps => myStudentIds.Contains(ps.StudentId))
-            .Select(ps => ps.User!)
+            .Where(ps => myStudentIds.Contains(ps.StudentId) && ps.ParentProfile!.Person!.UserId != null)
+            .Select(ps => ps.ParentProfile!.Person!.User!)
             .Distinct()
             .OrderBy(u => u.Username)
-            .Select(u => new PersonOptionDto(u.Id, u.Username))
+            .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();
 
         return Ok(new RecipientOptionsDto(myClasses, [], myParents, myStudents));
@@ -265,7 +266,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         var myStudentIds = await db.Students
             .Where(s => myClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync();
         var myParentIds = await db.ParentStudents
-            .Where(ps => myStudentIds.Contains(ps.StudentId)).Select(ps => ps.UserId).Distinct().ToListAsync();
+            .Where(ps => myStudentIds.Contains(ps.StudentId)).ParentAccountLinks().Select(l => l.UserId).Distinct().ToListAsync();
         // Teacher may never target other teachers — empty set makes any
         // submitted teacherUserIds fail the subset check automatically.
         return new AllowedRecipientIds(myClassIds.ToHashSet(), [], myParentIds.ToHashSet(), myStudentIds.ToHashSet());
@@ -350,5 +351,5 @@ public record RecipientOptionsDto(
     IEnumerable<StudentOptionDto> Students);
 
 public record SchoolClassOptionDto(int Id, string Name, int? Rocnik);
-public record PersonOptionDto(int Id, string Username);
+public record PersonOptionDto(int Id, string Username, string Name);
 public record StudentOptionDto(int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName, int? Rocnik);
