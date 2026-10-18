@@ -115,20 +115,22 @@
         }
       </td>
       @if (canManageAbsences()) {
-      <td class="flex justify-end gap-1">
-        <p-button
-          icon="pi pi-pencil"
-          size="small"
-          [text]="true"
-          (onClick)="startEditAbsence(absence)"
-        />
-        <p-button
-          icon="pi pi-trash"
-          size="small"
-          severity="danger"
-          [text]="true"
-          (onClick)="deleteAbsence(absence)"
-        />
+      <td>
+        <div class="flex justify-end gap-1">
+          <p-button
+            icon="pi pi-pencil"
+            size="small"
+            [text]="true"
+            (onClick)="startEditAbsence(absence)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            size="small"
+            severity="danger"
+            [text]="true"
+            (onClick)="deleteAbsence(absence)"
+          />
+        </div>
       </td>
       }
     </tr>
