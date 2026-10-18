@@ -2,8 +2,9 @@ import { Injectable, signal } from '@angular/core';
 
 const DARK_MODE_STORAGE_KEY = 'soovioo-dark-mode';
 
-/** Shared so both the header's quick toggle and the Nastavení page's switch
- * reflect and change the same state. */
+/** Dark-mode state. The only manual switch is on the Nastavení page; `App`
+ * injects the service at startup so the stored choice (or the OS preference)
+ * is applied on every page, including login where there's no switch. */
 @Injectable({ providedIn: 'root' })
 export class DarkModeService {
   // Persisted choice wins; first-ever visit falls back to the OS preference

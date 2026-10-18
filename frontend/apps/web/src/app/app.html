@@ -18,19 +18,10 @@
       <a
         routerLink="/superadmin"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Správa škol</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="school" />Správa škol</a
       >
     </nav>
-    <p-button
-      [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-      severity="secondary"
-      [text]="true"
-      [rounded]="true"
-      size="small"
-      [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
-      (onClick)="toggleDarkMode()"
-    />
     <p-button
       [label]="username()"
       icon="pi pi-user"
@@ -45,75 +36,66 @@
       <a
         [routerLink]="schoolContext.link('home')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Domů</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="home" />Domů</a
       >
       <a
         [routerLink]="schoolContext.link('grades')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Známky</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="grades" />Známky</a
       >
       <a
         [routerLink]="schoolContext.link('absences')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Docházka</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="absences" />Docházka</a
       >
       <a
         [routerLink]="schoolContext.link('timetable')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Rozvrh</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="timetable" />Rozvrh</a
       >
       <a
         [routerLink]="schoolContext.link('events')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Kalendář</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="events" />Kalendář</a
       >
       <a
         [routerLink]="schoolContext.link('messages')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Zprávy</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="messages" />Zprávy</a
       >
       <a
         [routerLink]="schoolContext.link('homework')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Domácí úkoly</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="homework" />Domácí úkoly</a
       >
       <a
         [routerLink]="schoolContext.link('behavior')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Chování</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="behavior" />Chování</a
       >
       <a
         [routerLink]="schoolContext.link('payments')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Platby</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="payments" />Platby</a
       >
       @if (isAdmin() || isTeacher()) {
       <a
         [routerLink]="schoolContext.link('admin')"
         routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
-        class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-        >Administrace</a
+        class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm whitespace-nowrap text-surface-600 transition-colors hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        ><app-icon name="admin" />Administrace</a
       >
       }
     </nav>
-    <p-button
-      [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-      severity="secondary"
-      [text]="true"
-      [rounded]="true"
-      size="small"
-      [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
-      (onClick)="toggleDarkMode()"
-    />
     <p-button
       [label]="username()"
       icon="pi pi-user"
@@ -125,15 +107,6 @@
     <p-menu #userMenu [popup]="true" [model]="userMenuItems()" />
     } @else {
     <div class="flex-1"></div>
-    <p-button
-      [icon]="darkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-      severity="secondary"
-      [text]="true"
-      [rounded]="true"
-      size="small"
-      [attr.aria-label]="darkMode() ? 'Přepnout na světlý režim' : 'Přepnout na tmavý režim'"
-      (onClick)="toggleDarkMode()"
-    />
     <a [routerLink]="schoolContext.link('login')" pButton size="small"
       >Přihlásit se</a
     >

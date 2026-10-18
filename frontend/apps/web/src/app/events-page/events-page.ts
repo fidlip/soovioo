@@ -41,6 +41,7 @@ import {
   SchoolEvent,
   StudentOption,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 type ViewOption = { value: string; label: string };
 
@@ -112,6 +113,7 @@ function startOfDay(d: Date): Date {
 @Component({
   selector: 'app-events-page',
   imports: [
+    AppIcon,
     AutoComplete,
     FormsModule,
     FullCalendarModule,

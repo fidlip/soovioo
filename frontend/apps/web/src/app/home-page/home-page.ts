@@ -15,6 +15,7 @@ import {
   DashboardApiService,
 } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
+import { AppIcon } from '../app-icon';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -64,7 +65,7 @@ const RECORD_TYPE_SEVERITY: Record<
  * for the shared access-control reasoning. */
 @Component({
   selector: 'app-home-page',
-  imports: [Button, Card, FormsModule, InputText, Tag],
+  imports: [AppIcon, Button, Card, FormsModule, InputText, Tag],
   templateUrl: './home-page.html',
 })
 export class HomePage {

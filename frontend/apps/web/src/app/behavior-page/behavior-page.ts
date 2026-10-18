@@ -22,6 +22,7 @@ import {
   Student,
   StudentsApiService,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',
@@ -67,6 +68,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
 @Component({
   selector: 'app-behavior-page',
   imports: [
+    AppIcon,
     Button,
     Card,
     DatePicker,

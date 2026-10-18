@@ -51,6 +51,7 @@ import {
   UpdateUserRequest,
   UsersApiService,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 /** Admin: full access to every tab. ClassTeacher: a Teacher who owns at
  * least one class (SchoolClass.classTeacherId) gets a cut-down page — just
@@ -105,6 +106,7 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
 @Component({
   selector: 'app-admin-page',
   imports: [
+    AppIcon,
     AutoComplete,
     FormsModule,
     Button,

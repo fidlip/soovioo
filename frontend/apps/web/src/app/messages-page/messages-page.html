@@ -1,5 +1,7 @@
 <div class="mb-6 flex items-center justify-between gap-4">
-  <h1 class="mb-0">Zprávy</h1>
+  <h1 class="mb-0 flex items-center gap-3">
+    <app-icon name="messages" />Zprávy
+  </h1>
   @if (canSendMessages()) {
   <p-button
     label="Nová zpráva"

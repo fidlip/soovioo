@@ -1,11 +1,16 @@
-<h1 class="mb-6">Domů</h1>
+<h1 class="mb-6 flex items-center gap-3"><app-icon name="home" />Domů</h1>
 
 @if (loadError()) {
 <p>Přehled se nepodařilo načíst.</p>
 } @else if (dashboard(); as d) {
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
   @if (authApi.isAdmin() && d.schoolCounts; as counts) {
-  <p-card header="Přehled školy">
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="school" />Přehled školy</span
+      ></ng-template
+    >
     <div class="flex flex-wrap gap-6">
       <div>
         <div
@@ -34,7 +39,12 @@
     </div>
   </p-card>
   } @if (!authApi.isAdmin()) {
-  <p-card header="Dnešní rozvrh">
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="timetable" />Dnešní rozvrh</span
+      ></ng-template
+    >
     @if (d.todayLessonsContext) {
     <p class="mb-2 text-sm text-surface-500">{{ d.todayLessonsContext }}</p>
     } @if (d.todayLessons.length === 0) {
@@ -60,7 +70,12 @@
     />
   </p-card>
   } @if (!authApi.isTeacherOrAdmin()) {
-  <p-card header="Poslední známky">
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="grades" />Poslední známky</span
+      ></ng-template
+    >
     @if (d.recentGrades.length === 0) {
     <p class="text-sm text-surface-500">Zatím žádné známky.</p>
     } @else {
@@ -83,9 +98,13 @@
   </p-card>
   }
 
-  <p-card
-    [header]="authApi.isTeacherOrAdmin() ? 'Omluvenky ke schválení' : 'Nevyřízené absence'"
-  >
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="absences" />{{ authApi.isTeacherOrAdmin() ? 'Omluvenky
+        ke schválení' : 'Nevyřízené absence' }}</span
+      ></ng-template
+    >
     @if (d.pendingAbsences.length === 0) {
     <p class="text-sm text-surface-500">Nic nevyřízeného.</p>
     } @else {
@@ -130,7 +149,12 @@
     />
   </p-card>
 
-  <p-card header="Zprávy">
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="messages" />Zprávy</span
+      ></ng-template
+    >
     @if (d.unreadMessageCount === 0) {
     <p class="text-sm text-surface-500">Žádné nepřečtené zprávy.</p>
     } @else {
@@ -150,7 +174,12 @@
     />
   </p-card>
 
-  <p-card header="Chování">
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="behavior" />Chování</span
+      ></ng-template
+    >
     @if (d.unreadBehaviorRecords.length === 0) {
     <p class="text-sm text-surface-500">Žádné nepřečtené záznamy.</p>
     } @else {
@@ -186,7 +215,12 @@
     />
   </p-card>
 
-  <p-card header="Nejbližší akce">
+  <p-card>
+    <ng-template #title
+      ><span class="flex items-center gap-2"
+        ><app-icon name="events" />Nejbližší akce</span
+      ></ng-template
+    >
     @if (d.upcomingEvents.length === 0) {
     <p class="text-sm text-surface-500">Žádné nadcházející akce.</p>
     } @else {

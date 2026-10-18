@@ -15,6 +15,25 @@ body {
   box-sizing: border-box;
 }
 
+/* Agenda icons (AppIcon) — same navy as the logo, white in dark mode just
+ * like the logo's `dark:invert`. */
+:root {
+  --soovioo-icon-color: #092740;
+}
+
+.soovioo-dark {
+  --soovioo-icon-color: #fff;
+}
+
+.soovioo-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.25em;
+  height: 1.25em;
+  background-color: var(--soovioo-icon-color);
+  mask: var(--soovioo-icon-url) center / contain no-repeat;
+}
+
 @layer tailwind-base, optimus, tailwind-utilities;
 
 @layer tailwind-base {

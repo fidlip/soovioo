@@ -24,6 +24,7 @@ import {
   TeacherTimetableEntry,
   TimetableApiService,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
  * for homework attachments too (see ROADMAP "Přílohy u zpráv"). */
@@ -50,6 +51,7 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
 @Component({
   selector: 'app-homework-page',
   imports: [
+    AppIcon,
     Button,
     Card,
     DatePicker,

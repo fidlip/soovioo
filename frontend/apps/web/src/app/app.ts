@@ -13,6 +13,7 @@ import { Menu } from '@openng/optimus-ui/menu';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { filter, map } from 'rxjs';
 import { AuthApiService } from '@soovioo/shared';
+import { AppIcon } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
 
@@ -25,6 +26,7 @@ import { SchoolContextService } from './school-context';
     Button,
     ButtonDirective,
     Menu,
+    AppIcon,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -32,8 +34,14 @@ import { SchoolContextService } from './school-context';
 export class App {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
-  private readonly darkModeService = inject(DarkModeService);
   protected readonly schoolContext = inject(SchoolContextService);
+
+  constructor() {
+    // Created at startup only so the persisted/OS dark-mode class lands on
+    // <html> on every page — the toggle itself lives on the Nastavení page,
+    // not in the header.
+    inject(DarkModeService);
+  }
 
   protected title = 'Soovioo';
 
@@ -55,12 +63,6 @@ export class App {
   ): ActivatedRouteSnapshot {
     while (route.firstChild) route = route.firstChild;
     return route;
-  }
-
-  protected readonly darkMode = this.darkModeService.darkMode;
-
-  protected toggleDarkMode(): void {
-    this.darkModeService.toggle();
   }
 
   protected isLoggedIn(): boolean {

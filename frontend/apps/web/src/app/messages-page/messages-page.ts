@@ -18,6 +18,7 @@ import {
   Student,
   StudentsApiService,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -60,6 +61,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 @Component({
   selector: 'app-messages-page',
   imports: [
+    AppIcon,
     FormsModule,
     Button,
     Card,

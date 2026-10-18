@@ -25,6 +25,7 @@ import {
   PaymentStudentOption,
   PaymentsApiService,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type AmountTypeOption = { value: PaymentAmountType; label: string };
@@ -63,6 +64,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    AppIcon,
     Button,
     Card,
     DatePicker,

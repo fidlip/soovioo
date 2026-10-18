@@ -10,13 +10,20 @@ import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
-import { CreateSchoolRequest, School, SchoolsApiService, UpdateSchoolRequest } from '@soovioo/shared';
+import {
+  CreateSchoolRequest,
+  School,
+  SchoolsApiService,
+  UpdateSchoolRequest,
+} from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 const DEFAULT_PAGE_SIZE = 10;
 
 @Component({
   selector: 'app-super-admin-page',
   imports: [
+    AppIcon,
     DatePipe,
     FormsModule,
     Button,
@@ -72,21 +79,27 @@ export class SuperAdminPage {
   }
 
   private reload(): void {
-    this.schoolsApi.getSchools(this.page(), this.pageSize(), this.search.trim() || undefined).subscribe({
-      next: (result) => {
-        // A delete can empty out the last page (e.g. the only school left on
-        // page 2 gets removed) — step back one page rather than show a
-        // confusing "no schools" table while schools still exist.
-        if (result.items.length === 0 && result.totalCount > 0 && this.page() > 1) {
-          this.page.set(this.page() - 1);
-          this.reload();
-          return;
-        }
-        this.schools.set(result.items);
-        this.totalCount.set(result.totalCount);
-      },
-      error: (err) => console.error('getSchools failed', err),
-    });
+    this.schoolsApi
+      .getSchools(this.page(), this.pageSize(), this.search.trim() || undefined)
+      .subscribe({
+        next: (result) => {
+          // A delete can empty out the last page (e.g. the only school left on
+          // page 2 gets removed) — step back one page rather than show a
+          // confusing "no schools" table while schools still exist.
+          if (
+            result.items.length === 0 &&
+            result.totalCount > 0 &&
+            this.page() > 1
+          ) {
+            this.page.set(this.page() - 1);
+            this.reload();
+            return;
+          }
+          this.schools.set(result.items);
+          this.totalCount.set(result.totalCount);
+        },
+        error: (err) => console.error('getSchools failed', err),
+      });
   }
 
   protected addSchool(): void {
@@ -119,7 +132,9 @@ export class SuperAdminPage {
       },
       error: (err) => {
         console.error('addSchool failed', err);
-        this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
+        this.error.set(
+          (err as { error?: string })?.error ?? 'Něco se nepovedlo.',
+        );
       },
     });
   }
@@ -136,10 +151,17 @@ export class SuperAdminPage {
   }
 
   protected saveEdit(): void {
-    if (this.editingSchoolId === null || !this.editName.trim() || !this.editSlug.trim()) {
+    if (
+      this.editingSchoolId === null ||
+      !this.editName.trim() ||
+      !this.editSlug.trim()
+    ) {
       return;
     }
-    const request: UpdateSchoolRequest = { name: this.editName, slug: this.editSlug };
+    const request: UpdateSchoolRequest = {
+      name: this.editName,
+      slug: this.editSlug,
+    };
     this.schoolsApi.updateSchool(this.editingSchoolId, request).subscribe({
       next: () => {
         this.editingSchoolId = null;
@@ -148,7 +170,9 @@ export class SuperAdminPage {
       },
       error: (err) => {
         console.error('updateSchool failed', err);
-        this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
+        this.error.set(
+          (err as { error?: string })?.error ?? 'Něco se nepovedlo.',
+        );
       },
     });
   }
@@ -161,7 +185,9 @@ export class SuperAdminPage {
       },
       error: (err) => {
         console.error('deleteSchool failed', err);
-        this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
+        this.error.set(
+          (err as { error?: string })?.error ?? 'Něco se nepovedlo.',
+        );
       },
     });
   }

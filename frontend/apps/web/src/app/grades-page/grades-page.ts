@@ -18,10 +18,12 @@ import {
   Subject,
   SubjectsApiService,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 @Component({
   selector: 'app-grades-page',
   imports: [
+    AppIcon,
     FormsModule,
     Button,
     Dialog,

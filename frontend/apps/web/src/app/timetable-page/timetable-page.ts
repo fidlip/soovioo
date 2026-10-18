@@ -25,6 +25,7 @@ import {
   TimetableApiService,
   WeekParity,
 } from '@soovioo/shared';
+import { AppIcon } from '../app-icon';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -122,6 +123,7 @@ function formatShortDate(date: Date): string {
 @Component({
   selector: 'app-timetable-page',
   imports: [
+    AppIcon,
     FormsModule,
     Button,
     Card,
