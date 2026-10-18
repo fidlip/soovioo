@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Sova.Api.Auth;
 using Sova.Api.Data;
 using Sova.Api.Evidence;
@@ -12,6 +13,9 @@ public class UsersControllerTests
 {
     private const int SchoolId = 1;
 
+    private static readonly AppLinkOptions LinkOptions =
+        new() { PathBasedTenant = true, FrontendBaseUrl = "http://localhost:4200" };
+
     private static AppDbContext NewDb()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -20,10 +24,12 @@ public class UsersControllerTests
         return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
     }
 
-    private static UsersController NewController(AppDbContext db, int currentUserId)
+    private static UsersController NewController(
+        AppDbContext db, int currentUserId, FakeEmailSender? emailSender = null, AppLinkOptions? linkOptions = null)
     {
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString())]);
-        return new UsersController(db, new FakeCurrentSchoolContext(SchoolId))
+        return new UsersController(
+            db, new FakeCurrentSchoolContext(SchoolId), emailSender ?? new FakeEmailSender(), Options.Create(linkOptions ?? LinkOptions))
         {
             ControllerContext = new ControllerContext
             {
@@ -192,6 +198,57 @@ public class UsersControllerTests
 
         Assert.IsType<BadRequestObjectResult>(result);
         Assert.NotNull(await db.Users.FindAsync(onlyAdmin.Id));
+    }
+
+    [Fact]
+    public async Task SendInviteRejectsUserWithoutEmail()
+    {
+        using var db = NewDb();
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999).SendInvite(user.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task SendInviteGeneratesATokenAndEmailsTheLink()
+    {
+        using var db = NewDb();
+        db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, Email = "a@b.cz" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var emailSender = new FakeEmailSender();
+
+        var result = await NewController(db, 999, emailSender).SendInvite(user.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        var reloaded = await db.Users.FindAsync(user.Id) ?? throw new InvalidOperationException();
+        Assert.NotNull(reloaded.InvitationToken);
+        Assert.True(reloaded.InvitationTokenExpiresAt > DateTimeOffset.UtcNow);
+        var sent = Assert.Single(emailSender.Sent);
+        Assert.Equal("a@b.cz", sent.To);
+        Assert.Contains(reloaded.InvitationToken!, sent.HtmlBody);
+        Assert.Contains("http://localhost:4200/demo/accept-invite?token=", sent.HtmlBody);
+    }
+
+    [Fact]
+    public async Task SendInviteFailsWhenFrontendLinkIsNotConfigured()
+    {
+        using var db = NewDb();
+        db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
+        var user = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId, Email = "a@b.cz" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999, linkOptions: new AppLinkOptions { PathBasedTenant = true })
+            .SendInvite(user.Id);
+
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, statusResult.StatusCode);
     }
 
     [Fact]

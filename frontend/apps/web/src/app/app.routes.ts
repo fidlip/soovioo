@@ -1,5 +1,6 @@
 import { Route } from '@angular/router';
 import { AbsencesPage } from './absences-page/absences-page';
+import { AcceptInvitePage } from './accept-invite-page/accept-invite-page';
 import { AdminPage } from './admin-page/admin-page';
 import { authGuard } from './auth.guard';
 import { BehaviorPage } from './behavior-page/behavior-page';
@@ -18,6 +19,7 @@ import { TimetablePage } from './timetable-page/timetable-page';
 const schoolRoutes: Route[] = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: 'login', component: LoginPage },
+  { path: 'accept-invite', component: AcceptInvitePage },
   { path: 'home', component: HomePage, canActivate: [authGuard] },
   { path: 'grades', component: GradesPage, canActivate: [authGuard] },
   { path: 'absences', component: AbsencesPage, canActivate: [authGuard] },

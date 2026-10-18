@@ -1,0 +1,68 @@
+<div class="mx-auto flex max-w-sm flex-col gap-4 pt-8 sm:pt-16">
+  <div class="text-center">
+    <span class="text-4xl leading-none">🦉</span>
+    <h1
+      class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
+    >
+      Vítejte v Sově
+    </h1>
+    <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+      Nastavte si vlastní heslo a přihlaste se.
+    </p>
+  </div>
+
+  <p-card>
+    @if (!token) {
+    <p-message
+      severity="error"
+      text="Odkaz je neplatný — chybí pozvánkový token. Zkontrolujte, jestli jste otevřeli celý odkaz z e-mailu."
+    />
+    } @else {
+    <form class="flex flex-col gap-4" (ngSubmit)="acceptInvite()">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="newPassword"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >Nové heslo</label
+        >
+        <p-password
+          inputId="newPassword"
+          name="newPassword"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          [(ngModel)]="newPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="confirmNewPassword"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >Nové heslo znovu</label
+        >
+        <p-password
+          inputId="confirmNewPassword"
+          name="confirmNewPassword"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+          [(ngModel)]="confirmNewPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+        />
+      </div>
+
+      @if (error(); as errorMessage) {
+      <p-message severity="error" [text]="errorMessage" />
+      }
+
+      <p-button
+        type="submit"
+        label="Nastavit heslo a přihlásit se"
+        styleClass="w-full"
+      />
+    </form>
+    }
+  </p-card>
+</div>

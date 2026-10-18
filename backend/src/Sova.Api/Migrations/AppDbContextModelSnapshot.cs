@@ -71,6 +71,12 @@ namespace Sova.Api.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
+                    b.Property<string>("InvitationToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("InvitationTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
 

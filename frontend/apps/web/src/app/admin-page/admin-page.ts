@@ -316,6 +316,7 @@ export class AdminPage {
    * schedule change detection on its own (it only "works" by coincidence
    * when some other signal write happens to run in the same tick). */
   protected readonly error = signal<string | null>(null);
+  protected readonly inviteMessage = signal<string | null>(null);
 
   constructor() {
     if (this.authApi.isAdmin()) {
@@ -874,6 +875,16 @@ export class AdminPage {
         this.reload();
       },
       error: (err) => this.showError('updateUser failed', err),
+    });
+  }
+
+  /** Backend rejects (400) when the user has no e-mail on file, or (503)
+   * when this environment has no e-mail infrastructure configured. */
+  protected sendInvite(user: AppUser): void {
+    this.inviteMessage.set(null);
+    this.usersApi.sendInvite(user.id).subscribe({
+      next: () => this.inviteMessage.set(`Pozvánka odeslána na ${user.email}.`),
+      error: (err) => this.showError('sendInvite failed', err),
     });
   }
 

@@ -10,5 +10,14 @@ services:
     volumes:
       - sova-postgres-data:/var/lib/postgresql/data
 
+  # Local mail-catcher for dev — nothing leaves the machine. SMTP on 1025
+  # (matches appsettings.Development.json's Smtp:Port, no auth needed) and a
+  # web UI on 8025 to actually read the invite e-mails sent during testing.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   sova-postgres-data:

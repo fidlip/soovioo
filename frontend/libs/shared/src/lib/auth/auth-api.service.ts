@@ -17,6 +17,18 @@ export class AuthApiService {
       .pipe(tap((response) => this.tokenStorage.setToken(response.token)));
   }
 
+  /** Consumes an invite link's token, sets the account's password, and logs
+   * the user in — same response shape as `login()`, for the same reason:
+   * the invite flow ends with the user signed in, not back at a login form. */
+  acceptInvite(token: string, newPassword: string): Observable<LoginResponse> {
+    return this.http
+      .post<LoginResponse>(`${this.baseUrl}/api/auth/accept-invite`, {
+        token,
+        newPassword,
+      })
+      .pipe(tap((response) => this.tokenStorage.setToken(response.token)));
+  }
+
   logout(): void {
     this.tokenStorage.clearToken();
   }

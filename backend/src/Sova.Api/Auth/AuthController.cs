@@ -46,7 +46,43 @@ public class AuthController(AppDbContext db, JwtTokenFactory tokenFactory) : Con
         var tokenString = tokenFactory.CreateToken(user);
         return Ok(new LoginResponse(tokenString, user.Username, user.Role.ToString(), school?.Name, school?.Slug));
     }
+
+    /// <summary>Consumes a <see cref="User.InvitationToken"/> e-mailed by
+    /// <see cref="UsersController"/>'s invite endpoint — the recipient never
+    /// had a password of their own to prove, the token stands in for it.
+    /// Unauthenticated like <see cref="Login"/>, and for the same reason
+    /// returns a fresh <see cref="LoginResponse"/>: the invite flow ends
+    /// with the user logged in, not back at the login form.</summary>
+    [HttpPost("accept-invite")]
+    public async Task<ActionResult<LoginResponse>> AcceptInvite(AcceptInviteRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return BadRequest("Nové heslo nesmí být prázdné.");
+        }
+
+        var user = await db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.InvitationToken == request.Token);
+        if (user is null || user.InvitationTokenExpiresAt is null || user.InvitationTokenExpiresAt < DateTimeOffset.UtcNow)
+        {
+            return BadRequest("Pozvánka je neplatná nebo už vypršela.");
+        }
+
+        user.PasswordHash = Hasher.HashPassword(user, request.NewPassword);
+        user.MustChangePassword = false;
+        user.InvitationToken = null;
+        user.InvitationTokenExpiresAt = null;
+        await db.SaveChangesAsync();
+
+        var school = user.SchoolId is { } schoolId
+            ? await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId)
+            : null;
+
+        var tokenString = tokenFactory.CreateToken(user);
+        return Ok(new LoginResponse(tokenString, user.Username, user.Role.ToString(), school?.Name, school?.Slug));
+    }
 }
 
 public record LoginRequest(string Username, string Password, string? SchoolSlug = null);
 public record LoginResponse(string Token, string Username, string Role, string? SchoolName, string? SchoolSlug);
+public record AcceptInviteRequest(string Token, string NewPassword);

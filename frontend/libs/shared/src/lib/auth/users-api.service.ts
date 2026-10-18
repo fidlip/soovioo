@@ -25,4 +25,11 @@ export class UsersApiService {
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/api/users/${id}`);
   }
+
+  /** E-mails the user a one-time link to set their own password. Rejected
+   * (400) if they have no e-mail on file, or (503) if this environment has
+   * no e-mail infrastructure configured. */
+  sendInvite(id: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/api/users/${id}/invite`, {});
+  }
 }

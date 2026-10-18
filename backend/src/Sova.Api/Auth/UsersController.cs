@@ -1,9 +1,12 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Sova.Api.Data;
+using Sova.Api.Email;
 using Sova.Api.Evidence;
 
 namespace Sova.Api.Auth;
@@ -11,7 +14,11 @@ namespace Sova.Api.Auth;
 [Authorize(Roles = "Admin")]
 [ApiController]
 [Route("api/users")]
-public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class UsersController(
+    AppDbContext db,
+    ICurrentSchoolContext currentSchool,
+    IEmailSender emailSender,
+    IOptions<AppLinkOptions> appLinkOptions) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -161,6 +168,63 @@ public class UsersController(AppDbContext db, ICurrentSchoolContext currentSchoo
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    /// <summary>E-mails <paramref name="id"/> a one-time link to set their own
+    /// password (<see cref="User.InvitationToken"/>), valid 7 days. Coexists
+    /// with the admin-sets-a-password flow in <see cref="AddUser"/>/
+    /// <see cref="UpdateUser"/> — this is an alternative the Admin can trigger
+    /// any time the account has an e-mail on file, not a replacement for it.</summary>
+    [HttpPost("{id:int}/invite")]
+    public async Task<IActionResult> SendInvite(int id)
+    {
+        var user = await db.Users.FindAsync(id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            return BadRequest("Uživatel nemá vyplněný e-mail.");
+        }
+
+        var linkOptions = appLinkOptions.Value;
+        if (linkOptions.PathBasedTenant && string.IsNullOrWhiteSpace(linkOptions.FrontendBaseUrl)
+            || !linkOptions.PathBasedTenant && string.IsNullOrWhiteSpace(linkOptions.MainDomain))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                "E-mailové pozvánky nejsou v tomhle prostředí nakonfigurované.");
+        }
+
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId);
+
+        user.InvitationToken = GenerateToken();
+        user.InvitationTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(7);
+        await db.SaveChangesAsync();
+
+        var link = BuildInviteLink(linkOptions, school.Slug, user.InvitationToken);
+        var subject = $"Pozvánka do Sovy — {school.Name}";
+        var body = $"""
+            <p>Dobrý den,</p>
+            <p>byl(a) jste přihlášen(a) do školního systému Sova pro školu <strong>{school.Name}</strong>.
+            Pro nastavení vlastního hesla a přihlášení klikněte na odkaz níže:</p>
+            <p><a href="{link}">{link}</a></p>
+            <p>Odkaz je platný 7 dní.</p>
+            """;
+        await emailSender.SendAsync(user.Email, subject, body);
+
+        return NoContent();
+    }
+
+    private static string BuildInviteLink(AppLinkOptions options, string schoolSlug, string token)
+    {
+        var origin = options.PathBasedTenant
+            ? $"{options.FrontendBaseUrl!.TrimEnd('/')}/{schoolSlug}"
+            : $"https://{schoolSlug}.{options.MainDomain}";
+        return $"{origin}/accept-invite?token={Uri.EscapeDataString(token)}";
+    }
+
+    private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     /// <summary>True if <paramref name="userId"/> is the only Admin left for
     /// the current school — deleting/demoting them would leave the school

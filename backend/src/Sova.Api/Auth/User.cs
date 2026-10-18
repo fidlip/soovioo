@@ -27,9 +27,24 @@ public class User
 
     /// <summary>Set whenever an Admin assigns a password on this account
     /// (creation or reset) — cleared only when the user picks their own
-    /// password via <see cref="MyProfileController.ChangePassword"/>. Forces
-    /// a redirect to Settings on every login until then (see
-    /// <c>auth.guard.ts</c>). Fallback for proper invite-by-email onboarding,
-    /// which needs mail infrastructure the project doesn't have yet.</summary>
+    /// password via <see cref="MyProfileController.ChangePassword"/> (or via
+    /// <see cref="InvitationToken"/> below). Forces a redirect to Settings on
+    /// every login until then (see <c>auth.guard.ts</c>). Fallback path for
+    /// an account that was never invited by e-mail, or whose invite expired
+    /// before being used.</summary>
     public bool MustChangePassword { get; set; }
+
+    /// <summary>One-time secret an Admin's "Poslat pozvánku" action e-mails
+    /// to the user — see <see cref="UsersController"/>'s invite endpoint and
+    /// <see cref="AuthController.AcceptInvite"/>. Null until an invite is
+    /// sent; cleared again once the recipient picks their own password (or
+    /// an Admin re-sends a fresh one, replacing the old link). Separate from
+    /// <see cref="CalendarToken"/>'s hex format only by convention — both
+    /// are opaque random secrets, never parsed as anything else.</summary>
+    public string? InvitationToken { get; set; }
+
+    /// <summary>Null exactly when <see cref="InvitationToken"/> is — kept as
+    /// two nullable columns rather than a non-nullable default so a stale
+    /// expiry can never outlive its token by accident.</summary>
+    public DateTimeOffset? InvitationTokenExpiresAt { get; set; }
 }

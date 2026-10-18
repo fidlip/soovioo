@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using Sova.Api.Auth;
 using Sova.Api.Data;
+using Sova.Api.Email;
 using Sova.Api.Evidence;
 using Sova.Api.Matrika;
 using Sova.Api.Messaging;
@@ -38,6 +39,9 @@ builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
 builder.Services.AddScoped<MatrikaExportService>();
 builder.Services.AddScoped<JwtTokenFactory>();
 builder.Services.AddScoped<MessageAttachmentStorageService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<AppLinkOptions>(builder.Configuration.GetSection("App"));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
