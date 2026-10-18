@@ -33,6 +33,11 @@
         />
       </div>
 
+      <div class="flex items-center gap-2">
+        <p-checkbox inputId="rememberMe" name="rememberMe" [binary]="true" [(ngModel)]="rememberMe" />
+        <label for="rememberMe" class="text-sm text-surface-700 dark:text-surface-200">Zůstat přihlášen</label>
+      </div>
+
       @if (error(); as errorMessage) {
         <p-message severity="error" [text]="errorMessage" />
       }

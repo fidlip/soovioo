@@ -1,7 +1,18 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  catchError,
+  finalize,
+  firstValueFrom,
+  map,
+  of,
+  shareReplay,
+  tap,
+} from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
+import { AUTH_REFRESH_VIA_COOKIE, CSRF_HEADER } from './auth-session.config';
 import { LoginRequest, LoginResponse } from './login-response.model';
 import { TokenStorage } from './token-storage';
 
@@ -10,11 +21,23 @@ export class AuthApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly tokenStorage = inject(TokenStorage);
+  private readonly viaCookie = inject(AUTH_REFRESH_VIA_COOKIE);
+
+  private inFlightRefresh: Observable<string | null> | null = null;
+  private readonly sessionExpiredSubject = new Subject<void>();
+
+  /** Fires when a request hit 401 and the session couldn't be refreshed
+   * (refresh token expired or revoked) — the app sends the user to login. */
+  readonly sessionExpired$ = this.sessionExpiredSubject.asObservable();
 
   login(request: LoginRequest): Observable<LoginResponse> {
     return this.http
-      .post<LoginResponse>(`${this.baseUrl}/api/auth/login`, request)
-      .pipe(tap((response) => this.tokenStorage.setToken(response.token)));
+      .post<LoginResponse>(
+        `${this.baseUrl}/api/auth/login`,
+        { ...request, useCookie: this.viaCookie },
+        this.cookieOptions(),
+      )
+      .pipe(tap((response) => this.store(response)));
   }
 
   /** Consumes an invite link's token, sets the account's password, and logs
@@ -22,15 +45,73 @@ export class AuthApiService {
    * the invite flow ends with the user signed in, not back at a login form. */
   acceptInvite(token: string, newPassword: string): Observable<LoginResponse> {
     return this.http
-      .post<LoginResponse>(`${this.baseUrl}/api/auth/accept-invite`, {
-        token,
-        newPassword,
-      })
-      .pipe(tap((response) => this.tokenStorage.setToken(response.token)));
+      .post<LoginResponse>(
+        `${this.baseUrl}/api/auth/accept-invite`,
+        { token, newPassword, useCookie: this.viaCookie },
+        this.cookieOptions(),
+      )
+      .pipe(tap((response) => this.store(response)));
+  }
+
+  /** Trades the refresh token for a new access token (rotating the refresh
+   * token). Emits the new access token, or null when there's no live
+   * session. Concurrent callers share one request — two parallel rotations
+   * of the same token would look like token theft to the backend. */
+  refresh(): Observable<string | null> {
+    if (!this.viaCookie && !this.tokenStorage.getRefreshToken()) {
+      return of(null);
+    }
+    this.inFlightRefresh ??= this.http
+      .post<LoginResponse | null>(
+        `${this.baseUrl}/api/auth/refresh`,
+        { refreshToken: this.tokenStorage.getRefreshToken() },
+        this.cookieOptions(),
+      )
+      .pipe(
+        map((response) => {
+          // 204 = no refresh cookie at all, i.e. simply not logged in.
+          if (!response) {
+            this.clearTokens();
+            return null;
+          }
+          this.store(response);
+          return response.token;
+        }),
+        catchError(() => {
+          this.clearTokens();
+          return of(null);
+        }),
+        finalize(() => (this.inFlightRefresh = null)),
+        shareReplay(1),
+      );
+    return this.inFlightRefresh;
+  }
+
+  /** Web app startup: the access token lives in memory only, so a reload
+   * starts without one — restore it from the refresh cookie before the
+   * router's guards run. Never rejects; no session just means logged out. */
+  restoreSession(): Promise<unknown> {
+    return firstValueFrom(this.refresh());
+  }
+
+  /** Called by the interceptor when a refresh after a 401 failed. */
+  notifySessionExpired(): void {
+    this.clearTokens();
+    this.sessionExpiredSubject.next();
   }
 
   logout(): void {
-    this.tokenStorage.clearToken();
+    const refreshToken = this.tokenStorage.getRefreshToken();
+    this.clearTokens();
+    // Fire-and-forget: the local session is over either way; this revokes
+    // the refresh token server-side and drops the cookie.
+    this.http
+      .post(
+        `${this.baseUrl}/api/auth/logout`,
+        { refreshToken },
+        this.cookieOptions(),
+      )
+      .subscribe({ error: () => undefined });
   }
 
   isLoggedIn(): boolean {
@@ -62,6 +143,32 @@ export class AuthApiService {
     );
     const id = raw === null ? NaN : Number(raw);
     return Number.isNaN(id) ? null : id;
+  }
+
+  /** Request options for the endpoints that read or set the refresh cookie
+   * (web only): send/accept cookies cross-origin, plus the CSRF header the
+   * backend demands before it trusts a cookie-borne refresh token. */
+  cookieOptions(): { withCredentials?: boolean; headers?: HttpHeaders } {
+    return this.viaCookie
+      ? {
+          withCredentials: true,
+          headers: new HttpHeaders({ [CSRF_HEADER]: '1' }),
+        }
+      : {};
+  }
+
+  /** Stores a freshly issued access token (and, on mobile, the rotated
+   * refresh token) — also used after a password change. */
+  store(response: { token: string; refreshToken?: string | null }): void {
+    this.tokenStorage.setToken(response.token);
+    if (response.refreshToken) {
+      this.tokenStorage.setRefreshToken(response.refreshToken);
+    }
+  }
+
+  private clearTokens(): void {
+    this.tokenStorage.clearToken();
+    this.tokenStorage.clearRefreshToken();
   }
 
   private getClaim(...keys: string[]): string | null {

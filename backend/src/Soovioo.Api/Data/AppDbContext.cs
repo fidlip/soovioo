@@ -34,6 +34,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<EventStudent> EventStudents => Set<EventStudent>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Homework.Homework> Homework => Set<Homework.Homework>();
     public DbSet<HomeworkStudent> HomeworkStudents => Set<HomeworkStudent>();
     public DbSet<HomeworkCompletion> HomeworkCompletions => Set<HomeworkCompletion>();
@@ -117,6 +118,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .HasIndex(u => u.Username)
             .IsUnique()
             .HasFilter("\"SchoolId\" IS NULL");
+        modelBuilder.Entity<RefreshToken>().HasIndex(t => t.TokenHash).IsUnique();
+        modelBuilder.Entity<RefreshToken>().HasIndex(t => t.FamilyId);
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne(t => t.User)
+            .WithMany()
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<User>()
             .HasIndex(u => u.CalendarToken)
             .IsUnique()

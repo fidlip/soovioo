@@ -38,6 +38,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
 builder.Services.AddScoped<MatrikaExportService>();
 builder.Services.AddScoped<JwtTokenFactory>();
+builder.Services.AddScoped<RefreshTokenService>();
+builder.Services.AddScoped<AuthSessionService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<AuthCookieOptions>(builder.Configuration.GetSection("AuthCookie"));
 builder.Services.AddScoped<MessageAttachmentStorageService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
@@ -78,22 +82,29 @@ builder.Services
             ValidIssuer = jwtOptions.Issuer,
             ValidAudience = jwtOptions.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            // Access tokens live only 15 minutes (refresh tokens do the
+            // long haul) — the default 5-minute skew would stretch that by a
+            // third.
+            ClockSkew = TimeSpan.FromSeconds(30),
         };
     });
 builder.Services.AddAuthorization();
 
-// Dev: any origin, since the dev server is also reached from a phone on the
-// LAN by IP, not just http://localhost:4200. No cookies/credentials are used
-// (Bearer tokens only), so this is safe to keep broad — but ONLY while
+// Credentialed CORS: the web app's refresh token is an httpOnly cookie, so
+// the auth endpoints are called withCredentials — which forbids a wildcard
+// origin. Dev reflects any origin back (the dev server is also reached from
+// a phone on the LAN by IP, not just http://localhost:4200), but ONLY while
 // actually running in Development (gated below), so a deployment that
 // forgets to set ASPNETCORE_ENVIRONMENT=Production doesn't silently inherit
-// an open CORS policy.
+// it. Even then a foreign page can't use the cookie: it's SameSite=Strict
+// and refresh/logout also demand the X-Soovioo-Csrf header.
 const string devCorsPolicy = "DevClients";
 builder.Services.AddCors(options =>
     options.AddPolicy(devCorsPolicy, policy =>
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
             .AllowAnyHeader()
-            .AllowAnyMethod()));
+            .AllowAnyMethod()
+            .AllowCredentials()));
 
 // Non-dev: explicit allow-list from config (Cors:AllowedOrigins), e.g. the
 // school subdomains once a real domain exists. Unset = no CORS policy at
@@ -105,7 +116,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy(prodCorsPolicy, policy =>
         policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod()));
+            .AllowAnyMethod()
+            .AllowCredentials()));
 
 var app = builder.Build();
 
@@ -130,6 +142,8 @@ using (var scope = app.Services.CreateScope())
     var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
     recurringJobs.AddOrUpdate<PaymentRecurringInstallmentsJob>(
         "payment-recurring-installments", job => job.RunAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<RefreshTokenCleanupJob>(
+        "refresh-token-cleanup", job => job.RunAsync(), Cron.Daily);
 }
 
 // Configure the HTTP request pipeline.

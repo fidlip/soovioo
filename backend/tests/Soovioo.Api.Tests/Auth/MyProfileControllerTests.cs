@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -15,9 +14,6 @@ public class MyProfileControllerTests
     private const int SchoolId = 1;
     private static readonly PasswordHasher<User> Hasher = new();
 
-    private static readonly JwtTokenFactory TokenFactory = new(Options.Create(
-        new JwtOptions { SigningKey = "test-signing-key-at-least-32-chars-long", Issuer = "soovioo-tests", Audience = "soovioo-tests" }));
-
     private static AppDbContext NewDb() =>
         new(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
@@ -26,7 +22,7 @@ public class MyProfileControllerTests
     private static MyProfileController NewController(AppDbContext db, int currentUserId)
     {
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString())]);
-        return new MyProfileController(db, TokenFactory)
+        return new MyProfileController(db, AuthTestServices.Sessions(db), AuthTestServices.RefreshTokens(db))
         {
             ControllerContext = new ControllerContext
             {

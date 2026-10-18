@@ -1,7 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -12,15 +12,16 @@ public class AuthControllerTests
     private const int SchoolId = 1;
     private static readonly PasswordHasher<User> Hasher = new();
 
-    private static readonly JwtTokenFactory TokenFactory = new(Options.Create(
-        new JwtOptions { SigningKey = "test-signing-key-at-least-32-chars-long", Issuer = "soovioo-tests", Audience = "soovioo-tests" }));
-
     private static AppDbContext NewDb() =>
         new(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId));
 
-    private static AuthController NewController(AppDbContext db) => new(db, TokenFactory);
+    private static AuthController NewController(AppDbContext db, TimeProvider? clock = null) =>
+        new(db, AuthTestServices.Sessions(db, clock), AuthTestServices.RefreshTokens(db, clock))
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
 
     [Fact]
     public async Task AcceptInviteRejectsEmptyPassword()

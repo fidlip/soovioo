@@ -4,13 +4,25 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL, Grade, Student, Subject, TokenStorage } from '@soovioo/shared';
+import {
+  API_BASE_URL,
+  Grade,
+  Student,
+  Subject,
+  TokenStorage,
+} from '@soovioo/shared';
 import { GradesPage } from './grades-page';
 
-class FakeTokenStorage implements TokenStorage {
-  getToken = () => null;
-  setToken = () => undefined;
-  clearToken = () => undefined;
+class FakeTokenStorage extends TokenStorage {
+  getToken() {
+    return null;
+  }
+  setToken() {
+    /* unused */
+  }
+  clearToken() {
+    /* unused */
+  }
 }
 
 describe('GradesPage', () => {
@@ -51,7 +63,13 @@ describe('GradesPage', () => {
     httpMock.expectOne('http://test/api/grades').flush(grades);
 
     const students: Student[] = [
-      { id: 1, firstName: 'Jan', lastName: 'Novák', schoolClassId: 1, schoolClassName: '5.A' },
+      {
+        id: 1,
+        firstName: 'Jan',
+        lastName: 'Novák',
+        schoolClassId: 1,
+        schoolClassName: '5.A',
+      },
     ];
     httpMock.expectOne('http://test/api/students').flush(students);
 

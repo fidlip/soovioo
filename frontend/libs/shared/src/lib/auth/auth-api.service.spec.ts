@@ -1,4 +1,8 @@
-import { provideHttpClient } from '@angular/common/http';
+import {
+  HttpClient,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -6,13 +10,31 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../api-base-url.token';
 import { AuthApiService } from './auth-api.service';
+import { AUTH_REFRESH_VIA_COOKIE, CSRF_HEADER } from './auth-session.config';
+import { authInterceptor } from './auth.interceptor';
 import { TokenStorage } from './token-storage';
 
-class FakeTokenStorage implements TokenStorage {
+class FakeTokenStorage extends TokenStorage {
   private token: string | null = null;
-  getToken = () => this.token;
-  setToken = (token: string) => void (this.token = token);
-  clearToken = () => void (this.token = null);
+  private refreshToken: string | null = null;
+  getToken() {
+    return this.token;
+  }
+  setToken(token: string) {
+    this.token = token;
+  }
+  clearToken() {
+    this.token = null;
+  }
+  override getRefreshToken() {
+    return this.refreshToken;
+  }
+  override setRefreshToken(token: string) {
+    this.refreshToken = token;
+  }
+  override clearRefreshToken() {
+    this.refreshToken = null;
+  }
 }
 
 describe('AuthApiService', () => {
@@ -20,34 +42,169 @@ describe('AuthApiService', () => {
   let httpMock: HttpTestingController;
   let tokenStorage: FakeTokenStorage;
 
-  beforeEach(() => {
+  function setup(viaCookie: boolean) {
     tokenStorage = new FakeTokenStorage();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://test' },
         { provide: TokenStorage, useValue: tokenStorage },
+        { provide: AUTH_REFRESH_VIA_COOKIE, useValue: viaCookie },
       ],
     });
     service = TestBed.inject(AuthApiService);
     httpMock = TestBed.inject(HttpTestingController);
-  });
+  }
 
   afterEach(() => httpMock.verify());
 
-  it('stores the token after a successful login', () => {
-    service.login({ username: 'ucitel', password: 'ucitel123' }).subscribe();
-    const req = httpMock.expectOne('http://test/api/auth/login');
-    req.flush({ token: 'abc', username: 'ucitel', role: 'Teacher' });
+  describe('mobile (refresh token in body)', () => {
+    beforeEach(() => setup(false));
 
-    expect(tokenStorage.getToken()).toBe('abc');
-    expect(service.isLoggedIn()).toBe(true);
+    it('stores both tokens after a successful login', () => {
+      service.login({ username: 'ucitel', password: 'ucitel123' }).subscribe();
+      const req = httpMock.expectOne('http://test/api/auth/login');
+      expect(req.request.body.useCookie).toBe(false);
+      expect(req.request.withCredentials).toBe(false);
+      req.flush({
+        token: 'abc',
+        refreshToken: 'r1',
+        username: 'ucitel',
+        role: 'Teacher',
+      });
+
+      expect(tokenStorage.getToken()).toBe('abc');
+      expect(tokenStorage.getRefreshToken()).toBe('r1');
+      expect(service.isLoggedIn()).toBe(true);
+    });
+
+    it('clears tokens and revokes the refresh token on logout', () => {
+      tokenStorage.setToken('abc');
+      tokenStorage.setRefreshToken('r1');
+      service.logout();
+
+      const req = httpMock.expectOne('http://test/api/auth/logout');
+      expect(req.request.body).toEqual({ refreshToken: 'r1' });
+      req.flush(null, { status: 204, statusText: 'No Content' });
+      expect(service.isLoggedIn()).toBe(false);
+      expect(tokenStorage.getRefreshToken()).toBeNull();
+    });
+
+    it('skips the refresh call entirely without a refresh token', () => {
+      let result: string | null | undefined;
+      service.refresh().subscribe((t) => (result = t));
+      expect(result).toBeNull();
+    });
+
+    it('shares one refresh request between concurrent callers', () => {
+      tokenStorage.setRefreshToken('r1');
+      const results: (string | null)[] = [];
+      service.refresh().subscribe((t) => results.push(t));
+      service.refresh().subscribe((t) => results.push(t));
+
+      httpMock
+        .expectOne('http://test/api/auth/refresh')
+        .flush({
+          token: 'new',
+          refreshToken: 'r2',
+          username: 'u',
+          role: 'Teacher',
+        });
+
+      expect(results).toEqual(['new', 'new']);
+      expect(tokenStorage.getRefreshToken()).toBe('r2');
+    });
+
+    it('retries a 401 once with a refreshed access token', () => {
+      tokenStorage.setToken('stale');
+      tokenStorage.setRefreshToken('r1');
+      const http = TestBed.inject(HttpClient);
+      let body: unknown;
+      http.get('http://test/api/grades').subscribe((b) => (body = b));
+
+      httpMock
+        .expectOne('http://test/api/grades')
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      httpMock
+        .expectOne('http://test/api/auth/refresh')
+        .flush({
+          token: 'fresh',
+          refreshToken: 'r2',
+          username: 'u',
+          role: 'Teacher',
+        });
+      const retry = httpMock.expectOne('http://test/api/grades');
+      expect(retry.request.headers.get('Authorization')).toBe('Bearer fresh');
+      retry.flush([1]);
+
+      expect(body).toEqual([1]);
+    });
+
+    it('reports an expired session when the refresh after a 401 fails', () => {
+      tokenStorage.setToken('stale');
+      tokenStorage.setRefreshToken('revoked');
+      const http = TestBed.inject(HttpClient);
+      let expired = false;
+      let failed = false;
+      service.sessionExpired$.subscribe(() => (expired = true));
+      http
+        .get('http://test/api/grades')
+        .subscribe({ error: () => (failed = true) });
+
+      httpMock
+        .expectOne('http://test/api/grades')
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      httpMock
+        .expectOne('http://test/api/auth/refresh')
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+      expect(failed).toBe(true);
+      expect(expired).toBe(true);
+      expect(service.isLoggedIn()).toBe(false);
+    });
   });
 
-  it('clears the token on logout', () => {
-    tokenStorage.setToken('abc');
-    service.logout();
-    expect(service.isLoggedIn()).toBe(false);
+  describe('web (refresh token in httpOnly cookie)', () => {
+    beforeEach(() => setup(true));
+
+    it('asks for the cookie on login and sends credentials', () => {
+      service
+        .login({ username: 'ucitel', password: 'ucitel123', rememberMe: true })
+        .subscribe();
+      const req = httpMock.expectOne('http://test/api/auth/login');
+      expect(req.request.body).toEqual(
+        expect.objectContaining({ useCookie: true, rememberMe: true }),
+      );
+      expect(req.request.withCredentials).toBe(true);
+      req.flush({
+        token: 'abc',
+        refreshToken: null,
+        username: 'ucitel',
+        role: 'Teacher',
+      });
+      expect(tokenStorage.getToken()).toBe('abc');
+    });
+
+    it('restores the session on startup with the CSRF header', async () => {
+      const restored = service.restoreSession();
+      const req = httpMock.expectOne('http://test/api/auth/refresh');
+      expect(req.request.withCredentials).toBe(true);
+      expect(req.request.headers.get(CSRF_HEADER)).toBe('1');
+      req.flush({ token: 'abc', username: 'ucitel', role: 'Teacher' });
+      await restored;
+
+      expect(service.isLoggedIn()).toBe(true);
+    });
+
+    it('treats 204 from refresh as simply logged out', async () => {
+      const restored = service.restoreSession();
+      httpMock
+        .expectOne('http://test/api/auth/refresh')
+        .flush(null, { status: 204, statusText: 'No Content' });
+      await restored;
+
+      expect(service.isLoggedIn()).toBe(false);
+    });
   });
 });

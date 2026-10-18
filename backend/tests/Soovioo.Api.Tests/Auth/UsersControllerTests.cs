@@ -29,7 +29,8 @@ public class UsersControllerTests
     {
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString())]);
         return new UsersController(
-            db, new FakeCurrentSchoolContext(SchoolId), emailSender ?? new FakeEmailSender(), Options.Create(linkOptions ?? LinkOptions))
+            db, new FakeCurrentSchoolContext(SchoolId), emailSender ?? new FakeEmailSender(), Options.Create(linkOptions ?? LinkOptions),
+            AuthTestServices.RefreshTokens(db))
         {
             ControllerContext = new ControllerContext
             {

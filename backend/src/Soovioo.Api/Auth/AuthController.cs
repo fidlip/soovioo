@@ -8,7 +8,10 @@ namespace Soovioo.Api.Auth;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AppDbContext db, JwtTokenFactory tokenFactory) : ControllerBase
+public class AuthController(
+    AppDbContext db,
+    AuthSessionService sessions,
+    RefreshTokenService refreshTokens) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -43,8 +46,10 @@ public class AuthController(AppDbContext db, JwtTokenFactory tokenFactory) : Con
             return Unauthorized();
         }
 
-        var tokenString = tokenFactory.CreateToken(user);
-        return Ok(new LoginResponse(tokenString, user.Username, user.Role.ToString(), school?.Name, school?.Slug));
+        // The mobile app has no "Zůstat přihlášen" checkbox — an app stays
+        // signed in until the user logs out, like any other mobile app.
+        var persistent = !request.UseCookie || request.RememberMe;
+        return Ok(await sessions.StartAsync(HttpContext, user, persistent, request.UseCookie));
     }
 
     /// <summary>Consumes a <see cref="User.InvitationToken"/> e-mailed by
@@ -74,15 +79,78 @@ public class AuthController(AppDbContext db, JwtTokenFactory tokenFactory) : Con
         user.InvitationTokenExpiresAt = null;
         await db.SaveChangesAsync();
 
-        var school = user.SchoolId is { } schoolId
-            ? await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId)
-            : null;
+        // New password = every older session of this account is over.
+        await refreshTokens.RevokeAllForUserAsync(user.Id);
+        return Ok(await sessions.StartAsync(HttpContext, user, persistent: !request.UseCookie, request.UseCookie));
+    }
 
-        var tokenString = tokenFactory.CreateToken(user);
-        return Ok(new LoginResponse(tokenString, user.Username, user.Role.ToString(), school?.Name, school?.Slug));
+    /// <summary>Swaps a refresh token (cookie for the web app, body for
+    /// mobile) for a fresh access token, rotating the refresh token. 204 when
+    /// no refresh token was presented at all — the web app calls this on
+    /// every startup to restore a session, and a logged-out visitor isn't an
+    /// error worth a red 401 in the console.</summary>
+    [HttpPost("refresh")]
+    public async Task<ActionResult<LoginResponse>> Refresh(RefreshRequest? request)
+    {
+        var (token, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken);
+        if (token is null)
+        {
+            return NoContent();
+        }
+
+        var rotated = await refreshTokens.RotateAsync(token);
+        if (rotated is null)
+        {
+            if (fromCookie)
+            {
+                sessions.ClearCookie(HttpContext);
+            }
+            return Unauthorized();
+        }
+
+        return Ok(await sessions.RespondAsync(HttpContext, rotated.User, rotated.Successor, fromCookie));
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(RefreshRequest? request)
+    {
+        var (token, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken);
+        if (token is not null)
+        {
+            await refreshTokens.RevokeAsync(token);
+        }
+        if (fromCookie || Request.Cookies.ContainsKey(AuthSessionService.CookieName))
+        {
+            sessions.ClearCookie(HttpContext);
+        }
+        return NoContent();
     }
 }
 
-public record LoginRequest(string Username, string Password, string? SchoolSlug = null);
-public record LoginResponse(string Token, string Username, string Role, string? SchoolName, string? SchoolSlug);
-public record AcceptInviteRequest(string Token, string NewPassword);
+/// <param name="UseCookie">Web app: deliver the refresh token as an httpOnly
+/// cookie instead of in the response body.</param>
+/// <param name="RememberMe">"Zůstat přihlášen" — 30-day persistent cookie
+/// instead of a browser-session one. Only meaningful with
+/// <paramref name="UseCookie"/>.</param>
+public record LoginRequest(
+    string Username,
+    string Password,
+    string? SchoolSlug = null,
+    bool UseCookie = false,
+    bool RememberMe = false);
+
+/// <param name="RefreshToken">Only for body-delivery (mobile) clients; null
+/// when it went into the cookie.</param>
+public record LoginResponse(
+    string Token,
+    string Username,
+    string Role,
+    string? SchoolName,
+    string? SchoolSlug,
+    string? RefreshToken = null);
+
+public record AcceptInviteRequest(string Token, string NewPassword, bool UseCookie = false);
+
+/// <param name="RefreshToken">Mobile clients only; the web app's travels in
+/// the cookie.</param>
+public record RefreshRequest(string? RefreshToken = null);

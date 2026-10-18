@@ -18,7 +18,8 @@ public class UsersController(
     AppDbContext db,
     ICurrentSchoolContext currentSchool,
     IEmailSender emailSender,
-    IOptions<AppLinkOptions> appLinkOptions) : ControllerBase
+    IOptions<AppLinkOptions> appLinkOptions,
+    RefreshTokenService refreshTokens) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -140,6 +141,11 @@ public class UsersController(
         }
 
         await db.SaveChangesAsync();
+        if (!string.IsNullOrWhiteSpace(request.Password))
+        {
+            // Whoever knew the old password shouldn't stay signed in on it.
+            await refreshTokens.RevokeAllForUserAsync(user.Id);
+        }
         return Ok(new UserDto(user.Id, user.Username, user.Role.ToString(), user.Phone, user.Email, linkedStudent?.Id));
     }
 

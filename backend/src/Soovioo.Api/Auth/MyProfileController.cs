@@ -14,7 +14,10 @@ namespace Soovioo.Api.Auth;
 [Authorize]
 [ApiController]
 [Route("api/users/me")]
-public class MyProfileController(AppDbContext db, JwtTokenFactory tokenFactory) : ControllerBase
+public class MyProfileController(
+    AppDbContext db,
+    AuthSessionService sessions,
+    RefreshTokenService refreshTokens) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -39,7 +42,11 @@ public class MyProfileController(AppDbContext db, JwtTokenFactory tokenFactory) 
     /// clearing a <see cref="User.MustChangePassword"/> forced redirect, and
     /// the token they're still holding has the old (true) claim baked in.
     /// Re-login would need the new password repeated right after they just
-    /// typed it once; reissuing here avoids that.</summary>
+    /// typed it once; reissuing here avoids that.
+    ///
+    /// A new password also signs the account out everywhere else: every
+    /// refresh token is revoked and this caller alone gets a new session,
+    /// keeping its "Zůstat přihlášen" choice (mobile: always persistent).</summary>
     [HttpPost("change-password")]
     public async Task<ActionResult<ChangePasswordResponse>> ChangePassword(ChangePasswordRequest request)
     {
@@ -57,7 +64,15 @@ public class MyProfileController(AppDbContext db, JwtTokenFactory tokenFactory) 
         user.PasswordHash = Hasher.HashPassword(user, request.NewPassword);
         user.MustChangePassword = false;
         await db.SaveChangesAsync();
-        return Ok(new ChangePasswordResponse(tokenFactory.CreateToken(user)));
+
+        var (presented, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request.RefreshToken);
+        var persistent = presented is null || !fromCookie
+            || (await refreshTokens.FindPersistentAsync(presented) ?? false);
+        // Only a web caller already holding the cookie gets a new one; a
+        // Bearer-only caller with nothing to present gets it in the body.
+        await refreshTokens.RevokeAllForUserAsync(user.Id);
+        var session = await sessions.StartAsync(HttpContext, user, persistent, useCookie: fromCookie);
+        return Ok(new ChangePasswordResponse(session.Token, session.RefreshToken));
     }
 
     private async Task<User> CurrentUserAsync()
@@ -74,6 +89,9 @@ public record MyProfileDto(string Username, string Role, string? Phone, string? 
 
 public record UpdateMyProfileRequest(string? Phone, string? Email);
 
-public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+/// <param name="RefreshToken">Mobile clients only — the web app's refresh
+/// token travels in the cookie.</param>
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword, string? RefreshToken = null);
 
-public record ChangePasswordResponse(string Token);
+/// <param name="RefreshToken">Null for cookie (web) callers.</param>
+public record ChangePasswordResponse(string Token, string? RefreshToken = null);

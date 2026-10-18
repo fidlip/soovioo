@@ -9,7 +9,9 @@ namespace Soovioo.Api.Auth;
 /// <summary>Builds the JWT for a <see cref="User"/> — shared by
 /// <see cref="AuthController"/> (fresh login) and <see cref="MyProfileController"/>
 /// (password change needs a reissued token so the <c>mustChangePassword</c>
-/// claim reflects the just-cleared flag without forcing a re-login).</summary>
+/// claim reflects the just-cleared flag without forcing a re-login). Valid
+/// 15 minutes only; sessions last longer through <see cref="RefreshToken"/>s,
+/// see <see cref="AuthSessionService"/>.</summary>
 public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
 {
     public string CreateToken(User user)
@@ -33,7 +35,7 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
             issuer: options.Issuer,
             audience: options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(8),
+            expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

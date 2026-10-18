@@ -6,11 +6,19 @@ import { API_BASE_URL, TokenStorage } from '@soovioo/shared';
 import { App } from './app';
 import { appRoutes } from './app.routes';
 
-class FakeTokenStorage implements TokenStorage {
-  constructor(private token: string | null) {}
-  getToken = () => this.token;
-  setToken = (token: string) => void (this.token = token);
-  clearToken = () => void (this.token = null);
+class FakeTokenStorage extends TokenStorage {
+  constructor(private token: string | null) {
+    super();
+  }
+  getToken() {
+    return this.token;
+  }
+  setToken(token: string) {
+    this.token = token;
+  }
+  clearToken() {
+    this.token = null;
+  }
 }
 
 describe('App', () => {

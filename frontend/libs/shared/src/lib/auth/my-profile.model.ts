@@ -17,4 +17,6 @@ export interface ChangePasswordRequest {
 
 export interface ChangePasswordResponse {
   token: string;
+  /** Mobile only — the password change starts a new session. */
+  refreshToken?: string | null;
 }

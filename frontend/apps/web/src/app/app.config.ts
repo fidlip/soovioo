@@ -1,5 +1,7 @@
 import {
   ApplicationConfig,
+  inject,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -7,9 +9,15 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withRouterConfig } from '@angular/router';
 import { Translation } from '@openng/optimus-ui/api';
 import { provideOptimus } from '@openng/optimus-ui/config';
-import { API_BASE_URL, TokenStorage, authInterceptor } from '@soovioo/shared';
+import {
+  API_BASE_URL,
+  AUTH_REFRESH_VIA_COOKIE,
+  AuthApiService,
+  TokenStorage,
+  authInterceptor,
+} from '@soovioo/shared';
 import { appRoutes } from './app.routes';
-import { LocalTokenStorage } from './local-token-storage';
+import { MemoryTokenStorage } from './memory-token-storage';
 import { sooviooTheme } from './theme';
 
 // optimus-ui (PrimeNG) components with their own locale-dependent text —
@@ -58,6 +66,11 @@ export const appConfig: ApplicationConfig = {
     // Same host the page was loaded from, so this also works when a phone
     // on the LAN opens the dev server by IP instead of localhost.
     { provide: API_BASE_URL, useValue: `http://${window.location.hostname}:5080` },
-    { provide: TokenStorage, useClass: LocalTokenStorage },
+    { provide: TokenStorage, useClass: MemoryTokenStorage },
+    // Refresh token as an httpOnly cookie; the access token stays in
+    // memory, so every page load first restores it from that cookie —
+    // before the router's auth guard looks at isLoggedIn().
+    { provide: AUTH_REFRESH_VIA_COOKIE, useValue: true },
+    provideAppInitializer(() => inject(AuthApiService).restoreSession()),
   ],
 };

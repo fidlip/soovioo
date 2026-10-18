@@ -64,6 +64,18 @@ export class App {
       );
     }
 
+    // The refresh cookie expired or was revoked (logout elsewhere, password
+    // change) while this tab was open — back to the login form.
+    this.authApi.sessionExpired$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() =>
+        this.router.navigate(
+          this.router.url.startsWith('/superadmin')
+            ? ['/superadmin/login']
+            : this.schoolContext.link('login'),
+        ),
+      );
+
     // The mobile drawer covers the page, so close it once a link in it has
     // done its job.
     this.router.events

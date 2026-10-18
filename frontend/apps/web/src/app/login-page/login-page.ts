@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
@@ -11,7 +12,7 @@ import { SchoolContextService } from '../school-context';
 
 @Component({
   selector: 'app-login-page',
-  imports: [FormsModule, Button, Card, InputText, Message, Password],
+  imports: [FormsModule, Button, Card, Checkbox, InputText, Message, Password],
   templateUrl: './login-page.html',
 })
 export class LoginPage {
@@ -22,6 +23,9 @@ export class LoginPage {
 
   protected username = '';
   protected password = '';
+  /** Off by default: a shared school/family computer shouldn't keep the
+   * last person signed in for 30 days unless they ask for it. */
+  protected rememberMe = false;
   protected readonly error = signal<string | null>(null);
 
   /** Dev/path mode: straight off this route's own `:schoolSlug` segment, so
@@ -41,6 +45,7 @@ export class LoginPage {
         username: this.username,
         password: this.password,
         schoolSlug: this.schoolSlug ?? undefined,
+        rememberMe: this.rememberMe,
       })
       .subscribe({
         next: (response) => {
