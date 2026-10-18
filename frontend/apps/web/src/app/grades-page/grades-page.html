@@ -1,41 +1,16 @@
-<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+<div class="mb-6 flex items-center justify-between gap-4">
   <h1 class="mb-0 flex items-center gap-3"><app-icon name="grades" />Známky</h1>
-  <div class="flex flex-wrap items-end gap-3">
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="reportCardStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Žák</label
-      >
-      <p-select
-        inputId="reportCardStudent"
-        [options]="studentOptions()"
-        optionLabel="label"
-        optionValue="id"
-        [(ngModel)]="reportCardStudentId"
-        name="reportCardStudent"
-        appendTo="body"
-        styleClass="w-52"
-      />
-    </div>
-    <p-button
-      label="Stáhnout vysvědčení"
-      icon="pi pi-download"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="downloadReportCard()"
-    />
-    @if (canAddGrade()) {
-    <p-button
-      label="Zapsat známku"
-      icon="pi pi-plus"
-      (onClick)="openAddGradeDialog()"
-    />
-    }
-  </div>
+  @if (canAddGrade()) {
+  <p-button
+    label="Zapsat známku"
+    icon="pi pi-plus"
+    (onClick)="openAddGradeDialog()"
+  />
+  }
 </div>
 
 <div class="mb-3 flex flex-wrap items-end gap-3">
+  @if (showStudentFilter()) {
   <div class="flex flex-col gap-1.5">
     <label
       for="filterStudent"
@@ -55,6 +30,7 @@
       styleClass="w-52"
     />
   </div>
+  }
   <div class="flex flex-col gap-1.5">
     <label
       for="filterSubject"
@@ -74,40 +50,84 @@
       styleClass="w-48"
     />
   </div>
+
+  <div class="flex flex-wrap items-end gap-3 md:ml-auto">
+    @if (students().length > 1) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="reportCardStudent"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Vysvědčení pro</label
+      >
+      <p-select
+        inputId="reportCardStudent"
+        [options]="studentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="reportCardStudentId"
+        name="reportCardStudent"
+        appendTo="body"
+        styleClass="w-52"
+      />
+    </div>
+    }
+    <p-button
+      label="Stáhnout vysvědčení"
+      icon="pi pi-download"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="downloadReportCard()"
+    />
+  </div>
 </div>
 
-<p-table [value]="filteredGrades()" dataKey="id" styleClass="rounded-border">
-  <ng-template pTemplate="header">
-    <tr>
-      <th>Žák</th>
-      <th>Předmět</th>
-      <th>Známka</th>
-      <th>Váha</th>
-      <th>Poznámka</th>
-      @if (canAddGrade()) {
-      <th></th>
-      }
-    </tr>
+<app-grouped-table
+  [rows]="filteredGrades()"
+  [groups]="groups()"
+  [rowKey]="gradeId"
+  emptyMessage="Zatím žádné známky."
+>
+  <ng-template #headerCells>
+    @if (isStaff()) {
+    <th class="px-4 py-3 font-semibold">Předmět</th>
+    <th class="px-4 py-3 font-semibold">Známka</th>
+    <th class="px-4 py-3 font-semibold">Váha</th>
+    <th class="px-4 py-3"></th>
+    } @else {
+    <th class="px-4 py-3 font-semibold">Datum</th>
+    <th class="px-4 py-3 font-semibold">Předmět</th>
+    <th class="px-4 py-3 font-semibold">Známka</th>
+    }
   </ng-template>
-  <ng-template pTemplate="body" let-grade>
-    <tr>
-      <td>{{ grade.studentName }}</td>
-      <td>{{ grade.subjectName }}</td>
-      <td>
-        <p-tag
-          [value]="grade.value + ''"
-          [severity]="gradeSeverity(grade.value)"
-          [rounded]="true"
-        />
-      </td>
-      <td>{{ grade.weight }}</td>
-      <td class="text-surface-500">{{ grade.note }}</td>
-      @if (canAddGrade()) {
-      <td class="flex justify-end gap-1">
+
+  <ng-template #rowCells let-grade>
+    @if (!isStaff()) {
+    <td class="whitespace-nowrap px-4 py-2 align-middle">
+      {{ formatDate(grade.gradedOn) }}
+    </td>
+    }
+    <td class="px-4 py-2 align-middle">
+      <div>{{ grade.subjectName }}</div>
+      @if (grade.note) {
+      <div class="text-xs text-surface-500">{{ grade.note }}</div>
+      }
+    </td>
+    <td class="px-4 py-2 align-middle">
+      <p-tag
+        [value]="grade.value + ''"
+        [severity]="gradeSeverity(grade.value)"
+        [rounded]="true"
+      />
+    </td>
+    @if (isStaff()) {
+    <td class="px-4 py-2 align-middle">{{ grade.weight }}</td>
+    <td class="px-4 py-1 align-middle">
+      <div class="flex justify-end gap-1">
         <p-button
           icon="pi pi-pencil"
           size="small"
           [text]="true"
+          ariaLabel="Upravit"
           (onClick)="startEditGrade(grade)"
         />
         <p-button
@@ -115,20 +135,53 @@
           size="small"
           severity="danger"
           [text]="true"
+          ariaLabel="Smazat"
           (onClick)="deleteGrade(grade)"
         />
-      </td>
+      </div>
+    </td>
+    }
+  </ng-template>
+
+  <ng-template #mobileRow let-grade>
+    <div class="flex items-center gap-3 text-sm">
+      @if (!isStaff()) {
+      <span class="whitespace-nowrap text-surface-500"
+        >{{ formatDate(grade.gradedOn) }}</span
+      >
       }
-    </tr>
+      <span class="min-w-0 flex-1 truncate">{{ grade.subjectName }}</span>
+      @if (isStaff()) {
+      <span class="text-xs text-surface-500">váha {{ grade.weight }}</span>
+      }
+      <p-tag
+        [value]="grade.value + ''"
+        [severity]="gradeSeverity(grade.value)"
+        [rounded]="true"
+      />
+      @if (isStaff()) {
+      <p-button
+        icon="pi pi-pencil"
+        size="small"
+        [text]="true"
+        ariaLabel="Upravit"
+        (onClick)="startEditGrade(grade)"
+      />
+      <p-button
+        icon="pi pi-trash"
+        size="small"
+        severity="danger"
+        [text]="true"
+        ariaLabel="Smazat"
+        (onClick)="deleteGrade(grade)"
+      />
+      }
+    </div>
+    @if (grade.note) {
+    <div class="mt-0.5 text-xs text-surface-500">{{ grade.note }}</div>
+    }
   </ng-template>
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="6" class="py-6 text-center text-surface-500">
-        Zatím žádné známky.
-      </td>
-    </tr>
-  </ng-template>
-</p-table>
+</app-grouped-table>
 
 <p-dialog
   [visible]="gradeDialogVisible()"
@@ -171,6 +224,22 @@
         name="gradeSubject"
         appendTo="body"
         styleClass="w-full"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="gradeGradedOn"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Datum</label
+      >
+      <p-datePicker
+        inputId="gradeGradedOn"
+        [(ngModel)]="newGradedOn"
+        name="gradeGradedOn"
+        dateFormat="dd.mm.yy"
+        [showIcon]="true"
+        appendTo="body"
       />
     </div>
 

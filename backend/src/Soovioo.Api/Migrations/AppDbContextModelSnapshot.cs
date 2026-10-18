@@ -703,6 +703,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateOnly>("GradedOn")
+                        .HasColumnType("date");
+
                     b.Property<string>("Note")
                         .HasColumnType("text");
 

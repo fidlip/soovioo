@@ -23,5 +23,10 @@ public class Grade
     public int Weight { get; set; } = 1;
 
     public string? Note { get; set; }
+
+    /// <summary>Date the grade was given — chosen by the teacher (defaults to
+    /// today), unlike the purely technical <see cref="CreatedAt"/>.</summary>
+    public DateOnly GradedOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

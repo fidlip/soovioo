@@ -57,6 +57,7 @@ describe('GradesPage', () => {
         subjectName: 'Matematika',
         value: 1,
         weight: 1,
+        gradedOn: '2026-10-18',
         createdAt: new Date().toISOString(),
       },
     ];
@@ -78,6 +79,6 @@ describe('GradesPage', () => {
 
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Jan Novák');
+    expect(compiled.textContent).toContain('Matematika');
   });
 });

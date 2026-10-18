@@ -57,11 +57,12 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             recentGrades = await db.Grades
                 .Where(g => allowedStudentIds!.Contains(g.StudentId))
-                .OrderByDescending(g => g.CreatedAt)
+                .OrderByDescending(g => g.GradedOn)
+                .ThenByDescending(g => g.CreatedAt)
                 .Take(5)
                 .Select(g => new GradeDto(
                     g.Id, g.StudentId, g.Student!.FirstName + " " + g.Student.LastName,
-                    g.SubjectId, g.Subject!.Name, g.Value, g.Weight, g.Note, g.CreatedAt))
+                    g.SubjectId, g.Subject!.Name, g.Value, g.Weight, g.Note, g.GradedOn, g.CreatedAt))
                 .ToListAsync();
         }
 

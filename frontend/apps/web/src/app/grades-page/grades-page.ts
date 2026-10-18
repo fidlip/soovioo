@@ -1,12 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
+import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
-import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
@@ -19,6 +18,38 @@ import {
   SubjectsApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
+
+/** "2026-10-18" (DateOnly) -> local Date, without the UTC shift
+ * `new Date(string)` applies to date-only ISO strings. */
+function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** Local (not UTC) y-m-d, see absences-page.ts. */
+function toDateOnlyString(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDate(value: string): string {
+  return parseDateOnly(value).toLocaleDateString('cs-CZ');
+}
+
+const DATE_GROUP: GroupLevel<Grade> = {
+  label: 'Datum',
+  key: (g) => g.gradedOn,
+  text: (g) => formatDate(g.gradedOn),
+};
+
+const STUDENT_GROUP: GroupLevel<Grade> = {
+  label: 'Žák',
+  key: (g) => g.studentId,
+  text: (g) => g.studentName,
+};
 
 @Component({
   selector: 'app-grades-page',
@@ -26,12 +57,12 @@ import { AppIcon } from '../app-icon';
     AppIcon,
     FormsModule,
     Button,
+    DatePicker,
     Dialog,
+    GroupedTable,
     InputNumber,
     InputText,
-    PrimeTemplate,
     Select,
-    TableModule,
     Tag,
   ],
   templateUrl: './grades-page.html',
@@ -57,8 +88,42 @@ export class GradesPage {
 
   /** null = "all" — separate from the dialog fields below, which drive the
    * add/edit-grade form, not what's shown in the table. */
-  protected filterStudentId: number | null = null;
-  protected filterSubjectId: number | null = null;
+  protected readonly filterStudentId = signal<number | null>(null);
+  protected readonly filterSubjectId = signal<number | null>(null);
+
+  protected readonly isStaff = computed(() => this.authApi.isTeacherOrAdmin());
+
+  /** A student only ever sees themself — nothing to filter. */
+  protected readonly showStudentFilter = computed(
+    () => !this.authApi.isStudent() && this.students().length > 1,
+  );
+
+  protected readonly filteredGrades = computed(() => {
+    const studentId = this.filterStudentId();
+    const subjectId = this.filterSubjectId();
+    return this.grades().filter(
+      (g) =>
+        (studentId === null || g.studentId === studentId) &&
+        (subjectId === null || g.subjectId === subjectId),
+    );
+  });
+
+  /** Staff: date → student. Parent with several children (unfiltered): one
+   * group per child. Otherwise a flat list without the student's name. The
+   * API already sorts by date desc, then student name — the order the
+   * groups need. */
+  protected readonly groups = computed<GroupLevel<Grade>[]>(() => {
+    if (this.isStaff()) {
+      return [DATE_GROUP, STUDENT_GROUP];
+    }
+    const distinctStudents = new Set(
+      this.filteredGrades().map((g) => g.studentId),
+    );
+    return distinctStudents.size > 1 ? [STUDENT_GROUP] : [];
+  });
+
+  protected readonly gradeId = (grade: Grade) => grade.id;
+  protected readonly formatDate = formatDate;
 
   protected readonly gradeDialogVisible = signal(false);
   /** null = add mode, otherwise the grade being edited — same "new… fields
@@ -69,6 +134,7 @@ export class GradesPage {
   protected newValue = 1;
   protected newWeight = 1;
   protected newNote = '';
+  protected newGradedOn = new Date();
   /** Drives "Stáhnout vysvědčení" — separate from the dialog's newStudentId,
    * which resets every time the dialog opens. */
   protected reportCardStudentId: number | null = null;
@@ -95,6 +161,7 @@ export class GradesPage {
     this.newValue = 1;
     this.newWeight = 1;
     this.newNote = '';
+    this.newGradedOn = new Date();
     this.gradeDialogVisible.set(true);
   }
 
@@ -108,6 +175,7 @@ export class GradesPage {
       value: this.newValue,
       weight: this.newWeight,
       note: this.newNote || undefined,
+      gradedOn: toDateOnlyString(this.newGradedOn),
     };
     const result =
       this.editingGradeId === null
@@ -134,6 +202,7 @@ export class GradesPage {
     this.newValue = grade.value;
     this.newWeight = grade.weight;
     this.newNote = grade.note ?? '';
+    this.newGradedOn = parseDateOnly(grade.gradedOn);
     this.gradeDialogVisible.set(true);
   }
 
@@ -142,15 +211,6 @@ export class GradesPage {
       next: () => this.reload(),
       error: (err) => console.error('deleteGrade failed', err),
     });
-  }
-
-  protected filteredGrades(): Grade[] {
-    return this.grades().filter(
-      (g) =>
-        (this.filterStudentId === null ||
-          g.studentId === this.filterStudentId) &&
-        (this.filterSubjectId === null || g.subjectId === this.filterSubjectId),
-    );
   }
 
   /** Czech 1 (best) – 5 (worst) grading scale, mapped to a tag color. */

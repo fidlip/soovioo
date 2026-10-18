@@ -9,8 +9,11 @@ export class ReportCardApiService {
   private readonly baseUrl = inject(API_BASE_URL);
 
   downloadReportCard(studentId: number): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/api/students/${studentId}/report-card`, {
-      responseType: 'blob',
-    });
+    return this.http.get(
+      `${this.baseUrl}/api/students/${studentId}/report-card`,
+      {
+        responseType: 'blob',
+      },
+    );
   }
 }

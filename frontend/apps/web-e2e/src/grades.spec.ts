@@ -12,7 +12,7 @@ async function login(
   await expect(page).toHaveURL(/\/demo\/home$/);
   // Login now lands on the Home dashboard, not Grades directly — these
   // tests need the full Grades page itself.
-  await page.getByRole('link', { name: 'Známky' }).click();
+  await page.getByRole('link', { name: 'Známky', exact: true }).click();
   await expect(page).toHaveURL(/\/demo\/grades$/);
 }
 
@@ -36,9 +36,11 @@ test('teacher can record a grade and see it appear in the table', async ({
   // button is the only `type="submit"` button on the page.
   await page.locator('button[type="submit"]').click();
 
-  // Grades are listed newest-first (GradesController orders by CreatedAt
-  // descending), so the row just submitted is always the first one —
-  // reliable even when earlier runs left other grades with the same values.
+  // Grades are listed by GradedOn (defaults to today) descending, then
+  // student surname, then CreatedAt descending — the dialog preselects the
+  // first student (Jan Novák, first by surname too), so the row just
+  // submitted is always the first one, even when earlier runs left other
+  // grades with the same values.
   await expect(page.locator('table tbody tr')).toHaveCount(rowsBefore + 1);
   const newRow = page.locator('table tbody tr').first();
   await expect(newRow).toContainText('2');

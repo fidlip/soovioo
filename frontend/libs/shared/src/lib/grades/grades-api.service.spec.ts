@@ -43,6 +43,7 @@ describe('GradesApiService', () => {
       subjectId: 1,
       subjectName: 'Matematika',
       value: 1,
+      gradedOn: '2026-10-18',
       createdAt: new Date().toISOString(),
     });
   });

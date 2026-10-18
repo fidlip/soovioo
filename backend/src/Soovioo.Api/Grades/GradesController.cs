@@ -23,7 +23,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         }
 
         var grades = await query
-            .OrderByDescending(g => g.CreatedAt)
+            .OrderByDescending(g => g.GradedOn)
+            .ThenBy(g => g.Student!.LastName)
+            .ThenBy(g => g.Student!.FirstName)
+            .ThenByDescending(g => g.CreatedAt)
             .Select(g => new GradeDto(
                 g.Id,
                 g.StudentId,
@@ -33,6 +36,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
                 g.Value,
                 g.Weight,
                 g.Note,
+                g.GradedOn,
                 g.CreatedAt))
             .ToListAsync();
 
@@ -59,6 +63,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
             Note = request.Note,
             SchoolId = currentSchool.SchoolId!.Value,
         };
+        if (request.GradedOn is { } gradedOn)
+        {
+            grade.GradedOn = gradedOn;
+        }
 
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
@@ -74,6 +82,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
             grade.Value,
             grade.Weight,
             grade.Note,
+            grade.GradedOn,
             grade.CreatedAt);
 
         return CreatedAtAction(nameof(GetGrades), new { id = grade.Id }, dto);
@@ -101,11 +110,15 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         grade.Value = request.Value;
         grade.Weight = request.Weight;
         grade.Note = request.Note;
+        if (request.GradedOn is { } gradedOn)
+        {
+            grade.GradedOn = gradedOn;
+        }
         await db.SaveChangesAsync();
 
         var dto = new GradeDto(
             grade.Id, grade.StudentId, $"{student.FirstName} {student.LastName}",
-            grade.SubjectId, subject.Name, grade.Value, grade.Weight, grade.Note, grade.CreatedAt);
+            grade.SubjectId, subject.Name, grade.Value, grade.Weight, grade.Note, grade.GradedOn, grade.CreatedAt);
         return Ok(dto);
     }
 
@@ -125,7 +138,14 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 }
 
-public record CreateGradeRequest(int StudentId, int SubjectId, int Value, int Weight, string? Note);
+/// <param name="GradedOn">Omitted = today on create, unchanged on update.</param>
+public record CreateGradeRequest(
+    int StudentId,
+    int SubjectId,
+    int Value,
+    int Weight,
+    string? Note,
+    DateOnly? GradedOn = null);
 
 public record GradeDto(
     int Id,
@@ -136,4 +156,5 @@ public record GradeDto(
     int Value,
     int Weight,
     string? Note,
+    DateOnly GradedOn,
     DateTimeOffset CreatedAt);

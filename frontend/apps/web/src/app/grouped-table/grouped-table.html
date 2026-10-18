@@ -1,0 +1,87 @@
+@if (rows().length === 0) {
+<p class="py-6 text-center text-surface-500">{{ emptyMessage() }}</p>
+} @else if (isDesktop()) {
+<table class="w-full border-collapse text-sm">
+  <thead>
+    <tr
+      class="border-b border-surface-200 text-left text-surface-700 dark:border-surface-700 dark:text-surface-200"
+    >
+      @for (level of groups(); track $index) {
+      <th class="px-4 py-3 font-semibold">{{ level.label }}</th>
+      }
+      <ng-container *ngTemplateOutlet="headerCells() ?? null" />
+    </tr>
+  </thead>
+  <tbody>
+    @for (item of groupedRows(); track rowKey()(item.row)) {
+    <tr
+      [class.border-t]="!$first && item.startsAnyGroup"
+      [class]="
+        item.starts[0] ?? true
+          ? 'border-surface-200 dark:border-surface-700'
+          : 'border-surface-100 dark:border-surface-800'
+      "
+    >
+      @for (level of groups(); track $index; let i = $index) {
+      <td
+        class="px-4 py-2 align-middle font-medium text-surface-900 dark:text-surface-0"
+      >
+        @if (item.starts[i]) { {{ level.text(item.row) }} }
+      </td>
+      }
+      <ng-container
+        *ngTemplateOutlet="rowCells() ?? null; context: { $implicit: item.row }"
+      />
+    </tr>
+    }
+  </tbody>
+</table>
+} @else {
+<ng-template #nodeList let-nodes let-depth="depth">
+  @for (node of nodes; track node.key) {
+  <div [class.mt-3]="depth === 0" [class.mt-1]="depth > 0">
+    <div
+      [class]="
+        depth === 0
+          ? 'rounded bg-surface-100 px-3 py-1.5 text-sm font-semibold text-surface-900 dark:bg-surface-800 dark:text-surface-0'
+          : 'px-3 pt-1 text-sm font-semibold text-surface-700 dark:text-surface-200'
+      "
+    >
+      {{ node.text }}
+    </div>
+    @if (node.children.length > 0) {
+    <div [class.pl-3]="depth > 0">
+      <ng-container
+        *ngTemplateOutlet="nodeList; context: { $implicit: node.children, depth: depth + 1 }"
+      />
+    </div>
+    } @else {
+    <ng-container
+      *ngTemplateOutlet="leafRows; context: { $implicit: node.rows }"
+    />
+    }
+  </div>
+  }
+</ng-template>
+
+<ng-template #leafRows let-leaves>
+  <ul class="m-0 list-none p-0">
+    @for (row of leaves; track rowKey()(row)) {
+    <li
+      class="border-b border-surface-100 px-3 py-2 last:border-b-0 dark:border-surface-800"
+    >
+      <ng-container
+        *ngTemplateOutlet="mobileRow() ?? null; context: { $implicit: row }"
+      />
+    </li>
+    }
+  </ul>
+</ng-template>
+
+@if (groups().length > 0) {
+<ng-container
+  *ngTemplateOutlet="nodeList; context: { $implicit: tree(), depth: 0 }"
+/>
+} @else {
+<ng-container *ngTemplateOutlet="leafRows; context: { $implicit: rows() }" />
+} }
