@@ -1,5 +1,8 @@
 import { Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
+  ActivatedRouteSnapshot,
+  NavigationEnd,
   Router,
   RouterLink,
   RouterLinkActive,
@@ -8,6 +11,7 @@ import {
 import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
 import { MenuItem } from '@openng/optimus-ui/api';
+import { filter, map } from 'rxjs';
 import { AuthApiService } from '@soovioo/shared';
 import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
@@ -32,6 +36,26 @@ export class App {
   protected readonly schoolContext = inject(SchoolContextService);
 
   protected title = 'Soovioo';
+
+  /** Routes opt out of the app header via `data: { hideHeader: true }`
+   * (login and accept-invite pages). Read from the deepest activated route,
+   * since the flag sits on a child of the `:schoolSlug` route in path-based
+   * tenant mode. */
+  protected readonly hideHeader = toSignal(
+    this.router.events.pipe(
+      filter((e) => e instanceof NavigationEnd),
+      map(() => App.deepestChild(this.router.routerState.snapshot.root)),
+      map((route) => route.data['hideHeader'] === true),
+    ),
+    { initialValue: false },
+  );
+
+  private static deepestChild(
+    route: ActivatedRouteSnapshot,
+  ): ActivatedRouteSnapshot {
+    while (route.firstChild) route = route.firstChild;
+    return route;
+  }
 
   protected readonly darkMode = this.darkModeService.darkMode;
 

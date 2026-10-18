@@ -18,8 +18,12 @@ import { TimetablePage } from './timetable-page/timetable-page';
 
 const schoolRoutes: Route[] = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
-  { path: 'login', component: LoginPage },
-  { path: 'accept-invite', component: AcceptInvitePage },
+  { path: 'login', component: LoginPage, data: { hideHeader: true } },
+  {
+    path: 'accept-invite',
+    component: AcceptInvitePage,
+    data: { hideHeader: true },
+  },
   { path: 'home', component: HomePage, canActivate: [authGuard] },
   { path: 'grades', component: GradesPage, canActivate: [authGuard] },
   { path: 'absences', component: AbsencesPage, canActivate: [authGuard] },
@@ -39,7 +43,11 @@ const schoolRoutes: Route[] = [
 // the `:schoolSlug` wildcard below — Angular matches routes in array order,
 // and `:schoolSlug` would otherwise swallow "superadmin" as a literal slug.
 const superAdminRoutes: Route[] = [
-  { path: 'superadmin/login', component: LoginPage },
+  {
+    path: 'superadmin/login',
+    component: LoginPage,
+    data: { hideHeader: true },
+  },
   { path: 'superadmin', component: SuperAdminPage, canActivate: [authGuard] },
   {
     path: 'superadmin/settings',

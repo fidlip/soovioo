@@ -1,3 +1,4 @@
+@if (!hideHeader()) {
 <header
   class="sticky top-0 z-10 border-b border-surface-200 bg-surface-0/90 backdrop-blur dark:border-surface-700 dark:bg-surface-900/90"
 >
@@ -5,8 +6,11 @@
     <span
       class="flex items-center gap-2 text-lg font-semibold text-surface-900 dark:text-surface-0"
     >
-      <span class="text-2xl leading-none">🦉</span>
-      Soovioo
+      <img
+        src="/images/logo-inline.svg"
+        alt="Soovioo"
+        class="h-6 w-auto dark:brightness-0 dark:invert"
+      />
     </span>
 
     @if (isLoggedIn() && isSuperAdmin()) {
@@ -136,6 +140,7 @@
     }
   </div>
 </header>
+}
 
 <main class="px-4 py-8 sm:px-6 lg:px-8">
   <router-outlet />

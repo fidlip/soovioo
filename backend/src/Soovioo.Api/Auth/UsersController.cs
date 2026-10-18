@@ -203,7 +203,7 @@ public class UsersController(
         await db.SaveChangesAsync();
 
         var link = BuildInviteLink(linkOptions, school.Slug, user.InvitationToken);
-        var subject = $"Pozvánka do Sovy — {school.Name}";
+        var subject = $"Pozvánka do Soovioo — {school.Name}";
         var body = $"""
             <p>Dobrý den,</p>
             <p>byl(a) jste přihlášen(a) do školního systému Soovioo pro školu <strong>{school.Name}</strong>.
