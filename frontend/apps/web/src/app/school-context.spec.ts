@@ -1,13 +1,20 @@
 import { isPathBasedTenant, subdomainSlug } from './school-context';
 
 describe('isPathBasedTenant', () => {
-  it('treats localhost and bare IPs as path-based (dev/LAN)', () => {
-    expect(isPathBasedTenant('localhost')).toBe(true);
-    expect(isPathBasedTenant('192.168.1.42')).toBe(true);
+  it('treats localhost, bare IPs and LAN machine names as path-based', () => {
+    expect(isPathBasedTenant('localhost', 'soovioo.cz')).toBe(true);
+    expect(isPathBasedTenant('192.168.1.42', 'soovioo.cz')).toBe(true);
+    expect(isPathBasedTenant('aorus', 'soovioo.cz')).toBe(true);
+    expect(isPathBasedTenant('aorus.local', 'soovioo.cz')).toBe(true);
   });
 
-  it('treats a real hostname as subdomain-based', () => {
-    expect(isPathBasedTenant('demo.soovioo.cz')).toBe(false);
+  it('treats the main domain and its subdomains as subdomain-based', () => {
+    expect(isPathBasedTenant('demo.soovioo.cz', 'soovioo.cz')).toBe(false);
+    expect(isPathBasedTenant('soovioo.cz', 'soovioo.cz')).toBe(false);
+  });
+
+  it('does not mistake a lookalike domain for the main one', () => {
+    expect(isPathBasedTenant('notsoovioo.cz', 'soovioo.cz')).toBe(true);
   });
 });
 

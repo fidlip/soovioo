@@ -7,13 +7,19 @@ import { environment } from '../environments/environment';
 export const DEFAULT_DEV_SLUG = 'demo';
 
 /**
- * Dev/LAN access (`localhost` or a bare IP) has no real subdomain to carry
- * the school, so the slug lives in the first path segment instead
- * (`/demo/grades`). A real deployment resolves it from the subdomain
- * (`demo.<mainDomain>/grades`) and routes stay unprefixed.
+ * Only the real deployment domain carries the school in a subdomain
+ * (`demo.<mainDomain>/grades`, routes unprefixed). Every other host — dev
+ * and LAN access via `localhost`, a bare IP, or a machine name like `aorus`
+ * / `aorus.local` from a phone — has no subdomain to read, so the slug lives
+ * in the first path segment instead (`/demo/grades`). Deciding by "is it the
+ * main domain" rather than listing dev hosts means no LAN name can fall into
+ * subdomain mode, where `/demo/login` doesn't exist and redirects to `/`.
  */
-export function isPathBasedTenant(hostname: string = window.location.hostname): boolean {
-  return hostname === 'localhost' || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+export function isPathBasedTenant(
+  hostname: string = window.location.hostname,
+  mainDomain: string = environment.mainDomain,
+): boolean {
+  return hostname !== mainDomain && !hostname.endsWith(`.${mainDomain}`);
 }
 
 /** First label of the subdomain in front of `mainDomain`, e.g. "demo" from
