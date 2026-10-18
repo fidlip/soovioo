@@ -31,4 +31,11 @@ public class BehaviorRecord
 
     public required string RecordedByName { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Null until whoever views this record (typically the
+    /// targeted student's Parent/Student account) marks it read — same
+    /// shared-per-record simplification as <see cref="Messaging.Message.ReadAt"/>,
+    /// not tracked per individual viewer. Drives the "unread" homepage
+    /// widget (see DashboardController).</summary>
+    public DateTimeOffset? ReadAt { get; set; }
 }

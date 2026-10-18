@@ -150,6 +150,9 @@ namespace Sova.Api.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("RecordedByName")
                         .IsRequired()
                         .HasColumnType("text");

@@ -21,6 +21,8 @@ export interface BehaviorRecord {
   date: string;
   recordedByName: string;
   createdAt: string;
+  /** Null until marked read — see BehaviorController.MarkBehaviorRecordRead. */
+  readAt: string | null;
 }
 
 export interface CreateBehaviorRecordRequest {

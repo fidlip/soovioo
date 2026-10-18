@@ -30,10 +30,33 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
             .OrderByDescending(r => r.Date)
             .Select(r => new BehaviorRecordDto(
                 r.Id, r.StudentId, r.Student!.FirstName + " " + r.Student.LastName,
-                r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt))
+                r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt, r.ReadAt))
             .ToListAsync();
 
         return Ok(records);
+    }
+
+    /// <summary>Same shared-per-record semantics as MessagesController.MarkRead
+    /// — any caller who may see this record may also mark it read, not just
+    /// the targeted student's own Parent/Student account (mirrors the same
+    /// simplification Message.ReadAt already makes).</summary>
+    [HttpPost("behavior-records/{id:int}/read")]
+    public async Task<IActionResult> MarkBehaviorRecordRead(int id)
+    {
+        var record = await db.BehaviorRecords.FindAsync(id);
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        if (!await User.CanAccessStudentAsync(db, record.StudentId))
+        {
+            return Forbid();
+        }
+
+        record.ReadAt ??= DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        return NoContent();
     }
 
     /// <summary>Pochvala/Poznámka: any Teacher or Admin. Napomenutí/Důtka
@@ -70,7 +93,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
 
         var dto = new BehaviorRecordDto(
             record.Id, record.StudentId, student.FirstName + " " + student.LastName,
-            record.Type, record.Text, record.Date, record.RecordedByName, record.CreatedAt);
+            record.Type, record.Text, record.Date, record.RecordedByName, record.CreatedAt, record.ReadAt);
         return CreatedAtAction(nameof(GetBehaviorRecords), dto);
     }
 
@@ -205,7 +228,8 @@ public record BehaviorRecordDto(
     string Text,
     DateOnly Date,
     string RecordedByName,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ReadAt);
 
 public record SetBehaviorClassificationRequest(
     int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, BehaviorClassificationValue Value);

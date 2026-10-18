@@ -14,6 +14,7 @@
 }
 
 <div class="mb-6 flex flex-wrap items-end gap-3">
+  @if (!authApi.isStudent()) {
   <div class="flex flex-col gap-1.5">
     <label
       for="filterClass"
@@ -33,6 +34,7 @@
       styleClass="w-52"
     />
   </div>
+  }
   <div class="flex flex-col gap-1.5">
     <label
       for="filterSubject"

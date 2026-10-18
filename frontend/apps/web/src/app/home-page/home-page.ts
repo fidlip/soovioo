@@ -9,6 +9,8 @@ import {
   AbsenceStatus,
   AbsencesApiService,
   AuthApiService,
+  BehaviorApiService,
+  BehaviorRecordType,
   Dashboard,
   DashboardApiService,
 } from '@sova/shared';
@@ -31,6 +33,29 @@ const ABSENCE_STATUS_LABEL: Record<AbsenceStatus, string> = {
   Rejected: 'Zamítnuto',
 };
 
+/** Same labels/severities as behavior-page.ts's RECORD_TYPE_* — small
+ * enough that duplicating them here beats importing across pages. */
+const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
+  Pochvala: 'Pochvala',
+  Poznamka: 'Poznámka',
+  NapomenutiTridnihoUcitele: 'Napomenutí třídního učitele',
+  DutkaTridnihoUcitele: 'Důtka třídního učitele',
+  NapomenutiReditele: 'Napomenutí ředitele školy',
+  DutkaReditele: 'Důtka ředitele školy',
+};
+
+const RECORD_TYPE_SEVERITY: Record<
+  BehaviorRecordType,
+  'success' | 'info' | 'warn' | 'danger'
+> = {
+  Pochvala: 'success',
+  Poznamka: 'info',
+  NapomenutiTridnihoUcitele: 'warn',
+  DutkaTridnihoUcitele: 'danger',
+  NapomenutiReditele: 'warn',
+  DutkaReditele: 'danger',
+};
+
 /** Role-specific widget set, per the roadmap's "Home page (dashboard)" spec:
  * Parent/Student get their own schedule/grades/absences; Teacher/Admin get
  * the operational view (today's lessons taught, absences awaiting review);
@@ -45,6 +70,7 @@ const ABSENCE_STATUS_LABEL: Record<AbsenceStatus, string> = {
 export class HomePage {
   private readonly dashboardApi = inject(DashboardApiService);
   private readonly absencesApi = inject(AbsencesApiService);
+  private readonly behaviorApi = inject(BehaviorApiService);
   private readonly router = inject(Router);
   protected readonly authApi = inject(AuthApiService);
   protected readonly schoolContext = inject(SchoolContextService);
@@ -122,6 +148,23 @@ export class HomePage {
 
   protected goTo(path: string): void {
     this.router.navigate(this.schoolContext.link(path));
+  }
+
+  protected recordTypeLabel(type: BehaviorRecordType): string {
+    return RECORD_TYPE_LABELS[type];
+  }
+
+  protected recordTypeSeverity(
+    type: BehaviorRecordType,
+  ): 'success' | 'info' | 'warn' | 'danger' {
+    return RECORD_TYPE_SEVERITY[type];
+  }
+
+  protected markBehaviorRecordRead(id: number): void {
+    this.behaviorApi.markRecordRead(id).subscribe({
+      next: () => this.reload(),
+      error: (err) => console.error('markRecordRead failed', err),
+    });
   }
 
   private reload(): void {

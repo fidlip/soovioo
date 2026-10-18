@@ -166,6 +166,46 @@ public class DashboardControllerTests
     }
 
     [Fact]
+    public async Task UnreadBehaviorRecordsIsScopedToAccessibleStudents()
+    {
+        using var db = NewDb();
+        var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        db.Users.Add(parent);
+        await db.SaveChangesAsync();
+        var myStudent = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        db.Students.AddRange(myStudent, otherStudent);
+        await db.SaveChangesAsync();
+        db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = myStudent.Id, SchoolId = SchoolId });
+        db.BehaviorRecords.AddRange(
+            new Sova.Api.Behavior.BehaviorRecord
+            {
+                StudentId = myStudent.Id, Type = Sova.Api.Behavior.BehaviorRecordType.Pochvala,
+                Text = "b1", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
+            },
+            new Sova.Api.Behavior.BehaviorRecord
+            {
+                StudentId = myStudent.Id, Type = Sova.Api.Behavior.BehaviorRecordType.Pochvala,
+                Text = "b2", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
+                ReadAt = DateTimeOffset.UtcNow,
+            },
+            new Sova.Api.Behavior.BehaviorRecord
+            {
+                StudentId = otherStudent.Id, Type = Sova.Api.Behavior.BehaviorRecordType.Pochvala,
+                Text = "b3", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
+            });
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, parent.Id, "Parent").GetDashboard();
+
+        var dto = Assert.IsType<DashboardDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Single(dto.UnreadBehaviorRecords);
+        Assert.Equal(myStudent.Id, dto.UnreadBehaviorRecords[0].StudentId);
+    }
+
+    [Fact]
     public async Task StudentWithNoLinkedStudentGetsEmptyWidgetsNotAnError()
     {
         using var db = NewDb();
@@ -181,5 +221,6 @@ public class DashboardControllerTests
         Assert.Empty(dto.RecentGrades);
         Assert.Empty(dto.PendingAbsences);
         Assert.Equal(0, dto.UnreadMessageCount);
+        Assert.Empty(dto.UnreadBehaviorRecords);
     }
 }

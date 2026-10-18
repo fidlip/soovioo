@@ -267,6 +267,55 @@ public class BehaviorControllerTests
     }
 
     [Fact]
+    public async Task MarkReadAllowedForLinkedParentAndIsIdempotent()
+    {
+        using var db = NewDb();
+        var (_, student) = await SeedClassAndStudentAsync(db);
+        db.BehaviorRecords.Add(new Sova.Api.Behavior.BehaviorRecord
+        {
+            StudentId = student.Id, Type = Sova.Api.Behavior.BehaviorRecordType.Pochvala,
+            Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
+        });
+        var parentUser = new User { Username = "rodic4", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        db.Users.Add(parentUser);
+        await db.SaveChangesAsync();
+        db.ParentStudents.Add(new ParentStudent { UserId = parentUser.Id, StudentId = student.Id, SchoolId = SchoolId });
+        await db.SaveChangesAsync();
+        var record = await db.BehaviorRecords.FirstAsync();
+        var controller = NewController(db, parentUser.Id, "Parent");
+
+        var firstResult = await controller.MarkBehaviorRecordRead(record.Id);
+        Assert.IsType<NoContentResult>(firstResult);
+        var firstReadAt = (await db.BehaviorRecords.FirstAsync()).ReadAt;
+        Assert.NotNull(firstReadAt);
+
+        var secondResult = await controller.MarkBehaviorRecordRead(record.Id);
+        Assert.IsType<NoContentResult>(secondResult);
+        Assert.Equal(firstReadAt, (await db.BehaviorRecords.FirstAsync()).ReadAt);
+    }
+
+    [Fact]
+    public async Task MarkReadRejectedForUnrelatedParent()
+    {
+        using var db = NewDb();
+        var (_, student) = await SeedClassAndStudentAsync(db);
+        db.BehaviorRecords.Add(new Sova.Api.Behavior.BehaviorRecord
+        {
+            StudentId = student.Id, Type = Sova.Api.Behavior.BehaviorRecordType.Pochvala,
+            Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
+        });
+        var parentUser = new User { Username = "rodic5", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        db.Users.Add(parentUser);
+        await db.SaveChangesAsync();
+        var record = await db.BehaviorRecords.FirstAsync();
+
+        var result = await NewController(db, parentUser.Id, "Parent").MarkBehaviorRecordRead(record.Id);
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.Null((await db.BehaviorRecords.FirstAsync()).ReadAt);
+    }
+
+    [Fact]
     public async Task GetBehaviorClassificationsFiltersForUnrelatedParent()
     {
         using var db = NewDb();

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sova.Api.Attendance;
 using Sova.Api.Auth;
+using Sova.Api.Behavior;
 using Sova.Api.Data;
 using Sova.Api.Events;
 using Sova.Api.Grades;
@@ -30,7 +31,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             // SuperAdmin isn't tied to a school and has no agenda pages to
             // summarize — same "nothing to show" stance as EventsController.
-            return Ok(new DashboardDto([], null, [], [], 0, [], null));
+            return Ok(new DashboardDto([], null, [], [], 0, [], [], null));
         }
 
         var schoolId = currentSchool.SchoolId.Value;
@@ -90,6 +91,20 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         }
         var unreadMessageCount = await messagesQuery.CountAsync(m => m.ReadAt == null);
 
+        var behaviorRecordsQuery = db.BehaviorRecords.AsQueryable();
+        if (allowedStudentIds is not null)
+        {
+            behaviorRecordsQuery = behaviorRecordsQuery.Where(r => allowedStudentIds.Contains(r.StudentId));
+        }
+        var unreadBehaviorRecords = await behaviorRecordsQuery
+            .Where(r => r.ReadAt == null)
+            .OrderByDescending(r => r.Date)
+            .Take(5)
+            .Select(r => new BehaviorRecordDto(
+                r.Id, r.StudentId, r.Student!.FirstName + " " + r.Student.LastName,
+                r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt, r.ReadAt))
+            .ToListAsync();
+
         var eventsQuery = isAdmin
             ? db.VisibleToAdmin(schoolId)
             : isTeacher
@@ -116,7 +131,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         return Ok(new DashboardDto(
             todayLessons, todayLessonsContext, recentGrades, pendingAbsences,
-            unreadMessageCount, upcomingEvents, schoolCounts));
+            unreadMessageCount, upcomingEvents, unreadBehaviorRecords, schoolCounts));
     }
 
     /// <summary>Filtered by day of week only, not <see cref="WeekParity"/> —
@@ -183,6 +198,9 @@ public record DashboardDto(
     IReadOnlyList<AbsenceDto> PendingAbsences,
     int UnreadMessageCount,
     IReadOnlyList<UpcomingEventDto> UpcomingEvents,
+    /// <summary>Up to 5 most recent, same shared-read-state as
+    /// <see cref="UnreadMessageCount"/> — see <see cref="BehaviorRecord.ReadAt"/>.</summary>
+    IReadOnlyList<BehaviorRecordDto> UnreadBehaviorRecords,
     /// <summary>Admin only — null for every other role.</summary>
     SchoolCountsDto? SchoolCounts);
 

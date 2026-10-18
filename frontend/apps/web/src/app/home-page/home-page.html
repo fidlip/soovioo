@@ -150,6 +150,42 @@
     />
   </p-card>
 
+  <p-card header="Chování">
+    @if (d.unreadBehaviorRecords.length === 0) {
+    <p class="text-sm text-surface-500">Žádné nepřečtené záznamy.</p>
+    } @else {
+    <ul class="flex flex-col gap-2">
+      @for (record of d.unreadBehaviorRecords; track record.id) {
+      <li class="flex flex-col gap-1 text-sm">
+        <div class="flex items-center justify-between gap-2">
+          <span>{{ record.studentName }}</span>
+          <p-tag
+            [value]="recordTypeLabel(record.type)"
+            [severity]="recordTypeSeverity(record.type)"
+          />
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="truncate text-surface-500">{{ record.text }}</span>
+          <p-button
+            label="Přečteno"
+            size="small"
+            [text]="true"
+            (onClick)="markBehaviorRecordRead(record.id)"
+          />
+        </div>
+      </li>
+      }
+    </ul>
+    }
+    <p-button
+      label="Celé chování"
+      size="small"
+      [text]="true"
+      styleClass="mt-3"
+      (onClick)="goTo('behavior')"
+    />
+  </p-card>
+
   <p-card header="Nejbližší akce">
     @if (d.upcomingEvents.length === 0) {
     <p class="text-sm text-surface-500">Žádné nadcházející akce.</p>

@@ -29,6 +29,9 @@
             <span class="text-sm text-surface-500"
               >{{ formatDate(record.date) }}</span
             >
+            @if (!record.readAt) {
+            <p-tag value="Nové" severity="info" />
+            }
           </div>
           <p
             class="mt-1 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200"
@@ -46,6 +49,14 @@
           severity="danger"
           [text]="true"
           (onClick)="deleteRecord(record)"
+        />
+        } @else if (!record.readAt) {
+        <p-button
+          label="Označit jako přečtené"
+          icon="pi pi-check"
+          size="small"
+          [text]="true"
+          (onClick)="markRead(record)"
         />
         }
       </div>

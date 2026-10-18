@@ -53,4 +53,14 @@ export class BehaviorApiService {
       request,
     );
   }
+
+  /** Idempotent — marking an already-read record again is a no-op. Any
+   * caller who may see the record may also mark it read, not just its
+   * targeted student's own Parent/Student account. */
+  markRecordRead(id: number): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/behavior-records/${id}/read`,
+      {},
+    );
+  }
 }

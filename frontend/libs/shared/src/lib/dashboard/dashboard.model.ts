@@ -1,4 +1,5 @@
 import { Absence } from '../attendance/absence.model';
+import { BehaviorRecord } from '../behavior/behavior.model';
 import { Grade } from '../grades/grade.model';
 import { TimetableEntry } from '../timetable/timetable-entry.model';
 
@@ -29,6 +30,8 @@ export interface Dashboard {
   pendingAbsences: Absence[];
   unreadMessageCount: number;
   upcomingEvents: UpcomingEvent[];
+  /** Up to 5 most recent — same shared-read-state as unreadMessageCount. */
+  unreadBehaviorRecords: BehaviorRecord[];
   /** Admin only. */
   schoolCounts: SchoolCounts | null;
 }

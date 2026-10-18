@@ -178,6 +178,13 @@ export class BehaviorPage {
   protected availableRecordTypes(
     studentId: number | null,
   ): { value: BehaviorRecordType; label: string }[] {
+    if (!this.canManageBehavior()) {
+      // Parent/Student may never record anything — without this, every
+      // role fell through to `base` below, which `canManageRecord` then
+      // misread as "may delete Pochvala/Poznámka", showing a trash icon
+      // that just 403'd on click.
+      return [];
+    }
     const base: { value: BehaviorRecordType; label: string }[] = [
       { value: 'Pochvala', label: RECORD_TYPE_LABELS.Pochvala },
       { value: 'Poznamka', label: RECORD_TYPE_LABELS.Poznamka },
@@ -295,6 +302,15 @@ export class BehaviorPage {
     this.behaviorApi.deleteBehaviorRecord(record.id).subscribe({
       next: () => this.reload(),
       error: (err) => console.error('deleteBehaviorRecord failed', err),
+    });
+  }
+
+  /** Shown in the trash icon's old slot for Parent/Student, who may never
+   * delete a record — this is the only action they have on one. */
+  protected markRead(record: BehaviorRecord): void {
+    this.behaviorApi.markRecordRead(record.id).subscribe({
+      next: () => this.reload(),
+      error: (err) => console.error('markRecordRead failed', err),
     });
   }
 
