@@ -1,6 +1,6 @@
 import { Component, NO_ERRORS_SCHEMA, inject } from '@angular/core';
 import { NativeScriptCommonModule, NativeScriptRouterModule, RouterExtensions } from '@nativescript/angular';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 
 @Component({
   selector: 'ns-nav-bar',

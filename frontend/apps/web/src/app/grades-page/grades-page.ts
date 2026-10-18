@@ -17,7 +17,7 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 @Component({
   selector: 'app-grades-page',

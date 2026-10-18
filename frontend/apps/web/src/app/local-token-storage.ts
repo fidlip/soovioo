@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { TokenStorage } from '@sova/shared';
+import { TokenStorage } from '@soovioo/shared';
 
-const STORAGE_KEY = 'sova.auth.token';
+const STORAGE_KEY = 'soovioo.auth.token';
 
 @Injectable()
 export class LocalTokenStorage implements TokenStorage {

@@ -6,7 +6,7 @@ import { Card } from '@openng/optimus-ui/card';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
 
 @Component({

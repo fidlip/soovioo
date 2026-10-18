@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { API_BASE_URL, TokenStorage } from '@sova/shared';
+import { API_BASE_URL, TokenStorage } from '@soovioo/shared';
 import { App } from './app';
 import { appRoutes } from './app.routes';
 

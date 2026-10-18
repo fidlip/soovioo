@@ -15,7 +15,7 @@ import {
   AuthApiService,
   Student,
   StudentsApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,

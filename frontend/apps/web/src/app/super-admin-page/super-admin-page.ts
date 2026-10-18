@@ -10,7 +10,7 @@ import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
-import { CreateSchoolRequest, School, SchoolsApiService, UpdateSchoolRequest } from '@sova/shared';
+import { CreateSchoolRequest, School, SchoolsApiService, UpdateSchoolRequest } from '@soovioo/shared';
 
 const DEFAULT_PAGE_SIZE = 10;
 

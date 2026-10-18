@@ -1,6 +1,6 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
-import { Absence, AbsencesApiService, AuthApiService, Student, StudentsApiService } from '@sova/shared';
+import { Absence, AbsencesApiService, AuthApiService, Student, StudentsApiService } from '@soovioo/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({

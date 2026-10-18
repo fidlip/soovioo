@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../api-base-url.token';
 import { MatrikaExportParams } from './matrika-export.model';
 
 /**
- * See Sova.Api.Matrika.MatrikaExportService for exactly what's implemented —
+ * See Soovioo.Api.Matrika.MatrikaExportService for exactly what's implemented —
  * this is a pre-pilot skeleton, not a submission-ready export.
  */
 @Injectable({ providedIn: 'root' })

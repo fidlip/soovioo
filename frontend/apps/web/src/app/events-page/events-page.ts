@@ -40,7 +40,7 @@ import {
   SchoolClassOption,
   SchoolEvent,
   StudentOption,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 type ViewOption = { value: string; label: string };
 
@@ -60,7 +60,7 @@ const VIEW_OPTIONS: ViewOption[] = [
   { value: 'multiMonthYear', label: 'Rok' },
 ];
 
-const VIEW_STORAGE_KEY = 'sova-events-view';
+const VIEW_STORAGE_KEY = 'soovioo-events-view';
 const DEFAULT_VIEW = 'dayGridMonth';
 
 /** Persisted choice wins (same pattern as dark mode in app.ts) — first-ever

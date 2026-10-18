@@ -24,7 +24,7 @@ import {
   TeachersApiService,
   TimetableApiService,
   WeekParity,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 const DAYS: DayOfWeek[] = [
   'Monday',

@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-const DARK_MODE_STORAGE_KEY = 'sova-dark-mode';
+const DARK_MODE_STORAGE_KEY = 'soovioo-dark-mode';
 
 /** Shared so both the header's quick toggle and the Nastavení page's switch
  * reflect and change the same state. */
@@ -42,6 +42,6 @@ export class DarkModeService {
   }
 
   private apply(enabled: boolean): void {
-    document.documentElement.classList.toggle('sova-dark', enabled);
+    document.documentElement.classList.toggle('soovioo-dark', enabled);
   }
 }

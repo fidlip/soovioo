@@ -23,7 +23,7 @@ import {
   SubjectsApiService,
   TeacherTimetableEntry,
   TimetableApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
  * for homework attachments too (see ROADMAP "Přílohy u zpráv"). */

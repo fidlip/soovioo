@@ -24,7 +24,7 @@ import {
   PaymentSchoolClassOption,
   PaymentStudentOption,
   PaymentsApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type AmountTypeOption = { value: PaymentAmountType; label: string };

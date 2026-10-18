@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, UrlTree } from '@angular/router';
 import { Router } from '@angular/router';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 
 export const authGuard: CanActivateFn = (): boolean | UrlTree => {
   const authApi = inject(AuthApiService);

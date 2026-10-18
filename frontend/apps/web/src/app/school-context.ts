@@ -17,11 +17,11 @@ export function isPathBasedTenant(hostname: string = window.location.hostname): 
 }
 
 /** First label of the subdomain in front of `mainDomain`, e.g. "demo" from
- * "demo.sova.cz" when `mainDomain` is "sova.cz". The bare main domain itself
+ * "demo.soovioo.cz" when `mainDomain` is "soovioo.cz". The bare main domain itself
  * (no subdomain) has no tenant — that's the landing/SuperAdmin entry point,
  * not a school. Matched directly against the configured domain (not guessed
  * from segment count), so it works regardless of how many labels the real
- * domain turns out to have (`sova.cz` vs e.g. `sova.co.uk`). A hostname that
+ * domain turns out to have (`soovioo.cz` vs e.g. `soovioo.co.uk`). A hostname that
  * doesn't end in `mainDomain` at all (misconfiguration, or mid-migration to
  * a new domain) fails closed to "no tenant" rather than guessing. */
 export function subdomainSlug(hostname: string, mainDomain: string = environment.mainDomain): string | null {

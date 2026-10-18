@@ -5,7 +5,7 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
 
 /** Lands here from the link in an invite e-mail (see `UsersController`'s

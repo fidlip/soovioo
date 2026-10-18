@@ -6,7 +6,7 @@ import {
   SchoolPeriodsApiService,
   TimetableApiService,
   TimetableEntry,
-} from '@sova/shared';
+} from '@soovioo/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];

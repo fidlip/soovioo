@@ -27,7 +27,7 @@ export interface Student {
   catchmentArea: boolean | null;
   /** Roughly ZAHDAT — also just useful on its own. */
   enrollmentDate: string | null;
-  /** Emergency/guardian contact, independent of whether a parent has a Sova account. */
+  /** Emergency/guardian contact, independent of whether a parent has a Soovioo account. */
   contactPhone: string | null;
   contactEmail: string | null;
   /** Default variable symbol used when generating this student's Payment

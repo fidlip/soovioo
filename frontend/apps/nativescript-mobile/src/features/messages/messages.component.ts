@@ -6,7 +6,7 @@ import {
   MessagesApiService,
   Student,
   StudentsApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({

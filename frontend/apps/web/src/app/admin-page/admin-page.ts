@@ -50,7 +50,7 @@ import {
   SubjectsApiService,
   UpdateUserRequest,
   UsersApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 /** Admin: full access to every tab. ClassTeacher: a Teacher who owns at
  * least one class (SchoolClass.classTeacherId) gets a cut-down page — just

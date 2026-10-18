@@ -12,7 +12,7 @@ import {
   EventsApiService,
   MyProfile,
   MyProfileApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 import { DarkModeService } from '../dark-mode.service';
 import { SchoolContextService } from '../school-context';
 

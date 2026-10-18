@@ -4,7 +4,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL, Grade, Student, Subject, TokenStorage } from '@sova/shared';
+import { API_BASE_URL, Grade, Student, Subject, TokenStorage } from '@soovioo/shared';
 import { GradesPage } from './grades-page';
 
 class FakeTokenStorage implements TokenStorage {

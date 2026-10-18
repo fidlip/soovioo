@@ -7,10 +7,10 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withRouterConfig } from '@angular/router';
 import { Translation } from '@openng/optimus-ui/api';
 import { provideOptimus } from '@openng/optimus-ui/config';
-import { API_BASE_URL, TokenStorage, authInterceptor } from '@sova/shared';
+import { API_BASE_URL, TokenStorage, authInterceptor } from '@soovioo/shared';
 import { appRoutes } from './app.routes';
 import { LocalTokenStorage } from './local-token-storage';
-import { sovaTheme } from './theme';
+import { sooviooTheme } from './theme';
 
 // optimus-ui (PrimeNG) components with their own locale-dependent text —
 // the DatePicker's month/day names and "today" button, for now — don't
@@ -45,13 +45,13 @@ export const appConfig: ApplicationConfig = {
     provideOptimus({
       translation: csTranslation,
       theme: {
-        preset: sovaTheme,
+        preset: sooviooTheme,
         options: {
           cssLayer: {
             name: 'optimus',
             order: 'tailwind-base, optimus, tailwind-utilities',
           },
-          darkModeSelector: '.sova-dark',
+          darkModeSelector: '.soovioo-dark',
         },
       },
     }),

@@ -1,0 +1,237 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Auth;
+using Soovioo.Api.Data;
+
+namespace Soovioo.Api.Evidence;
+
+[Authorize]
+[ApiController]
+[Route("api/students")]
+public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents()
+    {
+        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+
+        var query = db.Students.AsQueryable();
+        if (allowedStudentIds is not null)
+        {
+            query = query.Where(s => allowedStudentIds.Contains(s.Id));
+        }
+
+        // Projected by hand (not via the ToDto helper below) so EF Core can
+        // translate this straight to SQL instead of materializing every
+        // column and mapping client-side.
+        var students = await query
+            .OrderBy(s => s.LastName)
+            .Select(s => new StudentDto(
+                s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name,
+                s.RodneCislo, s.DateOfBirth, s.Gender, s.CitizenshipQualifier, s.CountryCode,
+                s.Country == null ? null : s.Country.Name, s.Street, s.MunicipalityCode,
+                s.Municipality == null ? null : s.Municipality.Name, s.PostalCode,
+                s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail, s.DefaultVariableSymbol))
+            .ToListAsync();
+
+        return Ok(students);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<StudentDto>> AddStudent(CreateStudentRequest request)
+    {
+        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Unknown schoolClassId.");
+        }
+
+        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), request.SchoolClassId))
+        {
+            return Forbid();
+        }
+
+        var student = new Student
+        {
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            SchoolClassId = request.SchoolClassId,
+            SchoolId = currentSchool.SchoolId!.Value,
+            RodneCislo = request.RodneCislo,
+            DateOfBirth = request.DateOfBirth,
+            Gender = request.Gender,
+            CitizenshipQualifier = request.CitizenshipQualifier,
+            CountryCode = request.CountryCode,
+            Street = request.Street,
+            MunicipalityCode = request.MunicipalityCode,
+            PostalCode = request.PostalCode,
+            CatchmentArea = request.CatchmentArea,
+            EnrollmentDate = request.EnrollmentDate,
+            ContactPhone = request.ContactPhone,
+            ContactEmail = request.ContactEmail,
+            DefaultVariableSymbol = request.DefaultVariableSymbol,
+        };
+
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, await ToDtoAsync(student, schoolClass.Name));
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<StudentDto>> UpdateStudent(int id, CreateStudentRequest request)
+    {
+        var student = await db.Students.FindAsync(id);
+        if (student is null)
+        {
+            return NotFound();
+        }
+
+        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Unknown schoolClassId.");
+        }
+
+        if (!User.IsInRole(nameof(UserRole.Admin)))
+        {
+            var teacherId = CurrentUserId();
+            // Both the student's current class and the (possibly different)
+            // target class must be the teacher's own — otherwise either side
+            // of the move could reach outside their class.
+            if (!await db.IsClassTeacherOfAsync(teacherId, student.SchoolClassId)
+                || !await db.IsClassTeacherOfAsync(teacherId, request.SchoolClassId))
+            {
+                return Forbid();
+            }
+        }
+
+        student.FirstName = request.FirstName;
+        student.LastName = request.LastName;
+        student.SchoolClassId = request.SchoolClassId;
+        student.RodneCislo = request.RodneCislo;
+        student.DateOfBirth = request.DateOfBirth;
+        student.Gender = request.Gender;
+        student.CitizenshipQualifier = request.CitizenshipQualifier;
+        student.CountryCode = request.CountryCode;
+        student.Street = request.Street;
+        student.MunicipalityCode = request.MunicipalityCode;
+        student.PostalCode = request.PostalCode;
+        student.CatchmentArea = request.CatchmentArea;
+        student.EnrollmentDate = request.EnrollmentDate;
+        student.ContactPhone = request.ContactPhone;
+        student.ContactEmail = request.ContactEmail;
+        student.DefaultVariableSymbol = request.DefaultVariableSymbol;
+        await db.SaveChangesAsync();
+
+        return Ok(await ToDtoAsync(student, schoolClass.Name));
+    }
+
+    /// <summary>Unlike the other evidence entities, a student leaving the
+    /// school is a normal, expected event — so this actually removes their
+    /// records (grades, absences, messages, parent links) rather than
+    /// rejecting while any exist. There's no undo; the admin-page confirms
+    /// before calling this.</summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<IActionResult> DeleteStudent(int id)
+    {
+        var student = await db.Students.FindAsync(id);
+        if (student is null)
+        {
+            return NotFound();
+        }
+
+        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
+        {
+            return Forbid();
+        }
+
+        db.Grades.RemoveRange(db.Grades.Where(g => g.StudentId == id));
+        db.Absences.RemoveRange(db.Absences.Where(a => a.StudentId == id));
+        db.Messages.RemoveRange(db.Messages.Where(m => m.StudentId == id));
+        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.StudentId == id));
+        // The student's own login (role Student), if they had one — gone
+        // along with everything else, not just unlinked (SetNull in
+        // AppDbContext handles the "admin deletes the account directly via
+        // UsersController" case; this is the other direction).
+        if (student.UserId is { } linkedUserId)
+        {
+            var linkedUser = await db.Users.FindAsync(linkedUserId);
+            if (linkedUser is not null)
+            {
+                db.Users.Remove(linkedUser);
+            }
+        }
+        db.Students.Remove(student);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    // Country/Municipality names are looked up by code rather than via
+    // navigation properties, since student.Country/student.Municipality
+    // aren't populated after Add/Update without an extra Include — these
+    // two single-row lookups are cheaper than that.
+    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private async Task<StudentDto> ToDtoAsync(Student student, string schoolClassName)
+    {
+        var countryName = student.CountryCode is null
+            ? null
+            : await db.Countries.Where(c => c.Code == student.CountryCode).Select(c => c.Name).FirstOrDefaultAsync();
+        var municipalityName = student.MunicipalityCode is null
+            ? null
+            : await db.Municipalities.Where(m => m.Code == student.MunicipalityCode).Select(m => m.Name).FirstOrDefaultAsync();
+
+        return new StudentDto(
+            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClassName,
+            student.RodneCislo, student.DateOfBirth, student.Gender, student.CitizenshipQualifier,
+            student.CountryCode, countryName, student.Street, student.MunicipalityCode, municipalityName,
+            student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,
+            student.ContactEmail, student.DefaultVariableSymbol);
+    }
+}
+
+public record CreateStudentRequest(
+    string FirstName,
+    string LastName,
+    int SchoolClassId,
+    string? RodneCislo = null,
+    DateOnly? DateOfBirth = null,
+    Gender? Gender = null,
+    string? CitizenshipQualifier = null,
+    string? CountryCode = null,
+    string? Street = null,
+    string? MunicipalityCode = null,
+    string? PostalCode = null,
+    bool? CatchmentArea = null,
+    DateOnly? EnrollmentDate = null,
+    string? ContactPhone = null,
+    string? ContactEmail = null,
+    string? DefaultVariableSymbol = null);
+
+public record StudentDto(
+    int Id,
+    string FirstName,
+    string LastName,
+    int SchoolClassId,
+    string SchoolClassName,
+    string? RodneCislo,
+    DateOnly? DateOfBirth,
+    Gender? Gender,
+    string? CitizenshipQualifier,
+    string? CountryCode,
+    string? CountryName,
+    string? Street,
+    string? MunicipalityCode,
+    string? MunicipalityName,
+    string? PostalCode,
+    bool? CatchmentArea,
+    DateOnly? EnrollmentDate,
+    string? ContactPhone,
+    string? ContactEmail,
+    string? DefaultVariableSymbol);

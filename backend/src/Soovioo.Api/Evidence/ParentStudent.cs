@@ -1,0 +1,16 @@
+using Soovioo.Api.Auth;
+
+namespace Soovioo.Api.Evidence;
+
+/// <summary>Links a Parent-role user to the student(s) they may see/act on.</summary>
+public class ParentStudent
+{
+    public int UserId { get; set; }
+    public User? User { get; set; }
+
+    public int StudentId { get; set; }
+    public Student? Student { get; set; }
+
+    public int SchoolId { get; set; }
+    public School? School { get; set; }
+}

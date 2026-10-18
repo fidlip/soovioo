@@ -6,7 +6,7 @@ import {
 } from '@nativescript/angular';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { withInterceptors, withInterceptorsFromDi } from '@angular/common/http';
-import { API_BASE_URL, TokenStorage, authInterceptor } from '@sova/shared';
+import { API_BASE_URL, TokenStorage, authInterceptor } from '@soovioo/shared';
 import { routes } from './app.routes';
 import { AppComponent } from './app.component';
 import { NativeTokenStorage } from './native-token-storage';

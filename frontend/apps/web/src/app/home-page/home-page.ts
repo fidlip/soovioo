@@ -13,7 +13,7 @@ import {
   BehaviorRecordType,
   Dashboard,
   DashboardApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
 
 const ABSENCE_STATUS_SEVERITY: Record<

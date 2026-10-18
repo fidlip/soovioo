@@ -21,7 +21,7 @@ import {
   SchoolHalfYear,
   Student,
   StudentsApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',

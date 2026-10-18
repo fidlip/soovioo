@@ -17,7 +17,7 @@ import {
   SchoolClass,
   Student,
   StudentsApiService,
-} from '@sova/shared';
+} from '@soovioo/shared';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */

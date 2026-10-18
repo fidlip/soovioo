@@ -4,11 +4,11 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: sova
+      POSTGRES_DB: soovioo
     ports:
       - "5432:5432"
     volumes:
-      - sova-postgres-data:/var/lib/postgresql/data
+      - soovioo-postgres-data:/var/lib/postgresql/data
 
   # Local mail-catcher for dev — nothing leaves the machine. SMTP on 1025
   # (matches appsettings.Development.json's Smtp:Port, no auth needed) and a
@@ -20,4 +20,4 @@ services:
       - "8025:8025"
 
 volumes:
-  sova-postgres-data:
+  soovioo-postgres-data:

@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 import { isPathBasedTenant } from './school-context';
 
 // Reads `schoolSlug` from the guard's own candidate route rather than from

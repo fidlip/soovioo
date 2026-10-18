@@ -8,7 +8,7 @@ import {
 import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
 import { MenuItem } from '@openng/optimus-ui/api';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
 
@@ -31,7 +31,7 @@ export class App {
   private readonly darkModeService = inject(DarkModeService);
   protected readonly schoolContext = inject(SchoolContextService);
 
-  protected title = 'Sova';
+  protected title = 'Soovioo';
 
   protected readonly darkMode = this.darkModeService.darkMode;
 

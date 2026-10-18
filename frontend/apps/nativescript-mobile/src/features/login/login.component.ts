@@ -1,6 +1,6 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule, NativeScriptFormsModule, RouterExtensions } from '@nativescript/angular';
-import { AuthApiService } from '@sova/shared';
+import { AuthApiService } from '@soovioo/shared';
 
 @Component({
   selector: 'ns-login',
