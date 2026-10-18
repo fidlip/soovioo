@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Covers the slug-routing + auth-guard redirect chain and basic login/logout
@@ -20,16 +20,21 @@ test('unauthenticated deep link redirects to login instead of the page', async (
   await expect(page).toHaveURL(/\/demo\/login$/);
 });
 
-test('wrong credentials show an error and stay on the login page', async ({
-  page,
-}) => {
-  await page.goto('/demo/login');
-  await page.locator('#username').fill('admin');
-  await page.locator('#password').fill('not-the-right-password');
-  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+test.describe('wrong credentials', () => {
+  // The browser itself logs the rejected login's 401 as a console error.
+  test.use({ allowedConsoleMessages: [/status of 401/] });
 
-  await expect(page.getByText('Neplatné přihlašovací údaje.')).toBeVisible();
-  await expect(page).toHaveURL(/\/demo\/login$/);
+  test('wrong credentials show an error and stay on the login page', async ({
+    page,
+  }) => {
+    await page.goto('/demo/login');
+    await page.locator('#username').fill('admin');
+    await page.locator('#password').fill('not-the-right-password');
+    await page.getByRole('button', { name: 'Přihlásit se' }).click();
+
+    await expect(page.getByText('Neplatné přihlašovací údaje.')).toBeVisible();
+    await expect(page).toHaveURL(/\/demo\/login$/);
+  });
 });
 
 test('teacher can log in, see the nav, and log out', async ({ page }) => {

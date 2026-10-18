@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * httpOnly refresh-cookie sessions: the access token lives in memory only,
@@ -45,11 +45,13 @@ test('without "Zůstat přihlášen" the refresh cookie ends with the browser', 
   expect((await refreshCookie(page))?.expires).toBe(-1);
 });
 
-test('"Zůstat přihlášen" sets a persistent refresh cookie', async ({ page }) => {
+test('"Zůstat přihlášen" sets a persistent refresh cookie', async ({
+  page,
+}) => {
   await login(page, true);
 
-  const expires = (await refreshCookie(page))?.expires ?? -1;
-  const days = (expires * 1000 - Date.now()) / 86_400_000;
+  const cookie = await refreshCookie(page);
+  const days = ((cookie?.expires as number) * 1000 - Date.now()) / 86_400_000;
   expect(days).toBeGreaterThan(29);
 });
 

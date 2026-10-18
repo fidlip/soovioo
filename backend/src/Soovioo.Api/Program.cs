@@ -127,6 +127,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
     SeedUsers(db);
     BackfillDemoTimetableTeacher(db);
+    BackfillDemoClassTeacher(db);
     SeedReferenceData(db);
     BackfillDemoStudentReferenceCodes(db);
 
@@ -243,6 +244,23 @@ static void BackfillDemoTimetableTeacher(AppDbContext db)
         entry.TeacherId = teacher.Id;
     }
 
+    db.SaveChanges();
+}
+
+// Same reasoning as BackfillDemoTimetableTeacher: makes "ucitel" the class
+// teacher of the HasData-seeded demo class 5.A (Id 1), which the restricted
+// class-teacher Administrace view (and its e2e test) rely on. Only while
+// still unset — never overrides a class teacher someone actually chose.
+static void BackfillDemoClassTeacher(AppDbContext db)
+{
+    var teacher = db.Users.IgnoreQueryFilters().FirstOrDefault(u => u.Username == "ucitel" && u.SchoolId == 1);
+    var demoClass = db.SchoolClasses.IgnoreQueryFilters().FirstOrDefault(c => c.Id == 1 && c.ClassTeacherId == null);
+    if (teacher is null || demoClass is null)
+    {
+        return;
+    }
+
+    demoClass.ClassTeacherId = teacher.Id;
     db.SaveChanges();
 }
 
