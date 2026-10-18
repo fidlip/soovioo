@@ -19,6 +19,15 @@ body {
  * like the logo's `dark:invert`. */
 :root {
   --soovioo-icon-color: #092740;
+  /* Height of the mobile-only top bar (app.html) — offset for page-level
+   * sticky elements so they stop just below it. */
+  --app-topbar-height: calc(3.5rem + 1px);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-topbar-height: 0px;
+  }
 }
 
 .soovioo-dark {
@@ -38,6 +47,19 @@ body {
 
 @layer tailwind-base {
   @tailwind base;
+
+  /* The one piece of Tailwind's preflight (disabled in tailwind.config.js so
+   * it doesn't fight Optimus) that the utilities depend on: without it the
+   * `border`/`border-b`/… classes set only a width and colour, and the
+   * browser's default `border-style: none` keeps them invisible. Lowest
+   * layer, so Optimus component borders still win. */
+  *,
+  ::before,
+  ::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--p-content-border-color);
+  }
 }
 
 @layer tailwind-utilities {
