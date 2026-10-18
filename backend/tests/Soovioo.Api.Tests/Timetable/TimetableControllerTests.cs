@@ -169,7 +169,7 @@ public class TimetableControllerTests
         var dto = Assert.IsType<TimetableEntryDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal(classroom.Id, dto.ClassroomId);
         Assert.Equal("12", dto.ClassroomName);
-        Assert.Null(dto.ClassroomConflict);
+        Assert.Empty(dto.Conflicts);
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public class TimetableControllerTests
 
     /// <summary>Non-blocking: the second entry still saves, but its DTO
     /// carries a warning naming the class already in that classroom — see
-    /// TimetableController.FindClassroomConflictAsync's doc comment.</summary>
+    /// TimetableController.FindConflictsAsync's doc comment.</summary>
     [Fact]
     public async Task AddEntryReportsNonBlockingClassroomConflict()
     {
@@ -223,8 +223,8 @@ public class TimetableControllerTests
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, ClassroomId: classroom.Id));
 
         var dto = Assert.IsType<TimetableEntryDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
-        Assert.NotNull(dto.ClassroomConflict);
-        Assert.Contains("1.A", dto.ClassroomConflict);
+        var conflict = Assert.Single(dto.Conflicts);
+        Assert.Contains("1.A", conflict);
         // Still saved despite the conflict — this is a warning, not a rejection.
         Assert.Equal(2, await db.TimetableEntries.CountAsync());
     }
@@ -261,6 +261,47 @@ public class TimetableControllerTests
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Even, ClassroomId: classroom.Id));
 
         var dto = Assert.IsType<TimetableEntryDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
-        Assert.Null(dto.ClassroomConflict);
+        Assert.Empty(dto.Conflicts);
+    }
+
+    /// <summary>The same teacher in two classes at once is flagged on save
+    /// and keeps being flagged on every later read of either class.</summary>
+    [Fact]
+    public async Task TeacherConflictReportedOnSaveAndOnRead()
+    {
+        using var db = NewDb();
+        var classA = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        var classB = new SchoolClass { Name = "2.B", SchoolId = SchoolId };
+        var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
+        var teacher = new User
+        {
+            Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, Roles = [UserRole.Teacher], SchoolId = SchoolId,
+        };
+        db.SchoolClasses.AddRange(classA, classB);
+        db.Subjects.Add(subject);
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+        db.TimetableEntries.Add(new TimetableEntry
+        {
+            SchoolClassId = classA.Id,
+            SubjectId = subject.Id,
+            SchoolId = SchoolId,
+            DayOfWeek = DayOfWeek.Monday,
+            PeriodNumber = 1,
+            TeacherId = teacher.Id,
+        });
+        await db.SaveChangesAsync();
+        var controller = new TimetableController(db, new FakeCurrentSchoolContext(SchoolId));
+
+        var result = await controller.AddEntry(
+            classB.Id,
+            new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, TeacherId: teacher.Id));
+
+        var dto = Assert.IsType<TimetableEntryDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Contains("1.A", Assert.Single(dto.Conflicts));
+
+        var read = await controller.GetTimetable(classA.Id);
+        var entries = Assert.IsAssignableFrom<IEnumerable<TimetableEntryDto>>(Assert.IsType<OkObjectResult>(read.Result).Value);
+        Assert.Contains("2.B", Assert.Single(Assert.Single(entries).Conflicts));
     }
 }

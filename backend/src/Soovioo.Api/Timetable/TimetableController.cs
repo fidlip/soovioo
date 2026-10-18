@@ -33,10 +33,12 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.Name,
-                null))
+                Array.Empty<string>()))
             .ToListAsync();
 
-        return Ok(entries);
+        var conflicts = await FindConflictsAsync(entries.Select(e =>
+            new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId)));
+        return Ok(entries.Select(e => e with { Conflicts = conflicts.GetValueOrDefault(e.Id, []) }));
     }
 
     /// <summary>A teacher's own schedule, across every class they teach —
@@ -67,10 +69,13 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.TeacherId,
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
-                e.Classroom == null ? null : e.Classroom.Name))
+                e.Classroom == null ? null : e.Classroom.Name,
+                Array.Empty<string>()))
             .ToListAsync();
 
-        return Ok(entries);
+        var conflicts = await FindConflictsAsync(entries.Select(e =>
+            new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId)));
+        return Ok(entries.Select(e => e with { Conflicts = conflicts.GetValueOrDefault(e.Id, []) }));
     }
 
     [HttpPost]
@@ -118,11 +123,11 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         db.TimetableEntries.Add(entry);
         await db.SaveChangesAsync();
 
-        var conflict = await FindClassroomConflictAsync(entry);
+        var conflicts = await FindConflictsAsync([ConflictSlot.Of(entry)]);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.Name, conflict);
+            entry.ClassroomId, classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
 
@@ -163,11 +168,11 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         entry.ClassroomId = request.ClassroomId;
         await db.SaveChangesAsync();
 
-        var conflict = await FindClassroomConflictAsync(entry);
+        var conflicts = await FindConflictsAsync([ConflictSlot.Of(entry)]);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.Name, conflict);
+            entry.ClassroomId, classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
         return Ok(dto);
     }
 
@@ -194,32 +199,74 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         return await db.Classrooms.FindAsync(classroomId);
     }
 
-    /// <summary>Non-blocking — collisions are reported back to the caller as
-    /// a warning string on the DTO, never rejected, so a real schedule
-    /// quirk (two classes briefly sharing a gym, a data-entry mistake to be
-    /// fixed later) can still be saved. Only checks other TimetableEntry
-    /// rows, not Events — cross-checking those is explicitly out of scope
-    /// for now (see ROADMAP).</summary>
-    private async Task<string?> FindClassroomConflictAsync(TimetableEntry entry)
+    /// <summary>Non-blocking — collisions (same teacher or same classroom
+    /// in the same day/period, with overlapping week parity) are reported
+    /// back as warning strings per entry id, never rejected, so a real
+    /// schedule quirk (two classes briefly sharing a gym, a data-entry
+    /// mistake to be fixed later) can still be saved. Computed on every read
+    /// so the grid keeps flagging them until fixed. Only checks other
+    /// TimetableEntry rows, not Events (see ROADMAP).</summary>
+    private async Task<Dictionary<int, string[]>> FindConflictsAsync(IEnumerable<ConflictSlot> slots)
     {
-        if (entry.ClassroomId is null)
+        var slotList = slots.ToList();
+        var teacherIds = slotList.Where(s => s.TeacherId is not null).Select(s => s.TeacherId!.Value).Distinct().ToList();
+        var classroomIds = slotList.Where(s => s.ClassroomId is not null).Select(s => s.ClassroomId!.Value).Distinct().ToList();
+        if (teacherIds.Count == 0 && classroomIds.Count == 0)
         {
-            return null;
+            return [];
         }
 
         var candidates = await db.TimetableEntries
             .Where(e =>
-                e.Id != entry.Id &&
-                e.ClassroomId == entry.ClassroomId &&
-                e.DayOfWeek == entry.DayOfWeek &&
-                e.PeriodNumber == entry.PeriodNumber)
-            .Select(e => new { e.WeekParity, e.SchoolClass!.Name, SubjectName = e.Subject!.Name })
+                (e.TeacherId != null && teacherIds.Contains(e.TeacherId.Value)) ||
+                (e.ClassroomId != null && classroomIds.Contains(e.ClassroomId.Value)))
+            .Select(e => new
+            {
+                e.Id,
+                e.DayOfWeek,
+                e.PeriodNumber,
+                e.WeekParity,
+                e.TeacherId,
+                e.ClassroomId,
+                ClassName = e.SchoolClass!.Name,
+                SubjectName = e.Subject!.Name,
+                TeacherName = e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
+                ClassroomName = e.Classroom == null ? null : e.Classroom.Name,
+            })
             .ToListAsync();
 
-        var conflict = candidates.FirstOrDefault(c => ParityOverlaps(c.WeekParity, entry.WeekParity));
-        return conflict is null
-            ? null
-            : $"Učebna je ve stejný čas obsazená — {conflict.Name} ({conflict.SubjectName}).";
+        var result = new Dictionary<int, string[]>();
+        foreach (var slot in slotList)
+        {
+            var messages = new List<string>();
+            foreach (var c in candidates.Where(c =>
+                         c.Id != slot.Id &&
+                         c.DayOfWeek == slot.DayOfWeek &&
+                         c.PeriodNumber == slot.PeriodNumber &&
+                         ParityOverlaps(c.WeekParity, slot.WeekParity)))
+            {
+                if (slot.TeacherId is not null && c.TeacherId == slot.TeacherId)
+                {
+                    messages.Add($"{c.TeacherName} učí ve stejný čas i {c.ClassName} ({c.SubjectName}).");
+                }
+                if (slot.ClassroomId is not null && c.ClassroomId == slot.ClassroomId)
+                {
+                    messages.Add($"Učebna {c.ClassroomName} je ve stejný čas obsazená — {c.ClassName} ({c.SubjectName}).");
+                }
+            }
+            if (messages.Count > 0)
+            {
+                result[slot.Id] = [.. messages];
+            }
+        }
+        return result;
+    }
+
+    private record ConflictSlot(
+        int Id, DayOfWeek DayOfWeek, int PeriodNumber, WeekParity WeekParity, int? TeacherId, int? ClassroomId)
+    {
+        public static ConflictSlot Of(TimetableEntry e) =>
+            new(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId);
     }
 
     private static bool ParityOverlaps(WeekParity a, WeekParity b) =>
@@ -262,10 +309,9 @@ public record TimetableEntryDto(
     string? TeacherName,
     int? ClassroomId,
     string? ClassroomName,
-    /// <summary>Non-null only right after a successful add/update that
-    /// collides with another entry's classroom — GetTimetable always
-    /// returns null here, see FindClassroomConflictAsync's doc comment.</summary>
-    string? ClassroomConflict);
+    /// <summary>Teacher/classroom collisions with other entries (empty when
+    /// none) — see FindConflictsAsync's doc comment.</summary>
+    IReadOnlyList<string> Conflicts);
 
 /// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
 /// each entry belongs to — needed here (unlike the class-scoped DTO above)
@@ -283,4 +329,5 @@ public record TeacherTimetableEntryDto(
     int? TeacherId,
     string? TeacherName,
     int? ClassroomId,
-    string? ClassroomName);
+    string? ClassroomName,
+    IReadOnlyList<string> Conflicts);

@@ -144,7 +144,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
                 e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
-                e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, null))
+                e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, Array.Empty<string>()))
             .ToListAsync();
 
     /// <summary>Parent/Student: the first accessible student's own class
@@ -176,7 +176,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
                 e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
-                e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, null))
+                e.ClassroomId, e.Classroom == null ? null : e.Classroom.Name, Array.Empty<string>()))
             .ToListAsync();
 
         return (lessons, $"{student.FirstName} {student.LastName} ({student.SchoolClassName})");

@@ -12,8 +12,20 @@
   }
 </div>
 
-@if (classroomConflictWarning(); as warning) {
-<p-message severity="warn" [text]="warning" styleClass="mb-4 w-full" />
+@if (conflictLines().length > 0) {
+<p-message severity="error" styleClass="mb-4 w-full">
+  <div class="flex flex-col gap-1">
+    <div class="flex items-center gap-2 font-semibold">
+      <i class="pi pi-exclamation-triangle"></i>Kolize v rozvrhu
+      ({{ conflictLines().length }})
+    </div>
+    <ul class="m-0 list-disc pl-5 text-sm">
+      @for (line of conflictLines(); track $index) {
+      <li>{{ line }}</li>
+      }
+    </ul>
+  </div>
+</p-message>
 }
 
 <div class="mb-4 flex flex-wrap items-end gap-3">
@@ -287,10 +299,20 @@
             (click)="onCellClick(day, period.periodNumber)"
           >
             @if (entry) {
+            @let hasConflict = canManageTimetable() && entry.conflicts.length > 0;
             <div
-              class="rounded px-2 py-1 text-xs"
+              class="relative rounded px-2 py-1 text-xs"
+              [class.ring-2]="hasConflict"
+              [class.ring-red-600]="hasConflict"
+              [class.ring-offset-2]="hasConflict"
               [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
             >
+              @if (hasConflict) {
+              <i
+                class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
+                aria-label="Kolize"
+              ></i>
+              }
               <div class="font-semibold text-surface-900">
                 {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
                 (entry.schoolClassName) {

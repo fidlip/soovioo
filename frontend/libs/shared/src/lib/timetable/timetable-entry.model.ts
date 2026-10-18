@@ -23,9 +23,8 @@ export interface TimetableEntry {
   teacherName: string | null;
   classroomId: number | null;
   classroomName: string | null;
-  /** Non-null only right after a successful add/update that collides with
-   * another entry's classroom — never populated on a plain GET. */
-  classroomConflict: string | null;
+  /** Same teacher/classroom at the same time elsewhere — empty when none. */
+  conflicts: string[];
 }
 
 export interface CreateTimetableEntryRequest {
@@ -54,4 +53,6 @@ export interface TeacherTimetableEntry {
   teacherName: string | null;
   classroomId: number | null;
   classroomName: string | null;
+  /** Same teacher/classroom at the same time elsewhere — empty when none. */
+  conflicts: string[];
 }

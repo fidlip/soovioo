@@ -98,6 +98,7 @@ interface GridEntry {
   teacherName: string | null;
   classroomId: number | null;
   classroomName: string | null;
+  conflicts: string[];
 }
 
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
@@ -311,9 +312,18 @@ export class TimetablePage {
   /** True once the user has picked a classroom by hand in the currently
    * open dialog — stops onFormSubjectChange() from clobbering it. */
   private formClassroomTouched = false;
-  /** Non-blocking warning from the last save — shown above the grid since
-   * the dialog closes on success, see saveEntry(). */
-  protected readonly classroomConflictWarning = signal<string | null>(null);
+  /** Teacher/classroom collisions in the displayed week, one line per
+   * conflicting entry — shown in a banner above the grid (staff only). */
+  protected readonly conflictLines = computed(() =>
+    this.canManageTimetable()
+      ? this.visibleEntries()
+          .filter((e) => e.conflicts.length > 0)
+          .map(
+            (e) =>
+              `${DAY_LABELS[e.dayOfWeek]}, ${e.periodNumber}. hodina — ${e.subjectAbbreviation ?? e.subjectName}${e.schoolClassName ? ` (${e.schoolClassName})` : ''}: ${e.conflicts.join(' ')}`,
+          )
+      : [],
+  );
 
   protected newPeriodNumberToConfigure = 1;
   protected newPeriodStartTime = timeStringToDate('08:00');
@@ -529,7 +539,10 @@ export class TimetablePage {
       ? ` — ${entry.schoolClassName}`
       : '';
     const classroom = entry.classroomName ? ` — ${entry.classroomName}` : '';
-    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}`;
+    const conflicts = this.canManageTimetable()
+      ? entry.conflicts.map((c) => `\n⚠ ${c}`).join('')
+      : '';
+    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}${conflicts}`;
   }
 
   protected onCellClick(day: DayOfWeek, periodNumber: number): void {
@@ -613,9 +626,8 @@ export class TimetablePage {
         ? this.timetableApi.addEntry(schoolClassId, request)
         : this.timetableApi.updateEntry(schoolClassId, editingId, request);
     result.subscribe({
-      next: (saved) => {
+      next: () => {
         this.dialogVisible.set(false);
-        this.classroomConflictWarning.set(saved.classroomConflict);
         this.reload();
       },
       error: (err) => console.error('saveEntry failed', err),
