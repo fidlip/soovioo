@@ -1,14 +1,10 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule, NativeScriptFormsModule } from '@nativescript/angular';
-import {
-  AuthApiService,
-  Message,
-  MessagesApiService,
-  Student,
-  StudentsApiService,
-} from '@soovioo/shared';
+import { Conversation, ConversationSummary, MessagesApiService } from '@soovioo/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
+/** Conversations: list → detail with a reply box. Starting a new
+ * conversation is web-only for now. */
 @Component({
   selector: 'ns-messages',
   templateUrl: './messages.component.html',
@@ -17,64 +13,60 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
 })
 export class MessagesComponent {
   private readonly messagesApi = inject(MessagesApiService);
-  private readonly studentsApi = inject(StudentsApiService);
-  private readonly authApi = inject(AuthApiService);
 
-  protected readonly messages = signal<Message[]>([]);
-  protected readonly students = signal<Student[]>([]);
-  protected selectedStudentIndex = 0;
-
-  protected subject = '';
-  protected body = '';
+  protected readonly conversations = signal<ConversationSummary[]>([]);
+  protected readonly selected = signal<Conversation | null>(null);
+  protected replyBody = '';
 
   constructor() {
-    this.studentsApi.getStudents().subscribe({
-      next: (students) => {
-        this.students.set(students);
-        this.reload();
+    this.reload();
+  }
+
+  protected open(index: number): void {
+    const summary = this.conversations()[index];
+    if (!summary) {
+      return;
+    }
+    this.messagesApi.getConversation(summary.id).subscribe({
+      next: (conversation) => {
+        this.selected.set(conversation);
+        if (summary.unread) {
+          this.messagesApi.markRead(summary.id).subscribe({
+            next: () => this.reload(),
+            error: (err) => console.error('markRead failed', err),
+          });
+        }
       },
-      error: (err) => console.error('getStudents failed', err),
+      error: (err) => console.error('getConversation failed', err),
     });
   }
 
-  protected canSendMessages(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+  protected close(): void {
+    this.selected.set(null);
   }
 
-  protected send(): void {
-    const student = this.students()[this.selectedStudentIndex];
-    if (!student || !this.subject || !this.body) {
+  protected reply(): void {
+    const conversation = this.selected();
+    if (!conversation || !this.replyBody.trim()) {
       return;
     }
-    this.messagesApi.sendMessage(student.id, { subject: this.subject, body: this.body }).subscribe({
+    this.messagesApi.reply(conversation.id, this.replyBody).subscribe({
       next: () => {
-        this.subject = '';
-        this.body = '';
+        this.replyBody = '';
+        this.messagesApi.getConversation(conversation.id).subscribe({
+          next: (c) => this.selected.set(c),
+          error: (err) => console.error('getConversation failed', err),
+        });
         this.reload();
       },
-      error: (err) => console.error('sendMessage failed', err),
-    });
-  }
-
-  protected markRead(message: Message): void {
-    const student = this.students()[this.selectedStudentIndex];
-    if (!student || message.readAt) {
-      return;
-    }
-    this.messagesApi.markRead(student.id, message.id).subscribe({
-      next: () => this.reload(),
-      error: (err) => console.error('markRead failed', err),
+      error: (err) => console.error('reply failed', err),
     });
   }
 
   private reload(): void {
-    const student = this.students()[this.selectedStudentIndex];
-    if (!student) {
-      return;
-    }
-    this.messagesApi.getMessages(student.id).subscribe({
-      next: (messages) => this.messages.set(messages),
-      error: (err) => console.error('getMessages failed', err),
+    this.messagesApi.getConversations().subscribe({
+      next: (conversations) => this.conversations.set(conversations),
+      error: (err) => console.error('getConversations failed', err),
     });
   }
 }

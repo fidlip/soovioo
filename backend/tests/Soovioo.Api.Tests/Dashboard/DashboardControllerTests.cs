@@ -140,7 +140,7 @@ public class DashboardControllerTests
     }
 
     [Fact]
-    public async Task UnreadMessageCountIsScopedToAccessibleStudents()
+    public async Task UnreadMessageCountCountsOnlyOwnUnreadConversations()
     {
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
@@ -153,10 +153,21 @@ public class DashboardControllerTests
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
         db.ParentStudents.Add(new ParentStudent { UserId = parent.Id, StudentId = myStudent.Id, SchoolId = SchoolId });
-        db.Messages.AddRange(
-            new Message { StudentId = myStudent.Id, SenderName = "ucitel", Subject = "s1", Body = "b1", SchoolId = SchoolId },
-            new Message { StudentId = myStudent.Id, SenderName = "ucitel", Subject = "s2", Body = "b2", SchoolId = SchoolId, ReadAt = DateTimeOffset.UtcNow },
-            new Message { StudentId = otherStudent.Id, SenderName = "ucitel", Subject = "s3", Body = "b3", SchoolId = SchoolId });
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        db.Users.Add(teacher);
+        await db.SaveChangesAsync();
+        var now = DateTimeOffset.UtcNow;
+        // Unread for the parent.
+        db.Conversations.Add(ConversationsController.NewConversation(
+            "s1", myStudent.Id, teacher.Id, "ucitel", [parent.Id], "b1", SchoolId, now));
+        // Already read by the parent.
+        var read = ConversationsController.NewConversation(
+            "s2", myStudent.Id, teacher.Id, "ucitel", [parent.Id], "b2", SchoolId, now);
+        read.Participants.First(p => p.UserId == parent.Id).LastReadAt = now.AddMinutes(1);
+        db.Conversations.Add(read);
+        // Someone else's family — the parent isn't a participant.
+        db.Conversations.Add(ConversationsController.NewConversation(
+            "s3", otherStudent.Id, teacher.Id, "ucitel", [], "b3", SchoolId, now));
         await db.SaveChangesAsync();
 
         var result = await NewController(db, parent.Id, "Parent").GetDashboard();

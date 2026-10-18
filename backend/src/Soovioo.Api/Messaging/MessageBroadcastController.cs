@@ -8,9 +8,10 @@ using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Messaging;
 
-/// <summary>Sends the same message into every targeted student's thread at
-/// once (fan-out — still just one <see cref="Message"/> row per student, the
-/// same model <see cref="MessagesController"/> uses for a single recipient).
+/// <summary>Sends the same message to every targeted pupil's family at once —
+/// fan-out into one <see cref="Conversation"/> per pupil (sender + the
+/// pupil's account + parents), so every family can reply privately; the
+/// same shape <see cref="ConversationsController"/> creates for one pupil.
 /// Admin can target any class or the whole school; Teacher can only target a
 /// class they actually teach (třídní učitel or has a timetable entry in it)
 /// — unlike single-student messaging, which stays unrestricted for both
@@ -40,7 +41,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     }
 
     [HttpPost("api/school-classes/{schoolClassId:int}/messages/broadcast")]
-    public async Task<ActionResult<BroadcastResultDto>> BroadcastToClass(int schoolClassId, SendMessageRequest request)
+    public async Task<ActionResult<BroadcastResultDto>> BroadcastToClass(int schoolClassId, BroadcastRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
         if (schoolClass is null)
@@ -62,43 +63,60 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     /// role requirement is ANDed on top of it).</summary>
     [HttpPost("api/messages/broadcast")]
     [Authorize(Roles = "Admin")]
-    public async Task<ActionResult<BroadcastResultDto>> BroadcastToSchool(SendMessageRequest request)
+    public async Task<ActionResult<BroadcastResultDto>> BroadcastToSchool(BroadcastRequest request)
     {
         var studentIds = await db.Students.Select(s => s.Id).ToListAsync();
         return Ok(await SendToStudentsAsync(studentIds, request));
     }
 
-    private async Task<BroadcastResultDto> SendToStudentsAsync(List<int> studentIds, SendMessageRequest request)
+    private async Task<BroadcastResultDto> SendToStudentsAsync(List<int> studentIds, BroadcastRequest request)
     {
+        var senderId = CurrentUserId();
         var senderName = User.Identity?.Name ?? "Neznámý uživatel";
-        var sentAt = DateTimeOffset.UtcNow;
+        var now = DateTimeOffset.UtcNow;
         var schoolId = currentSchool.SchoolId!.Value;
 
-        var messages = studentIds.Select(studentId => new Message
-        {
-            StudentId = studentId,
-            SenderName = senderName,
-            Subject = request.Subject,
-            Body = request.Body,
-            SentAt = sentAt,
-            SchoolId = schoolId,
-        }).ToList();
+        var parentLinks = await db.ParentStudents
+            .Where(ps => studentIds.Contains(ps.StudentId))
+            .Select(ps => new { ps.StudentId, ps.UserId })
+            .ToListAsync();
+        var ownAccounts = await db.Students
+            .Where(s => studentIds.Contains(s.Id) && s.UserId != null)
+            .Select(s => new { StudentId = s.Id, UserId = s.UserId!.Value })
+            .ToListAsync();
+        var familyByStudent = parentLinks.Concat(ownAccounts)
+            .GroupBy(x => x.StudentId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.UserId).ToList());
 
-        db.Messages.AddRange(messages);
+        // Pupils without any account in the family would get a conversation
+        // nobody can read — skip them (the count tells the sender).
+        var conversations = studentIds
+            .Where(familyByStudent.ContainsKey)
+            .Select(studentId => ConversationsController.NewConversation(
+                request.Subject, studentId, senderId, senderName, familyByStudent[studentId],
+                request.Body, schoolId, now))
+            .ToList();
+
+        db.Conversations.AddRange(conversations);
         await db.SaveChangesAsync();
 
         // Lets the caller attach a file to every fan-out copy afterwards
-        // (MessagesController.UploadAttachment, one call per message) —
+        // (ConversationsController.UploadAttachment, one call per message) —
         // see MessageAttachment's doc comment for why each copy gets its
         // own physical file rather than a shared one.
         return new BroadcastResultDto(
-            studentIds.Count,
-            messages.Select(m => new BroadcastMessageRef(m.Id, m.StudentId)).ToList());
+            conversations.Count,
+            studentIds.Count - conversations.Count,
+            conversations.Select(c => new BroadcastMessageRef(c.Id, c.Messages[0].Id)).ToList());
     }
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public record BroadcastMessageRef(int MessageId, int StudentId);
+public record BroadcastRequest(string Subject, string Body);
 
-public record BroadcastResultDto(int RecipientCount, IReadOnlyList<BroadcastMessageRef> Messages);
+public record BroadcastMessageRef(int ConversationId, int MessageId);
+
+/// <param name="SkippedCount">Pupils with neither their own account nor a
+/// linked parent — nobody there to receive it.</param>
+public record BroadcastResultDto(int RecipientCount, int SkippedCount, IReadOnlyList<BroadcastMessageRef> Messages);

@@ -45,8 +45,8 @@ public class MessageBroadcastControllerTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = 42 };
         db.SchoolClasses.Add(schoolClass);
         db.Students.AddRange(
-            new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, SchoolClassId = 0 },
-            new Student { FirstName = "B", LastName = "B", SchoolId = SchoolId, SchoolClassId = 0 });
+            new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, SchoolClassId = 0, UserId = 100 },
+            new Student { FirstName = "B", LastName = "B", SchoolId = SchoolId, SchoolClassId = 0, UserId = 101 });
         await db.SaveChangesAsync();
         foreach (var student in db.Students)
         {
@@ -55,13 +55,22 @@ public class MessageBroadcastControllerTests
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 42, "Teacher")
-            .BroadcastToClass(schoolClass.Id, new SendMessageRequest("Oznámení", "Zítra ředitelské volno."));
+            .BroadcastToClass(schoolClass.Id, new BroadcastRequest("Oznámení", "Zítra ředitelské volno."));
 
         var dto = Assert.IsType<BroadcastResultDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(2, dto.RecipientCount);
+        Assert.Equal(2, db.Conversations.Count());
         Assert.Equal(2, db.Messages.Count());
+        // One private conversation per family: sender + the pupil's account.
+        var participants = db.ConversationParticipants
+            .GroupBy(p => p.ConversationId)
+            .Select(g => g.Select(p => p.UserId).Order().ToList())
+            .ToList();
+        Assert.Equal(2, participants.Count);
+        Assert.Contains(participants, p => p.SequenceEqual([42, 100]));
+        Assert.Contains(participants, p => p.SequenceEqual([42, 101]));
         // Lets the caller attach a file to every fan-out copy afterwards
-        // (MessagesController.UploadAttachment) — see BroadcastMessageRef.
+        // (ConversationsController.UploadAttachment) — see BroadcastMessageRef.
         Assert.Equal(2, dto.Messages.Count);
         Assert.All(dto.Messages, m => Assert.True(m.MessageId > 0));
     }
@@ -87,7 +96,7 @@ public class MessageBroadcastControllerTests
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 7, "Teacher")
-            .BroadcastToClass(schoolClass.Id, new SendMessageRequest("Test", "Test"));
+            .BroadcastToClass(schoolClass.Id, new BroadcastRequest("Test", "Test"));
 
         Assert.IsType<OkObjectResult>(result.Result);
     }
@@ -101,7 +110,7 @@ public class MessageBroadcastControllerTests
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999, "Teacher")
-            .BroadcastToClass(schoolClass.Id, new SendMessageRequest("Test", "Test"));
+            .BroadcastToClass(schoolClass.Id, new BroadcastRequest("Test", "Test"));
 
         Assert.IsType<ForbidResult>(result.Result);
     }
@@ -112,11 +121,11 @@ public class MessageBroadcastControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = 42 };
         db.SchoolClasses.Add(schoolClass);
-        db.Students.Add(new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, SchoolClassId = schoolClass.Id });
+        db.Students.Add(new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, SchoolClassId = schoolClass.Id, UserId = 100 });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999, "Admin")
-            .BroadcastToClass(schoolClass.Id, new SendMessageRequest("Test", "Test"));
+            .BroadcastToClass(schoolClass.Id, new BroadcastRequest("Test", "Test"));
 
         var dto = Assert.IsType<BroadcastResultDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(1, dto.RecipientCount);
@@ -127,16 +136,18 @@ public class MessageBroadcastControllerTests
     {
         using var db = NewDb();
         db.Students.AddRange(
-            new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId },
-            new Student { FirstName = "B", LastName = "B", SchoolId = SchoolId },
+            new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, UserId = 100 },
+            new Student { FirstName = "B", LastName = "B", SchoolId = SchoolId, UserId = 101 },
             new Student { FirstName = "C", LastName = "C", SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 1, "Admin")
-            .BroadcastToSchool(new SendMessageRequest("Prázdniny", "Od pátku ředitelské volno."));
+            .BroadcastToSchool(new BroadcastRequest("Prázdniny", "Od pátku ředitelské volno."));
 
         var dto = Assert.IsType<BroadcastResultDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal(3, dto.RecipientCount);
+        // C has neither an own account nor a parent — nobody to deliver to.
+        Assert.Equal(2, dto.RecipientCount);
+        Assert.Equal(1, dto.SkippedCount);
     }
 
     [Fact]

@@ -1,21 +1,34 @@
 <ActionBar title="Soovioo — Zprávy"></ActionBar>
 
-<GridLayout rows="auto, auto, *">
+<GridLayout rows="auto, *">
   <ns-nav-bar row="0"></ns-nav-bar>
 
-  <StackLayout row="1" class="p-4" *ngIf="canSendMessages()">
-    <TextField hint="Předmět" [(ngModel)]="subject"></TextField>
-    <TextView hint="Text zprávy" [(ngModel)]="body"></TextView>
-    <Button text="Odeslat" (tap)="send()"></Button>
-  </StackLayout>
-
-  <ListView row="2" [items]="messages()">
+  <ListView row="1" [items]="conversations()" *ngIf="!selected()" (itemTap)="open($event.index)">
     <ng-template let-item="item">
       <StackLayout class="p-4">
-        <Label [text]="item.subject + ' — ' + item.senderName + (!item.readAt ? ' (nepřečteno)' : '')"></Label>
-        <Label [text]="item.body" textWrap="true"></Label>
-        <Button *ngIf="!item.readAt" text="Označit jako přečtené" (tap)="markRead(item)"></Button>
+        <Label [text]="(item.unread ? '● ' : '') + item.subject" [class.font-bold]="item.unread"></Label>
+        <Label *ngIf="item.studentName" [text]="item.studentName" class="text-sm"></Label>
+        <Label [text]="item.lastSenderName + ': ' + item.lastMessagePreview" textWrap="true" class="text-sm"></Label>
       </StackLayout>
     </ng-template>
   </ListView>
+
+  <GridLayout row="1" rows="auto, *, auto" *ngIf="selected() as conversation">
+    <StackLayout row="0" class="p-4">
+      <Button text="← Zpět" (tap)="close()"></Button>
+      <Label [text]="conversation.subject" class="font-bold" textWrap="true"></Label>
+    </StackLayout>
+    <ListView row="1" [items]="conversation.messages">
+      <ng-template let-message="item">
+        <StackLayout class="p-4">
+          <Label [text]="message.senderName" class="font-bold text-sm"></Label>
+          <Label [text]="message.body" textWrap="true"></Label>
+        </StackLayout>
+      </ng-template>
+    </ListView>
+    <StackLayout row="2" class="p-4">
+      <TextView hint="Odpovědět…" [(ngModel)]="replyBody"></TextView>
+      <Button text="Odeslat" (tap)="reply()"></Button>
+    </StackLayout>
+  </GridLayout>
 </GridLayout>

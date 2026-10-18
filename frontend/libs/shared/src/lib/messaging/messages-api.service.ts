@@ -4,85 +4,113 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import { SchoolClass } from '../evidence/school-class.model';
 import {
+  BroadcastRequest,
   BroadcastResult,
+  Contact,
+  Conversation,
+  ConversationSummary,
   Message,
   MessageAttachment,
-  SendMessageRequest,
+  StartConversationRequest,
 } from './message.model';
 
+/** Messaging as conversations — see ConversationsController. */
 @Injectable({ providedIn: 'root' })
 export class MessagesApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  getMessages(studentId: number): Observable<Message[]> {
-    return this.http.get<Message[]>(
-      `${this.baseUrl}/api/students/${studentId}/messages`,
+  getConversations(): Observable<ConversationSummary[]> {
+    return this.http.get<ConversationSummary[]>(
+      `${this.baseUrl}/api/conversations`,
     );
   }
 
-  sendMessage(
-    studentId: number,
-    request: SendMessageRequest,
-  ): Observable<Message> {
-    return this.http.post<Message>(
-      `${this.baseUrl}/api/students/${studentId}/messages`,
+  getUnreadCount(): Observable<number> {
+    return this.http.get<number>(
+      `${this.baseUrl}/api/conversations/unread-count`,
+    );
+  }
+
+  getConversation(id: number): Observable<Conversation> {
+    return this.http.get<Conversation>(
+      `${this.baseUrl}/api/conversations/${id}`,
+    );
+  }
+
+  startConversation(
+    request: StartConversationRequest,
+  ): Observable<Conversation> {
+    return this.http.post<Conversation>(
+      `${this.baseUrl}/api/conversations`,
       request,
     );
   }
 
-  markRead(studentId: number, messageId: number): Observable<void> {
+  reply(conversationId: number, body: string): Observable<Message> {
+    return this.http.post<Message>(
+      `${this.baseUrl}/api/conversations/${conversationId}/messages`,
+      { body },
+    );
+  }
+
+  markRead(conversationId: number): Observable<void> {
     return this.http.post<void>(
-      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}/read`,
+      `${this.baseUrl}/api/conversations/${conversationId}/read`,
       {},
     );
   }
 
-  deleteMessage(studentId: number, messageId: number): Observable<void> {
-    return this.http.delete<void>(
-      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}`,
+  /** Parent/pupil only — who they may write to about `studentId`. */
+  getContacts(studentId: number): Observable<Contact[]> {
+    return this.http.get<Contact[]>(
+      `${this.baseUrl}/api/conversations/contacts`,
+      { params: { studentId } },
     );
   }
 
-  /** A separate call after sendMessage/broadcast* rather than bundled into
-   * those (which stay plain JSON, incl. for the mobile app). */
+  /** Sender only; the conversation disappears with its last message. */
+  deleteMessage(conversationId: number, messageId: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/conversations/${conversationId}/messages/${messageId}`,
+    );
+  }
+
+  /** Separate multipart step after sending — one call per message (a
+   * broadcast attaches to every fan-out copy). */
   uploadAttachment(
-    studentId: number,
+    conversationId: number,
     messageId: number,
     file: File,
   ): Observable<MessageAttachment> {
-    const formData = new FormData();
-    formData.append('file', file);
+    const form = new FormData();
+    form.append('file', file);
     return this.http.post<MessageAttachment>(
-      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}/attachments`,
-      formData,
+      `${this.baseUrl}/api/conversations/${conversationId}/messages/${messageId}/attachments`,
+      form,
     );
   }
 
   downloadAttachment(
-    studentId: number,
+    conversationId: number,
     messageId: number,
     attachmentId: number,
   ): Observable<Blob> {
     return this.http.get(
-      `${this.baseUrl}/api/students/${studentId}/messages/${messageId}/attachments/${attachmentId}`,
+      `${this.baseUrl}/api/conversations/${conversationId}/messages/${messageId}/attachments/${attachmentId}`,
       { responseType: 'blob' },
     );
   }
 
-  /** Classes the caller may broadcast to — every class for Admin, only ones
-   * they teach (class teacher or has a timetable entry) for Teacher. */
   getBroadcastableClasses(): Observable<SchoolClass[]> {
     return this.http.get<SchoolClass[]>(
       `${this.baseUrl}/api/messages/broadcastable-classes`,
     );
   }
 
-  /** Sends one copy of the message into every student's thread in the class.
-   * Rejected (403) for a Teacher who doesn't teach that class. */
   broadcastToClass(
     schoolClassId: number,
-    request: SendMessageRequest,
+    request: BroadcastRequest,
   ): Observable<BroadcastResult> {
     return this.http.post<BroadcastResult>(
       `${this.baseUrl}/api/school-classes/${schoolClassId}/messages/broadcast`,
@@ -90,9 +118,7 @@ export class MessagesApiService {
     );
   }
 
-  /** Sends one copy of the message into every student's thread in the
-   * school. Admin only. */
-  broadcastToSchool(request: SendMessageRequest): Observable<BroadcastResult> {
+  broadcastToSchool(request: BroadcastRequest): Observable<BroadcastResult> {
     return this.http.post<BroadcastResult>(
       `${this.baseUrl}/api/messages/broadcast`,
       request,

@@ -1,16 +1,25 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import {
+  Component,
+  WritableSignal,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
-import { Card } from '@openng/optimus-ui/card';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message as PMessage } from '@openng/optimus-ui/message';
+import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Select } from '@openng/optimus-ui/select';
-import { Tag } from '@openng/optimus-ui/tag';
 import { Textarea } from '@openng/optimus-ui/textarea';
-import { forkJoin } from 'rxjs';
+import { Observable, forkJoin, of } from 'rxjs';
 import {
   AuthApiService,
+  Contact,
+  Conversation,
+  ConversationSummary,
   Message,
   MessageAttachment,
   MessagesApiService,
@@ -21,6 +30,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { UnreadMessagesService } from '../unread-messages.service';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -44,35 +54,37 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
   '.odp',
 ];
 
+/** Staff only — parents/pupils always pick recipients from contacts. */
 type SendMode = 'individual' | 'class' | 'school';
 
 const MODE_OPTIONS: { value: SendMode; label: string }[] = [
-  { value: 'individual', label: 'Jednotlivci — vybraný žák' },
-  { value: 'class', label: 'Celá třída' },
-  { value: 'school', label: 'Celá škola' },
+  { value: 'individual', label: 'Rodině vybraného žáka' },
+  { value: 'class', label: 'Celé třídě (každé rodině zvlášť)' },
+  { value: 'school', label: 'Celé škole (každé rodině zvlášť)' },
 ];
 
-type ReadFilter = 'all' | 'unread' | 'read';
+type ReadFilter = 'all' | 'unread';
 
 const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
   { value: 'all', label: 'Vše' },
   { value: 'unread', label: 'Nepřečtené' },
-  { value: 'read', label: 'Přečtené' },
 ];
 
+/** Conversations: list on the left, the open one on the right (on a phone
+ * one at a time). Everyone in a conversation can reply. */
 @Component({
   selector: 'app-messages-page',
   imports: [
     TermPipe,
     AppIcon,
+    DatePipe,
     FormsModule,
     Button,
-    Card,
     Dialog,
     InputText,
+    MultiSelect,
     PMessage,
     Select,
-    Tag,
     Textarea,
   ],
   templateUrl: './messages-page.html',
@@ -81,257 +93,252 @@ export class MessagesPage {
   private readonly messagesApi = inject(MessagesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
+  private readonly unread = inject(UnreadMessagesService);
   private readonly term = (text: string) =>
     localizeStudentTerm(text, this.authApi.getSchoolType());
 
-  protected readonly messages = signal<Message[]>([]);
+  protected readonly conversations = signal<ConversationSummary[]>([]);
+  protected readonly selected = signal<Conversation | null>(null);
   protected readonly students = signal<Student[]>([]);
   protected readonly broadcastClasses = signal<SchoolClass[]>([]);
-  protected readonly broadcastResult = signal<string | null>(null);
-  protected readonly broadcastError = signal<string | null>(null);
+  protected readonly contacts = signal<Contact[]>([]);
+  protected readonly notice = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
+  protected readonly myUserId = this.authApi.getUserId();
+  protected readonly isStaff = this.authApi.isTeacherOrAdmin();
+
+  protected readonly readFilterOptions = READ_FILTER_OPTIONS;
+  protected readonly readFilter = signal<ReadFilter>('all');
+  protected readonly visibleConversations = computed(() =>
+    this.readFilter() === 'unread'
+      ? this.conversations().filter((c) => c.unread)
+      : this.conversations(),
+  );
+
+  protected readonly modeOptions = MODE_OPTIONS.filter(
+    (o) => this.authApi.isAdmin() || o.value !== 'school',
+  ).map((o) => ({ ...o, label: this.term(o.label) }));
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName}`,
+      label: `${s.firstName} ${s.lastName} (${s.schoolClassName})`,
+    })),
+  );
+  protected readonly contactOptions = computed(() =>
+    this.contacts().map((c) => ({
+      id: c.userId,
+      label: c.note ? `${c.name} — ${c.note}` : c.name,
     })),
   );
 
-  /** "Celá škola" only makes sense to offer to Admin — Teacher's school-wide
-   * broadcast is rejected server-side anyway (see MessageBroadcastController). */
-  protected readonly modeOptions = computed(() =>
-    MODE_OPTIONS.filter(
-      (o) => this.authApi.isAdmin() || o.value !== 'school',
-    ).map((o) => ({ ...o, label: this.term(o.label) })),
-  );
-
-  protected selectedStudentId: number | null = null;
-  protected readonly readFilterOptions = READ_FILTER_OPTIONS;
-  protected readFilter: ReadFilter = 'all';
-
-  protected readonly messageDialogVisible = signal(false);
+  // New-conversation dialog.
+  protected readonly dialogVisible = signal(false);
   protected sendMode: SendMode = 'individual';
-  protected selectedBroadcastClassId: number | null = null;
+  protected studentId: number | null = null;
+  protected broadcastClassId: number | null = null;
+  protected recipientIds: number[] = [];
   protected subject = '';
   protected body = '';
-  protected selectedFile: File | null = null;
-  /** Client-side file-picker validation, shown inside the still-open dialog. */
+  protected newFile: File | null = null;
   protected readonly fileError = signal<string | null>(null);
-  /** Upload failure *after* the message itself already sent — the dialog
-   * has closed by then, so (like broadcastResult) this lives outside it. */
-  protected readonly attachmentUploadError = signal<string | null>(null);
+
+  // Reply box under the open conversation.
+  protected replyBody = '';
+  protected replyFile: File | null = null;
+  protected readonly replyFileError = signal<string | null>(null);
 
   constructor() {
+    this.reloadList();
     this.studentsApi.getStudents().subscribe({
-      next: (students) => {
-        this.students.set(students);
-        this.selectedStudentId ??= students[0]?.id ?? null;
-        this.reload();
-      },
+      next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
     });
-    if (this.canSendMessages()) {
+    if (this.isStaff) {
       this.messagesApi.getBroadcastableClasses().subscribe({
-        next: (classes) => {
-          this.broadcastClasses.set(classes);
-          this.selectedBroadcastClassId ??= classes[0]?.id ?? null;
-        },
+        next: (classes) => this.broadcastClasses.set(classes),
         error: (err) => console.error('getBroadcastableClasses failed', err),
       });
     }
   }
 
-  protected canSendMessages(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+  protected open(summary: ConversationSummary): void {
+    this.notice.set(null);
+    this.messagesApi.getConversation(summary.id).subscribe({
+      next: (conversation) => {
+        this.selected.set(conversation);
+        this.replyBody = '';
+        this.replyFile = null;
+        if (summary.unread) {
+          this.messagesApi.markRead(summary.id).subscribe({
+            next: () => {
+              this.conversations.update((list) =>
+                list.map((c) =>
+                  c.id === summary.id ? { ...c, unread: false } : c,
+                ),
+              );
+              this.unread.refresh();
+            },
+            error: (err) => console.error('markRead failed', err),
+          });
+        }
+      },
+      error: (err) => console.error('getConversation failed', err),
+    });
   }
 
-  protected onStudentChange(): void {
-    this.reload();
+  protected closeConversation(): void {
+    this.selected.set(null);
   }
 
-  protected openSendMessageDialog(): void {
-    this.broadcastResult.set(null);
-    this.broadcastError.set(null);
-    this.attachmentUploadError.set(null);
+  protected openNewDialog(): void {
+    this.notice.set(null);
+    this.error.set(null);
     this.fileError.set(null);
     this.sendMode = 'individual';
     this.subject = '';
     this.body = '';
-    this.selectedFile = null;
-    this.messageDialogVisible.set(true);
+    this.newFile = null;
+    this.recipientIds = [];
+    this.studentId = this.students()[0]?.id ?? null;
+    this.broadcastClassId = this.broadcastClasses()[0]?.id ?? null;
+    this.loadContacts();
+    this.dialogVisible.set(true);
   }
 
-  protected onFileSelected(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-    this.fileError.set(null);
-    if (!file) {
-      this.selectedFile = null;
+  /** Parent/pupil: who they may write to depends on the child's class. */
+  protected loadContacts(): void {
+    if (this.isStaff || this.studentId === null) {
       return;
     }
-    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
-      this.fileError.set('Soubor je příliš velký (max 10 MB).');
-      this.selectedFile = null;
-      return;
-    }
-    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-    if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(extension)) {
-      this.fileError.set('Nepovolený typ souboru.');
-      this.selectedFile = null;
-      return;
-    }
-    this.selectedFile = file;
+    this.messagesApi.getContacts(this.studentId).subscribe({
+      next: (contacts) => {
+        this.contacts.set(contacts);
+        const allowed = new Set(contacts.map((c) => c.userId));
+        this.recipientIds = this.recipientIds.filter((id) => allowed.has(id));
+      },
+      error: (err) => console.error('getContacts failed', err),
+    });
+  }
+
+  protected onNewFileSelected(event: Event): void {
+    this.newFile = this.pickFile(event, this.fileError);
+  }
+
+  protected onReplyFileSelected(event: Event): void {
+    this.replyFile = this.pickFile(event, this.replyFileError);
   }
 
   protected send(): void {
-    if (!this.subject || !this.body) {
+    if (!this.subject.trim() || !this.body.trim()) {
       return;
     }
-    this.broadcastResult.set(null);
-    this.broadcastError.set(null);
+    this.error.set(null);
+    const request = { subject: this.subject, body: this.body };
 
-    if (this.sendMode === 'individual') {
-      if (!this.selectedStudentId) {
-        return;
-      }
-      const studentId = this.selectedStudentId;
-      this.messagesApi
-        .sendMessage(studentId, { subject: this.subject, body: this.body })
-        .subscribe({
-          next: (message) =>
-            this.afterSend([{ studentId, messageId: message.id }]),
-          error: (err) => this.handleSendError(err),
-        });
-      return;
-    }
-
-    if (this.sendMode === 'class') {
-      if (!this.selectedBroadcastClassId) {
-        return;
-      }
-      this.messagesApi
-        .broadcastToClass(this.selectedBroadcastClassId, {
-          subject: this.subject,
-          body: this.body,
-        })
-        .subscribe({
-          next: (result) => {
-            this.broadcastResult.set(
-              this.term(`Odesláno ${result.recipientCount} žákům ve třídě.`),
-            );
-            this.afterSend(result.messages);
-          },
-          error: (err) => this.handleSendError(err),
-        });
-      return;
-    }
-
-    this.messagesApi
-      .broadcastToSchool({ subject: this.subject, body: this.body })
-      .subscribe({
+    if (this.isStaff && this.sendMode !== 'individual') {
+      const broadcast =
+        this.sendMode === 'class'
+          ? this.broadcastClassId === null
+            ? null
+            : this.messagesApi.broadcastToClass(this.broadcastClassId, request)
+          : this.messagesApi.broadcastToSchool(request);
+      broadcast?.subscribe({
         next: (result) => {
-          this.broadcastResult.set(
-            this.term(`Odesláno ${result.recipientCount} žákům celé školy.`),
+          const skipped = result.skippedCount
+            ? this.term(
+                ` (${result.skippedCount} žáků bez účtu i rodičů přeskočeno)`,
+              )
+            : '';
+          this.uploadThen(
+            result.messages,
+            this.newFile,
+            `Odesláno ${result.recipientCount} rodinám${skipped}.`,
           );
-          this.afterSend(result.messages);
         },
+        error: (err) => this.handleSendError(err),
+      });
+      return;
+    }
+
+    if (this.studentId === null) {
+      return;
+    }
+    if (!this.isStaff && this.recipientIds.length === 0) {
+      this.error.set('Vyberte aspoň jednoho příjemce.');
+      return;
+    }
+    this.messagesApi
+      .startConversation({
+        ...request,
+        studentId: this.studentId,
+        recipientUserIds: this.isStaff ? undefined : this.recipientIds,
+      })
+      .subscribe({
+        next: (conversation) =>
+          this.uploadThen(
+            [
+              {
+                conversationId: conversation.id,
+                messageId: conversation.messages[0].id,
+              },
+            ],
+            this.newFile,
+            null,
+            conversation.id,
+          ),
         error: (err) => this.handleSendError(err),
       });
   }
 
-  /** Runs after every successful send/broadcast — uploads the picked file
-   * (if any) to each just-created message, then closes the dialog and
-   * reloads. One upload call per recipient (see MessagesApiService.
-   * uploadAttachment's doc comment for why that's fine here). */
-  private afterSend(
-    recipients: { studentId: number; messageId: number }[],
-  ): void {
-    const file = this.selectedFile;
-    if (!file) {
-      this.clearForm();
-      this.reload();
+  protected sendReply(): void {
+    const conversation = this.selected();
+    if (!conversation || !this.replyBody.trim()) {
       return;
     }
-    forkJoin(
-      recipients.map((r) =>
-        this.messagesApi.uploadAttachment(r.studentId, r.messageId, file),
-      ),
-    ).subscribe({
-      next: () => {
-        this.clearForm();
-        this.reload();
+    this.messagesApi.reply(conversation.id, this.replyBody).subscribe({
+      next: (message) => {
+        const file = this.replyFile;
+        this.replyBody = '';
+        this.replyFile = null;
+        this.uploadAll(
+          [{ conversationId: conversation.id, messageId: message.id }],
+          file,
+        ).subscribe(() => this.reloadSelectedAndList());
       },
-      error: (err) => {
-        console.error('uploadAttachment failed', err);
-        // The message itself was already sent — the dialog closes like any
-        // other success, but this warning (unlike broadcastError) has to
-        // live outside it for the same reason broadcastResult does.
-        this.attachmentUploadError.set(
-          'Zpráva byla odeslána, ale příloha se nepodařila nahrát.',
-        );
-        this.clearForm();
-        this.reload();
-      },
+      error: (err) => console.error('reply failed', err),
     });
   }
 
-  protected filteredMessages(): Message[] {
-    if (this.readFilter === 'all') {
-      return this.messages();
-    }
-    return this.messages().filter((m) =>
-      this.readFilter === 'unread' ? !m.readAt : !!m.readAt,
-    );
-  }
-
-  protected markRead(message: Message): void {
-    if (!this.selectedStudentId || message.readAt) {
-      return;
-    }
-    this.messagesApi.markRead(this.selectedStudentId, message.id).subscribe({
-      next: () => this.reload(),
-      error: (err) => console.error('markRead failed', err),
-    });
-  }
-
-  /** No edit action exists for messages on purpose — a sent message is
-   * immutable, like an email (see MessagesController). */
+  /** Sender only — the backend refuses anyone else. */
   protected deleteMessage(message: Message): void {
-    if (!this.selectedStudentId) {
+    const conversation = this.selected();
+    if (!conversation) {
       return;
     }
-    this.messagesApi
-      .deleteMessage(this.selectedStudentId, message.id)
-      .subscribe({
-        next: () => this.reload(),
-        error: (err) => console.error('deleteMessage failed', err),
-      });
-  }
-
-  private clearForm(): void {
-    this.subject = '';
-    this.body = '';
-    this.selectedFile = null;
-    this.messageDialogVisible.set(false);
-  }
-
-  private handleSendError(err: unknown): void {
-    console.error('send failed', err);
-    this.broadcastError.set(
-      this.sendMode === 'individual'
-        ? 'Odeslání se nezdařilo.'
-        : 'Odeslání se nezdařilo — nemáte na tuto skupinu příjemců oprávnění.',
-    );
-  }
-
-  private reload(): void {
-    if (!this.selectedStudentId) {
-      return;
-    }
-    this.messagesApi.getMessages(this.selectedStudentId).subscribe({
-      next: (messages) => this.messages.set(messages),
-      error: (err) => console.error('getMessages failed', err),
+    this.messagesApi.deleteMessage(conversation.id, message.id).subscribe({
+      next: () => {
+        if (conversation.messages.length === 1) {
+          this.selected.set(null);
+          this.reloadList();
+        } else {
+          this.reloadSelectedAndList();
+        }
+      },
+      error: (err) => console.error('deleteMessage failed', err),
     });
+  }
+
+  protected isMine(message: Message): boolean {
+    return message.senderUserId === this.myUserId;
+  }
+
+  protected otherParticipants(conversation: Conversation): string {
+    return conversation.participants
+      .filter((p) => p.userId !== this.myUserId)
+      .map((p) => p.name)
+      .join(', ');
   }
 
   /** Same blob-download pattern as grades-page.ts's downloadReportCard —
@@ -341,8 +348,12 @@ export class MessagesPage {
     message: Message,
     attachment: MessageAttachment,
   ): void {
+    const conversation = this.selected();
+    if (!conversation) {
+      return;
+    }
     this.messagesApi
-      .downloadAttachment(message.studentId, message.id, attachment.id)
+      .downloadAttachment(conversation.id, message.id, attachment.id)
       .subscribe({
         next: (blob) => {
           const url = URL.createObjectURL(blob);
@@ -364,5 +375,108 @@ export class MessagesPage {
       return `${Math.round(bytes / 1024)} KB`;
     }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  private pickFile(
+    event: Event,
+    error: WritableSignal<string | null>,
+  ): File | null {
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    error.set(null);
+    if (!file) {
+      return null;
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      error.set('Soubor je příliš velký (max 10 MB).');
+      return null;
+    }
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(extension)) {
+      error.set('Nepovolený typ souboru.');
+      return null;
+    }
+    return file;
+  }
+
+  /** After a successful send: attach the file to every created message,
+   * close the dialog, show the outcome and (single conversation) open it. */
+  private uploadThen(
+    refs: { conversationId: number; messageId: number }[],
+    file: File | null,
+    successNotice: string | null,
+    openId?: number,
+  ): void {
+    this.uploadAll(refs, file).subscribe((uploaded) => {
+      this.dialogVisible.set(false);
+      this.notice.set(
+        uploaded
+          ? successNotice
+          : 'Zpráva byla odeslána, ale příloha se nepodařila nahrát.',
+      );
+      this.reloadList(openId);
+    });
+  }
+
+  /** Emits once: true = all uploads (or none needed) went through. */
+  private uploadAll(
+    refs: { conversationId: number; messageId: number }[],
+    file: File | null,
+  ): Observable<boolean> {
+    if (!file || refs.length === 0) {
+      return of(true);
+    }
+    return new Observable<boolean>((subscriber) => {
+      forkJoin(
+        refs.map((r) =>
+          this.messagesApi.uploadAttachment(
+            r.conversationId,
+            r.messageId,
+            file,
+          ),
+        ),
+      ).subscribe({
+        next: () => {
+          subscriber.next(true);
+          subscriber.complete();
+        },
+        error: (err) => {
+          console.error('uploadAttachment failed', err);
+          subscriber.next(false);
+          subscriber.complete();
+        },
+      });
+    });
+  }
+
+  private handleSendError(err: { error?: unknown }): void {
+    console.error('send failed', err);
+    this.error.set(
+      typeof err.error === 'string' ? err.error : 'Odeslání se nezdařilo.',
+    );
+  }
+
+  private reloadList(openId?: number): void {
+    this.messagesApi.getConversations().subscribe({
+      next: (conversations) => {
+        this.conversations.set(conversations);
+        const toOpen = conversations.find((c) => c.id === openId);
+        if (toOpen) {
+          this.open(toOpen);
+        }
+      },
+      error: (err) => console.error('getConversations failed', err),
+    });
+    this.unread.refresh();
+  }
+
+  private reloadSelectedAndList(): void {
+    const conversation = this.selected();
+    if (conversation) {
+      this.messagesApi.getConversation(conversation.id).subscribe({
+        next: (c) => this.selected.set(c),
+        error: (err) => console.error('getConversation failed', err),
+      });
+    }
+    this.reloadList();
   }
 }

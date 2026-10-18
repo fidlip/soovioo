@@ -20,6 +20,7 @@ import {
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { SchoolContextService } from './school-context';
+import { UnreadMessagesService } from './unread-messages.service';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'soovioo-sidebar-collapsed';
 
@@ -52,6 +53,7 @@ export class App {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
   protected readonly schoolContext = inject(SchoolContextService);
+  protected readonly unreadMessages = inject(UnreadMessagesService);
 
   constructor() {
     // Created at startup only so the persisted/OS dark-mode class lands on
@@ -87,7 +89,17 @@ export class App {
         filter((e) => e instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
-      .subscribe(() => this.drawerOpen.set(false));
+      .subscribe(() => {
+        this.drawerOpen.set(false);
+        // Sidebar "Zprávy" badge — cheap enough to re-check per navigation.
+        if (
+          this.authApi.isLoggedIn() &&
+          !this.authApi.isSuperAdmin() &&
+          !this.hideHeader()
+        ) {
+          this.unreadMessages.refresh();
+        }
+      });
   }
 
   protected title = 'Soovioo';

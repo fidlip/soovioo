@@ -75,7 +75,7 @@ public class StudentsControllerTests
 
         db.Grades.Add(new Grade { StudentId = student.Id, SubjectId = subject.Id, Value = 1, SchoolId = SchoolId });
         db.Absences.Add(new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId });
-        db.Messages.Add(new Message { StudentId = student.Id, SenderName = "x", Subject = "s", Body = "b", SchoolId = SchoolId });
+        db.Conversations.Add(new Conversation { StudentId = student.Id, Subject = "s", SchoolId = SchoolId });
         db.ParentStudents.Add(new ParentStudent { StudentId = student.Id, UserId = parent.Id, SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
@@ -85,7 +85,7 @@ public class StudentsControllerTests
         Assert.Null(await db.Students.FindAsync(student.Id));
         Assert.Empty(db.Grades.Where(g => g.StudentId == student.Id));
         Assert.Empty(db.Absences.Where(a => a.StudentId == student.Id));
-        Assert.Empty(db.Messages.Where(m => m.StudentId == student.Id));
+        Assert.Empty(db.Conversations.Where(c => c.StudentId == student.Id));
         Assert.Empty(db.ParentStudents.Where(ps => ps.StudentId == student.Id));
     }
 

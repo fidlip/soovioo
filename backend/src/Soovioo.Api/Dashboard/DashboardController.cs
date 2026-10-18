@@ -8,6 +8,7 @@ using Soovioo.Api.Behavior;
 using Soovioo.Api.Data;
 using Soovioo.Api.Events;
 using Soovioo.Api.Grades;
+using Soovioo.Api.Messaging;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Dashboard;
@@ -85,12 +86,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 a.Id, a.StudentId, a.Student!.FirstName + " " + a.Student.LastName, a.Date, a.Status, a.ExcuseReason))
             .ToListAsync();
 
-        var messagesQuery = db.Messages.AsQueryable();
-        if (allowedStudentIds is not null)
-        {
-            messagesQuery = messagesQuery.Where(m => allowedStudentIds.Contains(m.StudentId));
-        }
-        var unreadMessageCount = await messagesQuery.CountAsync(m => m.ReadAt == null);
+        var unreadMessageCount = await db.CountUnreadConversationsAsync(userId);
 
         var behaviorRecordsQuery = db.BehaviorRecords.AsQueryable();
         if (allowedStudentIds is not null)

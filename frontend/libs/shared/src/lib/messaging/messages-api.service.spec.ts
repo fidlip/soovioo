@@ -25,77 +25,63 @@ describe('MessagesApiService', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('fetches messages for a student', () => {
-    service.getMessages(1).subscribe();
-    const req = httpMock.expectOne('http://test/api/students/1/messages');
+  it('lists conversations', () => {
+    service.getConversations().subscribe();
+    const req = httpMock.expectOne('http://test/api/conversations');
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
 
-  it('sends a message', () => {
-    service.sendMessage(1, { subject: 'S', body: 'B' }).subscribe();
-    const req = httpMock.expectOne('http://test/api/students/1/messages');
+  it('starts a conversation', () => {
+    service
+      .startConversation({ subject: 'S', body: 'B', studentId: 1 })
+      .subscribe();
+    const req = httpMock.expectOne('http://test/api/conversations');
     expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ subject: 'S', body: 'B', studentId: 1 });
     req.flush({});
   });
 
-  it('marks a message as read', () => {
-    service.markRead(1, 2).subscribe();
-    const req = httpMock.expectOne(
-      'http://test/api/students/1/messages/2/read',
-    );
+  it('replies to a conversation', () => {
+    service.reply(3, 'Díky').subscribe();
+    const req = httpMock.expectOne('http://test/api/conversations/3/messages');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ body: 'Díky' });
+    req.flush({});
+  });
+
+  it('marks a conversation read', () => {
+    service.markRead(3).subscribe();
+    const req = httpMock.expectOne('http://test/api/conversations/3/read');
     expect(req.request.method).toBe('POST');
     req.flush(null);
   });
 
-  it('fetches broadcastable classes', () => {
-    service.getBroadcastableClasses().subscribe();
+  it('loads contacts for a student', () => {
+    service.getContacts(5).subscribe();
     const req = httpMock.expectOne(
-      'http://test/api/messages/broadcastable-classes',
+      'http://test/api/conversations/contacts?studentId=5',
     );
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
 
+  it('uploads an attachment as multipart', () => {
+    const file = new File(['x'], 'a.txt', { type: 'text/plain' });
+    service.uploadAttachment(3, 7, file).subscribe();
+    const req = httpMock.expectOne(
+      'http://test/api/conversations/3/messages/7/attachments',
+    );
+    expect(req.request.body instanceof FormData).toBe(true);
+    req.flush({});
+  });
+
   it('broadcasts to a class', () => {
-    service.broadcastToClass(1, { subject: 'S', body: 'B' }).subscribe();
+    service.broadcastToClass(2, { subject: 'S', body: 'B' }).subscribe();
     const req = httpMock.expectOne(
-      'http://test/api/school-classes/1/messages/broadcast',
+      'http://test/api/school-classes/2/messages/broadcast',
     );
     expect(req.request.method).toBe('POST');
-    req.flush({ recipientCount: 2, messages: [] });
-  });
-
-  it('broadcasts to the whole school', () => {
-    service.broadcastToSchool({ subject: 'S', body: 'B' }).subscribe();
-    const req = httpMock.expectOne('http://test/api/messages/broadcast');
-    expect(req.request.method).toBe('POST');
-    req.flush({ recipientCount: 5, messages: [] });
-  });
-
-  it('uploads an attachment as multipart form data', () => {
-    const file = new File(['hello'], 'rozvrh.pdf', { type: 'application/pdf' });
-    service.uploadAttachment(1, 2, file).subscribe();
-    const req = httpMock.expectOne(
-      'http://test/api/students/1/messages/2/attachments',
-    );
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toBeInstanceOf(FormData);
-    req.flush({
-      id: 1,
-      fileName: 'rozvrh.pdf',
-      contentType: 'application/pdf',
-      sizeBytes: 5,
-    });
-  });
-
-  it('downloads an attachment as a blob', () => {
-    service.downloadAttachment(1, 2, 3).subscribe();
-    const req = httpMock.expectOne(
-      'http://test/api/students/1/messages/2/attachments/3',
-    );
-    expect(req.request.method).toBe('GET');
-    expect(req.request.responseType).toBe('blob');
-    req.flush(new Blob(['x']));
+    req.flush({ recipientCount: 0, skippedCount: 0, messages: [] });
   });
 });

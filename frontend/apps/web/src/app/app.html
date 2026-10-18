@@ -73,7 +73,12 @@
       [title]="item.label"
       ><app-icon [name]="item.icon" /><span class="app-nav-label">{{
         item.label
-      }}</span></a
+      }}</span
+      >@if (item.icon === 'messages' && unreadMessages.count() > 0) {<span
+        class="app-nav-badge"
+        [attr.aria-label]="unreadMessages.count() + ' nepřečtených'"
+        >{{ unreadMessages.count() }}</span
+      >}</a
     >
     } } }
   </nav>

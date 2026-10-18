@@ -863,6 +863,65 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("HomeworkStudents");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Messaging.Conversation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("LastMessageAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Messaging.ConversationParticipant", b =>
+                {
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LastReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ConversationId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ConversationParticipants");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Messaging.Message", b =>
                 {
                     b.Property<int>("Id")
@@ -875,8 +934,8 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTimeOffset?>("ReadAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
@@ -885,21 +944,19 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("SenderUserId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("SentAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("StudentId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
 
                     b.HasIndex("SchoolId");
 
-                    b.HasIndex("StudentId");
+                    b.HasIndex("SenderUserId");
 
                     b.ToTable("Messages");
                 });
@@ -1716,8 +1773,13 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Student");
                 });
 
-            modelBuilder.Entity("Soovioo.Api.Messaging.Message", b =>
+            modelBuilder.Entity("Soovioo.Api.Messaging.Conversation", b =>
                 {
+                    b.HasOne("Soovioo.Api.Auth.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
@@ -1727,12 +1789,58 @@ namespace Soovioo.Api.Migrations
                     b.HasOne("Soovioo.Api.Evidence.Student", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("CreatedBy");
 
                     b.Navigation("School");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Messaging.ConversationParticipant", b =>
+                {
+                    b.HasOne("Soovioo.Api.Messaging.Conversation", "Conversation")
+                        .WithMany("Participants")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Messaging.Message", b =>
+                {
+                    b.HasOne("Soovioo.Api.Messaging.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("School");
+
+                    b.Navigation("SenderUser");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.MessageAttachment", b =>
@@ -1949,6 +2057,13 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Completions");
 
                     b.Navigation("Students");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Messaging.Conversation", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.Message", b =>

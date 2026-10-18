@@ -2,216 +2,324 @@
   <h1 class="mb-0 flex items-center gap-3">
     <app-icon name="messages" />Zprávy
   </h1>
-  @if (canSendMessages()) {
-  <p-button
-    label="Nová zpráva"
-    icon="pi pi-send"
-    (onClick)="openSendMessageDialog()"
-  />
-  }
+  <p-button label="Nová zpráva" icon="pi pi-send" (onClick)="openNewDialog()" />
 </div>
 
-@if (broadcastResult(); as result) {
-<p-message severity="success" [text]="result" styleClass="mb-3 w-full" />
-} @if (attachmentUploadError(); as error) {
-<p-message severity="warn" [text]="error" styleClass="mb-3 w-full" />
+@if (notice(); as text) {
+<p-message severity="success" [text]="text" styleClass="mb-3 w-full" />
 }
 
-<div class="mb-6 flex flex-wrap items-end gap-3">
-  <div class="flex max-w-xs flex-col gap-1.5">
-    <label
-      for="student"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >{{ 'Žák' | term }}</label
-    >
+<div class="grid gap-4 md:grid-cols-[20rem_1fr]">
+  <!-- Conversation list — on a phone hidden while one is open. -->
+  <section
+    class="flex flex-col gap-2"
+    [class.hidden]="selected() !== null"
+    [class.md:flex]="selected() !== null"
+    aria-label="Konverzace"
+  >
     <p-select
-      inputId="student"
-      [options]="studentOptions()"
-      optionLabel="label"
-      optionValue="id"
-      [(ngModel)]="selectedStudentId"
-      (ngModelChange)="onStudentChange()"
-      name="student"
-      appendTo="body"
-    />
-  </div>
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="readFilter"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Stav</label
-    >
-    <p-select
-      inputId="readFilter"
       [options]="readFilterOptions"
       optionLabel="label"
       optionValue="value"
-      [(ngModel)]="readFilter"
+      [ngModel]="readFilter()"
+      (ngModelChange)="readFilter.set($event)"
       name="readFilter"
-      appendTo="body"
+      ariaLabel="Stav"
       styleClass="w-40"
+      appendTo="body"
     />
-  </div>
-</div>
-
-<div class="flex flex-col gap-3">
-  @for (message of filteredMessages(); track message.id) {
-  <p-card>
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="flex items-center gap-2">
-          <strong class="text-surface-900 dark:text-surface-0"
-            >{{ message.subject }}</strong
-          >
-          @if (!message.readAt) {
-          <p-tag value="nepřečteno" severity="info" />
+    <ul class="m-0 flex list-none flex-col gap-1 p-0">
+      @for (c of visibleConversations(); track c.id) {
+      <li>
+        <button
+          type="button"
+          class="w-full cursor-pointer rounded-md border border-surface-200 bg-surface-0 p-3 text-left hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800"
+          [class.!border-primary]="selected()?.id === c.id"
+          (click)="open(c)"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span
+              class="truncate text-sm text-surface-900 dark:text-surface-0"
+              [class.font-bold]="c.unread"
+              [class.font-medium]="!c.unread"
+              >{{ c.subject }}</span
+            >
+            <span class="shrink-0 text-xs text-surface-500"
+              >{{ c.lastMessageAt | date: 'd. M. H:mm' }}</span
+            >
+          </div>
+          @if (c.studentName) {
+          <div class="text-xs text-surface-500">{{ c.studentName }}</div>
           }
-        </div>
-        <div class="text-sm text-surface-500">{{ message.senderName }}</div>
-      </div>
-      <div class="flex items-center gap-1">
-        @if (!message.readAt) {
-        <p-button
-          label="Označit jako přečtené"
-          size="small"
-          [text]="true"
-          (onClick)="markRead(message)"
-        />
-        } @if (canSendMessages()) {
-        <p-button
-          icon="pi pi-trash"
-          size="small"
-          severity="danger"
-          [text]="true"
-          (onClick)="deleteMessage(message)"
-        />
-        }
-      </div>
-    </div>
-    <p
-      class="mt-2 mb-0 whitespace-pre-line text-surface-700 dark:text-surface-200"
-    >
-      {{ message.body }}
-    </p>
-    @if (message.attachments.length > 0) {
-    <div class="mt-3 flex flex-wrap gap-2">
-      @for (attachment of message.attachments; track attachment.id) {
-      <p-button
-        [label]="attachment.fileName + ' (' + formatFileSize(attachment.sizeBytes) + ')'"
-        icon="pi pi-paperclip"
-        size="small"
-        severity="secondary"
-        [outlined]="true"
-        (onClick)="downloadAttachment(message, attachment)"
-      />
+          <div
+            class="mt-1 flex items-center gap-2 text-xs text-surface-600 dark:text-surface-300"
+          >
+            @if (c.unread) {
+            <span
+              class="inline-block h-2 w-2 shrink-0 rounded-full bg-primary"
+              aria-label="nepřečteno"
+            ></span>
+            }
+            <span class="truncate"
+              >{{ c.lastSenderName }}: {{ c.lastMessagePreview }}</span
+            >
+          </div>
+        </button>
+      </li>
+      } @empty {
+      <li class="py-4 text-sm text-surface-500">Zatím žádné zprávy.</li>
       }
+    </ul>
+  </section>
+
+  <!-- Open conversation. -->
+  <section
+    class="min-w-0"
+    [class.hidden]="selected() === null"
+    [class.md:block]="selected() === null"
+  >
+    @if (selected(); as conversation) {
+    <div
+      class="flex flex-col gap-3 rounded-md border border-surface-200 bg-surface-0 p-4 dark:border-surface-700 dark:bg-surface-900"
+    >
+      <div class="flex items-start gap-2">
+        <p-button
+          icon="pi pi-arrow-left"
+          size="small"
+          severity="secondary"
+          [text]="true"
+          ariaLabel="Zpět na seznam"
+          styleClass="md:!hidden"
+          (onClick)="closeConversation()"
+        />
+        <div class="min-w-0">
+          <h2 class="m-0 text-lg">{{ conversation.subject }}</h2>
+          <div class="text-sm text-surface-500">
+            @if (conversation.studentName) { {{ conversation.studentName }} · }
+            {{ otherParticipants(conversation) }}
+          </div>
+        </div>
+      </div>
+
+      <ol class="m-0 flex list-none flex-col gap-3 p-0">
+        @for (message of conversation.messages; track message.id) {
+        <li
+          class="max-w-[85%] rounded-lg px-3 py-2"
+          [class.self-end]="isMine(message)"
+          [class.bg-primary-50]="isMine(message)"
+          [class.dark:bg-primary-950]="isMine(message)"
+          [class.bg-surface-100]="!isMine(message)"
+          [class.dark:bg-surface-800]="!isMine(message)"
+        >
+          <div
+            class="flex items-center justify-between gap-3 text-xs text-surface-500"
+          >
+            <span class="font-medium">{{ message.senderName }}</span>
+            <span class="flex items-center gap-1"
+              >{{ message.sentAt | date: 'd. M. y H:mm' }} @if (isMine(message))
+              {
+              <p-button
+                icon="pi pi-trash"
+                size="small"
+                severity="danger"
+                [text]="true"
+                ariaLabel="Smazat zprávu"
+                (onClick)="deleteMessage(message)"
+              />
+              }
+            </span>
+          </div>
+          <p
+            class="mt-1 mb-0 whitespace-pre-line text-sm text-surface-800 dark:text-surface-100"
+          >
+            {{ message.body }}
+          </p>
+          @if (message.attachments.length > 0) {
+          <div class="mt-2 flex flex-wrap gap-2">
+            @for (attachment of message.attachments; track attachment.id) {
+            <p-button
+              [label]="attachment.fileName + ' (' + formatFileSize(attachment.sizeBytes) + ')'"
+              icon="pi pi-paperclip"
+              size="small"
+              severity="secondary"
+              [outlined]="true"
+              (onClick)="downloadAttachment(message, attachment)"
+            />
+            }
+          </div>
+          }
+        </li>
+        }
+      </ol>
+
+      <form class="flex flex-col gap-2" (ngSubmit)="sendReply()">
+        <textarea
+          pTextarea
+          rows="3"
+          placeholder="Odpovědět…"
+          name="replyBody"
+          aria-label="Odpověď"
+          [(ngModel)]="replyBody"
+        ></textarea>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <input
+            type="file"
+            name="replyFile"
+            aria-label="Příloha"
+            class="text-sm"
+            (change)="onReplyFileSelected($event)"
+          />
+          <p-button type="submit" label="Odeslat" icon="pi pi-send" />
+        </div>
+        @if (replyFileError(); as fileErr) {
+        <p-message severity="error" [text]="fileErr" />
+        }
+      </form>
     </div>
+    } @else {
+    <p class="text-sm text-surface-500">Vyberte konverzaci vlevo.</p>
     }
-  </p-card>
-  } @empty {
-  <p class="text-surface-500">Zatím žádné zprávy.</p>
-  }
+  </section>
 </div>
 
 <p-dialog
-  [visible]="messageDialogVisible()"
-  (visibleChange)="messageDialogVisible.set($event)"
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
   header="Nová zpráva"
   [modal]="true"
-  styleClass="w-full max-w-xl"
+  styleClass="w-full max-w-lg"
 >
-  @if (broadcastError(); as error) {
-  <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
-  }
   <form class="flex flex-col gap-3" (ngSubmit)="send()">
-    <div class="flex flex-wrap items-end gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="sendMode"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Komu</label
-        >
-        <p-select
-          inputId="sendMode"
-          [options]="modeOptions()"
-          optionLabel="label"
-          optionValue="value"
-          [(ngModel)]="sendMode"
-          name="sendMode"
-          appendTo="body"
-          styleClass="w-64"
-        />
-      </div>
-      @if (sendMode === 'class') {
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="broadcastClass"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Třída</label
-        >
-        <p-select
-          inputId="broadcastClass"
-          [options]="broadcastClasses()"
-          optionLabel="name"
-          optionValue="id"
-          placeholder="Vyberte třídu"
-          [(ngModel)]="selectedBroadcastClassId"
-          name="broadcastClass"
-          appendTo="body"
-          styleClass="w-40"
-        />
-      </div>
-      }
-    </div>
-    @if (sendMode === 'individual') {
-    <p class="m-0 text-sm text-surface-500">
-      {{ 'Odešle se do vlákna žáka vybraného nahoře.' | term }}
-    </p>
-    } @else if (sendMode === 'school') {
-    <p class="m-0 text-sm text-surface-500">
-      {{ 'Odešle se do vlákna každého žáka školy.' | term }}
-    </p>
-    }
-    <input
-      pInputText
-      type="text"
-      placeholder="Předmět"
-      name="subject"
-      [(ngModel)]="subject"
-    />
-    <textarea
-      pTextarea
-      rows="3"
-      placeholder="Text zprávy"
-      name="body"
-      [(ngModel)]="body"
-    ></textarea>
+    @if (isStaff) {
     <div class="flex flex-col gap-1.5">
       <label
-        for="attachment"
+        for="sendMode"
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Příloha (nepovinné, max 10 MB)</label
+        >Komu</label
       >
-      <!-- Keyed by messageDialogVisible() so Angular recreates the DOM node
-           on every open — a native file input's displayed filename can't
-           be cleared any other way (setting .value from TS is the only
-           alternative, and even that only works via a direct element ref). -->
-      @if (messageDialogVisible()) {
-      <input
-        type="file"
-        id="attachment"
-        name="attachment"
-        (change)="onFileSelected($event)"
+      <p-select
+        inputId="sendMode"
+        [options]="modeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="sendMode"
+        name="sendMode"
+        styleClass="w-full"
+        appendTo="body"
       />
-      } @if (fileError(); as error) {
-      <p class="m-0 text-sm text-red-500">{{ error }}</p>
+    </div>
+    } @if (!isStaff || sendMode === 'individual') { @if (isStaff ||
+    students().length > 1) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newStudent"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >{{ 'Žák' | term }}</label
+      >
+      <p-select
+        inputId="newStudent"
+        [options]="studentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="studentId"
+        (ngModelChange)="loadContacts()"
+        [filter]="isStaff"
+        name="newStudent"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    } } @if (isStaff && sendMode === 'class') {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="broadcastClass"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Třída</label
+      >
+      <p-select
+        inputId="broadcastClass"
+        [options]="broadcastClasses()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="broadcastClassId"
+        name="broadcastClass"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    } @if (!isStaff) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="recipients"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příjemci</label
+      >
+      <p-multiSelect
+        inputId="recipients"
+        [options]="contactOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="recipientIds"
+        name="recipients"
+        placeholder="Vyberte učitele nebo vedení"
+        display="chip"
+        [showHeader]="false"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    }
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="subject"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Předmět</label
+      >
+      <input pInputText id="subject" name="subject" [(ngModel)]="subject" />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="body"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Text</label
+      >
+      <textarea
+        pTextarea
+        id="body"
+        rows="5"
+        name="body"
+        [(ngModel)]="body"
+      ></textarea>
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newFile"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Příloha</label
+      >
+      <input
+        id="newFile"
+        type="file"
+        name="newFile"
+        class="text-sm"
+        (change)="onNewFileSelected($event)"
+      />
+      @if (fileError(); as fileErr) {
+      <p-message severity="error" [text]="fileErr" />
       }
     </div>
-    <p-button
-      type="submit"
-      label="Odeslat"
-      icon="pi pi-send"
-      styleClass="self-end"
-    />
+    @if (error(); as errorText) {
+    <p-message severity="error" [text]="errorText" />
+    }
+    <div class="flex justify-end gap-2">
+      <p-button
+        type="button"
+        label="Zrušit"
+        severity="secondary"
+        [text]="true"
+        (onClick)="dialogVisible.set(false)"
+      />
+      <p-button type="submit" label="Odeslat" icon="pi pi-send" />
+    </div>
   </form>
 </p-dialog>

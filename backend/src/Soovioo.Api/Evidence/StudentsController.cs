@@ -153,7 +153,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         db.Grades.RemoveRange(db.Grades.Where(g => g.StudentId == id));
         db.Absences.RemoveRange(db.Absences.Where(a => a.StudentId == id));
-        db.Messages.RemoveRange(db.Messages.Where(m => m.StudentId == id));
+        db.Conversations.RemoveRange(db.Conversations.Where(c => c.StudentId == id));
         db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.StudentId == id));
         // The student's own login (role Student), if they had one — gone
         // along with everything else, not just unlinked (SetNull in

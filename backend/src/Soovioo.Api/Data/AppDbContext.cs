@@ -25,6 +25,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Absence> Absences => Set<Absence>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
     public DbSet<Event> Events => Set<Event>();
@@ -57,6 +59,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ParentStudent>().HasKey(ps => new { ps.UserId, ps.StudentId });
+        modelBuilder.Entity<ConversationParticipant>().HasKey(p => new { p.ConversationId, p.UserId });
+        // A deleted account leaves the conversations it wrote in readable for
+        // the others — just without a link to the sender.
+        modelBuilder.Entity<Message>()
+            .HasOne(m => m.SenderUser).WithMany().OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Conversation>()
+            .HasOne(c => c.CreatedBy).WithMany().HasForeignKey(c => c.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Conversation>()
+            .HasOne(c => c.Student).WithMany().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<HomeworkStudent>().HasKey(hs => new { hs.HomeworkId, hs.StudentId });
         modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
         modelBuilder.Entity<BehaviorClassification>()
@@ -155,6 +166,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
+        modelBuilder.Entity<Conversation>().HasQueryFilter(c =>
+            currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<ConversationParticipant>().HasQueryFilter(p =>
+            currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Message>().HasQueryFilter(m =>
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<MessageAttachment>().HasQueryFilter(a =>
