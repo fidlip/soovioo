@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
@@ -35,6 +36,7 @@ const DEFAULT_PAGE_SIZE = 10;
     FormsModule,
     Button,
     Card,
+    Dialog,
     InputText,
     Paginator,
     Password,
@@ -62,6 +64,7 @@ export class SuperAdminPage {
 
   protected search = '';
 
+  protected readonly schoolDialogVisible = signal(false);
   protected newSchoolName = '';
   protected newSchoolSlug = '';
   protected newAdminUsername = '';
@@ -171,6 +174,17 @@ export class SuperAdminPage {
       });
   }
 
+  protected openAddSchoolDialog(): void {
+    this.newSchoolName = '';
+    this.newSchoolSlug = '';
+    this.newAdminUsername = '';
+    this.newAdminPassword = '';
+    this.newSchoolIzo = '';
+    this.newSchoolRedIzo = '';
+    this.notify.clear();
+    this.schoolDialogVisible.set(true);
+  }
+
   protected addSchool(): void {
     if (
       !this.newSchoolName.trim() ||
@@ -189,13 +203,9 @@ export class SuperAdminPage {
       redIzo: this.newSchoolRedIzo || undefined,
     };
     this.schoolsApi.addSchool(request).subscribe({
-      next: () => {
-        this.newSchoolName = '';
-        this.newSchoolSlug = '';
-        this.newAdminUsername = '';
-        this.newAdminPassword = '';
-        this.newSchoolIzo = '';
-        this.newSchoolRedIzo = '';
+      next: (school) => {
+        this.schoolDialogVisible.set(false);
+        this.notify.success(`Škola ${school.name} založena.`);
         this.reload();
       },
       error: (err) => this.notify.actionFailed('addSchool failed', err),

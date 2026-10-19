@@ -3,15 +3,23 @@
 </h1>
 
 <p-card header="Školy" styleClass="mb-6">
-  <input
-    pInputText
-    type="text"
-    placeholder="Hledat podle názvu nebo slugu"
-    [(ngModel)]="search"
-    (ngModelChange)="onSearchChange()"
-    name="search"
-    class="mb-3 w-72"
-  />
+  <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+    <input
+      pInputText
+      type="text"
+      placeholder="Hledat podle názvu nebo slugu"
+      [(ngModel)]="search"
+      (ngModelChange)="onSearchChange()"
+      name="search"
+      class="w-72 max-w-full"
+    />
+    <p-button
+      label="Nová škola"
+      icon="pi pi-plus"
+      size="small"
+      (onClick)="openAddSchoolDialog()"
+    />
+  </div>
   <p-table [value]="schools()" dataKey="id">
     <ng-template pTemplate="header">
       <tr>
@@ -127,115 +135,6 @@
   />
 </p-card>
 
-<p-card header="Založit novou školu">
-  <form class="flex flex-wrap items-end gap-3" #schoolForm="ngForm"
-    (ngSubmit)="addSchool()">
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolName"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Název školy</label
-      >
-      <input
-        pInputText
-        type="text"
-        id="schoolName"
-        name="schoolName"
-        required
-        [(ngModel)]="newSchoolName"
-      />
-    </div>
-
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolSlug"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Slug (do URL)</label
-      >
-      <input
-        pInputText
-        type="text"
-        id="schoolSlug"
-        name="schoolSlug"
-        required
-        [(ngModel)]="newSchoolSlug"
-      />
-    </div>
-
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="adminUsername"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >
-        Uživatelské jméno admina
-      </label>
-      <input
-        pInputText
-        type="text"
-        id="adminUsername"
-        name="adminUsername"
-        required
-        autocomplete="off"
-        [(ngModel)]="newAdminUsername"
-      />
-    </div>
-
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="adminPassword"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Heslo admina</label
-      >
-      <p-password
-        inputId="adminPassword"
-        name="adminPassword"
-        required
-        autocomplete="new-password"
-        [(ngModel)]="newAdminPassword"
-        [toggleMask]="true"
-        [feedback]="false"
-      />
-    </div>
-
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolIzo"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >IZO (nepovinné)</label
-      >
-      <input
-        pInputText
-        type="text"
-        id="schoolIzo"
-        name="schoolIzo"
-        [(ngModel)]="newSchoolIzo"
-      />
-    </div>
-
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolRedIzo"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >
-        RED_IZO (nepovinné)
-      </label>
-      <input
-        pInputText
-        type="text"
-        id="schoolRedIzo"
-        name="schoolRedIzo"
-        [(ngModel)]="newSchoolRedIzo"
-      />
-    </div>
-
-    <app-submit-button
-      [form]="schoolForm"
-      label="Založit školu"
-      icon="pi pi-plus"
-    />
-  </form>
-</p-card>
-
 <p-card header="Superadmini" styleClass="mt-6">
   <ul class="m-0 mb-4 flex list-none flex-col gap-1 p-0">
     @for (superAdmin of superAdmins(); track superAdmin.id) {
@@ -301,3 +200,125 @@
     />
   </form>
 </p-card>
+
+<p-dialog
+  [visible]="schoolDialogVisible()"
+  (visibleChange)="schoolDialogVisible.set($event)"
+  header="Nová škola"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form
+    class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+    #schoolForm="ngForm"
+    (ngSubmit)="addSchool()"
+  >
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolName"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Název školy</label
+      >
+      <input
+        pInputText
+        type="text"
+        id="schoolName"
+        name="schoolName"
+        required
+        [(ngModel)]="newSchoolName"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolSlug"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Slug (do URL)</label
+      >
+      <input
+        pInputText
+        type="text"
+        id="schoolSlug"
+        name="schoolSlug"
+        required
+        [(ngModel)]="newSchoolSlug"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="adminUsername"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+      >
+        Uživatelské jméno admina
+      </label>
+      <input
+        pInputText
+        type="text"
+        id="adminUsername"
+        name="adminUsername"
+        required
+        autocomplete="off"
+        [(ngModel)]="newAdminUsername"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="adminPassword"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Heslo admina</label
+      >
+      <p-password
+        inputId="adminPassword"
+        name="adminPassword"
+        required
+        autocomplete="new-password"
+        [(ngModel)]="newAdminPassword"
+        [toggleMask]="true"
+        [feedback]="false"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolIzo"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >IZO (nepovinné)</label
+      >
+      <input
+        pInputText
+        type="text"
+        id="schoolIzo"
+        name="schoolIzo"
+        [(ngModel)]="newSchoolIzo"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolRedIzo"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+      >
+        RED_IZO (nepovinné)
+      </label>
+      <input
+        pInputText
+        type="text"
+        id="schoolRedIzo"
+        name="schoolRedIzo"
+        [(ngModel)]="newSchoolRedIzo"
+      />
+    </div>
+
+    <div class="sm:col-span-2">
+      <app-submit-button
+        [form]="schoolForm"
+        label="Založit školu"
+        icon="pi pi-check"
+      />
+    </div>
+  </form>
+</p-dialog>
