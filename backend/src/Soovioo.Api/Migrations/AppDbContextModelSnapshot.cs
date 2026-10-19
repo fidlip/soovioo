@@ -70,6 +70,9 @@ namespace Soovioo.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("Action")
+                        .HasColumnType("text");
+
                     b.Property<string>("Area")
                         .IsRequired()
                         .HasColumnType("text");

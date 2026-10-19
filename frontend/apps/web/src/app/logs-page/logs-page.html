@@ -42,7 +42,7 @@
         [showClear]="true"
         name="filterClass"
         appendTo="body"
-        styleClass="w-40"
+        styleClass="w-44"
       />
     </div>
     }
@@ -83,6 +83,31 @@
         name="filterArea"
         appendTo="body"
         styleClass="w-48"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterAction"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Akce</label
+      >
+      <p-autoComplete
+        inputId="filterAction"
+        [ngModel]="actionText()"
+        (ngModelChange)="onActionTyped($event)"
+        [suggestions]="actionSuggestions()"
+        (completeMethod)="searchActions($event)"
+        (onSelect)="onActionSelected($event)"
+        (onClear)="onActionCleared()"
+        [dropdown]="true"
+        [completeOnFocus]="true"
+        [minLength]="0"
+        [showClear]="true"
+        placeholder="Všechny akce"
+        name="filterAction"
+        appendTo="body"
+        styleClass="w-64"
+        inputStyleClass="w-full"
       />
     </div>
     <div class="flex flex-col gap-1.5">

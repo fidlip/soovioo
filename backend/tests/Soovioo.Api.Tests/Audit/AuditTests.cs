@@ -95,6 +95,7 @@ public class AuditTests
 
         var entry = Assert.Single(db.AuditLogEntries);
         Assert.Equal("Vytvořen uživatel Karel Nový", entry.Description);
+        Assert.Equal("Vytvořen uživatel", entry.Action);
         Assert.Equal("Uživatelé", entry.Area);
         Assert.Equal(1, entry.SchoolId);
         Assert.Equal(admin.Id, entry.UserId);
@@ -174,6 +175,7 @@ public class AuditTests
 
         var entry = Assert.Single(db.AuditLogEntries);
         Assert.Equal("Neúspěšné přihlášení (rodic)", entry.Description);
+        Assert.Equal("Neúspěšné přihlášení", entry.Action);
         Assert.Equal(user.Id, entry.UserId);
         Assert.Equal(1, entry.SchoolId);
         Assert.DoesNotContain("spatne", entry.RequestBody);
@@ -182,8 +184,43 @@ public class AuditTests
     private static AuditLogController LogController(AppDbContext db, ClaimsPrincipal user) =>
         new(db) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } } };
 
-    private static AuditLogEntry Entry(int? schoolId, int userId = 1, string area = "Známky") =>
-        new() { SchoolId = schoolId, UserId = userId, Username = $"u{userId}", Method = "POST", Path = "/api/x", Area = area, StatusCode = 200 };
+    private static AuditLogEntry Entry(
+        int? schoolId, int userId = 1, string area = "Známky", string? action = null, string? description = null) =>
+        new()
+        {
+            SchoolId = schoolId, UserId = userId, Username = $"u{userId}", Method = "POST", Path = "/api/x", Area = area,
+            StatusCode = 200, Action = action, Description = description,
+        };
+
+    [Fact]
+    public async Task ActionPickerOffersActionsUnderTheOtherFiltersAndEntriesMatchExactlyOrByContainedText()
+    {
+        using var db = NewDb();
+        db.AuditLogEntries.AddRange(
+            Entry(1, userId: 1, area: "Uživatelé", action: "Vytvořen uživatel", description: "Vytvořen uživatel Karel Nový"),
+            Entry(1, userId: 1, area: "Uživatelé", action: "Vytvořen uživatel", description: "Vytvořen uživatel Eva Malá"),
+            Entry(1, userId: 2, area: "Učebny", action: "Vytvořena učebna", description: "Vytvořena učebna 101"),
+            Entry(1, userId: 2, area: "Učebny", action: "Smazána učebna", description: "Smazána učebna #4"),
+            Entry(2, userId: 3, area: "Učebny", action: "Vytvořena učebna", description: "Vytvořena učebna jiná škola"));
+        await db.SaveChangesAsync();
+        var admin = LogController(db, Principal(5, "admin", "Admin", 1));
+
+        async Task<IReadOnlyList<string>> Actions(AuditLogFilter filter, string? search) =>
+            Assert.IsAssignableFrom<IReadOnlyList<string>>(Assert.IsType<OkObjectResult>(
+                (await admin.GetActions(filter, search)).Result).Value);
+        async Task<PagedResult<AuditLogEntryDto>> Entries(AuditLogFilter filter) =>
+            Assert.IsType<PagedResult<AuditLogEntryDto>>(Assert.IsType<OkObjectResult>(
+                (await admin.GetEntries(filter)).Result).Value);
+
+        Assert.Equal(["Vytvořen uživatel", "Vytvořena učebna"], await Actions(new AuditLogFilter(), "vytv"));
+        Assert.Equal(["Smazána učebna", "Vytvořena učebna"], await Actions(new AuditLogFilter(UserId: 2), null));
+
+        Assert.Equal(2, (await Entries(new AuditLogFilter(Action: "Vytvořen uživatel"))).TotalCount);
+        Assert.Equal(3, (await Entries(new AuditLogFilter(ActionSearch: "Vytv"))).TotalCount);
+        // Typed text also finds the subject inside the description.
+        Assert.Equal("Vytvořen uživatel Karel Nový",
+            Assert.Single((await Entries(new AuditLogFilter(ActionSearch: "karel"))).Items).Description);
+    }
 
     [Fact]
     public async Task SchoolAdminSeesOnlyTheirOwnSchoolWhateverTheyAskFor()
@@ -193,11 +230,11 @@ public class AuditTests
         await db.SaveChangesAsync();
 
         var adminView = Assert.IsType<PagedResult<AuditLogEntryDto>>(Assert.IsType<OkObjectResult>(
-            (await LogController(db, Principal(5, "admin", "Admin", 1)).GetEntries(schoolId: 2)).Result).Value);
+            (await LogController(db, Principal(5, "admin", "Admin", 1)).GetEntries(new AuditLogFilter(SchoolId: 2))).Result).Value);
         var superView = Assert.IsType<PagedResult<AuditLogEntryDto>>(Assert.IsType<OkObjectResult>(
-            (await LogController(db, Principal(9, "superadmin", "SuperAdmin", null)).GetEntries()).Result).Value);
+            (await LogController(db, Principal(9, "superadmin", "SuperAdmin", null)).GetEntries(new AuditLogFilter())).Result).Value);
         var filtered = Assert.IsType<PagedResult<AuditLogEntryDto>>(Assert.IsType<OkObjectResult>(
-            (await LogController(db, Principal(5, "admin", "Admin", 1)).GetEntries(area: "Platby")).Result).Value);
+            (await LogController(db, Principal(5, "admin", "Admin", 1)).GetEntries(new AuditLogFilter(Area: "Platby"))).Result).Value);
 
         Assert.Equal(2, adminView.TotalCount);
         Assert.All(adminView.Items, e => Assert.Equal(1, e.SchoolId));

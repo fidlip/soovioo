@@ -36,6 +36,11 @@ public class AuditLogEntry
     /// <summary>Agenda label ("Známky", "Uživatelé"…), see <see cref="AuditDescriptions"/>.</summary>
     public required string Area { get; set; }
 
+    /// <summary>What was done, without whom/what to ("Vytvořen uživatel",
+    /// "Neúspěšné přihlášení"); "METHOD /route/{template}" for an action
+    /// without a description — the values of the "Akce" filter.</summary>
+    public string? Action { get; set; }
+
     /// <summary>Human-readable summary ("Vytvořen uživatel Karel Nový");
     /// null when the action has none — the UI then shows method + path.</summary>
     public string? Description { get; set; }

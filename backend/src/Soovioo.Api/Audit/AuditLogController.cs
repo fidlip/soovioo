@@ -17,39 +17,26 @@ namespace Soovioo.Api.Audit;
 public class AuditLogController(AppDbContext db) : ControllerBase
 {
     private const int MaxPageSize = 100;
+    private const int MaxActionOptions = 50;
 
-    /// <param name="to">Exclusive.</param>
     [HttpGet]
     public async Task<ActionResult<PagedResult<AuditLogEntryDto>>> GetEntries(
-        int? schoolId = null, int? schoolClassId = null, int? userId = null, string? area = null,
-        DateTimeOffset? from = null, DateTimeOffset? to = null, int page = 1, int pageSize = 50)
+        [FromQuery] AuditLogFilter filter, int page = 1, int pageSize = 50)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
-        var query = Scope(schoolId);
-        if (schoolClassId is not null)
+        var query = Filtered(filter);
+        if (!string.IsNullOrEmpty(filter.Action))
         {
-            query = query.Where(e => e.SchoolClassId == schoolClassId);
+            query = query.Where(e => e.Action == filter.Action);
         }
-        if (userId is not null)
+        else if (!string.IsNullOrWhiteSpace(filter.ActionSearch))
         {
-            query = query.Where(e => e.UserId == userId);
-        }
-        if (!string.IsNullOrEmpty(area))
-        {
-            query = query.Where(e => e.Area == area);
-        }
-        // Instants, not dates: the client knows where the viewer's day starts.
-        if (from is not null)
-        {
-            var start = from.Value.ToUniversalTime();
-            query = query.Where(e => e.At >= start);
-        }
-        if (to is not null)
-        {
-            var end = to.Value.ToUniversalTime();
-            query = query.Where(e => e.At < end);
+            var search = filter.ActionSearch.Trim().ToLower();
+            query = query.Where(e =>
+                (e.Description != null && e.Description.ToLower().Contains(search))
+                || (e.Action != null && e.Action.ToLower().Contains(search)));
         }
 
         var total = await query.CountAsync();
@@ -64,6 +51,21 @@ public class AuditLogController(AppDbContext db) : ControllerBase
                 e.Description, e.StatusCode, e.RequestBody, e.Result, e.IpAddress))
             .ToListAsync();
         return Ok(new PagedResult<AuditLogEntryDto>(items, total, page, pageSize));
+    }
+
+    /// <summary>The actions (without their subject — "Vytvořen uživatel")
+    /// that occur under the other active filters, optionally only those
+    /// containing <paramref name="search"/>; for the "Akce" picker.</summary>
+    [HttpGet("actions")]
+    public async Task<ActionResult<IReadOnlyList<string>>> GetActions([FromQuery] AuditLogFilter filter, string? search = null)
+    {
+        var query = Filtered(filter).Where(e => e.Action != null).Select(e => e.Action!);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(a => a.ToLower().Contains(term));
+        }
+        return Ok(await query.Distinct().OrderBy(a => a).Take(MaxActionOptions).ToListAsync());
     }
 
     /// <summary>Choices for the filters — agendas, people that appear in the
@@ -101,6 +103,37 @@ public class AuditLogController(AppDbContext db) : ControllerBase
             classes));
     }
 
+    /// <summary>Everything but the action filter, which the entries and the
+    /// action picker each apply their own way.</summary>
+    private IQueryable<AuditLogEntry> Filtered(AuditLogFilter filter)
+    {
+        var query = Scope(filter.SchoolId);
+        if (filter.SchoolClassId is not null)
+        {
+            query = query.Where(e => e.SchoolClassId == filter.SchoolClassId);
+        }
+        if (filter.UserId is not null)
+        {
+            query = query.Where(e => e.UserId == filter.UserId);
+        }
+        if (!string.IsNullOrEmpty(filter.Area))
+        {
+            query = query.Where(e => e.Area == filter.Area);
+        }
+        // Instants, not dates: the client knows where the viewer's day starts.
+        if (filter.From is not null)
+        {
+            var start = filter.From.Value.ToUniversalTime();
+            query = query.Where(e => e.At >= start);
+        }
+        if (filter.To is not null)
+        {
+            var end = filter.To.Value.ToUniversalTime();
+            query = query.Where(e => e.At < end);
+        }
+        return query;
+    }
+
     /// <summary>A school admin is pinned to their own school whatever they
     /// ask for; a SuperAdmin sees everything, or one school.</summary>
     private IQueryable<AuditLogEntry> Scope(int? schoolId)
@@ -125,6 +158,14 @@ public record AuditLogEntryDto(
     long Id, DateTimeOffset At, int? SchoolId, string? SchoolName, int? UserId, string? Username,
     string? UserDisplayName, string? Role, string? SupportBy, string Method, string Path, string Area,
     string? Description, int StatusCode, string? RequestBody, string? Result, string? IpAddress);
+
+/// <param name="To">Exclusive.</param>
+/// <param name="Action">Exact action, as picked from <c>GET actions</c>.</param>
+/// <param name="ActionSearch">Typed text: description or action contains it
+/// (case-insensitive). Ignored when <paramref name="Action"/> is set.</param>
+public record AuditLogFilter(
+    int? SchoolId = null, int? SchoolClassId = null, int? UserId = null, string? Area = null,
+    DateTimeOffset? From = null, DateTimeOffset? To = null, string? Action = null, string? ActionSearch = null);
 
 public record AuditLogOptionDto(int Id, string Name);
 

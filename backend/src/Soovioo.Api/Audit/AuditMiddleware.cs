@@ -113,6 +113,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
             }
         }
 
+        var baseDescription = AuditDescriptions.Describe(action?.ControllerName, action?.ActionName);
         var responseText = Encoding.UTF8.GetString(responseBytes);
         db.AuditLogEntries.Add(new AuditLogEntry
         {
@@ -126,8 +127,11 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
             Method = request.Method,
             Path = request.Path.Value ?? "",
             Area = AuditDescriptions.Area(action?.ControllerName),
+            Action = audit?.Action
+                     ?? baseDescription
+                     ?? $"{request.Method} /{action?.AttributeRouteInfo?.Template ?? request.Path.Value?.TrimStart('/')}",
             Description = audit?.Description
-                          ?? Describe(AuditDescriptions.Describe(action?.ControllerName, action?.ActionName),
+                          ?? Describe(baseDescription,
                               AuditPayload.SubjectName(payload), studentName, request.RouteValues["id"]?.ToString(),
                               statusCode >= 400),
             StatusCode = statusCode,

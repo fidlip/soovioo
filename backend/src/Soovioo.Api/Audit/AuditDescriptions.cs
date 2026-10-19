@@ -122,6 +122,9 @@ public static class AuditDescriptions
     public static string? Describe(string? controller, string? action) =>
         Actions.GetValueOrDefault($"{controller}.{action}");
 
+    /// <summary>All action descriptions (without subject).</summary>
+    public static IEnumerable<string> AllActions => Actions.Values.Distinct();
+
     /// <summary>All agenda labels, for the filter.</summary>
     public static IEnumerable<string> AllAreas => Areas.Values.Distinct().Order();
 }

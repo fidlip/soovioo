@@ -2,6 +2,11 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+  AutoCompleteSelectEvent,
+} from '@openng/optimus-ui/autocomplete';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
@@ -14,6 +19,7 @@ import {
   AuditLogApiService,
   AuditLogEntry,
   AuditLogOption,
+  AuditLogQuery,
   AuthApiService,
   SchoolsApiService,
   SupportApiService,
@@ -36,6 +42,7 @@ const ROLE_LABELS: Record<string, string> = {
   selector: 'app-logs-page',
   imports: [
     AppIcon,
+    AutoComplete,
     Button,
     Card,
     DatePicker,
@@ -73,6 +80,12 @@ export class LogsPage {
   protected filterArea: string | null = null;
   protected filterFrom: Date | null = null;
   protected filterTo: Date | null = null;
+  /** "Akce": picked from the list = that exact action; typed = actions
+   * and descriptions containing the text. */
+  protected readonly actionText = signal('');
+  private actionExact = false;
+  private actionSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  protected readonly actionSuggestions = signal<string[]>([]);
 
   protected readonly supportSessions = signal<SupportSession[]>([]);
 
@@ -114,6 +127,8 @@ export class LogsPage {
     this.filterArea = null;
     this.filterFrom = null;
     this.filterTo = null;
+    this.actionText.set('');
+    this.actionExact = false;
     this.loadFilterOptions();
     this.onFilterChange();
   }
@@ -125,8 +140,40 @@ export class LogsPage {
       this.filterUserId !== null ||
       this.filterArea !== null ||
       this.filterFrom !== null ||
-      this.filterTo !== null
+      this.filterTo !== null ||
+      this.actionText() !== ''
     );
+  }
+
+  /** Offers the actions that occur under the other active filters. */
+  protected searchActions(event: AutoCompleteCompleteEvent): void {
+    this.auditApi.getActions(this.query(), event.query).subscribe({
+      next: (actions) => this.actionSuggestions.set(actions),
+      error: (err) => console.error('getActions failed', err),
+    });
+  }
+
+  /** Typing filters by contained text (debounced). */
+  protected onActionTyped(text: string | null): void {
+    this.actionText.set(text ?? '');
+    this.actionExact = false;
+    clearTimeout(this.actionSearchTimer);
+    this.actionSearchTimer = setTimeout(() => this.onFilterChange(), 400);
+  }
+
+  /** Picking from the list filters by that exact action. */
+  protected onActionSelected(event: AutoCompleteSelectEvent): void {
+    clearTimeout(this.actionSearchTimer);
+    this.actionText.set(event.value as string);
+    this.actionExact = true;
+    this.onFilterChange();
+  }
+
+  protected onActionCleared(): void {
+    clearTimeout(this.actionSearchTimer);
+    this.actionText.set('');
+    this.actionExact = false;
+    this.onFilterChange();
   }
 
   protected onPageChange(event: PaginatorState): void {
@@ -184,19 +231,29 @@ export class LogsPage {
     });
   }
 
-  private reload(): void {
-    this.loading.set(true);
+  /** The active filters except the action. */
+  private query(): AuditLogQuery {
     // Whole local days: from midnight of "Od" up to midnight after "Do".
     const to = this.filterTo ? new Date(this.filterTo) : null;
     to?.setDate(to.getDate() + 1);
+    return {
+      schoolId: this.filterSchoolId,
+      schoolClassId: this.filterClassId,
+      userId: this.filterUserId,
+      area: this.filterArea,
+      from: this.filterFrom?.toISOString() ?? null,
+      to: to?.toISOString() ?? null,
+    };
+  }
+
+  private reload(): void {
+    this.loading.set(true);
+    const action = this.actionText().trim();
     this.auditApi
       .getEntries({
-        schoolId: this.filterSchoolId,
-        schoolClassId: this.filterClassId,
-        userId: this.filterUserId,
-        area: this.filterArea,
-        from: this.filterFrom?.toISOString() ?? null,
-        to: to?.toISOString() ?? null,
+        ...this.query(),
+        action: this.actionExact ? action : null,
+        actionSearch: this.actionExact ? null : action,
         page: this.page(),
         pageSize: this.pageSize(),
       })

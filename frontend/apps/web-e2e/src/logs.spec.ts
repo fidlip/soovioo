@@ -49,3 +49,29 @@ test('teacher has no Logy', async ({ page }) => {
     page.getByRole('link', { name: 'Logy', exact: true }),
   ).toHaveCount(0);
 });
+
+test('Akce filter: pick an exact action or search by typed text', async ({
+  page,
+}) => {
+  await login(page, 'admin', 'admin123');
+  await page.goto('/demo/logs');
+  const rows = page.locator('tbody tr');
+  await expect(rows.first()).toBeVisible();
+
+  // Typed text: actions containing it — offered in the list and applied.
+  await page.locator('#filterAction').fill('ihláš');
+  const options = page.getByRole('option');
+  await expect(options.filter({ hasText: /^Přihlášení$/ })).toBeVisible();
+  await expect(
+    options.filter({ hasText: 'Neúspěšné přihlášení' }),
+  ).toBeVisible();
+  await expect(rows.first()).toContainText(/přihlášení/i);
+
+  // Picked: exactly that action.
+  await options.filter({ hasText: /^Přihlášení$/ }).click();
+  await expect(rows.first()).toContainText('Přihlášení');
+  await expect(rows.filter({ hasText: 'Neúspěšné' })).toHaveCount(0);
+  // …and stays exact (no late "contains" search from the typed text).
+  await page.waitForTimeout(600);
+  await expect(rows.filter({ hasText: 'Neúspěšné' })).toHaveCount(0);
+});

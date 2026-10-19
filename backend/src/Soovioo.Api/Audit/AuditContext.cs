@@ -12,6 +12,9 @@ public class AuditContext
     public string? Username { get; set; }
     public string? Description { get; set; }
 
+    /// <summary>Replaces the generic action (see <see cref="AuditLogEntry.Action"/>).</summary>
+    public string? Action { get; set; }
+
     /// <summary>Entering a school in support mode happens before (or
     /// without) a support token — the endpoint names the session here.</summary>
     public int? SupportSessionId { get; set; }

@@ -23,6 +23,14 @@ export class AuditLogApiService {
     );
   }
 
+  /** Actions ("Vytvořen uživatel") occurring under the other filters in
+   * `query`, optionally only those containing `search`. */
+  getActions(query: AuditLogQuery, search?: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/api/audit-logs/actions`, {
+      params: toParams({ ...query, action: null, actionSearch: null, search }),
+    });
+  }
+
   getFilterOptions(
     schoolId?: number | null,
   ): Observable<AuditLogFilterOptions> {

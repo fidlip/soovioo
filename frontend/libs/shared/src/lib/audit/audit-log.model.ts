@@ -45,6 +45,10 @@ export interface AuditLogQuery {
   /** ISO instants; `to` is exclusive. */
   from?: string | null;
   to?: string | null;
+  /** Exact action, as offered by `getActions`. */
+  action?: string | null;
+  /** Typed text — the action/description contains it. */
+  actionSearch?: string | null;
   page?: number;
   pageSize?: number;
 }

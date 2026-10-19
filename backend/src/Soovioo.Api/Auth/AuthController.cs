@@ -23,6 +23,7 @@ public class AuthController(
         // Anonymous request — the audit log learns who it was from here.
         var audit = AuditContext.Of(HttpContext);
         audit.Username = request.Username;
+        audit.Action = "Neúspěšné přihlášení";
         audit.Description = $"Neúspěšné přihlášení ({request.Username})";
 
         School? school = null;
@@ -54,6 +55,7 @@ public class AuthController(
         {
             return Unauthorized();
         }
+        audit.Action = "Přihlášení";
         audit.Description = "Přihlášení";
 
         // The mobile app has no "Zůstat přihlášen" checkbox — an app stays
