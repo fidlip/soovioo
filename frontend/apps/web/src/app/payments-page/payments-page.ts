@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import QRCode from 'qrcode';
 import { Button } from '@openng/optimus-ui/button';
@@ -25,6 +25,7 @@ import {
   PaymentSchoolClassOption,
   PaymentStudentOption,
   PaymentsApiService,
+  formatIban,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
@@ -33,6 +34,23 @@ import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
 
 type AudienceOption = { value: PaymentAudience; label: string };
+type PaidFilter = 'all' | 'unpaid' | 'paid';
+
+/** One payment as listed: only the recipients matching the filters, plus
+ * the totals the row header shows. */
+interface PaymentView {
+  payment: Payment;
+  recipients: PaymentRecipient[];
+  totalAmount: number;
+  unpaidAmount: number;
+  allPaid: boolean;
+}
+
+const PAID_FILTER_OPTIONS: { value: PaidFilter; label: string }[] = [
+  { value: 'all', label: 'Vše' },
+  { value: 'unpaid', label: 'Nezaplaceno' },
+  { value: 'paid', label: 'Zaplaceno' },
+];
 type AmountTypeOption = { value: PaymentAmountType; label: string };
 type RecurrenceOption = { value: PaymentRecurrence; label: string };
 
@@ -110,6 +128,74 @@ export class PaymentsPage {
   );
   protected readonly bankAccountNumber = signal<string | null>(null);
   protected readonly expandedPaymentIds = signal<number[]>([]);
+
+  protected readonly paidFilterOptions = PAID_FILTER_OPTIONS;
+  protected readonly paidFilter = signal<PaidFilter>('all');
+  protected readonly classFilter = signal<number | null>(null);
+  protected readonly studentFilter = signal<number | null>(null);
+
+  /** Students appearing in the payments (works for parents too, who have
+   * no recipient options) — for the "Žák" filter. */
+  protected readonly studentFilterOptions = computed(() => {
+    const byId = new Map<number, string>();
+    for (const payment of this.payments()) {
+      for (const r of payment.recipients) {
+        byId.set(r.studentId, r.studentName);
+      }
+    }
+    return [...byId]
+      .map(([id, name]) => ({ id, name }))
+      .filter((s) => {
+        const classId = this.classFilter();
+        return classId === null || this.studentClassId(s.id) === classId;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  });
+
+  /** Payments sorted by due date (oldest first), recipients filtered by
+   * paid state / class / student; payments with no matching recipient are
+   * hidden while a filter is active. */
+  protected readonly paymentViews = computed<PaymentView[]>(() => {
+    const paid = this.paidFilter();
+    const classId = this.classFilter();
+    const studentId = this.studentFilter();
+    const filtering = paid !== 'all' || classId !== null || studentId !== null;
+    return [...this.payments()]
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map((payment) => {
+        const recipients = payment.recipients
+          .filter(
+            (r) =>
+              (paid === 'all' || r.paid === (paid === 'paid')) &&
+              (studentId === null || r.studentId === studentId) &&
+              (classId === null || this.studentClassId(r.studentId) === classId),
+          )
+          .sort(
+            (a, b) =>
+              a.installmentDueDate.localeCompare(b.installmentDueDate) ||
+              a.studentName.localeCompare(b.studentName, 'cs'),
+          );
+        const totalAmount = sum(recipients.map((r) => r.amount));
+        const unpaidAmount = sum(
+          recipients.filter((r) => !r.paid).map((r) => r.amount),
+        );
+        return {
+          payment,
+          recipients,
+          totalAmount,
+          unpaidAmount,
+          allPaid: recipients.length > 0 && unpaidAmount === 0,
+        };
+      })
+      .filter((view) => !filtering || view.recipients.length > 0);
+  });
+
+  /** Recipient opened in the "how to pay" dialog, with a large QR code. */
+  protected readonly detail = signal<{
+    payment: Payment;
+    recipient: PaymentRecipient;
+    qr: string | null;
+  } | null>(null);
   protected readonly qrDataUrls = signal<Record<number, string>>({});
 
   protected readonly dialogVisible = signal(false);
@@ -203,6 +289,47 @@ export class PaymentsPage {
         ? ids.filter((id) => id !== paymentId)
         : [...ids, paymentId],
     );
+  }
+
+  protected classOfStudent(studentId: number): string | null {
+    return (
+      this.recipientOptions()?.students.find((s) => s.id === studentId)
+        ?.schoolClassName ?? null
+    );
+  }
+
+  private studentClassId(studentId: number): number | null {
+    return (
+      this.recipientOptions()?.students.find((s) => s.id === studentId)
+        ?.schoolClassId ?? null
+    );
+  }
+
+  protected formatAmount(amount: number): string {
+    return `${amount.toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} Kč`;
+  }
+
+  protected formattedBankAccount(): string | null {
+    const account = this.bankAccountNumber();
+    return account ? formatIban(account) : null;
+  }
+
+  protected openDetail(payment: Payment, recipient: PaymentRecipient): void {
+    this.detail.set({ payment, recipient, qr: null });
+    const account = this.bankAccountNumber();
+    if (!account || recipient.paid) {
+      return;
+    }
+    QRCode.toDataURL(this.buildSpayd(account, recipient), {
+      width: 320,
+      margin: 1,
+    })
+      .then((qr) =>
+        this.detail.update((d) =>
+          d?.recipient.id === recipient.id ? { ...d, qr } : d,
+        ),
+      )
+      .catch((err) => console.error('QRCode.toDataURL failed', err));
   }
 
   protected qrDataUrlFor(recipientId: number): string | null {
@@ -324,6 +451,8 @@ export class PaymentsPage {
 
   protected printReceipt(payment: Payment, recipient: PaymentRecipient): void {
     this.printTarget.set({ payment, recipient });
+    // The detail dialog would otherwise print over the receipt.
+    this.detail.set(null);
     // Let the receipt block actually render (printTarget is a signal write,
     // picked up on the next change-detection pass) before invoking print.
     setTimeout(() => window.print(), 0);
@@ -370,4 +499,8 @@ export class PaymentsPage {
       error: (err) => console.error('getPayments failed', err),
     });
   }
+}
+
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }
