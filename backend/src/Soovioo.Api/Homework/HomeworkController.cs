@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
 
@@ -111,6 +112,86 @@ public class HomeworkController(
             homework.Text, homework.DueDate, homework.RequiresCompletion, homework.CreatedByName, homework.CreatedAt,
             studentIds, [], []);
         return CreatedAtAction(nameof(GetHomework), dto);
+    }
+
+    /// <summary>Same ownership rule as creating it, checked for both the
+    /// current and the new class+subject. Moving it to another class drops
+    /// completions and targets that don't belong there anymore.</summary>
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<HomeworkDto>> UpdateHomework(int id, CreateHomeworkRequest request)
+    {
+        var homework = await db.Homework
+            .Include(h => h.Students)
+            .Include(h => h.Completions)
+            .Include(h => h.Attachments)
+            .FirstOrDefaultAsync(h => h.Id == id);
+        if (homework is null)
+        {
+            return NotFound();
+        }
+
+        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Neznámá třída.");
+        }
+
+        var subject = await db.Subjects.FindAsync(request.SubjectId);
+        if (subject is null)
+        {
+            return BadRequest("Neznámý předmět.");
+        }
+
+        if (!User.IsInRole("Admin") &&
+            (!await db.TeachesClassInSubjectAsync(CurrentUserId(), homework.SchoolClassId, homework.SubjectId) ||
+             !await db.TeachesClassInSubjectAsync(CurrentUserId(), request.SchoolClassId, request.SubjectId)))
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Text))
+        {
+            return this.FieldError("text", "Zadání je povinné.");
+        }
+
+        var studentIds = (request.StudentIds ?? []).Distinct().ToList();
+        if (studentIds.Count > 0)
+        {
+            var matchingCount = await db.Students
+                .CountAsync(s => studentIds.Contains(s.Id) && s.SchoolClassId == request.SchoolClassId);
+            if (matchingCount != studentIds.Count)
+            {
+                return BadRequest("Všichni vybraní žáci musí patřit do zadané třídy.");
+            }
+        }
+
+        homework.SchoolClassId = request.SchoolClassId;
+        homework.SubjectId = request.SubjectId;
+        homework.Text = request.Text;
+        homework.DueDate = request.DueDate;
+        homework.RequiresCompletion = request.RequiresCompletion;
+
+        homework.Students.RemoveAll(hs => !studentIds.Contains(hs.StudentId));
+        foreach (var studentId in studentIds.Where(sid => homework.Students.All(hs => hs.StudentId != sid)))
+        {
+            homework.Students.Add(new HomeworkStudent { StudentId = studentId, SchoolId = homework.SchoolId });
+        }
+
+        // Completions only make sense for students the homework still targets.
+        var targetIds = studentIds.Count > 0
+            ? studentIds
+            : await db.Students.Where(s => s.SchoolClassId == request.SchoolClassId).Select(s => s.Id).ToListAsync();
+        homework.Completions.RemoveAll(c => !targetIds.Contains(c.StudentId) || !request.RequiresCompletion);
+
+        await db.SaveChangesAsync();
+
+        return Ok(new HomeworkDto(
+            homework.Id, homework.SchoolClassId, schoolClass.Name, homework.SubjectId, subject.Name, subject.Abbreviation,
+            homework.Text, homework.DueDate, homework.RequiresCompletion, homework.CreatedByName, homework.CreatedAt,
+            studentIds,
+            homework.Attachments.Select(a => new HomeworkAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList(),
+            homework.Completions.Select(c => c.StudentId).ToList()));
     }
 
     /// <summary>A separate step after CreateHomework, same reasoning as

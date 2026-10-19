@@ -24,6 +24,12 @@ export class HomeworkApiService {
     return this.http.post<Homework>(`${this.baseUrl}/api/homework`, request);
   }
 
+  /** Same body as create; moving to another class drops completions and
+   * targets that no longer apply (server-side). */
+  updateHomework(id: number, request: CreateHomeworkRequest): Observable<Homework> {
+    return this.http.put<Homework>(`${this.baseUrl}/api/homework/${id}`, request);
+  }
+
   deleteHomework(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/api/homework/${id}`);
   }

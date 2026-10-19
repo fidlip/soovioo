@@ -430,4 +430,40 @@ public class HomeworkControllerTests
 
         Assert.False(File.Exists(storedFile));
     }
+
+    [Fact]
+    public async Task UpdateHomeworkChangesTextAndDueDateForOwningTeacher()
+    {
+        using var db = NewDb();
+        var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
+        var controller = NewController(db, 7, "Teacher");
+        var created = Assert.IsType<Soovioo.Api.Homework.HomeworkDto>(
+            Assert.IsType<CreatedAtActionResult>((await controller.CreateHomework(
+                new Soovioo.Api.Homework.CreateHomeworkRequest(
+                    schoolClass.Id, subject.Id, "Původní", new DateOnly(2026, 10, 24), false))).Result).Value);
+
+        var result = await controller.UpdateHomework(created.Id, new Soovioo.Api.Homework.CreateHomeworkRequest(
+            schoolClass.Id, subject.Id, "Opravené zadání", new DateOnly(2026, 10, 27), true));
+
+        var dto = Assert.IsType<Soovioo.Api.Homework.HomeworkDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Opravené zadání", dto.Text);
+        Assert.Equal(new DateOnly(2026, 10, 27), dto.DueDate);
+        Assert.True(dto.RequiresCompletion);
+    }
+
+    [Fact]
+    public async Task UpdateHomeworkRejectsTeacherWhoDoesNotTeachIt()
+    {
+        using var db = NewDb();
+        var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
+        var created = Assert.IsType<Soovioo.Api.Homework.HomeworkDto>(
+            Assert.IsType<CreatedAtActionResult>((await NewController(db, 7, "Teacher").CreateHomework(
+                new Soovioo.Api.Homework.CreateHomeworkRequest(
+                    schoolClass.Id, subject.Id, "Text", new DateOnly(2026, 10, 24), false))).Result).Value);
+
+        var result = await NewController(db, 999, "Teacher").UpdateHomework(created.Id,
+            new Soovioo.Api.Homework.CreateHomeworkRequest(schoolClass.Id, subject.Id, "X", new DateOnly(2026, 10, 24), false));
+
+        Assert.IsType<ForbidResult>(result.Result);
+    }
 }

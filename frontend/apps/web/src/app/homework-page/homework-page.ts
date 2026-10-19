@@ -129,6 +129,15 @@ export class HomeworkPage {
   });
 
   protected readonly homeworkDialogVisible = signal(false);
+  /** null = the dialog creates a new item, otherwise edits this one. */
+  protected readonly editingHomeworkId = signal<number | null>(null);
+  protected readonly periodOptions = [
+    { value: 'current', label: 'Aktuální' },
+    { value: 'archive', label: 'Archiv' },
+  ];
+  /** Aktuální = due today or later (nearest first), Archiv = past (newest
+   * first). */
+  protected filterPeriod: 'current' | 'archive' = 'current';
   protected readonly createError = signal<string | null>(null);
   protected readonly fileError = signal<string | null>(null);
 
@@ -178,12 +187,22 @@ export class HomeworkPage {
   }
 
   protected filteredHomework(): Homework[] {
-    return this.homeworkItems().filter(
-      (h) =>
-        (this.filterClassId === null ||
-          h.schoolClassId === this.filterClassId) &&
-        (this.filterSubjectId === null || h.subjectId === this.filterSubjectId),
-    );
+    const today = this.toDateOnlyString(new Date());
+    const archive = this.filterPeriod === 'archive';
+    return this.homeworkItems()
+      .filter(
+        (h) =>
+          (this.filterClassId === null ||
+            h.schoolClassId === this.filterClassId) &&
+          (this.filterSubjectId === null ||
+            h.subjectId === this.filterSubjectId) &&
+          (archive ? h.dueDate < today : h.dueDate >= today),
+      )
+      .sort((a, b) =>
+        archive
+          ? b.dueDate.localeCompare(a.dueDate)
+          : a.dueDate.localeCompare(b.dueDate),
+      );
   }
 
   /** The caller-visible students this homework item actually applies to —
@@ -216,7 +235,20 @@ export class HomeworkPage {
     });
   }
 
+  protected openEditHomeworkDialog(item: Homework): void {
+    this.openAddHomeworkDialog();
+    this.editingHomeworkId.set(item.id);
+    this.newSchoolClassId.set(item.schoolClassId);
+    this.newSubjectId = item.subjectId;
+    this.selectedAssignmentKey = `${item.schoolClassId}-${item.subjectId}`;
+    this.newText = item.text;
+    this.newDueDate = new Date(`${item.dueDate}T00:00:00`);
+    this.newRequiresCompletion = item.requiresCompletion;
+    this.newTargetStudentIds = [...item.targetStudentIds];
+  }
+
   protected openAddHomeworkDialog(): void {
+    this.editingHomeworkId.set(null);
     this.createError.set(null);
     this.fileError.set(null);
     this.selectedAssignmentKey =
@@ -287,14 +319,21 @@ export class HomeworkPage {
           ? this.newTargetStudentIds
           : undefined,
     };
-    this.homeworkApi.addHomework(request).subscribe({
+    const editingId = this.editingHomeworkId();
+    const result =
+      editingId === null
+        ? this.homeworkApi.addHomework(request)
+        : this.homeworkApi.updateHomework(editingId, request);
+    result.subscribe({
       next: (homework) => this.afterCreate(homework.id),
       error: (err) => {
-        console.error('addHomework failed', err);
+        console.error('saveHomework failed', err);
         this.createError.set(
           err.status === 403
             ? 'Nemáte oprávnění zadávat úkoly pro tuto třídu a předmět.'
-            : 'Zadání úkolu se nezdařilo.',
+            : editingId === null
+              ? 'Zadání úkolu se nezdařilo.'
+              : 'Uložení úkolu se nezdařilo.',
         );
       },
     });
