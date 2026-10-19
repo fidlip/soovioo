@@ -126,11 +126,8 @@
 
 <!-- ============================= PARENTS (shared by both access levels) ============================= -->
 <ng-template #parentsCard>
-  <p-card header="Rodiče">
-    <p class="mt-0 mb-3 text-sm text-surface-500">
-      Rodičovské účty se vytvářejí na kartě Uživatelé — tady se jen přiřazují
-      jejich děti.
-    </p>
+  <p-card>
+    <ng-template #title>Rodiče<app-info-hint text="Rodičovské účty se vytvářejí na kartě Uživatelé — tady se jen přiřazují jejich děti." /></ng-template>
     <p-table [value]="visibleParents()" dataKey="id" styleClass="mb-4">
       <ng-template pTemplate="header">
         <tr>
@@ -458,11 +455,8 @@
           </p-table>
         </p-card>
 
-        <p-card header="Učitelé">
-          <p class="mt-0 mb-3 text-sm text-surface-500">
-            Účty s rolí Učitel (vytvářejí se na kartě Uživatelé výše) —
-            třídnictví se nastavuje u třídy.
-          </p>
+        <p-card>
+          <ng-template #title>Učitelé<app-info-hint text="Účty s rolí Učitel (vytvářejí se na kartě Uživatelé výše) — třídnictví se nastavuje u třídy." /></ng-template>
           <p-table [value]="teacherOptions()" dataKey="id" styleClass="mb-4">
             <ng-template pTemplate="header">
               <tr>
@@ -514,11 +508,8 @@
 
     <p-tabpanel value="school">
       <div class="flex flex-col gap-6 pt-4">
-        <p-card header="Typ školy">
-          <p class="mt-0 mb-4 text-sm text-surface-500">
-            Určuje, jestli celá aplikace (včetně vysvědčení) mluví o žácích
-            (ZŠ), nebo o studentech (SŠ).
-          </p>
+        <p-card>
+          <ng-template #title>Typ školy<app-info-hint text="Určuje, jestli celá aplikace (včetně vysvědčení) mluví o žácích (ZŠ), nebo o studentech (SŠ)." /></ng-template>
           <form
             class="flex flex-wrap items-end gap-2"
             (ngSubmit)="saveSchoolType()"
@@ -550,11 +541,8 @@
           </form>
         </p-card>
 
-        <p-card header="Údaje o škole">
-          <p class="mt-0 mb-4 text-sm text-surface-500">
-            Používá se na oficiálních dokumentech (hlavička vysvědčení) —
-            matrice se tyto údaje neposílají.
-          </p>
+        <p-card>
+          <ng-template #title>Údaje o škole<app-info-hint text="Používá se na oficiálních dokumentech (hlavička vysvědčení) — matrice se tyto údaje neposílají." /></ng-template>
           <form
             class="flex flex-wrap items-end gap-2"
             (ngSubmit)="saveSchoolDetails()"
@@ -656,11 +644,8 @@
           </form>
         </p-card>
 
-        <p-card header="Platby">
-          <p class="mt-0 mb-4 text-sm text-surface-500">
-            Bankovní účet, na který se generuje QR platba u plateb (Platby) —
-            viz ROADMAP "Správa financí".
-          </p>
+        <p-card>
+          <ng-template #title>Platby<app-info-hint text="Bankovní účet, na který se generuje QR platba u plateb (Platby)." /></ng-template>
           <form
             class="flex flex-wrap items-end gap-2"
             (ngSubmit)="saveSchoolBankAccount()"
@@ -689,11 +674,8 @@
           </form>
         </p-card>
 
-        <p-card header="Matrika (MŠMT)">
-          <p class="mt-0 mb-4 text-sm text-surface-500">
-            Pre-pilotní export pro ověření na testovacím serveru MŠMT — viz
-            poznámka v ROADMAP.md.
-          </p>
+        <p-card>
+          <ng-template #title>Matrika (MŠMT)<app-info-hint text="Pre-pilotní export pro ověření na testovacím serveru MŠMT." /></ng-template>
 
           <div class="mb-6 flex flex-wrap items-end gap-2">
             <div class="flex flex-col gap-1.5">
@@ -1148,6 +1130,7 @@
         pInputText
         id="username"
         name="username"
+        autocomplete="off"
         [(ngModel)]="newUsername"
       />
     </div>
@@ -1161,6 +1144,7 @@
       <p-password
         inputId="password"
         name="password"
+        autocomplete="new-password"
         [(ngModel)]="newPassword"
         [toggleMask]="true"
         [feedback]="false"

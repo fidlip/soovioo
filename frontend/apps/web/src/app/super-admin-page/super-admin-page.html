@@ -167,6 +167,7 @@
         type="text"
         id="adminUsername"
         name="adminUsername"
+        autocomplete="off"
         [(ngModel)]="newAdminUsername"
       />
     </div>
@@ -180,6 +181,7 @@
       <p-password
         inputId="adminPassword"
         name="adminPassword"
+        autocomplete="new-password"
         [(ngModel)]="newAdminPassword"
         [toggleMask]="true"
         [feedback]="false"

@@ -126,7 +126,7 @@ export class HomeworkPage {
   protected readonly attachmentUploadError = signal<string | null>(null);
 
   protected selectedAssignmentKey: string | null = null;
-  protected newSchoolClassId: number | null = null;
+  protected readonly newSchoolClassId = signal<number | null>(null);
   protected newSubjectId: number | null = null;
   protected newText = '';
   protected newDueDate = new Date();
@@ -137,7 +137,7 @@ export class HomeworkPage {
 
   protected readonly newClassStudentOptions = computed(() =>
     this.students()
-      .filter((s) => s.schoolClassId === this.newSchoolClassId)
+      .filter((s) => s.schoolClassId === this.newSchoolClassId())
       .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
   );
 
@@ -215,9 +215,9 @@ export class HomeworkPage {
     this.attachmentUploadError.set(null);
     this.selectedAssignmentKey =
       this.teachingAssignmentOptions()[0]?.key ?? null;
-    this.newSchoolClassId = this.authApi.isAdmin()
-      ? (this.schoolClasses()[0]?.id ?? null)
-      : null;
+    this.newSchoolClassId.set(
+      this.authApi.isAdmin() ? (this.schoolClasses()[0]?.id ?? null) : null,
+    );
     this.newSubjectId = this.authApi.isAdmin()
       ? (this.subjects()[0]?.id ?? null)
       : null;
@@ -236,7 +236,7 @@ export class HomeworkPage {
       (a) => a.key === this.selectedAssignmentKey,
     );
     if (assignment) {
-      this.newSchoolClassId = assignment.schoolClassId;
+      this.newSchoolClassId.set(assignment.schoolClassId);
       this.newSubjectId = assignment.subjectId;
     }
     this.newTargetStudentIds = [];
@@ -264,12 +264,13 @@ export class HomeworkPage {
   }
 
   protected saveHomework(): void {
-    if (!this.newSchoolClassId || !this.newSubjectId || !this.newText.trim()) {
+    const schoolClassId = this.newSchoolClassId();
+    if (!schoolClassId || !this.newSubjectId || !this.newText.trim()) {
       return;
     }
     this.createError.set(null);
     const request: CreateHomeworkRequest = {
-      schoolClassId: this.newSchoolClassId,
+      schoolClassId,
       subjectId: this.newSubjectId,
       text: this.newText,
       dueDate: this.toDateOnlyString(this.newDueDate),

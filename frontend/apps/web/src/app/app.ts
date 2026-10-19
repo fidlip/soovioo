@@ -19,6 +19,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
+import { installPlaceholderTitles } from './placeholder-title';
 import { SchoolContextService } from './school-context';
 import { UnreadMessagesService } from './unread-messages.service';
 
@@ -56,6 +57,7 @@ export class App {
   protected readonly unreadMessages = inject(UnreadMessagesService);
 
   constructor() {
+    installPlaceholderTitles();
     // Created at startup only so the persisted/OS dark-mode class lands on
     // <html> on every page — the toggle itself lives on the Nastavení page,
     // not in the header.

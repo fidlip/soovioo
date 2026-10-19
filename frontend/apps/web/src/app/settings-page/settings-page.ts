@@ -16,9 +16,11 @@ import {
 import { DarkModeService } from '../dark-mode.service';
 import { SchoolContextService } from '../school-context';
 
+import { InfoHint } from '../info-hint/info-hint';
 @Component({
   selector: 'app-settings-page',
   imports: [
+    InfoHint,
     FormsModule,
     Button,
     Card,

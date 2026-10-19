@@ -72,20 +72,19 @@ const GENDER_OPTIONS: { label: string; value: Gender }[] = [
   { label: 'Dívka', value: 'Female' },
 ];
 
-// Same fixed palette as events-page.ts's Event.Color picker (not a free
-// picker) — distinct enough at a glance, muted enough to keep cell text
-// readable on every swatch.
+// Fixed pastel palette (Tailwind 200 shades, not a free picker) — soft
+// enough not to dominate the timetable and keep dark cell text readable.
 const SUBJECT_COLOR_PALETTE = [
-  '#6366f1', // indigo
-  '#ef4444', // red
-  '#f97316', // orange
-  '#eab308', // yellow
-  '#22c55e', // green
-  '#14b8a6', // teal
-  '#3b82f6', // blue
-  '#a855f7', // purple
-  '#ec4899', // pink
-  '#64748b', // slate
+  '#c7d2fe', // indigo
+  '#fecaca', // red
+  '#fed7aa', // orange
+  '#fef08a', // yellow
+  '#bbf7d0', // green
+  '#99f6e4', // teal
+  '#bfdbfe', // blue
+  '#e9d5ff', // purple
+  '#fbcfe8', // pink
+  '#e2e8f0', // slate
 ];
 
 /** RAKO kvalifikátor státního občanství — only 8 stable rows, so a hardcoded
@@ -102,9 +101,11 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
   { label: 'Občanství neznámé/neudané', value: '9' },
 ];
 
+import { InfoHint } from '../info-hint/info-hint';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    InfoHint,
     TermPipe,
     AppIcon,
     AutoComplete,
