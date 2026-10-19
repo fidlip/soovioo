@@ -21,11 +21,11 @@ Web volá API na stejném originu (`https://demo.soovioo.cloud/api/...`), takže
 
 ## Jak se nasazuje
 
-Automaticky: push do `main` → projde **CI** → workflow **Deploy**
-(`.github/workflows/deploy.yml`) postaví image `api` a `web` na GitHubu, nahraje je do
-GHCR (`ghcr.io/fidlip/soovioo-*`, tagy `latest` a SHA commitu), zkopíruje na server
-`docker-compose.yml`, `Caddyfile` a `deploy.sh` do `/opt/soovioo` a spustí `deploy.sh`
-(pull + restart). Ručně jde spustit v Actions → Deploy → Run workflow.
+Automaticky po pushi do `main`, ve workflow **CI** (`.github/workflows/ci.yml`):
+job `images` souběžně s testy postaví image `api` a `web` a nahraje je do GHCR
+(`ghcr.io/fidlip/soovioo-*`, tagy `latest` a SHA commitu). Až projdou všechny testy, job
+`deploy` zkopíruje na server `docker-compose.yml`, `Caddyfile` a `deploy.sh` do
+`/opt/soovioo` a spustí `deploy.sh` (pull + restart). Ručně: Actions → CI → Run workflow.
 
 Na serveru se nic nebuilduje a není tam ani git checkout — jen `/opt/soovioo` s těmi
 třemi soubory a `.env`. Migrace DB se aplikují samy při startu `api`.

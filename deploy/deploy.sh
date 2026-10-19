@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run on the server by .github/workflows/deploy.yml:
+# Run on the server by the deploy job in .github/workflows/ci.yml:
 #   echo <registry token> | sh deploy.sh <image tag> <registry user>
 # Rollback by hand to an earlier commit's images (still on the server, or
 # pullable after `docker login ghcr.io`): sh deploy.sh <older sha>

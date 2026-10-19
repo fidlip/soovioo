@@ -1,10 +1,14 @@
 name: CI
 
+# Tests on every push/PR; on main also builds the production images (in
+# parallel with the tests) and deploys them once everything is green.
+# Server setup and the deploy secrets: deploy/README.md.
 on:
   push:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 permissions:
   actions: read
@@ -25,14 +29,17 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - run: npm ci
+      # node_modules itself, not just npm's download cache — skips `npm ci`
+      # entirely while package-lock.json is unchanged.
+      - id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npx nx format:check --base=remotes/origin/main
-      - run: npx nx run-many -t lint
-      - run: npx nx run-many -t test
-      - run: npx nx run-many -t typecheck
+      - run: npx nx run-many -t lint test typecheck --parallel=4
       # nativescript-mobile's build needs the Android/iOS native toolchain,
       # which isn't installed here — it's built/verified on-device manually
       # instead (see ROADMAP.md).
@@ -48,7 +55,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - run: dotnet restore
       - run: dotnet build --no-restore
@@ -79,32 +86,121 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
+      # Started in the background, not waited for here — it compiles and
+      # migrates while the frontend installs; "Wait for servers" below
+      # checks it's up.
       - name: Start backend
         working-directory: backend/src/Soovioo.Api
-        run: |
-          dotnet run --urls http://0.0.0.0:5080 &
-          for i in $(seq 1 30); do
-            curl -s -o /dev/null http://localhost:5080/api/auth/login && break
-            sleep 1
-          done
+        run: nohup dotnet run --urls http://0.0.0.0:5080 > /tmp/backend.log 2>&1 &
 
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+      - id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+      - if: steps.node-modules.outputs.cache-hit != 'true'
+        working-directory: frontend
+        run: npm ci
       - name: Start frontend
         working-directory: frontend
+        run: nohup npx nx run web:serve --host 0.0.0.0 --port 4200 > /tmp/frontend.log 2>&1 &
+
+      # Browser binaries cached per Playwright version; the system libraries
+      # they need still come from apt every run.
+      - id: playwright-version
+        working-directory: frontend
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: frontend
+        run: npx playwright install-deps chromium
+
+      - name: Wait for servers
         run: |
-          npm ci
-          npx nx run web:serve --host 0.0.0.0 --port 4200 &
-          for i in $(seq 1 60); do
-            curl -s -o /dev/null http://localhost:4200 && break
+          for i in $(seq 1 120); do
+            curl -s -o /dev/null http://localhost:5080/api/auth/login \
+              && curl -s -o /dev/null http://localhost:4200 && exit 0
             sleep 1
           done
+          echo "--- backend"; tail -50 /tmp/backend.log
+          echo "--- frontend"; tail -50 /tmp/frontend.log
+          exit 1
 
       - working-directory: frontend
-        run: npx playwright install --with-deps chromium
-      - working-directory: frontend
         run: npx nx run web-e2e:e2e
+
+  images:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: api
+            context: backend
+          - name: web
+            context: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ghcr.io/fidlip/soovioo-${{ matrix.name }}:latest
+            ghcr.io/fidlip/soovioo-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # Copies deploy/ to the server and restarts the stack with this commit's
+  # images — only once every test job above passed.
+  deploy:
+    needs: [frontend, backend, e2e, images]
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: deploy
+      - name: SSH setup
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Copy deploy files
+        run: |
+          scp deploy/docker-compose.yml deploy/Caddyfile deploy/deploy.sh \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/soovioo/
+      - name: Pull and restart
+        # GITHUB_TOKEN (valid only while this job runs) lets the server pull
+        # the private images — no long-lived registry credential on the VPS.
+        # Sent on stdin, so it never shows up in the server's process list.
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sh /opt/soovioo/deploy.sh ${{ github.sha }} ${{ github.actor }}"

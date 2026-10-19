@@ -23,6 +23,9 @@ const baseURL = process.env['BASE_URL'] || 'http://localhost:4200';
  */
 export default defineConfig({
   ...nxE2EPreset(import.meta.dirname, { testDir: './src' }),
+  // The preset runs CI on a single worker; the tests don't depend on each
+  // other (they pass locally on all cores), and GitHub's runner has 4 vCPUs.
+  workers: process.env['CI'] ? 4 : undefined,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL,

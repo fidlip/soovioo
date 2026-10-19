@@ -1,5 +1,5 @@
 # Production stack — see deploy/README.md. Normally deployed by
-# .github/workflows/deploy.yml (images from GHCR); `build:` is there for a
+# the deploy job in .github/workflows/ci.yml (images from GHCR); `build:` is there for a
 # manual build from a full checkout: docker compose up -d --build
 name: soovioo
 
