@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import { SchoolClass } from '../evidence/school-class.model';
 import {
+  Broadcast,
   BroadcastRequest,
   BroadcastResult,
   Contact,
@@ -29,6 +30,13 @@ export class MessagesApiService {
   getUnreadCount(): Observable<number> {
     return this.http.get<number>(
       `${this.baseUrl}/api/conversations/unread-count`,
+    );
+  }
+
+  /** A bulk send of the current user with all its conversations. */
+  getBroadcast(id: number): Observable<Broadcast> {
+    return this.http.get<Broadcast>(
+      `${this.baseUrl}/api/conversations/broadcasts/${id}`,
     );
   }
 

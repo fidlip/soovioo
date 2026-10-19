@@ -209,4 +209,82 @@ public class ConversationsControllerTests
         Assert.Empty(Assert.IsAssignableFrom<IEnumerable<ConversationSummaryDto>>(
             Assert.IsType<OkObjectResult>(strangerList.Result).Value));
     }
+
+    private static MessageBroadcastController BroadcastAs(AppDbContext db, User user) =>
+        new(db, new FakeCurrentSchoolContext(SchoolId))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([
+                        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                        new Claim(ClaimTypes.Role, user.Role.ToString()),
+                        new Claim(ClaimTypes.Name, user.Username),
+                    ])),
+                },
+            },
+        };
+
+    [Fact]
+    public async Task SenderSeesBroadcastOnceAndItsFamiliesInDetail()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var evaUser = new User { Username = "eva", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        db.Users.Add(evaUser);
+        await db.SaveChangesAsync();
+        db.Students.Add(new Student
+        {
+            FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId,
+            SchoolClassId = w.Student.SchoolClassId, UserId = evaUser.Id,
+        });
+        await db.SaveChangesAsync();
+
+        await BroadcastAs(db, w.Teacher).BroadcastToClass(
+            w.Student.SchoolClassId, new BroadcastRequest("Výlet", "Ve středu jedeme."));
+
+        var list = Assert.IsAssignableFrom<IEnumerable<ConversationSummaryDto>>(
+            Assert.IsType<OkObjectResult>((await As(db, w.Teacher).GetConversations()).Result).Value).ToList();
+        var row = Assert.Single(list);
+        Assert.NotNull(row.BroadcastId);
+        Assert.Equal(2, row.BroadcastConversationCount);
+        Assert.Equal("5.A", row.StudentName);
+
+        // Recipients still see their own ordinary conversation.
+        var parentList = Assert.IsAssignableFrom<IEnumerable<ConversationSummaryDto>>(
+            Assert.IsType<OkObjectResult>((await As(db, w.Parent).GetConversations()).Result).Value);
+        Assert.Null(Assert.Single(parentList).BroadcastId);
+
+        var detail = Assert.IsType<BroadcastDto>(
+            Assert.IsType<OkObjectResult>((await As(db, w.Teacher).GetBroadcast(row.BroadcastId!.Value)).Result).Value);
+        Assert.Equal(2, detail.Conversations.Count);
+        Assert.IsType<NotFoundResult>((await As(db, w.Parent).GetBroadcast(row.BroadcastId!.Value)).Result);
+    }
+
+    [Fact]
+    public async Task StudentsOnlyBroadcastLeavesParentsOut()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+
+        await BroadcastAs(db, w.Teacher).BroadcastToClass(
+            w.Student.SchoolClassId, new BroadcastRequest("Úkol", "Nezapomeňte.", StudentsOnly: true));
+
+        var participants = db.ConversationParticipants.Select(p => p.UserId).Order().ToList();
+        Assert.Equal(new[] { w.Teacher.Id, w.StudentUser.Id }.Order(), participants);
+    }
+
+    [Fact]
+    public async Task StudentOnlyConversationHasNoParents()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+
+        var result = await As(db, w.Teacher).StartConversation(
+            new StartConversationRequest("Úkol", "Přines sešit.", w.Student.Id, StudentOnly: true));
+
+        var dto = Assert.IsType<ConversationDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(new[] { w.Teacher.Id, w.StudentUser.Id }.Order(), dto.Participants.Select(p => p.UserId).Order());
+    }
 }

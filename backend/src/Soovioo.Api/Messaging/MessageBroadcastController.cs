@@ -56,7 +56,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
         }
 
         var studentIds = await db.Students.Where(s => s.SchoolClassId == schoolClassId).Select(s => s.Id).ToListAsync();
-        return Ok(await SendToStudentsAsync(studentIds, request));
+        return Ok(await SendToStudentsAsync(studentIds, request, schoolClass.Name));
     }
 
     /// <summary>Whole school — Admin only (not combined with the class-level
@@ -67,10 +67,11 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToSchool(BroadcastRequest request)
     {
         var studentIds = await db.Students.Select(s => s.Id).ToListAsync();
-        return Ok(await SendToStudentsAsync(studentIds, request));
+        return Ok(await SendToStudentsAsync(studentIds, request, "celá škola"));
     }
 
-    private async Task<BroadcastResultDto> SendToStudentsAsync(List<int> studentIds, BroadcastRequest request)
+    private async Task<BroadcastResultDto> SendToStudentsAsync(
+        List<int> studentIds, BroadcastRequest request, string audienceLabel)
     {
         var senderId = CurrentUserId();
         var senderName = (await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == senderId)) is { } sender
@@ -79,8 +80,10 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
         var now = DateTimeOffset.UtcNow;
         var schoolId = currentSchool.SchoolId!.Value;
 
+        // StudentsOnly: just the pupils' own accounts, no parents.
+        var studentsOnly = request.StudentsOnly;
         var parentLinks = await db.ParentStudents
-            .Where(ps => studentIds.Contains(ps.StudentId))
+            .Where(ps => !studentsOnly && studentIds.Contains(ps.StudentId))
             .ParentAccountLinks()
             .Select(l => new { l.StudentId, l.UserId })
             .ToListAsync();
@@ -101,6 +104,26 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
                 request.Body, schoolId, now))
             .ToList();
 
+        if (conversations.Count > 0)
+        {
+            var broadcast = new MessageBroadcast
+            {
+                SchoolId = schoolId,
+                SenderUserId = senderId,
+                SenderName = senderName,
+                Subject = request.Subject,
+                Body = request.Body,
+                AudienceLabel = request.StudentsOnly ? $"{audienceLabel} — jen žáci" : audienceLabel,
+                StudentsOnly = request.StudentsOnly,
+                CreatedAt = now,
+            };
+            db.MessageBroadcasts.Add(broadcast);
+            foreach (var conversation in conversations)
+            {
+                conversation.Broadcast = broadcast;
+            }
+        }
+
         db.Conversations.AddRange(conversations);
         await db.SaveChangesAsync();
 
@@ -117,10 +140,12 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public record BroadcastRequest(string Subject, string Body);
+/// <param name="StudentsOnly">Only to the pupils' own accounts (no
+/// parents) — for things that would just bother the parents.</param>
+public record BroadcastRequest(string Subject, string Body, bool StudentsOnly = false);
 
 public record BroadcastMessageRef(int ConversationId, int MessageId);
 
-/// <param name="SkippedCount">Pupils with neither their own account nor a
-/// linked parent — nobody there to receive it.</param>
+/// <param name="SkippedCount">Pupils with nobody to receive it (no own
+/// account, and — unless StudentsOnly — no linked parent).</param>
 public record BroadcastResultDto(int RecipientCount, int SkippedCount, IReadOnlyList<BroadcastMessageRef> Messages);

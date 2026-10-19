@@ -22,6 +22,11 @@ public class Conversation
     public int? StudentId { get; set; }
     public Student? Student { get; set; }
 
+    /// <summary>Set when this conversation is one family's copy of a bulk
+    /// send — groups them in the sender's list.</summary>
+    public int? BroadcastId { get; set; }
+    public MessageBroadcast? Broadcast { get; set; }
+
     public int? CreatedByUserId { get; set; }
     public User? CreatedBy { get; set; }
 

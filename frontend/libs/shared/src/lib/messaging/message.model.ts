@@ -33,6 +33,39 @@ export interface ConversationSummary {
   lastMessagePreview: string | null;
   /** Something from someone else the current user hasn't read yet. */
   unread: boolean;
+  /** Set when this row stands for a bulk send of the current user (then
+   * `studentName` = who it went to and the counts below are filled). */
+  broadcastId?: number | null;
+  broadcastConversationCount?: number | null;
+  broadcastRepliedCount?: number | null;
+  broadcastUnreadCount?: number | null;
+}
+
+export interface BroadcastAttachment {
+  conversationId: number;
+  messageId: number;
+  attachment: MessageAttachment;
+}
+
+export interface BroadcastConversation {
+  conversationId: number;
+  studentName: string | null;
+  participants: string[];
+  replyCount: number;
+  lastMessageAt: string;
+  unread: boolean;
+}
+
+/** A bulk send with every family's conversation (sender only). */
+export interface Broadcast {
+  id: number;
+  subject: string;
+  body: string;
+  audienceLabel: string;
+  studentsOnly: boolean;
+  createdAt: string;
+  attachments: BroadcastAttachment[];
+  conversations: BroadcastConversation[];
 }
 
 export interface Conversation {
@@ -53,6 +86,8 @@ export interface StartConversationRequest {
   body: string;
   studentId?: number;
   recipientUserIds?: number[];
+  /** Staff: only the pupil's own account, not the parents. */
+  studentOnly?: boolean;
 }
 
 /** Someone a parent/pupil may write to — `note` says why (class teacher,
@@ -66,6 +101,8 @@ export interface Contact {
 export interface BroadcastRequest {
   subject: string;
   body: string;
+  /** Only the pupils' own accounts, no parents. */
+  studentsOnly?: boolean;
 }
 
 /** Which conversation/first message a fan-out send created — lets the

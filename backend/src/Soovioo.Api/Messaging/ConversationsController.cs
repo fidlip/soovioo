@@ -20,6 +20,10 @@ namespace Soovioo.Api.Messaging;
 public class ConversationsController(
     AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage) : ControllerBase
 {
+    /// <summary>The caller's conversations, newest first. A bulk send the
+    /// caller made shows up once (<c>BroadcastId</c> set, counts of families,
+    /// replies and unread ones) instead of one row per family — see
+    /// <see cref="GetBroadcast"/> for its conversations.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ConversationSummaryDto>>> GetConversations()
     {
@@ -40,12 +44,88 @@ public class ConversationsController(
                 Unread = c.Messages.Any(m =>
                     (m.SenderUserId == null || m.SenderUserId != me)
                     && c.Participants.Any(p => p.UserId == me && (p.LastReadAt == null || m.SentAt > p.LastReadAt))),
+                HasReply = c.Messages.Any(m => m.SenderUserId == null || m.SenderUserId != me),
+                c.BroadcastId,
+                BroadcastIsMine = c.Broadcast != null && c.Broadcast.SenderUserId == me,
+                BroadcastSubject = c.Broadcast == null ? null : c.Broadcast.Subject,
+                BroadcastAudience = c.Broadcast == null ? null : c.Broadcast.AudienceLabel,
             })
             .ToListAsync();
 
-        return Ok(conversations.Select(c => new ConversationSummaryDto(
-            c.Id, c.Subject, c.StudentId, c.StudentName, c.Participants, c.LastMessageAt,
-            c.LastMessage?.SenderName, Preview(c.LastMessage?.Body), c.Unread)));
+        var result = new List<ConversationSummaryDto>();
+        foreach (var c in conversations.Where(c => !(c.BroadcastId is not null && c.BroadcastIsMine)))
+        {
+            result.Add(new ConversationSummaryDto(
+                c.Id, c.Subject, c.StudentId, c.StudentName, c.Participants, c.LastMessageAt,
+                c.LastMessage?.SenderName, Preview(c.LastMessage?.Body), c.Unread));
+        }
+        foreach (var group in conversations.Where(c => c.BroadcastId is not null && c.BroadcastIsMine).GroupBy(c => c.BroadcastId!.Value))
+        {
+            // Already newest first, so First() carries the latest message.
+            var latest = group.First();
+            result.Add(new ConversationSummaryDto(
+                latest.Id, latest.BroadcastSubject ?? latest.Subject, null, latest.BroadcastAudience, [],
+                latest.LastMessageAt, latest.LastMessage?.SenderName, Preview(latest.LastMessage?.Body),
+                group.Any(c => c.Unread),
+                BroadcastId: group.Key,
+                BroadcastConversationCount: group.Count(),
+                BroadcastRepliedCount: group.Count(c => c.HasReply),
+                BroadcastUnreadCount: group.Count(c => c.Unread)));
+        }
+        return Ok(result.OrderByDescending(c => c.LastMessageAt));
+    }
+
+    /// <summary>A bulk send of the caller: the original message plus every
+    /// family's conversation (unread first, then those with replies, newest
+    /// first). Only the sender sees it.</summary>
+    [HttpGet("broadcasts/{id:int}")]
+    public async Task<ActionResult<BroadcastDto>> GetBroadcast(int id)
+    {
+        var me = CurrentUserId();
+        var broadcast = await db.MessageBroadcasts.FirstOrDefaultAsync(b => b.Id == id && b.SenderUserId == me);
+        if (broadcast is null)
+        {
+            return NotFound();
+        }
+
+        var conversations = await db.Conversations
+            .Where(c => c.BroadcastId == id && c.Participants.Any(p => p.UserId == me))
+            .Select(c => new
+            {
+                c.Id,
+                StudentName = c.Student == null ? null : c.Student.FirstName + " " + c.Student.LastName,
+                Participants = c.Participants.Where(p => p.UserId != me)
+                    .Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
+                ReplyCount = c.Messages.Count(m => m.SenderUserId == null || m.SenderUserId != me),
+                c.LastMessageAt,
+                Unread = c.Messages.Any(m =>
+                    (m.SenderUserId == null || m.SenderUserId != me)
+                    && c.Participants.Any(p => p.UserId == me && (p.LastReadAt == null || m.SentAt > p.LastReadAt))),
+            })
+            .ToListAsync();
+
+        // The file attached to every copy — the same on each, list it once.
+        var firstConversationId = conversations.Select(c => c.Id).DefaultIfEmpty().Min();
+        var attachments = await db.MessageAttachments
+            .Where(a => a.Message!.ConversationId == firstConversationId && a.Message.SenderUserId == me)
+            .OrderBy(a => a.Message!.SentAt)
+            .Select(a => new BroadcastAttachmentDto(
+                a.Message!.ConversationId, a.MessageId,
+                new MessageAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)))
+            .Take(10)
+            .ToListAsync();
+
+        return Ok(new BroadcastDto(
+            broadcast.Id, broadcast.Subject, broadcast.Body, broadcast.AudienceLabel, broadcast.StudentsOnly,
+            broadcast.CreatedAt, attachments,
+            conversations
+                .OrderByDescending(c => c.Unread)
+                .ThenByDescending(c => c.ReplyCount > 0)
+                .ThenByDescending(c => c.ReplyCount > 0 ? c.LastMessageAt : DateTimeOffset.MinValue)
+                .ThenBy(c => c.StudentName)
+                .Select(c => new BroadcastConversationDto(
+                    c.Id, c.StudentName, c.Participants, c.ReplyCount, c.LastMessageAt, c.Unread))
+                .ToList()));
     }
 
     /// <summary>Number of conversations with something unread — Home and
@@ -85,10 +165,23 @@ public class ConversationsController(
             {
                 return BadRequest("Neznámý žák.");
             }
-            recipients = await db.FamilyUserIdsAsync(studentId);
-            if (recipients.Count == 0)
+            if (request.StudentOnly)
             {
-                return BadRequest("Žák nemá účet ani přiřazené rodiče — zprávu by nikdo nedostal.");
+                // Just the pupil (no parents) — e.g. a reminder that would only bother the family.
+                recipients = await db.Students.Where(s => s.Id == studentId && s.UserId != null)
+                    .Select(s => s.UserId!.Value).ToListAsync();
+                if (recipients.Count == 0)
+                {
+                    return BadRequest("Žák nemá vlastní účet — zprávu by nikdo nedostal.");
+                }
+            }
+            else
+            {
+                recipients = await db.FamilyUserIdsAsync(studentId);
+                if (recipients.Count == 0)
+                {
+                    return BadRequest("Žák nemá účet ani přiřazené rodiče — zprávu by nikdo nedostal.");
+                }
             }
         }
         else
@@ -401,8 +494,10 @@ public static class ConversationQueries
                 && (p.LastReadAt == null || m.SentAt > p.LastReadAt)));
 }
 
+/// <param name="StudentOnly">Staff: only the pupil's own account, not the parents.</param>
 public record StartConversationRequest(
-    string Subject, string Body, int? StudentId = null, IReadOnlyList<int>? RecipientUserIds = null);
+    string Subject, string Body, int? StudentId = null, IReadOnlyList<int>? RecipientUserIds = null,
+    bool StudentOnly = false);
 
 public record ReplyRequest(string Body);
 
@@ -418,9 +513,23 @@ public record ConversationDto(
     int Id, string Subject, int? StudentId, string? StudentName,
     IReadOnlyList<ParticipantDto> Participants, IReadOnlyList<MessageDto> Messages);
 
+/// <param name="BroadcastId">Set on the one row standing for a bulk send of
+/// the caller (then StudentName = who it went to, and the counts are set).</param>
 public record ConversationSummaryDto(
     int Id, string Subject, int? StudentId, string? StudentName, IReadOnlyList<string> Participants,
-    DateTimeOffset LastMessageAt, string? LastSenderName, string? LastMessagePreview, bool Unread);
+    DateTimeOffset LastMessageAt, string? LastSenderName, string? LastMessagePreview, bool Unread,
+    int? BroadcastId = null, int? BroadcastConversationCount = null, int? BroadcastRepliedCount = null,
+    int? BroadcastUnreadCount = null);
+
+public record BroadcastAttachmentDto(int ConversationId, int MessageId, MessageAttachmentDto Attachment);
+
+public record BroadcastConversationDto(
+    int ConversationId, string? StudentName, IReadOnlyList<string> Participants, int ReplyCount,
+    DateTimeOffset LastMessageAt, bool Unread);
+
+public record BroadcastDto(
+    int Id, string Subject, string Body, string AudienceLabel, bool StudentsOnly, DateTimeOffset CreatedAt,
+    IReadOnlyList<BroadcastAttachmentDto> Attachments, IReadOnlyList<BroadcastConversationDto> Conversations);
 
 /// <param name="Note">Why this person is offered — "třídní učitel",
 /// subjects taught, "vedení školy".</param>

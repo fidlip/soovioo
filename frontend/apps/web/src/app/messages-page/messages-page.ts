@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message as PMessage } from '@openng/optimus-ui/message';
@@ -17,6 +18,8 @@ import { Textarea } from '@openng/optimus-ui/textarea';
 import { Observable, forkJoin, of } from 'rxjs';
 import {
   AuthApiService,
+  Broadcast,
+  BroadcastConversation,
   Contact,
   Conversation,
   ConversationSummary,
@@ -58,13 +61,25 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
 ];
 
 /** Staff only — parents/pupils always pick recipients from contacts. */
-type SendMode = 'individual' | 'class' | 'school';
+type SendMode =
+  | 'individual'
+  | 'student'
+  | 'class'
+  | 'classStudents'
+  | 'school'
+  | 'schoolStudents';
 
 const MODE_OPTIONS: { value: SendMode; label: string }[] = [
   { value: 'individual', label: 'Rodině vybraného žáka' },
+  { value: 'student', label: 'Pouze vybranému žákovi' },
   { value: 'class', label: 'Celé třídě (každé rodině zvlášť)' },
+  { value: 'classStudents', label: 'Všem žákům třídy (bez rodičů)' },
   { value: 'school', label: 'Celé škole (každé rodině zvlášť)' },
+  { value: 'schoolStudents', label: 'Všem žákům školy (bez rodičů)' },
 ];
+
+/** Modes that pick one pupil (vs. a class / the whole school). */
+const SINGLE_STUDENT_MODES: SendMode[] = ['individual', 'student'];
 
 type ReadFilter = 'all' | 'unread';
 
@@ -80,6 +95,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
   imports: [
     ...FORM_FIELDS,
     FilePicker,
+    Checkbox,
     TermPipe,
     AppIcon,
     DatePipe,
@@ -113,7 +129,8 @@ export class MessagesPage {
   protected readonly isStaff = this.authApi.isTeacherOrAdmin();
 
   protected readonly readFilterOptions = READ_FILTER_OPTIONS;
-  protected readonly readFilter = signal<ReadFilter>('all');
+  /** Unread first — what usually needs attention; "Vše" one click away. */
+  protected readonly readFilter = signal<ReadFilter>('unread');
   protected readonly visibleConversations = computed(() =>
     this.readFilter() === 'unread'
       ? this.conversations().filter((c) => c.unread)
@@ -121,8 +138,31 @@ export class MessagesPage {
   );
 
   protected readonly modeOptions = MODE_OPTIONS.filter(
-    (o) => this.authApi.isAdmin() || o.value !== 'school',
+    (o) =>
+      this.authApi.isAdmin() ||
+      (o.value !== 'school' && o.value !== 'schoolStudents'),
   ).map((o) => ({ ...o, label: this.term(o.label) }));
+
+  /** Open bulk send (sender's view) — alternative to `selected`. */
+  protected readonly selectedBroadcast = signal<Broadcast | null>(null);
+  protected readonly broadcastRepliesOnly = signal(false);
+  protected readonly visibleBroadcastConversations = computed(() => {
+    const broadcast = this.selectedBroadcast();
+    if (!broadcast) {
+      return [];
+    }
+    return this.broadcastRepliesOnly()
+      ? broadcast.conversations.filter((c) => c.replyCount > 0)
+      : broadcast.conversations;
+  });
+
+  protected isSingleStudentMode(): boolean {
+    return SINGLE_STUDENT_MODES.includes(this.sendMode);
+  }
+
+  protected isClassMode(): boolean {
+    return this.sendMode === 'class' || this.sendMode === 'classStudents';
+  }
 
   /** p-select's optionLabel only takes a property path, not a function. */
   protected readonly studentOptions = computed(() =>
@@ -168,6 +208,45 @@ export class MessagesPage {
     }
   }
 
+  protected openSummary(summary: ConversationSummary): void {
+    if (summary.broadcastId) {
+      this.openBroadcast(summary.broadcastId);
+    } else {
+      this.selectedBroadcast.set(null);
+      this.open(summary);
+    }
+  }
+
+  protected openBroadcast(id: number): void {
+    this.messagesApi.getBroadcast(id).subscribe({
+      next: (broadcast) => {
+        this.selected.set(null);
+        this.broadcastRepliesOnly.set(false);
+        this.selectedBroadcast.set(broadcast);
+      },
+      error: (err) => console.error('getBroadcast failed', err),
+    });
+  }
+
+  /** A family's conversation from the open broadcast. */
+  protected openBroadcastConversation(item: BroadcastConversation): void {
+    this.open({
+      id: item.conversationId,
+      unread: item.unread,
+    } as ConversationSummary);
+  }
+
+  protected downloadBroadcastAttachment(
+    ref: Broadcast['attachments'][number],
+  ): void {
+    this.messagesApi
+      .downloadAttachment(ref.conversationId, ref.messageId, ref.attachment.id)
+      .subscribe({
+        next: (blob) => saveBlob(blob, ref.attachment.fileName),
+        error: (err) => console.error('downloadAttachment failed', err),
+      });
+  }
+
   protected open(summary: ConversationSummary): void {
     this.messagesApi.getConversation(summary.id).subscribe({
       next: (conversation) => {
@@ -182,6 +261,18 @@ export class MessagesPage {
                   c.id === summary.id ? { ...c, unread: false } : c,
                 ),
               );
+              this.selectedBroadcast.update((b) =>
+                b
+                  ? {
+                      ...b,
+                      conversations: b.conversations.map((c) =>
+                        c.conversationId === summary.id
+                          ? { ...c, unread: false }
+                          : c,
+                      ),
+                    }
+                  : b,
+              );
               this.unread.refresh();
             },
             error: (err) => console.error('markRead failed', err),
@@ -192,7 +283,13 @@ export class MessagesPage {
     });
   }
 
+  /** Back: from a broadcast's conversation to the broadcast, else to the list. */
   protected closeConversation(): void {
+    this.selected.set(null);
+  }
+
+  protected closeBroadcast(): void {
+    this.selectedBroadcast.set(null);
     this.selected.set(null);
   }
 
@@ -241,24 +338,33 @@ export class MessagesPage {
     this.error.set(null);
     const request = { subject: this.subject, body: this.body };
 
-    if (this.isStaff && this.sendMode !== 'individual') {
-      const broadcast =
-        this.sendMode === 'class'
-          ? this.broadcastClassId === null
-            ? null
-            : this.messagesApi.broadcastToClass(this.broadcastClassId, request)
-          : this.messagesApi.broadcastToSchool(request);
+    if (this.isStaff && !this.isSingleStudentMode()) {
+      const studentsOnly =
+        this.sendMode === 'classStudents' || this.sendMode === 'schoolStudents';
+      const broadcastRequest = { ...request, studentsOnly };
+      const broadcast = this.isClassMode()
+        ? this.broadcastClassId === null
+          ? null
+          : this.messagesApi.broadcastToClass(
+              this.broadcastClassId,
+              broadcastRequest,
+            )
+        : this.messagesApi.broadcastToSchool(broadcastRequest);
       broadcast?.subscribe({
         next: (result) => {
           const skipped = result.skippedCount
             ? this.term(
-                ` (${result.skippedCount} žáků bez účtu i rodičů přeskočeno)`,
+                studentsOnly
+                  ? ` (${result.skippedCount} žáků bez účtu přeskočeno)`
+                  : ` (${result.skippedCount} žáků bez účtu i rodičů přeskočeno)`,
               )
             : '';
           this.uploadThen(
             result.messages,
             this.newFile,
-            `Odesláno ${result.recipientCount} rodinám${skipped}.`,
+            studentsOnly
+              ? this.term(`Odesláno ${result.recipientCount} žákům${skipped}.`)
+              : `Odesláno ${result.recipientCount} rodinám${skipped}.`,
           );
         },
         error: (err) => this.handleSendError(err),
@@ -278,6 +384,7 @@ export class MessagesPage {
         ...request,
         studentId: this.studentId,
         recipientUserIds: this.isStaff ? undefined : this.recipientIds,
+        studentOnly: this.isStaff && this.sendMode === 'student',
       })
       .subscribe({
         next: (conversation) =>
@@ -359,14 +466,7 @@ export class MessagesPage {
     this.messagesApi
       .downloadAttachment(conversation.id, message.id, attachment.id)
       .subscribe({
-        next: (blob) => {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = attachment.fileName;
-          link.click();
-          URL.revokeObjectURL(url);
-        },
+        next: (blob) => saveBlob(blob, attachment.fileName),
         error: (err) => console.error('downloadAttachment failed', err),
       });
   }
@@ -485,4 +585,13 @@ export class MessagesPage {
     }
     this.reloadList();
   }
+}
+
+function saveBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }

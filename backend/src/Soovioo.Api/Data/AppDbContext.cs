@@ -30,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
+    public DbSet<MessageBroadcast> MessageBroadcasts => Set<MessageBroadcast>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
     public DbSet<EventTeacher> EventTeachers => Set<EventTeacher>();
@@ -87,6 +88,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .HasOne(c => c.CreatedBy).WithMany().HasForeignKey(c => c.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<Conversation>()
             .HasOne(c => c.Student).WithMany().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Conversation>()
+            .HasOne(c => c.Broadcast).WithMany(b => b.Conversations).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<MessageBroadcast>()
+            .HasOne(b => b.SenderUser).WithMany().OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<HomeworkStudent>().HasKey(hs => new { hs.HomeworkId, hs.StudentId });
         modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
         modelBuilder.Entity<BehaviorClassification>()
@@ -188,6 +193,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
         modelBuilder.Entity<Conversation>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<MessageBroadcast>().HasQueryFilter(b =>
+            currentSchool.IsSuperAdmin || b.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ConversationParticipant>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Message>().HasQueryFilter(m =>
