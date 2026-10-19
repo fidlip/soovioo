@@ -133,7 +133,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
-    SeedUsers(db);
+    SeedUsers(db, app.Configuration.GetSection("Seed").Get<SeedOptions>() ?? new SeedOptions());
     BackfillDemoTimetableTeacher(db);
     BackfillDemoClassTeacher(db);
     BackfillDemoPersonNames(db);
@@ -181,7 +181,7 @@ app.MapHangfireDashboard();
 
 app.Run();
 
-static void SeedUsers(AppDbContext db)
+static void SeedUsers(AppDbContext db, SeedOptions seed)
 {
     // IgnoreQueryFilters: this runs with no authenticated caller, so the
     // per-school filter would otherwise only ever see SuperAdmin rows and
@@ -193,6 +193,31 @@ static void SeedUsers(AppDbContext db)
 
     const int demoSchoolId = 1;
     var hasher = new PasswordHasher<User>();
+
+    // A real deployment gets only the built-in SuperAdmin, with a password
+    // from the environment (changed on first login) — never the demo
+    // accounts with their well-known "<username>123" passwords.
+    if (!seed.DemoAccounts)
+    {
+        if (string.IsNullOrWhiteSpace(seed.SuperAdminPassword) || seed.SuperAdminPassword.Length < 8)
+        {
+            throw new InvalidOperationException(
+                "Empty database and Seed:DemoAccounts is off: set Seed__SuperAdminPassword (8+ chars) " +
+                "for the built-in superadmin account's first login.");
+        }
+        var superAdmin = new User
+        {
+            Username = Soovioo.Api.Support.SupportController.BuiltInUsername,
+            PasswordHash = "",
+            Role = UserRole.SuperAdmin,
+            SchoolId = null,
+            MustChangePassword = true,
+        };
+        superAdmin.PasswordHash = hasher.HashPassword(superAdmin, seed.SuperAdminPassword);
+        db.Users.Add(superAdmin);
+        db.SaveChanges();
+        return;
+    }
     var demoUsers = new[]
     {
         new User { Username = Soovioo.Api.Support.SupportController.BuiltInUsername, PasswordHash = "", Role = UserRole.SuperAdmin, SchoolId = null },
@@ -495,4 +520,17 @@ static List<string[]> ReadCsvDataRows(string path)
     }
 
     return rows.Skip(1).Where(r => r.Length > 1 && r.Any(f => f.Length > 0)).ToList();
+}
+
+/// <summary>Bound from the <c>Seed</c> config section — what
+/// <c>SeedUsers</c> creates on an empty database.</summary>
+class SeedOptions
+{
+    /// <summary>Demo accounts admin/ucitel/rodic/zak/superadmin with
+    /// "&lt;username&gt;123" passwords. On only in appsettings.Development.json.</summary>
+    public bool DemoAccounts { get; set; }
+
+    /// <summary>First password of the built-in superadmin when
+    /// <see cref="DemoAccounts"/> is off (Seed__SuperAdminPassword env var).</summary>
+    public string? SuperAdminPassword { get; set; }
 }

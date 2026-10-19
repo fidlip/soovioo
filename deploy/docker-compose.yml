@@ -1,0 +1,104 @@
+# Production stack — see deploy/README.md. Run from this directory:
+#   docker compose up -d --build
+name: soovioo
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soovioo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: soovioo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soovioo -d soovioo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  api:
+    build: ../backend
+    image: soovioo-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Trust X-Forwarded-For/-Proto from Caddy (real client IP in the
+      # audit log, https:// in the calendar-feed URL). Safe only because
+      # the API's port is not published — Caddy is the only way in.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__Default: Host=postgres;Database=soovioo;Username=soovioo;Password=${POSTGRES_PASSWORD}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set in .env}
+      App__PathBasedTenant: "false"
+      App__MainDomain: ${MAIN_DOMAIN:?set in .env}
+      Seed__SuperAdminPassword: ${SUPERADMIN_PASSWORD:-}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cloud}
+      Smtp__FromName: Soovioo
+    volumes:
+      - attachments:/app/AttachmentStorage
+    logging: *logging
+
+  web:
+    build: ../frontend
+    image: soovioo-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      MAIN_DOMAIN: ${MAIN_DOMAIN}
+      WEB_DOMAIN: ${WEB_DOMAIN:?set in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./www:/srv/www:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging: *logging
+
+  # Daily pg_dump, rotated (7 daily, 4 weekly, 6 monthly) into the
+  # "backups" volume. Not off-site yet — see README.md.
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:17
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: soovioo
+      POSTGRES_USER: soovioo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - backups:/backups
+    logging: *logging
+
+volumes:
+  postgres-data:
+  attachments:
+  caddy-data:
+  caddy-config:
+  backups:

@@ -32,3 +32,6 @@ backend/**/AttachmentStorage/
 .nx/polygraph
 
 IDEAS.md
+
+# Production secrets (deploy/.env.example is the template)
+deploy/.env

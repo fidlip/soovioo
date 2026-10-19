@@ -21,6 +21,7 @@ import {
   TokenStorage,
   authInterceptor,
 } from '@soovioo/shared';
+import { environment } from '../environments/environment';
 import { appRoutes } from './app.routes';
 import { MemoryTokenStorage } from './memory-token-storage';
 import { currentSchoolSlugFromUrl } from './school-context';
@@ -33,14 +34,45 @@ import { sooviooTheme } from './theme';
 // explicit translation object, same as FullCalendar needs its own
 // `@fullcalendar/core/locales/cs` import (see events-page.ts).
 const csTranslation: Translation = {
-  dayNames: ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'],
+  dayNames: [
+    'neděle',
+    'pondělí',
+    'úterý',
+    'středa',
+    'čtvrtek',
+    'pátek',
+    'sobota',
+  ],
   dayNamesShort: ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'],
   dayNamesMin: ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'],
   monthNames: [
-    'leden', 'únor', 'březen', 'duben', 'květen', 'červen',
-    'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec',
+    'leden',
+    'únor',
+    'březen',
+    'duben',
+    'květen',
+    'červen',
+    'červenec',
+    'srpen',
+    'září',
+    'říjen',
+    'listopad',
+    'prosinec',
   ],
-  monthNamesShort: ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'],
+  monthNamesShort: [
+    'led',
+    'úno',
+    'bře',
+    'dub',
+    'kvě',
+    'čvn',
+    'čvc',
+    'srp',
+    'zář',
+    'říj',
+    'lis',
+    'pro',
+  ],
   today: 'Dnes',
   clear: 'Vymazat',
   firstDayOfWeek: 1,
@@ -54,8 +86,13 @@ export const appConfig: ApplicationConfig = {
     // 'always': a route nested under `:schoolSlug` sees that param on its
     // own paramMap too, so components/guards don't need to walk up the
     // route tree to find it.
-    provideRouter(appRoutes, withRouterConfig({ paramsInheritanceStrategy: 'always' })),
-    provideHttpClient(withInterceptors([authInterceptor, serverErrorInterceptor])),
+    provideRouter(
+      appRoutes,
+      withRouterConfig({ paramsInheritanceStrategy: 'always' }),
+    ),
+    provideHttpClient(
+      withInterceptors([authInterceptor, serverErrorInterceptor]),
+    ),
     provideAnimations(),
     MessageService,
     ConfirmationService,
@@ -72,9 +109,16 @@ export const appConfig: ApplicationConfig = {
         },
       },
     }),
-    // Same host the page was loaded from, so this also works when a phone
-    // on the LAN opens the dev server by IP instead of localhost.
-    { provide: API_BASE_URL, useValue: `http://${window.location.hostname}:5080` },
+    // Production: same origin — the reverse proxy (deploy/Caddyfile) sends
+    // /api/* to the backend on every school subdomain, so no CORS. Dev: the
+    // backend's own port on the host the page was loaded from, so this also
+    // works when a phone on the LAN opens the dev server by IP.
+    {
+      provide: API_BASE_URL,
+      useValue: environment.production
+        ? window.location.origin
+        : `http://${window.location.hostname}:5080`,
+    },
     { provide: TokenStorage, useClass: MemoryTokenStorage },
     // Refresh token as an httpOnly cookie; the access token stays in
     // memory, so every page load first restores it from that cookie —
@@ -82,7 +126,10 @@ export const appConfig: ApplicationConfig = {
     { provide: AUTH_REFRESH_VIA_COOKIE, useValue: true },
     // Lets a SuperAdmin's support-mode session survive reloads of the
     // school's page (see SupportSessionService on the backend).
-    { provide: CURRENT_SCHOOL_SLUG, useValue: () => currentSchoolSlugFromUrl() },
+    {
+      provide: CURRENT_SCHOOL_SLUG,
+      useValue: () => currentSchoolSlugFromUrl(),
+    },
     provideAppInitializer(() => inject(AuthApiService).restoreSession()),
   ],
 };

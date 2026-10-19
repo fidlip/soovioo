@@ -1,0 +1,13 @@
+node_modules
+dist
+tmp
+out-tsc
+.nx
+.angular
+.agents
+.claude
+.vscode
+apps/nativescript-mobile/platforms
+apps/nativescript-mobile/hooks
+apps/web-e2e
+**/*.log

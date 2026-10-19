@@ -1,0 +1,5 @@
+**/bin/
+**/obj/
+**/AttachmentStorage/
+tests/
+docker-compose.yml
