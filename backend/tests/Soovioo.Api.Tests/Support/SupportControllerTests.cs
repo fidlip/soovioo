@@ -20,7 +20,7 @@ public class SupportControllerTests
             new FakeCurrentSchoolContext(null, isSuperAdmin: true));
 
     private static SupportController As(AppDbContext db, User user) =>
-        new(db, AuthTestServices.TokenFactory)
+        new(db, AuthTestServices.TokenFactory, AuthTestServices.RefreshTokens(db))
         {
             ControllerContext = new ControllerContext
             {
@@ -74,8 +74,19 @@ public class SupportControllerTests
         Assert.IsType<BadRequestObjectResult>(await controller.DeleteSuperAdmin(me.Id));
 
         var added = Assert.IsType<SuperAdminDto>(Assert.IsType<OkObjectResult>(
-            (await controller.AddSuperAdmin(new CreateSuperAdminRequest("druhy", "heslo1234"))).Result).Value);
+            (await controller.AddSuperAdmin(new CreateSuperAdminRequest(
+                "druhy", "heslo1234", "Jana", "Nová", "777 123 456", "jana@soovioo.cz"))).Result).Value);
         Assert.True(db.Users.Single(u => u.Id == added.Id).MustChangePassword);
+        // A SuperAdmin is an ordinary account with a Person like everyone else.
+        Assert.Equal("Jana Nová", added.Name);
+        var person = db.Persons.Single(p => p.UserId == added.Id);
+        Assert.Equal("jana@soovioo.cz", person.Email);
+
+        var updated = Assert.IsType<SuperAdminDto>(Assert.IsType<OkObjectResult>(
+            (await controller.UpdateSuperAdmin(added.Id, new UpdateSuperAdminRequest(
+                "druha", FirstName: "Jana", LastName: "Malá"))).Result).Value);
+        Assert.Equal("druha", updated.Username);
+        Assert.Equal("Jana Malá", updated.Name);
 
         Assert.IsType<NoContentResult>(await controller.DeleteSuperAdmin(added.Id));
         Assert.Single(db.Users);

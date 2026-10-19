@@ -55,8 +55,14 @@ export class SuperAdminPage {
   protected readonly superAdmins = signal<SuperAdmin[]>([]);
   protected readonly myUserId = this.authApi.getUserId();
   protected readonly superAdminDialogVisible = signal(false);
-  protected newSuperAdminUsername = '';
-  protected newSuperAdminPassword = '';
+  /** null = the dialog adds a new SuperAdmin, otherwise edits this one. */
+  protected editingSuperAdminId: number | null = null;
+  protected superAdminFirstName = '';
+  protected superAdminLastName = '';
+  protected superAdminUsername = '';
+  protected superAdminPassword = '';
+  protected superAdminPhone = '';
+  protected superAdminEmail = '';
 
   protected readonly schools = signal<School[]>([]);
   protected readonly totalCount = signal(0);
@@ -107,28 +113,57 @@ export class SuperAdminPage {
   }
 
   protected openAddSuperAdminDialog(): void {
-    this.newSuperAdminUsername = '';
-    this.newSuperAdminPassword = '';
-    this.notify.clear();
-    this.superAdminDialogVisible.set(true);
+    this.editingSuperAdminId = null;
+    this.fillSuperAdminForm(null);
   }
 
-  protected addSuperAdmin(): void {
-    this.supportApi
-      .addSuperAdmin({
-        username: this.newSuperAdminUsername.trim(),
-        password: this.newSuperAdminPassword,
-      })
-      .subscribe({
-        next: (added) => {
-          this.notify.success(
-            `Superadmin ${added.username} přidán — při prvním přihlášení si změní heslo.`,
-          );
-          this.superAdminDialogVisible.set(false);
-          this.reloadSuperAdmins();
-        },
-        error: (err) => this.notify.actionFailed('addSuperAdmin failed', err),
-      });
+  protected openEditSuperAdminDialog(superAdmin: SuperAdmin): void {
+    this.editingSuperAdminId = superAdmin.id;
+    this.fillSuperAdminForm(superAdmin);
+  }
+
+  protected saveSuperAdmin(): void {
+    const fields = {
+      username: this.superAdminUsername.trim(),
+      firstName: this.superAdminFirstName.trim() || undefined,
+      lastName: this.superAdminLastName.trim() || undefined,
+      phone: this.superAdminPhone.trim() || undefined,
+      email: this.superAdminEmail.trim() || undefined,
+    };
+    const editingId = this.editingSuperAdminId;
+    const result =
+      editingId === null
+        ? this.supportApi.addSuperAdmin({
+            ...fields,
+            password: this.superAdminPassword,
+          })
+        : this.supportApi.updateSuperAdmin(editingId, {
+            ...fields,
+            password: this.superAdminPassword || undefined,
+          });
+    result.subscribe({
+      next: (saved) => {
+        this.notify.success(
+          editingId === null
+            ? `Superadmin ${saved.name} přidán — při prvním přihlášení si změní heslo.`
+            : 'Uloženo.',
+        );
+        this.superAdminDialogVisible.set(false);
+        this.reloadSuperAdmins();
+      },
+      error: (err) => this.notify.actionFailed('saveSuperAdmin failed', err),
+    });
+  }
+
+  private fillSuperAdminForm(superAdmin: SuperAdmin | null): void {
+    this.superAdminFirstName = superAdmin?.firstName ?? '';
+    this.superAdminLastName = superAdmin?.lastName ?? '';
+    this.superAdminUsername = superAdmin?.username ?? '';
+    this.superAdminPassword = '';
+    this.superAdminPhone = superAdmin?.phone ?? '';
+    this.superAdminEmail = superAdmin?.email ?? '';
+    this.notify.clear();
+    this.superAdminDialogVisible.set(true);
   }
 
   protected deleteSuperAdmin(superAdmin: SuperAdmin): void {

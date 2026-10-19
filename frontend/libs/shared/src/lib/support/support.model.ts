@@ -26,12 +26,34 @@ export interface SupportSession {
   actions: SupportAction[];
 }
 
+/** A SuperAdmin account — an ordinary user without a school, with the same
+ * name/contact fields (Person) as everyone else. */
 export interface SuperAdmin {
   id: number;
   username: string;
+  firstName: string;
+  lastName: string;
+  /** Display name ("Jana Nová", or the username). */
+  name: string;
+  phone: string | null;
+  email: string | null;
 }
 
 export interface CreateSuperAdminRequest {
   username: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+}
+
+/** `password` empty/omitted = keep the current one. */
+export interface UpdateSuperAdminRequest {
+  username: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
 }

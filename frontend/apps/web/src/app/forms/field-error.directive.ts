@@ -8,7 +8,7 @@ import {
   inject,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NgControl, ValidationErrors } from '@angular/forms';
+import { AbstractControl, NgControl, ValidationErrors } from '@angular/forms';
 import { NotifyService } from '../notify.service';
 import { labelElementFor } from './field-label';
 
@@ -52,7 +52,10 @@ export class FieldErrorDirective {
 
     this.control.control?.events
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.render());
+      .subscribe(() => {
+        this.render();
+        this.markRequired();
+      });
     this.control.valueChanges
       ?.pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -66,21 +69,30 @@ export class FieldErrorDirective {
     this.destroyRef.onDestroy(() => this.messageEl?.remove());
   }
 
+  /** Asterisk on the label (or in the placeholder) while the control is
+   * required — re-checked on every status change, since `[required]` may
+   * be bound to a condition (e.g. password only when creating). */
   private markRequired(): void {
-    if (!this.host.hasAttribute('required')) {
-      return;
-    }
+    const control = this.control.control;
+    const required =
+      !!control?.validator?.({ value: null } as AbstractControl)?.['required'];
     const label = labelElementFor(this.host);
     if (label) {
-      label.classList.add('field-required');
+      label.classList.toggle('field-required', required);
       return;
     }
     const input =
       this.host instanceof HTMLInputElement || this.host instanceof HTMLTextAreaElement
         ? this.host
         : this.host.querySelector<HTMLInputElement>('input[placeholder], textarea[placeholder]');
-    if (input?.placeholder && !input.placeholder.endsWith('*')) {
+    if (!input?.placeholder) {
+      return;
+    }
+    const marked = input.placeholder.endsWith(' *');
+    if (required && !marked) {
       input.placeholder = `${input.placeholder} *`;
+    } else if (!required && marked) {
+      input.placeholder = input.placeholder.slice(0, -2);
     }
   }
 

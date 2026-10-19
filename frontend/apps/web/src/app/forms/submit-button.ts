@@ -11,7 +11,7 @@ import { Subscription } from 'rxjs';
 import { NgForm } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
-import { fieldLabelText } from './field-label';
+import { cssEscape, fieldLabelText } from './field-label';
 
 /** Submit button that stays disabled while its form is invalid. Hovering
  * (or focusing) the disabled button lists what's missing in a tooltip and
@@ -80,7 +80,7 @@ export class SubmitButton {
     const missing = Object.entries(form.controls)
       .filter(([, control]) => control.invalid)
       .map(([name]) => {
-        const el = formEl?.querySelector(`[name="${CSS.escape(name)}"]`);
+        const el = formEl?.querySelector(`[name="${cssEscape(name)}"]`);
         return el ? fieldLabelText(el) : name;
       })
       .filter((label, i, all) => label && all.indexOf(label) === i);

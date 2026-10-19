@@ -6,13 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Support;
 
 /// <summary>SuperAdmin support: entering a school as its admin (audited,
 /// see <see cref="SupportSession"/>) and managing the SuperAdmin accounts.</summary>
 [ApiController]
-public class SupportController(AppDbContext db, JwtTokenFactory tokens) : ControllerBase
+public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshTokenService refreshTokens) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -82,14 +83,18 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens) : Contro
             .ToListAsync());
     }
 
+    /// <summary>SuperAdmins are ordinary <see cref="User"/> rows (no school,
+    /// role SuperAdmin) with a <see cref="People.Person"/> for name and
+    /// contacts, like every other account.</summary>
     [HttpGet("api/superadmins")]
     [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<IEnumerable<SuperAdminDto>>> GetSuperAdmins() =>
-        Ok(await db.Users
-            .Where(u => u.Role == UserRole.SuperAdmin && u.SchoolId == null)
-            .OrderBy(u => u.Username)
-            .Select(u => new SuperAdminDto(u.Id, u.Username))
-            .ToListAsync());
+        Ok((await db.Users
+                .Include(u => u.Person)
+                .Where(u => u.Role == UserRole.SuperAdmin && u.SchoolId == null)
+                .ToListAsync())
+            .Select(ToDto)
+            .OrderBy(d => d.Name));
 
     [HttpPost("api/superadmins")]
     [Authorize(Roles = "SuperAdmin")]
@@ -122,7 +127,52 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens) : Contro
         user.PasswordHash = Hasher.HashPassword(user, request.Password);
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        return Ok(new SuperAdminDto(user.Id, user.Username));
+        await ApplyPersonAsync(user, request.FirstName, request.LastName, request.Phone, request.Email);
+        await db.SaveChangesAsync();
+        return Ok(ToDto(user));
+    }
+
+    /// <summary>Name, contacts, username; password optional (a reset of
+    /// someone else's forces a change on their next login and signs them out).</summary>
+    [HttpPut("api/superadmins/{id:int}")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<ActionResult<SuperAdminDto>> UpdateSuperAdmin(int id, UpdateSuperAdminRequest request)
+    {
+        var user = await db.Users.Include(u => u.Person)
+            .FirstOrDefaultAsync(u => u.Id == id && u.Role == UserRole.SuperAdmin && u.SchoolId == null);
+        if (user is null)
+        {
+            return NotFound();
+        }
+        if (string.IsNullOrWhiteSpace(request.Username))
+        {
+            return this.FieldError("username", "Uživatelské jméno je povinné.");
+        }
+        var username = request.Username.Trim();
+        if (await db.Users.AnyAsync(u => u.Id != id && u.SchoolId == null && u.Username == username))
+        {
+            return this.FieldError("username", "Uživatelské jméno už existuje.");
+        }
+        var passwordChanged = !string.IsNullOrWhiteSpace(request.Password);
+        if (passwordChanged && request.Password!.Length < 8)
+        {
+            return this.FieldError("password", "Heslo musí mít alespoň 8 znaků.");
+        }
+
+        user.Username = username;
+        await ApplyPersonAsync(user, request.FirstName, request.LastName, request.Phone, request.Email);
+        var isMe = id == CurrentUserId();
+        if (passwordChanged)
+        {
+            user.PasswordHash = Hasher.HashPassword(user, request.Password!);
+            user.MustChangePassword = !isMe;
+        }
+        await db.SaveChangesAsync();
+        if (passwordChanged && !isMe)
+        {
+            await refreshTokens.RevokeAllForUserAsync(user.Id);
+        }
+        return Ok(ToDto(user));
     }
 
     /// <summary>Never yourself, never the last one.</summary>
@@ -149,6 +199,20 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens) : Contro
         return NoContent();
     }
 
+    private async Task ApplyPersonAsync(User user, string? firstName, string? lastName, string? phone, string? email)
+    {
+        var person = await db.EnsurePersonAsync(user);
+        person.FirstName = firstName?.Trim() ?? "";
+        person.LastName = string.IsNullOrWhiteSpace(lastName) ? user.Username : lastName.Trim();
+        person.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
+        person.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        user.Person = person;
+    }
+
+    private static SuperAdminDto ToDto(User u) => new(
+        u.Id, u.Username, u.Person?.FirstName ?? "", u.Person?.LastName ?? u.Username,
+        PersonNames.Display(u), u.Person?.Phone, u.Person?.Email);
+
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
@@ -160,6 +224,14 @@ public record SupportSessionDto(
     int Id, string SuperAdminUsername, int SchoolId, string SchoolName, DateTimeOffset StartedAt,
     DateTimeOffset? EndedAt, IReadOnlyList<SupportActionDto> Actions);
 
-public record SuperAdminDto(int Id, string Username);
+public record SuperAdminDto(
+    int Id, string Username, string FirstName, string LastName, string Name, string? Phone, string? Email);
 
-public record CreateSuperAdminRequest(string Username, string Password);
+public record CreateSuperAdminRequest(
+    string Username, string Password, string? FirstName = null, string? LastName = null,
+    string? Phone = null, string? Email = null);
+
+/// <param name="Password">Empty = keep the current one.</param>
+public record UpdateSuperAdminRequest(
+    string Username, string? Password = null, string? FirstName = null, string? LastName = null,
+    string? Phone = null, string? Email = null);

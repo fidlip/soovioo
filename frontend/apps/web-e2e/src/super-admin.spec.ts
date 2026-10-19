@@ -28,12 +28,12 @@ test('new SuperAdmin is added in a modal too', async ({ page }) => {
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/superadmin$/);
 
-  await expect(page.locator('#newSuperAdminUsername')).toHaveCount(0);
+  await expect(page.locator('#superAdminUsername')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Nový superadmin' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nový superadmin' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('#newSuperAdminUsername')).toBeVisible();
+  await expect(dialog.locator('#superAdminUsername')).toBeVisible();
   await expect(
     dialog.getByRole('button', { name: 'Přidat superadmina' }),
   ).toBeDisabled();

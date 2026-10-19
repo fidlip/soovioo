@@ -137,6 +137,7 @@ using (var scope = app.Services.CreateScope())
     BackfillDemoStudentReferenceCodes(db);
     VariableSymbols.Backfill(db);
     BackfillSchoolIbans(db);
+    BackfillMissingPersons(db);
 
     // First real Hangfire job in this codebase (Hangfire itself was already
     // wired up via AddHangfire/AddHangfireServer above) — generates each
@@ -363,6 +364,24 @@ static void BackfillDemoStudentReferenceCodes(AppDbContext db)
     student.MunicipalityCode = "500054"; // RAUJ: Praha 1 (district CZ0100 follows from this)
     student.CountryCode = "203"; // RAST: Česká republika
     db.SaveChanges();
+}
+
+// Every account has a Person (name, contacts) — accounts created by code
+// paths that didn't make one (early SuperAdmin creation) get one named
+// after the username.
+static void BackfillMissingPersons(AppDbContext db)
+{
+    var users = db.Users.IgnoreQueryFilters()
+        .Where(u => !db.Persons.IgnoreQueryFilters().Any(p => p.UserId == u.Id))
+        .ToList();
+    foreach (var user in users)
+    {
+        db.Persons.Add(new Person { UserId = user.Id, LastName = user.Username, SchoolId = user.SchoolId });
+    }
+    if (users.Count > 0)
+    {
+        db.SaveChanges();
+    }
 }
 
 // School bank accounts are stored as compact IBANs since the IBAN

@@ -9,7 +9,7 @@ export function labelElementFor(host: Element): HTMLLabelElement | null {
     .filter((id) => !!id);
   for (const id of ids) {
     const label = form.querySelector<HTMLLabelElement>(
-      `label[for="${CSS.escape(id)}"]`,
+      `label[for="${cssEscape(id)}"]`,
     );
     if (label) {
       return label;
@@ -28,4 +28,12 @@ export function fieldLabelText(host: Element): string {
     host.getAttribute('name') ??
     '';
   return text.replace(/\s*\*\s*$/, '').replace(/\s+/g, ' ').trim();
+}
+
+/** `CSS.escape` where available (browsers); a minimal fallback for test
+ * environments without the CSS object — ids/names here are plain words. */
+export function cssEscape(value: string): string {
+  return typeof CSS !== 'undefined' && CSS.escape
+    ? CSS.escape(value)
+    : value.replace(/["\\]/g, '\\$&');
 }

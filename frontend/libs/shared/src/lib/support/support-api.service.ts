@@ -7,6 +7,7 @@ import {
   SuperAdmin,
   SupportSession,
   SupportSessionStart,
+  UpdateSuperAdminRequest,
 } from './support.model';
 
 /** SuperAdmin support mode and SuperAdmin accounts — see SupportController. */
@@ -43,6 +44,16 @@ export class SupportApiService {
   addSuperAdmin(request: CreateSuperAdminRequest): Observable<SuperAdmin> {
     return this.http.post<SuperAdmin>(
       `${this.baseUrl}/api/superadmins`,
+      request,
+    );
+  }
+
+  updateSuperAdmin(
+    id: number,
+    request: UpdateSuperAdminRequest,
+  ): Observable<SuperAdmin> {
+    return this.http.put<SuperAdmin>(
+      `${this.baseUrl}/api/superadmins/${id}`,
       request,
     );
   }
