@@ -21,19 +21,37 @@
           ? 'border-surface-200 dark:border-surface-700'
           : 'border-surface-100 dark:border-surface-800'
       "
+      [class.cursor-pointer]="rowDetail()"
+      (click)="onRowClick(item.row)"
     >
       @for (level of groups(); track $index; let i = $index) {
       <td
         class="px-4 py-2 align-middle font-medium text-surface-900 dark:text-surface-0"
       >
-        @if (item.starts[i]) { {{ level.text(item.row) }} }
+        @if (item.starts[i]) { @if (groupCell(); as cell) {
+        <ng-container
+          *ngTemplateOutlet="cell; context: { $implicit: item.row, level: i }"
+        />
+        } @else { {{ level.text(item.row) }} } }
       </td>
       }
       <ng-container
         *ngTemplateOutlet="rowCells() ?? null; context: { $implicit: item.row }"
       />
     </tr>
-    }
+    @if (rowDetail() && isExpanded()(item.row)) {
+    <tr>
+      @for (level of groups(); track $index) {
+      <td></td>
+      }
+      <!-- Spans the rest, whatever the number of row columns. -->
+      <td colspan="100" class="px-4 pb-3">
+        <ng-container
+          *ngTemplateOutlet="rowDetail() ?? null; context: { $implicit: item.row }"
+        />
+      </td>
+    </tr>
+    } }
   </tbody>
 </table>
 } @else {
@@ -67,12 +85,24 @@
 <ng-template #leafRows let-leaves>
   <ul class="m-0 list-none p-0">
     @for (row of leaves; track rowKey()(row)) {
+    <!-- A pointer shortcut only: keyboard users toggle the detail with a
+         button inside the row (see #rowDetail), as on desktop. -->
+    <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
     <li
       class="border-b border-surface-100 px-3 py-2 last:border-b-0 dark:border-surface-800"
+      [class.cursor-pointer]="rowDetail()"
+      (click)="onRowClick(row)"
     >
       <ng-container
         *ngTemplateOutlet="mobileRow() ?? null; context: { $implicit: row }"
       />
+      @if (rowDetail() && isExpanded()(row)) {
+      <div class="mt-2">
+        <ng-container
+          *ngTemplateOutlet="rowDetail() ?? null; context: { $implicit: row }"
+        />
+      </div>
+      }
     </li>
     }
   </ul>

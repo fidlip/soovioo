@@ -7,6 +7,7 @@ import {
   contentChild,
   inject,
   input,
+  output,
   signal,
 } from '@angular/core';
 
@@ -45,7 +46,9 @@ const DESKTOP_QUERY = '(min-width: 768px)';
  *
  * Content templates: `#headerCells` (the `<th>`s of the non-group columns),
  * `#rowCells` (their `<td>`s, context = row) and `#mobileRow` (one row on
- * mobile, context = row). */
+ * mobile, context = row). Optional: `#groupCell` (a group value, context =
+ * row + `level` index; default = the level's `text`) and `#rowDetail` (shown
+ * under a row while `isExpanded(row)`; rows then emit `rowClick`). */
 @Component({
   selector: 'app-grouped-table',
   imports: [NgTemplateOutlet],
@@ -56,6 +59,9 @@ export class GroupedTable<T> {
   readonly groups = input<GroupLevel<T>[]>([]);
   readonly rowKey = input.required<(row: T) => unknown>();
   readonly emptyMessage = input('Žádné záznamy.');
+  /** With a `#rowDetail` template: which rows show their detail. */
+  readonly isExpanded = input<(row: T) => boolean>(() => false);
+  readonly rowClick = output<T>();
 
   protected readonly headerCells =
     contentChild<TemplateRef<unknown>>('headerCells');
@@ -63,6 +69,10 @@ export class GroupedTable<T> {
     contentChild<TemplateRef<{ $implicit: T }>>('rowCells');
   protected readonly mobileRow =
     contentChild<TemplateRef<{ $implicit: T }>>('mobileRow');
+  protected readonly groupCell =
+    contentChild<TemplateRef<{ $implicit: T; level: number }>>('groupCell');
+  protected readonly rowDetail =
+    contentChild<TemplateRef<{ $implicit: T }>>('rowDetail');
 
   protected readonly isDesktop = signal(true);
 
@@ -84,6 +94,12 @@ export class GroupedTable<T> {
       };
     });
   });
+
+  protected onRowClick(row: T): void {
+    if (this.rowDetail()) {
+      this.rowClick.emit(row);
+    }
+  }
 
   protected readonly tree = computed(() => this.buildTree(this.rows(), 0));
 

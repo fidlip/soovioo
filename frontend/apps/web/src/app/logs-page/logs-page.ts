@@ -1,7 +1,6 @@
-import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PrimeTemplate } from '@openng/optimus-ui/api';
 import {
   AutoComplete,
   AutoCompleteCompleteEvent,
@@ -12,7 +11,6 @@ import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Paginator } from '@openng/optimus-ui/paginator';
 import { Select } from '@openng/optimus-ui/select';
-import { Table, TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import {
@@ -26,6 +24,7 @@ import {
   SupportSession,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'superadmin',
@@ -48,10 +47,10 @@ const ROLE_LABELS: Record<string, string> = {
     DatePicker,
     DatePipe,
     FormsModule,
+    GroupedTable,
+    NgTemplateOutlet,
     Paginator,
-    PrimeTemplate,
     Select,
-    TableModule,
     Tag,
   ],
   templateUrl: './logs-page.html',
@@ -67,7 +66,35 @@ export class LogsPage {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(50);
   protected readonly loading = signal(false);
-  protected expandedRows: Record<number, boolean> = {};
+  private readonly expandedIds = signal<ReadonlySet<number>>(new Set());
+  /** A new function whenever the set changes, so the table re-renders. */
+  protected readonly isExpanded = computed(() => {
+    const ids = this.expandedIds();
+    return (entry: AuditLogEntry) => ids.has(entry.id);
+  });
+  protected readonly entryId = (entry: AuditLogEntry) => entry.id;
+
+  /** Consecutive runs (the log is newest first): day → who → agenda. */
+  protected readonly groups: GroupLevel<AuditLogEntry>[] = [
+    {
+      label: 'Datum',
+      key: (e) => localDay(e.at),
+      text: (e) => localDay(e.at),
+    },
+    {
+      label: 'Kdo',
+      key: (e) => `${e.userId ?? e.username}|${e.role}|${e.supportBy}`,
+      text: (e) =>
+        [
+          this.who(e),
+          this.roleLabel(e.role),
+          e.supportBy ? `podpora (superadmin ${e.supportBy})` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+    },
+    { label: 'Agenda', key: (e) => e.area, text: (e) => e.area },
+  ];
 
   protected readonly schoolOptions = signal<AuditLogOption[]>([]);
   protected readonly classOptions = signal<AuditLogOption[]>([]);
@@ -184,11 +211,17 @@ export class LogsPage {
 
   /** Click anywhere on the row — except when the click ends a text
    * selection (copying a value out of the row). */
-  protected toggleRow(table: Table, entry: AuditLogEntry): void {
+  protected toggleRow(entry: AuditLogEntry): void {
     if (window.getSelection()?.toString()) {
       return;
     }
-    table.toggleRow(entry);
+    this.expandedIds.update((ids) => {
+      const next = new Set(ids);
+      if (!next.delete(entry.id)) {
+        next.add(entry.id);
+      }
+      return next;
+    });
   }
 
   protected who(entry: AuditLogEntry): string {
@@ -261,7 +294,7 @@ export class LogsPage {
         next: (result) => {
           this.entries.set(result.items);
           this.totalCount.set(result.totalCount);
-          this.expandedRows = {};
+          this.expandedIds.set(new Set());
           this.loading.set(false);
         },
         error: (err) => {
@@ -270,4 +303,10 @@ export class LogsPage {
         },
       });
   }
+}
+
+/** "19.10.2026" in the viewer's time zone. */
+function localDay(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }

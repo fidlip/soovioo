@@ -157,116 +157,147 @@
     }
   </div>
 
-  <p-table
-    #table
-    [value]="entries()"
-    dataKey="id"
-    [expandedRowKeys]="expandedRows"
-    [loading]="loading()"
-  >
-    <ng-template pTemplate="header">
-      <tr>
-        <th class="w-8"></th>
-        <th>Čas</th>
-        <th>Kdo</th>
+  <div [class.opacity-60]="loading()">
+    <app-grouped-table
+      [rows]="entries()"
+      [groups]="groups"
+      [rowKey]="entryId"
+      [isExpanded]="isExpanded()"
+      (rowClick)="toggleRow($event)"
+      emptyMessage="Žádné záznamy."
+    >
+      <ng-template #groupCell let-entry let-level="level">
+        @if (level === 1) {
+        <div>{{ who(entry) }}</div>
+        @if (roleLabel(entry.role); as role) {
+        <div class="text-xs font-normal text-surface-500">{{ role }}</div>
+        } @if (entry.supportBy) {
+        <p-tag
+          severity="warn"
+          [value]="'podpora (superadmin ' + entry.supportBy + ')'"
+          styleClass="mt-1"
+        />
+        } } @else { {{ groups[level].text(entry) }} }
+      </ng-template>
+
+      <ng-template #headerCells>
+        <th class="px-4 py-3 font-semibold">Čas</th>
         @if (isSuperAdmin) {
-        <th>Škola</th>
+        <th class="px-4 py-3 font-semibold">Škola</th>
         }
-        <th>Agenda</th>
-        <th>Akce</th>
-        <th>Výsledek</th>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="body" let-entry let-expanded="expanded">
-      <!-- The whole row toggles the detail; the chevron button is its
-           keyboard/screen-reader handle (its click bubbles up here). -->
-      <tr class="cursor-pointer" (click)="toggleRow(table, entry)">
-        <td>
-          <p-button
-            [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
-            size="small"
-            [text]="true"
-            [rounded]="true"
-            [ariaLabel]="expanded ? 'Skrýt detail' : 'Zobrazit detail'"
-          />
-        </td>
-        <td class="whitespace-nowrap text-sm text-surface-500">
-          {{ entry.at | date: 'd.M.yyyy H:mm:ss' }}
-        </td>
-        <td class="text-sm">
-          {{ who(entry) }} @if (roleLabel(entry.role); as role) {
-          <span class="text-surface-500">· {{ role }}</span>
-          } @if (entry.supportBy) {
-          <p-tag
-            severity="warn"
-            [value]="'podpora (superadmin ' + entry.supportBy + ')'"
-            styleClass="ml-1"
-          />
-          }
+        <th class="px-4 py-3 font-semibold">Akce</th>
+        <th class="px-4 py-3 font-semibold">Výsledek</th>
+        <th class="w-10 px-4 py-3"></th>
+      </ng-template>
+
+      <ng-template #rowCells let-entry>
+        <td class="whitespace-nowrap px-4 py-2 align-middle text-surface-500">
+          {{ entry.at | date: 'H:mm:ss' }}
         </td>
         @if (isSuperAdmin) {
-        <td class="text-sm text-surface-500">{{ entry.schoolName ?? '—' }}</td>
-        }
-        <td class="text-sm">{{ entry.area }}</td>
-        <td class="text-sm">
-          @if (entry.description) { {{ entry.description }} } @else {
-          <code class="font-mono text-xs"
-            >{{ entry.method }} {{ entry.path }}</code
-          >
-          }
+        <td class="px-4 py-2 align-middle text-surface-500">
+          {{ entry.schoolName ?? '—' }}
         </td>
-        <td>
-          <p-tag
-            [severity]="statusSeverity(entry.statusCode)"
-            [value]="entry.statusCode.toString()"
-            [title]="entry.result ?? ''"
+        }
+        <td class="px-4 py-2 align-middle">
+          <ng-container
+            *ngTemplateOutlet="actionCell; context: { $implicit: entry }"
           />
         </td>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="expandedrow" let-entry>
-      <tr>
-        <td [attr.colspan]="isSuperAdmin ? 7 : 6">
-          <dl
-            class="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm"
+        <td class="px-4 py-2 align-middle">
+          <ng-container
+            *ngTemplateOutlet="statusTag; context: { $implicit: entry }"
+          />
+        </td>
+        <td class="px-2 py-1 align-middle">
+          <ng-container
+            *ngTemplateOutlet="toggleButton; context: { $implicit: entry }"
+          />
+        </td>
+      </ng-template>
+
+      <ng-template #mobileRow let-entry>
+        <div class="flex items-start gap-2 text-sm">
+          <span class="whitespace-nowrap text-surface-500"
+            >{{ entry.at | date: 'H:mm:ss' }}</span
           >
-            <dt class="text-surface-500">Požadavek</dt>
-            <dd class="m-0 font-mono text-xs">
-              {{ entry.method }} {{ entry.path }}
-            </dd>
-            @if (entry.result) {
-            <dt class="text-surface-500">Výsledek</dt>
-            <dd class="m-0">{{ entry.result }}</dd>
-            } @if (entry.username) {
-            <dt class="text-surface-500">Účet</dt>
-            <dd class="m-0">{{ entry.username }}</dd>
-            } @if (entry.ipAddress) {
-            <dt class="text-surface-500">IP adresa</dt>
-            <dd class="m-0 font-mono text-xs">{{ entry.ipAddress }}</dd>
-            } @if (entry.requestBody) {
-            <dt class="text-surface-500">Data</dt>
-            <dd class="m-0">
-              <pre
-                class="m-0 max-h-80 overflow-auto rounded bg-surface-100 p-2 font-mono text-xs whitespace-pre-wrap break-all dark:bg-surface-800"
-              >
-{{ formatBody(entry.requestBody) }}</pre>
-            </dd>
+          <span class="min-w-0 flex-1">
+            <ng-container
+              *ngTemplateOutlet="actionCell; context: { $implicit: entry }"
+            />
+            @if (isSuperAdmin && entry.schoolName) {
+            <span class="block text-xs text-surface-500"
+              >{{ entry.schoolName }}</span
+            >
             }
-          </dl>
-        </td>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td
-          [attr.colspan]="isSuperAdmin ? 7 : 6"
-          class="py-6 text-center text-surface-500"
+          </span>
+          <ng-container
+            *ngTemplateOutlet="statusTag; context: { $implicit: entry }"
+          />
+          <ng-container
+            *ngTemplateOutlet="toggleButton; context: { $implicit: entry }"
+          />
+        </div>
+      </ng-template>
+
+      <ng-template #rowDetail let-entry>
+        <dl
+          class="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm"
         >
-          Žádné záznamy.
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+          <dt class="text-surface-500">Požadavek</dt>
+          <dd class="m-0 break-all font-mono text-xs">
+            {{ entry.method }} {{ entry.path }}
+          </dd>
+          @if (entry.result) {
+          <dt class="text-surface-500">Výsledek</dt>
+          <dd class="m-0">{{ entry.result }}</dd>
+          } @if (entry.username) {
+          <dt class="text-surface-500">Účet</dt>
+          <dd class="m-0">{{ entry.username }}</dd>
+          } @if (entry.ipAddress) {
+          <dt class="text-surface-500">IP adresa</dt>
+          <dd class="m-0 font-mono text-xs">{{ entry.ipAddress }}</dd>
+          } @if (entry.requestBody) {
+          <dt class="text-surface-500">Data</dt>
+          <dd class="m-0 min-w-0">
+            <pre
+              class="m-0 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded bg-surface-100 p-2 font-mono text-xs dark:bg-surface-800"
+            >
+{{ formatBody(entry.requestBody) }}</pre>
+          </dd>
+          }
+        </dl>
+      </ng-template>
+    </app-grouped-table>
+  </div>
+
+  <ng-template #actionCell let-entry>
+    @if (entry.description) { {{ entry.description }} } @else {
+    <code class="font-mono text-xs">{{ entry.method }} {{ entry.path }}</code>
+    }
+  </ng-template>
+
+  <ng-template #statusTag let-entry>
+    <p-tag
+      [severity]="statusSeverity(entry.statusCode)"
+      [value]="entry.statusCode.toString()"
+      [title]="entry.result ?? ''"
+    />
+  </ng-template>
+
+  <!-- The whole row toggles the detail; this is its keyboard and
+       screen-reader handle (its click bubbles up to the row). -->
+  <ng-template #toggleButton let-entry>
+    <p-button
+      [icon]="
+        isExpanded()(entry) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'
+      "
+      size="small"
+      [text]="true"
+      [rounded]="true"
+      [ariaLabel]="isExpanded()(entry) ? 'Skrýt detail' : 'Zobrazit detail'"
+    />
+  </ng-template>
   <p-paginator
     [first]="(page() - 1) * pageSize()"
     [rows]="pageSize()"
