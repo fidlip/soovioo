@@ -157,12 +157,14 @@
   @if (formError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" (ngSubmit)="save()">
+  <form class="flex flex-col gap-3" #paymentForm="ngForm"
+    (ngSubmit)="save()">
     <input
       pInputText
       type="text"
       placeholder="Název platby"
       name="paymentTitle"
+      required
       [(ngModel)]="newTitle"
     />
     <textarea
@@ -184,6 +186,7 @@
           inputId="dueDate"
           [(ngModel)]="newDueDate"
           name="dueDate"
+          required
           dateFormat="dd.mm.yy"
           [showIcon]="true"
           appendTo="body"
@@ -218,6 +221,7 @@
           inputId="amount"
           [(ngModel)]="newAmount"
           name="amount"
+          required
           mode="decimal"
           [minFractionDigits]="2"
           [maxFractionDigits]="2"
@@ -383,11 +387,11 @@
     </div>
     }
 
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="paymentForm"
       label="Vytvořit"
       icon="pi pi-check"
-      styleClass="self-start"
+      class="self-start"
     />
   </form>
 </p-dialog>

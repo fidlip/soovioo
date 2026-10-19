@@ -61,7 +61,8 @@
   </p-card>
 
   <p-card header="Změna hesla">
-    <form class="flex flex-col gap-3" (ngSubmit)="changePassword()">
+    <form class="flex flex-col gap-3" #passwordForm="ngForm"
+    (ngSubmit)="changePassword()">
       <div class="flex flex-col gap-1.5">
         <label
           for="currentPassword"
@@ -72,6 +73,7 @@
         <p-password
           inputId="currentPassword"
           name="currentPassword"
+          required
           styleClass="w-full"
           inputStyleClass="w-full"
           [(ngModel)]="currentPassword"
@@ -89,6 +91,7 @@
         <p-password
           inputId="newPassword"
           name="newPassword"
+          required
           styleClass="w-full"
           inputStyleClass="w-full"
           [(ngModel)]="newPassword"
@@ -107,6 +110,7 @@
         <p-password
           inputId="confirmNewPassword"
           name="confirmNewPassword"
+          required
           styleClass="w-full"
           inputStyleClass="w-full"
           [(ngModel)]="confirmNewPassword"
@@ -119,7 +123,11 @@
       <p-message severity="error" [text]="err" />
       }
 
-      <p-button type="submit" label="Změnit heslo" styleClass="self-start" />
+      <app-submit-button
+        [form]="passwordForm"
+        label="Změnit heslo"
+        class="self-start"
+      />
     </form>
   </p-card>
 

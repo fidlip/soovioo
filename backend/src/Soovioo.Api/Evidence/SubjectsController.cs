@@ -27,12 +27,12 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     {
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
         {
-            return BadRequest("Color must be a \"#rrggbb\" hex string.");
+            return BadRequest("Barva musí být ve formátu #rrggbb.");
         }
 
         if (request.DefaultClassroomId is not null && await db.Classrooms.FindAsync(request.DefaultClassroomId) is null)
         {
-            return BadRequest("Unknown defaultClassroomId.");
+            return BadRequest("Neznámá učebna.");
         }
 
         var subject = new Subject
@@ -54,12 +54,12 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     {
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
         {
-            return BadRequest("Color must be a \"#rrggbb\" hex string.");
+            return BadRequest("Barva musí být ve formátu #rrggbb.");
         }
 
         if (request.DefaultClassroomId is not null && await db.Classrooms.FindAsync(request.DefaultClassroomId) is null)
         {
-            return BadRequest("Unknown defaultClassroomId.");
+            return BadRequest("Neznámá učebna.");
         }
 
         var subject = await db.Subjects.FindAsync(id);

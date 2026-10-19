@@ -73,12 +73,14 @@
   @if (formError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" (ngSubmit)="save()">
+  <form class="flex flex-col gap-3" #eventForm="ngForm"
+    (ngSubmit)="save()">
     <input
       pInputText
       type="text"
       placeholder="Název akce"
       name="title"
+      required
       [ngModel]="title()"
       (ngModelChange)="title.set($event)"
     />
@@ -147,6 +149,7 @@
           [ngModel]="startAt()"
           (ngModelChange)="onStartChanged($event)"
           name="startAt"
+          required
           dateFormat="dd.mm.yy"
           hourFormat="24"
           [showTime]="!allDay()"
@@ -165,6 +168,7 @@
           [ngModel]="endAt()"
           (ngModelChange)="onEndChanged($event)"
           name="endAt"
+          required
           dateFormat="dd.mm.yy"
           hourFormat="24"
           [showTime]="!allDay()"
@@ -373,8 +377,8 @@
         (onClick)="cancelEdit()"
       />
       }
-      <p-button
-        type="submit"
+      <app-submit-button
+        [form]="eventForm"
         [label]="editingEventId() ? 'Uložit' : 'Vytvořit'"
         icon="pi pi-check"
       />

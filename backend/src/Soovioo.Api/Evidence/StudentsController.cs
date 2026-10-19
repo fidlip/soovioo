@@ -46,7 +46,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
         if (schoolClass is null)
         {
-            return BadRequest("Unknown schoolClassId.");
+            return BadRequest("Neznámá třída.");
         }
 
         if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), request.SchoolClassId))
@@ -94,7 +94,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
         if (schoolClass is null)
         {
-            return BadRequest("Unknown schoolClassId.");
+            return BadRequest("Neznámá třída.");
         }
 
         if (!User.IsInRole(nameof(UserRole.Admin)))

@@ -50,6 +50,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 type ViewOption = { value: string; label: string };
 
@@ -121,6 +122,7 @@ function startOfDay(d: Date): Date {
 @Component({
   selector: 'app-events-page',
   imports: [
+    ...FORM_FIELDS,
     Checkbox,
     TermPipe,
     AppIcon,

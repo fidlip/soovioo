@@ -808,12 +808,14 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="saveSchoolClass()">
+  <form class="flex flex-wrap items-end gap-2" #classForm="ngForm"
+    (ngSubmit)="saveSchoolClass()">
     <input
       pInputText
       type="text"
       placeholder="Název třídy"
       name="className"
+      required
       [(ngModel)]="newSchoolClassName"
     />
     <p-inputNumber
@@ -841,8 +843,8 @@
       [(ngModel)]="newSchoolClassTeachingLanguage"
       class="w-36"
     />
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="classForm"
       [label]="editingSchoolClassId === null ? 'Vytvořit' : 'Uložit'"
       icon="pi pi-check"
     />
@@ -856,13 +858,15 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-center gap-2" (ngSubmit)="saveSubject()">
+  <form class="flex flex-wrap items-center gap-2" #subjectForm="ngForm"
+    (ngSubmit)="saveSubject()">
     <input
       pInputText
       type="text"
       class="flex-1"
       placeholder="Název předmětu"
       name="subjectName"
+      required
       [(ngModel)]="newSubjectName"
     />
     <input
@@ -899,8 +903,8 @@
       styleClass="w-48"
       appendTo="body"
     />
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="subjectForm"
       [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"
       icon="pi pi-check"
     />
@@ -914,12 +918,14 @@
   [modal]="true"
   styleClass="w-full max-w-2xl"
 >
-  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="saveStudent()">
+  <form class="flex flex-wrap items-end gap-2" #studentForm="ngForm"
+    (ngSubmit)="saveStudent()">
     <input
       pInputText
       type="text"
       placeholder="Jméno"
       name="firstName"
+      required
       [(ngModel)]="newStudentFirstName"
     />
     <input
@@ -927,6 +933,7 @@
       type="text"
       placeholder="Příjmení"
       name="lastName"
+      required
       [(ngModel)]="newStudentLastName"
     />
     <p-select
@@ -935,6 +942,7 @@
       optionValue="id"
       [(ngModel)]="newStudentSchoolClassId"
       name="studentSchoolClass"
+      required
       appendTo="body"
     />
     <p-datePicker
@@ -1070,8 +1078,8 @@
       />
     </div>
     }
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="studentForm"
       [label]="(editingStudentId === null ? 'Přidat studenta' : 'Uložit') | term"
       icon="pi pi-check"
     />
@@ -1085,7 +1093,8 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="grid grid-cols-1 gap-3 sm:grid-cols-2" (ngSubmit)="saveUser()">
+  <form class="grid grid-cols-1 gap-3 sm:grid-cols-2" #userForm="ngForm"
+    (ngSubmit)="saveUser()">
     <div class="flex flex-col gap-1.5">
       <label
         for="userFirstName"
@@ -1122,6 +1131,7 @@
         pInputText
         id="username"
         name="username"
+        required
         autocomplete="off"
         [(ngModel)]="newUsername"
       />
@@ -1136,6 +1146,7 @@
       <p-password
         inputId="password"
         name="password"
+        [required]="editingUserId === null"
         autocomplete="new-password"
         [(ngModel)]="newPassword"
         [toggleMask]="true"
@@ -1157,6 +1168,7 @@
         optionValue="value"
         [(ngModel)]="newUserRoles"
         name="roles"
+        required
         display="chip"
         [showHeader]="false"
         styleClass="w-full"
@@ -1177,6 +1189,7 @@
         optionValue="id"
         [(ngModel)]="newUserStudentId"
         name="newUserStudentId"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -1213,8 +1226,8 @@
       />
     </div>
     <div class="sm:col-span-2">
-      <p-button
-        type="submit"
+      <app-submit-button
+        [form]="userForm"
         [label]="editingUserId === null ? 'Vytvořit uživatele' : 'Uložit'"
         icon="pi pi-check"
       />
@@ -1257,13 +1270,15 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-wrap items-center gap-2" (ngSubmit)="saveClassroom()">
+  <form class="flex flex-wrap items-center gap-2" #classroomForm="ngForm"
+    (ngSubmit)="saveClassroom()">
     <input
       pInputText
       type="text"
       class="flex-1"
       placeholder="Název (např. 12, Tělocvična)"
       name="classroomName"
+      required
       [(ngModel)]="newClassroomName"
     />
     <input
@@ -1282,8 +1297,8 @@
       styleClass="w-28"
       inputStyleClass="w-full"
     />
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="classroomForm"
       [label]="editingClassroomId === null ? 'Vytvořit' : 'Uložit'"
       icon="pi pi-check"
     />

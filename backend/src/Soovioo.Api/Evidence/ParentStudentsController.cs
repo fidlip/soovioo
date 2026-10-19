@@ -54,7 +54,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
         var student = await db.Students.FindAsync(request.StudentId);
         if (user is null || student is null)
         {
-            return BadRequest("Unknown userId or studentId.");
+            return BadRequest("Neznámý uživatel nebo žák.");
         }
 
         if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
@@ -64,7 +64,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
 
         if (await db.ChildIdsOf(request.UserId).AnyAsync(id => id == request.StudentId))
         {
-            return BadRequest("Link already exists.");
+            return BadRequest("Vazba už existuje.");
         }
 
         await db.LinkChildAsync(request.UserId, request.StudentId, currentSchool.SchoolId!.Value);

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { MessageService } from '@openng/optimus-ui/api';
 
 const SUCCESS_LIFE_MS = 5_000;
@@ -11,6 +11,14 @@ const ERROR_LIFE_MS = 30_000;
 @Injectable({ providedIn: 'root' })
 export class NotifyService {
   private readonly messages = inject(MessageService);
+
+  /** Per-field errors of the last rejected request (ValidationProblemDetails
+   * `errors` keyed by camelCase field) — picked up by FieldErrorDirective on
+   * the matching controls. `at` lets a form opened later ignore them. */
+  readonly serverFieldErrors = signal<{
+    errors: Record<string, string[]>;
+    at: number;
+  } | null>(null);
 
   success(text: string): void {
     this.messages.add({
@@ -47,6 +55,13 @@ export class NotifyService {
     if (isServerOrNetworkError(err)) {
       return;
     }
+    const fieldErrors = (err as { error?: { errors?: unknown } })?.error?.errors;
+    if (fieldErrors && typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
+      this.serverFieldErrors.set({
+        errors: fieldErrors as Record<string, string[]>,
+        at: Date.now(),
+      });
+    }
     this.error(errorMessageOf(err) ?? 'Akci se nepodařilo provést.');
   }
 
@@ -54,6 +69,7 @@ export class NotifyService {
    * stale error about the previous one doesn't linger. */
   clear(): void {
     this.messages.clear();
+    this.serverFieldErrors.set(null);
   }
 }
 

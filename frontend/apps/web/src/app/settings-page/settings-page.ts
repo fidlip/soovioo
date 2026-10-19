@@ -18,9 +18,11 @@ import { SchoolContextService } from '../school-context';
 
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 @Component({
   selector: 'app-settings-page',
   imports: [
+    ...FORM_FIELDS,
     InfoHint,
     FormsModule,
     Button,

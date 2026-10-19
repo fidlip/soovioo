@@ -196,11 +196,13 @@
       } }
     </tbody>
   </table>
-  <form class="flex flex-wrap items-end gap-3" (ngSubmit)="addPeriod()">
+  <form class="flex flex-wrap items-end gap-3" #periodForm="ngForm"
+    (ngSubmit)="addPeriod()">
     <p-inputNumber
       placeholder="Hodina"
       [(ngModel)]="newPeriodNumberToConfigure"
       name="newPeriodNumberToConfigure"
+      required
       [min]="1"
       [max]="12"
       inputStyleClass="w-20"
@@ -208,6 +210,7 @@
     <p-datePicker
       [(ngModel)]="newPeriodStartTime"
       name="newPeriodStartTime"
+      required
       [timeOnly]="true"
       hourFormat="24"
       appendTo="body"
@@ -215,11 +218,16 @@
     <p-datePicker
       [(ngModel)]="newPeriodEndTime"
       name="newPeriodEndTime"
+      required
       [timeOnly]="true"
       hourFormat="24"
       appendTo="body"
     />
-    <p-button type="submit" icon="pi pi-plus" label="Uložit čas" />
+    <app-submit-button
+      [form]="periodForm"
+      label="Uložit čas"
+      icon="pi pi-plus"
+    />
   </form>
 </p-card>
 }
@@ -351,7 +359,8 @@
   [modal]="true"
   styleClass="w-full max-w-md"
 >
-  <form class="flex flex-col gap-3" (ngSubmit)="saveEntry()">
+  <form class="flex flex-col gap-3" #entryForm="ngForm"
+    (ngSubmit)="saveEntry()">
     <div class="flex flex-col gap-1.5">
       <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
         >Předmět</span
@@ -363,6 +372,7 @@
         [ngModel]="formSubjectId"
         (ngModelChange)="formSubjectId = $event; onFormSubjectChange()"
         name="formSubjectId"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -377,6 +387,7 @@
         optionValue="value"
         [(ngModel)]="formDayOfWeek"
         name="formDayOfWeek"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -391,6 +402,7 @@
         optionValue="value"
         [(ngModel)]="formPeriodNumber"
         name="formPeriodNumber"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -438,6 +450,7 @@
         optionValue="value"
         [(ngModel)]="formWeekParity"
         name="formWeekParity"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -462,7 +475,10 @@
           [text]="true"
           (onClick)="closeDialog()"
         />
-        <p-button type="submit" label="Uložit" />
+        <app-submit-button
+          [form]="entryForm"
+          label="Uložit"
+        />
       </div>
     </div>
   </form>

@@ -19,6 +19,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -40,6 +41,7 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
 @Component({
   selector: 'app-absences-page',
   imports: [
+    ...FORM_FIELDS,
     TermPipe,
     AppIcon,
     FormsModule,

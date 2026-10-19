@@ -59,7 +59,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     {
         if (await db.Schools.AnyAsync(s => s.Slug == request.Slug))
         {
-            return BadRequest("Slug already exists.");
+            return this.FieldError("slug", "Tato adresa školy (slug) už je obsazená.");
         }
 
         var school = new School
@@ -117,7 +117,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 
         if (await db.Schools.AnyAsync(s => s.Id != id && s.Slug == request.Slug))
         {
-            return BadRequest("Slug already exists.");
+            return this.FieldError("slug", "Tato adresa školy (slug) už je obsazená.");
         }
 
         school.Name = request.Name;

@@ -121,7 +121,8 @@
   @if (createError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" (ngSubmit)="saveRecord()">
+  <form class="flex flex-col gap-3" #recordForm="ngForm"
+    (ngSubmit)="saveRecord()">
     <div class="flex flex-col gap-1.5">
       <label
         for="recordStudent"
@@ -136,6 +137,7 @@
         [ngModel]="newStudentId"
         (ngModelChange)="newStudentId = $event; onNewStudentChange()"
         name="recordStudent"
+        required
         appendTo="body"
         styleClass="w-full"
       />
@@ -153,6 +155,7 @@
         optionValue="value"
         [(ngModel)]="newType"
         name="recordType"
+        required
         appendTo="body"
         styleClass="w-full"
       />
@@ -162,6 +165,7 @@
       rows="3"
       placeholder="Text"
       name="recordText"
+      required
       [(ngModel)]="newText"
     ></textarea>
     <div class="flex flex-col gap-1.5">
@@ -174,16 +178,17 @@
         inputId="recordDate"
         [(ngModel)]="newDate"
         name="recordDate"
+        required
         dateFormat="dd.mm.yy"
         [showIcon]="true"
         appendTo="body"
       />
     </div>
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="recordForm"
       label="Zapsat"
       icon="pi pi-check"
-      styleClass="self-start"
+      class="self-start"
     />
   </form>
 </p-dialog>
@@ -198,7 +203,8 @@
   @if (createError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" (ngSubmit)="saveClassification()">
+  <form class="flex flex-col gap-3" #classificationForm="ngForm"
+    (ngSubmit)="saveClassification()">
     <div class="flex flex-col gap-1.5">
       <label
         for="classStudent"
@@ -213,6 +219,7 @@
         [ngModel]="classStudentId"
         (ngModelChange)="classStudentId = $event; onClassStudentChange()"
         name="classStudent"
+        required
         appendTo="body"
         styleClass="w-full"
       />
@@ -228,6 +235,7 @@
           inputId="classYear"
           [(ngModel)]="classSchoolYearStartYear"
           name="classYear"
+          required
           [useGrouping]="false"
           styleClass="w-32"
           inputStyleClass="w-full"
@@ -246,6 +254,7 @@
           optionValue="value"
           [(ngModel)]="classHalfYear"
           name="classHalfYear"
+          required
           appendTo="body"
           styleClass="w-40"
         />
@@ -264,15 +273,16 @@
         optionValue="value"
         [(ngModel)]="classValue"
         name="classValue"
+        required
         appendTo="body"
         styleClass="w-full"
       />
     </div>
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="classificationForm"
       label="Uložit"
       icon="pi pi-check"
-      styleClass="self-start"
+      class="self-start"
     />
   </form>
 </p-dialog>

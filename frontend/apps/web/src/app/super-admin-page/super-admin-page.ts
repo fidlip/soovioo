@@ -18,12 +18,14 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 const DEFAULT_PAGE_SIZE = 10;
 
 @Component({
   selector: 'app-super-admin-page',
   imports: [
+    ...FORM_FIELDS,
     AppIcon,
     DatePipe,
     FormsModule,

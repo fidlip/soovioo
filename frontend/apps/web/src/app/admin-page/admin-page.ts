@@ -105,9 +105,11 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
 import { InfoHint } from '../info-hint/info-hint';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    ...FORM_FIELDS,
     Checkbox,
     InfoHint,
     TermPipe,

@@ -7,13 +7,15 @@ import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
 import { AuthApiService } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
+import { FORM_FIELDS } from '../forms';
 
 /** Lands here from the link in an invite e-mail (see `UsersController`'s
  * invite endpoint) — the one place in the app a brand new user, who has
  * never had a password, can set one and get straight in. */
 @Component({
   selector: 'app-accept-invite-page',
-  imports: [FormsModule, Button, Card, Message, Password],
+  imports: [
+    ...FORM_FIELDS,FormsModule, Button, Card, Message, Password],
   templateUrl: './accept-invite-page.html',
 })
 export class AcceptInvitePage {

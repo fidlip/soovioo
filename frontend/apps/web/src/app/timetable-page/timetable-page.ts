@@ -38,6 +38,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -151,6 +152,7 @@ function formatShortDate(date: Date): string {
 @Component({
   selector: 'app-timetable-page',
   imports: [
+    ...FORM_FIELDS,
     InputNumber,
     TermPipe,
     AppIcon,

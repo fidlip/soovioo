@@ -47,7 +47,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
         var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
         if (schoolClass is null)
         {
-            return BadRequest("Unknown schoolClassId.");
+            return BadRequest("Neznámá třída.");
         }
 
         if (!User.IsInRole("Admin") && !await db.TeacherOwnsClassAsync(CurrentUserId(), schoolClassId))

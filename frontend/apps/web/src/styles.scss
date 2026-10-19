@@ -66,3 +66,32 @@ body {
   @tailwind components;
   @tailwind utilities;
 }
+
+/* Forms (see app/forms): asterisk on labels of required fields, the short
+ * error under a field the user left invalid, and the invalid border once a
+ * field is touched (optimus-ui itself only reacts to `ng-dirty`). */
+.field-required::after {
+  content: ' *';
+  color: var(--p-red-500);
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--p-red-500);
+}
+
+input.ng-invalid.ng-touched,
+textarea.ng-invalid.ng-touched,
+p-select.ng-invalid.ng-touched,
+p-multiselect.ng-invalid.ng-touched,
+p-datepicker.ng-invalid.ng-touched .p-inputtext,
+p-inputnumber.ng-invalid.ng-touched .p-inputtext,
+p-password.ng-invalid.ng-touched .p-inputtext,
+p-autocomplete.ng-invalid.ng-touched .p-autocomplete-input,
+p-autocomplete.ng-invalid.ng-touched .p-autocomplete-input-multiple,
+p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
+  border-color: var(--p-red-400);
+}

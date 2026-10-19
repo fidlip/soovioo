@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
@@ -46,7 +47,7 @@ public class UsersController(
     {
         if (await db.Users.AnyAsync(u => u.Username == request.Username))
         {
-            return BadRequest("Username already exists.");
+            return this.FieldError("username", "Uživatelské jméno už existuje.");
         }
 
         var (roles, rolesError) = ParseRoles(request.Roles);
@@ -103,7 +104,7 @@ public class UsersController(
 
         if (await db.Users.AnyAsync(u => u.Id != id && u.Username == request.Username))
         {
-            return BadRequest("Username already exists.");
+            return this.FieldError("username", "Uživatelské jméno už existuje.");
         }
 
         var (roles, rolesError) = ParseRoles(request.Roles);
@@ -271,7 +272,7 @@ public class UsersController(
         {
             if (!Enum.TryParse<UserRole>(name, out var parsed) || parsed == UserRole.SuperAdmin)
             {
-                return ([], BadRequest("Unknown role."));
+                return ([], BadRequest("Neznámá role."));
             }
             roles.Add(parsed);
         }
@@ -348,7 +349,7 @@ public class UsersController(
         var student = await db.Students.FindAsync(studentId);
         if (student is null)
         {
-            return (null, BadRequest("Unknown studentId."));
+            return (null, BadRequest("Neznámý žák."));
         }
 
         if (student.UserId is not null && student.UserId != currentUserId)

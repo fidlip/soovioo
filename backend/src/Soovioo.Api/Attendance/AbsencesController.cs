@@ -43,7 +43,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         var student = await db.Students.FindAsync(request.StudentId);
         if (student is null)
         {
-            return BadRequest("Unknown studentId.");
+            return BadRequest("Neznámý žák.");
         }
 
         var absence = new Absence
@@ -115,7 +115,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         var student = await db.Students.FindAsync(request.StudentId);
         if (student is null)
         {
-            return BadRequest("Unknown studentId.");
+            return BadRequest("Neznámý žák.");
         }
 
         absence.StudentId = request.StudentId;

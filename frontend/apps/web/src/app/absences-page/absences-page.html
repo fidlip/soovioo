@@ -151,7 +151,8 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-col gap-3" (ngSubmit)="saveAbsence()">
+  <form class="flex flex-col gap-3" #absenceForm="ngForm"
+    (ngSubmit)="saveAbsence()">
     <div class="flex flex-col gap-1.5">
       <label
         for="absenceStudent"
@@ -165,6 +166,7 @@
         optionValue="id"
         [(ngModel)]="newStudentId"
         name="absenceStudent"
+        required
         appendTo="body"
         styleClass="w-full"
       />
@@ -180,17 +182,18 @@
         inputId="absenceDate"
         [(ngModel)]="newDate"
         name="absenceDate"
+        required
         dateFormat="dd.mm.yy"
         [showIcon]="true"
         appendTo="body"
       />
     </div>
 
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="absenceForm"
       [label]="editingAbsenceId === null ? 'Zapsat' : 'Uložit'"
       icon="pi pi-check"
-      styleClass="self-start"
+      class="self-start"
     />
   </form>
 </p-dialog>

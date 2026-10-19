@@ -64,13 +64,13 @@ public class HomeworkController(
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
         if (schoolClass is null)
         {
-            return BadRequest("Unknown schoolClassId.");
+            return BadRequest("Neznámá třída.");
         }
 
         var subject = await db.Subjects.FindAsync(request.SubjectId);
         if (subject is null)
         {
-            return BadRequest("Unknown subjectId.");
+            return BadRequest("Neznámý předmět.");
         }
 
         if (!User.IsInRole("Admin") &&

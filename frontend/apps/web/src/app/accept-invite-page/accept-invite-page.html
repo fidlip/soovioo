@@ -22,7 +22,8 @@
       text="Odkaz je neplatný — chybí pozvánkový token. Zkontrolujte, jestli jste otevřeli celý odkaz z e-mailu."
     />
     } @else {
-    <form class="flex flex-col gap-4" (ngSubmit)="acceptInvite()">
+    <form class="flex flex-col gap-4" #inviteForm="ngForm"
+    (ngSubmit)="acceptInvite()">
       <div class="flex flex-col gap-1.5">
         <label
           for="newPassword"
@@ -32,6 +33,7 @@
         <p-password
           inputId="newPassword"
           name="newPassword"
+          required
           styleClass="w-full"
           inputStyleClass="w-full"
           [(ngModel)]="newPassword"
@@ -49,6 +51,7 @@
         <p-password
           inputId="confirmNewPassword"
           name="confirmNewPassword"
+          required
           styleClass="w-full"
           inputStyleClass="w-full"
           [(ngModel)]="confirmNewPassword"
@@ -61,10 +64,11 @@
       <p-message severity="error" [text]="errorMessage" />
       }
 
-      <p-button
-        type="submit"
+      <app-submit-button
+        [form]="inviteForm"
         label="Nastavit heslo a přihlásit se"
-        styleClass="w-full"
+        class="w-full"
+        [fullWidth]="true"
       />
     </form>
     }

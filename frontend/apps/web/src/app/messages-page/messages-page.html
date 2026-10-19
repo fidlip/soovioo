@@ -148,12 +148,14 @@
         }
       </ol>
 
-      <form class="flex flex-col gap-2" (ngSubmit)="sendReply()">
+      <form class="flex flex-col gap-2" #replyForm="ngForm"
+    (ngSubmit)="sendReply()">
         <textarea
           pTextarea
           rows="3"
           placeholder="Odpovědět…"
           name="replyBody"
+          required
           aria-label="Odpověď"
           [(ngModel)]="replyBody"
         ></textarea>
@@ -163,7 +165,11 @@
             (fileSelected)="onReplyFileSelected($event)"
             (cleared)="replyFile = null; replyFileError.set(null)"
           />
-          <p-button type="submit" label="Odeslat" icon="pi pi-send" />
+          <app-submit-button
+            [form]="replyForm"
+            label="Odeslat"
+            icon="pi pi-send"
+          />
         </div>
         @if (replyFileError(); as fileErr) {
         <p-message severity="error" [text]="fileErr" />
@@ -183,7 +189,8 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-col gap-3" (ngSubmit)="send()">
+  <form class="flex flex-col gap-3" #sendForm="ngForm"
+    (ngSubmit)="send()">
     @if (isStaff) {
     <div class="flex flex-col gap-1.5">
       <label
@@ -219,6 +226,7 @@
         (ngModelChange)="loadContacts()"
         [filter]="isStaff"
         name="newStudent"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -237,6 +245,7 @@
         optionValue="id"
         [(ngModel)]="broadcastClassId"
         name="broadcastClass"
+        required
         styleClass="w-full"
         appendTo="body"
       />
@@ -255,6 +264,7 @@
         optionValue="id"
         [(ngModel)]="recipientIds"
         name="recipients"
+        required
         placeholder="Vyberte učitele nebo vedení"
         display="chip"
         [showHeader]="false"
@@ -269,7 +279,13 @@
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
         >Předmět</label
       >
-      <input pInputText id="subject" name="subject" [(ngModel)]="subject" />
+      <input
+        pInputText
+        id="subject"
+        name="subject"
+        required
+        [(ngModel)]="subject"
+      />
     </div>
     <div class="flex flex-col gap-1.5">
       <label
@@ -282,6 +298,7 @@
         id="body"
         rows="5"
         name="body"
+        required
         [(ngModel)]="body"
       ></textarea>
     </div>
@@ -312,7 +329,11 @@
         [text]="true"
         (onClick)="dialogVisible.set(false)"
       />
-      <p-button type="submit" label="Odeslat" icon="pi pi-send" />
+      <app-submit-button
+        [form]="sendForm"
+        label="Odeslat"
+        icon="pi pi-send"
+      />
     </div>
   </form>
 </p-dialog>

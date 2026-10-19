@@ -120,7 +120,8 @@
 </p-card>
 
 <p-card header="Založit novou školu">
-  <form class="flex flex-wrap items-end gap-3" (ngSubmit)="addSchool()">
+  <form class="flex flex-wrap items-end gap-3" #schoolForm="ngForm"
+    (ngSubmit)="addSchool()">
     <div class="flex flex-col gap-1.5">
       <label
         for="schoolName"
@@ -132,6 +133,7 @@
         type="text"
         id="schoolName"
         name="schoolName"
+        required
         [(ngModel)]="newSchoolName"
       />
     </div>
@@ -147,6 +149,7 @@
         type="text"
         id="schoolSlug"
         name="schoolSlug"
+        required
         [(ngModel)]="newSchoolSlug"
       />
     </div>
@@ -163,6 +166,7 @@
         type="text"
         id="adminUsername"
         name="adminUsername"
+        required
         autocomplete="off"
         [(ngModel)]="newAdminUsername"
       />
@@ -177,6 +181,7 @@
       <p-password
         inputId="adminPassword"
         name="adminPassword"
+        required
         autocomplete="new-password"
         [(ngModel)]="newAdminPassword"
         [toggleMask]="true"
@@ -215,6 +220,10 @@
       />
     </div>
 
-    <p-button type="submit" label="Založit školu" icon="pi pi-plus" />
+    <app-submit-button
+      [form]="schoolForm"
+      label="Založit školu"
+      icon="pi pi-plus"
+    />
   </form>
 </p-card>

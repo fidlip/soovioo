@@ -83,7 +83,7 @@ public class ConversationsController(
         {
             if (request.StudentId is not { } studentId || !await db.Students.AnyAsync(s => s.Id == studentId))
             {
-                return BadRequest("Unknown studentId.");
+                return BadRequest("Neznámý žák.");
             }
             recipients = await db.FamilyUserIdsAsync(studentId);
             if (recipients.Count == 0)

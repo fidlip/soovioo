@@ -51,7 +51,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         var subjectExists = await db.Subjects.AnyAsync(s => s.Id == request.SubjectId);
         if (!studentExists || !subjectExists)
         {
-            return BadRequest("Unknown studentId or subjectId.");
+            return BadRequest("Neznámý žák nebo předmět.");
         }
 
         var grade = new Grade
@@ -102,7 +102,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         var subject = await db.Subjects.FindAsync(request.SubjectId);
         if (student is null || subject is null)
         {
-            return BadRequest("Unknown studentId or subjectId.");
+            return BadRequest("Neznámý žák nebo předmět.");
         }
 
         grade.StudentId = request.StudentId;

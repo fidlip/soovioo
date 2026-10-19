@@ -190,7 +190,8 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-col gap-3" (ngSubmit)="saveGrade()">
+  <form class="flex flex-col gap-3" #gradeForm="ngForm"
+    (ngSubmit)="saveGrade()">
     <div class="flex flex-col gap-1.5">
       <label
         for="gradeStudent"
@@ -204,6 +205,7 @@
         optionValue="id"
         [(ngModel)]="newStudentId"
         name="gradeStudent"
+        required
         appendTo="body"
         styleClass="w-full"
       />
@@ -222,6 +224,7 @@
         optionValue="id"
         [(ngModel)]="newSubjectId"
         name="gradeSubject"
+        required
         appendTo="body"
         styleClass="w-full"
       />
@@ -237,6 +240,7 @@
         inputId="gradeGradedOn"
         [(ngModel)]="newGradedOn"
         name="gradeGradedOn"
+        required
         dateFormat="dd.mm.yy"
         [showIcon]="true"
         appendTo="body"
@@ -254,6 +258,7 @@
           inputId="gradeValue"
           [(ngModel)]="newValue"
           name="gradeValue"
+          required
           [min]="1"
           [max]="5"
           [showButtons]="true"
@@ -295,11 +300,11 @@
       />
     </div>
 
-    <p-button
-      type="submit"
+    <app-submit-button
+      [form]="gradeForm"
       [label]="editingGradeId === null ? 'Zapsat' : 'Uložit'"
       icon="pi pi-check"
-      styleClass="self-start"
+      class="self-start"
     />
   </form>
 </p-dialog>

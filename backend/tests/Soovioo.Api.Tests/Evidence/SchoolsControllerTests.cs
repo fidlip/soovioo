@@ -88,7 +88,10 @@ public class SchoolsControllerTests
 
         var result = await new SchoolsController(db).UpdateSchool(schoolB.Id, new UpdateSchoolRequest("B", "a"));
 
-        Assert.IsType<BadRequestObjectResult>(result.Result);
+        // Field-level error the web form can map onto its "slug" input.
+        var problem = Assert.IsType<ValidationProblemDetails>(
+            Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.True(problem.Errors.ContainsKey("slug"));
     }
 
     [Fact]

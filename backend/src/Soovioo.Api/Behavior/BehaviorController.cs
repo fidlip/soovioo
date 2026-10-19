@@ -71,7 +71,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         var student = await db.Students.FindAsync(request.StudentId);
         if (student is null)
         {
-            return BadRequest("Unknown studentId.");
+            return BadRequest("Neznámý žák.");
         }
 
         if (!await CanRecordTypeAsync(request.Type, student.SchoolClassId))
@@ -153,7 +153,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         var student = await db.Students.FindAsync(request.StudentId);
         if (student is null)
         {
-            return BadRequest("Unknown studentId.");
+            return BadRequest("Neznámý žák.");
         }
 
         if (!User.IsInRole("Admin"))

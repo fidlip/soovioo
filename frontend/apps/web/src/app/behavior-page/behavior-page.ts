@@ -25,6 +25,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',
@@ -70,6 +71,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
 @Component({
   selector: 'app-behavior-page',
   imports: [
+    ...FORM_FIELDS,
     TermPipe,
     AppIcon,
     Button,

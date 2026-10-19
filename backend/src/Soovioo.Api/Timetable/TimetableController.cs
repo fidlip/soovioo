@@ -87,25 +87,25 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
         if (schoolClass is null)
         {
-            return BadRequest("Unknown schoolClassId.");
+            return BadRequest("Neznámá třída.");
         }
 
         var subject = await db.Subjects.FindAsync(request.SubjectId);
         if (subject is null)
         {
-            return BadRequest("Unknown subjectId.");
+            return BadRequest("Neznámý předmět.");
         }
 
         var teacher = await ResolveTeacherAsync(request.TeacherId);
         if (request.TeacherId is not null && teacher is null)
         {
-            return BadRequest("Unknown teacherId.");
+            return BadRequest("Neznámý učitel.");
         }
 
         var classroom = await ResolveClassroomAsync(request.ClassroomId);
         if (request.ClassroomId is not null && classroom is null)
         {
-            return BadRequest("Unknown classroomId.");
+            return BadRequest("Neznámá učebna.");
         }
 
         var entry = new TimetableEntry
@@ -145,19 +145,19 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var subject = await db.Subjects.FindAsync(request.SubjectId);
         if (subject is null)
         {
-            return BadRequest("Unknown subjectId.");
+            return BadRequest("Neznámý předmět.");
         }
 
         var teacher = await ResolveTeacherAsync(request.TeacherId);
         if (request.TeacherId is not null && teacher is null)
         {
-            return BadRequest("Unknown teacherId.");
+            return BadRequest("Neznámý učitel.");
         }
 
         var classroom = await ResolveClassroomAsync(request.ClassroomId);
         if (request.ClassroomId is not null && classroom is null)
         {
-            return BadRequest("Unknown classroomId.");
+            return BadRequest("Neznámá učebna.");
         }
 
         entry.SubjectId = request.SubjectId;

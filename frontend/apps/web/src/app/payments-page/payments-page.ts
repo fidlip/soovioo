@@ -30,6 +30,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type AmountTypeOption = { value: PaymentAmountType; label: string };
@@ -68,6 +69,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    ...FORM_FIELDS,
     Checkbox,
     TermPipe,
     AppIcon,

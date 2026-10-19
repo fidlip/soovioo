@@ -216,7 +216,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         }
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
         {
-            return "Color must be a \"#rrggbb\" hex string.";
+            return "Barva musí být ve formátu #rrggbb.";
         }
         if (request.Audience != EventAudience.Selected)
         {

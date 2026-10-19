@@ -33,6 +33,7 @@ import { TermPipe } from '../term.pipe';
 import { UnreadMessagesService } from '../unread-messages.service';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
+import { FORM_FIELDS } from '../forms';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -77,6 +78,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 @Component({
   selector: 'app-messages-page',
   imports: [
+    ...FORM_FIELDS,
     FilePicker,
     TermPipe,
     AppIcon,
