@@ -12,6 +12,11 @@ public class AuditContext
     public string? Username { get; set; }
     public string? Description { get; set; }
 
+    /// <summary>Entering a school in support mode happens before (or
+    /// without) a support token — the endpoint names the session here.</summary>
+    public int? SupportSessionId { get; set; }
+    public string? SupportBy { get; set; }
+
     /// <summary>The current request's context (created on first use).</summary>
     public static AuditContext Of(HttpContext? http)
     {

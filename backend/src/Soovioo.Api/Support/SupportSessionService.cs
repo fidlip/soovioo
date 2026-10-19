@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -49,6 +50,13 @@ public class SupportSessionService(
         {
             return null;
         }
+
+        // Anonymous request — the audit log learns whose entry it is here.
+        var audit = AuditContext.Of(http);
+        audit.SchoolId = session.SchoolId;
+        audit.UserId = session.SuperAdminUserId;
+        audit.SupportSessionId = session.Id;
+        audit.SupportBy = session.SuperAdminUsername;
 
         var secret = NewSecret();
         session.HandoffCodeHash = null; // one use only

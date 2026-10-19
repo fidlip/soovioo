@@ -53,15 +53,24 @@ public class SupportControllerTests
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
+        var controller = As(db, superAdmin);
         var started = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(
-            (await As(db, superAdmin).StartSupportSession(school.Id)).Result).Value);
+            (await controller.StartSupportSession(school.Id)).Result).Value);
         Assert.Equal("test", started.SchoolSlug);
+        // Logged under the school, so its admin sees it too.
+        var startAudit = Soovioo.Api.Audit.AuditContext.Of(controller.HttpContext);
+        Assert.Equal(school.Id, startAudit.SchoolId);
+        Assert.Equal(started.SessionId, startAudit.SupportSessionId);
         Assert.NotEqual(started.Code, Assert.Single(db.SupportSessions).HandoffCodeHash);
 
         // Redeemed on the school's page — anonymous there.
         var http = new DefaultHttpContext();
         var login = await Sessions(db).RedeemAsync(http, started.Code);
         Assert.NotNull(login);
+        var redeemAudit = Soovioo.Api.Audit.AuditContext.Of(http);
+        Assert.Equal(school.Id, redeemAudit.SchoolId);
+        Assert.Equal(superAdmin.Id, redeemAudit.UserId);
+        Assert.Equal("superadmin", redeemAudit.SupportBy);
         var claims = new JwtSecurityTokenHandler().ReadJwtToken(login!.Token).Claims.ToList();
         Assert.Contains(claims, c => c.Type == ClaimTypes.Role && c.Value == "Admin");
         Assert.Contains(claims, c => c.Type == "schoolId" && c.Value == school.Id.ToString());

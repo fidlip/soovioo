@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -43,6 +44,11 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
             SchoolId = school.Id,
         };
         var code = await supportSessions.StartAsync(session);
+        // A SuperAdmin token has no school — the school's admin sees this too.
+        var audit = AuditContext.Of(HttpContext);
+        audit.SchoolId = school.Id;
+        audit.SupportSessionId = session.Id;
+        audit.SupportBy = me.Username;
         return Ok(new SupportSessionStartDto(session.Id, code, school.Slug, school.Name, session.ExpiresAt));
     }
 
@@ -95,7 +101,8 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
                 s.Id, s.SuperAdminUsername, s.SchoolId, s.School!.Name, s.StartedAt, s.EndedAt,
                 db.AuditLogEntries
                     // Entering and leaving aren't changes in the school.
-                    .Where(a => a.SupportSessionId == s.Id && !a.Path.StartsWith("/api/support-sessions"))
+                    .Where(a => a.SupportSessionId == s.Id && !a.Path.StartsWith("/api/support-sessions")
+                                && !a.Path.EndsWith("/support-sessions"))
                     .OrderBy(a => a.At)
                     .Select(a => new SupportActionDto(a.Method, a.Path, a.StatusCode, a.At, a.Description))
                     .ToList()))
