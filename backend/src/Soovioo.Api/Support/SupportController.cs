@@ -93,8 +93,11 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
             .Take(50)
             .Select(s => new SupportSessionDto(
                 s.Id, s.SuperAdminUsername, s.SchoolId, s.School!.Name, s.StartedAt, s.EndedAt,
-                s.Actions.OrderBy(a => a.At)
-                    .Select(a => new SupportActionDto(a.Method, a.Path, a.StatusCode, a.At))
+                db.AuditLogEntries
+                    // Entering and leaving aren't changes in the school.
+                    .Where(a => a.SupportSessionId == s.Id && !a.Path.StartsWith("/api/support-sessions"))
+                    .OrderBy(a => a.At)
+                    .Select(a => new SupportActionDto(a.Method, a.Path, a.StatusCode, a.At, a.Description))
                     .ToList()))
             .ToListAsync());
     }
@@ -247,7 +250,7 @@ public record SupportSessionStartDto(int SessionId, string Code, string SchoolSl
 
 public record RedeemSupportCodeRequest(string Code);
 
-public record SupportActionDto(string Method, string Path, int StatusCode, DateTimeOffset At);
+public record SupportActionDto(string Method, string Path, int StatusCode, DateTimeOffset At, string? Description);
 
 public record SupportSessionDto(
     int Id, string SuperAdminUsername, int SchoolId, string SchoolName, DateTimeOffset StartedAt,

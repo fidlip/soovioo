@@ -73,15 +73,18 @@ public class RefreshTokenService(AppDbContext db, TimeProvider clock)
         return new RotatedRefreshToken(current.User, successor);
     }
 
-    /// <summary>Logout — ends this login only (its whole family).</summary>
-    public async Task RevokeAsync(string rawToken)
+    /// <summary>Logout — ends this login only (its whole family). Returns
+    /// whose login it was, null for an unknown token.</summary>
+    public async Task<int?> RevokeAsync(string rawToken)
     {
         var hash = Hash(rawToken);
         var token = await db.Set<RefreshToken>().IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TokenHash == hash);
-        if (token is not null)
+        if (token is null)
         {
-            await RevokeFamilyAsync(token.FamilyId, clock.GetUtcNow());
+            return null;
         }
+        await RevokeFamilyAsync(token.FamilyId, clock.GetUtcNow());
+        return token.UserId;
     }
 
     /// <summary>Password change/reset or invite acceptance — signs the user

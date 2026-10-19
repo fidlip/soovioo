@@ -55,3 +55,5 @@ export * from './lib/payments/payment.model';
 export * from './lib/payments/payments-api.service';
 export * from './lib/support/support.model';
 export * from './lib/support/support-api.service';
+export * from './lib/audit/audit-log.model';
+export * from './lib/audit/audit-log-api.service';

@@ -42,6 +42,7 @@ const schoolRoutes: Route[] = [
   { path: 'behavior', component: BehaviorPage, canActivate: [authGuard] },
   { path: 'payments', component: PaymentsPage, canActivate: [authGuard] },
   { path: 'admin', component: AdminPage, canActivate: [authGuard] },
+  { path: 'logs', component: LogsPage, canActivate: [authGuard] },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard] },
 ];
 

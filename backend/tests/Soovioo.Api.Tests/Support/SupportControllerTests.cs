@@ -112,24 +112,34 @@ public class SupportControllerTests
         Assert.Single(db.Users);
     }
 
-    [Theory]
-    [InlineData("POST", "/api/grades", 1)]
-    [InlineData("GET", "/api/grades", 0)]
-    [InlineData("POST", "/api/support-sessions/current/end", 0)]
-    public async Task AuditMiddlewareLogsOnlyChangesMadeInSupportMode(string method, string path, int expected)
+    [Fact]
+    public async Task SupportSessionListsTheChangesFromTheAuditLogWithoutEnteringAndLeaving()
     {
         using var db = NewDb();
-        var middleware = new SupportAuditMiddleware(_ => Task.CompletedTask);
-        var context = new DefaultHttpContext
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(SupportClaims.SessionId, "7")], "Test")),
-        };
-        context.Request.Method = method;
-        context.Request.Path = path;
+        var superAdmin = await SuperAdminAsync(db);
+        var school = new School { Name = "ZŠ Test", Slug = "test" };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+        var started = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(
+            (await As(db, superAdmin).StartSupportSession(school.Id)).Result).Value);
+        db.AuditLogEntries.AddRange(
+            new Soovioo.Api.Audit.AuditLogEntry
+            {
+                SupportSessionId = started.SessionId, Method = "POST", Path = "/api/grades", Area = "Známky",
+                Description = "Zapsána známka", StatusCode = 200,
+            },
+            new Soovioo.Api.Audit.AuditLogEntry
+            {
+                SupportSessionId = started.SessionId, Method = "POST", Path = "/api/support-sessions/current/end",
+                Area = "Podpora", StatusCode = 204,
+            });
+        await db.SaveChangesAsync();
 
-        await middleware.InvokeAsync(context, db);
+        var sessions = Assert.IsAssignableFrom<IEnumerable<SupportSessionDto>>(Assert.IsType<OkObjectResult>(
+            (await As(db, superAdmin).GetSupportSessions()).Result).Value);
 
-        Assert.Equal(expected, db.SupportActions.Count());
+        var action = Assert.Single(Assert.Single(sessions).Actions);
+        Assert.Equal("Zapsána známka", action.Description);
     }
 
     [Fact]

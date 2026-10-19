@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 
@@ -19,6 +20,11 @@ public class AuthController(
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
+        // Anonymous request — the audit log learns who it was from here.
+        var audit = AuditContext.Of(HttpContext);
+        audit.Username = request.Username;
+        audit.Description = $"Neúspěšné přihlášení ({request.Username})";
+
         School? school = null;
         if (!string.IsNullOrWhiteSpace(request.SchoolSlug))
         {
@@ -28,6 +34,7 @@ public class AuthController(
                 return Unauthorized();
             }
         }
+        audit.SchoolId = school?.Id;
 
         // Unauthenticated request: no ambient tenant yet, so the per-school
         // query filter would otherwise hide every row. Scope explicitly by
@@ -41,11 +48,13 @@ public class AuthController(
             return Unauthorized();
         }
 
+        audit.UserId = user.Id;
         var result = Hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
         if (result == PasswordVerificationResult.Failed)
         {
             return Unauthorized();
         }
+        audit.Description = "Přihlášení";
 
         // The mobile app has no "Zůstat přihlášen" checkbox — an app stays
         // signed in until the user logs out, like any other mobile app.
@@ -73,6 +82,10 @@ public class AuthController(
         {
             return BadRequest("Pozvánka je neplatná nebo už vypršela.");
         }
+
+        var audit = AuditContext.Of(HttpContext);
+        audit.UserId = user.Id;
+        audit.SchoolId = user.SchoolId;
 
         user.PasswordHash = Hasher.HashPassword(user, request.NewPassword);
         user.MustChangePassword = false;
@@ -125,7 +138,7 @@ public class AuthController(
         var (token, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken);
         if (token is not null)
         {
-            await refreshTokens.RevokeAsync(token);
+            AuditContext.Of(HttpContext).UserId = await refreshTokens.RevokeAsync(token);
         }
         if (fromCookie || Request.Cookies.ContainsKey(AuthSessionService.CookieName))
         {

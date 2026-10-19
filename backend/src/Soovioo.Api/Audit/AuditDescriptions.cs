@@ -1,0 +1,127 @@
+namespace Soovioo.Api.Audit;
+
+/// <summary>Agenda and human-readable description of each audited
+/// controller action. <see cref="AuditMiddleware"/> appends the name of
+/// what was touched (from the payload) or its id.</summary>
+public static class AuditDescriptions
+{
+    private static readonly Dictionary<string, string> Areas = new()
+    {
+        ["Absences"] = "Docházka",
+        ["Auth"] = "Přihlášení",
+        ["Behavior"] = "Chování",
+        ["CalendarToken"] = "Nastavení",
+        ["Classrooms"] = "Učebny",
+        ["Conversations"] = "Zprávy",
+        ["Events"] = "Kalendář",
+        ["Grades"] = "Známky",
+        ["Homework"] = "Domácí úkoly",
+        ["Matrika"] = "Matrika",
+        ["MessageBroadcast"] = "Zprávy",
+        ["MyProfile"] = "Nastavení",
+        ["MySchool"] = "Údaje o škole",
+        ["Parents"] = "Rodiče",
+        ["ParentStudents"] = "Rodiče",
+        ["Payments"] = "Platby",
+        ["ReportCard"] = "Známky",
+        ["SchoolClasses"] = "Třídy",
+        ["SchoolPeriods"] = "Rozvrh",
+        ["Schools"] = "Školy",
+        ["Students"] = "Žáci",
+        ["Subjects"] = "Předměty",
+        ["Support"] = "Podpora",
+        ["Teachers"] = "Učitelé",
+        ["Timetable"] = "Rozvrh",
+        ["Users"] = "Uživatelé",
+    };
+
+    private static readonly Dictionary<string, string> Actions = new()
+    {
+        ["Absences.AddAbsence"] = "Zapsána absence",
+        ["Absences.SubmitExcuse"] = "Omluvena absence",
+        ["Absences.ReviewAbsence"] = "Posouzena omluvenka",
+        ["Absences.UpdateAbsence"] = "Upravena absence",
+        ["Absences.DeleteAbsence"] = "Smazána absence",
+        ["Auth.Login"] = "Přihlášení",
+        ["Auth.AcceptInvite"] = "Přijata pozvánka (nastaveno heslo)",
+        ["Auth.Logout"] = "Odhlášení",
+        ["Behavior.MarkBehaviorRecordRead"] = "Potvrzeno přečtení záznamu chování",
+        ["Behavior.CreateBehaviorRecord"] = "Zapsán záznam chování",
+        ["Behavior.DeleteBehaviorRecord"] = "Smazán záznam chování",
+        ["Behavior.SetClassification"] = "Nastavena klasifikace chování",
+        ["CalendarToken.RegenerateFeedUrl"] = "Vygenerován nový odkaz na odběr kalendáře",
+        ["Classrooms.AddClassroom"] = "Vytvořena učebna",
+        ["Classrooms.UpdateClassroom"] = "Upravena učebna",
+        ["Classrooms.DeleteClassroom"] = "Smazána učebna",
+        ["Conversations.StartConversation"] = "Odeslána nová zpráva",
+        ["Conversations.Reply"] = "Odeslána odpověď",
+        ["Conversations.MarkRead"] = "Přečtena konverzace",
+        ["Conversations.UploadAttachment"] = "Přiložen soubor ke zprávě",
+        ["Conversations.DeleteMessage"] = "Smazána zpráva",
+        ["Events.CreateEvent"] = "Vytvořena akce",
+        ["Events.UpdateEvent"] = "Upravena akce",
+        ["Events.DeleteEvent"] = "Smazána akce",
+        ["Grades.AddGrade"] = "Zapsána známka",
+        ["Grades.UpdateGrade"] = "Upravena známka",
+        ["Grades.DeleteGrade"] = "Smazána známka",
+        ["Homework.CreateHomework"] = "Zadán úkol",
+        ["Homework.UpdateHomework"] = "Upraven úkol",
+        ["Homework.UploadAttachment"] = "Přiložen soubor k úkolu",
+        ["Homework.MarkComplete"] = "Úkol označen jako hotový",
+        ["Homework.DeleteHomework"] = "Smazán úkol",
+        ["MessageBroadcast.BroadcastToClass"] = "Odeslána hromadná zpráva třídě",
+        ["MessageBroadcast.BroadcastToSchool"] = "Odeslána hromadná zpráva celé škole",
+        ["MyProfile.UpdateProfile"] = "Upraven vlastní profil",
+        ["MyProfile.ChangePassword"] = "Změněno vlastní heslo",
+        ["MyProfile.SwitchRole"] = "Přepnuta aktivní role",
+        ["MySchool.SetMatrikaIds"] = "Nastaveny identifikátory školy (IZO, RED_IZO)",
+        ["MySchool.SetType"] = "Změněn typ školy",
+        ["MySchool.SetDetails"] = "Upraveny údaje o škole",
+        ["MySchool.SetBankAccount"] = "Nastaven bankovní účet školy",
+        ["ParentStudents.AddLink"] = "Přiřazeno dítě rodiči",
+        ["ParentStudents.RemoveLink"] = "Odebráno dítě rodiči",
+        ["Payments.CreatePayment"] = "Vytvořena platba",
+        ["Payments.DeletePayment"] = "Smazána platba",
+        ["Payments.SetRecipientPaid"] = "Změněn stav úhrady",
+        ["Payments.SetRecipientVariableSymbol"] = "Změněn variabilní symbol",
+        ["SchoolClasses.AddSchoolClass"] = "Vytvořena třída",
+        ["SchoolClasses.UpdateSchoolClass"] = "Upravena třída",
+        ["SchoolClasses.DeleteSchoolClass"] = "Smazána třída",
+        ["SchoolPeriods.UpsertPeriod"] = "Nastaven čas hodiny",
+        ["SchoolPeriods.DeletePeriod"] = "Smazán čas hodiny",
+        ["Schools.AddSchool"] = "Založena škola",
+        ["Schools.SetMatrikaIds"] = "Nastaveny identifikátory školy (IZO, RED_IZO)",
+        ["Schools.UpdateSchool"] = "Upravena škola",
+        ["Schools.DeleteSchool"] = "Smazána škola",
+        ["Students.AddStudent"] = "Vytvořen žák",
+        ["Students.UpdateStudent"] = "Upraven žák",
+        ["Students.DeleteStudent"] = "Smazán žák",
+        ["Subjects.AddSubject"] = "Vytvořen předmět",
+        ["Subjects.UpdateSubject"] = "Upraven předmět",
+        ["Subjects.DeleteSubject"] = "Smazán předmět",
+        ["Support.StartSupportSession"] = "Zahájen režim podpory",
+        ["Support.Redeem"] = "Vstup do školy v režimu podpory",
+        ["Support.EndCurrentSession"] = "Ukončen režim podpory",
+        ["Support.AddSuperAdmin"] = "Vytvořen superadmin",
+        ["Support.UpdateSuperAdmin"] = "Upraven superadmin",
+        ["Support.DeleteSuperAdmin"] = "Smazán superadmin",
+        ["Timetable.AddEntry"] = "Přidána hodina do rozvrhu",
+        ["Timetable.UpdateEntry"] = "Upravena hodina rozvrhu",
+        ["Timetable.DeleteEntry"] = "Smazána hodina rozvrhu",
+        ["Users.AddUser"] = "Vytvořen uživatel",
+        ["Users.UpdateUser"] = "Upraven uživatel",
+        ["Users.DeleteUser"] = "Smazán uživatel",
+        ["Users.SetTeacherProfile"] = "Upraven profil učitele",
+        ["Users.SendInvite"] = "Odeslána pozvánka",
+    };
+
+    /// <summary>Agenda label of a controller; unknown ones keep their name.</summary>
+    public static string Area(string? controller) =>
+        controller is null ? "Ostatní" : Areas.GetValueOrDefault(controller, controller);
+
+    public static string? Describe(string? controller, string? action) =>
+        Actions.GetValueOrDefault($"{controller}.{action}");
+
+    /// <summary>All agenda labels, for the filter.</summary>
+    public static IEnumerable<string> AllAreas => Areas.Values.Distinct().Order();
+}

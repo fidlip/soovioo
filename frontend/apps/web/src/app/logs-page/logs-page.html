@@ -1,14 +1,264 @@
 <h1 class="mb-6 flex items-center gap-3"><app-icon name="logs" />Logy</h1>
 
+<p-card header="Změny a přihlášení" styleClass="mb-6">
+  <div class="mb-3 flex flex-wrap items-end gap-3">
+    @if (isSuperAdmin) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterSchool"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Škola</label
+      >
+      <p-select
+        inputId="filterSchool"
+        [options]="schoolOptions()"
+        optionLabel="name"
+        optionValue="id"
+        placeholder="Všechny školy"
+        [(ngModel)]="filterSchoolId"
+        (ngModelChange)="onSchoolChange()"
+        [showClear]="true"
+        [filter]="true"
+        name="filterSchool"
+        appendTo="body"
+        styleClass="w-56"
+      />
+    </div>
+    } @if (classOptions().length > 0) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterClass"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Třída</label
+      >
+      <p-select
+        inputId="filterClass"
+        [options]="classOptions()"
+        optionLabel="name"
+        optionValue="id"
+        placeholder="Všechny třídy"
+        [(ngModel)]="filterClassId"
+        (ngModelChange)="onFilterChange()"
+        [showClear]="true"
+        name="filterClass"
+        appendTo="body"
+        styleClass="w-40"
+      />
+    </div>
+    }
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterUser"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Uživatel</label
+      >
+      <p-select
+        inputId="filterUser"
+        [options]="userOptions()"
+        optionLabel="name"
+        optionValue="id"
+        placeholder="Všichni uživatelé"
+        [(ngModel)]="filterUserId"
+        (ngModelChange)="onFilterChange()"
+        [showClear]="true"
+        [filter]="true"
+        name="filterUser"
+        appendTo="body"
+        styleClass="w-56"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterArea"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Agenda</label
+      >
+      <p-select
+        inputId="filterArea"
+        [options]="areaOptions()"
+        placeholder="Všechny agendy"
+        [(ngModel)]="filterArea"
+        (ngModelChange)="onFilterChange()"
+        [showClear]="true"
+        name="filterArea"
+        appendTo="body"
+        styleClass="w-48"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterFrom"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Od</label
+      >
+      <p-datePicker
+        inputId="filterFrom"
+        [(ngModel)]="filterFrom"
+        (ngModelChange)="onFilterChange()"
+        name="filterFrom"
+        dateFormat="dd.mm.yy"
+        [showIcon]="true"
+        [showClear]="true"
+        appendTo="body"
+        styleClass="w-40"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="filterTo"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Do</label
+      >
+      <p-datePicker
+        inputId="filterTo"
+        [(ngModel)]="filterTo"
+        (ngModelChange)="onFilterChange()"
+        name="filterTo"
+        dateFormat="dd.mm.yy"
+        [showIcon]="true"
+        [showClear]="true"
+        appendTo="body"
+        styleClass="w-40"
+      />
+    </div>
+    @if (hasFilters()) {
+    <p-button
+      label="Zrušit filtry"
+      icon="pi pi-filter-slash"
+      size="small"
+      [text]="true"
+      (onClick)="clearFilters()"
+    />
+    }
+  </div>
+
+  <p-table
+    [value]="entries()"
+    dataKey="id"
+    [expandedRowKeys]="expandedRows"
+    [loading]="loading()"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th class="w-8"></th>
+        <th>Čas</th>
+        <th>Kdo</th>
+        @if (isSuperAdmin) {
+        <th>Škola</th>
+        }
+        <th>Agenda</th>
+        <th>Akce</th>
+        <th>Výsledek</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-entry let-expanded="expanded">
+      <tr>
+        <td>
+          <p-button
+            [pRowToggler]="entry"
+            [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+            size="small"
+            [text]="true"
+            [rounded]="true"
+            [ariaLabel]="expanded ? 'Skrýt detail' : 'Zobrazit detail'"
+          />
+        </td>
+        <td class="whitespace-nowrap text-sm text-surface-500">
+          {{ entry.at | date: 'd.M.yyyy H:mm:ss' }}
+        </td>
+        <td class="text-sm">
+          {{ who(entry) }} @if (roleLabel(entry.role); as role) {
+          <span class="text-surface-500">· {{ role }}</span>
+          } @if (entry.supportBy) {
+          <p-tag
+            severity="warn"
+            [value]="'podpora (superadmin ' + entry.supportBy + ')'"
+            styleClass="ml-1"
+          />
+          }
+        </td>
+        @if (isSuperAdmin) {
+        <td class="text-sm text-surface-500">{{ entry.schoolName ?? '—' }}</td>
+        }
+        <td class="text-sm">{{ entry.area }}</td>
+        <td class="text-sm">
+          @if (entry.description) { {{ entry.description }} } @else {
+          <code class="font-mono text-xs"
+            >{{ entry.method }} {{ entry.path }}</code
+          >
+          }
+        </td>
+        <td>
+          <p-tag
+            [severity]="statusSeverity(entry.statusCode)"
+            [value]="entry.statusCode.toString()"
+            [title]="entry.result ?? ''"
+          />
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="expandedrow" let-entry>
+      <tr>
+        <td [attr.colspan]="isSuperAdmin ? 7 : 6">
+          <dl
+            class="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm"
+          >
+            <dt class="text-surface-500">Požadavek</dt>
+            <dd class="m-0 font-mono text-xs">
+              {{ entry.method }} {{ entry.path }}
+            </dd>
+            @if (entry.result) {
+            <dt class="text-surface-500">Výsledek</dt>
+            <dd class="m-0">{{ entry.result }}</dd>
+            } @if (entry.username) {
+            <dt class="text-surface-500">Účet</dt>
+            <dd class="m-0">{{ entry.username }}</dd>
+            } @if (entry.ipAddress) {
+            <dt class="text-surface-500">IP adresa</dt>
+            <dd class="m-0 font-mono text-xs">{{ entry.ipAddress }}</dd>
+            } @if (entry.requestBody) {
+            <dt class="text-surface-500">Data</dt>
+            <dd class="m-0">
+              <pre
+                class="m-0 max-h-80 overflow-auto rounded bg-surface-100 p-2 font-mono text-xs whitespace-pre-wrap break-all dark:bg-surface-800"
+              >
+{{ formatBody(entry.requestBody) }}</pre>
+            </dd>
+            }
+          </dl>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td
+          [attr.colspan]="isSuperAdmin ? 7 : 6"
+          class="py-6 text-center text-surface-500"
+        >
+          Žádné záznamy.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+  <p-paginator
+    [first]="(page() - 1) * pageSize()"
+    [rows]="pageSize()"
+    [totalRecords]="totalCount()"
+    [rowsPerPageOptions]="[20, 50, 100]"
+    (onPageChange)="onPageChange($event)"
+  />
+</p-card>
+
+@if (isSuperAdmin) {
 <p-card header="Přístupy podpory do škol">
   @for (session of supportSessions(); track session.id) {
   <details class="border-b border-surface-200 py-2 dark:border-surface-700">
     <summary class="flex cursor-pointer flex-wrap items-center gap-2 text-sm">
       <strong>{{ session.schoolName }}</strong>
       <span class="text-surface-500"
-        >{{ session.superAdminUsername }} ·
-        {{ session.startedAt | date: 'd.M.yyyy H:mm' }} @if (session.endedAt)
-        { – {{ session.endedAt | date: 'H:mm' }} }</span
+        >{{ session.superAdminUsername }} · {{ session.startedAt | date:
+        'd.M.yyyy H:mm' }} @if (session.endedAt) { – {{ session.endedAt | date:
+        'H:mm' }} }</span
       >
       <p-tag
         [value]="changesLabel(session.actions.length)"
@@ -16,11 +266,15 @@
       />
     </summary>
     @if (session.actions.length > 0) {
-    <ul class="m-0 mt-2 list-none p-0 font-mono text-xs text-surface-600 dark:text-surface-300">
+    <ul
+      class="m-0 mt-2 list-none p-0 text-xs text-surface-600 dark:text-surface-300"
+    >
       @for (action of session.actions; track $index) {
       <li>
-        {{ action.at | date: 'H:mm:ss' }} {{ action.method }} {{ action.path }}
-        → {{ action.statusCode }}
+        {{ action.at | date: 'H:mm:ss' }} @if (action.description) { {{
+        action.description }} } @else {
+        <span class="font-mono">{{ action.method }} {{ action.path }}</span>
+        } → {{ action.statusCode }}
       </li>
       }
     </ul>
@@ -30,3 +284,4 @@
   <p class="m-0 text-sm text-surface-500">Zatím žádné přístupy.</p>
   }
 </p-card>
+}

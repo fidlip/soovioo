@@ -157,6 +157,8 @@ using (var scope = app.Services.CreateScope())
         "payment-recurring-installments", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<RefreshTokenCleanupJob>(
         "refresh-token-cleanup", job => job.RunAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Audit.AuditLogCleanupJob>(
+        "audit-log-cleanup", job => job.RunAsync(), Cron.Daily);
 }
 
 // Configure the HTTP request pipeline.
@@ -171,7 +173,7 @@ app.UseCors(app.Environment.IsDevelopment() ? devCorsPolicy : prodCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<Soovioo.Api.Support.SupportAuditMiddleware>();
+app.UseMiddleware<Soovioo.Api.Audit.AuditMiddleware>();
 
 app.MapControllers();
 

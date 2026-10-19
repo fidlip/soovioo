@@ -37,6 +37,8 @@ interface NavItem {
   link: string[];
   /** Administrace — shown to admins and teachers only. */
   staffOnly?: boolean;
+  /** Logy — school admins only. */
+  adminOnly?: boolean;
 }
 
 @Component({
@@ -200,6 +202,7 @@ export class App {
         link: link('admin'),
         staffOnly: true,
       },
+      { label: 'Logy', icon: 'logs', link: link('logs'), adminOnly: true },
     ];
   });
 

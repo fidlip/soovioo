@@ -14,6 +14,8 @@ export interface SupportAction {
   path: string;
   statusCode: number;
   at: string;
+  /** "Zapsána známka – Jan Novák"; null = show method + path. */
+  description: string | null;
 }
 
 /** Audit log row: a SuperAdmin's visit to a school and what they changed. */

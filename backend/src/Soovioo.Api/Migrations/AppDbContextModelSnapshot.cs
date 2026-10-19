@@ -62,6 +62,81 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("Absences");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Audit.AuditLogEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestBody")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Result")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Role")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SupportBy")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SupportSessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserDisplayName")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Username")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("At");
+
+                    b.HasIndex("SupportSessionId");
+
+                    b.HasIndex("SchoolId", "At");
+
+                    b.HasIndex("UserId", "At");
+
+                    b.ToTable("AuditLogEntries");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -1322,38 +1397,6 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("Municipalities");
                 });
 
-            modelBuilder.Entity("Soovioo.Api.Support.SupportAction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Method")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Path")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("StatusCode")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SupportSessionId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SupportSessionId");
-
-                    b.ToTable("SupportActions");
-                });
-
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
                 {
                     b.Property<int>("Id")
@@ -2244,17 +2287,6 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("District");
                 });
 
-            modelBuilder.Entity("Soovioo.Api.Support.SupportAction", b =>
-                {
-                    b.HasOne("Soovioo.Api.Support.SupportSession", "SupportSession")
-                        .WithMany("Actions")
-                        .HasForeignKey("SupportSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SupportSession");
-                });
-
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -2391,11 +2423,6 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("ParentProfile");
 
                     b.Navigation("TeacherProfile");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
-                {
-                    b.Navigation("Actions");
                 });
 #pragma warning restore 612, 618
         }

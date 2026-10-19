@@ -22,7 +22,11 @@
 </header>
 
 @if (drawerOpen()) {
-<div class="app-backdrop" aria-hidden="true" (click)="drawerOpen.set(false)"></div>
+<div
+  class="app-backdrop"
+  aria-hidden="true"
+  (click)="drawerOpen.set(false)"
+></div>
 }
 
 <aside
@@ -61,7 +65,9 @@
       class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
       aria-label="Správa škol"
       title="Správa škol"
-      ><app-icon name="school" /><span class="app-nav-label">Správa škol</span></a
+      ><app-icon name="school" /><span class="app-nav-label"
+        >Správa škol</span
+      ></a
     >
     <a
       routerLink="/superadmin/logs"
@@ -71,17 +77,16 @@
       title="Logy"
       ><app-icon name="logs" /><span class="app-nav-label">Logy</span></a
     >
-    } @else { @for (item of navItems(); track item.icon) { @if (!item.staffOnly ||
-    isAdmin() || isTeacher()) {
+    } @else { @for (item of navItems(); track item.icon) { @if (item.adminOnly ?
+    isAdmin() : !item.staffOnly || isAdmin() || isTeacher()) {
     <a
       [routerLink]="item.link"
       routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
       class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
       [attr.aria-label]="item.label"
       [title]="item.label"
-      ><app-icon [name]="item.icon" /><span class="app-nav-label">{{
-        item.label
-      }}</span
+      ><app-icon [name]="item.icon" /><span class="app-nav-label"
+        >{{ item.label }}</span
       >@if (item.icon === 'messages' && unreadMessages.count() > 0) {<span
         class="app-nav-badge"
         [attr.aria-label]="unreadMessages.count() + ' nepřečtených'"
@@ -168,8 +173,8 @@
     role="status"
   >
     <span
-      ><i class="pi pi-shield mr-1"></i><strong>Režim podpory</strong> —
-      {{ support.schoolName }} · jako superadmin {{ support.by }} (změny se
+      ><i class="pi pi-shield mr-1"></i><strong>Režim podpory</strong> — {{
+      support.schoolName }} · jako superadmin {{ support.by }} (změny se
       zaznamenávají)</span
     >
     <button
