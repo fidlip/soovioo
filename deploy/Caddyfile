@@ -56,10 +56,3 @@
 	}
 	import app
 }
-
-# Public website — a placeholder until the real one exists.
-{$WEB_DOMAIN}, www.{$WEB_DOMAIN} {
-	encode zstd gzip
-	root * /srv/www
-	file_server
-}

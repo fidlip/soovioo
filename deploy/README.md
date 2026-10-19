@@ -15,7 +15,7 @@ Domény:
 - `<slug>.soovioo.cloud` — škola. Certifikát se vydá **při první návštěvě** (Caddy
   on-demand TLS); backend (`/api/tls/ask`) ho povolí jen pro slug existující školy.
   Wildcard certifikát ani API DNS providera tedy nejsou potřeba.
-- `soovioo.cz`, `www.soovioo.cz` — veřejný web, zatím placeholder `www/index.html`.
+- `soovioo.cz` — veřejný web, běží zvlášť na hostingu Forpsi; tento stack se ho netýká.
 
 Web volá API na stejném originu (`https://demo.soovioo.cloud/api/...`), takže žádné CORS.
 
@@ -27,14 +27,12 @@ Web volá API na stejném originu (`https://demo.soovioo.cloud/api/...`), takže
 
 ## DNS
 
-U registrátora (A, případně AAAA pro IPv6 → IP VPS):
+U Forpsi, jen pro `soovioo.cloud` (A → IPv4 VPS; AAAA až po zapnutí IPv6 v Dockeru):
 
 | Záznam             | Typ   |
 | ------------------ | ----- |
 | `soovioo.cloud`    | A     |
 | `*.soovioo.cloud`  | A     |
-| `soovioo.cz`       | A     |
-| `www.soovioo.cz`   | A     |
 
 Nejdřív DNS, pak spustit stack — Caddy si certifikáty pro hlavní domény vyžádá hned
 po startu.
