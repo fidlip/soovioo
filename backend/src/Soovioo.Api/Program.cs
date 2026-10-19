@@ -189,7 +189,7 @@ static void SeedUsers(AppDbContext db)
     var hasher = new PasswordHasher<User>();
     var demoUsers = new[]
     {
-        new User { Username = "superadmin", PasswordHash = "", Role = UserRole.SuperAdmin, SchoolId = null },
+        new User { Username = Soovioo.Api.Support.SupportController.BuiltInUsername, PasswordHash = "", Role = UserRole.SuperAdmin, SchoolId = null },
         new User { Username = "admin", PasswordHash = "", Role = UserRole.Admin, SchoolId = demoSchoolId },
         new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = demoSchoolId },
         new User { Username = "rodic", PasswordHash = "", Role = UserRole.Parent, SchoolId = demoSchoolId },

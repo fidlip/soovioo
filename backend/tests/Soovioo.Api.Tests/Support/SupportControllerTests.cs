@@ -111,4 +111,23 @@ public class SupportControllerTests
 
         Assert.Equal(expected, db.SupportActions.Count());
     }
+
+    [Fact]
+    public async Task BuiltInSuperAdminCannotBeDeletedOrRenamedByAnotherSuperAdmin()
+    {
+        using var db = NewDb();
+        var builtIn = await SuperAdminAsync(db, SupportController.BuiltInUsername);
+        var other = await SuperAdminAsync(db, "druhy");
+        var controller = As(db, other);
+
+        var delete = await controller.DeleteSuperAdmin(builtIn.Id);
+        var rename = await controller.UpdateSuperAdmin(builtIn.Id, new UpdateSuperAdminRequest("prejmenovany"));
+
+        Assert.IsType<BadRequestObjectResult>(delete);
+        Assert.IsType<BadRequestObjectResult>(rename.Result);
+        Assert.Equal(SupportController.BuiltInUsername, db.Users.Single(u => u.Id == builtIn.Id).Username);
+        // Editing its name/contacts is still fine.
+        Assert.IsType<OkObjectResult>((await controller.UpdateSuperAdmin(
+            builtIn.Id, new UpdateSuperAdminRequest(SupportController.BuiltInUsername, FirstName: "Hlavní"))).Result);
+    }
 }

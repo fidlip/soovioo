@@ -37,6 +37,8 @@ export interface SuperAdmin {
   name: string;
   phone: string | null;
   email: string | null;
+  /** The seeded "superadmin" account — can't be deleted or renamed. */
+  builtIn: boolean;
 }
 
 export interface CreateSuperAdminRequest {

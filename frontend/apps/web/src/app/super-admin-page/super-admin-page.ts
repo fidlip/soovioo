@@ -57,6 +57,7 @@ export class SuperAdminPage {
   protected readonly superAdminDialogVisible = signal(false);
   /** null = the dialog adds a new SuperAdmin, otherwise edits this one. */
   protected editingSuperAdminId: number | null = null;
+  protected editingBuiltIn = false;
   protected superAdminFirstName = '';
   protected superAdminLastName = '';
   protected superAdminUsername = '';
@@ -156,6 +157,7 @@ export class SuperAdminPage {
   }
 
   private fillSuperAdminForm(superAdmin: SuperAdmin | null): void {
+    this.editingBuiltIn = superAdmin?.builtIn ?? false;
     this.superAdminFirstName = superAdmin?.firstName ?? '';
     this.superAdminLastName = superAdmin?.lastName ?? '';
     this.superAdminUsername = superAdmin?.username ?? '';

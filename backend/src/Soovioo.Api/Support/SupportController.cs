@@ -17,6 +17,10 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
+    /// <summary>The built-in SuperAdmin account (seeded at startup) — can't be
+    /// deleted or renamed by anyone, so there's always a way back in.</summary>
+    public const string BuiltInUsername = "superadmin";
+
     /// <summary>Short-lived (2 h, no refresh token) Admin token for the
     /// school, carrying who's behind it. The SuperAdmin's own session
     /// (refresh cookie) stays untouched — leaving support mode returns to it.</summary>
@@ -159,6 +163,11 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
             return this.FieldError("password", "Heslo musí mít alespoň 8 znaků.");
         }
 
+        if (user.Username == BuiltInUsername && username != BuiltInUsername)
+        {
+            return this.FieldError("username", "Vestavěný účet superadmin nelze přejmenovat.");
+        }
+
         user.Username = username;
         await ApplyPersonAsync(user, request.FirstName, request.LastName, request.Phone, request.Email);
         var isMe = id == CurrentUserId();
@@ -189,6 +198,10 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
         {
             return BadRequest("Nelze smazat vlastní účet.");
         }
+        if (user.Username == BuiltInUsername)
+        {
+            return BadRequest("Vestavěný účet superadmin nelze smazat.");
+        }
         if (await db.Users.CountAsync(u => u.Role == UserRole.SuperAdmin && u.SchoolId == null) <= 1)
         {
             return BadRequest("Poslední superadmin — nejdřív přidejte jiného.");
@@ -211,7 +224,7 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
 
     private static SuperAdminDto ToDto(User u) => new(
         u.Id, u.Username, u.Person?.FirstName ?? "", u.Person?.LastName ?? u.Username,
-        PersonNames.Display(u), u.Person?.Phone, u.Person?.Email);
+        PersonNames.Display(u), u.Person?.Phone, u.Person?.Email, u.Username == BuiltInUsername);
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
@@ -224,8 +237,10 @@ public record SupportSessionDto(
     int Id, string SuperAdminUsername, int SchoolId, string SchoolName, DateTimeOffset StartedAt,
     DateTimeOffset? EndedAt, IReadOnlyList<SupportActionDto> Actions);
 
+/// <param name="BuiltIn">The seeded "superadmin" account — not deletable or renamable.</param>
 public record SuperAdminDto(
-    int Id, string Username, string FirstName, string LastName, string Name, string? Phone, string? Email);
+    int Id, string Username, string FirstName, string LastName, string Name, string? Phone, string? Email,
+    bool BuiltIn);
 
 public record CreateSuperAdminRequest(
     string Username, string Password, string? FirstName = null, string? LastName = null,

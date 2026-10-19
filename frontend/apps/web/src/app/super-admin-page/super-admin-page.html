@@ -172,7 +172,7 @@
               ariaLabel="Upravit superadmina"
               (onClick)="openEditSuperAdminDialog(superAdmin)"
             />
-            @if (superAdmin.id !== myUserId) {
+            @if (superAdmin.id !== myUserId && !superAdmin.builtIn) {
             <p-button
               icon="pi pi-trash"
               size="small"
@@ -366,6 +366,8 @@
         name="superAdminUsername"
         autocomplete="off"
         required
+        [readonly]="editingBuiltIn"
+        [title]="editingBuiltIn ? 'Vestavěný účet nelze přejmenovat' : ''"
         [(ngModel)]="superAdminUsername"
       />
     </div>
