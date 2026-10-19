@@ -84,7 +84,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderByDescending(a => a.Date)
             .Take(5)
             .Select(a => new AbsenceDto(
-                a.Id, a.StudentId, a.Student!.FirstName + " " + a.Student.LastName, a.Date, a.Status, a.ExcuseReason))
+                a.Id, a.StudentId, a.Student!.FirstName + " " + a.Student.LastName, a.Date, a.Status, a.ExcuseReason, a.Periods))
             .ToListAsync();
 
         var unreadMessageCount = await db.CountUnreadConversationsAsync(userId);

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Attendance;
@@ -30,7 +31,8 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
                 a.Student!.FirstName + " " + a.Student.LastName,
                 a.Date,
                 a.Status,
-                a.ExcuseReason))
+                a.ExcuseReason,
+                a.Periods))
             .ToListAsync();
 
         return Ok(absences);
@@ -46,10 +48,17 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Neznámý žák.");
         }
 
+        var periods = NormalizePeriods(request.Periods);
+        if (periods is null)
+        {
+            return this.FieldError("periods", "Neplatné číslo hodiny.");
+        }
+
         var absence = new Absence
         {
             StudentId = request.StudentId,
             Date = request.Date,
+            Periods = periods,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.Absences.Add(absence);
@@ -57,7 +66,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
 
         var dto = new AbsenceDto(
             absence.Id, absence.StudentId, $"{student.FirstName} {student.LastName}",
-            absence.Date, absence.Status, absence.ExcuseReason);
+            absence.Date, absence.Status, absence.ExcuseReason, absence.Periods);
         return CreatedAtAction(nameof(GetAbsences), new { id = absence.Id }, dto);
     }
 
@@ -118,13 +127,20 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Neznámý žák.");
         }
 
+        var periods = NormalizePeriods(request.Periods);
+        if (periods is null)
+        {
+            return this.FieldError("periods", "Neplatné číslo hodiny.");
+        }
+
         absence.StudentId = request.StudentId;
         absence.Date = request.Date;
+        absence.Periods = periods;
         await db.SaveChangesAsync();
 
         var dto = new AbsenceDto(
             absence.Id, absence.StudentId, $"{student.FirstName} {student.LastName}",
-            absence.Date, absence.Status, absence.ExcuseReason);
+            absence.Date, absence.Status, absence.ExcuseReason, absence.Periods);
         return Ok(dto);
     }
 
@@ -142,9 +158,17 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    /// <summary>Sorted, distinct; null when a number is outside 0–15.</summary>
+    private static List<int>? NormalizePeriods(List<int>? periods)
+    {
+        var result = (periods ?? []).Distinct().Order().ToList();
+        return result.Any(p => p is < 0 or > 15) ? null : result;
+    }
 }
 
-public record CreateAbsenceRequest(int StudentId, DateOnly Date);
+/// <summary>Periods: missed lesson numbers; null/empty = the whole day.</summary>
+public record CreateAbsenceRequest(int StudentId, DateOnly Date, List<int>? Periods = null);
 public record SubmitExcuseRequest(string Reason);
 public record ReviewAbsenceRequest(bool Approve);
 
@@ -154,4 +178,5 @@ public record AbsenceDto(
     string StudentName,
     DateOnly Date,
     AbsenceStatus Status,
-    string? ExcuseReason);
+    string? ExcuseReason,
+    IReadOnlyList<int> Periods);

@@ -52,11 +52,21 @@
   </div>
 </div>
 
+@if (missedSummary(); as summary) { @if (summary.total > 0 ||
+summary.wholeDays > 0) {
+<p class="mb-3 mt-0 text-sm text-surface-600 dark:text-surface-300">
+  Zameškáno hodin: <strong>{{ summary.total }}</strong> (omluveno {{
+  summary.excused }}, neomluveno {{ summary.unexcused }}) @if
+  (summary.wholeDays > 0) { + {{ summary.wholeDays }}× celý den bez rozpisu }
+</p>
+} }
+
 <p-table [value]="filteredAbsences()" dataKey="id" styleClass="rounded-border">
   <ng-template pTemplate="header">
     <tr>
       <th>{{ 'Žák' | term }}</th>
       <th>Datum</th>
+      <th>Hodiny</th>
       <th>Stav</th>
       <th>Omluvenka</th>
       <th></th>
@@ -69,6 +79,9 @@
     <tr>
       <td>{{ absence.studentName }}</td>
       <td>{{ absence.date }}</td>
+      <td class="text-surface-600 dark:text-surface-300">
+        {{ formatPeriods(absence.periods) }}
+      </td>
       <td>
         <p-tag
           [value]="statusLabel(absence.status)"
@@ -137,7 +150,7 @@
   </ng-template>
   <ng-template pTemplate="emptymessage">
     <tr>
-      <td colspan="6" class="py-6 text-center text-surface-500">
+      <td colspan="7" class="py-6 text-center text-surface-500">
         Žádné záznamy.
       </td>
     </tr>
@@ -165,6 +178,7 @@
         optionLabel="label"
         optionValue="id"
         [(ngModel)]="newStudentId"
+        (ngModelChange)="onDialogStudentOrDateChange()"
         name="absenceStudent"
         required
         appendTo="body"
@@ -181,12 +195,56 @@
       <p-datePicker
         inputId="absenceDate"
         [(ngModel)]="newDate"
+        (ngModelChange)="onDialogStudentOrDateChange()"
         name="absenceDate"
         required
         dateFormat="dd.mm.yy"
         [showIcon]="true"
         appendTo="body"
       />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Zameškané hodiny</span
+        >
+        <p-button
+          label="Celý den"
+          size="small"
+          severity="secondary"
+          [text]="true"
+          (onClick)="selectLessonPeriods()"
+        />
+      </div>
+      @if (dayPeriods().length === 0) {
+      <span class="text-sm text-surface-500"
+        >Škola nemá nastavené časy hodin — absence se zapíše na celý den.</span
+      >
+      } @else {
+      <div class="flex flex-wrap gap-1.5" role="group" aria-label="Zameškané hodiny">
+        @for (period of dayPeriods(); track period.number) {
+        <button
+          type="button"
+          class="flex min-w-12 flex-col items-center rounded-border border px-2 py-1 text-sm transition-colors"
+          [class.border-primary]="isPeriodSelected(period.number)"
+          [class.bg-primary]="isPeriodSelected(period.number)"
+          [class.text-primary-contrast]="isPeriodSelected(period.number)"
+          [class.border-surface-300]="!isPeriodSelected(period.number)"
+          [class.text-surface-400]="!isPeriodSelected(period.number) && !period.lesson"
+          [attr.aria-pressed]="isPeriodSelected(period.number)"
+          (click)="togglePeriod(period.number)"
+        >
+          <span class="font-semibold">{{ period.number }}.</span>
+          <span class="text-xs">{{ period.lesson ?? '—' }}</span>
+        </button>
+        }
+      </div>
+      @if (newPeriods().length === 0) {
+      <span class="text-xs text-surface-500"
+        >Bez vybraných hodin se absence zapíše na celý den.</span
+      >
+      } }
     </div>
 
     <app-submit-button

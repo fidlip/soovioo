@@ -113,4 +113,21 @@ public class AbsencesControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Equal("Nemoc", (await db.Absences.FindAsync(absence.Id))!.ExcuseReason);
     }
+
+    [Fact]
+    public async Task AddAbsenceStoresSortedDistinctPeriodsAndRejectsOutOfRange()
+    {
+        using var db = NewDb();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+        var controller = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId));
+
+        var result = await controller.AddAbsence(new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 5), [3, 0, 2, 3]));
+        var dto = Assert.IsType<AbsenceDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal([0, 2, 3], dto.Periods);
+
+        var invalid = await controller.AddAbsence(new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 6), [16]));
+        Assert.IsType<BadRequestObjectResult>(invalid.Result);
+    }
 }

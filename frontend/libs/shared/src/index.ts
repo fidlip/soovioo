@@ -24,6 +24,7 @@ export * from './lib/matrika/matrika-api.service';
 export * from './lib/attendance/absence.model';
 export * from './lib/attendance/absences-api.service';
 export * from './lib/timetable/timetable-entry.model';
+export * from './lib/timetable/week';
 export * from './lib/timetable/timetable-api.service';
 export * from './lib/timetable/school-period.model';
 export * from './lib/timetable/school-periods-api.service';

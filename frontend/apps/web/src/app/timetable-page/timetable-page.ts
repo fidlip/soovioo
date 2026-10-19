@@ -30,6 +30,7 @@ import {
   TeachersApiService,
   TimetableApiService,
   WeekParity,
+  isoWeekNumber,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
@@ -123,16 +124,6 @@ function mondayOf(date: Date): Date {
  * WeekParity refers to has no other definition anywhere in this app yet
  * (this page is the first thing that actually resolves "which week is
  * this"), so this is the standard, unambiguous choice. */
-function isoWeekNumber(date: Date): number {
-  const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
-
 function formatShortDate(date: Date): string {
   return date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
 }
