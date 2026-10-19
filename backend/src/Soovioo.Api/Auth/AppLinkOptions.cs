@@ -21,7 +21,7 @@ public class AppLinkOptions
     public string? FrontendBaseUrl { get; set; }
 
     /// <summary>Required when <see cref="PathBasedTenant"/> is false — e.g.
-    /// <c>soovioo.cz</c>. A link is built as
+    /// <c>soovioo.cloud</c>. A link is built as
     /// <c>https://{slug}.{MainDomain}/accept-invite?token=...</c>.</summary>
     public string? MainDomain { get; set; }
 }

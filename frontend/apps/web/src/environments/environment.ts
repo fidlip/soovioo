@@ -3,7 +3,7 @@
 export const environment = {
   production: false,
   /** The school's subdomain is `<slug>.<mainDomain>` in production — see
-   * school-context.ts isPathBasedTenant()/subdomainSlug(). Placeholder until
-   * a real domain is registered; update both environment files once one is. */
-  mainDomain: 'soovioo.cz',
+   * school-context.ts isPathBasedTenant()/subdomainSlug(). Same value as
+   * environment.prod.ts so a local build can be tried in subdomain mode. */
+  mainDomain: 'soovioo.cloud',
 };

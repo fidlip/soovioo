@@ -6,31 +6,31 @@ import {
 
 describe('isPathBasedTenant', () => {
   it('treats localhost, bare IPs and LAN machine names as path-based', () => {
-    expect(isPathBasedTenant('localhost', 'soovioo.cz')).toBe(true);
-    expect(isPathBasedTenant('192.168.1.42', 'soovioo.cz')).toBe(true);
-    expect(isPathBasedTenant('aorus', 'soovioo.cz')).toBe(true);
-    expect(isPathBasedTenant('aorus.local', 'soovioo.cz')).toBe(true);
+    expect(isPathBasedTenant('localhost', 'soovioo.cloud')).toBe(true);
+    expect(isPathBasedTenant('192.168.1.42', 'soovioo.cloud')).toBe(true);
+    expect(isPathBasedTenant('aorus', 'soovioo.cloud')).toBe(true);
+    expect(isPathBasedTenant('aorus.local', 'soovioo.cloud')).toBe(true);
   });
 
   it('treats the main domain and its subdomains as subdomain-based', () => {
-    expect(isPathBasedTenant('demo.soovioo.cz', 'soovioo.cz')).toBe(false);
-    expect(isPathBasedTenant('soovioo.cz', 'soovioo.cz')).toBe(false);
+    expect(isPathBasedTenant('demo.soovioo.cloud', 'soovioo.cloud')).toBe(false);
+    expect(isPathBasedTenant('soovioo.cloud', 'soovioo.cloud')).toBe(false);
   });
 
   it('does not mistake a lookalike domain for the main one', () => {
-    expect(isPathBasedTenant('notsoovioo.cz', 'soovioo.cz')).toBe(true);
+    expect(isPathBasedTenant('notsoovioo.cloud', 'soovioo.cloud')).toBe(true);
   });
 });
 
 describe('subdomainSlug', () => {
-  const mainDomain = 'soovioo.cz';
+  const mainDomain = 'soovioo.cloud';
 
   it('extracts the slug from a subdomain of the configured main domain', () => {
-    expect(subdomainSlug('demo.soovioo.cz', mainDomain)).toBe('demo');
+    expect(subdomainSlug('demo.soovioo.cloud', mainDomain)).toBe('demo');
   });
 
   it('returns null for the bare main domain (no tenant — landing/SuperAdmin)', () => {
-    expect(subdomainSlug('soovioo.cz', mainDomain)).toBeNull();
+    expect(subdomainSlug('soovioo.cloud', mainDomain)).toBeNull();
   });
 
   it('returns null for a hostname that is not under the configured main domain', () => {
@@ -46,11 +46,11 @@ describe('subdomainSlug', () => {
   });
 
   it('takes only the first label when there are multiple subdomain levels', () => {
-    expect(subdomainSlug('demo.staging.soovioo.cz', mainDomain)).toBe('demo');
+    expect(subdomainSlug('demo.staging.soovioo.cloud', mainDomain)).toBe('demo');
   });
 });
 
-// environment.mainDomain is "soovioo.cz" in both dev and test builds.
+// environment.mainDomain is "soovioo.cloud" in both dev and test builds.
 describe('currentSchoolSlugFromUrl', () => {
   it('reads the first path segment in path mode', () => {
     expect(
@@ -66,10 +66,10 @@ describe('currentSchoolSlugFromUrl', () => {
 
   it('reads the subdomain in production', () => {
     expect(
-      currentSchoolSlugFromUrl({ hostname: 'demo.soovioo.cz', pathname: '/home' }),
+      currentSchoolSlugFromUrl({ hostname: 'demo.soovioo.cloud', pathname: '/home' }),
     ).toBe('demo');
     expect(
-      currentSchoolSlugFromUrl({ hostname: 'soovioo.cz', pathname: '/superadmin' }),
+      currentSchoolSlugFromUrl({ hostname: 'soovioo.cloud', pathname: '/superadmin' }),
     ).toBeNull();
   });
 });
