@@ -35,6 +35,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
 
@@ -144,6 +145,7 @@ function formatShortDate(date: Date): string {
 })
 export class TimetablePage {
   protected readonly notify = inject(NotifyService);
+  private readonly confirmation = inject(ConfirmationService);
   private readonly timetableApi = inject(TimetableApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
@@ -607,6 +609,24 @@ export class TimetablePage {
         this.reload();
       },
       error: (err) => this.notify.actionFailed('saveEntry failed', err),
+    });
+  }
+
+  /** The cross on a cell in edit mode — asks first, the dialog isn't open. */
+  protected confirmDeleteEntry(entry: GridEntry): void {
+    this.confirmation.confirm({
+      header: 'Smazat hodinu',
+      message: `Smazat ${entry.subjectName} (${DAY_LABELS[entry.dayOfWeek]}, ${entry.periodNumber}. hodina)${entry.schoolClassName ? ` — ${entry.schoolClassName}` : ''}?`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Smazat',
+      rejectLabel: 'Zrušit',
+      acceptButtonProps: { severity: 'danger' },
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () =>
+        this.timetableApi.deleteEntry(entry.schoolClassId, entry.id).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.notify.actionFailed('deleteEntry failed', err),
+        }),
     });
   }
 

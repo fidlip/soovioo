@@ -181,8 +181,10 @@
           </th>
           @for (period of displayedPeriods(); track period.periodNumber) { @let
           entry = entryGrid().get(day)?.get(period.periodNumber);
+          @let editable = editMode() && canManageTimetable();
           <td
-            class="border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
+            class="group relative border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
+            [class.h-14]="editable"
             [attr.data-period]="period.periodNumber"
             [class.cursor-pointer]="editMode() && canManageTimetable()"
             [class.hover:bg-surface-100]="editMode() && canManageTimetable()"
@@ -219,8 +221,41 @@
               <div class="text-surface-600">
                 {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
               </div>
+              } @if (editable) {
+              <div
+                class="absolute bottom-1 right-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+              >
+                <button
+                  type="button"
+                  class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-surface-700 shadow hover:text-primary"
+                  aria-label="Upravit hodinu"
+                  title="Upravit"
+                  (click)="$event.stopPropagation(); onCellClick(day, period.periodNumber)"
+                >
+                  <i class="pi pi-pencil text-xs"></i>
+                </button>
+                <button
+                  type="button"
+                  class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow hover:bg-red-50"
+                  aria-label="Smazat hodinu"
+                  title="Smazat"
+                  (click)="$event.stopPropagation(); confirmDeleteEntry(entry)"
+                >
+                  <i class="pi pi-times text-xs"></i>
+                </button>
+              </div>
               }
             </div>
+            } @else if (editable && canAddEntries()) {
+            <button
+              type="button"
+              class="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-400 text-surface-500 opacity-0 transition-opacity hover:border-primary hover:text-primary focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+              aria-label="Přidat hodinu"
+              title="Přidat hodinu"
+              (click)="$event.stopPropagation(); onCellClick(day, period.periodNumber)"
+            >
+              <i class="pi pi-plus text-sm"></i>
+            </button>
             }
           </td>
           } @empty { @if (firstDay) {
