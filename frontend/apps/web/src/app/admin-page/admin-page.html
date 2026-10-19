@@ -14,14 +14,6 @@
   {{ 'Jste třídní učitel — vidíte a upravujete jen žáky své třídy a jejich vazby
   na rodiče.' | term }}
 </p>
-} @if (error(); as errorMessage) {
-<p-message severity="error" [text]="errorMessage" styleClass="mb-6 w-full" />
-} @if (inviteMessage(); as successMessage) {
-<p-message
-  severity="success"
-  [text]="successMessage"
-  styleClass="mb-6 w-full"
-/>
 }
 
 <!-- ============================= STUDENTS (shared by both access levels) ============================= -->

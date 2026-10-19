@@ -17,6 +17,7 @@ import { DarkModeService } from '../dark-mode.service';
 import { SchoolContextService } from '../school-context';
 
 import { InfoHint } from '../info-hint/info-hint';
+import { NotifyService } from '../notify.service';
 @Component({
   selector: 'app-settings-page',
   imports: [
@@ -32,6 +33,7 @@ import { InfoHint } from '../info-hint/info-hint';
   templateUrl: './settings-page.html',
 })
 export class SettingsPage {
+  protected readonly notify = inject(NotifyService);
   private readonly profileApi = inject(MyProfileApiService);
   private readonly eventsApi = inject(EventsApiService);
   private readonly authApi = inject(AuthApiService);
@@ -48,13 +50,11 @@ export class SettingsPage {
   protected readonly profile = signal<MyProfile | null>(null);
   protected phone = '';
   protected email = '';
-  protected readonly profileSaved = signal(false);
 
   protected currentPassword = '';
   protected newPassword = '';
   protected confirmNewPassword = '';
   protected readonly passwordError = signal<string | null>(null);
-  protected readonly passwordChanged = signal(false);
 
   // Hidden for SuperAdmin: calendar/events are a per-school feature SuperAdmin
   // has no "Kalendář" nav link for either, see app.html.
@@ -81,7 +81,6 @@ export class SettingsPage {
   }
 
   protected saveProfile(): void {
-    this.profileSaved.set(false);
     this.profileApi
       .updateProfile({
         phone: this.phone || undefined,
@@ -90,15 +89,14 @@ export class SettingsPage {
       .subscribe({
         next: (profile) => {
           this.profile.set(profile);
-          this.profileSaved.set(true);
+          this.notify.success('Uloženo.');
         },
-        error: (err) => console.error('updateProfile failed', err),
+        error: (err) => this.notify.actionFailed('updateProfile failed', err),
       });
   }
 
   protected changePassword(): void {
     this.passwordError.set(null);
-    this.passwordChanged.set(false);
 
     if (this.newPassword !== this.confirmNewPassword) {
       this.passwordError.set('Nové heslo a jeho potvrzení se neshodují.');
@@ -112,7 +110,7 @@ export class SettingsPage {
       })
       .subscribe({
         next: () => {
-          this.passwordChanged.set(true);
+          this.notify.success('Heslo bylo změněno.');
           this.currentPassword = '';
           this.newPassword = '';
           this.confirmNewPassword = '';

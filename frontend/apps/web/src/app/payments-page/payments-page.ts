@@ -28,6 +28,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { NotifyService } from '../notify.service';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type AmountTypeOption = { value: PaymentAmountType; label: string };
@@ -83,6 +84,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
   templateUrl: './payments-page.html',
 })
 export class PaymentsPage {
+  protected readonly notify = inject(NotifyService);
   private readonly paymentsApi = inject(PaymentsApiService);
   protected readonly authApi = inject(AuthApiService);
 
@@ -259,6 +261,7 @@ export class PaymentsPage {
     this.classFilterName = '';
     this.studentFilterName = '';
     this.parentFilterName = '';
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 
@@ -304,14 +307,14 @@ export class PaymentsPage {
   protected deletePayment(payment: Payment): void {
     this.paymentsApi.deletePayment(payment.id).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('deletePayment failed', err),
+      error: (err) => this.notify.actionFailed('deletePayment failed', err),
     });
   }
 
   protected setPaid(recipient: PaymentRecipient, paid: boolean): void {
     this.paymentsApi.setRecipientPaid(recipient.id, { paid }).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('setRecipientPaid failed', err),
+      error: (err) => this.notify.actionFailed('setRecipientPaid failed', err),
     });
   }
 

@@ -31,6 +31,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { UnreadMessagesService } from '../unread-messages.service';
+import { NotifyService } from '../notify.service';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -90,6 +91,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
   templateUrl: './messages-page.html',
 })
 export class MessagesPage {
+  protected readonly notify = inject(NotifyService);
   private readonly messagesApi = inject(MessagesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
@@ -102,7 +104,6 @@ export class MessagesPage {
   protected readonly students = signal<Student[]>([]);
   protected readonly broadcastClasses = signal<SchoolClass[]>([]);
   protected readonly contacts = signal<Contact[]>([]);
-  protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly myUserId = this.authApi.getUserId();
   protected readonly isStaff = this.authApi.isTeacherOrAdmin();
@@ -164,7 +165,6 @@ export class MessagesPage {
   }
 
   protected open(summary: ConversationSummary): void {
-    this.notice.set(null);
     this.messagesApi.getConversation(summary.id).subscribe({
       next: (conversation) => {
         this.selected.set(conversation);
@@ -193,7 +193,6 @@ export class MessagesPage {
   }
 
   protected openNewDialog(): void {
-    this.notice.set(null);
     this.error.set(null);
     this.fileError.set(null);
     this.sendMode = 'individual';
@@ -204,6 +203,7 @@ export class MessagesPage {
     this.studentId = this.students()[0]?.id ?? null;
     this.broadcastClassId = this.broadcastClasses()[0]?.id ?? null;
     this.loadContacts();
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 
@@ -307,7 +307,7 @@ export class MessagesPage {
           file,
         ).subscribe(() => this.reloadSelectedAndList());
       },
-      error: (err) => console.error('reply failed', err),
+      error: (err) => this.notify.actionFailed('reply failed', err),
     });
   }
 
@@ -326,7 +326,7 @@ export class MessagesPage {
           this.reloadSelectedAndList();
         }
       },
-      error: (err) => console.error('deleteMessage failed', err),
+      error: (err) => this.notify.actionFailed('deleteMessage failed', err),
     });
   }
 
@@ -408,11 +408,13 @@ export class MessagesPage {
   ): void {
     this.uploadAll(refs, file).subscribe((uploaded) => {
       this.dialogVisible.set(false);
-      this.notice.set(
-        uploaded
-          ? successNotice
-          : 'Zpráva byla odeslána, ale příloha se nepodařila nahrát.',
-      );
+      if (!uploaded) {
+        this.notify.warn(
+          'Zpráva byla odeslána, ale příloha se nepodařila nahrát.',
+        );
+      } else if (successNotice) {
+        this.notify.success(successNotice);
+      }
       this.reloadList(openId);
     });
   }

@@ -25,6 +25,7 @@ import {
   TimetableApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { NotifyService } from '../notify.service';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
  * for homework attachments too (see ROADMAP "Přílohy u zpráv"). */
@@ -66,6 +67,7 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
   templateUrl: './homework-page.html',
 })
 export class HomeworkPage {
+  protected readonly notify = inject(NotifyService);
   private readonly homeworkApi = inject(HomeworkApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
@@ -123,7 +125,6 @@ export class HomeworkPage {
   protected readonly homeworkDialogVisible = signal(false);
   protected readonly createError = signal<string | null>(null);
   protected readonly fileError = signal<string | null>(null);
-  protected readonly attachmentUploadError = signal<string | null>(null);
 
   protected selectedAssignmentKey: string | null = null;
   protected readonly newSchoolClassId = signal<number | null>(null);
@@ -205,14 +206,13 @@ export class HomeworkPage {
     }
     this.homeworkApi.markComplete(item.id, studentId).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('markComplete failed', err),
+      error: (err) => this.notify.actionFailed('markComplete failed', err),
     });
   }
 
   protected openAddHomeworkDialog(): void {
     this.createError.set(null);
     this.fileError.set(null);
-    this.attachmentUploadError.set(null);
     this.selectedAssignmentKey =
       this.teachingAssignmentOptions()[0]?.key ?? null;
     this.newSchoolClassId.set(
@@ -227,6 +227,7 @@ export class HomeworkPage {
     this.newRequiresCompletion = false;
     this.newTargetStudentIds = [];
     this.selectedFile = null;
+    this.notify.clear();
     this.homeworkDialogVisible.set(true);
   }
 
@@ -307,9 +308,7 @@ export class HomeworkPage {
       },
       error: (err) => {
         console.error('uploadAttachment failed', err);
-        this.attachmentUploadError.set(
-          'Úkol byl zadán, ale příloha se nepodařila nahrát.',
-        );
+        this.notify.warn('Úkol byl zadán, ale příloha se nepodařila nahrát.');
         this.homeworkDialogVisible.set(false);
         this.reload();
       },
@@ -319,7 +318,7 @@ export class HomeworkPage {
   protected deleteHomework(item: Homework): void {
     this.homeworkApi.deleteHomework(item.id).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('deleteHomework failed', err),
+      error: (err) => this.notify.actionFailed('deleteHomework failed', err),
     });
   }
 

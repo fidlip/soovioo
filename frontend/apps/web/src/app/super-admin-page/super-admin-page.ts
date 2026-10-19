@@ -17,6 +17,7 @@ import {
   UpdateSchoolRequest,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { NotifyService } from '../notify.service';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -38,6 +39,7 @@ const DEFAULT_PAGE_SIZE = 10;
   templateUrl: './super-admin-page.html',
 })
 export class SuperAdminPage {
+  protected readonly notify = inject(NotifyService);
   private readonly schoolsApi = inject(SchoolsApiService);
 
   protected readonly schools = signal<School[]>([]);
@@ -61,7 +63,6 @@ export class SuperAdminPage {
   /** A signal, not a plain field — this app has no zone.js polyfill, so a
    * plain-field write inside an RxJS subscribe callback doesn't reliably
    * schedule change detection on its own. */
-  protected readonly error = signal<string | null>(null);
 
   constructor() {
     this.reload();
@@ -127,15 +128,9 @@ export class SuperAdminPage {
         this.newAdminPassword = '';
         this.newSchoolIzo = '';
         this.newSchoolRedIzo = '';
-        this.error.set(null);
         this.reload();
       },
-      error: (err) => {
-        console.error('addSchool failed', err);
-        this.error.set(
-          (err as { error?: string })?.error ?? 'Něco se nepovedlo.',
-        );
-      },
+      error: (err) => this.notify.actionFailed('addSchool failed', err),
     });
   }
 
@@ -143,7 +138,6 @@ export class SuperAdminPage {
     this.editingSchoolId = school.id;
     this.editName = school.name;
     this.editSlug = school.slug;
-    this.error.set(null);
   }
 
   protected cancelEdit(): void {
@@ -165,30 +159,18 @@ export class SuperAdminPage {
     this.schoolsApi.updateSchool(this.editingSchoolId, request).subscribe({
       next: () => {
         this.editingSchoolId = null;
-        this.error.set(null);
         this.reload();
       },
-      error: (err) => {
-        console.error('updateSchool failed', err);
-        this.error.set(
-          (err as { error?: string })?.error ?? 'Něco se nepovedlo.',
-        );
-      },
+      error: (err) => this.notify.actionFailed('updateSchool failed', err),
     });
   }
 
   protected deleteSchool(school: School): void {
     this.schoolsApi.deleteSchool(school.id).subscribe({
       next: () => {
-        this.error.set(null);
         this.reload();
       },
-      error: (err) => {
-        console.error('deleteSchool failed', err);
-        this.error.set(
-          (err as { error?: string })?.error ?? 'Něco se nepovedlo.',
-        );
-      },
+      error: (err) => this.notify.actionFailed('deleteSchool failed', err),
     });
   }
 }

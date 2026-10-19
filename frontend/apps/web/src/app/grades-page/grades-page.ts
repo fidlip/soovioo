@@ -21,6 +21,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
+import { NotifyService } from '../notify.service';
 
 /** "2026-10-18" (DateOnly) -> local Date, without the UTC shift
  * `new Date(string)` applies to date-only ISO strings. */
@@ -71,6 +72,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
   templateUrl: './grades-page.html',
 })
 export class GradesPage {
+  protected readonly notify = inject(NotifyService);
   private readonly gradesApi = inject(GradesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
@@ -173,6 +175,7 @@ export class GradesPage {
     this.newWeight = 1;
     this.newNote = '';
     this.newGradedOn = new Date();
+    this.notify.clear();
     this.gradeDialogVisible.set(true);
   }
 
@@ -198,7 +201,7 @@ export class GradesPage {
         this.editingGradeId = null;
         this.reload();
       },
-      error: (err) => console.error('saveGrade failed', err),
+      error: (err) => this.notify.actionFailed('saveGrade failed', err),
     });
   }
 
@@ -214,13 +217,14 @@ export class GradesPage {
     this.newWeight = grade.weight;
     this.newNote = grade.note ?? '';
     this.newGradedOn = parseDateOnly(grade.gradedOn);
+    this.notify.clear();
     this.gradeDialogVisible.set(true);
   }
 
   protected deleteGrade(grade: Grade): void {
     this.gradesApi.deleteGrade(grade.id).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('deleteGrade failed', err),
+      error: (err) => this.notify.actionFailed('deleteGrade failed', err),
     });
   }
 

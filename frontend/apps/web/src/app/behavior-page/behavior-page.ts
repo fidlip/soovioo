@@ -24,6 +24,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { NotifyService } from '../notify.service';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',
@@ -85,6 +86,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
   templateUrl: './behavior-page.html',
 })
 export class BehaviorPage {
+  protected readonly notify = inject(NotifyService);
   private readonly behaviorApi = inject(BehaviorApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
@@ -262,6 +264,7 @@ export class BehaviorPage {
     this.onNewStudentChange();
     this.newText = '';
     this.newDate = new Date();
+    this.notify.clear();
     this.recordDialogVisible.set(true);
   }
 
@@ -305,7 +308,7 @@ export class BehaviorPage {
   protected deleteRecord(record: BehaviorRecord): void {
     this.behaviorApi.deleteBehaviorRecord(record.id).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('deleteBehaviorRecord failed', err),
+      error: (err) => this.notify.actionFailed('deleteBehaviorRecord failed', err),
     });
   }
 
@@ -324,6 +327,7 @@ export class BehaviorPage {
     this.classSchoolYearStartYear = this.defaultSchoolYearStartYear();
     this.classHalfYear = this.defaultHalfYear();
     this.onClassStudentChange();
+    this.notify.clear();
     this.classificationDialogVisible.set(true);
   }
 

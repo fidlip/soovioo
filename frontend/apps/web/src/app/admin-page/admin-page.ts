@@ -102,6 +102,7 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
 ];
 
 import { InfoHint } from '../info-hint/info-hint';
+import { NotifyService } from '../notify.service';
 @Component({
   selector: 'app-admin-page',
   imports: [
@@ -133,6 +134,7 @@ import { InfoHint } from '../info-hint/info-hint';
   templateUrl: './admin-page.html',
 })
 export class AdminPage {
+  protected readonly notify = inject(NotifyService);
   private readonly authApi = inject(AuthApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
@@ -332,8 +334,6 @@ export class AdminPage {
    * plain-field write inside an RxJS subscribe callback doesn't reliably
    * schedule change detection on its own (it only "works" by coincidence
    * when some other signal write happens to run in the same tick). */
-  protected readonly error = signal<string | null>(null);
-  protected readonly inviteMessage = signal<string | null>(null);
 
   constructor() {
     if (this.authApi.isAdmin()) {
@@ -490,6 +490,7 @@ export class AdminPage {
   protected openQualificationDialog(teacher: AppUser): void {
     this.qualificationTeacher = teacher;
     this.qualification = teacher.qualification ?? '';
+    this.notify.clear();
     this.qualificationDialogVisible.set(true);
   }
 
@@ -573,6 +574,7 @@ export class AdminPage {
     this.newSchoolClassRocnik = null;
     this.newSchoolClassTeacherId = null;
     this.newSchoolClassTeachingLanguage = '';
+    this.notify.clear();
     this.newClassDialogVisible.set(true);
   }
 
@@ -582,6 +584,7 @@ export class AdminPage {
     this.newSchoolClassRocnik = schoolClass.rocnik;
     this.newSchoolClassTeacherId = schoolClass.classTeacherId;
     this.newSchoolClassTeachingLanguage = schoolClass.teachingLanguage ?? '';
+    this.notify.clear();
     this.newClassDialogVisible.set(true);
   }
 
@@ -625,6 +628,7 @@ export class AdminPage {
     this.newSubjectAbbreviation = '';
     this.newSubjectColor = null;
     this.newSubjectDefaultClassroomId = null;
+    this.notify.clear();
     this.newSubjectDialogVisible.set(true);
   }
 
@@ -634,6 +638,7 @@ export class AdminPage {
     this.newSubjectAbbreviation = subject.abbreviation ?? '';
     this.newSubjectColor = subject.color;
     this.newSubjectDefaultClassroomId = subject.defaultClassroomId;
+    this.notify.clear();
     this.newSubjectDialogVisible.set(true);
   }
 
@@ -680,6 +685,7 @@ export class AdminPage {
     this.newClassroomName = '';
     this.newClassroomType = '';
     this.newClassroomCapacity = null;
+    this.notify.clear();
     this.newClassroomDialogVisible.set(true);
   }
 
@@ -688,6 +694,7 @@ export class AdminPage {
     this.newClassroomName = classroom.name;
     this.newClassroomType = classroom.type ?? '';
     this.newClassroomCapacity = classroom.capacity;
+    this.notify.clear();
     this.newClassroomDialogVisible.set(true);
   }
 
@@ -740,6 +747,7 @@ export class AdminPage {
     this.newStudentContactEmail = '';
     this.newStudentDefaultVariableSymbol = '';
     this.editingStudentParentIds = [];
+    this.notify.clear();
     this.newStudentDialogVisible.set(true);
   }
 
@@ -774,6 +782,7 @@ export class AdminPage {
     this.newStudentContactPhone = student.contactPhone ?? '';
     this.newStudentContactEmail = student.contactEmail ?? '';
     this.newStudentDefaultVariableSymbol = student.defaultVariableSymbol ?? '';
+    this.notify.clear();
     this.newStudentDialogVisible.set(true);
   }
 
@@ -879,6 +888,7 @@ export class AdminPage {
     this.newUserPhone = '';
     this.newUserEmail = '';
     this.newUserStudentId = null;
+    this.notify.clear();
     this.newUserDialogVisible.set(true);
   }
 
@@ -892,6 +902,7 @@ export class AdminPage {
     this.newUserPhone = user.phone ?? '';
     this.newUserEmail = user.email ?? '';
     this.newUserStudentId = user.studentId;
+    this.notify.clear();
     this.newUserDialogVisible.set(true);
   }
 
@@ -950,9 +961,8 @@ export class AdminPage {
   /** Backend rejects (400) when the user has no e-mail on file, or (503)
    * when this environment has no e-mail infrastructure configured. */
   protected sendInvite(user: AppUser): void {
-    this.inviteMessage.set(null);
     this.usersApi.sendInvite(user.id).subscribe({
-      next: () => this.inviteMessage.set(`Pozvánka odeslána na ${user.email}.`),
+      next: () => this.notify.success(`Pozvánka odeslána na ${user.email}.`),
       error: (err) => this.showError('sendInvite failed', err),
     });
   }
@@ -970,6 +980,7 @@ export class AdminPage {
     this.editingParentChildIds = this.links()
       .filter((l) => l.userId === parent.id)
       .map((l) => l.studentId);
+    this.notify.clear();
     this.editParentChildrenDialogVisible.set(true);
   }
 
@@ -1188,7 +1199,6 @@ export class AdminPage {
   }
 
   private showError(context: string, err: unknown): void {
-    console.error(context, err);
-    this.error.set((err as { error?: string })?.error ?? 'Něco se nepovedlo.');
+    this.notify.actionFailed(context, err);
   }
 }

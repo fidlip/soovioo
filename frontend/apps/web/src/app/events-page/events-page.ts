@@ -48,6 +48,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { NotifyService } from '../notify.service';
 
 type ViewOption = { value: string; label: string };
 
@@ -140,6 +141,7 @@ function startOfDay(d: Date): Date {
   templateUrl: './events-page.html',
 })
 export class EventsPage {
+  protected readonly notify = inject(NotifyService);
   private readonly eventsApi = inject(EventsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly authApi = inject(AuthApiService);
@@ -299,6 +301,7 @@ export class EventsPage {
   /** The "+" button — no calendar context, so Od defaults to now. */
   protected openCreateDialog(): void {
     this.resetForm();
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 
@@ -461,7 +464,7 @@ export class EventsPage {
         this.resetForm();
         this.reload();
       },
-      error: (err) => console.error('deleteEvent failed', err),
+      error: (err) => this.notify.actionFailed('deleteEvent failed', err),
     });
   }
 
@@ -498,6 +501,7 @@ export class EventsPage {
     }
 
     this.calendar()?.getApi().unselect();
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 
@@ -528,6 +532,7 @@ export class EventsPage {
     this.selectedTeacherIds.set(event.teacherUserIds);
     this.selectedParentIds.set(event.parentUserIds);
     this.selectedStudentIds.set(event.studentIds);
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 

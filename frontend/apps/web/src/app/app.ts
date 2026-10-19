@@ -10,6 +10,7 @@ import {
 } from '@angular/router';
 import { ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
+import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { filter, map } from 'rxjs';
 import {
@@ -39,6 +40,7 @@ interface NavItem {
 @Component({
   selector: 'app-root',
   imports: [
+    Toast,
     RouterLink,
     RouterLinkActive,
     RouterOutlet,

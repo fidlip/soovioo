@@ -18,6 +18,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { NotifyService } from '../notify.service';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -54,6 +55,7 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
   templateUrl: './absences-page.html',
 })
 export class AbsencesPage {
+  protected readonly notify = inject(NotifyService);
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
@@ -131,6 +133,7 @@ export class AbsencesPage {
     this.editingAbsenceId = null;
     this.newStudentId = this.students()[0]?.id ?? null;
     this.newDate = new Date();
+    this.notify.clear();
     this.absenceDialogVisible.set(true);
   }
 
@@ -152,7 +155,7 @@ export class AbsencesPage {
         this.editingAbsenceId = null;
         this.reload();
       },
-      error: (err) => console.error('saveAbsence failed', err),
+      error: (err) => this.notify.actionFailed('saveAbsence failed', err),
     });
   }
 
@@ -178,13 +181,14 @@ export class AbsencesPage {
     this.editingAbsenceId = absence.id;
     this.newStudentId = absence.studentId;
     this.newDate = new Date(absence.date);
+    this.notify.clear();
     this.absenceDialogVisible.set(true);
   }
 
   protected deleteAbsence(absence: Absence): void {
     this.absencesApi.deleteAbsence(absence.id).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('deleteAbsence failed', err),
+      error: (err) => this.notify.actionFailed('deleteAbsence failed', err),
     });
   }
 

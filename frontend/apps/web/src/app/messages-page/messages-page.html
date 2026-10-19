@@ -5,10 +5,6 @@
   <p-button label="Nová zpráva" icon="pi pi-send" (onClick)="openNewDialog()" />
 </div>
 
-@if (notice(); as text) {
-<p-message severity="success" [text]="text" styleClass="mb-3 w-full" />
-}
-
 <div class="grid gap-4 md:grid-cols-[20rem_1fr]">
   <!-- Conversation list — on a phone hidden while one is open. -->
   <section

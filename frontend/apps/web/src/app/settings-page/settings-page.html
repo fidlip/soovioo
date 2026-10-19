@@ -50,9 +50,6 @@
         />
       </div>
 
-      @if (profileSaved()) {
-      <p-message severity="success" text="Uloženo." />
-      }
 
       <p-button
         label="Uložit"
@@ -120,8 +117,6 @@
 
       @if (passwordError(); as err) {
       <p-message severity="error" [text]="err" />
-      } @if (passwordChanged()) {
-      <p-message severity="success" text="Heslo bylo změněno." />
       }
 
       <p-button type="submit" label="Změnit heslo" styleClass="self-start" />

@@ -37,6 +37,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { NotifyService } from '../notify.service';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -164,6 +165,7 @@ function formatShortDate(date: Date): string {
   templateUrl: './timetable-page.html',
 })
 export class TimetablePage {
+  protected readonly notify = inject(NotifyService);
   private readonly timetableApi = inject(TimetableApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
@@ -569,6 +571,7 @@ export class TimetablePage {
       this.subjectsById().get(this.formSubjectId ?? -1)?.defaultClassroomId ??
       null;
     this.formClassroomTouched = false;
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 
@@ -584,6 +587,7 @@ export class TimetablePage {
     // Editing already has a real classroom (or an intentional "none") —
     // don't let a later subject change silently overwrite it.
     this.formClassroomTouched = true;
+    this.notify.clear();
     this.dialogVisible.set(true);
   }
 
@@ -630,7 +634,7 @@ export class TimetablePage {
         this.dialogVisible.set(false);
         this.reload();
       },
-      error: (err) => console.error('saveEntry failed', err),
+      error: (err) => this.notify.actionFailed('saveEntry failed', err),
     });
   }
 
@@ -645,7 +649,7 @@ export class TimetablePage {
         this.dialogVisible.set(false);
         this.reload();
       },
-      error: (err) => console.error('deleteEntry failed', err),
+      error: (err) => this.notify.actionFailed('deleteEntry failed', err),
     });
   }
 
@@ -659,7 +663,7 @@ export class TimetablePage {
       })
       .subscribe({
         next: () => this.reloadPeriods(),
-        error: (err) => console.error('upsertPeriod failed', err),
+        error: (err) => this.notify.actionFailed('upsertPeriod failed', err),
       });
   }
 
@@ -693,14 +697,14 @@ export class TimetablePage {
           this.editingPeriodNumber = null;
           this.reloadPeriods();
         },
-        error: (err) => console.error('upsertPeriod failed', err),
+        error: (err) => this.notify.actionFailed('upsertPeriod failed', err),
       });
   }
 
   protected deletePeriod(period: SchoolPeriod): void {
     this.schoolPeriodsApi.deletePeriod(period.periodNumber).subscribe({
       next: () => this.reloadPeriods(),
-      error: (err) => console.error('deletePeriod failed', err),
+      error: (err) => this.notify.actionFailed('deletePeriod failed', err),
     });
   }
 

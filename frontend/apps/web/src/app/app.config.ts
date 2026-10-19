@@ -7,7 +7,7 @@ import {
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withRouterConfig } from '@angular/router';
-import { Translation } from '@openng/optimus-ui/api';
+import { MessageService, Translation } from '@openng/optimus-ui/api';
 import { provideOptimus } from '@openng/optimus-ui/config';
 import {
   API_BASE_URL,
@@ -18,6 +18,7 @@ import {
 } from '@soovioo/shared';
 import { appRoutes } from './app.routes';
 import { MemoryTokenStorage } from './memory-token-storage';
+import { serverErrorInterceptor } from './server-error.interceptor';
 import { sooviooTheme } from './theme';
 
 // optimus-ui (PrimeNG) components with their own locale-dependent text —
@@ -48,8 +49,9 @@ export const appConfig: ApplicationConfig = {
     // own paramMap too, so components/guards don't need to walk up the
     // route tree to find it.
     provideRouter(appRoutes, withRouterConfig({ paramsInheritanceStrategy: 'always' })),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, serverErrorInterceptor])),
     provideAnimations(),
+    MessageService,
     provideOptimus({
       translation: csTranslation,
       theme: {

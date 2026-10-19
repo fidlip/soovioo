@@ -11,9 +11,6 @@
   }
 </div>
 
-@if (attachmentUploadError(); as error) {
-<p-message severity="warn" [text]="error" styleClass="mb-3 w-full" />
-}
 
 <div class="mb-6 flex flex-wrap items-end gap-3">
   @if (!authApi.isStudent()) {
