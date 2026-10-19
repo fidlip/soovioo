@@ -20,9 +20,9 @@ test('admin sees the full tabbed Administrace page', async ({ page }) => {
     page.getByRole('tab', { name: 'Třídy, předměty a učebny' }),
   ).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Žáci' })).toBeVisible();
-  await expect(
-    page.getByRole('tab', { name: 'Uživatelé a rodiče' }),
-  ).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Uživatelé' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Učitelé' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Rodiče' })).toBeVisible();
   await expect(
     page.getByRole('tab', { name: 'Škola a matrika' }),
   ).toBeVisible();
