@@ -54,6 +54,7 @@ export class SuperAdminPage {
 
   protected readonly superAdmins = signal<SuperAdmin[]>([]);
   protected readonly myUserId = this.authApi.getUserId();
+  protected readonly superAdminDialogVisible = signal(false);
   protected newSuperAdminUsername = '';
   protected newSuperAdminPassword = '';
 
@@ -105,6 +106,13 @@ export class SuperAdminPage {
     });
   }
 
+  protected openAddSuperAdminDialog(): void {
+    this.newSuperAdminUsername = '';
+    this.newSuperAdminPassword = '';
+    this.notify.clear();
+    this.superAdminDialogVisible.set(true);
+  }
+
   protected addSuperAdmin(): void {
     this.supportApi
       .addSuperAdmin({
@@ -116,8 +124,7 @@ export class SuperAdminPage {
           this.notify.success(
             `Superadmin ${added.username} přidán — při prvním přihlášení si změní heslo.`,
           );
-          this.newSuperAdminUsername = '';
-          this.newSuperAdminPassword = '';
+          this.superAdminDialogVisible.set(false);
           this.reloadSuperAdmins();
         },
         error: (err) => this.notify.actionFailed('addSuperAdmin failed', err),

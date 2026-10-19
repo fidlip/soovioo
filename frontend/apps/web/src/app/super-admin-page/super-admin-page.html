@@ -135,70 +135,45 @@
   />
 </p-card>
 
-<p-card header="Superadmini" styleClass="mt-6">
-  <ul class="m-0 mb-4 flex list-none flex-col gap-1 p-0">
-    @for (superAdmin of superAdmins(); track superAdmin.id) {
-    <li class="flex items-center justify-between gap-2 border-b border-surface-200 py-1 dark:border-surface-700">
-      <span>
-        {{ superAdmin.username }} @if (superAdmin.id === myUserId) {
-        <span class="text-sm text-surface-500">(vy)</span> }
-      </span>
-      @if (superAdmin.id !== myUserId) {
-      <p-button
-        icon="pi pi-trash"
-        size="small"
-        severity="danger"
-        [text]="true"
-        ariaLabel="Odebrat superadmina"
-        (onClick)="deleteSuperAdmin(superAdmin)"
-      />
-      }
-    </li>
-    }
-  </ul>
-  <form
-    class="flex flex-wrap items-end gap-3"
-    #superAdminForm="ngForm"
-    (ngSubmit)="addSuperAdmin()"
-  >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="newSuperAdminUsername"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Uživatelské jméno</label
-      >
-      <input
-        pInputText
-        id="newSuperAdminUsername"
-        name="newSuperAdminUsername"
-        autocomplete="off"
-        required
-        [(ngModel)]="newSuperAdminUsername"
-      />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="newSuperAdminPassword"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Počáteční heslo</label
-      >
-      <p-password
-        inputId="newSuperAdminPassword"
-        name="newSuperAdminPassword"
-        autocomplete="new-password"
-        required
-        [minlength]="8"
-        [(ngModel)]="newSuperAdminPassword"
-        [toggleMask]="true"
-        [feedback]="false"
-      />
-    </div>
-    <app-submit-button
-      [form]="superAdminForm"
-      label="Přidat superadmina"
+<p-card header="Superadmini">
+  <div class="mb-3 flex justify-end">
+    <p-button
+      label="Nový superadmin"
       icon="pi pi-plus"
+      size="small"
+      (onClick)="openAddSuperAdminDialog()"
     />
-  </form>
+  </div>
+  <p-table [value]="superAdmins()" dataKey="id">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Uživatelské jméno</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-superAdmin>
+      <tr>
+        <td>
+          {{ superAdmin.username }} @if (superAdmin.id === myUserId) {
+          <span class="text-sm text-surface-500">(vy)</span> }
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            @if (superAdmin.id !== myUserId) {
+            <p-button
+              icon="pi pi-trash"
+              size="small"
+              severity="danger"
+              [text]="true"
+              ariaLabel="Odebrat superadmina"
+              (onClick)="deleteSuperAdmin(superAdmin)"
+            />
+            }
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
 </p-card>
 
 <p-dialog
@@ -317,6 +292,62 @@
       <app-submit-button
         [form]="schoolForm"
         label="Založit školu"
+        icon="pi pi-check"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="superAdminDialogVisible()"
+  (visibleChange)="superAdminDialogVisible.set($event)"
+  header="Nový superadmin"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form
+    class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+    #superAdminForm="ngForm"
+    (ngSubmit)="addSuperAdmin()"
+  >
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newSuperAdminUsername"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Uživatelské jméno</label
+      >
+      <input
+        pInputText
+        id="newSuperAdminUsername"
+        name="newSuperAdminUsername"
+        autocomplete="off"
+        required
+        [(ngModel)]="newSuperAdminUsername"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newSuperAdminPassword"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Počáteční heslo</label
+      >
+      <p-password
+        inputId="newSuperAdminPassword"
+        name="newSuperAdminPassword"
+        autocomplete="new-password"
+        required
+        [minlength]="8"
+        [(ngModel)]="newSuperAdminPassword"
+        [toggleMask]="true"
+        [feedback]="false"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+    </div>
+    <div class="sm:col-span-2">
+      <app-submit-button
+        [form]="superAdminForm"
+        label="Přidat superadmina"
         icon="pi pi-check"
       />
     </div>
