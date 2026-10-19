@@ -35,6 +35,9 @@ export interface CreateSchoolRequest {
 export interface UpdateSchoolRequest {
   name: string;
   slug: string;
+  /** Empty/omitted clears it. */
+  izo?: string;
+  redIzo?: string;
 }
 
 export interface SetSchoolMatrikaIdsRequest {

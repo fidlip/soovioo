@@ -123,4 +123,20 @@ public class SchoolsControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Schools.FindAsync(school.Id));
     }
+
+    [Fact]
+    public async Task UpdateSchoolSetsAndClearsMatrikaIds()
+    {
+        using var db = NewDb();
+        var school = new School { Name = "A", Slug = "a", Izo = "1" };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+
+        var result = await new SchoolsController(db).UpdateSchool(school.Id, new UpdateSchoolRequest("B", "b", RedIzo: "600000001"));
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal("B", school.Name);
+        Assert.Null(school.Izo);
+        Assert.Equal("600000001", school.RedIzo);
+    }
 }

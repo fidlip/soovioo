@@ -122,6 +122,8 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 
         school.Name = request.Name;
         school.Slug = request.Slug;
+        school.Izo = string.IsNullOrWhiteSpace(request.Izo) ? null : request.Izo.Trim();
+        school.RedIzo = string.IsNullOrWhiteSpace(request.RedIzo) ? null : request.RedIzo.Trim();
         await db.SaveChangesAsync();
 
         return Ok(await ToDtoAsync(db, school));
@@ -164,7 +166,8 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 public record CreateSchoolRequest(
     string Name, string Slug, string AdminUsername, string AdminPassword, string? Izo = null, string? RedIzo = null);
 
-public record UpdateSchoolRequest(string Name, string Slug);
+/// <param name="Izo">Null/empty clears it (the dialog always sends the current value).</param>
+public record UpdateSchoolRequest(string Name, string Slug, string? Izo = null, string? RedIzo = null);
 
 public record SetSchoolMatrikaIdsRequest(string? Izo, string? RedIzo);
 

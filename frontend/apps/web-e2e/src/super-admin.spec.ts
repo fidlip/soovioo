@@ -38,3 +38,19 @@ test('new SuperAdmin is added in a modal too', async ({ page }) => {
     dialog.getByRole('button', { name: 'Přidat superadmina' }),
   ).toBeDisabled();
 });
+
+test('school is edited in the same modal', async ({ page }) => {
+  await page.goto('/superadmin/login');
+  await page.locator('#username').fill('superadmin');
+  await page.locator('#password').fill('superadmin123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+  await expect(page).toHaveURL(/\/superadmin$/);
+
+  await page.getByRole('button', { name: 'Upravit školu' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Upravit školu' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#schoolName')).not.toHaveValue('');
+  // The first admin is only set when creating a school.
+  await expect(dialog.locator('#adminUsername')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Uložit' })).toBeEnabled();
+});

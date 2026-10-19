@@ -80,9 +80,8 @@ export class SuperAdminPage {
   protected newSchoolIzo = '';
   protected newSchoolRedIzo = '';
 
+  /** null = the school dialog creates a new school, otherwise edits this one. */
   protected editingSchoolId: number | null = null;
-  protected editName = '';
-  protected editSlug = '';
 
   /** A signal, not a plain field — this app has no zone.js polyfill, so a
    * plain-field write inside an RxJS subscribe callback doesn't reliably
@@ -218,7 +217,17 @@ export class SuperAdminPage {
       });
   }
 
+  protected openEditSchoolDialog(school: School): void {
+    this.openAddSchoolDialog();
+    this.editingSchoolId = school.id;
+    this.newSchoolName = school.name;
+    this.newSchoolSlug = school.slug;
+    this.newSchoolIzo = school.izo ?? '';
+    this.newSchoolRedIzo = school.redIzo ?? '';
+  }
+
   protected openAddSchoolDialog(): void {
+    this.editingSchoolId = null;
     this.newSchoolName = '';
     this.newSchoolSlug = '';
     this.newAdminUsername = '';
@@ -229,7 +238,11 @@ export class SuperAdminPage {
     this.schoolDialogVisible.set(true);
   }
 
-  protected addSchool(): void {
+  protected saveSchool(): void {
+    if (this.editingSchoolId !== null) {
+      this.updateSchool(this.editingSchoolId);
+      return;
+    }
     if (
       !this.newSchoolName.trim() ||
       !this.newSchoolSlug.trim() ||
@@ -256,31 +269,17 @@ export class SuperAdminPage {
     });
   }
 
-  protected startEdit(school: School): void {
-    this.editingSchoolId = school.id;
-    this.editName = school.name;
-    this.editSlug = school.slug;
-  }
-
-  protected cancelEdit(): void {
-    this.editingSchoolId = null;
-  }
-
-  protected saveEdit(): void {
-    if (
-      this.editingSchoolId === null ||
-      !this.editName.trim() ||
-      !this.editSlug.trim()
-    ) {
-      return;
-    }
+  private updateSchool(id: number): void {
     const request: UpdateSchoolRequest = {
-      name: this.editName,
-      slug: this.editSlug,
+      name: this.newSchoolName.trim(),
+      slug: this.newSchoolSlug.trim(),
+      izo: this.newSchoolIzo.trim() || undefined,
+      redIzo: this.newSchoolRedIzo.trim() || undefined,
     };
-    this.schoolsApi.updateSchool(this.editingSchoolId, request).subscribe({
+    this.schoolsApi.updateSchool(id, request).subscribe({
       next: () => {
-        this.editingSchoolId = null;
+        this.schoolDialogVisible.set(false);
+        this.notify.success('Uloženo.');
         this.reload();
       },
       error: (err) => this.notify.actionFailed('updateSchool failed', err),
