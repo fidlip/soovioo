@@ -7,7 +7,7 @@ import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Paginator } from '@openng/optimus-ui/paginator';
 import { Select } from '@openng/optimus-ui/select';
-import { TableModule } from '@openng/optimus-ui/table';
+import { Table, TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import {
@@ -133,6 +133,15 @@ export class LogsPage {
     this.pageSize.set(event.rows ?? this.pageSize());
     this.page.set((event.page ?? 0) + 1);
     this.reload();
+  }
+
+  /** Click anywhere on the row — except when the click ends a text
+   * selection (copying a value out of the row). */
+  protected toggleRow(table: Table, entry: AuditLogEntry): void {
+    if (window.getSelection()?.toString()) {
+      return;
+    }
+    table.toggleRow(entry);
   }
 
   protected who(entry: AuditLogEntry): string {

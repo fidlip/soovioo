@@ -19,10 +19,14 @@ test('school admin sees their own login in Logy, password masked', async ({
   await page.getByRole('link', { name: 'Logy', exact: true }).click();
   await expect(page).toHaveURL(/\/demo\/logs$/);
 
-  // Newest first — the login just made.
-  const row = page.locator('tbody tr').first();
-  await expect(row).toContainText('Alena Správcová');
-  await expect(row).toContainText('Přihlášení');
+  // The login just made (other tests log in in parallel, so not
+  // necessarily the very first row).
+  const row = page
+    .locator('tbody tr')
+    .filter({ hasText: 'Alena Správcová' })
+    .filter({ hasText: 'Přihlášení' })
+    .first();
+  await expect(row).toBeVisible();
   // SuperAdmin-only column.
   await expect(page.getByRole('columnheader', { name: 'Škola' })).toHaveCount(
     0,
@@ -31,6 +35,12 @@ test('school admin sees their own login in Logy, password masked', async ({
   await row.getByRole('button', { name: 'Zobrazit detail' }).click();
   await expect(page.getByText('"password": "***"')).toBeVisible();
   await expect(page.getByText('admin123')).toHaveCount(0);
+
+  // Clicking anywhere on the row toggles the detail too.
+  await row.getByText('Alena Správcová').click();
+  await expect(page.getByText('"password": "***"')).toHaveCount(0);
+  await row.getByText('Alena Správcová').click();
+  await expect(page.getByText('"password": "***"')).toBeVisible();
 });
 
 test('teacher has no Logy', async ({ page }) => {

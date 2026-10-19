@@ -133,6 +133,7 @@
   </div>
 
   <p-table
+    #table
     [value]="entries()"
     dataKey="id"
     [expandedRowKeys]="expandedRows"
@@ -152,10 +153,11 @@
       </tr>
     </ng-template>
     <ng-template pTemplate="body" let-entry let-expanded="expanded">
-      <tr>
+      <!-- The whole row toggles the detail; the chevron button is its
+           keyboard/screen-reader handle (its click bubbles up here). -->
+      <tr class="cursor-pointer" (click)="toggleRow(table, entry)">
         <td>
           <p-button
-            [pRowToggler]="entry"
             [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
             size="small"
             [text]="true"
