@@ -1,6 +1,7 @@
 # Reverse proxy + TLS + static web app. Domains come from deploy/.env.
 {
-	email {$ACME_EMAIL}
+	# No ACME e-mail: Let's Encrypt no longer sends expiry notices and
+	# Caddy renews on its own.
 	# School subdomains get their certificate on first visit — no wildcard
 	# certificate, so no DNS-provider API is needed. The backend confirms
 	# the subdomain belongs to an existing school (Hosting/TlsAskController).
