@@ -1,5 +1,6 @@
-# Production stack — see deploy/README.md. Run from this directory:
-#   docker compose up -d --build
+# Production stack — see deploy/README.md. Normally deployed by
+# .github/workflows/deploy.yml (images from GHCR); `build:` is there for a
+# manual build from a full checkout: docker compose up -d --build
 name: soovioo
 
 x-logging: &logging
@@ -27,7 +28,7 @@ services:
 
   api:
     build: ../backend
-    image: soovioo-api
+    image: ghcr.io/fidlip/soovioo-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -56,7 +57,7 @@ services:
 
   web:
     build: ../frontend
-    image: soovioo-web
+    image: ghcr.io/fidlip/soovioo-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       - api
