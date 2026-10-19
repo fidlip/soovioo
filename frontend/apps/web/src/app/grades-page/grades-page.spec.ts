@@ -1,4 +1,4 @@
-import { MessageService } from '@openng/optimus-ui/api';
+import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
 import { provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -34,6 +34,7 @@ describe('GradesPage', () => {
       imports: [GradesPage],
       providers: [
         MessageService,
+        ConfirmationService,
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://test' },

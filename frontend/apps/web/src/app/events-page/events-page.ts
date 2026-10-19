@@ -25,6 +25,7 @@ import {
   ButtonIcon,
   ButtonLabel,
 } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -120,6 +121,7 @@ function startOfDay(d: Date): Date {
 @Component({
   selector: 'app-events-page',
   imports: [
+    Checkbox,
     TermPipe,
     AppIcon,
     AutoComplete,

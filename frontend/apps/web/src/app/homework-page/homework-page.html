@@ -111,11 +111,12 @@
       <label
         class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300"
       >
-        <input
-          type="checkbox"
-          [checked]="isCompletedBy(item, student.id)"
+        <p-checkbox
+          [binary]="true"
+          [ngModel]="isCompletedBy(item, student.id)"
           [disabled]="isCompletedBy(item, student.id)"
-          (change)="markComplete(item, student.id)"
+          (ngModelChange)="markComplete(item, student.id)"
+          [ngModelOptions]="{ standalone: true }"
         />
         {{ student.firstName }} {{ student.lastName }} — {{ isCompletedBy(item,
         student.id) ? 'splněno' : 'nesplněno' }}
@@ -247,8 +248,8 @@
       <label
         class="flex items-center gap-2 pb-2 text-sm text-surface-600 dark:text-surface-300"
       >
-        <input
-          type="checkbox"
+        <p-checkbox
+          [binary]="true"
           name="newRequiresCompletion"
           [(ngModel)]="newRequiresCompletion"
         />
@@ -263,11 +264,11 @@
         >Příloha (nepovinné, max 10 MB)</label
       >
       @if (homeworkDialogVisible()) {
-      <input
-        type="file"
-        id="newAttachment"
-        name="newAttachment"
-        (change)="onFileSelected($event)"
+      <app-file-picker
+        inputId="newAttachment"
+        [fileName]="selectedFile?.name"
+        (fileSelected)="onFileSelected($event)"
+        (cleared)="selectedFile = null; fileError.set(null)"
       />
       } @if (fileError(); as error) {
       <p class="m-0 text-sm text-red-500">{{ error }}</p>

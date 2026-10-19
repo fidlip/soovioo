@@ -2,6 +2,7 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import QRCode from 'qrcode';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -67,6 +68,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    Checkbox,
     TermPipe,
     AppIcon,
     Button,

@@ -7,7 +7,11 @@ import {
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withRouterConfig } from '@angular/router';
-import { MessageService, Translation } from '@openng/optimus-ui/api';
+import {
+  ConfirmationService,
+  MessageService,
+  Translation,
+} from '@openng/optimus-ui/api';
 import { provideOptimus } from '@openng/optimus-ui/config';
 import {
   API_BASE_URL,
@@ -52,6 +56,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor, serverErrorInterceptor])),
     provideAnimations(),
     MessageService,
+    ConfirmationService,
     provideOptimus({
       translation: csTranslation,
       theme: {

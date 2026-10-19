@@ -158,12 +158,10 @@
           [(ngModel)]="replyBody"
         ></textarea>
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <input
-            type="file"
-            name="replyFile"
-            aria-label="Příloha"
-            class="text-sm"
-            (change)="onReplyFileSelected($event)"
+          <app-file-picker
+            [fileName]="replyFile?.name"
+            (fileSelected)="onReplyFileSelected($event)"
+            (cleared)="replyFile = null; replyFileError.set(null)"
           />
           <p-button type="submit" label="Odeslat" icon="pi pi-send" />
         </div>
@@ -293,12 +291,11 @@
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
         >Příloha</label
       >
-      <input
-        id="newFile"
-        type="file"
-        name="newFile"
-        class="text-sm"
-        (change)="onNewFileSelected($event)"
+      <app-file-picker
+        inputId="newFile"
+        [fileName]="newFile?.name"
+        (fileSelected)="onNewFileSelected($event)"
+        (cleared)="newFile = null; fileError.set(null)"
       />
       @if (fileError(); as fileErr) {
       <p-message severity="error" [text]="fileErr" />

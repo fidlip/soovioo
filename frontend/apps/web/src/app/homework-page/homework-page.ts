@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -25,6 +26,7 @@ import {
   TimetableApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
@@ -52,6 +54,8 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
 @Component({
   selector: 'app-homework-page',
   imports: [
+    FilePicker,
+    Checkbox,
     AppIcon,
     Button,
     Card,

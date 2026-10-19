@@ -10,6 +10,7 @@ import {
 } from '@angular/router';
 import { ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
+import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { filter, map } from 'rxjs';
@@ -40,6 +41,7 @@ interface NavItem {
 @Component({
   selector: 'app-root',
   imports: [
+    ConfirmDialog,
     Toast,
     RouterLink,
     RouterLinkActive,

@@ -197,15 +197,13 @@
     </tbody>
   </table>
   <form class="flex flex-wrap items-end gap-3" (ngSubmit)="addPeriod()">
-    <input
-      pInputText
-      type="number"
+    <p-inputNumber
       placeholder="Hodina"
       [(ngModel)]="newPeriodNumberToConfigure"
       name="newPeriodNumberToConfigure"
-      min="1"
-      max="12"
-      class="w-20"
+      [min]="1"
+      [max]="12"
+      inputStyleClass="w-20"
     />
     <p-datePicker
       [(ngModel)]="newPeriodStartTime"

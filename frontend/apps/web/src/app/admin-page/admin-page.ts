@@ -7,6 +7,7 @@ import {
 } from '@openng/optimus-ui/autocomplete';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -102,10 +103,12 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
 ];
 
 import { InfoHint } from '../info-hint/info-hint';
+import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    Checkbox,
     InfoHint,
     TermPipe,
     AppIcon,
@@ -135,6 +138,7 @@ import { NotifyService } from '../notify.service';
 })
 export class AdminPage {
   protected readonly notify = inject(NotifyService);
+  private readonly confirmation = inject(ConfirmationService);
   private readonly authApi = inject(AuthApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
@@ -859,22 +863,25 @@ export class AdminPage {
   }
 
   /** Also removes the student's grades, absences, messages and parent
-   * links — see StudentsController.DeleteStudent. The confirm() here is the
-   * one place in this page a mistake can't be undone. */
+   * links — see StudentsController.DeleteStudent. The confirmation dialog here
+   * guards the one place in this page a mistake can't be undone. */
   protected deleteStudent(student: Student): void {
-    if (
-      !confirm(
-        localizeStudentTerm(
-          `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`,
-          this.authApi.getSchoolType(),
-        ),
-      )
-    ) {
-      return;
-    }
-    this.studentsApi.deleteStudent(student.id).subscribe({
-      next: () => this.reload(),
-      error: (err) => this.showError('deleteStudent failed', err),
+    this.confirmation.confirm({
+      header: localizeStudentTerm('Smazat žáka', this.authApi.getSchoolType()),
+      message: localizeStudentTerm(
+        `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`,
+        this.authApi.getSchoolType(),
+      ),
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Smazat',
+      rejectLabel: 'Zrušit',
+      acceptButtonProps: { severity: 'danger' },
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () =>
+        this.studentsApi.deleteStudent(student.id).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.showError('deleteStudent failed', err),
+        }),
     });
   }
 

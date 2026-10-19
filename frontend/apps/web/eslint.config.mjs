@@ -28,7 +28,13 @@ export default [
   },
   {
     files: ['**/*.html'],
-    // Override or add rules here
-    rules: {},
+    rules: {
+      // A <label> wrapping an optimus-ui form component is associated with
+      // its inner <input>, which the rule can't see on its own.
+      '@angular-eslint/template/label-has-associated-control': [
+        'error',
+        { controlComponents: ['p-checkbox', 'p-radiobutton', 'p-toggleswitch'] },
+      ],
+    },
   },
 ];

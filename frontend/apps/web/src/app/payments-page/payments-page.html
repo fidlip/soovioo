@@ -304,10 +304,11 @@
         >
           @for (c of filteredClasses(); track c.id) {
           <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              [checked]="selectedClassIds.includes(c.id)"
-              (change)="toggleClassId(c.id)"
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="selectedClassIds.includes(c.id)"
+              (ngModelChange)="toggleClassId(c.id)"
+              [ngModelOptions]="{ standalone: true }"
             />
             {{ c.name }}
           </label>
@@ -334,10 +335,11 @@
         >
           @for (p of filteredParents(); track p.id) {
           <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              [checked]="selectedParentIds.includes(p.id)"
-              (change)="toggleParentId(p.id)"
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="selectedParentIds.includes(p.id)"
+              (ngModelChange)="toggleParentId(p.id)"
+              [ngModelOptions]="{ standalone: true }"
             />
             {{ p.name }}
           </label>
@@ -364,10 +366,11 @@
         >
           @for (s of filteredStudents(); track s.id) {
           <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              [checked]="selectedStudentIds.includes(s.id)"
-              (change)="toggleStudentId(s.id)"
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="selectedStudentIds.includes(s.id)"
+              (ngModelChange)="toggleStudentId(s.id)"
+              [ngModelOptions]="{ standalone: true }"
             />
             {{ s.firstName }} {{ s.lastName }}
             <span class="text-surface-400">· {{ s.schoolClassName }}</span>

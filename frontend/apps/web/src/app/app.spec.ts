@@ -1,4 +1,4 @@
-import { MessageService } from '@openng/optimus-ui/api';
+import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -28,6 +28,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         MessageService,
+        ConfirmationService,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(appRoutes),
@@ -48,6 +49,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         MessageService,
+        ConfirmationService,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(appRoutes),
@@ -71,6 +73,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         MessageService,
+        ConfirmationService,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(appRoutes),

@@ -1014,8 +1014,8 @@
     <label
       class="flex items-center gap-1.5 text-sm text-surface-600 dark:text-surface-300"
     >
-      <input
-        type="checkbox"
+      <p-checkbox
+        [binary]="true"
         [(ngModel)]="newStudentCatchmentArea"
         name="studentCatchmentArea"
         [ngModelOptions]="{ standalone: true }"

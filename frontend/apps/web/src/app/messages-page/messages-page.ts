@@ -31,6 +31,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { UnreadMessagesService } from '../unread-messages.service';
+import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
@@ -76,6 +77,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 @Component({
   selector: 'app-messages-page',
   imports: [
+    FilePicker,
     TermPipe,
     AppIcon,
     DatePipe,

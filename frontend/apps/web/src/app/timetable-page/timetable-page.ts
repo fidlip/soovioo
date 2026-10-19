@@ -13,7 +13,7 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
-import { InputText } from '@openng/optimus-ui/inputtext';
+import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import {
@@ -151,6 +151,7 @@ function formatShortDate(date: Date): string {
 @Component({
   selector: 'app-timetable-page',
   imports: [
+    InputNumber,
     TermPipe,
     AppIcon,
     FormsModule,
@@ -158,7 +159,6 @@ function formatShortDate(date: Date): string {
     Card,
     DatePicker,
     Dialog,
-    InputText,
     Message,
     Select,
   ],
