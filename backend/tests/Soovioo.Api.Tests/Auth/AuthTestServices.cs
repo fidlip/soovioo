@@ -21,4 +21,7 @@ internal static class AuthTestServices
 
     public static AuthSessionService Sessions(AppDbContext db, TimeProvider? clock = null) =>
         new(db, TokenFactory, RefreshTokens(db, clock), Options.Create(new AuthCookieOptions()));
+
+    public static Soovioo.Api.Support.SupportSessionService SupportSessions(AppDbContext db, TimeProvider? clock = null) =>
+        new(db, TokenFactory, Options.Create(new AuthCookieOptions()), clock ?? TimeProvider.System);
 }

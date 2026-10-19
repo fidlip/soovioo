@@ -45,10 +45,18 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
     /// <summary>Support mode: the SuperAdmin acts as an Admin of
     /// <paramref name="school"/> (role and schoolId claims as for a real
     /// admin, so every tenant filter and role check applies unchanged), with
-    /// the support claims marking who's behind it. 2 hours, no refresh.</summary>
-    public (string Token, DateTimeOffset ExpiresAt) CreateSupportToken(User superAdmin, School school, int sessionId)
+    /// the support claims marking who's behind it. 15 minutes, renewed via
+    /// the support cookie (see Support.SupportSessionService).</summary>
+    public (string Token, DateTimeOffset ExpiresAt) CreateSupportToken(
+        User superAdmin, School school, int sessionId, DateTimeOffset? sessionExpiresAt = null)
     {
-        var expires = DateTime.UtcNow.AddHours(2);
+        // Short-lived like normal tokens; the support cookie refreshes it
+        // until the session itself ends.
+        var expires = DateTime.UtcNow.AddMinutes(15);
+        if (sessionExpiresAt is { } end && end.UtcDateTime < expires)
+        {
+            expires = end.UtcDateTime;
+        }
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, superAdmin.Id.ToString()),

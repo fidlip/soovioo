@@ -54,3 +54,29 @@ test('school is edited in the same modal', async ({ page }) => {
   await expect(dialog.locator('#adminUsername')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Uložit' })).toBeEnabled();
 });
+
+test('support mode: enter a school, survive a reload, leave', async ({
+  page,
+}) => {
+  await page.goto('/superadmin/login');
+  await page.locator('#username').fill('superadmin');
+  await page.locator('#password').fill('superadmin123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+  await expect(page).toHaveURL(/\/superadmin$/);
+
+  // A plain SuperAdmin session never shows a school's pages.
+  await page.goto('/demo/grades');
+  await expect(page).toHaveURL(/\/superadmin$/);
+
+  await page.getByRole('button', { name: 'Vstoupit do školy' }).first().click();
+  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page.getByText('Režim podpory')).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page.getByText('Režim podpory')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Opustit' }).click();
+  await expect(page).toHaveURL(/\/superadmin$/);
+  await expect(page.getByText('Režim podpory')).toHaveCount(0);
+});

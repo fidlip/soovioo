@@ -35,7 +35,7 @@ public class AuthSessionTests
     }
 
     private AuthController Controller(HttpContext? http = null) =>
-        new(db, AuthTestServices.Sessions(db, clock), AuthTestServices.RefreshTokens(db, clock))
+        new(db, AuthTestServices.Sessions(db, clock), AuthTestServices.RefreshTokens(db, clock), AuthTestServices.SupportSessions(db, clock))
         {
             ControllerContext = new ControllerContext { HttpContext = http ?? new DefaultHttpContext() },
         };

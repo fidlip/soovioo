@@ -28,9 +28,12 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers(options =>
+    {
         // Validation error keys follow the JSON names (camelCase) the client
         // sends, so the web app can map them back onto its form fields.
-        options.ModelMetadataDetailsProviders.Add(new Microsoft.AspNetCore.Mvc.ModelBinding.Metadata.SystemTextJsonValidationMetadataProvider()))
+        options.ModelMetadataDetailsProviders.Add(new Microsoft.AspNetCore.Mvc.ModelBinding.Metadata.SystemTextJsonValidationMetadataProvider());
+        options.Filters.Add<SuperAdminScopeFilter>();
+    })
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -44,6 +47,7 @@ builder.Services.AddScoped<MatrikaExportService>();
 builder.Services.AddScoped<JwtTokenFactory>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<AuthSessionService>();
+builder.Services.AddScoped<Soovioo.Api.Support.SupportSessionService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<AuthCookieOptions>(builder.Configuration.GetSection("AuthCookie"));
 builder.Services.AddScoped<MessageAttachmentStorageService>();

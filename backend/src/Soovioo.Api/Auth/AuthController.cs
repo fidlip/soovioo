@@ -11,7 +11,8 @@ namespace Soovioo.Api.Auth;
 public class AuthController(
     AppDbContext db,
     AuthSessionService sessions,
-    RefreshTokenService refreshTokens) : ControllerBase
+    RefreshTokenService refreshTokens,
+    Support.SupportSessionService supportSessions) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -92,6 +93,13 @@ public class AuthController(
     [HttpPost("refresh")]
     public async Task<ActionResult<LoginResponse>> Refresh(RefreshRequest? request)
     {
+        // On a school's page with a live support session for that school,
+        // stay in support mode (see SupportSessionService).
+        if (await supportSessions.RefreshAsync(Request, request?.SchoolSlug) is { } support)
+        {
+            return Ok(support);
+        }
+
         var (token, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken);
         if (token is null)
         {
@@ -153,4 +161,6 @@ public record AcceptInviteRequest(string Token, string NewPassword, bool UseCook
 
 /// <param name="RefreshToken">Mobile clients only; the web app's travels in
 /// the cookie.</param>
-public record RefreshRequest(string? RefreshToken = null);
+/// <param name="SchoolSlug">The school whose page asks (web) — lets a
+/// support-mode session continue there, see SupportSessionService.</param>
+public record RefreshRequest(string? RefreshToken = null, string? SchoolSlug = null);

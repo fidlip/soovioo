@@ -17,11 +17,13 @@ import {
   API_BASE_URL,
   AUTH_REFRESH_VIA_COOKIE,
   AuthApiService,
+  CURRENT_SCHOOL_SLUG,
   TokenStorage,
   authInterceptor,
 } from '@soovioo/shared';
 import { appRoutes } from './app.routes';
 import { MemoryTokenStorage } from './memory-token-storage';
+import { currentSchoolSlugFromUrl } from './school-context';
 import { serverErrorInterceptor } from './server-error.interceptor';
 import { sooviooTheme } from './theme';
 
@@ -78,6 +80,9 @@ export const appConfig: ApplicationConfig = {
     // memory, so every page load first restores it from that cookie —
     // before the router's auth guard looks at isLoggedIn().
     { provide: AUTH_REFRESH_VIA_COOKIE, useValue: true },
+    // Lets a SuperAdmin's support-mode session survive reloads of the
+    // school's page (see SupportSessionService on the backend).
+    { provide: CURRENT_SCHOOL_SLUG, useValue: () => currentSchoolSlugFromUrl() },
     provideAppInitializer(() => inject(AuthApiService).restoreSession()),
   ],
 };

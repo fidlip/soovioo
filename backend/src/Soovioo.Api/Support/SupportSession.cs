@@ -22,6 +22,20 @@ public class SupportSession
 
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>The support session can't outlive this (2 h from start).</summary>
+    public DateTimeOffset ExpiresAt { get; set; }
+
+    /// <summary>SHA-256 of the one-time code that carries the session over to
+    /// the school's page (its own subdomain in production) — redeemable once,
+    /// within <see cref="HandoffExpiresAt"/>.</summary>
+    public string? HandoffCodeHash { get; set; }
+    public DateTimeOffset? HandoffExpiresAt { get; set; }
+
+    /// <summary>SHA-256 of the secret in the <c>soovioo_support</c> cookie set
+    /// when the code is redeemed — lets a reload of the school's page get a
+    /// fresh support token. Null until redeemed.</summary>
+    public string? RefreshSecretHash { get; set; }
+
     /// <summary>Set by "Opustit"; null = left by letting the token expire.</summary>
     public DateTimeOffset? EndedAt { get; set; }
 

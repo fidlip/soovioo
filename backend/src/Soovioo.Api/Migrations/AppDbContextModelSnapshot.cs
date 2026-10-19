@@ -1365,6 +1365,18 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateTimeOffset?>("EndedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HandoffCodeHash")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("HandoffExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RefreshSecretHash")
+                        .HasColumnType("text");
+
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 

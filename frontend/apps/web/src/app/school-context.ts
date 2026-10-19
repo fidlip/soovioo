@@ -38,6 +38,39 @@ export function subdomainSlug(hostname: string, mainDomain: string = environment
   return hostname.slice(0, -suffix.length).split('.')[0] || null;
 }
 
+/** The school the current page belongs to, read straight from the URL (no
+ * router needed — also used at startup, before routing): the first path
+ * segment in path mode (except the SuperAdmin area), the subdomain
+ * otherwise. */
+export function currentSchoolSlugFromUrl(
+  location: Pick<Location, 'hostname' | 'pathname'> = window.location,
+): string | null {
+  if (!isPathBasedTenant(location.hostname)) {
+    return subdomainSlug(location.hostname);
+  }
+  const first = location.pathname.split('/').filter(Boolean)[0] ?? null;
+  return first === 'superadmin' ? null : first;
+}
+
+/** Absolute URL of a page in the SuperAdmin area (`/superadmin…` on the
+ * main domain in production). */
+export function superAdminUrl(path = 'superadmin'): string {
+  if (isPathBasedTenant()) {
+    return `/${path}`;
+  }
+  const { protocol, port } = window.location;
+  return `${protocol}//${environment.mainDomain}${port ? `:${port}` : ''}/${path}`;
+}
+
+/** Absolute URL of a page of school `slug` — its own subdomain in production. */
+export function schoolUrl(slug: string, path: string): string {
+  if (isPathBasedTenant()) {
+    return `/${slug}/${path}`;
+  }
+  const { protocol, port } = window.location;
+  return `${protocol}//${slug}.${environment.mainDomain}${port ? `:${port}` : ''}/${path}`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SchoolContextService {
   private readonly router = inject(Router);

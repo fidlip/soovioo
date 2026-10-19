@@ -1,4 +1,8 @@
-import { isPathBasedTenant, subdomainSlug } from './school-context';
+import {
+  currentSchoolSlugFromUrl,
+  isPathBasedTenant,
+  subdomainSlug,
+} from './school-context';
 
 describe('isPathBasedTenant', () => {
   it('treats localhost, bare IPs and LAN machine names as path-based', () => {
@@ -43,5 +47,29 @@ describe('subdomainSlug', () => {
 
   it('takes only the first label when there are multiple subdomain levels', () => {
     expect(subdomainSlug('demo.staging.soovioo.cz', mainDomain)).toBe('demo');
+  });
+});
+
+// environment.mainDomain is "soovioo.cz" in both dev and test builds.
+describe('currentSchoolSlugFromUrl', () => {
+  it('reads the first path segment in path mode', () => {
+    expect(
+      currentSchoolSlugFromUrl({ hostname: 'localhost', pathname: '/demo/grades' }),
+    ).toBe('demo');
+  });
+
+  it('has no school in the SuperAdmin area', () => {
+    expect(
+      currentSchoolSlugFromUrl({ hostname: 'localhost', pathname: '/superadmin/logs' }),
+    ).toBeNull();
+  });
+
+  it('reads the subdomain in production', () => {
+    expect(
+      currentSchoolSlugFromUrl({ hostname: 'demo.soovioo.cz', pathname: '/home' }),
+    ).toBe('demo');
+    expect(
+      currentSchoolSlugFromUrl({ hostname: 'soovioo.cz', pathname: '/superadmin' }),
+    ).toBeNull();
   });
 });

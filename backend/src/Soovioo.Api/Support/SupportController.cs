@@ -13,7 +13,7 @@ namespace Soovioo.Api.Support;
 /// <summary>SuperAdmin support: entering a school as its admin (audited,
 /// see <see cref="SupportSession"/>) and managing the SuperAdmin accounts.</summary>
 [ApiController]
-public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshTokenService refreshTokens) : ControllerBase
+public class SupportController(AppDbContext db, SupportSessionService supportSessions, RefreshTokenService refreshTokens) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -21,9 +21,10 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
     /// deleted or renamed by anyone, so there's always a way back in.</summary>
     public const string BuiltInUsername = "superadmin";
 
-    /// <summary>Short-lived (2 h, no refresh token) Admin token for the
-    /// school, carrying who's behind it. The SuperAdmin's own session
-    /// (refresh cookie) stays untouched — leaving support mode returns to it.</summary>
+    /// <summary>Starts an audited support session (2 h) and returns a
+    /// one-time code — the SuperAdmin's browser carries it to the school's
+    /// own page (its subdomain in production), which redeems it at
+    /// <see cref="Redeem"/>. The SuperAdmin's own session stays untouched.</summary>
     [HttpPost("api/schools/{schoolId:int}/support-sessions")]
     [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<SupportSessionStartDto>> StartSupportSession(int schoolId)
@@ -41,11 +42,20 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
             SuperAdminUsername = me.Username,
             SchoolId = school.Id,
         };
-        db.SupportSessions.Add(session);
-        await db.SaveChangesAsync();
+        var code = await supportSessions.StartAsync(session);
+        return Ok(new SupportSessionStartDto(session.Id, code, school.Slug, school.Name, session.ExpiresAt));
+    }
 
-        var (token, expiresAt) = tokens.CreateSupportToken(me, school, session.Id);
-        return Ok(new SupportSessionStartDto(token, session.Id, school.Slug, school.Name, expiresAt));
+    /// <summary>One-time code → support access token + support cookie.
+    /// Anonymous: on a school's subdomain there's no session yet.</summary>
+    [HttpPost("api/support-sessions/redeem")]
+    [AllowAnonymous]
+    public async Task<ActionResult<LoginResponse>> Redeem(RedeemSupportCodeRequest request)
+    {
+        var response = await supportSessions.RedeemAsync(HttpContext, request.Code);
+        return response is null
+            ? BadRequest("Odkaz pro vstup do školy je neplatný nebo vypršel.")
+            : Ok(response);
     }
 
     /// <summary>"Opustit" — called with the support token itself.</summary>
@@ -61,8 +71,10 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
         if (session is not null && session.EndedAt is null)
         {
             session.EndedAt = DateTimeOffset.UtcNow;
+            session.RefreshSecretHash = null;
             await db.SaveChangesAsync();
         }
+        supportSessions.ClearCookie(HttpContext);
         return NoContent();
     }
 
@@ -229,7 +241,11 @@ public class SupportController(AppDbContext db, JwtTokenFactory tokens, RefreshT
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-public record SupportSessionStartDto(string Token, int SessionId, string SchoolSlug, string SchoolName, DateTimeOffset ExpiresAt);
+/// <param name="Code">One-time, valid 1 minute — redeem at
+/// <c>POST /api/support-sessions/redeem</c> from the school's page.</param>
+public record SupportSessionStartDto(int SessionId, string Code, string SchoolSlug, string SchoolName, DateTimeOffset ExpiresAt);
+
+public record RedeemSupportCodeRequest(string Code);
 
 public record SupportActionDto(string Method, string Path, int StatusCode, DateTimeOffset At);
 

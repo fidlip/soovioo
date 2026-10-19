@@ -10,7 +10,6 @@ import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
-import { Router } from '@angular/router';
 import {
   AuthApiService,
   CreateSchoolRequest,
@@ -20,7 +19,7 @@ import {
   SupportApiService,
   UpdateSchoolRequest,
 } from '@soovioo/shared';
-import { isPathBasedTenant } from '../school-context';
+import { schoolUrl } from '../school-context';
 import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
@@ -50,7 +49,6 @@ export class SuperAdminPage {
   private readonly schoolsApi = inject(SchoolsApiService);
   private readonly supportApi = inject(SupportApiService);
   private readonly authApi = inject(AuthApiService);
-  private readonly router = inject(Router);
 
   protected readonly superAdmins = signal<SuperAdmin[]>([]);
   protected readonly myUserId = this.authApi.getUserId();
@@ -95,18 +93,12 @@ export class SuperAdminPage {
   /** "Vstoupit do školy": an audited, 2-hour Admin session in that school
    * (support mode); the own SuperAdmin session comes back on "Opustit". */
   protected enterSchool(school: School): void {
-    if (!isPathBasedTenant()) {
-      // Each school lives on its own subdomain there and the token is kept
-      // in memory only — it can't follow the jump yet (see ROADMAP).
-      this.notify.error(
-        'Vstup do školy zatím funguje jen při provozu s adresou školy v cestě (/slug).',
-      );
-      return;
-    }
     this.supportApi.startSupportSession(school.id).subscribe({
       next: (session) => {
-        this.authApi.store({ token: session.token });
-        this.router.navigate(['/', session.schoolSlug]);
+        // A full page load onto the school's page (its own subdomain in
+        // production) — the same path in every deployment. The one-time
+        // code rides in the fragment, which never reaches any server log.
+        window.location.href = `${schoolUrl(session.schoolSlug, 'support/enter')}#code=${session.code}`;
       },
       error: (err) => this.notify.actionFailed('startSupportSession failed', err),
     });

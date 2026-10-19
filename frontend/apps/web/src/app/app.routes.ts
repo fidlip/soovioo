@@ -13,6 +13,7 @@ import { MessagesPage } from './messages-page/messages-page';
 import { PaymentsPage } from './payments-page/payments-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
 import { SettingsPage } from './settings-page/settings-page';
+import { SupportEnterPage } from './support-enter-page/support-enter-page';
 import { SuperAdminPage } from './super-admin-page/super-admin-page';
 import { LogsPage } from './logs-page/logs-page';
 import { TimetablePage } from './timetable-page/timetable-page';
@@ -23,6 +24,12 @@ const schoolRoutes: Route[] = [
   {
     path: 'accept-invite',
     component: AcceptInvitePage,
+    data: { hideHeader: true },
+  },
+  // SuperAdmin "Vstoupit do školy" — no guard: it's what logs in.
+  {
+    path: 'support/enter',
+    component: SupportEnterPage,
     data: { hideHeader: true },
   },
   { path: 'home', component: HomePage, canActivate: [authGuard] },

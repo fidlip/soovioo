@@ -23,7 +23,7 @@ import {
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { installPlaceholderTitles } from './placeholder-title';
-import { SchoolContextService } from './school-context';
+import { SchoolContextService, superAdminUrl } from './school-context';
 import { UnreadMessagesService } from './unread-messages.service';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'soovioo-sidebar-collapsed';
@@ -210,11 +210,10 @@ export class App {
   /** Ends support mode: closes the audited session, then the SuperAdmin's
    * own session comes back from the refresh cookie. */
   protected leaveSupport(): void {
-    const backToSuperAdmin = () =>
-      this.authApi
-        .restoreSession()
-        .then(() => this.router.navigate(['/superadmin']));
-    this.supportApi.endCurrentSession().subscribe({
+    // Full page load back to the SuperAdmin area (main domain in
+    // production); its own session comes back from the refresh cookie.
+    const backToSuperAdmin = () => (window.location.href = superAdminUrl());
+    this.supportApi.endCurrentSession({ withCredentials: true }).subscribe({
       next: backToSuperAdmin,
       error: backToSuperAdmin,
     });

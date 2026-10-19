@@ -19,8 +19,10 @@ public class SupportControllerTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(null, isSuperAdmin: true));
 
+    private static SupportSessionService Sessions(AppDbContext db) => AuthTestServices.SupportSessions(db);
+
     private static SupportController As(AppDbContext db, User user) =>
-        new(db, AuthTestServices.TokenFactory, AuthTestServices.RefreshTokens(db))
+        new(db, Sessions(db), AuthTestServices.RefreshTokens(db))
         {
             ControllerContext = new ControllerContext
             {
@@ -43,7 +45,7 @@ public class SupportControllerTests
     }
 
     [Fact]
-    public async Task SupportSessionTokenActsAsAdminOfTheSchoolAndIsLogged()
+    public async Task SupportCodeIsRedeemedOnceForAnAdminTokenAndTheCookieRefreshesOnlyThatSchool()
     {
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
@@ -51,17 +53,35 @@ public class SupportControllerTests
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
-        var result = await As(db, superAdmin).StartSupportSession(school.Id);
+        var started = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(
+            (await As(db, superAdmin).StartSupportSession(school.Id)).Result).Value);
+        Assert.Equal("test", started.SchoolSlug);
+        Assert.NotEqual(started.Code, Assert.Single(db.SupportSessions).HandoffCodeHash);
 
-        var dto = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal("test", dto.SchoolSlug);
-        var claims = new JwtSecurityTokenHandler().ReadJwtToken(dto.Token).Claims.ToList();
+        // Redeemed on the school's page — anonymous there.
+        var http = new DefaultHttpContext();
+        var login = await Sessions(db).RedeemAsync(http, started.Code);
+        Assert.NotNull(login);
+        var claims = new JwtSecurityTokenHandler().ReadJwtToken(login!.Token).Claims.ToList();
         Assert.Contains(claims, c => c.Type == ClaimTypes.Role && c.Value == "Admin");
         Assert.Contains(claims, c => c.Type == "schoolId" && c.Value == school.Id.ToString());
         Assert.Contains(claims, c => c.Type == SupportClaims.By && c.Value == "superadmin");
-        var session = Assert.Single(db.SupportSessions);
-        Assert.Equal(school.Id, session.SchoolId);
-        Assert.Equal(dto.SessionId, session.Id);
+        var setCookie = http.Response.Headers.SetCookie.ToString();
+        Assert.StartsWith(SupportSessionService.CookieName + "=", setCookie);
+        var secret = setCookie.Split(';')[0].Split('=')[1];
+
+        Assert.Null(await Sessions(db).RedeemAsync(new DefaultHttpContext(), started.Code));
+
+        HttpRequest RefreshRequest()
+        {
+            var request = new DefaultHttpContext().Request;
+            request.Headers.Cookie = $"{SupportSessionService.CookieName}={secret}";
+            request.Headers[AuthSessionService.CsrfHeaderName] = "1";
+            return request;
+        }
+        Assert.NotNull(await Sessions(db).RefreshAsync(RefreshRequest(), "test"));
+        Assert.Null(await Sessions(db).RefreshAsync(RefreshRequest(), "jina-skola"));
+        Assert.Null(await Sessions(db).RefreshAsync(RefreshRequest(), null));
     }
 
     [Fact]
@@ -129,5 +149,32 @@ public class SupportControllerTests
         // Editing its name/contacts is still fine.
         Assert.IsType<OkObjectResult>((await controller.UpdateSuperAdmin(
             builtIn.Id, new UpdateSuperAdminRequest(SupportController.BuiltInUsername, FirstName: "Hlavní"))).Result);
+    }
+
+    [Theory]
+    [InlineData(null, false, true)]          // e.g. GET /api/students — [Authorize] only
+    [InlineData("Teacher,Admin", false, true)]
+    [InlineData("SuperAdmin", false, false)]
+    [InlineData(null, true, false)]          // [AllowSuperAdmin]
+    public void SuperAdminOnlyReachesEndpointsMeantForIt(string? roles, bool allowSuperAdmin, bool forbidden)
+    {
+        var metadata = new List<object> { new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = roles } };
+        if (allowSuperAdmin)
+        {
+            metadata.Add(new AllowSuperAdminAttribute());
+        }
+        var http = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, "SuperAdmin")], "Test")),
+        };
+        var context = new Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext(
+            new Microsoft.AspNetCore.Mvc.ActionContext(
+                http, new Microsoft.AspNetCore.Routing.RouteData(),
+                new Microsoft.AspNetCore.Mvc.Abstractions.ActionDescriptor { EndpointMetadata = metadata }),
+            []);
+
+        new SuperAdminScopeFilter().OnAuthorization(context);
+
+        Assert.Equal(forbidden, context.Result is ForbidResult);
     }
 }

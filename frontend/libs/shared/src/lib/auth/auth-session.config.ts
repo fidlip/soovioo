@@ -13,3 +13,14 @@ export const AUTH_REFRESH_VIA_COOKIE = new InjectionToken<boolean>(
 
 /** Must match `AuthSessionService.CsrfHeaderName` on the backend. */
 export const CSRF_HEADER = 'X-Soovioo-Csrf';
+
+/**
+ * Which school's page the app is on (web: from the URL path or subdomain),
+ * sent with every session refresh so the API can continue a SuperAdmin's
+ * support-mode session for that school. Null = no school (mobile, the
+ * SuperAdmin area).
+ */
+export const CURRENT_SCHOOL_SLUG = new InjectionToken<() => string | null>(
+  'CURRENT_SCHOOL_SLUG',
+  { providedIn: 'root', factory: () => () => null },
+);

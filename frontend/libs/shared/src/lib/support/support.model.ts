@@ -1,7 +1,8 @@
-/** Result of entering a school in support mode — `token` is a 2-hour Admin
- * token for that school (no refresh). */
+/** Result of entering a school in support mode — `code` is a one-time code
+ * (valid 1 minute) the school's own page redeems via
+ * `SupportApiService.redeem` for an Admin session in that school. */
 export interface SupportSessionStart {
-  token: string;
+  code: string;
   sessionId: number;
   schoolSlug: string;
   schoolName: string;

@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
 import { AuthApiService } from '@soovioo/shared';
-import { isPathBasedTenant } from './school-context';
+import { isPathBasedTenant, subdomainSlug, superAdminUrl } from './school-context';
 
 // Reads `schoolSlug` from the guard's own candidate route rather than from
 // SchoolContextService — the service only updates on NavigationEnd, which
@@ -35,10 +35,20 @@ export const authGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
     return router.createUrlTree(authApi.isSuperAdmin() ? ['/', 'superadmin', 'settings'] : ['/', 'settings']);
   }
 
-  // A SuperAdmin token on a school route: a support-mode token expired and
-  // the refresh cookie brought back the plain SuperAdmin session.
-  if (route.paramMap.get('schoolSlug') && authApi.isSuperAdmin()) {
-    return router.createUrlTree(['/', 'superadmin']);
+  // A plain SuperAdmin session on a school's page (support mode ended or
+  // expired, or just a typed URL): the SuperAdmin works in schools only via
+  // support mode — back to the SuperAdmin area (the API refuses them on
+  // school endpoints anyway, see SuperAdminScopeFilter).
+  const onSchoolPage = isPathBasedTenant()
+    ? !!route.paramMap.get('schoolSlug')
+    : !!subdomainSlug(window.location.hostname) &&
+      !(route.routeConfig?.path ?? '').startsWith('superadmin');
+  if (onSchoolPage && authApi.isSuperAdmin()) {
+    if (isPathBasedTenant()) {
+      return router.createUrlTree(['/', 'superadmin']);
+    }
+    window.location.href = superAdminUrl();
+    return false;
   }
 
   return true;

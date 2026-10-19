@@ -13,6 +13,7 @@ namespace Soovioo.Api.Auth;
 /// school), every logged-in role (including SuperAdmin) can read/update their
 /// own contact info and password here.</summary>
 [Authorize]
+[AllowSuperAdmin] // the SuperAdmin's own profile and password
 [ApiController]
 [Route("api/users/me")]
 public class MyProfileController(

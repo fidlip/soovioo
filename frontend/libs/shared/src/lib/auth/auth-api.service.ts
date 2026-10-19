@@ -12,7 +12,11 @@ import {
   tap,
 } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { AUTH_REFRESH_VIA_COOKIE, CSRF_HEADER } from './auth-session.config';
+import {
+  AUTH_REFRESH_VIA_COOKIE,
+  CSRF_HEADER,
+  CURRENT_SCHOOL_SLUG,
+} from './auth-session.config';
 import { LoginRequest, LoginResponse } from './login-response.model';
 import { TokenStorage } from './token-storage';
 import { SchoolType } from '../evidence/student-term';
@@ -23,6 +27,7 @@ export class AuthApiService {
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly tokenStorage = inject(TokenStorage);
   private readonly viaCookie = inject(AUTH_REFRESH_VIA_COOKIE);
+  private readonly currentSchoolSlug = inject(CURRENT_SCHOOL_SLUG);
 
   private inFlightRefresh: Observable<string | null> | null = null;
   private readonly sessionExpiredSubject = new Subject<void>();
@@ -65,7 +70,10 @@ export class AuthApiService {
     this.inFlightRefresh ??= this.http
       .post<LoginResponse | null>(
         `${this.baseUrl}/api/auth/refresh`,
-        { refreshToken: this.tokenStorage.getRefreshToken() },
+        {
+          refreshToken: this.tokenStorage.getRefreshToken(),
+          schoolSlug: this.currentSchoolSlug(),
+        },
         this.cookieOptions(),
       )
       .pipe(

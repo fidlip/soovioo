@@ -18,7 +18,7 @@ public class AuthControllerTests
             new FakeCurrentSchoolContext(SchoolId));
 
     private static AuthController NewController(AppDbContext db, TimeProvider? clock = null) =>
-        new(db, AuthTestServices.Sessions(db, clock), AuthTestServices.RefreshTokens(db, clock))
+        new(db, AuthTestServices.Sessions(db, clock), AuthTestServices.RefreshTokens(db, clock), AuthTestServices.SupportSessions(db, clock))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
