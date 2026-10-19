@@ -374,6 +374,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ShortName")
+                        .HasColumnType("text");
+
                     b.Property<string>("Type")
                         .HasColumnType("text");
 
@@ -389,7 +392,7 @@ namespace Soovioo.Api.Migrations
                             Id = 1,
                             Name = "12",
                             SchoolId = 1,
-                            Type = "kmenová"
+                            Type = "Homeroom"
                         },
                         new
                         {
@@ -397,7 +400,8 @@ namespace Soovioo.Api.Migrations
                             Capacity = 30,
                             Name = "Tělocvična",
                             SchoolId = 1,
-                            Type = "tělocvična"
+                            ShortName = "Tv",
+                            Type = "Gym"
                         });
                 });
 

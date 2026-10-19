@@ -5,7 +5,6 @@ import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { InputText } from '@openng/optimus-ui/inputtext';
-import { Message } from '@openng/optimus-ui/message';
 import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
@@ -32,7 +31,6 @@ const DEFAULT_PAGE_SIZE = 10;
     Button,
     Card,
     InputText,
-    Message,
     Paginator,
     Password,
     PrimeTemplate,

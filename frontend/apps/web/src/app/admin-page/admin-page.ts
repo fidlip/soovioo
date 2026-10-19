@@ -13,7 +13,6 @@ import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
-import { Message } from '@openng/optimus-ui/message';
 import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Password } from '@openng/optimus-ui/password';
 import { Select } from '@openng/optimus-ui/select';
@@ -30,8 +29,11 @@ import { forkJoin, Observable, switchMap } from 'rxjs';
 import {
   AppUser,
   AuthApiService,
+  CLASSROOM_TYPE_LABELS,
   Classroom,
+  ClassroomType,
   ClassroomsApiService,
+  formatIban,
   Country,
   CreateUserRequest,
   Gender,
@@ -106,9 +108,11 @@ import { InfoHint } from '../info-hint/info-hint';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
+import { PeriodsEditor } from '../periods-editor/periods-editor';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    PeriodsEditor,
     ...FORM_FIELDS,
     Checkbox,
     InfoHint,
@@ -122,7 +126,6 @@ import { FORM_FIELDS } from '../forms';
     Dialog,
     InputNumber,
     InputText,
-    Message,
     MultiSelect,
     NgTemplateOutlet,
     Password,
@@ -164,6 +167,9 @@ export class AdminPage {
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
+  protected readonly classroomTypeOptions = Object.entries(
+    CLASSROOM_TYPE_LABELS,
+  ).map(([value, label]) => ({ value: value as ClassroomType, label }));
   protected readonly classrooms = signal<Classroom[]>([]);
   protected readonly classroomOptions = computed(() =>
     this.classrooms().map((c) => ({ id: c.id, label: c.name })),
@@ -259,7 +265,8 @@ export class AdminPage {
   protected newSubjectColor: string | null = null;
   protected newSubjectDefaultClassroomId: number | null = null;
   protected newClassroomName = '';
-  protected newClassroomType = '';
+  protected newClassroomShortName = '';
+  protected newClassroomType: ClassroomType | null = null;
   protected newClassroomCapacity: number | null = null;
 
   protected newStudentFirstName = '';
@@ -689,7 +696,8 @@ export class AdminPage {
   protected openAddClassroomDialog(): void {
     this.editingClassroomId = null;
     this.newClassroomName = '';
-    this.newClassroomType = '';
+    this.newClassroomShortName = '';
+    this.newClassroomType = null;
     this.newClassroomCapacity = null;
     this.notify.clear();
     this.newClassroomDialogVisible.set(true);
@@ -698,7 +706,8 @@ export class AdminPage {
   protected startEditClassroom(classroom: Classroom): void {
     this.editingClassroomId = classroom.id;
     this.newClassroomName = classroom.name;
-    this.newClassroomType = classroom.type ?? '';
+    this.newClassroomShortName = classroom.shortName ?? '';
+    this.newClassroomType = classroom.type;
     this.newClassroomCapacity = classroom.capacity;
     this.notify.clear();
     this.newClassroomDialogVisible.set(true);
@@ -710,7 +719,8 @@ export class AdminPage {
     }
     const request = {
       name: this.newClassroomName,
-      type: this.newClassroomType || undefined,
+      shortName: this.newClassroomShortName.trim() || undefined,
+      type: this.newClassroomType ?? undefined,
       capacity: this.newClassroomCapacity ?? undefined,
     };
     const result =
@@ -901,6 +911,40 @@ export class AdminPage {
     this.newUserDialogVisible.set(true);
   }
 
+  /** "Vytvořit účet" right from the Students tab: a new Student-role
+   * account for this student, names/contacts prefilled from the matrika. */
+  protected openCreateAccountForStudent(student: Student): void {
+    this.openAddUserDialog();
+    this.newUserRoles = ['Student'];
+    this.onNewUserStudentChange(student.id);
+  }
+
+  protected classroomTypeLabel(type: ClassroomType | null): string {
+    return type ? CLASSROOM_TYPE_LABELS[type] : '—';
+  }
+
+  protected hasAccount(studentId: number): boolean {
+    return this.users().some((u) => u.studentId === studentId);
+  }
+
+  /** Picking the student for a Student-role account fills in the person's
+   * name from the matrika (a student's name lives there) and, when still
+   * empty, contacts and a username suggestion ("jan.novak"). */
+  protected onNewUserStudentChange(studentId: number | null): void {
+    this.newUserStudentId = studentId;
+    const student = this.students().find((s) => s.id === studentId);
+    if (!student) {
+      return;
+    }
+    this.newUserFirstName = student.firstName;
+    this.newUserLastName = student.lastName;
+    this.newUserEmail ||= student.contactEmail ?? '';
+    this.newUserPhone ||= student.contactPhone ?? '';
+    if (this.editingUserId === null && !this.newUsername.trim()) {
+      this.newUsername = suggestUsername(student.firstName, student.lastName);
+    }
+  }
+
   protected startEditUser(user: AppUser): void {
     this.editingUserId = user.id;
     this.newUsername = user.username;
@@ -977,10 +1021,30 @@ export class AdminPage {
   }
 
   /** Backend rejects (400) deleting yourself or the school's last Admin. */
+  /** Confirms first; a parent's links to their children go too (the server
+   * removes them with the account) — the dialog names those children. */
   protected deleteUser(user: AppUser): void {
-    this.usersApi.deleteUser(user.id).subscribe({
-      next: () => this.reload(),
-      error: (err) => this.showError('deleteUser failed', err),
+    const children = this.links()
+      .filter((l) => l.userId === user.id)
+      .map((l) => l.studentName);
+    const name = user.name || user.username;
+    const message =
+      children.length > 0
+        ? `Opravdu smazat účet ${name}? Odebere se i vazba na děti: ${children.join(', ')}. Údaje dětí zůstanou.`
+        : `Opravdu smazat účet ${name}?`;
+    this.confirmation.confirm({
+      header: 'Smazat uživatele',
+      message,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Smazat',
+      rejectLabel: 'Zrušit',
+      acceptButtonProps: { severity: 'danger' },
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () =>
+        this.usersApi.deleteUser(user.id).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.showError('deleteUser failed', err),
+        }),
     });
   }
 
@@ -1058,7 +1122,9 @@ export class AdminPage {
         this.schoolDirectorName.set(school.directorName ?? '');
         this.schoolEmail.set(school.email ?? '');
         this.schoolPhone.set(school.phone ?? '');
-        this.schoolBankAccountNumber.set(school.bankAccountNumber ?? '');
+        this.schoolBankAccountNumber.set(
+          school.bankAccountNumber ? formatIban(school.bankAccountNumber) : '',
+        );
         this.schoolType.set(school.type);
       },
       error: (err) => console.error('getMySchool failed', err),
@@ -1106,16 +1172,24 @@ export class AdminPage {
       });
   }
 
-  /** The account Platby's client-generated SPAYD QR codes pay into — see
-   * ROADMAP "Správa financí". Separate from saveSchoolDetails: it's not an
-   * institutional-document field, it's payment plumbing. */
+  /** The account Platby's client-generated SPAYD QR codes pay into.
+   * Separate from saveSchoolDetails: it's payment plumbing, not an
+   * institutional-document field. The server accepts an IBAN or the Czech
+   * "předčíslí-číslo/kód banky" form and stores the IBAN. */
   protected saveSchoolBankAccount(): void {
     this.mySchoolApi
       .setBankAccount({
         bankAccountNumber: this.schoolBankAccountNumber() || null,
       })
       .subscribe({
-        next: () => this.loadMySchool(),
+        next: (school) => {
+          this.notify.success(
+            school.bankAccountNumber
+              ? `Uloženo jako IBAN ${formatIban(school.bankAccountNumber)}.`
+              : 'Účet odebrán.',
+          );
+          this.loadMySchool();
+        },
         error: (err) => this.showError('setBankAccount failed', err),
       });
   }
@@ -1210,4 +1284,15 @@ export class AdminPage {
   private showError(context: string, err: unknown): void {
     this.notify.actionFailed(context, err);
   }
+}
+
+/** "Jan Novák" -> "jan.novak" (no diacritics, letters/digits only). */
+function suggestUsername(firstName: string, lastName: string): string {
+  const part = (text: string) =>
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+  return [part(firstName), part(lastName)].filter((p) => p).join('.');
 }

@@ -70,4 +70,26 @@ public class SchoolPeriodsControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Empty(db.SchoolPeriods);
     }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(15, true)]
+    [InlineData(-1, false)]
+    [InlineData(16, false)]
+    public async Task UpsertPeriodAllowsZeroPeriodButNotOutOfRange(int periodNumber, bool ok)
+    {
+        using var db = NewDb();
+
+        var result = await new SchoolPeriodsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .UpsertPeriod(periodNumber, new UpsertSchoolPeriodRequest(new TimeOnly(7, 0), new TimeOnly(7, 45)));
+
+        if (ok)
+        {
+            Assert.IsType<OkObjectResult>(result.Result);
+        }
+        else
+        {
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+        }
+    }
 }

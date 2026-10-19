@@ -5,11 +5,12 @@ public class Classroom
     public int Id { get; set; }
     public required string Name { get; set; }
 
-    /// <summary>Free text on purpose (e.g. "kmenová", "odborná — fyzika",
-    /// "tělocvična") — a fixed enum would need updating for every school's
-    /// own naming, and this field is purely informational, never filtered
-    /// on.</summary>
-    public string? Type { get; set; }
+    /// <summary>Short label shown in timetable cells (e.g. "Tv" for
+    /// "Tělocvična"); falls back to <see cref="Name"/> when empty.</summary>
+    public string? ShortName { get; set; }
+
+    /// <summary>Preset kind, informational only (never filtered on).</summary>
+    public ClassroomType? Type { get; set; }
 
     public int? Capacity { get; set; }
 

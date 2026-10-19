@@ -24,6 +24,7 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
         var classroom = new Classroom
         {
             Name = request.Name,
+            ShortName = string.IsNullOrWhiteSpace(request.ShortName) ? null : request.ShortName.Trim(),
             Type = request.Type,
             Capacity = request.Capacity,
             SchoolId = currentSchool.SchoolId!.Value,
@@ -44,6 +45,7 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
         }
 
         classroom.Name = request.Name;
+        classroom.ShortName = string.IsNullOrWhiteSpace(request.ShortName) ? null : request.ShortName.Trim();
         classroom.Type = request.Type;
         classroom.Capacity = request.Capacity;
         await db.SaveChangesAsync();
@@ -79,4 +81,5 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
     }
 }
 
-public record CreateClassroomRequest(string Name, string? Type = null, int? Capacity = null);
+public record CreateClassroomRequest(
+    string Name, ClassroomType? Type = null, int? Capacity = null, string? ShortName = null);

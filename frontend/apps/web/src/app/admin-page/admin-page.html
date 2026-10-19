@@ -88,6 +88,16 @@
           </td>
           <td>
             <div class="flex justify-end gap-1">
+              @if (accessLevel() === 'admin' && !hasAccount(student.id)) {
+              <p-button
+                icon="pi pi-user-plus"
+                size="small"
+                [text]="true"
+                ariaLabel="Vytvořit účet"
+                title="Vytvořit účet"
+                (onClick)="openCreateAccountForStudent(student)"
+              />
+              }
               <p-button
                 icon="pi pi-pencil"
                 size="small"
@@ -119,7 +129,7 @@
 <!-- ============================= PARENTS (shared by both access levels) ============================= -->
 <ng-template #parentsCard>
   <p-card>
-    <ng-template #title>Rodiče<app-info-hint text="Rodičovské účty se vytvářejí na kartě Uživatelé — tady se jen přiřazují jejich děti." /></ng-template>
+    <ng-template #title>Rodiče<app-info-hint text="Rodičovské účty se vytvářejí v záložce Uživatelé — tady se jen přiřazují jejich děti." /></ng-template>
     <p-table [value]="visibleParents()" dataKey="id" styleClass="mb-4">
       <ng-template pTemplate="header">
         <tr>
@@ -162,11 +172,13 @@
   <ng-container [ngTemplateOutlet]="parentsCard" />
 </div>
 } @else {
-<p-tabs [(value)]="activeTab">
+<p-tabs [(value)]="activeTab" [scrollable]="true">
   <p-tablist>
     <p-tab value="classes">Třídy, předměty a učebny</p-tab>
     <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
-    <p-tab value="users">Uživatelé a rodiče</p-tab>
+    <p-tab value="users">Uživatelé</p-tab>
+    <p-tab value="teachers">Učitelé</p-tab>
+    <p-tab value="parents">Rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
   </p-tablist>
   <p-tabpanels>
@@ -308,6 +320,7 @@
             <ng-template pTemplate="header">
               <tr>
                 <th>Název</th>
+                <th>Zkratka</th>
                 <th>Typ</th>
                 <th>Kapacita</th>
                 <th></th>
@@ -316,7 +329,10 @@
             <ng-template pTemplate="body" let-classroom>
               <tr>
                 <td>{{ classroom.name }}</td>
-                <td class="text-surface-500">{{ classroom.type ?? '—' }}</td>
+                <td>{{ classroom.shortName ?? '—' }}</td>
+                <td class="text-surface-500">
+                  {{ classroomTypeLabel(classroom.type) }}
+                </td>
                 <td class="text-surface-500">
                   {{ classroom.capacity ?? '—' }}
                 </td>
@@ -341,7 +357,7 @@
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="4" class="py-3 text-surface-500">Žádné učebny.</td>
+                <td colspan="5" class="py-3 text-surface-500">Žádné učebny.</td>
               </tr>
             </ng-template>
           </p-table>
@@ -446,9 +462,13 @@
             </ng-template>
           </p-table>
         </p-card>
+      </div>
+    </p-tabpanel>
 
+    <p-tabpanel value="teachers">
+      <div class="flex flex-col gap-6 pt-4">
         <p-card>
-          <ng-template #title>Učitelé<app-info-hint text="Účty s rolí Učitel (vytvářejí se na kartě Uživatelé výše) — třídnictví se nastavuje u třídy." /></ng-template>
+          <ng-template #title>Učitelé<app-info-hint text="Účty s rolí Učitel (vytvářejí se v záložce Uživatelé) — třídnictví se nastavuje u třídy." /></ng-template>
           <p-table [value]="teacherOptions()" dataKey="id" styleClass="mb-4">
             <ng-template pTemplate="header">
               <tr>
@@ -494,6 +514,11 @@
             </ng-template>
           </p-table>
         </p-card>
+      </div>
+    </p-tabpanel>
+
+    <p-tabpanel value="parents">
+      <div class="flex flex-col gap-6 pt-4">
         <ng-container [ngTemplateOutlet]="parentsCard" />
       </div>
     </p-tabpanel>
@@ -532,6 +557,8 @@
             />
           </form>
         </p-card>
+
+        <app-periods-editor />
 
         <p-card>
           <ng-template #title>Údaje o škole<app-info-hint text="Používá se na oficiálních dokumentech (hlavička vysvědčení) — matrice se tyto údaje neposílají." /></ng-template>
@@ -637,7 +664,7 @@
         </p-card>
 
         <p-card>
-          <ng-template #title>Platby<app-info-hint text="Bankovní účet, na který se generuje QR platba u plateb (Platby)." /></ng-template>
+          <ng-template #title>Platby<app-info-hint text="Bankovní účet, na který se generuje QR platba u plateb. Zadejte IBAN, nebo číslo účtu v českém tvaru (předčíslí-číslo/kód banky) — převede se na IBAN." /></ng-template>
           <form
             class="flex flex-wrap items-end gap-2"
             (ngSubmit)="saveSchoolBankAccount()"
@@ -652,7 +679,8 @@
                 pInputText
                 id="schoolBankAccountNumber"
                 name="schoolBankAccountNumber"
-                placeholder="123456789/0100"
+                placeholder="IBAN nebo 19-2000145399/0800"
+                class="w-80 max-w-full"
                 [ngModel]="schoolBankAccountNumber()"
                 (ngModelChange)="schoolBankAccountNumber.set($event)"
               />
@@ -1056,7 +1084,7 @@
     <input
       pInputText
       type="text"
-      placeholder="Výchozí variabilní symbol (platby)"
+      placeholder="Variabilní symbol (prázdné = vygenerovat)"
       name="studentDefaultVariableSymbol"
       [(ngModel)]="newStudentDefaultVariableSymbol"
     />
@@ -1095,6 +1123,49 @@
 >
   <form class="grid grid-cols-1 gap-3 sm:grid-cols-2" #userForm="ngForm"
     (ngSubmit)="saveUser()">
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="roles"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Role</label
+      >
+      <p-multiSelect
+        inputId="roles"
+        [options]="roleOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="newUserRoles"
+        name="roles"
+        required
+        display="chip"
+        [showHeader]="false"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    @if (newUserRoles.includes('Student')) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newUserStudentId"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >{{ 'Žák' | term }}</label
+      >
+      <p-select
+        inputId="newUserStudentId"
+        [options]="availableStudentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [ngModel]="newUserStudentId"
+        (ngModelChange)="onNewUserStudentChange($event)"
+        name="newUserStudentId"
+        required
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    } @else {
+    <div></div>
+    }
     <div class="flex flex-col gap-1.5">
       <label
         for="userFirstName"
@@ -1155,48 +1226,6 @@
         inputStyleClass="w-full"
       />
     </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="roles"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Role</label
-      >
-      <p-multiSelect
-        inputId="roles"
-        [options]="roleOptions"
-        optionLabel="label"
-        optionValue="value"
-        [(ngModel)]="newUserRoles"
-        name="roles"
-        required
-        display="chip"
-        [showHeader]="false"
-        styleClass="w-full"
-        appendTo="body"
-      />
-    </div>
-    @if (newUserRoles.includes('Student')) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="newUserStudentId"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
-      <p-select
-        inputId="newUserStudentId"
-        [options]="availableStudentOptions()"
-        optionLabel="label"
-        optionValue="id"
-        [(ngModel)]="newUserStudentId"
-        name="newUserStudentId"
-        required
-        styleClass="w-full"
-        appendTo="body"
-      />
-    </div>
-    } @else {
-    <div></div>
-    }
     <div class="flex flex-col gap-1.5">
       <label
         for="userPhone"
@@ -1284,10 +1313,21 @@
     <input
       pInputText
       type="text"
-      placeholder="Typ (nepovinné)"
+      placeholder="Zkratka"
+      name="classroomShortName"
+      [(ngModel)]="newClassroomShortName"
+      class="w-24"
+    />
+    <p-select
+      [options]="classroomTypeOptions"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Typ"
       name="classroomType"
       [(ngModel)]="newClassroomType"
-      class="w-40"
+      [showClear]="true"
+      appendTo="body"
+      styleClass="w-40"
     />
     <p-inputNumber
       placeholder="Kapacita"

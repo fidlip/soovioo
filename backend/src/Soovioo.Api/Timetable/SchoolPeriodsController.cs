@@ -31,6 +31,12 @@ public class SchoolPeriodsController(AppDbContext db, ICurrentSchoolContext curr
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<SchoolPeriodDto>> UpsertPeriod(int periodNumber, UpsertSchoolPeriodRequest request)
     {
+        // 0 = "nultá hodina" (before the regular first period).
+        if (periodNumber is < 0 or > 15)
+        {
+            return BadRequest("Číslo hodiny musí být 0–15.");
+        }
+
         if (request.EndTime <= request.StartTime)
         {
             return BadRequest("Konec hodiny musí být po jejím začátku.");

@@ -211,4 +211,35 @@ public class StudentsControllerTests
         Assert.IsType<ForbidResult>(result);
         Assert.NotNull(await db.Students.FindAsync(student.Id));
     }
+
+    [Fact]
+    public void VariableSymbolsContinueTheYearsSequence()
+    {
+        Assert.Equal("260001", VariableSymbols.Next([], 2026));
+        Assert.Equal("260003", VariableSymbols.Next(["260002", "250009", "abc", null], 2026));
+        Assert.Equal("250010", VariableSymbols.Next(["260002", "250009"], 2025));
+    }
+
+    [Fact]
+    public async Task AddStudentGeneratesVariableSymbolAndRejectsDuplicates()
+    {
+        using var db = NewDb();
+        var admin = new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = SchoolId };
+        db.Users.Add(admin);
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        await db.SaveChangesAsync();
+        var controller = NewController(db, admin.Id, "Admin");
+
+        var first = await controller.AddStudent(new CreateStudentRequest("Jan", "Novák", schoolClass.Id));
+        var dto = Assert.IsType<StudentDto>(Assert.IsType<CreatedAtActionResult>(first.Result).Value);
+        var expected = $"{DateTime.Today.Year % 100:00}0001";
+        Assert.Equal(expected, dto.DefaultVariableSymbol);
+
+        var duplicate = await controller.AddStudent(
+            new CreateStudentRequest("Eva", "Nováková", schoolClass.Id, DefaultVariableSymbol: expected));
+        var problem = Assert.IsType<ValidationProblemDetails>(
+            Assert.IsType<BadRequestObjectResult>(duplicate.Result).Value);
+        Assert.True(problem.Errors.ContainsKey("defaultVariableSymbol"));
+    }
 }

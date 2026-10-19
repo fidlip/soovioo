@@ -32,7 +32,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.TeacherId,
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
-                e.Classroom == null ? null : e.Classroom.Name,
+                e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
                 Array.Empty<string>()))
             .ToListAsync();
 
@@ -69,7 +69,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.TeacherId,
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
-                e.Classroom == null ? null : e.Classroom.Name,
+                e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
                 Array.Empty<string>()))
             .ToListAsync();
 
@@ -127,7 +127,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
+            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
 
@@ -172,7 +172,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
+            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
         return Ok(dto);
     }
 
@@ -231,7 +231,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 ClassName = e.SchoolClass!.Name,
                 SubjectName = e.Subject!.Name,
                 TeacherName = e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
-                ClassroomName = e.Classroom == null ? null : e.Classroom.Name,
+                ClassroomName = e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
             })
             .ToListAsync();
 

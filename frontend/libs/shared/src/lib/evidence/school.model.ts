@@ -58,3 +58,9 @@ export interface SetSchoolTypeRequest {
 export interface SetSchoolBankAccountRequest {
   bankAccountNumber: string | null;
 }
+
+/** "CZ6508000000192000145399" -> "CZ65 0800 0000 1920 0014 5399" (the
+ * server stores the compact IBAN). */
+export function formatIban(iban: string): string {
+  return iban.replace(/\s/g, '').replace(/(.{4})(?=.)/g, '$1 ');
+}

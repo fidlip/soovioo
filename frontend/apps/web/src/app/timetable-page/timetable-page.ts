@@ -10,10 +10,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
-import { Card } from '@openng/optimus-ui/card';
-import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
-import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import {
@@ -108,15 +105,6 @@ function toInputTime(value: string): string {
   return value.slice(0, 5);
 }
 
-/** p-datePicker's ngModel needs a Date even in timeOnly mode — only the
- * hours/minutes are read back out via dateToTimeString(). */
-function timeStringToDate(hhmm: string): Date {
-  const [hours, minutes] = hhmm.split(':').map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date;
-}
-
 function dateToTimeString(date: Date): string {
   const hours = `${date.getHours()}`.padStart(2, '0');
   const minutes = `${date.getMinutes()}`.padStart(2, '0');
@@ -153,13 +141,10 @@ function formatShortDate(date: Date): string {
   selector: 'app-timetable-page',
   imports: [
     ...FORM_FIELDS,
-    InputNumber,
     TermPipe,
     AppIcon,
     FormsModule,
     Button,
-    Card,
-    DatePicker,
     Dialog,
     Message,
     Select,
@@ -329,12 +314,6 @@ export class TimetablePage {
       : [],
   );
 
-  protected newPeriodNumberToConfigure = 1;
-  protected newPeriodStartTime = timeStringToDate('08:00');
-  protected newPeriodEndTime = timeStringToDate('08:45');
-  protected editingPeriodNumber: number | null = null;
-  protected editPeriodStartTime: Date | null = null;
-  protected editPeriodEndTime: Date | null = null;
 
   constructor() {
     this.schoolPeriodsApi.getPeriods().subscribe({
@@ -655,64 +634,6 @@ export class TimetablePage {
     });
   }
 
-  protected addPeriod(): void {
-    this.schoolPeriodsApi
-      .upsertPeriod(this.newPeriodNumberToConfigure, {
-        startTime: this.toBackendTime(
-          dateToTimeString(this.newPeriodStartTime),
-        ),
-        endTime: this.toBackendTime(dateToTimeString(this.newPeriodEndTime)),
-      })
-      .subscribe({
-        next: () => this.reloadPeriods(),
-        error: (err) => this.notify.actionFailed('upsertPeriod failed', err),
-      });
-  }
-
-  protected startEditPeriod(period: SchoolPeriod): void {
-    this.editingPeriodNumber = period.periodNumber;
-    this.editPeriodStartTime = timeStringToDate(toInputTime(period.startTime));
-    this.editPeriodEndTime = timeStringToDate(toInputTime(period.endTime));
-  }
-
-  protected cancelEditPeriod(): void {
-    this.editingPeriodNumber = null;
-  }
-
-  protected saveEditPeriod(): void {
-    if (
-      this.editingPeriodNumber === null ||
-      !this.editPeriodStartTime ||
-      !this.editPeriodEndTime
-    ) {
-      return;
-    }
-    this.schoolPeriodsApi
-      .upsertPeriod(this.editingPeriodNumber, {
-        startTime: this.toBackendTime(
-          dateToTimeString(this.editPeriodStartTime),
-        ),
-        endTime: this.toBackendTime(dateToTimeString(this.editPeriodEndTime)),
-      })
-      .subscribe({
-        next: () => {
-          this.editingPeriodNumber = null;
-          this.reloadPeriods();
-        },
-        error: (err) => this.notify.actionFailed('upsertPeriod failed', err),
-      });
-  }
-
-  protected deletePeriod(period: SchoolPeriod): void {
-    this.schoolPeriodsApi.deletePeriod(period.periodNumber).subscribe({
-      next: () => this.reloadPeriods(),
-      error: (err) => this.notify.actionFailed('deletePeriod failed', err),
-    });
-  }
-
-  private toBackendTime(value: string): string {
-    return value.length === 5 ? `${value}:00` : value;
-  }
 
   private reload(): void {
     const mode = this.viewMode();
@@ -762,10 +683,4 @@ export class TimetablePage {
     this.scrollToCurrentPeriodAfterRender();
   }
 
-  private reloadPeriods(): void {
-    this.schoolPeriodsApi.getPeriods().subscribe({
-      next: (periods) => this.periods.set(periods),
-      error: (err) => console.error('getPeriods failed', err),
-    });
-  }
 }

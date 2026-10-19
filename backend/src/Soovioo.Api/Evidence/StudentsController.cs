@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Evidence;
@@ -54,6 +55,15 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return Forbid();
         }
 
+        var schoolId = currentSchool.SchoolId!.Value;
+        var variableSymbol = string.IsNullOrWhiteSpace(request.DefaultVariableSymbol)
+            ? await VariableSymbols.NextAsync(db, schoolId, DateTime.Today.Year)
+            : request.DefaultVariableSymbol.Trim();
+        if (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: null))
+        {
+            return this.FieldError("defaultVariableSymbol", "Tento variabilní symbol už má jiný žák.");
+        }
+
         var student = new Student
         {
             FirstName = request.FirstName,
@@ -72,7 +82,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             EnrollmentDate = request.EnrollmentDate,
             ContactPhone = request.ContactPhone,
             ContactEmail = request.ContactEmail,
-            DefaultVariableSymbol = request.DefaultVariableSymbol,
+            DefaultVariableSymbol = variableSymbol,
         };
 
         db.Students.Add(student);
@@ -125,7 +135,15 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         student.EnrollmentDate = request.EnrollmentDate;
         student.ContactPhone = request.ContactPhone;
         student.ContactEmail = request.ContactEmail;
-        student.DefaultVariableSymbol = request.DefaultVariableSymbol;
+        var variableSymbol = string.IsNullOrWhiteSpace(request.DefaultVariableSymbol)
+            ? student.DefaultVariableSymbol
+                ?? await VariableSymbols.NextAsync(db, student.SchoolId, DateTime.Today.Year)
+            : request.DefaultVariableSymbol.Trim();
+        if (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: student.Id))
+        {
+            return this.FieldError("defaultVariableSymbol", "Tento variabilní symbol už má jiný žák.");
+        }
+        student.DefaultVariableSymbol = variableSymbol;
         await db.SaveChangesAsync();
 
         return Ok(await ToDtoAsync(student, schoolClass.Name));
@@ -194,6 +212,11 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,
             student.ContactEmail, student.DefaultVariableSymbol);
     }
+
+    private Task<bool> IsVariableSymbolTakenAsync(string? variableSymbol, int? exceptStudentId) =>
+        variableSymbol is null
+            ? Task.FromResult(false)
+            : db.Students.AnyAsync(s => s.DefaultVariableSymbol == variableSymbol && s.Id != exceptStudentId);
 }
 
 public record CreateStudentRequest(

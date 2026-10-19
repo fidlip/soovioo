@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Evidence;
@@ -93,7 +94,19 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        school.BankAccountNumber = request.BankAccountNumber;
+        if (string.IsNullOrWhiteSpace(request.BankAccountNumber))
+        {
+            school.BankAccountNumber = null;
+        }
+        else
+        {
+            var (iban, error) = BankAccounts.ToIban(request.BankAccountNumber);
+            if (error is not null)
+            {
+                return this.FieldError("bankAccountNumber", error);
+            }
+            school.BankAccountNumber = iban;
+        }
         await db.SaveChangesAsync();
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));

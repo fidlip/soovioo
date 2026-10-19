@@ -1,7 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
@@ -15,7 +14,12 @@ import { FORM_FIELDS } from '../forms';
 @Component({
   selector: 'app-accept-invite-page',
   imports: [
-    ...FORM_FIELDS,FormsModule, Button, Card, Message, Password],
+    ...FORM_FIELDS,
+    FormsModule,
+    Card,
+    Message,
+    Password,
+  ],
   templateUrl: './accept-invite-page.html',
 })
 export class AcceptInvitePage {

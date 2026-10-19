@@ -24,11 +24,12 @@ public class ClassroomsControllerTests
         using var db = NewDb();
 
         var result = await new ClassroomsController(db, new FakeCurrentSchoolContext(SchoolId))
-            .AddClassroom(new CreateClassroomRequest("12", "kmenová", 30));
+            .AddClassroom(new CreateClassroomRequest("Tělocvična", ClassroomType.Gym, 30, " Tv "));
 
         var classroom = Assert.IsType<Classroom>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
-        Assert.Equal("12", classroom.Name);
-        Assert.Equal("kmenová", classroom.Type);
+        Assert.Equal("Tělocvična", classroom.Name);
+        Assert.Equal("Tv", classroom.ShortName);
+        Assert.Equal(ClassroomType.Gym, classroom.Type);
         Assert.Equal(30, classroom.Capacity);
     }
 

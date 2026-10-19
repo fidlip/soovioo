@@ -172,6 +172,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Subject>().HasQueryFilter(s =>
             currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Classroom>().Property(c => c.Type).HasConversion<string>();
         modelBuilder.Entity<Classroom>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Student>().HasQueryFilter(s =>
@@ -293,8 +294,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             new Subject { Id = 3, Name = "Anglický jazyk", SchoolId = 1, Abbreviation = "Aj" });
 
         modelBuilder.Entity<Classroom>().HasData(
-            new Classroom { Id = 1, Name = "12", SchoolId = 1, Type = "kmenová" },
-            new Classroom { Id = 2, Name = "Tělocvična", SchoolId = 1, Type = "tělocvična", Capacity = 30 });
+            new Classroom { Id = 1, Name = "12", SchoolId = 1, Type = ClassroomType.Homeroom },
+            new Classroom { Id = 2, Name = "Tělocvična", ShortName = "Tv", SchoolId = 1, Type = ClassroomType.Gym, Capacity = 30 });
 
         modelBuilder.Entity<TimetableEntry>().HasData(
             new TimetableEntry { Id = 1, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Every, ClassroomId = 1 },

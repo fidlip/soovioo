@@ -135,6 +135,8 @@ using (var scope = app.Services.CreateScope())
     BackfillDemoPersonNames(db);
     SeedReferenceData(db);
     BackfillDemoStudentReferenceCodes(db);
+    VariableSymbols.Backfill(db);
+    BackfillSchoolIbans(db);
 
     // First real Hangfire job in this codebase (Hangfire itself was already
     // wired up via AddHangfire/AddHangfireServer above) — generates each
@@ -360,6 +362,28 @@ static void BackfillDemoStudentReferenceCodes(AppDbContext db)
     student.MunicipalityCode = "500054"; // RAUJ: Praha 1 (district CZ0100 follows from this)
     student.CountryCode = "203"; // RAST: Česká republika
     db.SaveChanges();
+}
+
+// School bank accounts are stored as compact IBANs since the IBAN
+// conversion (MySchoolController.SetBankAccount) — convert older values
+// typed in the Czech format or with spaces; leave unconvertible ones as is.
+static void BackfillSchoolIbans(AppDbContext db)
+{
+    var schools = db.Schools.Where(s => s.BankAccountNumber != null).ToList();
+    var changed = false;
+    foreach (var school in schools)
+    {
+        var (iban, _) = BankAccounts.ToIban(school.BankAccountNumber!);
+        if (iban is not null && iban != school.BankAccountNumber)
+        {
+            school.BankAccountNumber = iban;
+            changed = true;
+        }
+    }
+    if (changed)
+    {
+        db.SaveChanges();
+    }
 }
 
 static string NormalizeName(string name) => name.Replace('\n', ' ').Replace('\r', ' ').Trim();
