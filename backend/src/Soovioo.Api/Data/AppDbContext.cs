@@ -31,6 +31,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
     public DbSet<MessageBroadcast> MessageBroadcasts => Set<MessageBroadcast>();
+    public DbSet<Support.SupportSession> SupportSessions => Set<Support.SupportSession>();
+    public DbSet<Support.SupportAction> SupportActions => Set<Support.SupportAction>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
     public DbSet<EventTeacher> EventTeachers => Set<EventTeacher>();
@@ -92,6 +94,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .HasOne(c => c.Broadcast).WithMany(b => b.Conversations).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<MessageBroadcast>()
             .HasOne(b => b.SenderUser).WithMany().OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Support.SupportSession>()
+            .HasOne(s => s.SuperAdminUser).WithMany().OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<HomeworkStudent>().HasKey(hs => new { hs.HomeworkId, hs.StudentId });
         modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
         modelBuilder.Entity<BehaviorClassification>()

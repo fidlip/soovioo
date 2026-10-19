@@ -17,6 +17,7 @@ import { filter, map } from 'rxjs';
 import {
   AuthApiService,
   ROLE_LABELS,
+  SupportApiService,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon, AppIconName } from './app-icon';
@@ -55,7 +56,8 @@ interface NavItem {
   host: { '(document:keydown.escape)': 'drawerOpen.set(false)' },
 })
 export class App {
-  private readonly authApi = inject(AuthApiService);
+  protected readonly authApi = inject(AuthApiService);
+  private readonly supportApi = inject(SupportApiService);
   private readonly router = inject(Router);
   protected readonly schoolContext = inject(SchoolContextService);
   protected readonly unreadMessages = inject(UnreadMessagesService);
@@ -205,7 +207,25 @@ export class App {
     return this.authApi.isLoggedIn();
   }
 
+  /** Ends support mode: closes the audited session, then the SuperAdmin's
+   * own session comes back from the refresh cookie. */
+  protected leaveSupport(): void {
+    const backToSuperAdmin = () =>
+      this.authApi
+        .restoreSession()
+        .then(() => this.router.navigate(['/superadmin']));
+    this.supportApi.endCurrentSession().subscribe({
+      next: backToSuperAdmin,
+      error: backToSuperAdmin,
+    });
+  }
+
   protected logout(): void {
+    if (this.authApi.getSupportInfo()) {
+      // Logging out here would end the SuperAdmin's own session too.
+      this.leaveSupport();
+      return;
+    }
     const wasSuperAdmin = this.authApi.isSuperAdmin();
     this.authApi.logout();
     this.router.navigate(

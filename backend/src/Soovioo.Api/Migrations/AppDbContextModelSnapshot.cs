@@ -1322,6 +1322,71 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("Municipalities");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Support.SupportAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SupportSessionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SupportSessionId");
+
+                    b.ToTable("SupportActions");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("SuperAdminUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SuperAdminUsername")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("SuperAdminUserId");
+
+                    b.ToTable("SupportSessions");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
                 {
                     b.Property<int>("Id")
@@ -2167,6 +2232,35 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("District");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Support.SupportAction", b =>
+                {
+                    b.HasOne("Soovioo.Api.Support.SupportSession", "SupportSession")
+                        .WithMany("Actions")
+                        .HasForeignKey("SupportSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SupportSession");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", "SuperAdminUser")
+                        .WithMany()
+                        .HasForeignKey("SuperAdminUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("School");
+
+                    b.Navigation("SuperAdminUser");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -2285,6 +2379,11 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("ParentProfile");
 
                     b.Navigation("TeacherProfile");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
+                {
+                    b.Navigation("Actions");
                 });
 #pragma warning restore 612, 618
         }

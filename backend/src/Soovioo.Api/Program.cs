@@ -166,6 +166,7 @@ app.UseCors(app.Environment.IsDevelopment() ? devCorsPolicy : prodCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<Soovioo.Api.Support.SupportAuditMiddleware>();
 
 app.MapControllers();
 

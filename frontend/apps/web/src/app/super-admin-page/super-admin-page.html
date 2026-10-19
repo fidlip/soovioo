@@ -85,6 +85,14 @@
         <td>
           <div class="flex justify-end gap-1">
             <p-button
+              icon="pi pi-sign-in"
+              size="small"
+              [text]="true"
+              ariaLabel="Vstoupit do školy"
+              title="Vstoupit do školy (režim podpory)"
+              (onClick)="enterSchool(school)"
+            />
+            <p-button
               icon="pi pi-pencil"
               size="small"
               [text]="true"
@@ -226,4 +234,101 @@
       icon="pi pi-plus"
     />
   </form>
+</p-card>
+
+<p-card header="Superadmini" styleClass="mt-6">
+  <ul class="m-0 mb-4 flex list-none flex-col gap-1 p-0">
+    @for (superAdmin of superAdmins(); track superAdmin.id) {
+    <li class="flex items-center justify-between gap-2 border-b border-surface-200 py-1 dark:border-surface-700">
+      <span>
+        {{ superAdmin.username }} @if (superAdmin.id === myUserId) {
+        <span class="text-sm text-surface-500">(vy)</span> }
+      </span>
+      @if (superAdmin.id !== myUserId) {
+      <p-button
+        icon="pi pi-trash"
+        size="small"
+        severity="danger"
+        [text]="true"
+        ariaLabel="Odebrat superadmina"
+        (onClick)="deleteSuperAdmin(superAdmin)"
+      />
+      }
+    </li>
+    }
+  </ul>
+  <form
+    class="flex flex-wrap items-end gap-3"
+    #superAdminForm="ngForm"
+    (ngSubmit)="addSuperAdmin()"
+  >
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newSuperAdminUsername"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Uživatelské jméno</label
+      >
+      <input
+        pInputText
+        id="newSuperAdminUsername"
+        name="newSuperAdminUsername"
+        autocomplete="off"
+        required
+        [(ngModel)]="newSuperAdminUsername"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="newSuperAdminPassword"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Počáteční heslo</label
+      >
+      <p-password
+        inputId="newSuperAdminPassword"
+        name="newSuperAdminPassword"
+        autocomplete="new-password"
+        required
+        [minlength]="8"
+        [(ngModel)]="newSuperAdminPassword"
+        [toggleMask]="true"
+        [feedback]="false"
+      />
+    </div>
+    <app-submit-button
+      [form]="superAdminForm"
+      label="Přidat superadmina"
+      icon="pi pi-plus"
+    />
+  </form>
+</p-card>
+
+<p-card header="Přístupy podpory do škol" styleClass="mt-6">
+  @for (session of supportSessions(); track session.id) {
+  <details class="border-b border-surface-200 py-2 dark:border-surface-700">
+    <summary class="flex cursor-pointer flex-wrap items-center gap-2 text-sm">
+      <strong>{{ session.schoolName }}</strong>
+      <span class="text-surface-500"
+        >{{ session.superAdminUsername }} ·
+        {{ session.startedAt | date: 'd.M.yyyy H:mm' }} @if (session.endedAt)
+        { – {{ session.endedAt | date: 'H:mm' }} }</span
+      >
+      <p-tag
+        [value]="changesLabel(session.actions.length)"
+        [severity]="session.actions.length > 0 ? 'warn' : 'secondary'"
+      />
+    </summary>
+    @if (session.actions.length > 0) {
+    <ul class="m-0 mt-2 list-none p-0 font-mono text-xs text-surface-600 dark:text-surface-300">
+      @for (action of session.actions; track $index) {
+      <li>
+        {{ action.at | date: 'H:mm:ss' }} {{ action.method }} {{ action.path }}
+        → {{ action.statusCode }}
+      </li>
+      }
+    </ul>
+    }
+  </details>
+  } @empty {
+  <p class="m-0 text-sm text-surface-500">Zatím žádné přístupy.</p>
+  }
 </p-card>

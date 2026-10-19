@@ -169,6 +169,13 @@ export class AuthApiService {
     return value === 'Elementary' || value === 'Secondary' ? value : null;
   }
 
+  /** Set while a SuperAdmin acts in a school in support mode (token from
+   * `SupportApiService.startSupportSession`): who and which school. */
+  getSupportInfo(): { by: string; schoolName: string } | null {
+    const by = this.getClaim('supportBy');
+    return by ? { by, schoolName: this.getClaim('supportSchool') ?? '' } : null;
+  }
+
   /** Request options for the endpoints that read or set the refresh cookie
    * (web only): send/accept cookies cross-origin, plus the CSRF header the
    * backend demands before it trusts a cookie-borne refresh token. */
@@ -201,7 +208,7 @@ export class AuthApiService {
       return null;
     }
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = JSON.parse(decodeJwtPart(token.split('.')[1]));
       for (const key of keys) {
         if (payload[key] != null) {
           return payload[key];
@@ -248,4 +255,13 @@ export class AuthApiService {
   mustChangePassword(): boolean {
     return this.getClaim('mustChangePassword') === 'true';
   }
+}
+
+/** base64url JWT segment -> string, decoding UTF-8 (plain `atob` would
+ * turn "Škola" into mojibake). */
+function decodeJwtPart(part: string): string {
+  const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }

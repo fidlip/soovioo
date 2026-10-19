@@ -53,3 +53,5 @@ export * from './lib/behavior/behavior.model';
 export * from './lib/behavior/behavior-api.service';
 export * from './lib/payments/payment.model';
 export * from './lib/payments/payments-api.service';
+export * from './lib/support/support.model';
+export * from './lib/support/support-api.service';

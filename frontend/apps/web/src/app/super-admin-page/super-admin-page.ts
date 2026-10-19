@@ -9,12 +9,19 @@ import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
+import { Router } from '@angular/router';
+import { Tag } from '@openng/optimus-ui/tag';
 import {
+  AuthApiService,
   CreateSchoolRequest,
   School,
   SchoolsApiService,
+  SuperAdmin,
+  SupportApiService,
+  SupportSession,
   UpdateSchoolRequest,
 } from '@soovioo/shared';
+import { isPathBasedTenant } from '../school-context';
 import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
@@ -35,12 +42,22 @@ const DEFAULT_PAGE_SIZE = 10;
     Password,
     PrimeTemplate,
     TableModule,
+    Tag,
   ],
   templateUrl: './super-admin-page.html',
 })
 export class SuperAdminPage {
   protected readonly notify = inject(NotifyService);
   private readonly schoolsApi = inject(SchoolsApiService);
+  private readonly supportApi = inject(SupportApiService);
+  private readonly authApi = inject(AuthApiService);
+  private readonly router = inject(Router);
+
+  protected readonly superAdmins = signal<SuperAdmin[]>([]);
+  protected readonly supportSessions = signal<SupportSession[]>([]);
+  protected readonly myUserId = this.authApi.getUserId();
+  protected newSuperAdminUsername = '';
+  protected newSuperAdminPassword = '';
 
   protected readonly schools = signal<School[]>([]);
   protected readonly totalCount = signal(0);
@@ -66,6 +83,72 @@ export class SuperAdminPage {
 
   constructor() {
     this.reload();
+    this.reloadSuperAdmins();
+    this.supportApi.getSupportSessions().subscribe({
+      next: (sessions) => this.supportSessions.set(sessions),
+      error: (err) => console.error('getSupportSessions failed', err),
+    });
+  }
+
+  /** "Vstoupit do školy": an audited, 2-hour Admin session in that school
+   * (support mode); the own SuperAdmin session comes back on "Opustit". */
+  protected enterSchool(school: School): void {
+    if (!isPathBasedTenant()) {
+      // Each school lives on its own subdomain there and the token is kept
+      // in memory only — it can't follow the jump yet (see ROADMAP).
+      this.notify.error(
+        'Vstup do školy zatím funguje jen při provozu s adresou školy v cestě (/slug).',
+      );
+      return;
+    }
+    this.supportApi.startSupportSession(school.id).subscribe({
+      next: (session) => {
+        this.authApi.store({ token: session.token });
+        this.router.navigate(['/', session.schoolSlug]);
+      },
+      error: (err) => this.notify.actionFailed('startSupportSession failed', err),
+    });
+  }
+
+  protected addSuperAdmin(): void {
+    this.supportApi
+      .addSuperAdmin({
+        username: this.newSuperAdminUsername.trim(),
+        password: this.newSuperAdminPassword,
+      })
+      .subscribe({
+        next: (added) => {
+          this.notify.success(
+            `Superadmin ${added.username} přidán — při prvním přihlášení si změní heslo.`,
+          );
+          this.newSuperAdminUsername = '';
+          this.newSuperAdminPassword = '';
+          this.reloadSuperAdmins();
+        },
+        error: (err) => this.notify.actionFailed('addSuperAdmin failed', err),
+      });
+  }
+
+  protected deleteSuperAdmin(superAdmin: SuperAdmin): void {
+    this.supportApi.deleteSuperAdmin(superAdmin.id).subscribe({
+      next: () => this.reloadSuperAdmins(),
+      error: (err) => this.notify.actionFailed('deleteSuperAdmin failed', err),
+    });
+  }
+
+  protected changesLabel(count: number): string {
+    return count === 1
+      ? '1 změna'
+      : count >= 2 && count <= 4
+        ? `${count} změny`
+        : `${count} změn`;
+  }
+
+  private reloadSuperAdmins(): void {
+    this.supportApi.getSuperAdmins().subscribe({
+      next: (list) => this.superAdmins.set(list),
+      error: (err) => console.error('getSuperAdmins failed', err),
+    });
   }
 
   protected onPageChange(event: PaginatorState): void {

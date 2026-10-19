@@ -20,7 +20,6 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
     /// "student" without an extra request.</param>
     public string CreateToken(User user, School? school = null)
     {
-        var options = jwtOptions.Value;
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -40,13 +39,42 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
             claims.Add(new Claim("schoolType", school.Type.ToString()));
         }
 
+        return Write(claims, DateTime.UtcNow.AddMinutes(15));
+    }
+
+    /// <summary>Support mode: the SuperAdmin acts as an Admin of
+    /// <paramref name="school"/> (role and schoolId claims as for a real
+    /// admin, so every tenant filter and role check applies unchanged), with
+    /// the support claims marking who's behind it. 2 hours, no refresh.</summary>
+    public (string Token, DateTimeOffset ExpiresAt) CreateSupportToken(User superAdmin, School school, int sessionId)
+    {
+        var expires = DateTime.UtcNow.AddHours(2);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, superAdmin.Id.ToString()),
+            new(ClaimTypes.Name, superAdmin.Username),
+            new(ClaimTypes.Role, nameof(UserRole.Admin)),
+            new("mustChangePassword", "false"),
+            new("roles", nameof(UserRole.Admin)),
+            new("schoolId", school.Id.ToString()),
+            new("schoolType", school.Type.ToString()),
+            new(Support.SupportClaims.SessionId, sessionId.ToString()),
+            new(Support.SupportClaims.By, superAdmin.Username),
+            new(Support.SupportClaims.SchoolName, school.Name),
+        };
+        return (Write(claims, expires), new DateTimeOffset(expires));
+    }
+
+    private string Write(IEnumerable<Claim> claims, DateTime expires)
+    {
+        var options = jwtOptions.Value;
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
             issuer: options.Issuer,
             audience: options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(15),
+            expires: expires,
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

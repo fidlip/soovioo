@@ -35,5 +35,11 @@ export const authGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
     return router.createUrlTree(authApi.isSuperAdmin() ? ['/', 'superadmin', 'settings'] : ['/', 'settings']);
   }
 
+  // A SuperAdmin token on a school route: a support-mode token expired and
+  // the refresh cookie brought back the plain SuperAdmin session.
+  if (route.paramMap.get('schoolSlug') && authApi.isSuperAdmin()) {
+    return router.createUrlTree(['/', 'superadmin']);
+  }
+
   return true;
 };
