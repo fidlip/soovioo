@@ -14,6 +14,7 @@ import { PaymentsPage } from './payments-page/payments-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
 import { SettingsPage } from './settings-page/settings-page';
 import { SuperAdminPage } from './super-admin-page/super-admin-page';
+import { LogsPage } from './logs-page/logs-page';
 import { TimetablePage } from './timetable-page/timetable-page';
 
 const schoolRoutes: Route[] = [
@@ -49,6 +50,7 @@ const superAdminRoutes: Route[] = [
     data: { hideHeader: true },
   },
   { path: 'superadmin', component: SuperAdminPage, canActivate: [authGuard] },
+  { path: 'superadmin/logs', component: LogsPage, canActivate: [authGuard] },
   {
     path: 'superadmin/settings',
     component: SettingsPage,

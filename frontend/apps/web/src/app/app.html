@@ -63,6 +63,14 @@
       title="Správa škol"
       ><app-icon name="school" /><span class="app-nav-label">Správa škol</span></a
     >
+    <a
+      routerLink="/superadmin/logs"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Logy"
+      title="Logy"
+      ><app-icon name="logs" /><span class="app-nav-label">Logy</span></a
+    >
     } @else { @for (item of navItems(); track item.icon) { @if (!item.staffOnly ||
     isAdmin() || isTeacher()) {
     <a

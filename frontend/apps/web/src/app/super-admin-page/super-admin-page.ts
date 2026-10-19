@@ -10,7 +10,6 @@ import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import { Router } from '@angular/router';
-import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
   CreateSchoolRequest,
@@ -18,7 +17,6 @@ import {
   SchoolsApiService,
   SuperAdmin,
   SupportApiService,
-  SupportSession,
   UpdateSchoolRequest,
 } from '@soovioo/shared';
 import { isPathBasedTenant } from '../school-context';
@@ -42,7 +40,6 @@ const DEFAULT_PAGE_SIZE = 10;
     Password,
     PrimeTemplate,
     TableModule,
-    Tag,
   ],
   templateUrl: './super-admin-page.html',
 })
@@ -54,7 +51,6 @@ export class SuperAdminPage {
   private readonly router = inject(Router);
 
   protected readonly superAdmins = signal<SuperAdmin[]>([]);
-  protected readonly supportSessions = signal<SupportSession[]>([]);
   protected readonly myUserId = this.authApi.getUserId();
   protected newSuperAdminUsername = '';
   protected newSuperAdminPassword = '';
@@ -84,10 +80,6 @@ export class SuperAdminPage {
   constructor() {
     this.reload();
     this.reloadSuperAdmins();
-    this.supportApi.getSupportSessions().subscribe({
-      next: (sessions) => this.supportSessions.set(sessions),
-      error: (err) => console.error('getSupportSessions failed', err),
-    });
   }
 
   /** "Vstoupit do školy": an audited, 2-hour Admin session in that school
@@ -136,13 +128,6 @@ export class SuperAdminPage {
     });
   }
 
-  protected changesLabel(count: number): string {
-    return count === 1
-      ? '1 změna'
-      : count >= 2 && count <= 4
-        ? `${count} změny`
-        : `${count} změn`;
-  }
 
   private reloadSuperAdmins(): void {
     this.supportApi.getSuperAdmins().subscribe({
