@@ -100,12 +100,14 @@
               }
               <p-button
                 icon="pi pi-pencil"
+                ariaLabel="Upravit"
                 size="small"
                 [text]="true"
                 (onClick)="startEditStudent(student)"
               />
               <p-button
                 icon="pi pi-trash"
+                ariaLabel="Smazat"
                 size="small"
                 severity="danger"
                 [text]="true"
@@ -153,6 +155,7 @@
           <td class="text-right">
             <p-button
               icon="pi pi-pencil"
+              ariaLabel="Upravit"
               size="small"
               [text]="true"
               (onClick)="openEditParentChildrenDialog(parent)"
@@ -220,12 +223,14 @@
                   <div class="flex justify-end gap-1">
                     <p-button
                       icon="pi pi-pencil"
+                      ariaLabel="Upravit"
                       size="small"
                       [text]="true"
                       (onClick)="startEditSchoolClass(schoolClass)"
                     />
                     <p-button
                       icon="pi pi-trash"
+                      ariaLabel="Smazat"
                       size="small"
                       severity="danger"
                       [text]="true"
@@ -275,7 +280,7 @@
                     [style.background-color]="subject.color"
                   ></span>
                   } @else {
-                  <span class="text-surface-400">—</span>
+                  <span class="text-surface-500 dark:text-surface-400">—</span>
                   }
                 </td>
                 <td class="text-surface-500">
@@ -285,12 +290,14 @@
                   <div class="flex justify-end gap-1">
                     <p-button
                       icon="pi pi-pencil"
+                      ariaLabel="Upravit"
                       size="small"
                       [text]="true"
                       (onClick)="startEditSubject(subject)"
                     />
                     <p-button
                       icon="pi pi-trash"
+                      ariaLabel="Smazat"
                       size="small"
                       severity="danger"
                       [text]="true"
@@ -343,12 +350,14 @@
                   <div class="flex justify-end gap-1">
                     <p-button
                       icon="pi pi-pencil"
+                      ariaLabel="Upravit"
                       size="small"
                       [text]="true"
                       (onClick)="startEditClassroom(classroom)"
                     />
                     <p-button
                       icon="pi pi-trash"
+                      ariaLabel="Smazat"
                       size="small"
                       severity="danger"
                       [text]="true"
@@ -434,6 +443,7 @@
                     @if (user.email) {
                     <p-button
                       icon="pi pi-envelope"
+                      ariaLabel="Poslat pozvánku"
                       size="small"
                       [text]="true"
                       (onClick)="sendInvite(user)"
@@ -441,6 +451,7 @@
                     }
                     <p-button
                       icon="pi pi-pencil"
+                      ariaLabel="Upravit"
                       size="small"
                       [text]="true"
                       (onClick)="startEditUser(user)"
@@ -454,6 +465,7 @@
                     >
                       <p-button
                         icon="pi pi-trash"
+                        ariaLabel="Smazat"
                         size="small"
                         severity="danger"
                         [text]="true"

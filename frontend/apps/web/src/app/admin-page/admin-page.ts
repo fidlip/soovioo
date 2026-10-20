@@ -360,8 +360,10 @@ export class AdminPage {
 
   constructor() {
     if (this.authApi.isAdmin()) {
-      this.accessLevel.set('admin');
-      this.reload();
+      // accessLevel turns 'admin' only once the first tab's tables have
+      // their data (see adminDataArrived) — rendering the cards empty and
+      // then filling them shoved the lower cards down the page.
+      this.reloadAll();
       this.loadMySchool();
       this.referenceApi.getCountries().subscribe({
         next: (countries) => this.countries.set(countries),
@@ -554,6 +556,17 @@ export class AdminPage {
     );
   }
 
+  /** Classes, subjects and classrooms (the first tab) still to arrive on
+   * the initial load; at zero the page renders. Errors count too, so a
+   * failed request doesn't leave the page stuck on "Načítání…". */
+  private initialAdminRequests = 3;
+
+  private adminDataArrived(): void {
+    if (--this.initialAdminRequests === 0) {
+      this.accessLevel.set('admin');
+    }
+  }
+
   private reloadAll(): void {
     this.studentsApi.getStudents().subscribe({
       next: (students) => {
@@ -566,16 +579,32 @@ export class AdminPage {
       next: (schoolClasses) => {
         this.schoolClasses.set(schoolClasses);
         this.newStudentSchoolClassId ??= schoolClasses[0]?.id ?? null;
+        this.adminDataArrived();
       },
-      error: (err) => console.error('getSchoolClasses failed', err),
+      error: (err) => {
+        console.error('getSchoolClasses failed', err);
+        this.adminDataArrived();
+      },
     });
     this.subjectsApi.getSubjects().subscribe({
-      next: (subjects) => this.subjects.set(subjects),
-      error: (err) => console.error('getSubjects failed', err),
+      next: (subjects) => {
+        this.subjects.set(subjects);
+        this.adminDataArrived();
+      },
+      error: (err) => {
+        console.error('getSubjects failed', err);
+        this.adminDataArrived();
+      },
     });
     this.classroomsApi.getClassrooms().subscribe({
-      next: (classrooms) => this.classrooms.set(classrooms),
-      error: (err) => console.error('getClassrooms failed', err),
+      next: (classrooms) => {
+        this.classrooms.set(classrooms);
+        this.adminDataArrived();
+      },
+      error: (err) => {
+        console.error('getClassrooms failed', err);
+        this.adminDataArrived();
+      },
     });
     this.usersApi.getUsers().subscribe({
       next: (users) => this.users.set(users),

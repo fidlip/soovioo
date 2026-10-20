@@ -1,4 +1,13 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
@@ -64,8 +73,21 @@ export class App {
   protected readonly schoolContext = inject(SchoolContextService);
   protected readonly unreadMessages = inject(UnreadMessagesService);
 
+  private readonly confirmDialog = viewChild(ConfirmDialog, {
+    read: ElementRef<HTMLElement>,
+  });
+
   constructor() {
     installPlaceholderTitles();
+    // optimus-ui's ConfirmDialog puts a static role="alertdialog" on its
+    // inner <p-dialog> host too, which stays in the DOM, unnamed, even with
+    // no dialog open (an a11y violation on every page). The real dialog
+    // element inside gets the role and its aria-labelledby on its own.
+    afterNextRender(() =>
+      this.confirmDialog()
+        ?.nativeElement.querySelector('p-dialog[role]')
+        ?.removeAttribute('role'),
+    );
     // Created at startup only so the persisted/OS dark-mode class lands on
     // <html> on every page — the toggle itself lives on the Nastavení page,
     // not in the header.

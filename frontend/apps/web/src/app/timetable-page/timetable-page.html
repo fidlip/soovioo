@@ -12,22 +12,6 @@
   }
 </div>
 
-@if (conflictLines().length > 0) {
-<p-message severity="error" styleClass="mb-4 w-full">
-  <div class="flex flex-col gap-1">
-    <div class="flex items-center gap-2 font-semibold">
-      <i class="pi pi-exclamation-triangle"></i>Kolize v rozvrhu
-      ({{ conflictLines().length }})
-    </div>
-    <ul class="m-0 list-disc pl-5 text-sm">
-      @for (line of conflictLines(); track $index) {
-      <li>{{ line }}</li>
-      }
-    </ul>
-  </div>
-</p-message>
-}
-
 <div class="mb-4 flex flex-wrap items-end gap-3">
   @if (authApi.isTeacherOrAdmin()) {
   <div class="flex flex-col gap-1.5">
@@ -99,6 +83,7 @@
   <div class="flex items-end gap-1">
     <p-button
       icon="pi pi-angle-left"
+      ariaLabel="Předchozí týden"
       severity="secondary"
       [text]="true"
       (onClick)="previousWeek()"
@@ -111,12 +96,29 @@
     />
     <p-button
       icon="pi pi-angle-right"
+      ariaLabel="Další týden"
       severity="secondary"
       [text]="true"
       (onClick)="nextWeek()"
     />
   </div>
 </div>
+
+@if (gridReady()) { @if (conflictLines().length > 0) {
+<p-message severity="error" styleClass="mb-4 w-full">
+  <div class="flex flex-col gap-1">
+    <div class="flex items-center gap-2 font-semibold">
+      <i class="pi pi-exclamation-triangle"></i>Kolize v rozvrhu ({{
+      conflictLines().length }})
+    </div>
+    <ul class="m-0 list-disc pl-5 text-sm">
+      @for (line of conflictLines(); track $index) {
+      <li>{{ line }}</li>
+      }
+    </ul>
+  </div>
+</p-message>
+}
 
 <!-- Two tables sharing one fixed column layout: the header lives outside the
      horizontally scrolling body so it can stick to the page (below the mobile
@@ -149,7 +151,7 @@
             <div class="text-xs font-normal text-surface-500">
               {{ period.startTime.slice(0, 5) }}
             </div>
-            <div class="text-xs font-normal text-surface-400">
+            <div class="text-xs font-normal text-surface-500">
               {{ period.endTime.slice(0, 5) }}
             </div>
           </th>
@@ -180,8 +182,8 @@
             {{ dayShortLabels[day] }}
           </th>
           @for (period of displayedPeriods(); track period.periodNumber) { @let
-          entry = entryGrid().get(day)?.get(period.periodNumber);
-          @let editable = editMode() && canManageTimetable();
+          entry = entryGrid().get(day)?.get(period.periodNumber); @let editable
+          = editMode() && canManageTimetable();
           <td
             class="group relative border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
             [class.h-14]="editable"
@@ -192,8 +194,8 @@
             [title]="entry ? cellTitle(entry) : ''"
             (click)="onCellClick(day, period.periodNumber)"
           >
-            @if (entry) {
-            @let hasConflict = canManageTimetable() && entry.conflicts.length > 0;
+            @if (entry) { @let hasConflict = canManageTimetable() &&
+            entry.conflicts.length > 0;
             <div
               class="relative rounded px-2 py-1 text-xs"
               [class.ring-2]="hasConflict"
@@ -204,6 +206,7 @@
               @if (hasConflict) {
               <i
                 class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
+                role="img"
                 aria-label="Kolize"
               ></i>
               }
@@ -216,7 +219,7 @@
               @if (entry.teacherName) {
               <div class="text-surface-700">{{ entry.teacherName }}</div>
               } @if (entry.classroomName) {
-              <div class="text-surface-500">{{ entry.classroomName }}</div>
+              <div class="text-surface-600">{{ entry.classroomName }}</div>
               } @if (entry.weekParity !== 'Every') {
               <div class="text-surface-600">
                 {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
@@ -272,6 +275,9 @@
     </table>
   </div>
 </div>
+} @else {
+<p class="text-surface-500">Načítání…</p>
+}
 
 <p-dialog
   [visible]="dialogVisible()"
@@ -280,8 +286,11 @@
   [modal]="true"
   styleClass="w-full max-w-md"
 >
-  <form class="flex flex-col gap-3" #entryForm="ngForm"
-    (ngSubmit)="saveEntry()">
+  <form
+    class="flex flex-col gap-3"
+    #entryForm="ngForm"
+    (ngSubmit)="saveEntry()"
+  >
     <div class="flex flex-col gap-1.5">
       <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
         >Předmět</span
@@ -396,10 +405,7 @@
           [text]="true"
           (onClick)="closeDialog()"
         />
-        <app-submit-button
-          [form]="entryForm"
-          label="Uložit"
-        />
+        <app-submit-button [form]="entryForm" label="Uložit" />
       </div>
     </div>
   </form>

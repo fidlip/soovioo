@@ -97,7 +97,7 @@
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <i
-              class="pi text-surface-400"
+              class="pi text-surface-500 dark:text-surface-400"
               [class.pi-chevron-right]="!isExpanded(payment.id)"
               [class.pi-chevron-down]="isExpanded(payment.id)"
             ></i>
@@ -177,7 +177,7 @@
                 >{{ formatAmount(recipient.amount) }}</span
               >
               @if (payment.recurrence !== 'None') {
-              <span class="text-sm text-surface-400"
+              <span class="text-sm text-surface-500 dark:text-surface-400"
                 >· splátka {{ formatDate(recipient.installmentDueDate) }}</span
               >
               }
@@ -214,7 +214,7 @@
           </div>
         </div>
         } @empty {
-        <span class="text-sm text-surface-400"
+        <span class="text-sm text-surface-500 dark:text-surface-400"
           >{{ 'Žádní žáci nejsou touto platbou cíleni.' | term }}</span
         >
         }
@@ -223,7 +223,8 @@
     </p-card>
     } @empty {
     <p class="text-surface-500">
-      {{ payments().length > 0 ? 'Filtru neodpovídá žádná platba.' : 'Zatím žádné platby.' }}
+      {{ payments().length > 0 ? 'Filtru neodpovídá žádná platba.' : 'Zatím
+      žádné platby.' }}
     </p>
     }
   </div>
@@ -239,8 +240,7 @@
   @if (formError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" #paymentForm="ngForm"
-    (ngSubmit)="save()">
+  <form class="flex flex-col gap-3" #paymentForm="ngForm" (ngSubmit)="save()">
     <input
       pInputText
       type="text"
@@ -399,7 +399,9 @@
             {{ c.name }}
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>
@@ -430,7 +432,9 @@
             {{ p.name }}
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>
@@ -459,10 +463,14 @@
               [ngModelOptions]="{ standalone: true }"
             />
             {{ s.firstName }} {{ s.lastName }}
-            <span class="text-surface-400">· {{ s.schoolClassName }}</span>
+            <span class="text-surface-500 dark:text-surface-400"
+              >· {{ s.schoolClassName }}</span
+            >
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>

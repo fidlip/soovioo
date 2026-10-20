@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <title>Soovioo</title>
+    <meta
+      name="description"
+      content="Soovioo — školní informační systém: známky, docházka, rozvrh, zprávy a kalendář pro učitele, rodiče i žáky."
+    />
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="favicon.ico" sizes="any" />
@@ -10,6 +14,20 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#092740" />
+    <!-- The logos are the largest paint of the login page and the app's top
+         bar, but only show up once the app renders — fetch them right away. -->
+    <link
+      rel="preload"
+      href="images/logo.svg"
+      as="image"
+      type="image/svg+xml"
+    />
+    <link
+      rel="preload"
+      href="images/logo-inline.svg"
+      as="image"
+      type="image/svg+xml"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,6 +36,13 @@
     />
   </head>
   <body>
-    <app-root></app-root>
+    <app-root>
+      <!-- Shown until the app boots (Angular replaces it): something to see
+           at once instead of a blank page while the bundle and the session
+           restore load on a slow connection. -->
+      <div class="app-splash">
+        <img src="images/logo.svg" alt="Soovioo" width="118" height="96" />
+      </div>
+    </app-root>
   </body>
 </html>

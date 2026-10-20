@@ -24,7 +24,10 @@
         styleClass="w-56"
       />
     </div>
-    } @if (classOptions().length > 0) {
+    }
+    <!-- A school's admin always gets the field (options arrive with the
+    first page), so it doesn't pop in and shove the filter bar around. -->
+    @if (!isSuperAdmin || classOptions().length > 0) {
     <div class="flex flex-col gap-1.5">
       <label
         for="filterClass"
@@ -100,6 +103,7 @@
         (onSelect)="onActionSelected($event)"
         (onClear)="onActionCleared()"
         [dropdown]="true"
+        dropdownAriaLabel="Zobrazit všechny akce"
         [completeOnFocus]="true"
         [minLength]="0"
         [showClear]="true"
@@ -157,6 +161,9 @@
     }
   </div>
 
+  <!-- Table and paginator wait for the first page: an empty table with the
+  paginator under it, then pushed down by the rows, was a big layout shift. -->
+  @if (loaded()) {
   <div [class.opacity-60]="loading()">
     <app-grouped-table
       [rows]="entries()"
@@ -305,6 +312,9 @@
     [rowsPerPageOptions]="[20, 50, 100]"
     (onPageChange)="onPageChange($event)"
   />
+  } @else {
+  <p class="m-0 text-surface-500">Načítání…</p>
+  }
 </p-card>
 
 @if (isSuperAdmin) {

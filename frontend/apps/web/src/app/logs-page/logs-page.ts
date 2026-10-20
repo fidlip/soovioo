@@ -66,6 +66,8 @@ export class LogsPage {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(50);
   protected readonly loading = signal(false);
+  /** First page arrived (or failed) — see the template. */
+  protected readonly loaded = signal(false);
   private readonly expandedIds = signal<ReadonlySet<number>>(new Set());
   /** A new function whenever the set changes, so the table re-renders. */
   protected readonly isExpanded = computed(() => {
@@ -296,10 +298,12 @@ export class LogsPage {
           this.totalCount.set(result.totalCount);
           this.expandedIds.set(new Set());
           this.loading.set(false);
+          this.loaded.set(true);
         },
         error: (err) => {
           console.error('getEntries failed', err);
           this.loading.set(false);
+          this.loaded.set(true);
         },
       });
   }

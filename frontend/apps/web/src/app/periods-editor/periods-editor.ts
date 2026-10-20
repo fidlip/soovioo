@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
-import { InputNumber } from '@openng/optimus-ui/inputnumber';
+import { InputText } from '@openng/optimus-ui/inputtext';
 import { SchoolPeriod, SchoolPeriodsApiService } from '@soovioo/shared';
 import { FORM_FIELDS } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
@@ -19,7 +19,7 @@ import { NotifyService } from '../notify.service';
     Button,
     Card,
     DatePicker,
-    InputNumber,
+    InputText,
     InfoHint,
   ],
   templateUrl: './periods-editor.html',

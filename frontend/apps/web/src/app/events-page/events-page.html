@@ -73,8 +73,7 @@
   @if (formError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" #eventForm="ngForm"
-    (ngSubmit)="save()">
+  <form class="flex flex-col gap-3" #eventForm="ngForm" (ngSubmit)="save()">
     <input
       pInputText
       type="text"
@@ -242,11 +241,15 @@
               [ngModelOptions]="{ standalone: true }"
             />
             {{ c.name }} @if (c.rocnik) {
-            <span class="text-surface-400">· {{ c.rocnik }}. ročník</span>
+            <span class="text-surface-500 dark:text-surface-400"
+              >· {{ c.rocnik }}. ročník</span
+            >
             }
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>
@@ -278,7 +281,9 @@
             {{ t.name }}
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>
@@ -310,7 +315,9 @@
             {{ p.name }}
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>
@@ -350,10 +357,14 @@
               [ngModelOptions]="{ standalone: true }"
             />
             {{ s.firstName }} {{ s.lastName }}
-            <span class="text-surface-400">· {{ s.schoolClassName }}</span>
+            <span class="text-surface-500 dark:text-surface-400"
+              >· {{ s.schoolClassName }}</span
+            >
           </label>
           } @empty {
-          <span class="text-sm text-surface-400">Nic nenalezeno.</span>
+          <span class="text-sm text-surface-500 dark:text-surface-400"
+            >Nic nenalezeno.</span
+          >
           }
         </div>
       </div>

@@ -47,6 +47,7 @@
         @if (canManageRecord(record)) {
         <p-button
           icon="pi pi-trash"
+          ariaLabel="Smazat"
           size="small"
           severity="danger"
           [text]="true"
@@ -121,8 +122,11 @@
   @if (createError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" #recordForm="ngForm"
-    (ngSubmit)="saveRecord()">
+  <form
+    class="flex flex-col gap-3"
+    #recordForm="ngForm"
+    (ngSubmit)="saveRecord()"
+  >
     <div class="flex flex-col gap-1.5">
       <label
         for="recordStudent"
@@ -203,8 +207,11 @@
   @if (createError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" #classificationForm="ngForm"
-    (ngSubmit)="saveClassification()">
+  <form
+    class="flex flex-col gap-3"
+    #classificationForm="ngForm"
+    (ngSubmit)="saveClassification()"
+  >
     <div class="flex flex-col gap-1.5">
       <label
         for="classStudent"

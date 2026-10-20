@@ -8,7 +8,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
   selector: 'app-info-hint',
   imports: [Tooltip],
   template: `<i
-    class="pi pi-info-circle cursor-help align-middle text-base font-normal text-surface-400 hover:text-primary"
+    class="pi pi-info-circle cursor-help align-middle text-base font-normal text-surface-500 dark:text-surface-400 hover:text-primary"
     tabindex="0"
     role="note"
     [attr.aria-label]="text()"

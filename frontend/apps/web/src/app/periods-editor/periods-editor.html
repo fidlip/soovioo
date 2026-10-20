@@ -39,12 +39,14 @@
           <div class="flex justify-end gap-1 py-1">
             <p-button
               icon="pi pi-check"
+              ariaLabel="Uložit"
               size="small"
               [text]="true"
               (onClick)="saveEditPeriod()"
             />
             <p-button
               icon="pi pi-times"
+              ariaLabel="Zrušit"
               size="small"
               severity="secondary"
               [text]="true"
@@ -62,12 +64,14 @@
           <div class="flex justify-end gap-1 py-1">
             <p-button
               icon="pi pi-pencil"
+              ariaLabel="Upravit"
               size="small"
               [text]="true"
               (onClick)="startEditPeriod(period)"
             />
             <p-button
               icon="pi pi-trash"
+              ariaLabel="Smazat"
               size="small"
               severity="danger"
               [text]="true"
@@ -79,16 +83,23 @@
       } }
     </tbody>
   </table>
-  <form class="flex flex-wrap items-end gap-3" #periodForm="ngForm"
-    (ngSubmit)="addPeriod()">
-    <p-inputNumber
+  <form
+    class="flex flex-wrap items-end gap-3"
+    #periodForm="ngForm"
+    (ngSubmit)="addPeriod()"
+  >
+    <!-- Native number input: p-inputNumber cancels paste events. -->
+    <input
+      pInputText
+      type="number"
       placeholder="Hodina"
+      aria-label="Hodina"
       [(ngModel)]="newPeriodNumberToConfigure"
       name="newPeriodNumberToConfigure"
       required
-      [min]="0"
-      [max]="15"
-      inputStyleClass="w-20"
+      min="0"
+      max="15"
+      class="w-20"
     />
     <p-datePicker
       [(ngModel)]="newPeriodStartTime"

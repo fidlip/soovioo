@@ -25,7 +25,8 @@
       appendTo="body"
     />
     <ul class="m-0 flex list-none flex-col gap-1 p-0">
-      @for (c of visibleConversations(); track c.broadcastId ? 'b' + c.broadcastId : c.id) {
+      @for (c of visibleConversations(); track c.broadcastId ? 'b' +
+      c.broadcastId : c.id) {
       <li>
         <button
           type="button"
@@ -46,9 +47,9 @@
           </div>
           @if (c.broadcastId) {
           <div class="flex items-center gap-1 text-xs text-surface-500">
-            <i class="pi pi-megaphone text-xs"></i>Hromadná · {{ c.studentName }}
-            · {{ c.broadcastConversationCount }} příjemců ·
-            {{ c.broadcastRepliedCount }} odpovědí @if (c.broadcastUnreadCount) {
+            <i class="pi pi-megaphone text-xs"></i>Hromadná · {{ c.studentName
+            }} · {{ c.broadcastConversationCount }} příjemců · {{
+            c.broadcastRepliedCount }} odpovědí @if (c.broadcastUnreadCount) {
             ({{ c.broadcastUnreadCount }} nepřečtené) }
           </div>
           } @else if (c.studentName) {
@@ -71,8 +72,8 @@
       </li>
       } @empty {
       <li class="py-4 text-sm text-surface-500">
-        @if (readFilter() === 'unread' && conversations().length > 0) {
-        Žádné nepřečtené zprávy.
+        @if (readFilter() === 'unread' && conversations().length > 0) { Žádné
+        nepřečtené zprávy.
         <button
           type="button"
           class="cursor-pointer text-primary underline"
@@ -166,8 +167,11 @@
         }
       </ol>
 
-      <form class="flex flex-col gap-2" #replyForm="ngForm"
-    (ngSubmit)="sendReply()">
+      <form
+        class="flex flex-col gap-2"
+        #replyForm="ngForm"
+        (ngSubmit)="sendReply()"
+      >
         <textarea
           pTextarea
           rows="3"
@@ -210,11 +214,14 @@
         />
         <div class="min-w-0">
           <h2 class="m-0 flex items-center gap-2 text-lg">
-            <i class="pi pi-megaphone text-surface-400"></i>{{ broadcast.subject }}
+            <i
+              class="pi pi-megaphone text-surface-500 dark:text-surface-400"
+            ></i
+            >{{ broadcast.subject }}
           </h2>
           <div class="text-sm text-surface-500">
-            Hromadná zpráva · {{ broadcast.audienceLabel }} ·
-            {{ broadcast.createdAt | date: 'd. M. y H:mm' }}
+            Hromadná zpráva · {{ broadcast.audienceLabel }} · {{
+            broadcast.createdAt | date: 'd. M. y H:mm' }}
           </div>
         </div>
       </div>
@@ -256,8 +263,8 @@
         </label>
       </div>
       <ul class="m-0 flex list-none flex-col gap-1 p-0">
-        @for (item of visibleBroadcastConversations(); track item.conversationId)
-        {
+        @for (item of visibleBroadcastConversations(); track
+        item.conversationId) {
         <li>
           <button
             type="button"
@@ -270,19 +277,22 @@
                 [class.font-bold]="item.unread"
                 >{{ item.studentName ?? item.participants.join(', ') }}</span
               >
-              <span class="block truncate text-xs text-surface-500">{{
-                item.participants.join(', ')
-              }}</span>
+              <span class="block truncate text-xs text-surface-500"
+                >{{ item.participants.join(', ') }}</span
+              >
             </span>
-            <span class="flex shrink-0 items-center gap-2 text-xs text-surface-500">
+            <span
+              class="flex shrink-0 items-center gap-2 text-xs text-surface-500"
+            >
               @if (item.unread) {
               <span
                 class="inline-block h-2 w-2 rounded-full bg-primary"
                 aria-label="nepřečteno"
               ></span>
-              } @if (item.replyCount > 0) { {{ item.replyCount }}
-              {{ item.replyCount === 1 ? 'odpověď' : item.replyCount < 5 ? 'odpovědi' : 'odpovědí' }}
-              · {{ item.lastMessageAt | date: 'd. M. H:mm' }} } @else { bez odpovědi }
+              } @if (item.replyCount > 0) { {{ item.replyCount }} {{
+              item.replyCount === 1 ? 'odpověď' : item.replyCount < 5 ?
+              'odpovědi' : 'odpovědí' }} · {{ item.lastMessageAt | date: 'd. M.
+              H:mm' }} } @else { bez odpovědi }
             </span>
           </button>
         </li>
@@ -304,8 +314,7 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-col gap-3" #sendForm="ngForm"
-    (ngSubmit)="send()">
+  <form class="flex flex-col gap-3" #sendForm="ngForm" (ngSubmit)="send()">
     @if (isStaff) {
     <div class="flex flex-col gap-1.5">
       <label
@@ -444,11 +453,7 @@
         [text]="true"
         (onClick)="dialogVisible.set(false)"
       />
-      <app-submit-button
-        [form]="sendForm"
-        label="Odeslat"
-        icon="pi pi-send"
-      />
+      <app-submit-button [form]="sendForm" label="Odeslat" icon="pi pi-send" />
     </div>
   </form>
 </p-dialog>

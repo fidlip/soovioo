@@ -52,12 +52,12 @@
   </div>
 </div>
 
-@if (missedSummary(); as summary) { @if (summary.total > 0 ||
-summary.wholeDays > 0) {
+@if (missedSummary(); as summary) { @if (summary.total > 0 || summary.wholeDays
+> 0) {
 <p class="mb-3 mt-0 text-sm text-surface-600 dark:text-surface-300">
   Zameškáno hodin: <strong>{{ summary.total }}</strong> (omluveno {{
-  summary.excused }}, neomluveno {{ summary.unexcused }}) @if
-  (summary.wholeDays > 0) { + {{ summary.wholeDays }}× celý den bez rozpisu }
+  summary.excused }}, neomluveno {{ summary.unexcused }}) @if (summary.wholeDays
+  > 0) { + {{ summary.wholeDays }}× celý den bez rozpisu }
 </p>
 } }
 
@@ -132,12 +132,14 @@ summary.wholeDays > 0) {
         <div class="flex justify-end gap-1">
           <p-button
             icon="pi pi-pencil"
+            ariaLabel="Upravit"
             size="small"
             [text]="true"
             (onClick)="startEditAbsence(absence)"
           />
           <p-button
             icon="pi pi-trash"
+            ariaLabel="Smazat"
             size="small"
             severity="danger"
             [text]="true"
@@ -164,8 +166,11 @@ summary.wholeDays > 0) {
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-col gap-3" #absenceForm="ngForm"
-    (ngSubmit)="saveAbsence()">
+  <form
+    class="flex flex-col gap-3"
+    #absenceForm="ngForm"
+    (ngSubmit)="saveAbsence()"
+  >
     <div class="flex flex-col gap-1.5">
       <label
         for="absenceStudent"
@@ -222,7 +227,11 @@ summary.wholeDays > 0) {
         >Škola nemá nastavené časy hodin — absence se zapíše na celý den.</span
       >
       } @else {
-      <div class="flex flex-wrap gap-1.5" role="group" aria-label="Zameškané hodiny">
+      <div
+        class="flex flex-wrap gap-1.5"
+        role="group"
+        aria-label="Zameškané hodiny"
+      >
         @for (period of dayPeriods(); track period.number) {
         <button
           type="button"
@@ -231,7 +240,7 @@ summary.wholeDays > 0) {
           [class.bg-primary]="isPeriodSelected(period.number)"
           [class.text-primary-contrast]="isPeriodSelected(period.number)"
           [class.border-surface-300]="!isPeriodSelected(period.number)"
-          [class.text-surface-400]="!isPeriodSelected(period.number) && !period.lesson"
+          [class.text-surface-500]="!isPeriodSelected(period.number) && !period.lesson"
           [attr.aria-pressed]="isPeriodSelected(period.number)"
           (click)="togglePeriod(period.number)"
         >

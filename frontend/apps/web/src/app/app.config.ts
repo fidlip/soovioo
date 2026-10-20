@@ -6,7 +6,12 @@ import {
 } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { provideRouter, withRouterConfig } from '@angular/router';
+import {
+  PreloadAllModules,
+  provideRouter,
+  withPreloading,
+  withRouterConfig,
+} from '@angular/router';
 import {
   ConfirmationService,
   MessageService,
@@ -89,6 +94,10 @@ export const appConfig: ApplicationConfig = {
     provideRouter(
       appRoutes,
       withRouterConfig({ paramsInheritanceStrategy: 'always' }),
+      // Pages are lazy (app.routes.ts) to keep the first load small; once
+      // it's done the rest download in the background, so moving between
+      // agendas doesn't wait on the network.
+      withPreloading(PreloadAllModules),
     ),
     provideHttpClient(
       withInterceptors([authInterceptor, serverErrorInterceptor]),

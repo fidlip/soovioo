@@ -66,6 +66,7 @@
             />
             <p-button
               icon="pi pi-trash"
+              ariaLabel="Smazat"
               size="small"
               severity="danger"
               [text]="true"
@@ -334,7 +335,8 @@
       <label
         for="superAdminPassword"
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ editingSuperAdminId === null ? 'Počáteční heslo' : 'Nové heslo (nepovinné)' }}</label
+        >{{ editingSuperAdminId === null ? 'Počáteční heslo' : 'Nové heslo
+        (nepovinné)' }}</label
       >
       <p-password
         inputId="superAdminPassword"

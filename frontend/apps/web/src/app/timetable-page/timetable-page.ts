@@ -156,10 +156,11 @@ export class TimetablePage {
   protected readonly authApi = inject(AuthApiService);
   private readonly injector = inject(Injector);
 
+  // Optional: the grid isn't rendered until gridReady().
   private readonly headerScroller =
-    viewChild.required<ElementRef<HTMLElement>>('headerScroller');
+    viewChild<ElementRef<HTMLElement>>('headerScroller');
   private readonly bodyScroller =
-    viewChild.required<ElementRef<HTMLElement>>('bodyScroller');
+    viewChild<ElementRef<HTMLElement>>('bodyScroller');
 
   protected readonly days = DAYS;
   protected readonly dayLabels = DAY_LABELS;
@@ -175,6 +176,14 @@ export class TimetablePage {
   protected readonly students = signal<Student[]>([]);
   protected readonly periods = signal<SchoolPeriod[]>([]);
   protected readonly entries = signal<GridEntry[]>([]);
+  /** The grid (and the conflict banner) render only once both the bell
+   * schedule and the first week's entries are in — building it up piece by
+   * piece shifted the whole page around while it loaded. */
+  private readonly periodsLoaded = signal(false);
+  private readonly entriesLoaded = signal(false);
+  protected readonly gridReady = computed(
+    () => this.periodsLoaded() && this.entriesLoaded(),
+  );
 
   /** Only Teacher/Admin ever see this — Parent picks among their own
    * children directly (no "mode"), Student gets no picker at all. */
@@ -307,11 +316,20 @@ export class TimetablePage {
       : [],
   );
 
-
   constructor() {
     this.schoolPeriodsApi.getPeriods().subscribe({
-      next: (periods) => this.periods.set(periods),
-      error: (err) => console.error('getPeriods failed', err),
+      next: (periods) => {
+        this.periods.set(periods);
+        this.periodsLoaded.set(true);
+        // Entries were faster: the grid renders only now.
+        if (this.entriesLoaded()) {
+          this.scrollToCurrentPeriodAfterRender();
+        }
+      },
+      error: (err) => {
+        console.error('getPeriods failed', err);
+        this.periodsLoaded.set(true);
+      },
     });
     this.subjectsApi.getSubjects().subscribe({
       next: (subjects) => {
@@ -456,8 +474,11 @@ export class TimetablePage {
   }
 
   protected syncHeaderScroll(): void {
-    this.headerScroller().nativeElement.scrollLeft =
-      this.bodyScroller().nativeElement.scrollLeft;
+    const header = this.headerScroller()?.nativeElement;
+    const body = this.bodyScroller()?.nativeElement;
+    if (header && body) {
+      header.scrollLeft = body.scrollLeft;
+    }
   }
 
   /** On the current week, scrolls the grid horizontally so the period that's
@@ -483,7 +504,10 @@ export class TimetablePage {
         if (!current) {
           return;
         }
-        const body = this.bodyScroller().nativeElement;
+        const body = this.bodyScroller()?.nativeElement;
+        if (!body) {
+          return;
+        }
         const cell = body.querySelector<HTMLElement>(
           `td[data-period="${current.periodNumber}"]`,
         );
@@ -645,13 +669,13 @@ export class TimetablePage {
     });
   }
 
-
   private reload(): void {
     const mode = this.viewMode();
     if (mode === 'class') {
       const classId = this.selectedClassId();
       if (!classId) {
         this.entries.set([]);
+        this.entriesLoaded.set(true);
         return;
       }
       this.timetableApi.getTimetable(classId).subscribe({
@@ -659,17 +683,24 @@ export class TimetablePage {
           this.setEntries(
             entries.map((e) => ({ ...e, schoolClassName: null })),
           ),
-        error: (err) => console.error('getTimetable failed', err),
+        error: (err) => {
+          console.error('getTimetable failed', err);
+          this.entriesLoaded.set(true);
+        },
       });
     } else if (mode === 'teacher') {
       const teacherId = this.selectedTeacherId();
       if (!teacherId) {
         this.entries.set([]);
+        this.entriesLoaded.set(true);
         return;
       }
       this.timetableApi.getTeacherTimetable(teacherId).subscribe({
         next: (entries) => this.setEntries(entries),
-        error: (err) => console.error('getTeacherTimetable failed', err),
+        error: (err) => {
+          console.error('getTeacherTimetable failed', err);
+          this.entriesLoaded.set(true);
+        },
       });
     } else {
       const student = this.students().find(
@@ -677,6 +708,7 @@ export class TimetablePage {
       );
       if (!student) {
         this.entries.set([]);
+        this.entriesLoaded.set(true);
         return;
       }
       this.timetableApi.getTimetable(student.schoolClassId).subscribe({
@@ -684,14 +716,17 @@ export class TimetablePage {
           this.setEntries(
             entries.map((e) => ({ ...e, schoolClassName: null })),
           ),
-        error: (err) => console.error('getTimetable failed', err),
+        error: (err) => {
+          console.error('getTimetable failed', err);
+          this.entriesLoaded.set(true);
+        },
       });
     }
   }
 
   private setEntries(entries: GridEntry[]): void {
     this.entries.set(entries);
+    this.entriesLoaded.set(true);
     this.scrollToCurrentPeriodAfterRender();
   }
-
 }

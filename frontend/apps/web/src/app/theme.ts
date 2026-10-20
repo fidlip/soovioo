@@ -19,5 +19,41 @@ export const sooviooTheme = definePreset(Aura, {
       900: '{indigo.900}',
       950: '{indigo.950}',
     },
+    // Aura's light primary is the 500 shade, and indigo-500 on white is
+    // 4.46:1 — just under WCAG AA's 4.5:1 for normal text (primary
+    // buttons, active tabs, links). One shade darker passes comfortably.
+    colorScheme: {
+      light: {
+        primary: {
+          color: '{primary.600}',
+          hoverColor: '{primary.700}',
+          activeColor: '{primary.800}',
+        },
+      },
+    },
+  },
+  // Same story for the coloured message/toast text: Aura's 600 shades on
+  // their pale 50 backgrounds land at 2.9–4.4:1 (yellow worst); 700 passes.
+  components: {
+    message: {
+      colorScheme: {
+        light: {
+          info: { color: '{blue.700}', simple: { color: '{blue.700}' } },
+          success: { color: '{green.700}', simple: { color: '{green.700}' } },
+          warn: { color: '{yellow.700}', simple: { color: '{yellow.700}' } },
+          error: { color: '{red.700}', simple: { color: '{red.700}' } },
+        },
+      },
+    },
+    toast: {
+      colorScheme: {
+        light: {
+          info: { color: '{blue.700}' },
+          success: { color: '{green.700}' },
+          warn: { color: '{yellow.700}' },
+          error: { color: '{red.700}' },
+        },
+      },
+    },
   },
 });

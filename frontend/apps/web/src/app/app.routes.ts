@@ -1,49 +1,102 @@
 import { Route } from '@angular/router';
-import { AbsencesPage } from './absences-page/absences-page';
-import { AcceptInvitePage } from './accept-invite-page/accept-invite-page';
-import { AdminPage } from './admin-page/admin-page';
 import { authGuard } from './auth.guard';
-import { BehaviorPage } from './behavior-page/behavior-page';
-import { EventsPage } from './events-page/events-page';
-import { GradesPage } from './grades-page/grades-page';
-import { HomePage } from './home-page/home-page';
-import { HomeworkPage } from './homework-page/homework-page';
 import { LoginPage } from './login-page/login-page';
-import { MessagesPage } from './messages-page/messages-page';
-import { PaymentsPage } from './payments-page/payments-page';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
-import { SettingsPage } from './settings-page/settings-page';
-import { SupportEnterPage } from './support-enter-page/support-enter-page';
-import { SuperAdminPage } from './super-admin-page/super-admin-page';
-import { LogsPage } from './logs-page/logs-page';
-import { TimetablePage } from './timetable-page/timetable-page';
 
+// Pages are lazy chunks (the login page aside — it's the usual first
+// screen), so the first load doesn't download every agenda up front.
 const schoolRoutes: Route[] = [
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: 'login', component: LoginPage, data: { hideHeader: true } },
   {
     path: 'accept-invite',
-    component: AcceptInvitePage,
+    loadComponent: () =>
+      import('./accept-invite-page/accept-invite-page').then(
+        (m) => m.AcceptInvitePage,
+      ),
     data: { hideHeader: true },
   },
   // SuperAdmin "Vstoupit do školy" — no guard: it's what logs in.
   {
     path: 'support/enter',
-    component: SupportEnterPage,
+    loadComponent: () =>
+      import('./support-enter-page/support-enter-page').then(
+        (m) => m.SupportEnterPage,
+      ),
     data: { hideHeader: true },
   },
-  { path: 'home', component: HomePage, canActivate: [authGuard] },
-  { path: 'grades', component: GradesPage, canActivate: [authGuard] },
-  { path: 'absences', component: AbsencesPage, canActivate: [authGuard] },
-  { path: 'timetable', component: TimetablePage, canActivate: [authGuard] },
-  { path: 'events', component: EventsPage, canActivate: [authGuard] },
-  { path: 'messages', component: MessagesPage, canActivate: [authGuard] },
-  { path: 'homework', component: HomeworkPage, canActivate: [authGuard] },
-  { path: 'behavior', component: BehaviorPage, canActivate: [authGuard] },
-  { path: 'payments', component: PaymentsPage, canActivate: [authGuard] },
-  { path: 'admin', component: AdminPage, canActivate: [authGuard] },
-  { path: 'logs', component: LogsPage, canActivate: [authGuard] },
-  { path: 'settings', component: SettingsPage, canActivate: [authGuard] },
+  {
+    path: 'home',
+    loadComponent: () =>
+      import('./home-page/home-page').then((m) => m.HomePage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'grades',
+    loadComponent: () =>
+      import('./grades-page/grades-page').then((m) => m.GradesPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'absences',
+    loadComponent: () =>
+      import('./absences-page/absences-page').then((m) => m.AbsencesPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'timetable',
+    loadComponent: () =>
+      import('./timetable-page/timetable-page').then((m) => m.TimetablePage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'events',
+    loadComponent: () =>
+      import('./events-page/events-page').then((m) => m.EventsPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'messages',
+    loadComponent: () =>
+      import('./messages-page/messages-page').then((m) => m.MessagesPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'homework',
+    loadComponent: () =>
+      import('./homework-page/homework-page').then((m) => m.HomeworkPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'behavior',
+    loadComponent: () =>
+      import('./behavior-page/behavior-page').then((m) => m.BehaviorPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'payments',
+    loadComponent: () =>
+      import('./payments-page/payments-page').then((m) => m.PaymentsPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'admin',
+    loadComponent: () =>
+      import('./admin-page/admin-page').then((m) => m.AdminPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'logs',
+    loadComponent: () =>
+      import('./logs-page/logs-page').then((m) => m.LogsPage),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings',
+    loadComponent: () =>
+      import('./settings-page/settings-page').then((m) => m.SettingsPage),
+    canActivate: [authGuard],
+  },
 ];
 
 // SuperAdmin isn't tied to any school, so it lives outside the `:schoolSlug`
@@ -57,11 +110,24 @@ const superAdminRoutes: Route[] = [
     component: LoginPage,
     data: { hideHeader: true },
   },
-  { path: 'superadmin', component: SuperAdminPage, canActivate: [authGuard] },
-  { path: 'superadmin/logs', component: LogsPage, canActivate: [authGuard] },
+  {
+    path: 'superadmin',
+    loadComponent: () =>
+      import('./super-admin-page/super-admin-page').then(
+        (m) => m.SuperAdminPage,
+      ),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'superadmin/logs',
+    loadComponent: () =>
+      import('./logs-page/logs-page').then((m) => m.LogsPage),
+    canActivate: [authGuard],
+  },
   {
     path: 'superadmin/settings',
-    component: SettingsPage,
+    loadComponent: () =>
+      import('./settings-page/settings-page').then((m) => m.SettingsPage),
     canActivate: [authGuard],
   },
 ];

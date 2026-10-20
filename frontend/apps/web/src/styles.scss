@@ -15,6 +15,20 @@ body {
   box-sizing: border-box;
 }
 
+/* Boot splash in index.html — plain navy logo on the default white, as the
+ * theme and dark mode don't exist yet at that point. */
+.app-splash {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    height: 6rem;
+    width: auto;
+  }
+}
+
 /* Agenda icons (AppIcon) — same navy as the logo, white in dark mode just
  * like the logo's `dark:invert`. */
 :root {
@@ -106,4 +120,16 @@ p-autocomplete.ng-invalid.ng-touched .p-autocomplete-input,
 p-autocomplete.ng-invalid.ng-touched .p-autocomplete-input-multiple,
 p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
   border-color: var(--p-red-400);
+}
+
+/* FullCalendar (Kalendář akcí): it fades the neighbouring months' day
+ * numbers to 30 % opacity — 1.7:1 contrast. A muted colour keeps them
+ * visibly secondary but readable. */
+.fc .fc-day-other .fc-daygrid-day-top {
+  opacity: 1;
+  color: var(--p-surface-500);
+}
+
+.soovioo-dark .fc .fc-day-other .fc-daygrid-day-top {
+  color: var(--p-surface-400);
 }

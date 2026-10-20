@@ -50,6 +50,9 @@ export class SettingsPage {
     this.authApi.mustChangePassword();
 
   protected readonly profile = signal<MyProfile | null>(null);
+  /** The cards render once the profile request is done (either way): the
+   * Profil card filling in afterwards pushed the cards below it down. */
+  protected readonly profileSettled = signal(false);
   protected phone = '';
   protected email = '';
 
@@ -70,8 +73,12 @@ export class SettingsPage {
         this.profile.set(profile);
         this.phone = profile.phone ?? '';
         this.email = profile.email ?? '';
+        this.profileSettled.set(true);
       },
-      error: (err) => console.error('getProfile failed', err),
+      error: (err) => {
+        console.error('getProfile failed', err);
+        this.profileSettled.set(true);
+      },
     });
 
     if (this.showCalendarFeed) {
