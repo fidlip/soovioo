@@ -34,4 +34,15 @@ public class MessageAttachmentStorageService(IWebHostEnvironment env)
             File.Delete(fullPath);
         }
     }
+
+    /// <summary>Every stored file of the school at once (demo schools being
+    /// deleted or reset, see Demo.DemoSchoolPurger).</summary>
+    public void DeleteSchoolFiles(int schoolId)
+    {
+        var schoolDir = Path.Combine(RootPath, schoolId.ToString());
+        if (Directory.Exists(schoolDir))
+        {
+            Directory.Delete(schoolDir, recursive: true);
+        }
+    }
 }

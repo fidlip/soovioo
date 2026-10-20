@@ -1,0 +1,163 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
+using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
+using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
+
+namespace Soovioo.Api.Demo;
+
+/// <summary>The "Vyzkoušet" demo, anonymous: knowing a demo's slug (its
+/// random id) is what entitles one to it — list its users, log in as any of
+/// them, reset or delete it. Every endpoint answers 404 for a real school,
+/// so none of this can ever list or log into a real school's users.</summary>
+[AllowAnonymous]
+[ApiController]
+[Route("api/public/demo")]
+public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchoolPurger purger, AuthSessionService sessions)
+    : ControllerBase
+{
+    public const string CreateRateLimit = "demo-create";
+
+    [HttpPost]
+    [EnableRateLimiting(CreateRateLimit)]
+    public async Task<ActionResult<DemoCreatedDto>> Create(DemoSetupRequest request)
+    {
+        if (DemoSchoolService.Validate(request) is { } field)
+        {
+            return this.FieldError(field, "Neplatná hodnota.");
+        }
+        var (demo, error) = await demos.CreateAsync(request);
+        if (error == DemoCreateError.TooManyActive)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                "Právě běží příliš mnoho ukázkových škol. Zkuste to prosím později, nebo nám napište na info@soovioo.cz.");
+        }
+        AuditContext.Of(HttpContext).Description = $"Založení ukázkové školy {demo!.Slug}";
+        return Ok(ToDto(demo));
+    }
+
+    [HttpGet("{slug}/users")]
+    public async Task<ActionResult<IEnumerable<DemoUserDto>>> GetUsers(string slug)
+    {
+        if (await DemoSchoolAsync(slug) is not { } school)
+        {
+            return NotFound();
+        }
+
+        var users = await db.Users.IgnoreQueryFilters()
+            .Where(u => u.SchoolId == school.Id)
+            .Select(u => new
+            {
+                u.Id,
+                u.Username,
+                u.Role,
+                u.Person,
+                Qualification = u.Person!.TeacherProfile!.Qualification,
+                ClassOf = db.SchoolClasses.IgnoreQueryFilters().Where(c => c.ClassTeacherId == u.Id).Select(c => c.Name).FirstOrDefault(),
+                OwnClass = db.Students.IgnoreQueryFilters().Where(s => s.UserId == u.Id).Select(s => s.SchoolClass!.Name).FirstOrDefault(),
+                Children = u.Person.ParentProfile!.Children
+                    .Select(c => c.Student!.FirstName + " (" + c.Student.SchoolClass!.Name + ")")
+                    .ToList(),
+            })
+            .ToListAsync();
+
+        return Ok(users
+            .Select(u => new DemoUserDto(
+                u.Id,
+                PersonNames.Display(u.Person, u.Username),
+                u.Role.ToString(),
+                u.Role switch
+                {
+                    UserRole.Admin => "vedení školy",
+                    UserRole.Teacher => string.Join(" · ", new[] { u.ClassOf is null ? null : $"třídní {u.ClassOf}", u.Qualification }.Where(x => x is not null)),
+                    UserRole.Parent => string.Join(", ", u.Children),
+                    UserRole.Student => u.OwnClass ?? "",
+                    _ => "",
+                },
+                school.DemoFeaturedUserIds?.Contains(u.Id) == true))
+            .OrderBy(u => u.Role switch { "Admin" => 0, "Teacher" => 1, "Parent" => 2, _ => 3 })
+            .ThenBy(u => u.Name, StringComparer.Create(new System.Globalization.CultureInfo("cs-CZ"), false)));
+    }
+
+    /// <summary>Passwordless — the demo's users have no passwords at all.</summary>
+    [HttpPost("{slug}/login")]
+    public async Task<ActionResult<LoginResponse>> Login(string slug, DemoLoginRequest request)
+    {
+        if (await DemoSchoolAsync(slug) is not { } school)
+        {
+            return NotFound();
+        }
+        var user = await db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == request.UserId && u.SchoolId == school.Id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        var audit = AuditContext.Of(HttpContext);
+        audit.SchoolId = school.Id;
+        audit.UserId = user.Id;
+        audit.Username = user.Username;
+        audit.Action = "Přihlášení";
+        audit.Description = "Přihlášení (demo)";
+        return Ok(await sessions.StartAsync(HttpContext, user, persistent: true, request.UseCookie));
+    }
+
+    [HttpPost("{slug}/reset")]
+    [EnableRateLimiting(CreateRateLimit)]
+    public async Task<ActionResult<DemoCreatedDto>> Reset(string slug, DemoSetupRequest request)
+    {
+        if (await DemoSchoolAsync(slug) is not { } school)
+        {
+            return NotFound();
+        }
+        if (DemoSchoolService.Validate(request) is { } field)
+        {
+            return this.FieldError(field, "Neplatná hodnota.");
+        }
+        // Old sessions point at users that are about to disappear.
+        sessions.ClearCookie(HttpContext);
+        var demo = await demos.ResetAsync(school, request);
+        return Ok(ToDto(demo!));
+    }
+
+    [HttpDelete("{slug}")]
+    public async Task<IActionResult> Delete(string slug)
+    {
+        if (await DemoSchoolAsync(slug) is not { } school)
+        {
+            return NotFound();
+        }
+        sessions.ClearCookie(HttpContext);
+        await purger.PurgeAsync(school.Id, deleteSchool: true);
+        return NoContent();
+    }
+
+    private Task<School?> DemoSchoolAsync(string slug) =>
+        db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Slug == slug && s.IsDemo);
+
+    private static DemoCreatedDto ToDto(DemoCreated demo) => new(
+        demo.Slug, demo.ExpiresAt,
+        new Dictionary<string, int>
+        {
+            [nameof(UserRole.Admin)] = demo.Featured.AdminId,
+            [nameof(UserRole.Teacher)] = demo.Featured.TeacherId,
+            [nameof(UserRole.Parent)] = demo.Featured.ParentId,
+            [nameof(UserRole.Student)] = demo.Featured.StudentId,
+        });
+}
+
+/// <param name="FeaturedUserIds">Role → the user to log in as for it.</param>
+public record DemoCreatedDto(string Slug, DateTimeOffset ExpiresAt, IReadOnlyDictionary<string, int> FeaturedUserIds);
+
+/// <param name="Detail">Class, children or aprobace — whatever tells the
+/// users apart in the picker.</param>
+/// <param name="Featured">Offered first: the most to see as this one.</param>
+public record DemoUserDto(int Id, string Name, string Role, string Detail, bool Featured);
+
+public record DemoLoginRequest(int UserId, bool UseCookie = false);

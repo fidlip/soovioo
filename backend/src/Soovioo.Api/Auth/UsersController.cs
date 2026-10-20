@@ -311,10 +311,7 @@ public class UsersController(
 
     private static string BuildInviteLink(AppLinkOptions options, string schoolSlug, string token)
     {
-        var origin = options.PathBasedTenant
-            ? $"{options.FrontendBaseUrl!.TrimEnd('/')}/{schoolSlug}"
-            : $"https://{schoolSlug}.{options.MainDomain}";
-        return $"{origin}/accept-invite?token={Uri.EscapeDataString(token)}";
+        return $"{options.SchoolOrigin(schoolSlug)}/accept-invite?token={Uri.EscapeDataString(token)}";
     }
 
     /// <summary>Distinct, in enum order (Admin, Teacher, Parent, Student) so

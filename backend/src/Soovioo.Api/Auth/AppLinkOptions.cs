@@ -24,4 +24,12 @@ public class AppLinkOptions
     /// <c>soovioo.cloud</c>. A link is built as
     /// <c>https://{slug}.{MainDomain}/accept-invite?token=...</c>.</summary>
     public string? MainDomain { get; set; }
+
+    /// <summary>Where school <paramref name="slug"/>'s pages live, e.g.
+    /// <c>https://skola.soovioo.cloud</c> or <c>http://localhost:4200/skola</c>;
+    /// null when the configuration needed for it is missing.</summary>
+    public string? SchoolOrigin(string slug) =>
+        PathBasedTenant
+            ? string.IsNullOrWhiteSpace(FrontendBaseUrl) ? null : $"{FrontendBaseUrl.TrimEnd('/')}/{slug}"
+            : string.IsNullOrWhiteSpace(MainDomain) ? null : $"https://{slug}.{MainDomain}";
 }

@@ -51,4 +51,9 @@ public class School
 
     /// <summary>When the demo school gets deleted (demo schools only).</summary>
     public DateTimeOffset? ExpiresAt { get; set; }
+
+    /// <summary>Demo only: the generated users with the most to show
+    /// (admin, teacher, parent, pupil) — offered first in the user picker,
+    /// and the ones the wizard's "za koho se chcete podívat" logs in as.</summary>
+    public List<int>? DemoFeaturedUserIds { get; set; }
 }

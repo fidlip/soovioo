@@ -55,6 +55,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<PaymentSchoolClass> PaymentSchoolClasses => Set<PaymentSchoolClass>();
     public DbSet<PaymentParent> PaymentParents => Set<PaymentParent>();
     public DbSet<PaymentStudent> PaymentStudents => Set<PaymentStudent>();
+    public DbSet<Demo.DemoEmail> DemoEmails => Set<Demo.DemoEmail>();
+
+    // Not tenant-scoped: SuperAdmin-only lists, and the rows may outlive
+    // their demo school (see the classes).
+    public DbSet<Demo.DemoContact> DemoContacts => Set<Demo.DemoContact>();
+    public DbSet<Demo.DemoFeedback> DemoFeedback => Set<Demo.DemoFeedback>();
 
     // Global matrika reference data (RAST/RAOR/RAUJ) — not tenant-scoped,
     // shared by every school. Seeded once from CSV at startup; see
@@ -250,6 +256,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<PaymentStudent>().HasQueryFilter(x =>
             currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Demo.DemoEmail>().HasQueryFilter(x =>
+            currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Demo.DemoEmail>().HasIndex(x => x.SchoolId);
+        modelBuilder.Entity<Demo.DemoContact>().HasIndex(x => x.SchoolId);
+        modelBuilder.Entity<Demo.DemoFeedback>().HasIndex(x => x.CreatedAt);
 
         modelBuilder.Entity<School>().HasData(
             new School

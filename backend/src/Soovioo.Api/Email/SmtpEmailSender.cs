@@ -6,6 +6,10 @@ namespace Soovioo.Api.Email;
 
 public class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSender
 {
+    /// <summary>DI key of the real sender — the plain <see cref="IEmailSender"/>
+    /// is <see cref="Demo.DemoAwareEmailSender"/>, which wraps it.</summary>
+    public const string Key = "smtp";
+
     public async Task SendAsync(string to, string subject, string htmlBody)
     {
         var smtp = options.Value;

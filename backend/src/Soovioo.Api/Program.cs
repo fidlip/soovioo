@@ -51,9 +51,31 @@ builder.Services.AddScoped<Soovioo.Api.Support.SupportSessionService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<AuthCookieOptions>(builder.Configuration.GetSection("AuthCookie"));
 builder.Services.AddScoped<MessageAttachmentStorageService>();
-builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddKeyedScoped<IEmailSender, SmtpEmailSender>(SmtpEmailSender.Key);
+builder.Services.AddScoped<IEmailSender, Soovioo.Api.Demo.DemoAwareEmailSender>();
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<AppLinkOptions>(builder.Configuration.GetSection("App"));
+builder.Services.Configure<Soovioo.Api.Demo.DemoOptions>(builder.Configuration.GetSection("Demo"));
+builder.Services.AddScoped<Soovioo.Api.Demo.DemoDataGenerator>();
+builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolPurger>();
+builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
+
+// Generating a demo school is the one anonymous request that costs real
+// work (seconds of CPU, tens of thousands of rows) — limited per client IP
+// (behind Caddy the forwarded one, see ASPNETCORE_FORWARDEDHEADERS_ENABLED).
+var demoCreatesPerDay = builder.Configuration.GetValue("Demo:CreatePerIpPerDay", 5);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(Soovioo.Api.Demo.DemoController.CreateRateLimit, http =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = demoCreatesPerDay,
+                Window = TimeSpan.FromDays(1),
+            }));
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -159,6 +181,8 @@ using (var scope = app.Services.CreateScope())
         "refresh-token-cleanup", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Audit.AuditLogCleanupJob>(
         "audit-log-cleanup", job => job.RunAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Demo.DemoSchoolService>(
+        "demo-schools-daily", service => service.RunDailyAsync(), Cron.Daily);
 }
 
 // Configure the HTTP request pipeline.
@@ -173,6 +197,7 @@ app.UseCors(app.Environment.IsDevelopment() ? devCorsPolicy : prodCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseMiddleware<Soovioo.Api.Audit.AuditMiddleware>();
 
 app.MapControllers();
