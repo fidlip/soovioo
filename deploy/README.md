@@ -12,9 +12,11 @@ Jeden VPS, všechno v Dockeru (`docker-compose.yml` v tomto adresáři, na serve
 Domény:
 
 - `soovioo.cloud` — aplikace bez školy (superadmin oblast).
-- `<slug>.soovioo.cloud` — škola. Certifikát se vydá **při první návštěvě** (Caddy
-  on-demand TLS); backend (`/api/tls/ask`) ho povolí jen pro slug existující školy.
-  Wildcard certifikát ani API DNS providera tedy nejsou potřeba.
+- `<slug>.soovioo.cloud` — škola. Všechny školy pokrývá jeden **wildcard certifikát**
+  `*.soovioo.cloud` (Let's Encrypt, vydává a obnovuje Caddy přes DNS-01 výzvu v zóně na
+  Cloudflare — viz [DNS](#dns)). Nová škola tak funguje hned a nehrozí limit Let's Encrypt
+  (50 nových certifikátů týdně na doménu). Neexistující slug dostane platný certifikát a
+  SPA ukáže „škola neexistuje“.
 - `soovioo.cz` — veřejný web, běží zvlášť na hostingu Forpsi; tento stack se ho netýká.
 
 Web volá API na stejném originu (`https://demo.soovioo.cloud/api/...`), takže žádné CORS.
@@ -41,7 +43,12 @@ Návrat na starší verzi (image z posledního týdne zůstávají na serveru):
 
 ## DNS
 
-U Forpsi, jen pro `soovioo.cloud`:
+Doména `soovioo.cloud` je registrovaná u Forpsi, ale **zónu obsluhuje Cloudflare**
+(nameservery `*.ns.cloudflare.com`, tarif Free) — Forpsi nemá DNS API, které Caddy pro
+wildcard certifikát potřebuje. `soovioo.cz` zůstává celé u Forpsi.
+
+Záznamy v Cloudflare, všechny **DNS only (šedý mráček), ne proxy** — TLS ukončuje Caddy a
+audit log vidí skutečné IP klientů:
 
 | Záznam             | Typ  | Hodnota                 |
 | ------------------ | ---- | ----------------------- |
@@ -49,6 +56,16 @@ U Forpsi, jen pro `soovioo.cloud`:
 | `*.soovioo.cloud`  | A    | `85.255.10.227`         |
 | `soovioo.cloud`    | AAAA | `2001:15e8:110:22e3::1` |
 | `*.soovioo.cloud`  | AAAA | `2001:15e8:110:22e3::1` |
+
+- **API token** pro Caddy: Cloudflare → My Profile → API Tokens, šablona *Edit zone DNS*,
+  oprávnění `Zone · DNS · Edit` jen pro zónu `soovioo.cloud`, IP filtr na adresy VPS, bez
+  expirace. Uložený jen v `/opt/soovioo/.env` jako `CLOUDFLARE_API_TOKEN` (do GitHub secrets
+  nepatří — deploy ho nepotřebuje). Ověření z VPS:
+  `curl -s -H "Authorization: Bearer <token>" https://api.cloudflare.com/client/v4/user/tokens/verify`.
+  Caddy jím jen při vydání/obnově (~60 dní) založí a smaže TXT `_acme-challenge`.
+- **DNSSEC** zapnuté v Cloudflare (DNS → Settings), DS záznam vložený u Forpsi. Při změně
+  nameserverů nejdřív DNSSEC u Forpsi vypnout a počkat, až DS zmizí — jinak doména přestane
+  ověřujícím resolverům existovat.
 
 Docker síť stacku má zapnuté IPv6, takže audit log vidí skutečné IPv6 adresy klientů.
 Pozor: když `docker compose up` síť kvůli změně jejího nastavení přetvoří, kontejnery

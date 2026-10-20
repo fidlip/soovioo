@@ -2,12 +2,6 @@
 {
 	# No ACME e-mail: Let's Encrypt no longer sends expiry notices and
 	# Caddy renews on its own.
-	# School subdomains get their certificate on first visit — no wildcard
-	# certificate, so no DNS-provider API is needed. The backend confirms
-	# the subdomain belongs to an existing school (Hosting/TlsAskController).
-	on_demand_tls {
-		ask http://api:8080/api/tls/ask
-	}
 }
 
 (app) {
@@ -18,11 +12,6 @@
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
-	}
-
-	# Internal to the Docker network only (Caddy's own TLS check).
-	handle /api/tls/* {
-		respond 404
 	}
 
 	# Same origin as the web app (environment.production in app.config.ts),
@@ -46,14 +35,14 @@
 }
 
 # Bare main domain: no school — landing/SuperAdmin area.
-{$MAIN_DOMAIN} {
-	import app
-}
-
-# <slug>.{$MAIN_DOMAIN}: a school.
-*.{$MAIN_DOMAIN} {
+# <slug>.{$MAIN_DOMAIN}: a school (an unknown slug gets the SPA's "school
+# doesn't exist" page). One wildcard certificate covers every school, issued
+# through a DNS-01 challenge in the Cloudflare zone — so a new school works
+# right away and the Let's Encrypt rate limit (50 new certificates a week per
+# domain) doesn't apply. The token may only edit DNS of this one zone.
+{$MAIN_DOMAIN}, *.{$MAIN_DOMAIN} {
 	tls {
-		on_demand
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 	}
 	import app
 }
