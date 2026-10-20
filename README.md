@@ -28,6 +28,9 @@ frontend/               Nx workspace (viz frontend/README.md)
   apps/nativescript-mobile/  mobilní aplikace
   libs/shared/          sdílený TS kód (web + mobil)
 .github/workflows/ci.yml  CI — frontend, backend, e2e
+LICENSE                 PolyForm Shield 1.0.0 (viz sekce Licence)
+CONTRIBUTING.md, CLA.md  jak přispět, licenční ujednání pro přispěvatele
+SECURITY.md             hlášení zranitelností
 ROADMAP.md              technický stav, hotové a plánované věci
 IDEAS.md                nápady k projednání
 ```
@@ -75,3 +78,32 @@ cd frontend && npx nx run web-e2e:e2e             # e2e (potřebuje běžící A
 ```
 
 Podrobnosti v [backend/README.md](backend/README.md) a [frontend/README.md](frontend/README.md).
+
+## Licence
+
+Zdrojový kód je veřejně dostupný pod licencí [PolyForm Shield 1.0.0](LICENSE). Není to
+open source v užším smyslu (OSI), protože licence zakazuje konkurenční využití.
+
+Shrnutí (závazné je jen anglické znění v [LICENSE](LICENSE)):
+
+- **Smíš**: používat Soovioo pro vlastní potřebu (např. si ho škola nasadí na svém serveru),
+  upravovat ho, forkovat a šířit, pokud zachováš text licence a řádek `Required Notice`.
+- **Nesmíš**: poskytovat produkt nebo službu, která konkuruje Soovioo nebo službám, které
+  autor nad Soovioo nabízí (hosting, instalace, podpora, zakázkový vývoj, školení). Platí
+  to i pro služby poskytované zdarma.
+- Pokud autor některou službu přestane poskytovat, smí ji dál poskytovat kdokoli (oddíl
+  _Discontinued Products_). Školy tak nepřijdou o provoz, když autor skončí.
+
+Hosting, instalaci, podporu a zakázkový vývoj nabízí autor na <https://soovioo.cz>, kontakt
+<info@soovioo.cz>. Jak přispět (včetně CLA): [CONTRIBUTING.md](CONTRIBUTING.md).
+Bezpečnostní chyby: [SECURITY.md](SECURITY.md).
+
+### In English
+
+Soovioo is a school information system for Czech schools, so this README is in Czech. The
+source code is available under the [PolyForm Shield 1.0.0](LICENSE) license. You may use,
+modify, fork and redistribute it, for example to run it for your own school. You may not
+provide any product or service that competes with Soovioo or with the services its author
+provides using it (hosting, installation, support, custom development, training). This is
+source-available software, not OSI open source. For contributing (including the CLA), see
+[CONTRIBUTING.md](CONTRIBUTING.md). To report security issues, see [SECURITY.md](SECURITY.md).

@@ -1,0 +1,7 @@
+# Known false positives: the fixed JWT signing key used only by the backend tests
+# ("test-signing-key-at-least-32-chars-long"). Production keys come from the environment.
+03e705018c1c1376101576b5191b095fd9f0e1ad:backend/tests/Soovioo.Api.Tests/Auth/AuthTestServices.cs:generic-api-key:17
+e73a4544df6a69807df598f6d1a1531ae9ac2dbc:backend/tests/Soovioo.Api.Tests/Auth/AuthControllerTests.cs:generic-api-key:16
+e73a4544df6a69807df598f6d1a1531ae9ac2dbc:backend/tests/Soovioo.Api.Tests/Auth/MyProfileControllerTests.cs:generic-api-key:19
+79daf3083253c9c9d91e3bdb52333094b16bae77:backend/tests/Sova.Api.Tests/Auth/AuthControllerTests.cs:generic-api-key:16
+fc09939207a9ce58aadb93ca5e126305402c5aae:backend/tests/Sova.Api.Tests/Auth/MyProfileControllerTests.cs:generic-api-key:19
