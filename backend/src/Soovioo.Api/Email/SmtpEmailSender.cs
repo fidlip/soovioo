@@ -29,6 +29,9 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSender
             IsBodyHtml = true,
         };
         message.To.Add(to);
+        // SmtpClient doesn't add a Message-ID; Gmail patches one in, but a
+        // missing one counts against the message in some spam filters.
+        message.Headers.Add("Message-ID", $"<{Guid.NewGuid():N}@{message.From.Host}>");
 
         await client.SendMailAsync(message);
     }
