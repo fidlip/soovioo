@@ -49,7 +49,7 @@ services:
       Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
       Smtp__User: ${SMTP_USER:-}
       Smtp__Password: ${SMTP_PASSWORD:-}
-      Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cloud}
+      Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cz}
       Smtp__FromName: Soovioo
     volumes:
       - attachments:/app/AttachmentStorage
