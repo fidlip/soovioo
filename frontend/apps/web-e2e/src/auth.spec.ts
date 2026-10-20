@@ -20,6 +20,23 @@ test('unauthenticated deep link redirects to login instead of the page', async (
   await expect(page).toHaveURL(/\/demo\/login$/);
 });
 
+test.describe('unknown school', () => {
+  // The browser logs the school lookup's 404 as a console error.
+  test.use({ allowedConsoleMessages: [/status of 404/] });
+
+  test('an unknown school slug shows "škola neexistuje" instead of a login form', async ({
+    page,
+  }) => {
+    await page.goto('/neexistujici-skola/login');
+    await expect(page).toHaveURL(
+      /\/school-not-found\?slug=neexistujici-skola$/,
+    );
+    await expect(
+      page.getByRole('heading', { name: 'Škola neexistuje' }),
+    ).toBeVisible();
+  });
+});
+
 test.describe('wrong credentials', () => {
   // The browser itself logs the rejected login's 401 as a console error.
   test.use({ allowedConsoleMessages: [/status of 401/] });

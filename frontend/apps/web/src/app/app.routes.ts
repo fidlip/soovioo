@@ -1,6 +1,7 @@
 import { Route } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { LoginPage } from './login-page/login-page';
+import { schoolExistsGuard } from './school-exists.guard';
 import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
 
 // Pages are lazy chunks (the login page aside — it's the usual first
@@ -105,6 +106,16 @@ const schoolRoutes: Route[] = [
 // the `:schoolSlug` wildcard below — Angular matches routes in array order,
 // and `:schoolSlug` would otherwise swallow "superadmin" as a literal slug.
 const superAdminRoutes: Route[] = [
+  // Not a SuperAdmin page, but outside the school tree for the same reason:
+  // schoolExistsGuard redirects here, and in dev `:schoolSlug` would take it.
+  {
+    path: 'school-not-found',
+    loadComponent: () =>
+      import('./school-not-found-page/school-not-found-page').then(
+        (m) => m.SchoolNotFoundPage,
+      ),
+    data: { hideHeader: true },
+  },
   {
     path: 'superadmin/login',
     component: LoginPage,
@@ -139,6 +150,17 @@ export const appRoutes: Route[] = isPathBasedTenant()
   ? [
       ...superAdminRoutes,
       { path: '', pathMatch: 'full', redirectTo: `/${DEFAULT_DEV_SLUG}` },
-      { path: ':schoolSlug', children: schoolRoutes },
+      {
+        path: ':schoolSlug',
+        canActivateChild: [schoolExistsGuard],
+        children: schoolRoutes,
+      },
     ]
-  : [...superAdminRoutes, ...schoolRoutes];
+  : [
+      ...superAdminRoutes,
+      {
+        path: '',
+        canActivateChild: [schoolExistsGuard],
+        children: schoolRoutes,
+      },
+    ];

@@ -1,0 +1,27 @@
+<div class="mx-auto flex max-w-sm flex-col gap-4 pt-8 sm:pt-16">
+  <div class="text-center">
+    <img
+      src="/images/logo.svg"
+      alt="Soovioo"
+      class="mx-auto h-24 w-auto dark:brightness-0 dark:invert"
+    />
+    <h1
+      class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
+    >
+      Škola neexistuje
+    </h1>
+  </div>
+
+  <p-card>
+    <p class="m-0 text-surface-700 dark:text-surface-200">
+      @if (slug) { Na adrese <strong>{{ slug }}</strong> žádná škola není. }
+      @else { Na této adrese žádná škola není. } Zkontrolujte prosím odkaz,
+      případně se obraťte na svou školu.
+    </p>
+  </p-card>
+
+  <p class="text-center text-sm text-surface-500 dark:text-surface-400">
+    Více o systému Soovioo na
+    <a href="https://soovioo.cz" class="text-primary">soovioo.cz</a>
+  </p>
+</div>

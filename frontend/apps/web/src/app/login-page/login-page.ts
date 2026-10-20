@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
@@ -10,6 +11,8 @@ import { Password } from '@openng/optimus-ui/password';
 import { AuthApiService } from '@soovioo/shared';
 import { environment } from '../../environments/environment';
 import { SchoolContextService } from '../school-context';
+import { SchoolLookupService } from '../school-lookup.service';
+import { catchError, map, of } from 'rxjs';
 
 @Component({
   selector: 'app-login-page',
@@ -41,6 +44,20 @@ export class LoginPage {
       ? this.route.snapshot.paramMap.get('schoolSlug')
       : this.schoolContext.slug();
   }
+
+  /** The school's real name under the heading (the slug until it loads;
+   * schoolExistsGuard already asked, so it's usually cached). */
+  protected readonly schoolName = toSignal(
+    this.schoolSlug
+      ? inject(SchoolLookupService)
+          .lookup(this.schoolSlug)
+          .pipe(
+            map((school) => school?.name ?? null),
+            catchError(() => of(null)),
+          )
+      : of(null),
+    { initialValue: null },
+  );
 
   protected login(): void {
     this.error.set(null);

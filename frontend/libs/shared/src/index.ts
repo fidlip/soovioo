@@ -15,6 +15,7 @@ export * from './lib/evidence/subjects-api.service';
 export * from './lib/evidence/classrooms-api.service';
 export * from './lib/evidence/school-classes-api.service';
 export * from './lib/evidence/schools-api.service';
+export * from './lib/evidence/public-schools-api.service';
 export * from './lib/evidence/parent-students-api.service';
 export * from './lib/evidence/my-school-api.service';
 export * from './lib/evidence/reference.model';
