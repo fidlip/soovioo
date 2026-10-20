@@ -41,12 +41,19 @@ Návrat na starší verzi (image z posledního týdne zůstávají na serveru):
 
 ## DNS
 
-U Forpsi, jen pro `soovioo.cloud` (A → IPv4 VPS; AAAA až po zapnutí IPv6 v Dockeru):
+U Forpsi, jen pro `soovioo.cloud`:
 
-| Záznam             | Typ   |
-| ------------------ | ----- |
-| `soovioo.cloud`    | A     |
-| `*.soovioo.cloud`  | A     |
+| Záznam             | Typ  | Hodnota                 |
+| ------------------ | ---- | ----------------------- |
+| `soovioo.cloud`    | A    | `85.255.10.227`         |
+| `*.soovioo.cloud`  | A    | `85.255.10.227`         |
+| `soovioo.cloud`    | AAAA | `2001:15e8:110:22e3::1` |
+| `*.soovioo.cloud`  | AAAA | `2001:15e8:110:22e3::1` |
+
+Docker síť stacku má zapnuté IPv6, takže audit log vidí skutečné IPv6 adresy klientů.
+Pozor: když `docker compose up` síť kvůli změně jejího nastavení přetvoří, kontejnery
+ztratí DNS aliasy služeb (`api`, `postgres`) a `api` padá na „Resource temporarily
+unavailable“ — pak pomůže `docker compose down && docker compose up -d`.
 
 ## Jednorázová příprava serveru (jako root)
 

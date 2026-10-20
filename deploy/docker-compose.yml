@@ -94,6 +94,14 @@ services:
       - backups:/backups
     logging: *logging
 
+networks:
+  default:
+    # IPv6 inside the stack too: Docker then forwards IPv6 clients straight
+    # to Caddy (ip6tables) instead of through its userland proxy, which
+    # would show every IPv6 visitor as the gateway address in the audit log.
+    # The subnet is a ULA Docker picks itself.
+    enable_ipv6: true
+
 volumes:
   postgres-data:
   attachments:
