@@ -291,6 +291,10 @@ public class ConversationsController(
         {
             return BadRequest("Nepovolený typ souboru.");
         }
+        if (await MessageAttachmentRules.DemoLimitErrorAsync(db, currentSchool.SchoolId!.Value, file.Length) is { } demoLimit)
+        {
+            return BadRequest(demoLimit);
+        }
 
         var schoolId = currentSchool.SchoolId!.Value;
         var attachment = new MessageAttachment

@@ -20,6 +20,7 @@ Kód je rozdělený podle agend, každá složka obsahuje entity i controllery:
 | `Dashboard/`           | souhrn pro domovskou stránku                                     |
 | `Matrika/`             | export do matriky MŠMT (skeleton)                                |
 | `Reference/`           | číselníky (státy, okresy, obce) — seed z `Data/Seed/*.csv`       |
+| `Demo/`                | ukázkové školy „Vyzkoušet“: generátor dat, výběr uživatele, mazání |
 | `Data/AppDbContext.cs` | EF Core kontext, per-school query filtry (multi-tenancy)         |
 | `Migrations/`          | EF Core migrace                                                  |
 
@@ -53,6 +54,9 @@ se na existující DB neprojeví.
 | `App:FrontendBaseUrl`, `App:PathBasedTenant`, `App:MainDomain` | tvar odkazů v e-mailech (pozvánky) |
 | `AuthCookie:Secure`                 | `Secure` příznak refresh-token cookie (v dev `false`, HTTP)    |
 | `Cors:AllowedOrigins`               | povolené originy mimo Development (v dev se povolí jakýkoli)   |
+| `Demo:LifetimeDays`, `Demo:MaxActive` | životnost dema (30 dní), strop současně existujících dem (200) |
+| `Demo:CreatePerIpPerDay`            | nová dema / resety za den z jedné IP (5; v dev 1000)           |
+| `Demo:FeedbackEmail`                | kam chodí zpětná vazba z dem (`info@soovioo.cz`)               |
 
 ## Migrace
 

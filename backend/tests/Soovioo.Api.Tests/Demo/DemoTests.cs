@@ -363,6 +363,26 @@ public class DemoTests
         Assert.Empty(db.DemoContacts);
     }
 
+    [Fact]
+    public async Task DemoSchoolsHaveSmallerAttachmentLimits()
+    {
+        using var db = NewDb();
+        db.Schools.AddRange(
+            new School { Id = 1, Name = "Demo", Slug = "demo-x", IsDemo = true },
+            new School { Id = 2, Name = "Ostrá", Slug = "ostra" });
+        db.MessageAttachments.Add(new MessageAttachment
+        {
+            MessageId = 1, SchoolId = 1, FileName = "a.pdf", ContentType = "application/pdf",
+            SizeBytes = MessageAttachmentRules.DemoMaxTotalBytes - 1000, StoragePath = "1/a.pdf",
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Null(await MessageAttachmentRules.DemoLimitErrorAsync(db, 2, 5_000_000));
+        Assert.NotNull(await MessageAttachmentRules.DemoLimitErrorAsync(db, 1, 3_000_000));
+        Assert.NotNull(await MessageAttachmentRules.DemoLimitErrorAsync(db, 1, 2_000));
+        Assert.Null(await MessageAttachmentRules.DemoLimitErrorAsync(db, 1, 500));
+    }
+
     private static DemoController Controller(AppDbContext db) =>
         new(db, Service(db, new FakeEmailSender()), new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())),
             AuthTestServices.Sessions(db))

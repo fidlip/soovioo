@@ -19,7 +19,7 @@ Domény:
   SPA ukáže „škola neexistuje“.
 - `soovioo.cz` — veřejný web, běží zvlášť na hostingu Forpsi; tento stack se ho netýká.
 
-Web volá API na stejném originu (`https://demo.soovioo.cloud/api/...`), takže žádné CORS.
+Web volá API na stejném originu (`https://skola.soovioo.cloud/api/...`), takže žádné CORS.
 
 ## Jak se nasazuje
 
@@ -112,7 +112,11 @@ z `SUPERADMIN_PASSWORD` (vynutí změnu hesla). Demo účty (`admin`/`ucitel`/�
 `…123`) se v produkci **nezakládají** (`Seed:DemoAccounts` je zapnuté jen
 v `appsettings.Development.json`). Testovací škola `skola` (dříve `demo`) s ukázkovými daty ale vzniká
 z migrací i tady — bez účtů, smazat nebo použít jako ukázku. Adresy `demo` a `demo-…`
-patří ukázkovým školám „Vyzkoušet“ (`https://demo.soovioo.cloud`).
+patří ukázkovým školám „Vyzkoušet“: `https://demo.soovioo.cloud` je průvodce, každé demo
+běží na `demo-<id>.soovioo.cloud` (wildcard certifikát ho pokrývá), denní Hangfire úloha
+`demo-schools-daily` maže prošlá dema a posílá připomínky. Limity viz `Demo:*` v
+[backend/README.md](../backend/README.md); tlačítko „Vyzkoušet“ na `soovioo.cz` vede na
+`https://demo.soovioo.cloud`.
 
 Logy: `cd /opt/soovioo && docker compose logs -f api web`.
 
