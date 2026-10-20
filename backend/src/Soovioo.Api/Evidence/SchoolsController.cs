@@ -17,6 +17,8 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
+    private const string ReservedSlugMessage = "Adresy „demo“ a „demo-…“ jsou vyhrazené pro ukázkové školy.";
+
     /// <summary>Paginated — a real multi-tenant install can accumulate far
     /// more schools than fit comfortably in one unpaginated table.
     /// <paramref name="search"/> matches name or slug (case-insensitive,
@@ -57,6 +59,10 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SchoolDto>> AddSchool(CreateSchoolRequest request)
     {
+        if (Demo.DemoSlugs.IsReserved(request.Slug))
+        {
+            return this.FieldError("slug", ReservedSlugMessage);
+        }
         if (await db.Schools.AnyAsync(s => s.Slug == request.Slug))
         {
             return this.FieldError("slug", "Tato adresa školy (slug) už je obsazená.");
@@ -113,6 +119,12 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         if (school is null)
         {
             return NotFound();
+        }
+
+        // A demo keeps its generated slug; a real school can't take one.
+        if (request.Slug != school.Slug && Demo.DemoSlugs.IsReserved(request.Slug))
+        {
+            return this.FieldError("slug", ReservedSlugMessage);
         }
 
         if (await db.Schools.AnyAsync(s => s.Id != id && s.Slug == request.Slug))

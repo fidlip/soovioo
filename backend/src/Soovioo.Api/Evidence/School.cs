@@ -42,4 +42,13 @@ public class School
     /// admin fills it in; without it, the frontend simply skips rendering a
     /// QR code.</summary>
     public string? BankAccountNumber { get; set; }
+
+    /// <summary>A "Vyzkoušet" demo school (see <c>Demo/</c>): generated
+    /// data, passwordless login by picking a user, deleted with everything
+    /// in it once <see cref="ExpiresAt"/> passes. The demo-only endpoints
+    /// refuse any school without this flag.</summary>
+    public bool IsDemo { get; set; }
+
+    /// <summary>When the demo school gets deleted (demo schools only).</summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
 }

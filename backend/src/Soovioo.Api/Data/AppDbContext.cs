@@ -154,6 +154,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<School>().HasIndex(s => s.Slug).IsUnique();
+        modelBuilder.Entity<School>().HasIndex(s => s.ExpiresAt).HasFilter("\"IsDemo\"");
 
         // Username unique per school; SuperAdmin usernames (SchoolId null) unique globally.
         modelBuilder.Entity<User>().HasIndex(u => new { u.SchoolId, u.Username }).IsUnique();
@@ -254,8 +255,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             new School
             {
                 Id = 1,
-                Name = "Demo škola",
-                Slug = "demo",
+                Name = "Testovací škola",
+                // Not "demo" — that slug (and "demo-*") belongs to the
+                // "Vyzkoušet" demo schools, see Demo/DemoSlugs.
+                Slug = "skola",
                 CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
                 // RED_IZO/IZO straight from MŠMT's own matrika test-portal
                 // screenshots (the "Osmá testová škola" walkthrough examples),

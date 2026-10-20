@@ -5,15 +5,15 @@ async function login(
   username: string,
   password: string,
 ) {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill(username);
   await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
   // Login now lands on the Home dashboard, not Grades directly — these
   // tests need the full Grades page itself.
   await page.getByRole('link', { name: 'Známky', exact: true }).click();
-  await expect(page).toHaveURL(/\/demo\/grades$/);
+  await expect(page).toHaveURL(/\/skola\/grades$/);
 }
 
 /** The grades list has rendered: its first row, or the empty-state text

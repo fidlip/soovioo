@@ -94,6 +94,34 @@ public class SchoolsControllerTests
         Assert.True(problem.Errors.ContainsKey("slug"));
     }
 
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("demo-abc")]
+    [InlineData("Demo-X")]
+    public async Task AddSchoolRejectsReservedDemoSlugs(string slug)
+    {
+        using var db = NewDb();
+
+        var result = await new SchoolsController(db).AddSchool(new CreateSchoolRequest("Škola", slug, "admin", "heslo1234"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Empty(db.Schools);
+    }
+
+    [Fact]
+    public async Task UpdateSchoolRejectsRenamingToADemoSlug()
+    {
+        using var db = NewDb();
+        var school = new School { Name = "Škola", Slug = "skola" };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+
+        var result = await new SchoolsController(db).UpdateSchool(school.Id, new UpdateSchoolRequest("Škola", "demo-1"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal("skola", school.Slug);
+    }
+
     [Fact]
     public async Task DeleteSchoolRejectsWhenItHasUsers()
     {

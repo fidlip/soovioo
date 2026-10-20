@@ -9,7 +9,7 @@ namespace Soovioo.Api.Evidence;
 /// (subdomain) belong to a school, and what is it called. The wildcard
 /// certificate makes every subdomain reachable, so the web app asks here and
 /// shows "škola neexistuje" for an unknown one. Name and type are public
-/// anyway — they're on the login page.</summary>
+/// anyway — they're on the login page; so is whether it's a demo.</summary>
 [AllowAnonymous]
 [ApiController]
 [Route("api/public/schools")]
@@ -20,10 +20,12 @@ public class PublicSchoolsController(AppDbContext db) : ControllerBase
     {
         var school = await db.Schools
             .Where(s => s.Slug == slug)
-            .Select(s => new PublicSchoolDto(s.Name, s.Type.ToString()))
+            .Select(s => new PublicSchoolDto(s.Name, s.Type.ToString(), s.IsDemo, s.ExpiresAt))
             .FirstOrDefaultAsync();
         return school is null ? NotFound() : Ok(school);
     }
 }
 
-public record PublicSchoolDto(string Name, string Type);
+/// <param name="IsDemo">The login page then lists the users to pick from
+/// instead of asking for a password, and the app shows the demo bar.</param>
+public record PublicSchoolDto(string Name, string Type, bool IsDemo = false, DateTimeOffset? ExpiresAt = null);

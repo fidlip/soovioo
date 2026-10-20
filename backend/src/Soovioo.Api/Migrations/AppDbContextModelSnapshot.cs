@@ -531,6 +531,12 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Izo")
                         .HasColumnType("text");
 
@@ -559,6 +565,9 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt")
+                        .HasFilter("\"IsDemo\"");
+
                     b.HasIndex("Slug")
                         .IsUnique();
 
@@ -572,12 +581,13 @@ namespace Soovioo.Api.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             DirectorName = "Mgr. Jana Ředitelová",
                             Email = "skola@demo.cz",
+                            IsDemo = false,
                             Izo = "308000048",
-                            Name = "Demo škola",
+                            Name = "Testovací škola",
                             Phone = "+420 123 456 789",
                             PostalCode = "110 00",
                             RedIzo = "700000089",
-                            Slug = "demo",
+                            Slug = "skola",
                             Street = "Školní 8",
                             Type = 0
                         });

@@ -19,7 +19,7 @@ export class LoginComponent {
 
   protected username = '';
   protected password = '';
-  protected schoolSlug = 'demo';
+  protected schoolSlug = 'skola';
   protected readonly error = signal<string | null>(null);
   /** The well-known demo accounts (Seed:DemoAccounts) exist only in a dev
    * database, so the hint stays out of production builds. */

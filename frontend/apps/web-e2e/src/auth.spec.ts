@@ -10,14 +10,14 @@ test('unauthenticated visit redirects through the demo slug to login', async ({
   page,
 }) => {
   await page.goto('/');
-  await expect(page).toHaveURL(/\/demo\/login$/);
+  await expect(page).toHaveURL(/\/skola\/login$/);
 });
 
 test('unauthenticated deep link redirects to login instead of the page', async ({
   page,
 }) => {
-  await page.goto('/demo/grades');
-  await expect(page).toHaveURL(/\/demo\/login$/);
+  await page.goto('/skola/grades');
+  await expect(page).toHaveURL(/\/skola\/login$/);
 });
 
 test.describe('unknown school', () => {
@@ -44,23 +44,23 @@ test.describe('wrong credentials', () => {
   test('wrong credentials show an error and stay on the login page', async ({
     page,
   }) => {
-    await page.goto('/demo/login');
+    await page.goto('/skola/login');
     await page.locator('#username').fill('admin');
     await page.locator('#password').fill('not-the-right-password');
     await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
     await expect(page.getByText('Neplatné přihlašovací údaje.')).toBeVisible();
-    await expect(page).toHaveURL(/\/demo\/login$/);
+    await expect(page).toHaveURL(/\/skola\/login$/);
   });
 });
 
 test('teacher can log in, see the nav, and log out', async ({ page }) => {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill('ucitel');
   await page.locator('#password').fill('ucitel123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
   await expect(
     page.getByRole('link', { name: 'Známky', exact: true }),
   ).toBeVisible();
@@ -75,16 +75,16 @@ test('teacher can log in, see the nav, and log out', async ({ page }) => {
   // username button, not as its own top-level button.
   await page.getByRole('button', { name: 'ucitel' }).click();
   await page.getByText('Odhlásit se').click();
-  await expect(page).toHaveURL(/\/demo\/login$/);
+  await expect(page).toHaveURL(/\/skola\/login$/);
 });
 
 test('admin sees the administration nav link', async ({ page }) => {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('admin123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
   await expect(
     page.getByRole('link', { name: 'Administrace', exact: true }),
   ).toBeVisible();

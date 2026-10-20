@@ -5,11 +5,11 @@ async function login(
   username: string,
   password: string,
 ) {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill(username);
   await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
 }
 
 test('school admin sees their own login in Logy, password masked', async ({
@@ -17,7 +17,7 @@ test('school admin sees their own login in Logy, password masked', async ({
 }) => {
   await login(page, 'admin', 'admin123');
   await page.getByRole('link', { name: 'Logy', exact: true }).click();
-  await expect(page).toHaveURL(/\/demo\/logs$/);
+  await expect(page).toHaveURL(/\/skola\/logs$/);
 
   // The login just made (other tests log in in parallel, so not
   // necessarily the very first row).
@@ -54,7 +54,7 @@ test('Akce filter: pick an exact action or search by typed text', async ({
   page,
 }) => {
   await login(page, 'admin', 'admin123');
-  await page.goto('/demo/logs');
+  await page.goto('/skola/logs');
   const rows = page.locator('tbody tr');
   await expect(rows.first()).toBeVisible();
 

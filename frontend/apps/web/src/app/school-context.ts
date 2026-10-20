@@ -4,7 +4,7 @@ import { filter } from 'rxjs';
 import { environment } from '../environments/environment';
 
 /** Dev fallback when no school is known yet (bare `/`). */
-export const DEFAULT_DEV_SLUG = 'demo';
+export const DEFAULT_DEV_SLUG = 'skola';
 
 /**
  * Only the real deployment domain carries the school in a subdomain

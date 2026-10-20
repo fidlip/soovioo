@@ -8,6 +8,10 @@ import { SchoolType } from './student-term';
 export interface PublicSchool {
   name: string;
   type: SchoolType;
+  /** A "Vyzkoušet" demo school — user picker instead of a password, demo bar. */
+  isDemo: boolean;
+  /** When the demo gets deleted (ISO); null for a real school. */
+  expiresAt: string | null;
 }
 
 /** Anonymous — see PublicSchoolsController. */

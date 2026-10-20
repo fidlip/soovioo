@@ -110,8 +110,9 @@ Settings → Secrets and variables → Actions:
 Po prvním úspěšném Deploy: `https://soovioo.cloud` → přihlásit `superadmin` heslem
 z `SUPERADMIN_PASSWORD` (vynutí změnu hesla). Demo účty (`admin`/`ucitel`/… s hesly
 `…123`) se v produkci **nezakládají** (`Seed:DemoAccounts` je zapnuté jen
-v `appsettings.Development.json`). Demo škola `demo` s ukázkovými daty ale vzniká
-z migrací i tady — bez účtů, smazat nebo použít jako ukázku.
+v `appsettings.Development.json`). Testovací škola `skola` (dříve `demo`) s ukázkovými daty ale vzniká
+z migrací i tady — bez účtů, smazat nebo použít jako ukázku. Adresy `demo` a `demo-…`
+patří ukázkovým školám „Vyzkoušet“ (`https://demo.soovioo.cloud`).
 
 Logy: `cd /opt/soovioo && docker compose logs -f api web`.
 

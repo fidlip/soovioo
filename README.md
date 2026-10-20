@@ -61,7 +61,7 @@ Demo účty (heslo = jméno + `123`, např. `admin` / `admin123`):
 | Účet         | Role                                          |
 | ------------ | --------------------------------------------- |
 | `superadmin` | správa škol (bez vazby na školu)              |
-| `admin`      | administrátor demo školy                      |
+| `admin`      | administrátor testovací školy (`/skola`)     |
 | `ucitel`     | učitel, třídní 5.A                            |
 | `rodic`      | rodič žáka Jan Novák                          |
 | `zak`        | žák Jan Novák                                 |

@@ -1,11 +1,11 @@
 import { expect, test } from './fixtures';
 
 async function login(page: import('@playwright/test').Page) {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('admin123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
 }
 
 test('desktop sidebar collapses to icons and remembers it after reload', async ({
@@ -38,7 +38,7 @@ test('mobile drawer opens from the hamburger and closes after navigating', async
   await page.getByRole('button', { name: 'Otevřít menu' }).click();
   await gradesLink.click();
 
-  await expect(page).toHaveURL(/\/demo\/grades$/);
+  await expect(page).toHaveURL(/\/skola\/grades$/);
   await expect(gradesLink).toBeHidden();
   // No horizontal page scroll on a phone-width screen.
   const overflow = await page.evaluate(

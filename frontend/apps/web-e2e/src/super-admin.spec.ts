@@ -65,15 +65,15 @@ test('support mode: enter a school, survive a reload, leave', async ({
   await expect(page).toHaveURL(/\/superadmin$/);
 
   // A plain SuperAdmin session never shows a school's pages.
-  await page.goto('/demo/grades');
+  await page.goto('/skola/grades');
   await expect(page).toHaveURL(/\/superadmin$/);
 
   await page.getByRole('button', { name: 'Vstoupit do školy' }).first().click();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
   await expect(page.getByText('Režim podpory')).toBeVisible();
 
   await page.reload();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
   await expect(page.getByText('Režim podpory')).toBeVisible();
 
   await page.getByRole('button', { name: 'Opustit' }).click();

@@ -25,14 +25,14 @@ for (const username of ['admin', 'ucitel', 'rodic', 'zak']) {
     page,
     waitForApiIdle,
   }) => {
-    await page.goto('/demo/login');
+    await page.goto('/skola/login');
     await page.locator('#username').fill(username);
     await page.locator('#password').fill(`${username}123`);
     await page.getByRole('button', { name: 'Přihlásit se' }).click();
-    await expect(page).toHaveURL(/\/demo\/home$/);
+    await expect(page).toHaveURL(/\/skola\/home$/);
 
     for (const path of SCHOOL_PAGES) {
-      await page.goto(`/demo/${path}`);
+      await page.goto(`/skola/${path}`);
       await expect(page.locator('main h1')).toBeVisible();
       // Let the page's data requests settle before moving on.
       await waitForApiIdle();
@@ -62,9 +62,9 @@ test('logged-out pages load with a clean console', async ({
   waitForApiIdle,
 }) => {
   for (const path of [
-    '/demo/login',
+    '/skola/login',
     '/superadmin/login',
-    '/demo/accept-invite?token=x',
+    '/skola/accept-invite?token=x',
   ]) {
     await page.goto(path);
     await expect(page.getByRole('button').first()).toBeVisible();

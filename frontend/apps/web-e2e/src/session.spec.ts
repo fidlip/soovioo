@@ -9,14 +9,14 @@ async function login(
   page: import('@playwright/test').Page,
   rememberMe: boolean,
 ) {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('admin123');
   if (rememberMe) {
     await page.getByLabel('Zůstat přihlášen').check();
   }
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
 }
 
 const refreshCookie = async (page: import('@playwright/test').Page) =>
@@ -29,7 +29,7 @@ test('a reload keeps the user signed in without any token in storage', async ({
 
   await page.reload();
 
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
   await expect(
     page.getByRole('link', { name: 'Známky', exact: true }),
   ).toBeVisible();
@@ -61,9 +61,9 @@ test('after logout a reload stays logged out', async ({ page }) => {
   await login(page, false);
   await page.getByRole('button', { name: 'admin' }).click();
   await page.getByText('Odhlásit se').click();
-  await expect(page).toHaveURL(/\/demo\/login$/);
+  await expect(page).toHaveURL(/\/skola\/login$/);
 
-  await page.goto('/demo/home');
+  await page.goto('/skola/home');
 
-  await expect(page).toHaveURL(/\/demo\/login$/);
+  await expect(page).toHaveURL(/\/skola\/login$/);
 });

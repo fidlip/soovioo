@@ -5,11 +5,11 @@ async function login(
   username: string,
   password: string,
 ) {
-  await page.goto('/demo/login');
+  await page.goto('/skola/login');
   await page.locator('#username').fill(username);
   await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
-  await expect(page).toHaveURL(/\/demo\/home$/);
+  await expect(page).toHaveURL(/\/skola\/home$/);
 }
 
 test('admin sees the full tabbed Administrace page', async ({ page }) => {
@@ -53,6 +53,6 @@ test('parent is denied the Administrace page', async ({ page }) => {
   await expect(
     page.getByRole('link', { name: 'Administrace', exact: true }),
   ).toHaveCount(0);
-  await page.goto('/demo/admin');
+  await page.goto('/skola/admin');
   await expect(page.getByText('Tato stránka je dostupná')).toBeVisible();
 });
