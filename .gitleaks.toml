@@ -1,0 +1,7 @@
+# Allowlist by value rather than by commit fingerprint, so it survives history rewrites.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixed JWT signing key used only by the backend tests; production keys come from the environment"
+regexes = ['''test-signing-key-at-least-32-chars-long''']
