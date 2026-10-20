@@ -1,0 +1,94 @@
+<p-dialog
+  [visible]="feedback.open()"
+  (visibleChange)="feedback.open.set($event)"
+  header="Jak se vám Soovioo líbí?"
+  [modal]="true"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-md"
+>
+  <form class="flex flex-col gap-4" (ngSubmit)="send()">
+    <div
+      class="flex justify-between gap-1"
+      role="radiogroup"
+      aria-label="Hodnocení"
+    >
+      @for (option of ratings; track option.value) {
+      <button
+        type="button"
+        role="radio"
+        class="demo-option compact !px-1 !py-2"
+        [class.selected]="rating() === option.value"
+        [attr.aria-checked]="rating() === option.value"
+        [attr.aria-label]="option.label"
+        (click)="rating.set(rating() === option.value ? null : option.value)"
+      >
+        <span class="text-2xl" aria-hidden="true">{{ option.icon }}</span>
+        <span>{{ option.label }}</span>
+      </button>
+      }
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="demo-feedback-text"
+        class="text-sm font-medium text-surface-700 dark:text-surface-200"
+        >Co se vám líbí, co chybí, co nefunguje?</label
+      >
+      <textarea
+        pTextarea
+        id="demo-feedback-text"
+        name="text"
+        rows="4"
+        class="w-full"
+        maxlength="4000"
+        [(ngModel)]="text"
+      ></textarea>
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="demo-feedback-email"
+        class="text-sm font-medium text-surface-700 dark:text-surface-200"
+        >Nechte nám kontakt (nepovinné)</label
+      >
+      <input
+        pInputText
+        id="demo-feedback-email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        class="w-full"
+        placeholder="vas@email.cz"
+        [(ngModel)]="email"
+      />
+    </div>
+    <div class="flex items-start gap-2">
+      <p-checkbox
+        inputId="demo-feedback-consent"
+        name="consent"
+        [binary]="true"
+        [disabled]="!email.trim()"
+        [(ngModel)]="consent"
+      />
+      <label
+        for="demo-feedback-consent"
+        class="text-sm text-surface-700 dark:text-surface-200"
+        >Souhlasím, aby mě tým Soovioo kontaktoval.</label
+      >
+    </div>
+    <div class="flex flex-wrap justify-between gap-2">
+      <p-button
+        type="button"
+        label="Už se neptat"
+        [text]="true"
+        severity="secondary"
+        (onClick)="feedback.mute()"
+      />
+      <p-button
+        type="submit"
+        label="Odeslat"
+        icon="pi pi-send"
+        [disabled]="!canSend()"
+        [loading]="sending()"
+      />
+    </div>
+  </form>
+</p-dialog>

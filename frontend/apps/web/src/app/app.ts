@@ -8,7 +8,11 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import {
+  takeUntilDestroyed,
+  toObservable,
+  toSignal,
+} from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
   NavigationEnd,
@@ -22,7 +26,7 @@ import { Menu } from '@openng/optimus-ui/menu';
 import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
-import { filter, map } from 'rxjs';
+import { catchError, filter, map, of, switchMap } from 'rxjs';
 import {
   AuthApiService,
   ROLE_LABELS,
@@ -32,7 +36,16 @@ import {
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { installPlaceholderTitles } from './placeholder-title';
-import { SchoolContextService, superAdminUrl } from './school-context';
+import { DemoBar } from './demo/demo-bar';
+import { DemoEmailPreview } from './demo/demo-email-preview';
+import { DemoFeedbackDialog } from './demo/demo-feedback-dialog';
+import { DemoFeedbackService } from './demo/demo-feedback.service';
+import { SchoolLookupService } from './school-lookup.service';
+import {
+  SchoolContextService,
+  isDemoSlug,
+  superAdminUrl,
+} from './school-context';
 import { UnreadMessagesService } from './unread-messages.service';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'soovioo-sidebar-collapsed';
@@ -61,6 +74,9 @@ interface NavItem {
     ButtonDirective,
     Menu,
     AppIcon,
+    DemoBar,
+    DemoEmailPreview,
+    DemoFeedbackDialog,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -77,8 +93,32 @@ export class App {
     read: ElementRef<HTMLElement>,
   });
 
+  private readonly schoolLookup = inject(SchoolLookupService);
+
+  /** The current school when it's a "Vyzkoušet" demo (demo bar, feedback). */
+  protected readonly demoSchool = toSignal(
+    toObservable(this.schoolContext.slug).pipe(
+      switchMap((slug) =>
+        slug && isDemoSlug(slug)
+          ? this.schoolLookup
+              .lookup(slug)
+              .pipe(
+                map((school) => (school?.isDemo ? { ...school, slug } : null)),
+                catchError(() => of(null)),
+              )
+          : of(null),
+      ),
+    ),
+    { initialValue: null },
+  );
+
   constructor() {
     installPlaceholderTitles();
+    const destroyRef = inject(DestroyRef);
+    const feedback = inject(DemoFeedbackService);
+    toObservable(this.demoSchool)
+      .pipe(takeUntilDestroyed())
+      .subscribe((demo) => demo && feedback.start(destroyRef));
     // optimus-ui's ConfirmDialog puts a static role="alertdialog" on its
     // inner <p-dialog> host too, which stays in the DOM, unnamed, even with
     // no dialog open (an a11y violation on every page). The real dialog
@@ -348,9 +388,19 @@ export class App {
    * stay stuck on whichever role it first saw. SuperAdmin lives outside the
    * `:schoolSlug` route tree (see app.routes.ts), so its Settings link can't
    * go through `SchoolContextService.link()`. */
-  protected readonly userMenuItems = computed<MenuItem[]>(() =>
-    this.buildUserMenu(this.schoolContext.link('settings')),
-  );
+  protected readonly userMenuItems = computed<MenuItem[]>(() => {
+    const items = this.buildUserMenu(this.schoolContext.link('settings'));
+    return this.demoSchool()
+      ? [
+          {
+            label: 'Přepnout uživatele',
+            icon: 'pi pi-users',
+            routerLink: this.schoolContext.link('login'),
+          },
+          ...items,
+        ]
+      : items;
+  });
 
   protected readonly superAdminUserMenuItems = computed<MenuItem[]>(() =>
     this.buildUserMenu(['/superadmin/settings']),

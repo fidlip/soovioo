@@ -13,4 +13,7 @@ public class DemoOptions
     /// <summary>New demos (and resets — both regenerate everything) per IP
     /// address and day.</summary>
     public int CreatePerIpPerDay { get; set; } = 5;
+
+    /// <summary>Where demo feedback (and the support link) goes.</summary>
+    public string FeedbackEmail { get; set; } = "info@soovioo.cz";
 }

@@ -107,6 +107,7 @@ const CITIZENSHIP_QUALIFIER_OPTIONS = [
 import { InfoHint } from '../info-hint/info-hint';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
+import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
@@ -145,6 +146,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
 })
 export class AdminPage {
   protected readonly notify = inject(NotifyService);
+  private readonly demoEmails = inject(DemoEmailPreviewService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly authApi = inject(AuthApiService);
   private readonly studentsApi = inject(StudentsApiService);
@@ -1065,7 +1067,7 @@ export class AdminPage {
   private notifyInviteOutcome(user: AppUser): void {
     switch (user.invite) {
       case 'Sent':
-        this.notify.success(
+        this.demoEmails.sent(
           `Uživatel vytvořen, pozvánka odeslána na ${user.email}.`,
         );
         break;
@@ -1086,7 +1088,7 @@ export class AdminPage {
    * when this environment has no e-mail infrastructure configured. */
   protected sendInvite(user: AppUser): void {
     this.usersApi.sendInvite(user.id).subscribe({
-      next: () => this.notify.success(`Pozvánka odeslána na ${user.email}.`),
+      next: () => this.demoEmails.sent(`Pozvánka odeslána na ${user.email}.`),
       error: (err) => this.showError('sendInvite failed', err),
     });
   }

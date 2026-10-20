@@ -133,3 +133,109 @@ p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
 .soovioo-dark .fc .fc-day-other .fc-daygrid-day-top {
   color: var(--p-surface-400);
 }
+
+/* Demo ("Vyzkoušet"): option cards of the wizard and the user picker. */
+.demo-step-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--p-surface-500);
+}
+
+.demo-step-title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--p-surface-900);
+}
+
+.soovioo-dark .demo-step-title {
+  color: var(--p-surface-0);
+}
+
+.demo-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.demo-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--p-surface-200);
+  border-radius: 0.5rem;
+  background: var(--p-surface-0);
+  color: var(--p-surface-800);
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+
+  span {
+    font-size: 0.8125rem;
+    color: var(--p-surface-500);
+  }
+
+  &:hover {
+    border-color: var(--p-primary-300);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-500);
+    outline-offset: 2px;
+  }
+
+  &.selected {
+    border-color: var(--p-primary-500);
+    background: var(--p-primary-50);
+  }
+
+  &.compact {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+.soovioo-dark .demo-option {
+  border-color: var(--p-surface-700);
+  background: var(--p-surface-900);
+  color: var(--p-surface-100);
+
+  span {
+    color: var(--p-surface-400);
+  }
+
+  &.selected {
+    border-color: var(--p-primary-400);
+    background: color-mix(in srgb, var(--p-primary-500) 18%, transparent);
+  }
+}
+
+.demo-bar-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  cursor: pointer;
+  border: 1px solid var(--p-sky-400);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--p-sky-100);
+  }
+}
+
+.soovioo-dark .demo-bar-button:hover {
+  background: var(--p-sky-900);
+}

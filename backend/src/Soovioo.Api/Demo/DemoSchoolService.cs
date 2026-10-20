@@ -1,4 +1,3 @@
-using System.Net;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -189,6 +188,37 @@ public class DemoSchoolService(
         await db.SaveChangesAsync();
     }
 
+    /// <summary>Stores the feedback, keeps a contact left in it (like the
+    /// wizard's), and forwards it to the team.</summary>
+    public async Task SaveFeedbackAsync(School school, DemoFeedback feedback)
+    {
+        feedback.CreatedAt = time.GetUtcNow();
+        db.DemoFeedback.Add(feedback);
+        if (feedback.Email is { } email
+            && !await db.DemoContacts.AnyAsync(c => c.SchoolId == school.Id && c.Email == email))
+        {
+            db.DemoContacts.Add(new DemoContact
+            {
+                SchoolId = school.Id,
+                DemoSlug = school.Slug,
+                Email = email,
+                Consent = feedback.Consent,
+                Source = "feedback",
+                CreatedAt = feedback.CreatedAt,
+            });
+        }
+        await db.SaveChangesAsync();
+
+        var stars = feedback.Rating is { } r ? new string('★', r) + new string('☆', 5 - r) : "bez hodnocení";
+        await TrySendAsync(options.Value.FeedbackEmail, $"Zpětná vazba z dema ({stars})", $"""
+            <p><strong>Demo:</strong> {Html(school.Name)} ({school.Slug}, {school.Type})<br>
+            <strong>Role:</strong> {Html(feedback.Role ?? "?")}<br>
+            <strong>Hodnocení:</strong> {stars}<br>
+            <strong>E-mail:</strong> {Html(feedback.Email ?? "—")} (souhlas s kontaktem: {(feedback.Consent ? "ano" : "ne")})</p>
+            <p style="white-space: pre-wrap">{Html(feedback.Text ?? "")}</p>
+            """);
+    }
+
     private string DemoLink(School school) =>
         $"{links.Value.SchoolOrigin(school.Slug)}/login";
 
@@ -197,7 +227,7 @@ public class DemoSchoolService(
         var link = DemoLink(school);
         return $"""
             <p>Dobrý den,</p>
-            <p>děkujeme, že zkoušíte Soovioo. Vaše ukázková škola <strong>{WebUtility.HtmlEncode(school.Name)}</strong>
+            <p>děkujeme, že zkoušíte Soovioo. Vaše ukázková škola <strong>{Html(school.Name)}</strong>
             je připravená na adrese:</p>
             <p><a href="{link}">{link}</a></p>
             <p>Odkaz otevře demo i na jiném zařízení. Demo bude i se všemi daty smazáno
@@ -211,12 +241,17 @@ public class DemoSchoolService(
         var link = DemoLink(school);
         return $"""
             <p>Dobrý den,</p>
-            <p>vaše ukázková škola <strong>{WebUtility.HtmlEncode(school.Name)}</strong> v Soovioo bude {when}
+            <p>vaše ukázková škola <strong>{Html(school.Name)}</strong> v Soovioo bude {when}
             smazána i se všemi daty. Ještě ji můžete projít na adrese <a href="{link}">{link}</a>.</p>
             <p>Pokud vás Soovioo zaujalo, napište nám na <a href="mailto:info@soovioo.cz">info@soovioo.cz</a>
             — rádi vám pomůžeme s ostrým provozem.</p>
             """;
     }
+
+    /// <summary>Escapes markup only — Czech letters stay readable in the
+    /// source (WebUtility.HtmlEncode turns "á" into "&amp;#225;").</summary>
+    private static string Html(string text) =>
+        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 
     private async Task TrySendAsync(string to, string subject, string body)
     {

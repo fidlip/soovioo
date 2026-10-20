@@ -1,0 +1,214 @@
+<div class="mx-auto flex max-w-xl flex-col gap-4 pt-4 sm:pt-12">
+  <div class="text-center">
+    <img
+      src="/images/logo.svg"
+      alt="Soovioo"
+      class="mx-auto h-20 w-auto dark:brightness-0 dark:invert"
+    />
+    <h1
+      class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
+    >
+      @if (resetSlug) { Resetovat ukázkovou školu } @else { Vyzkoušejte
+      Soovioo }
+    </h1>
+    <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+      @if (resetSlug) { Data se vygenerují znovu podle vašich odpovědí —
+      všechny dosavadní změny zmizí. Adresa dema zůstává. } @else { Vlastní
+      ukázková škola s realistickými daty, bez registrace. Za měsíc se sama
+      smaže. }
+    </p>
+  </div>
+
+  <p-card>
+    @switch (step()) { @case ('checking') {
+    <div class="flex items-center justify-center gap-2 py-6 text-surface-500">
+      <i class="pi pi-spin pi-spinner"></i> Hledám vaši ukázkovou školu…
+    </div>
+    } @case ('type') {
+    <p class="demo-step-label">Krok 1 ze 4</p>
+    <h2 class="demo-step-title">Jaký typ školy si chcete prohlédnout?</h2>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <button
+        type="button"
+        class="demo-option"
+        [class.selected]="type() === 'Elementary'"
+        (click)="chooseType('Elementary')"
+      >
+        <i class="pi pi-home text-2xl text-primary"></i>
+        <strong>Základní škola</strong>
+        <span>1.–9. ročník, žáci</span>
+      </button>
+      <button
+        type="button"
+        class="demo-option"
+        [class.selected]="type() === 'Secondary'"
+        (click)="chooseType('Secondary')"
+      >
+        <i class="pi pi-graduation-cap text-2xl text-primary"></i>
+        <strong>Střední škola</strong>
+        <span>4 ročníky, studenti</span>
+      </button>
+    </div>
+    } @case ('school') {
+    <p class="demo-step-label">Krok 2 ze 4</p>
+    <h2 class="demo-step-title">Název a velikost školy</h2>
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="demo-name"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >Název školy</label
+        >
+        <input
+          pInputText
+          id="demo-name"
+          name="name"
+          class="w-full"
+          maxlength="100"
+          [(ngModel)]="name"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <span
+          id="demo-size-label"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >Počet tříd v ročníku</span
+        >
+        <div
+          class="grid grid-cols-3 gap-2"
+          role="radiogroup"
+          aria-labelledby="demo-size-label"
+        >
+          @for (size of sizes(); track size.perGrade) {
+          <button
+            type="button"
+            role="radio"
+            class="demo-option compact"
+            [class.selected]="classesPerGrade() === size.perGrade"
+            [attr.aria-checked]="classesPerGrade() === size.perGrade"
+            (click)="classesPerGrade.set(size.perGrade)"
+          >
+            <strong>{{ size.perGrade }}</strong>
+            <span>{{ size.classes }} tříd</span>
+          </button>
+          }
+        </div>
+      </div>
+    </div>
+    <div class="demo-nav">
+      <p-button label="Zpět" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
+      <p-button
+        label="Další"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        [disabled]="!name.trim()"
+        (onClick)="step.set('role')"
+      />
+    </div>
+    } @case ('role') {
+    <p class="demo-step-label">Krok 3 ze 4</p>
+    <h2 class="demo-step-title">Za koho se chcete podívat nejdřív?</h2>
+    <p class="mt-0 mb-3 text-sm text-surface-500 dark:text-surface-400">
+      Mezi uživateli školy můžete kdykoli přepnout.
+    </p>
+    <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Role">
+      @for (option of roles(); track option.role) {
+      <button
+        type="button"
+        role="radio"
+        class="demo-option"
+        [class.selected]="role() === option.role"
+        [attr.aria-checked]="role() === option.role"
+        (click)="role.set(option.role)"
+      >
+        <i class="pi text-xl text-primary" [class]="option.icon"></i>
+        <strong>{{ option.label }}</strong>
+        <span>{{ option.hint }}</span>
+      </button>
+      }
+    </div>
+    <div class="demo-nav">
+      <p-button label="Zpět" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
+      <p-button
+        label="Další"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        (onClick)="step.set('contact')"
+      />
+    </div>
+    } @case ('contact') {
+    <p class="demo-step-label">Krok 4 ze 4</p>
+    <h2 class="demo-step-title">Poslat odkaz na demo e-mailem?</h2>
+    <p class="mt-0 mb-3 text-sm text-surface-500 dark:text-surface-400">
+      Nepovinné. Odkaz otevře demo i na jiném zařízení a týden a den před
+      smazáním vám připomeneme, ať o nic nepřijdete.
+    </p>
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="demo-email"
+          class="text-sm font-medium text-surface-700 dark:text-surface-200"
+          >E-mail</label
+        >
+        <input
+          pInputText
+          id="demo-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          class="w-full"
+          placeholder="vas@email.cz"
+          [(ngModel)]="email"
+          [class.ng-invalid]="emailInvalid()"
+          [class.ng-dirty]="emailInvalid()"
+        />
+        @if (emailInvalid()) {
+        <small class="text-red-600 dark:text-red-400"
+          >Zkontrolujte prosím e-mail.</small
+        >
+        }
+      </div>
+      <div class="flex items-start gap-2">
+        <p-checkbox
+          inputId="demo-consent"
+          name="consent"
+          [binary]="true"
+          [disabled]="!email.trim()"
+          [(ngModel)]="consent"
+        />
+        <label
+          for="demo-consent"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >Souhlasím, aby mě tým Soovioo kontaktoval ohledně nasazení ve škole
+          (i po smazání dema).</label
+        >
+      </div>
+      @if (error(); as message) {
+      <p-message severity="error" [text]="message" />
+      }
+    </div>
+    <div class="demo-nav">
+      <p-button label="Zpět" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
+      <p-button
+        [label]="resetSlug ? 'Resetovat data' : 'Vytvořit ukázkovou školu'"
+        icon="pi pi-check"
+        [disabled]="emailInvalid()"
+        (onClick)="create()"
+      />
+    </div>
+    } @case ('generating') {
+    <div class="flex flex-col gap-3 py-4" role="status" aria-live="polite">
+      <h2 class="demo-step-title mb-0">Připravuji vaši školu…</h2>
+      <p-progressBar [value]="progress()" [showValue]="false" styleClass="h-2" />
+      <p class="m-0 text-sm text-surface-500 dark:text-surface-400">
+        {{ progressLabel() }}
+      </p>
+    </div>
+    } }
+  </p-card>
+
+  <p class="text-center text-sm text-surface-500 dark:text-surface-400">
+    Demo běží odděleně od ostrých škol a nikam neposílá e-maily. Více na
+    <a href="https://soovioo.cz" class="text-primary">soovioo.cz</a>
+  </p>
+</div>

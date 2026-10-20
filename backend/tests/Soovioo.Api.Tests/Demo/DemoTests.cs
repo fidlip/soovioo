@@ -91,6 +91,8 @@ public class DemoTests
         Assert.Equal(UserRole.Student, users.Single(u => u.Id == featured.StudentId).Role);
         Assert.Single(users, u => u.Role == UserRole.Admin);
         Assert.All(users, u => Assert.Equal("", u.PasswordHash));
+        var personUserIds = await db.Persons.IgnoreQueryFilters().Where(p => p.UserId != null).Select(p => p.UserId!.Value).ToListAsync();
+        Assert.All(users, u => Assert.Contains(u.Id, personUserIds));
         Assert.Equal(users.Count, users.Select(u => u.Username).Distinct().Count());
         // Not every pupil or parent has an account.
         Assert.Contains(students, s => s.UserId is null);
@@ -326,6 +328,39 @@ public class DemoTests
         using var realDb = NewDb(name, schoolId: 2);
         await new DemoAwareEmailSender(realDb, new FakeCurrentSchoolContext(2), smtp).SendAsync("y@example.com", "Pozvánka", "<p>odkaz</p>");
         Assert.Single(smtp.Sent);
+    }
+
+    [Fact]
+    public async Task FeedbackIsStoredMailedAndForgottenWithTheDemo()
+    {
+        using var db = NewDb();
+        var school = new School { Name = "Demo", Slug = "demo-fb", IsDemo = true, ExpiresAt = Now.AddDays(30) };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+        var mail = new FakeEmailSender();
+        var service = Service(db, mail);
+        var controller = new DemoController(db, service, new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())),
+            AuthTestServices.Sessions(db))
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+
+        Assert.IsType<BadRequestObjectResult>(await controller.Feedback("demo-fb", new DemoFeedbackRequest(null, " ", null)));
+        Assert.IsType<NoContentResult>(await controller.Feedback("demo-fb", new DemoFeedbackRequest(4, "Líbí se mi rozvrh.", "a@example.com", Consent: false, Role: "Teacher")));
+
+        var feedback = await db.DemoFeedback.SingleAsync();
+        Assert.Equal(4, feedback.Rating);
+        Assert.Equal("feedback", (await db.DemoContacts.SingleAsync()).Source);
+        var (to, subject, body) = Assert.Single(mail.Sent);
+        Assert.Equal("info@soovioo.cz", to);
+        Assert.Contains("★★★★☆", subject);
+        Assert.Contains("Líbí se mi rozvrh.", body);
+
+        await new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())).PurgeAsync(school.Id, deleteSchool: true);
+        var kept = await db.DemoFeedback.SingleAsync();
+        Assert.Null(kept.Email);
+        Assert.Null(kept.SchoolId);
+        Assert.Empty(db.DemoContacts);
     }
 
     private static DemoController Controller(AppDbContext db) =>

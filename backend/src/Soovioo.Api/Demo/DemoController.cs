@@ -138,6 +138,46 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         return NoContent();
     }
 
+    /// <summary>The demo's feedback dialog. Stored (SuperAdmin overview)
+    /// and mailed to <see cref="DemoOptions.FeedbackEmail"/>.</summary>
+    [HttpPost("{slug}/feedback")]
+    public async Task<IActionResult> Feedback(string slug, DemoFeedbackRequest request)
+    {
+        if (await DemoSchoolAsync(slug) is not { } school)
+        {
+            return NotFound();
+        }
+        if (request.Rating is < 1 or > 5)
+        {
+            return this.FieldError("rating", "Hodnocení je 1 až 5.");
+        }
+        var text = string.IsNullOrWhiteSpace(request.Text) ? null : request.Text.Trim();
+        if (text?.Length > 4000)
+        {
+            return this.FieldError("text", "Text je moc dlouhý.");
+        }
+        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        if (email is not null && (!email.Contains('@') || email.Length > 254))
+        {
+            return this.FieldError("email", "Neplatný e-mail.");
+        }
+        if (request.Rating is null && text is null)
+        {
+            return this.FieldError("text", "Napište nám aspoň pár slov, nebo vyberte hodnocení.");
+        }
+        await demos.SaveFeedbackAsync(school, new DemoFeedback
+        {
+            SchoolId = school.Id,
+            DemoSlug = school.Slug,
+            Rating = request.Rating,
+            Text = text,
+            Email = email,
+            Consent = request.Consent,
+            Role = request.Role,
+        });
+        return NoContent();
+    }
+
     private Task<School?> DemoSchoolAsync(string slug) =>
         db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Slug == slug && s.IsDemo);
 
@@ -161,3 +201,6 @@ public record DemoCreatedDto(string Slug, DateTimeOffset ExpiresAt, IReadOnlyDic
 public record DemoUserDto(int Id, string Name, string Role, string Detail, bool Featured);
 
 public record DemoLoginRequest(int UserId, bool UseCookie = false);
+
+/// <param name="Role">Which role the visitor was looking through.</param>
+public record DemoFeedbackRequest(int? Rating, string? Text, string? Email, bool Consent = false, string? Role = null);

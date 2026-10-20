@@ -8,12 +8,12 @@ export const DEFAULT_DEV_SLUG = 'skola';
 
 /**
  * Only the real deployment domain carries the school in a subdomain
- * (`demo.<mainDomain>/grades`, routes unprefixed). Every other host — dev
+ * (`skola.<mainDomain>/grades`, routes unprefixed). Every other host — dev
  * and LAN access via `localhost`, a bare IP, or a machine name like `aorus`
  * / `aorus.local` from a phone — has no subdomain to read, so the slug lives
- * in the first path segment instead (`/demo/grades`). Deciding by "is it the
+ * in the first path segment instead (`/skola/grades`). Deciding by "is it the
  * main domain" rather than listing dev hosts means no LAN name can fall into
- * subdomain mode, where `/demo/login` doesn't exist and redirects to `/`.
+ * subdomain mode, where `/skola/login` doesn't exist and redirects to `/`.
  */
 export function isPathBasedTenant(
   hostname: string = window.location.hostname,
@@ -50,6 +50,25 @@ export function currentSchoolSlugFromUrl(
   }
   const first = location.pathname.split('/').filter(Boolean)[0] ?? null;
   return first === 'superadmin' ? null : first;
+}
+
+/** The "Vyzkoušet" entry page: `demo.<mainDomain>` (path mode `/demo`).
+ * Not a school — the demo schools themselves live at `demo-<id>`. */
+export const DEMO_ENTRY_SLUG = 'demo';
+
+/** Demo schools' slugs, `demo-<random id>`. */
+export function isDemoSlug(slug: string | null): boolean {
+  return !!slug && slug.startsWith(`${DEMO_ENTRY_SLUG}-`);
+}
+
+/** Subdomain mode on `demo.<mainDomain>` — the whole app is the entry page. */
+export function isDemoEntryHost(hostname: string = window.location.hostname): boolean {
+  return !isPathBasedTenant(hostname) && subdomainSlug(hostname) === DEMO_ENTRY_SLUG;
+}
+
+/** Absolute URL of the demo entry page, e.g. `…?reset=demo-abc`. */
+export function demoEntryUrl(query = ''): string {
+  return schoolUrl(DEMO_ENTRY_SLUG, query ? `?${query}` : '').replace('/?', '?');
 }
 
 /** Absolute URL of a page in the SuperAdmin area (`/superadmin…` on the

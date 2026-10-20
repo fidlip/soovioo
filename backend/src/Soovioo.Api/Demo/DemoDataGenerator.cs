@@ -448,7 +448,7 @@ public class DemoDataGenerator(AppDbContext db)
                 var accountChance = elementary ? (grade >= 4 ? 0.5 : 0) : 0.7;
                 if (rng.NextDouble() < accountChance)
                 {
-                    student.User = NewUser(student.FirstName, student.LastName, [UserRole.Student]);
+                    StudentAccount(student);
                 }
             }
 
@@ -528,6 +528,20 @@ public class DemoDataGenerator(AppDbContext db)
         db.Users.Add(user);
         users.Add(user);
         return user;
+    }
+
+    /// <summary>The pupil's own login, with a Person like every account.</summary>
+    private void StudentAccount(Student student)
+    {
+        student.User = NewUser(student.FirstName, student.LastName, [UserRole.Student]);
+        db.Persons.Add(new Person
+        {
+            FirstName = student.FirstName,
+            LastName = student.LastName,
+            SchoolId = school.Id,
+            User = student.User,
+            Email = $"{student.User.Username}@example.com",
+        });
     }
 
     private string Phone() => $"+420 {rng.Next(601, 799)} {rng.Next(100, 999)} {rng.Next(100, 999)}";
@@ -932,7 +946,7 @@ public class DemoDataGenerator(AppDbContext db)
         if (student is null)
         {
             student = featuredClass.Students[0];
-            student.Student.User = NewUser(student.Student.FirstName, student.Student.LastName, [UserRole.Student]);
+            StudentAccount(student.Student);
         }
 
         var families = classes.SelectMany(c => c.Students).Select(s => s.Family).Distinct().ToList();

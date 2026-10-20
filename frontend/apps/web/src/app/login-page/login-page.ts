@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -8,15 +8,25 @@ import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
-import { AuthApiService } from '@soovioo/shared';
+import { AuthApiService, DemoApiService, PublicSchool } from '@soovioo/shared';
 import { environment } from '../../environments/environment';
-import { SchoolContextService } from '../school-context';
+import { DemoUserPicker } from '../demo/demo-user-picker';
+import { SchoolContextService, isDemoSlug } from '../school-context';
 import { SchoolLookupService } from '../school-lookup.service';
-import { catchError, map, of } from 'rxjs';
+import { catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-login-page',
-  imports: [FormsModule, Button, Card, Checkbox, InputText, Message, Password],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    Checkbox,
+    InputText,
+    Message,
+    Password,
+    DemoUserPicker,
+  ],
   templateUrl: './login-page.html',
 })
 export class LoginPage {
@@ -46,18 +56,46 @@ export class LoginPage {
   }
 
   /** The school's real name under the heading (the slug until it loads;
-   * schoolExistsGuard already asked, so it's usually cached). */
-  protected readonly schoolName = toSignal(
+   * schoolExistsGuard already asked, so it's usually cached) — and whether
+   * it's a demo, which swaps the form for a user picker. */
+  protected readonly school = toSignal(
     this.schoolSlug
       ? inject(SchoolLookupService)
           .lookup(this.schoolSlug)
-          .pipe(
-            map((school) => school?.name ?? null),
-            catchError(() => of(null)),
-          )
+          .pipe(catchError(() => of(null)))
       : of(null),
-    { initialValue: null },
+    { initialValue: null as PublicSchool | null },
   );
+
+  protected readonly schoolName = computed(() => this.school()?.name ?? null);
+
+  /** The demo wizard sends the visitor here with `?user=<id>` — log in
+   * straight away; the picker shows meanwhile (and if that fails). */
+  protected readonly autoLoginPending = signal(false);
+
+  constructor() {
+    const userId = Number(this.route.snapshot.queryParamMap.get('user'));
+    const slug = this.schoolSlug;
+    if (slug && isDemoSlug(slug) && Number.isInteger(userId) && userId > 0) {
+      this.autoLoginPending.set(true);
+      inject(DemoApiService)
+        .login(slug, userId)
+        .subscribe({
+          next: () => this.enterDemo(),
+          error: () => this.autoLoginPending.set(false),
+        });
+    }
+  }
+
+  /** Full reload onto Home: every page decides by the role once, when
+   * it's created — same as switching roles. */
+  protected enterDemo(): void {
+    window.location.assign(
+      this.router.serializeUrl(
+        this.router.createUrlTree(this.schoolContext.link('home')),
+      ),
+    );
+  }
 
   protected login(): void {
     this.error.set(null);

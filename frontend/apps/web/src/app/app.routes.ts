@@ -2,7 +2,12 @@ import { Route } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { LoginPage } from './login-page/login-page';
 import { schoolExistsGuard } from './school-exists.guard';
-import { DEFAULT_DEV_SLUG, isPathBasedTenant } from './school-context';
+import {
+  DEFAULT_DEV_SLUG,
+  DEMO_ENTRY_SLUG,
+  isDemoEntryHost,
+  isPathBasedTenant,
+} from './school-context';
 
 // Pages are lazy chunks (the login page aside — it's the usual first
 // screen), so the first load doesn't download every agenda up front.
@@ -143,12 +148,28 @@ const superAdminRoutes: Route[] = [
   },
 ];
 
+// "Vyzkoušet" — demo.<mainDomain> in production (the whole host is this
+// one page), `/demo` in path mode, outside the school tree like the
+// SuperAdmin area.
+const demoEntryRoute: Route = {
+  path: DEMO_ENTRY_SLUG,
+  loadComponent: () =>
+    import('./demo/demo-entry-page').then((m) => m.DemoEntryPage),
+  data: { hideHeader: true },
+};
+
 // Dev/LAN: no real subdomain, so the school slug is the first path segment
-// (`/demo/grades`). Real deployment: the slug comes from the subdomain
-// (`demo.maindomain.cz/grades`) and these routes are mounted unprefixed.
-export const appRoutes: Route[] = isPathBasedTenant()
+// (`/skola/grades`). Real deployment: the slug comes from the subdomain
+// (`skola.maindomain.cz/grades`) and these routes are mounted unprefixed.
+export const appRoutes: Route[] = isDemoEntryHost()
+  ? [
+      { ...demoEntryRoute, path: '' },
+      { path: '**', redirectTo: '' },
+    ]
+  : isPathBasedTenant()
   ? [
       ...superAdminRoutes,
+      demoEntryRoute,
       { path: '', pathMatch: 'full', redirectTo: `/${DEFAULT_DEV_SLUG}` },
       {
         path: ':schoolSlug',
