@@ -3,7 +3,11 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import { PagedResult } from '../common/paged-result.model';
-import { CreateSchoolRequest, School, UpdateSchoolRequest } from './school.model';
+import {
+  CreateSchoolRequest,
+  School,
+  UpdateSchoolRequest,
+} from './school.model';
 
 /** SuperAdmin-only — tenant management, see SchoolsController. */
 @Injectable({ providedIn: 'root' })
@@ -13,9 +17,19 @@ export class SchoolsApiService {
 
   /** search matches name or slug (case-insensitive substring), filtered
    * server-side alongside pagination. */
-  getSchools(page = 1, pageSize = 20, search?: string): Observable<PagedResult<School>> {
+  getSchools(
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    demos = false,
+  ): Observable<PagedResult<School>> {
     return this.http.get<PagedResult<School>>(`${this.baseUrl}/api/schools`, {
-      params: search ? { page, pageSize, search } : { page, pageSize },
+      params: {
+        page,
+        pageSize,
+        ...(search ? { search } : {}),
+        ...(demos ? { demos } : {}),
+      },
     });
   }
 

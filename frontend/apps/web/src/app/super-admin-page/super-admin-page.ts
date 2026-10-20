@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PrimeTemplate } from '@openng/optimus-ui/api';
+import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -9,6 +9,7 @@ import { InputText } from '@openng/optimus-ui/inputtext';
 import { Paginator } from '@openng/optimus-ui/paginator';
 import { Password } from '@openng/optimus-ui/password';
 import { TableModule } from '@openng/optimus-ui/table';
+import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import {
   AuthApiService,
@@ -23,6 +24,7 @@ import { schoolUrl } from '../school-context';
 import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
+import { DemoAdminPanel } from './demo-admin-panel';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -41,6 +43,8 @@ const DEFAULT_PAGE_SIZE = 10;
     Password,
     PrimeTemplate,
     TableModule,
+    ToggleSwitch,
+    DemoAdminPanel,
   ],
   templateUrl: './super-admin-page.html',
 })
@@ -49,6 +53,7 @@ export class SuperAdminPage {
   private readonly schoolsApi = inject(SchoolsApiService);
   private readonly supportApi = inject(SupportApiService);
   private readonly authApi = inject(AuthApiService);
+  private readonly confirmation = inject(ConfirmationService);
 
   protected readonly superAdmins = signal<SuperAdmin[]>([]);
   protected readonly myUserId = this.authApi.getUserId();
@@ -70,6 +75,10 @@ export class SuperAdminPage {
 
   protected search = '';
 
+  /** The list shows the "Vyzkoušet" demos instead of the real schools. */
+  protected showDemos = false;
+  protected readonly demoCount = signal(0);
+
   protected readonly schoolDialogVisible = signal(false);
   protected newSchoolName = '';
   protected newSchoolSlug = '';
@@ -87,6 +96,10 @@ export class SuperAdminPage {
 
   constructor() {
     this.reload();
+    this.schoolsApi.getSchools(1, 1, undefined, true).subscribe({
+      next: (result) => this.demoCount.set(result.totalCount),
+      error: (err) => console.error('demo count failed', err),
+    });
     this.reloadSuperAdmins();
   }
 
@@ -100,7 +113,8 @@ export class SuperAdminPage {
         // code rides in the fragment, which never reaches any server log.
         window.location.href = `${schoolUrl(session.schoolSlug, 'support/enter')}#code=${session.code}`;
       },
-      error: (err) => this.notify.actionFailed('startSupportSession failed', err),
+      error: (err) =>
+        this.notify.actionFailed('startSupportSession failed', err),
     });
   }
 
@@ -166,7 +180,6 @@ export class SuperAdminPage {
     });
   }
 
-
   private reloadSuperAdmins(): void {
     this.supportApi.getSuperAdmins().subscribe({
       next: (list) => this.superAdmins.set(list),
@@ -187,7 +200,12 @@ export class SuperAdminPage {
 
   private reload(): void {
     this.schoolsApi
-      .getSchools(this.page(), this.pageSize(), this.search.trim() || undefined)
+      .getSchools(
+        this.page(),
+        this.pageSize(),
+        this.search.trim() || undefined,
+        this.showDemos,
+      )
       .subscribe({
         next: (result) => {
           // A delete can empty out the last page (e.g. the only school left on
@@ -204,6 +222,9 @@ export class SuperAdminPage {
           }
           this.schools.set(result.items);
           this.totalCount.set(result.totalCount);
+          if (this.showDemos) {
+            this.demoCount.set(result.totalCount);
+          }
         },
         error: (err) => console.error('getSchools failed', err),
       });
@@ -279,6 +300,24 @@ export class SuperAdminPage {
   }
 
   protected deleteSchool(school: School): void {
+    if (school.isDemo) {
+      // A demo goes with all its data — ask first.
+      this.confirmation.confirm({
+        header: 'Smazat demo',
+        message: `Smazat ukázkovou školu ${school.slug} se všemi daty?`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: 'Smazat',
+        rejectLabel: 'Zrušit',
+        acceptButtonProps: { severity: 'danger' },
+        rejectButtonProps: { severity: 'secondary', outlined: true },
+        accept: () => this.doDeleteSchool(school),
+      });
+      return;
+    }
+    this.doDeleteSchool(school);
+  }
+
+  private doDeleteSchool(school: School): void {
     this.schoolsApi.deleteSchool(school.id).subscribe({
       next: () => {
         this.reload();

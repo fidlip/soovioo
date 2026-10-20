@@ -55,6 +55,28 @@ export interface DemoFeedbackRequest {
   role: string | null;
 }
 
+export interface DemoContact {
+  id: number;
+  email: string;
+  consent: boolean;
+  /** "wizard" or "feedback". */
+  source: string;
+  demoSlug: string;
+  demoExists: boolean;
+  createdAt: string;
+}
+
+export interface DemoFeedback {
+  id: number;
+  demoSlug: string;
+  rating: number | null;
+  text: string | null;
+  email: string | null;
+  consent: boolean;
+  role: string | null;
+  createdAt: string;
+}
+
 /** Anonymous demo endpoints (DemoController) — the slug is the key. */
 @Injectable({ providedIn: 'root' })
 export class DemoApiService {
@@ -106,5 +128,25 @@ export class DemoApiService {
 
   feedback(slug: string, request: DemoFeedbackRequest): Observable<void> {
     return this.http.post<void>(`${this.url(slug)}/feedback`, request);
+  }
+
+  /** SuperAdmin: visitors who left an e-mail. */
+  contacts(): Observable<DemoContact[]> {
+    return this.http.get<DemoContact[]>(
+      `${this.baseUrl}/api/superadmin/demo/contacts`,
+    );
+  }
+
+  contactsCsv(): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/api/superadmin/demo/contacts.csv`, {
+      responseType: 'blob',
+    });
+  }
+
+  /** SuperAdmin: what visitors thought. */
+  allFeedback(): Observable<DemoFeedback[]> {
+    return this.http.get<DemoFeedback[]>(
+      `${this.baseUrl}/api/superadmin/demo/feedback`,
+    );
   }
 }

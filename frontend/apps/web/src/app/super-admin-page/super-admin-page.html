@@ -13,6 +13,19 @@
       name="search"
       class="w-72 max-w-full"
     />
+    <div class="flex items-center gap-2">
+      <p-toggleswitch
+        inputId="showDemos"
+        name="showDemos"
+        [(ngModel)]="showDemos"
+        (ngModelChange)="onSearchChange()"
+      />
+      <label
+        for="showDemos"
+        class="text-sm text-surface-600 dark:text-surface-300"
+        >Zobrazit dema ({{ demoCount() }})</label
+      >
+    </div>
     <p-button
       label="Nová škola"
       icon="pi pi-plus"
@@ -28,7 +41,7 @@
         <th>IZO</th>
         <th>Žáci</th>
         <th>Uživatelé</th>
-        <th>Založena</th>
+        <th>{{ showDemos ? 'Založeno / smazání' : 'Založena' }}</th>
         <th></th>
       </tr>
     </ng-template>
@@ -45,7 +58,8 @@
         <td class="text-surface-500">{{ school.studentCount }}</td>
         <td class="text-surface-500">{{ school.userCount }}</td>
         <td class="text-surface-500">
-          {{ school.createdAt | date: 'd.M.yyyy' }}
+          {{ school.createdAt | date: 'd.M.yyyy' }} @if (school.expiresAt) { /
+          {{ school.expiresAt | date: 'd.M.yyyy' }} }
         </td>
         <td>
           <div class="flex justify-end gap-1">
@@ -79,7 +93,7 @@
     <ng-template pTemplate="emptymessage">
       <tr>
         <td colspan="7" class="py-6 text-center text-surface-500">
-          Zatím žádné školy.
+          {{ showDemos ? 'Žádná dema.' : 'Zatím žádné školy.' }}
         </td>
       </tr>
     </ng-template>
@@ -92,6 +106,8 @@
     (onPageChange)="onPageChange($event)"
   />
 </p-card>
+
+<app-demo-admin-panel />
 
 <p-card header="Superadmini">
   <div class="mb-3 flex justify-end">

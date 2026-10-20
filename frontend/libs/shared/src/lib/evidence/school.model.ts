@@ -21,6 +21,9 @@ export interface School {
   type: SchoolType;
   studentCount: number;
   userCount: number;
+  /** A "Vyzkoušet" demo (listed only with `demos=true`). */
+  isDemo: boolean;
+  expiresAt: string | null;
 }
 
 export interface CreateSchoolRequest {

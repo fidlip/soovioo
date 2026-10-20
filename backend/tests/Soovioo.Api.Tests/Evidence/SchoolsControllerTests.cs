@@ -123,6 +123,40 @@ public class SchoolsControllerTests
     }
 
     [Fact]
+    public async Task GetSchoolsKeepsDemosApart()
+    {
+        using var db = NewDb();
+        db.Schools.AddRange(
+            new School { Name = "Ostrá", Slug = "ostra" },
+            new School { Name = "Demo", Slug = "demo-abc", IsDemo = true });
+        await db.SaveChangesAsync();
+        var controller = new SchoolsController(db);
+
+        var real = Assert.IsType<Soovioo.Api.Common.PagedResult<SchoolDto>>(Assert.IsType<OkObjectResult>((await controller.GetSchools()).Result).Value);
+        var demos = Assert.IsType<Soovioo.Api.Common.PagedResult<SchoolDto>>(Assert.IsType<OkObjectResult>((await controller.GetSchools(demos: true)).Result).Value);
+
+        Assert.Equal("ostra", Assert.Single(real.Items).Slug);
+        Assert.True(Assert.Single(demos.Items).IsDemo);
+    }
+
+    [Fact]
+    public async Task DeleteSchoolPurgesADemoWithUsers()
+    {
+        using var db = NewDb();
+        var school = new School { Name = "Demo", Slug = "demo-abc", IsDemo = true };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+        db.Users.Add(new User { Username = "a", PasswordHash = "", Role = UserRole.Admin, SchoolId = school.Id });
+        await db.SaveChangesAsync();
+        var purger = new Soovioo.Api.Demo.DemoSchoolPurger(db, new Soovioo.Api.Messaging.MessageAttachmentStorageService(new FakeWebHostEnvironment()));
+
+        Assert.IsType<NoContentResult>(await new SchoolsController(db).DeleteSchool(school.Id, purger));
+
+        Assert.Empty(db.Schools);
+        Assert.Empty(db.Users.IgnoreQueryFilters());
+    }
+
+    [Fact]
     public async Task DeleteSchoolRejectsWhenItHasUsers()
     {
         using var db = NewDb();

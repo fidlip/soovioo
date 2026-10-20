@@ -26,12 +26,15 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     /// combine correctly instead of a client-side filter only ever seeing
     /// whatever happened to be on the current page.</summary>
     [HttpGet]
-    public async Task<ActionResult<PagedResult<SchoolDto>>> GetSchools(int page = 1, int pageSize = 20, string? search = null)
+    /// <param name="demos">"Vyzkoušet" demo schools instead of the real
+    /// ones — kept apart so they never clutter the list or its counts.</param>
+    public async Task<ActionResult<PagedResult<SchoolDto>>> GetSchools(
+        int page = 1, int pageSize = 20, string? search = null, bool demos = false)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = db.Schools.AsQueryable();
+        var query = db.Schools.Where(s => s.IsDemo == demos);
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(s => EF.Functions.ILike(s.Name, $"%{search}%") || EF.Functions.ILike(s.Slug, $"%{search}%"));
@@ -39,15 +42,16 @@ public class SchoolsController(AppDbContext db) : ControllerBase
 
         var totalCount = await query.CountAsync();
 
-        var schools = await query
-            .OrderBy(s => s.Name)
+        var schools = await (demos ? query.OrderByDescending(s => s.CreatedAt) : query.OrderBy(s => s.Name))
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(s => new SchoolDto(
                 s.Id, s.Name, s.Slug, s.CreatedAt, s.Izo, s.RedIzo,
                 s.Street, s.City, s.PostalCode, s.DirectorName, s.Email, s.Phone, s.BankAccountNumber, s.Type,
                 db.Students.Count(st => st.SchoolId == s.Id),
-                db.Users.Count(u => u.SchoolId == s.Id)))
+                db.Users.Count(u => u.SchoolId == s.Id),
+                s.IsDemo,
+                s.ExpiresAt))
             .ToListAsync();
 
         return Ok(new PagedResult<SchoolDto>(schools, totalCount, page, pageSize));
@@ -147,7 +151,9 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         school.BankAccountNumber,
         school.Type,
         await db.Students.CountAsync(s => s.SchoolId == school.Id),
-        await db.Users.CountAsync(u => u.SchoolId == school.Id));
+        await db.Users.CountAsync(u => u.SchoolId == school.Id),
+        school.IsDemo,
+        school.ExpiresAt);
 
     /// <summary>Only allowed while the school is still empty (no users at
     /// all — every school gets its first Admin at creation time, so this is
@@ -156,12 +162,19 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     /// delete — if that's ever needed, it needs its own deliberate,
     /// confirmed, non-generic flow.</summary>
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteSchool(int id)
+    public async Task<IActionResult> DeleteSchool(int id, [FromServices] Demo.DemoSchoolPurger? demoPurger = null)
     {
         var school = await db.Schools.FindAsync(id);
         if (school is null)
         {
             return NotFound();
+        }
+
+        // A demo goes with everything in it — that's what demos are for.
+        if (school.IsDemo && demoPurger is not null)
+        {
+            await demoPurger.PurgeAsync(id, deleteSchool: true);
+            return NoContent();
         }
 
         if (await db.Users.AnyAsync(u => u.SchoolId == id))
@@ -204,4 +217,6 @@ public record SchoolDto(
     string? BankAccountNumber,
     SchoolType Type,
     int StudentCount,
-    int UserCount);
+    int UserCount,
+    bool IsDemo = false,
+    DateTimeOffset? ExpiresAt = null);
