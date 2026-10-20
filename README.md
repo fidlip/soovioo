@@ -31,8 +31,7 @@ frontend/               Nx workspace (viz frontend/README.md)
 LICENSE                 PolyForm Shield 1.0.0 (viz sekce Licence)
 CONTRIBUTING.md, CLA.md  jak přispět, licenční ujednání pro přispěvatele
 SECURITY.md             hlášení zranitelností
-ROADMAP.md              technický stav, hotové a plánované věci
-IDEAS.md                nápady k projednání
+IDEAS.md, ROADMAP.md    lokální poznámky autora (v .gitignore, nejsou v repu)
 ```
 
 ## Rychlé spuštění (dev)

@@ -31,7 +31,9 @@ backend/**/AttachmentStorage/
 
 .nx/polygraph
 
+# Author's local notes — not published
 IDEAS.md
+ROADMAP.md
 
 # Production secrets (deploy/.env.example is the template)
 deploy/.env
