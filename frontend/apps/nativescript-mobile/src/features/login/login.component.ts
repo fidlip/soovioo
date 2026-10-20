@@ -1,6 +1,11 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
-import { NativeScriptCommonModule, NativeScriptFormsModule, RouterExtensions } from '@nativescript/angular';
+import {
+  NativeScriptCommonModule,
+  NativeScriptFormsModule,
+  RouterExtensions,
+} from '@nativescript/angular';
 import { AuthApiService } from '@soovioo/shared';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'ns-login',
@@ -16,6 +21,9 @@ export class LoginComponent {
   protected password = '';
   protected schoolSlug = 'demo';
   protected readonly error = signal<string | null>(null);
+  /** The well-known demo accounts (Seed:DemoAccounts) exist only in a dev
+   * database, so the hint stays out of production builds. */
+  protected readonly showDemoAccounts = !environment.production;
 
   protected login(): void {
     this.error.set(null);

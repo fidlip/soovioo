@@ -15,11 +15,18 @@ export interface AppUser {
   studentId: number | null;
   /** Teachers' aprobace (TeacherProfile). */
   qualification: string | null;
+  /** Only in the response to creating an account with an e-mail — what
+   * became of the invitation sent along with it. */
+  invite?: InviteOutcome;
 }
+
+export type InviteOutcome = 'Sent' | 'NotConfigured' | 'Failed';
 
 export interface CreateUserRequest {
   username: string;
-  password: string;
+  /** Optional when `email` is set — the account is then usable only through
+   * the invitation e-mailed right away. */
+  password?: string;
   firstName?: string;
   lastName?: string;
   /** At least one; 'Student' can't be combined with others. */

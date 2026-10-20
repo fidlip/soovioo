@@ -1,8 +1,16 @@
 <ActionBar title="Soovioo — Přihlášení"></ActionBar>
 
 <StackLayout class="p-4">
-  <TextField hint="Škola (slug)" [(ngModel)]="schoolSlug" autocorrect="false"></TextField>
-  <TextField hint="Uživatelské jméno" [(ngModel)]="username" autocorrect="false"></TextField>
+  <TextField
+    hint="Škola (slug)"
+    [(ngModel)]="schoolSlug"
+    autocorrect="false"
+  ></TextField>
+  <TextField
+    hint="Uživatelské jméno"
+    [(ngModel)]="username"
+    autocorrect="false"
+  ></TextField>
   <TextField hint="Heslo" secure="true" [(ngModel)]="password"></TextField>
   <Button text="Přihlásit se" (tap)="login()"></Button>
 
@@ -10,9 +18,11 @@
     <Label [text]="error()" class="error"></Label>
   }
 
-  <Label
-    text="Demo účty: admin/admin123, ucitel/ucitel123, rodic/rodic123"
-    textWrap="true"
-    class="hint"
-  ></Label>
+  @if (showDemoAccounts) {
+    <Label
+      text="Demo účty: admin/admin123, ucitel/ucitel123, rodic/rodic123, zak/zak123"
+      textWrap="true"
+      class="hint"
+    ></Label>
+  }
 </StackLayout>

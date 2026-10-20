@@ -8,6 +8,7 @@ import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
 import { AuthApiService } from '@soovioo/shared';
+import { environment } from '../../environments/environment';
 import { SchoolContextService } from '../school-context';
 
 @Component({
@@ -27,6 +28,9 @@ export class LoginPage {
    * last person signed in for 30 days unless they ask for it. */
   protected rememberMe = false;
   protected readonly error = signal<string | null>(null);
+  /** The well-known demo accounts (Seed:DemoAccounts) exist only in a dev
+   * database, so the hint stays out of production builds. */
+  protected readonly showDemoAccounts = !environment.production;
 
   /** Dev/path mode: straight off this route's own `:schoolSlug` segment, so
    * it's correct even before SchoolContextService's NavigationEnd-driven

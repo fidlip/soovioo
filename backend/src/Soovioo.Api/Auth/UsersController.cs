@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,8 @@ public class UsersController(
     ICurrentSchoolContext currentSchool,
     IEmailSender emailSender,
     IOptions<AppLinkOptions> appLinkOptions,
-    RefreshTokenService refreshTokens) : ControllerBase
+    RefreshTokenService refreshTokens,
+    ILogger<UsersController> logger) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -42,12 +44,23 @@ public class UsersController(
         return Ok(users.Select(u => ToDto(u.User, u.StudentId)));
     }
 
+    /// <summary>With an e-mail the invitation (see <see cref="SendInvite"/>)
+    /// goes out right away and the password is optional — an account without
+    /// one can't log in until its owner accepts the invite. The outcome is in
+    /// <see cref="UserDto.Invite"/>; a failed invite doesn't undo the account.</summary>
     [HttpPost]
     public async Task<ActionResult<UserDto>> AddUser(CreateUserRequest request)
     {
         if (await db.Users.AnyAsync(u => u.Username == request.Username))
         {
             return this.FieldError("username", "Uživatelské jméno už existuje.");
+        }
+
+        var hasEmail = !string.IsNullOrWhiteSpace(request.Email);
+        var hasPassword = !string.IsNullOrWhiteSpace(request.Password);
+        if (!hasEmail && !hasPassword)
+        {
+            return this.FieldError("password", "Bez e-mailu je heslo povinné.");
         }
 
         var (roles, rolesError) = ParseRoles(request.Roles);
@@ -73,9 +86,14 @@ public class UsersController(
             SchoolId = currentSchool.SchoolId,
             // Admin picked this password, not the account's owner — force a
             // change on first login (see User.MustChangePassword).
-            MustChangePassword = true,
+            MustChangePassword = hasPassword,
         };
-        user.PasswordHash = Hasher.HashPassword(user, request.Password);
+        // No password: the empty hash never verifies, so the invite is the
+        // only way in.
+        if (hasPassword)
+        {
+            user.PasswordHash = Hasher.HashPassword(user, request.Password!);
+        }
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
@@ -88,7 +106,8 @@ public class UsersController(
             await db.SaveChangesAsync();
         }
 
-        var dto = ToDto(user, linkedStudent?.Id);
+        var invite = hasEmail ? await TrySendInviteAsync(user) : (InviteOutcome?)null;
+        var dto = ToDto(user, linkedStudent?.Id) with { Invite = invite?.ToString() };
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, dto);
     }
 
@@ -111,6 +130,12 @@ public class UsersController(
         if (rolesError is not null)
         {
             return rolesError;
+        }
+
+        var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        if (id == currentUserId && user.Roles.Contains(UserRole.Admin) && !roles.Contains(UserRole.Admin))
+        {
+            return BadRequest("Nelze si odebrat roli Admin — vyřízli byste se z administrace.");
         }
 
         if (user.Roles.Contains(UserRole.Admin) && !roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
@@ -220,27 +245,59 @@ public class UsersController(
             return NotFound();
         }
 
-        var email = user.Person?.Email;
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(user.Person?.Email))
         {
             return BadRequest("Uživatel nemá vyplněný e-mail.");
         }
 
-        var linkOptions = appLinkOptions.Value;
-        if (linkOptions.PathBasedTenant && string.IsNullOrWhiteSpace(linkOptions.FrontendBaseUrl)
-            || !linkOptions.PathBasedTenant && string.IsNullOrWhiteSpace(linkOptions.MainDomain))
+        if (!InvitesConfigured(appLinkOptions.Value))
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
                 "E-mailové pozvánky nejsou v tomhle prostředí nakonfigurované.");
         }
 
+        await SendInviteEmailAsync(user);
+        return NoContent();
+    }
+
+    /// <summary>The automatic invite of <see cref="AddUser"/> — like
+    /// <see cref="SendInvite"/>, but reports a missing configuration or a
+    /// failed send instead of failing the request.</summary>
+    private async Task<InviteOutcome> TrySendInviteAsync(User user)
+    {
+        if (!InvitesConfigured(appLinkOptions.Value))
+        {
+            return InviteOutcome.NotConfigured;
+        }
+
+        try
+        {
+            await SendInviteEmailAsync(user);
+            return InviteOutcome.Sent;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Automatic invite for new user {UserId} wasn't sent.", user.Id);
+            return InviteOutcome.Failed;
+        }
+    }
+
+    private static bool InvitesConfigured(AppLinkOptions options) =>
+        options.PathBasedTenant
+            ? !string.IsNullOrWhiteSpace(options.FrontendBaseUrl)
+            : !string.IsNullOrWhiteSpace(options.MainDomain);
+
+    /// <summary>New 7-day <see cref="User.InvitationToken"/> + the e-mail
+    /// with its link. Caller checks the e-mail and configuration first.</summary>
+    private async Task SendInviteEmailAsync(User user)
+    {
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId);
 
         user.InvitationToken = GenerateToken();
         user.InvitationTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(7);
         await db.SaveChangesAsync();
 
-        var link = BuildInviteLink(linkOptions, school.Slug, user.InvitationToken);
+        var link = BuildInviteLink(appLinkOptions.Value, school.Slug, user.InvitationToken);
         var subject = $"Pozvánka do Soovioo — {school.Name}";
         var body = $"""
             <p>Dobrý den,</p>
@@ -249,9 +306,7 @@ public class UsersController(
             <p><a href="{link}">{link}</a></p>
             <p>Odkaz je platný 7 dní.</p>
             """;
-        await emailSender.SendAsync(email, subject, body);
-
-        return NoContent();
+        await emailSender.SendAsync(user.Person!.Email!, subject, body);
     }
 
     private static string BuildInviteLink(AppLinkOptions options, string schoolSlug, string token)
@@ -363,8 +418,10 @@ public class UsersController(
 
 /// <param name="LastName">Empty = keep the current one (a new account
 /// falls back to the username).</param>
+/// <param name="Password">Optional when <paramref name="Email"/> is set —
+/// the account is then usable only through the invite.</param>
 public record CreateUserRequest(
-    string Username, string Password, IReadOnlyList<string> Roles, string? Phone = null, string? Email = null,
+    string Username, string? Password, IReadOnlyList<string> Roles, string? Phone = null, string? Email = null,
     int? StudentId = null, string? FirstName = null, string? LastName = null);
 
 public record UpdateUserRequest(
@@ -379,6 +436,18 @@ public record SetTeacherProfileRequest(string? Qualification);
 
 /// <param name="Name">Display name (first + last, or the username).</param>
 /// <param name="Qualification">Teachers' aprobace (TeacherProfile).</param>
+/// <param name="Invite">Only in <see cref="UsersController.AddUser"/>'s
+/// response, when the new account has an e-mail: an <see cref="InviteOutcome"/>.</param>
 public record UserDto(
     int Id, string Username, string FirstName, string LastName, string Name, string Role, IReadOnlyList<string> Roles,
-    string? Phone, string? Email, int? StudentId = null, string? Qualification = null);
+    string? Phone, string? Email, int? StudentId = null, string? Qualification = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null);
+
+public enum InviteOutcome
+{
+    Sent,
+    /// <summary>No App link configuration (the 503 of SendInvite).</summary>
+    NotConfigured,
+    /// <summary>The e-mail couldn't be sent (SMTP missing or down).</summary>
+    Failed,
+}

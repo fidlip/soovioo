@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
@@ -26,12 +28,12 @@ public class UsersControllerTests
     }
 
     private static UsersController NewController(
-        AppDbContext db, int currentUserId, FakeEmailSender? emailSender = null, AppLinkOptions? linkOptions = null)
+        AppDbContext db, int currentUserId, Soovioo.Api.Email.IEmailSender? emailSender = null, AppLinkOptions? linkOptions = null)
     {
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString())]);
         return new UsersController(
             db, new FakeCurrentSchoolContext(SchoolId), emailSender ?? new FakeEmailSender(), Options.Create(linkOptions ?? LinkOptions),
-            AuthTestServices.RefreshTokens(db))
+            AuthTestServices.RefreshTokens(db), NullLogger<UsersController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -254,6 +256,115 @@ public class UsersControllerTests
     }
 
     [Fact]
+    public async Task AddUserWithEmailSendsTheInviteRightAway()
+    {
+        using var db = NewDb();
+        db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
+        await db.SaveChangesAsync();
+        var emailSender = new FakeEmailSender();
+
+        var result = await NewController(db, 999, emailSender)
+            .AddUser(new CreateUserRequest("novy", "heslo123", ["Teacher"], Email: "a@b.cz"));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(nameof(InviteOutcome.Sent), dto.Invite);
+        var sent = Assert.Single(emailSender.Sent);
+        Assert.Equal("a@b.cz", sent.To);
+        var created = await db.Users.SingleAsync(u => u.Username == "novy");
+        Assert.Contains(created.InvitationToken!, sent.HtmlBody);
+        Assert.True(created.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task AddUserWithEmailNeedsNoPasswordAndCannotLogInWithoutTheInvite()
+    {
+        using var db = NewDb();
+        db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999)
+            .AddUser(new CreateUserRequest("novy", null, ["Parent"], Email: "a@b.cz"));
+
+        Assert.IsType<CreatedAtActionResult>(result.Result);
+        var created = await db.Users.SingleAsync(u => u.Username == "novy");
+        Assert.Equal(string.Empty, created.PasswordHash);
+        Assert.Equal(PasswordVerificationResult.Failed,
+            new PasswordHasher<User>().VerifyHashedPassword(created, created.PasswordHash, ""));
+        Assert.NotNull(created.InvitationToken);
+    }
+
+    [Fact]
+    public async Task AddUserWithoutEmailRequiresAPassword()
+    {
+        using var db = NewDb();
+        var emailSender = new FakeEmailSender();
+
+        var result = await NewController(db, 999, emailSender).AddUser(new CreateUserRequest("novy", " ", ["Teacher"]));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.False(await db.Users.AnyAsync());
+        Assert.Empty(emailSender.Sent);
+    }
+
+    [Fact]
+    public async Task AddUserWithoutEmailSendsNoInvite()
+    {
+        using var db = NewDb();
+        var emailSender = new FakeEmailSender();
+
+        var result = await NewController(db, 999, emailSender).AddUser(new CreateUserRequest("novy", "heslo123", ["Teacher"]));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Null(dto.Invite);
+        Assert.Empty(emailSender.Sent);
+    }
+
+    [Fact]
+    public async Task AddUserStillCreatesTheAccountWhenInvitesAreNotConfigured()
+    {
+        using var db = NewDb();
+        var emailSender = new FakeEmailSender();
+
+        var result = await NewController(db, 999, emailSender, new AppLinkOptions { PathBasedTenant = true })
+            .AddUser(new CreateUserRequest("novy", null, ["Teacher"], Email: "a@b.cz"));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(nameof(InviteOutcome.NotConfigured), dto.Invite);
+        Assert.Empty(emailSender.Sent);
+        Assert.True(await db.Users.AnyAsync(u => u.Username == "novy"));
+    }
+
+    [Fact]
+    public async Task AddUserStillCreatesTheAccountWhenTheInviteFailsToSend()
+    {
+        using var db = NewDb();
+        db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999, new FailingEmailSender())
+            .AddUser(new CreateUserRequest("novy", null, ["Teacher"], Email: "a@b.cz"));
+
+        var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
+        Assert.Equal(nameof(InviteOutcome.Failed), dto.Invite);
+        Assert.True(await db.Users.AnyAsync(u => u.Username == "novy"));
+    }
+
+    [Fact]
+    public async Task UpdateUserRejectsRemovingYourOwnAdminRole()
+    {
+        using var db = NewDb();
+        var admin = new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, Roles = [UserRole.Admin, UserRole.Teacher], SchoolId = SchoolId };
+        var otherAdmin = new User { Username = "admin2", PasswordHash = "x", Role = UserRole.Admin, SchoolId = SchoolId };
+        db.Users.AddRange(admin, otherAdmin);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, admin.Id).UpdateUser(admin.Id, new UpdateUserRequest("admin", ["Teacher"]));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains(UserRole.Admin, (await db.Users.FindAsync(admin.Id))!.Roles);
+    }
+
+    [Fact]
     public async Task DeleteUserSucceedsAndRemovesParentLinks()
     {
         using var db = NewDb();
@@ -352,5 +463,11 @@ public class UsersControllerTests
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal("M, F", dto.Qualification);
+    }
+
+    private class FailingEmailSender : Soovioo.Api.Email.IEmailSender
+    {
+        public Task SendAsync(string to, string subject, string htmlBody) =>
+            throw new InvalidOperationException("SMTP down");
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
@@ -262,7 +263,8 @@ public class AuthSessionTests
         await db.SaveChangesAsync();
         var users = new UsersController(
             db, new FakeCurrentSchoolContext(SchoolId), new FakeEmailSender(),
-            Options.Create(new AppLinkOptions()), AuthTestServices.RefreshTokens(db, clock))
+            Options.Create(new AppLinkOptions()), AuthTestServices.RefreshTokens(db, clock),
+            NullLogger<UsersController>.Instance)
         {
             ControllerContext = new ControllerContext
             {

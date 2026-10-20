@@ -60,6 +60,18 @@ body {
     border-style: solid;
     border-color: var(--p-content-border-color);
   }
+
+  /* Page/section headings keep the browser's default sizes (preflight is
+   * off) — a step smaller on a phone. Base layer, so a heading's own
+   * `text-*` utility still wins. */
+  @media (max-width: 639.98px) {
+    h1 {
+      font-size: 1.5em;
+    }
+    h2 {
+      font-size: 1.25em;
+    }
+  }
 }
 
 @layer tailwind-utilities {

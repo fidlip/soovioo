@@ -109,6 +109,7 @@ import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
+import { Tooltip } from '@openng/optimus-ui/tooltip';
 @Component({
   selector: 'app-admin-page',
   imports: [
@@ -138,6 +139,7 @@ import { PeriodsEditor } from '../periods-editor/periods-editor';
     TabPanels,
     Tabs,
     Tag,
+    Tooltip,
   ],
   templateUrl: './admin-page.html',
 })
@@ -195,7 +197,15 @@ export class AdminPage {
       ROLE_LABELS[value],
       this.authApi.getSchoolType(),
     ),
+    disabled: false,
   }));
+  /** For the admin's own account: dropping Admin would lock them out of
+   * this page (the backend rejects it too). */
+  protected readonly ownRoleOptions = this.roleOptions.map((option) => ({
+    ...option,
+    disabled: option.value === 'Admin',
+  }));
+  protected readonly myUserId = this.authApi.getUserId();
   protected readonly genderOptions = GENDER_OPTIONS;
   protected readonly citizenshipQualifierOptions =
     CITIZENSHIP_QUALIFIER_OPTIONS;
@@ -968,12 +978,12 @@ export class AdminPage {
       : undefined;
 
     if (this.editingUserId === null) {
-      if (!this.newPassword.trim()) {
+      if (!this.newPassword.trim() && !this.newUserEmail.trim()) {
         return;
       }
       const request: CreateUserRequest = {
         username: this.newUsername,
-        password: this.newPassword,
+        password: this.newPassword || undefined,
         firstName: this.newUserFirstName,
         lastName: this.newUserLastName,
         roles: this.newUserRoles,
@@ -982,8 +992,9 @@ export class AdminPage {
         studentId,
       };
       this.usersApi.addUser(request).subscribe({
-        next: () => {
+        next: (user) => {
           this.newUserDialogVisible.set(false);
+          this.notifyInviteOutcome(user);
           this.reload();
         },
         error: (err) => this.showError('addUser failed', err),
@@ -1009,6 +1020,37 @@ export class AdminPage {
       },
       error: (err) => this.showError('updateUser failed', err),
     });
+  }
+
+  /** Editing your own account keeps the Admin role even if its chip gets
+   * removed (the option itself is disabled, see ownRoleOptions). */
+  protected onUserRolesChange(roles: string[]): void {
+    this.newUserRoles =
+      this.editingUserId === this.myUserId && !roles.includes('Admin')
+        ? ['Admin', ...roles]
+        : roles;
+  }
+
+  /** A new account with an e-mail gets its invitation right away; the
+   * account exists either way, a failed invite can be resent (envelope). */
+  private notifyInviteOutcome(user: AppUser): void {
+    switch (user.invite) {
+      case 'Sent':
+        this.notify.success(
+          `Uživatel vytvořen, pozvánka odeslána na ${user.email}.`,
+        );
+        break;
+      case 'NotConfigured':
+        this.notify.warn(
+          'Uživatel vytvořen, ale pozvánka neodešla — e-mailové pozvánky nejsou v tomhle prostředí nakonfigurované.',
+        );
+        break;
+      case 'Failed':
+        this.notify.warn(
+          'Uživatel vytvořen, ale pozvánku se nepodařilo odeslat. Zkuste to znovu tlačítkem obálky.',
+        );
+        break;
+    }
   }
 
   /** Backend rejects (400) when the user has no e-mail on file, or (503)
