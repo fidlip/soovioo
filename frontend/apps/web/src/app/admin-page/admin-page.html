@@ -135,6 +135,18 @@
       >Rodiče<app-info-hint
         text="Rodičovské účty se vytvářejí v záložce Uživatelé — tady se jen přiřazují jejich děti."
     /></ng-template>
+    @if (accessLevel() === 'classTeacher') {
+    <!-- Admin's list already shows every parent account; a class teacher's
+         only those linked to their class, so they need a way to add one. -->
+    <div class="mb-3 flex justify-end">
+      <p-button
+        label="Přidat"
+        icon="pi pi-plus"
+        size="small"
+        (onClick)="openAssignParentDialog()"
+      />
+    </div>
+    }
     <p-table [value]="visibleParents()" dataKey="id" styleClass="mb-4">
       <ng-template pTemplate="header">
         <tr>
@@ -173,10 +185,24 @@
 </ng-template>
 
 @if (accessLevel() === 'classTeacher') {
-<div class="grid grid-cols-1 gap-6">
-  <ng-container [ngTemplateOutlet]="studentsCard" />
-  <ng-container [ngTemplateOutlet]="parentsCard" />
-</div>
+<p-tabs [(value)]="activeTab" [scrollable]="true">
+  <p-tablist>
+    <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
+    <p-tab value="parents">Rodiče</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <p-tabpanel value="students">
+      <div class="pt-4">
+        <ng-container [ngTemplateOutlet]="studentsCard" />
+      </div>
+    </p-tabpanel>
+    <p-tabpanel value="parents">
+      <div class="pt-4">
+        <ng-container [ngTemplateOutlet]="parentsCard" />
+      </div>
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>
 } @else {
 <p-tabs [(value)]="activeTab" [scrollable]="true">
   <p-tablist>
@@ -387,17 +413,33 @@
       <div class="flex flex-col gap-6 pt-4">
         <p-card header="Uživatelé">
           <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <p-select
-              [options]="roleOptions"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Všechny role"
-              [(ngModel)]="filterUserRole"
-              [showClear]="true"
-              name="filterUserRole"
-              styleClass="w-40"
-              appendTo="body"
-            />
+            <div class="flex flex-wrap items-end gap-2">
+              <input
+                pInputText
+                type="text"
+                placeholder="Hledat jméno"
+                [(ngModel)]="filterUserName"
+                name="filterUserName"
+              />
+              <input
+                pInputText
+                type="text"
+                placeholder="Hledat kontakt"
+                [(ngModel)]="filterUserContact"
+                name="filterUserContact"
+              />
+              <p-select
+                [options]="roleOptions"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Všechny role"
+                [(ngModel)]="filterUserRole"
+                [showClear]="true"
+                name="filterUserRole"
+                styleClass="w-40"
+                appendTo="body"
+              />
+            </div>
             <p-button
               label="Nový uživatel"
               icon="pi pi-plus"
@@ -1325,11 +1367,30 @@
 <p-dialog
   [visible]="editParentChildrenDialogVisible()"
   (visibleChange)="editParentChildrenDialogVisible.set($event)"
-  header="Upravit děti"
+  [header]="editingParentId === null ? 'Přiřadit rodiče' : 'Upravit děti'"
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
   <form class="flex flex-col gap-3" (ngSubmit)="saveParentChildren()">
+    @if (editingParentId === null) {
+    <div class="flex items-center gap-1">
+      <p-select
+        [options]="assignableParents()"
+        optionLabel="name"
+        optionValue="id"
+        placeholder="Vyberte rodiče"
+        [filter]="true"
+        [(ngModel)]="addingParentId"
+        name="addingParent"
+        styleClass="w-full"
+        appendTo="body"
+        ariaLabel="Rodič"
+      />
+      <app-info-hint
+        text="Rodič tu není? Účet založí administrátor školy v záložce Uživatelé."
+      />
+    </div>
+    }
     <p-multiSelect
       [options]="studentOptions()"
       optionLabel="label"
@@ -1340,10 +1401,12 @@
       name="parentChildren"
       styleClass="w-full"
       appendTo="body"
+      ariaLabel="Děti"
     />
     <p-button
       type="submit"
       label="Uložit"
+      [disabled]="editingParentId === null && addingParentId === null"
       icon="pi pi-check"
       styleClass="self-start"
     />

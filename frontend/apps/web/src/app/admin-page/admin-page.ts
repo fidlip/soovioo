@@ -311,6 +311,8 @@ export class AdminPage {
   protected filterStudentSchoolClassId: number | null = null;
   protected filterStudentGender: Gender | null = null;
   protected filterUserRole: string | null = null;
+  protected filterUserName = '';
+  protected filterUserContact = '';
 
   // null = the dialog is in "add" mode; a row id = it's editing that row.
   protected editingSchoolClassId: number | null = null;
@@ -325,12 +327,13 @@ export class AdminPage {
    * attach ParentStudent links to. */
   protected editingStudentParentIds: number[] = [];
 
-  /** "Rodiče" section's own edit dialog — null editingParentId means the
-   * dialog isn't open (unlike the other entities above, there's no "add a
-   * parent" mode here: a Parent-role account is created from the
-   * Uživatelé tab like any other user, this dialog only ever edits an
-   * existing one's children). */
+  /** "Rodiče" section's own dialog — null editingParentId means "assign a
+   * parent" mode, where the parent is picked into addingParentId. It never
+   * creates an account: a Parent-role account is created from the
+   * Uživatelé tab like any other user, this dialog only links an existing
+   * one to children. */
   protected editingParentId: number | null = null;
+  protected addingParentId: number | null = null;
   protected editingParentChildIds: number[] = [];
 
   protected readonly schoolStreet = signal('');
@@ -396,6 +399,7 @@ export class AdminPage {
           return;
         }
         this.accessLevel.set('classTeacher');
+        this.activeTab.set('students');
         this.schoolClasses.set(
           classes.filter((c) => this.ownClassIds.includes(c.id)),
         );
@@ -552,11 +556,23 @@ export class AdminPage {
   }
 
   protected filteredUsers(): AppUser[] {
+    const name = foldForSearch(this.filterUserName.trim());
+    const contact = this.filterUserContact.trim();
     return this.users().filter(
       (u) =>
-        this.filterUserRole === null || u.roles.includes(this.filterUserRole),
+        (this.filterUserRole === null ||
+          u.roles.includes(this.filterUserRole)) &&
+        (!name || foldForSearch(`${u.name} ${u.username}`).includes(name)) &&
+        (!contact || matchesContact(u, contact)),
     );
   }
+
+  /** Parent accounts the "Přidat" dialog can offer — the ones not already
+   * in the Rodiče list (those are edited via their own row instead). */
+  protected readonly assignableParents = computed(() => {
+    const listed = new Set(this.visibleParents().map((p) => p.id));
+    return this.parents().filter((p) => !listed.has(p.id));
+  });
 
   /** Classes, subjects and classrooms (the first tab) still to arrive on
    * the initial load; at zero the page renders. Errors count too, so a
@@ -1121,6 +1137,14 @@ export class AdminPage {
     });
   }
 
+  protected openAssignParentDialog(): void {
+    this.editingParentId = null;
+    this.addingParentId = null;
+    this.editingParentChildIds = [];
+    this.notify.clear();
+    this.editParentChildrenDialogVisible.set(true);
+  }
+
   protected openEditParentChildrenDialog(parent: AppUser): void {
     this.editingParentId = parent.id;
     this.editingParentChildIds = this.links()
@@ -1131,10 +1155,10 @@ export class AdminPage {
   }
 
   protected saveParentChildren(): void {
-    if (this.editingParentId === null) {
+    const parentId = this.editingParentId ?? this.addingParentId;
+    if (parentId === null) {
       return;
     }
-    const parentId = this.editingParentId;
     const currentStudentIds = this.links()
       .filter((l) => l.userId === parentId)
       .map((l) => l.studentId);
@@ -1158,6 +1182,7 @@ export class AdminPage {
       () => {
         this.editParentChildrenDialogVisible.set(false);
         this.editingParentId = null;
+        this.addingParentId = null;
         this.reload();
       },
     );
@@ -1359,13 +1384,32 @@ export class AdminPage {
   }
 }
 
+/** Lower-cased, without diacritics — "Šalda" and "salda" match each other. */
+export function foldForSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/** Substring match on the e-mail, or on the phone with spaces and the Czech
+ * +420 prefix ignored on both sides ("777 123" finds "+420777123456"). */
+export function matchesContact(
+  user: { email?: string | null; phone?: string | null },
+  query: string,
+): boolean {
+  const phoneDigits = (text: string) =>
+    text.replace(/[\s\-/]/g, '').replace(/^(\+|00)420/, '');
+  const q = query.toLowerCase();
+  if (user.email?.toLowerCase().includes(q)) {
+    return true;
+  }
+  const qPhone = phoneDigits(q);
+  return !!qPhone && !!user.phone && phoneDigits(user.phone).includes(qPhone);
+}
+
 /** "Jan Novák" -> "jan.novak" (no diacritics, letters/digits only). */
 function suggestUsername(firstName: string, lastName: string): string {
-  const part = (text: string) =>
-    text
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
+  const part = (text: string) => foldForSearch(text).replace(/[^a-z0-9]/g, '');
   return [part(firstName), part(lastName)].filter((p) => p).join('.');
 }

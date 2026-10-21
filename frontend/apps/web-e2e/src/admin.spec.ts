@@ -28,7 +28,26 @@ test('admin sees the full tabbed Administrace page', async ({ page }) => {
   ).toBeVisible();
 });
 
-test('class teacher sees only their own class, no tabs', async ({ page }) => {
+test('admin filters users by name and contact', async ({ page }) => {
+  await login(page, 'admin', 'admin123');
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Uživatelé' }).click();
+
+  // Inactive tab panels stay in the DOM (the Žáci one has its own "Hledat
+  // jméno"), so scope everything to the Uživatelé panel.
+  const panel = page.getByRole('tabpanel', { name: 'Uživatelé' });
+  const rows = panel.locator('table tbody tr');
+  // Without diacritics on purpose — the search folds them.
+  await panel.getByPlaceholder('Hledat jméno').fill('ucitelova');
+  await expect(rows.filter({ hasText: 'Jana Učitelová' })).toHaveCount(1);
+  await expect(rows.filter({ hasText: 'Petr Novák' })).toHaveCount(0);
+
+  await panel.getByPlaceholder('Hledat jméno').fill('');
+  await panel.getByPlaceholder('Hledat kontakt').fill('neexistuje@nikde');
+  await expect(rows.first()).toHaveText(/Žádní uživatelé/);
+});
+
+test('class teacher sees their own class in two tabs', async ({ page }) => {
   // Demo "ucitel" account is the class teacher (ClassTeacherId) of 5.A.
   await login(page, 'ucitel', 'ucitel123');
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
@@ -37,14 +56,21 @@ test('class teacher sees only their own class, no tabs', async ({ page }) => {
   await expect(
     page.getByRole('tab', { name: 'Třídy, předměty a učebny' }),
   ).toHaveCount(0);
-  await expect(page.getByText('Žáci', { exact: true })).toBeVisible();
-  // "Rodiče" appears multiple times (intro text, table column header, card
-  // title) in this no-tabs classTeacher layout, so assert on the first hit.
-  await expect(page.getByText('Rodiče').first()).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Žáci' })).toBeVisible();
   // 5.A's demo student, not any student from an unrelated class — appears
   // twice (Studenti table + the "Rodiče" tooltip title), so assert on the
   // first hit.
   await expect(page.getByText('Jan Novák').first()).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Rodiče' }).click();
+  await expect(page.getByRole('cell', { name: 'Petr Novák' })).toBeVisible();
+
+  // "Přidat" opens the assign dialog; nothing to save until a parent is
+  // picked.
+  await page.getByRole('button', { name: 'Přidat' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Přiřadit rodiče' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Uložit' })).toBeDisabled();
 });
 
 test('parent is denied the Administrace page', async ({ page }) => {
