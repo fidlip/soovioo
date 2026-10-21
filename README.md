@@ -31,7 +31,6 @@ frontend/               Nx workspace (viz frontend/README.md)
 LICENSE                 PolyForm Shield 1.0.0 (viz sekce Licence)
 CONTRIBUTING.md, CLA.md  jak přispět, licenční ujednání pro přispěvatele
 SECURITY.md             hlášení zranitelností
-IDEAS.md, ROADMAP.md    lokální poznámky autora (v .gitignore, nejsou v repu)
 ```
 
 ## Rychlé spuštění (dev)
@@ -77,6 +76,13 @@ cd frontend && npx nx run web-e2e:e2e             # e2e (potřebuje běžící A
 ```
 
 Podrobnosti v [backend/README.md](backend/README.md) a [frontend/README.md](frontend/README.md).
+
+## Plánování
+
+Chyby, nápady a úkoly se vedou v [GitHub Issues](https://github.com/fidlip/soovioo/issues)
+(nápady k projednání mají štítek `needs-discussion`), pořadí a stav práce v projektu
+**Soovioo** na GitHubu. Každá změna jde přes pull request do `main`, který odkazuje
+na svůj issue (`Closes #123`).
 
 ## Licence
 

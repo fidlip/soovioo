@@ -1,0 +1,23 @@
+name: Idea / Nápad
+description: A new feature or an improvement. / Nová funkce nebo vylepšení.
+labels: [enhancement, needs-discussion]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve? / Jaký problém to řeší?
+      description: Who needs it and why (role, situation).
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal / Návrh
+      description: How it could work.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / Poznámky
+      description: Alternatives, open questions, links.
