@@ -44,16 +44,25 @@ export const test = base.extend<{
     { auto: true },
   ],
   waitForApiIdle: async ({ page }, use) => {
-    let pending = 0;
-    page.on('request', (r) => isApiRequest(r) && pending++);
-    const settled = (r: Request) => isApiRequest(r) && pending--;
+    const pending = new Set<Request>();
+    page.on('request', (r) => isApiRequest(r) && pending.add(r));
+    const settled = (r: Request) => pending.delete(r);
     page.on('requestfinished', settled);
     page.on('requestfailed', settled);
+    // A request cut off by a page load doesn't always report back — once
+    // the main frame has moved on, the old document's requests are gone.
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame()) {
+        pending.clear();
+      }
+    });
 
     await use(async () => {
-      for (let quietTicks = 0; quietTicks < 3;) {
+      // Capped: a lost event must slow a test down, not hang it.
+      const deadline = Date.now() + 10_000;
+      for (let quietTicks = 0; quietTicks < 3 && Date.now() < deadline;) {
         await new Promise((resolve) => setTimeout(resolve, 100));
-        quietTicks = pending === 0 ? quietTicks + 1 : 0;
+        quietTicks = pending.size === 0 ? quietTicks + 1 : 0;
       }
     });
   },

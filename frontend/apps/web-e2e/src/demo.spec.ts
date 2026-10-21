@@ -42,13 +42,10 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   // Empty school: everything goes but the admin account (and the log).
   await page.getByRole('button', { name: 'Možnosti dema' }).click();
   await page.getByRole('menuitem', { name: /Vymazat data/ }).click();
-  // Already on Home — wait for the re-login and the reload it triggers.
-  const relogin = page.waitForResponse((r) =>
-    r.url().endsWith(`/demo/${slug}/login`),
-  );
+  // Already on Home — wait for the reload that follows the re-login.
+  const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'Vymazat data', exact: true }).click();
-  await relogin;
-  await page.waitForLoadState('load');
+  await reloaded;
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
   await page.goto(`/${slug}/admin`);
   await expect(page.getByText(/Žádní (žáci|studenti)\./)).toBeAttached();
