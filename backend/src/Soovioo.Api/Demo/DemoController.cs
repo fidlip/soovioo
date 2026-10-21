@@ -37,7 +37,11 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
                 "Právě běží příliš mnoho ukázkových škol. Zkuste to prosím později, nebo nám napište na info@soovioo.cz.");
         }
-        AuditContext.Of(HttpContext).Description = $"Založení ukázkové školy {demo!.Slug}";
+        // Logged as the demo's own entry (the request carries the visitor's
+        // e-mail), so it goes when the demo goes.
+        var audit = AuditContext.Of(HttpContext);
+        audit.SchoolId = demo!.SchoolId;
+        audit.Description = $"Založení ukázkové školy {demo.Slug}";
         return Ok(ToDto(demo));
     }
 
@@ -120,6 +124,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         {
             return this.FieldError(field, "Neplatná hodnota.");
         }
+        AuditContext.Of(HttpContext).SchoolId = school.Id;
         // Old sessions point at users that are about to disappear.
         sessions.ClearCookie(HttpContext);
         var demo = await demos.ResetAsync(school, request);
@@ -187,6 +192,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         {
             return this.FieldError("text", "Napište nám aspoň pár slov, nebo vyberte hodnocení.");
         }
+        AuditContext.Of(HttpContext).SchoolId = school.Id;
         await demos.SaveFeedbackAsync(school, new DemoFeedback
         {
             SchoolId = school.Id,

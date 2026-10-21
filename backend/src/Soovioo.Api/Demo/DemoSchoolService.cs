@@ -15,7 +15,7 @@ public enum DemoCreateError
     TooManyActive,
 }
 
-public record DemoCreated(string Slug, DateTimeOffset ExpiresAt, DemoFeaturedUsers Featured);
+public record DemoCreated(int SchoolId, string Slug, DateTimeOffset ExpiresAt, DemoFeaturedUsers Featured);
 
 /// <summary>Creating, resetting and deleting "Vyzkoušet" demo schools, and
 /// the e-mails to their visitors.</summary>
@@ -106,7 +106,7 @@ public class DemoSchoolService(
             await TrySendAsync(email.Trim(), $"Vaše demo Soovioo — {school.Name}", LinkEmail(school));
         }
 
-        return (new DemoCreated(slug, school.ExpiresAt!.Value, featured), DemoCreateError.None);
+        return (new DemoCreated(school.Id, slug, school.ExpiresAt!.Value, featured), DemoCreateError.None);
     }
 
     /// <summary>Back to freshly generated data (with the wizard's new
@@ -124,7 +124,7 @@ public class DemoSchoolService(
         fresh.Type = request.Type;
         await db.SaveChangesAsync();
         var featured = await GenerateAsync(fresh, request, time.GetUtcNow());
-        return new DemoCreated(fresh.Slug, fresh.ExpiresAt!.Value, featured);
+        return new DemoCreated(fresh.Id, fresh.Slug, fresh.ExpiresAt!.Value, featured);
     }
 
     /// <summary>"Vymazat data": an empty school to set up from scratch —
