@@ -42,7 +42,7 @@ jobs:
       - run: npx nx run-many -t lint test typecheck --parallel=4
       # nativescript-mobile's build needs the Android/iOS native toolchain,
       # which isn't installed here — it's built/verified on-device manually
-      # instead (see ROADMAP.md).
+      # instead.
       - run: npx nx run-many -t build --exclude=nativescript-mobile
 
   backend:
