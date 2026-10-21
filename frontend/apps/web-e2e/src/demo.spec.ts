@@ -13,8 +13,9 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   await expect(page.getByLabel('Název školy')).toHaveValue('Gymnázium Ukázkov');
   await page.getByRole('radio', { name: /^1/ }).click();
   await page.getByRole('button', { name: 'Další' }).click();
-  await page.getByRole('radio', { name: /Rodič/ }).click();
+  // Contact step — e-mail is optional.
   await page.getByRole('button', { name: 'Další' }).click();
+  await page.getByRole('radio', { name: /Rodič/ }).click();
   await page.getByRole('button', { name: 'Vytvořit ukázkovou školu' }).click();
 
   await expect(page).toHaveURL(/\/demo-[a-z0-9]{11}\/home$/, {

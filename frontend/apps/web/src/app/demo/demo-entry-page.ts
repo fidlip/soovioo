@@ -19,7 +19,7 @@ import { SchoolLookupService } from '../school-lookup.service';
 import { isDemoSlug, schoolUrl } from '../school-context';
 import { storeDemoSlug, storedDemoSlug } from './demo-storage';
 
-type Step = 'checking' | 'type' | 'school' | 'role' | 'contact' | 'generating';
+type Step = 'checking' | 'type' | 'school' | 'contact' | 'role' | 'generating';
 
 const DEFAULT_NAMES: Record<SchoolType, string> = {
   Elementary: 'ZŠ Ukázkov',
@@ -44,7 +44,15 @@ const PROGRESS_LABELS = [
  * (`?reset=<slug>`): same questions, same demo address. */
 @Component({
   selector: 'app-demo-entry-page',
-  imports: [FormsModule, Button, Card, Checkbox, InputText, Message, ProgressBar],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    Checkbox,
+    InputText,
+    Message,
+    ProgressBar,
+  ],
   templateUrl: './demo-entry-page.html',
 })
 export class DemoEntryPage {
@@ -79,10 +87,30 @@ export class DemoEntryPage {
   protected readonly roles = computed(() => {
     const pupil = this.type() === 'Secondary' ? 'student' : 'žák';
     return [
-      { role: 'Admin' as const, label: 'Vedení školy', hint: 'administrace, nastavení, všechny agendy', icon: 'pi-briefcase' },
-      { role: 'Teacher' as const, label: 'Učitel', hint: 'třídní učitel — známky, docházka, zprávy', icon: 'pi-book' },
-      { role: 'Parent' as const, label: 'Rodič', hint: 'rodič dvou dětí — přehled, omluvenky, platby', icon: 'pi-users' },
-      { role: 'Student' as const, label: pupil[0].toUpperCase() + pupil.slice(1), hint: `pohled ${pupil === 'žák' ? 'žáka' : 'studenta'} — rozvrh, úkoly, známky`, icon: 'pi-user' },
+      {
+        role: 'Admin' as const,
+        label: 'Vedení školy',
+        hint: 'administrace, nastavení, všechny agendy',
+        icon: 'pi-briefcase',
+      },
+      {
+        role: 'Teacher' as const,
+        label: 'Učitel',
+        hint: 'třídní učitel — známky, docházka, zprávy',
+        icon: 'pi-book',
+      },
+      {
+        role: 'Parent' as const,
+        label: 'Rodič',
+        hint: 'rodič dvou dětí — přehled, omluvenky, platby',
+        icon: 'pi-users',
+      },
+      {
+        role: 'Student' as const,
+        label: pupil[0].toUpperCase() + pupil.slice(1),
+        hint: `pohled ${pupil === 'žák' ? 'žáka' : 'studenta'} — rozvrh, úkoly, známky`,
+        icon: 'pi-user',
+      },
     ];
   });
 
@@ -115,7 +143,7 @@ export class DemoEntryPage {
   }
 
   protected back(): void {
-    const order: Step[] = ['type', 'school', 'role', 'contact'];
+    const order: Step[] = ['type', 'school', 'contact', 'role'];
     const index = order.indexOf(this.step());
     if (index > 0) {
       this.step.set(order[index - 1]);
@@ -123,7 +151,10 @@ export class DemoEntryPage {
   }
 
   protected emailInvalid(): boolean {
-    return this.email.trim().length > 0 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email.trim());
+    return (
+      this.email.trim().length > 0 &&
+      !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email.trim())
+    );
   }
 
   protected create(): void {
@@ -148,11 +179,13 @@ export class DemoEntryPage {
       },
       error: (err: unknown) => {
         clearInterval(timer);
-        this.step.set('contact');
+        this.step.set('role');
         this.error.set(
           err instanceof HttpErrorResponse && err.status === 429
             ? 'Dnes už jste vytvořili několik ukázkových škol. Zkuste to prosím zítra, nebo nám napište na info@soovioo.cz.'
-            : err instanceof HttpErrorResponse && typeof err.error === 'string' && err.error
+            : err instanceof HttpErrorResponse &&
+                typeof err.error === 'string' &&
+                err.error
               ? err.error
               : 'Ukázkovou školu se nepodařilo vytvořit. Zkuste to prosím znovu.',
         );
@@ -175,7 +208,11 @@ export class DemoEntryPage {
     const timer = setInterval(() => {
       ticks++;
       this.progress.update((p) => Math.min(95, p + (100 - p) * 0.12));
-      this.progressLabel.set(PROGRESS_LABELS[Math.min(PROGRESS_LABELS.length - 1, Math.floor(ticks / 2))]);
+      this.progressLabel.set(
+        PROGRESS_LABELS[
+          Math.min(PROGRESS_LABELS.length - 1, Math.floor(ticks / 2))
+        ],
+      );
     }, 400);
     return timer;
   }

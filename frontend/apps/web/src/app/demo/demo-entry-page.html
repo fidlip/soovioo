@@ -8,14 +8,13 @@
     <h1
       class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
     >
-      @if (resetSlug) { Resetovat ukázkovou školu } @else { Vyzkoušejte
-      Soovioo }
+      @if (resetSlug) { Resetovat ukázkovou školu } @else { Vyzkoušejte Soovioo
+      }
     </h1>
     <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
-      @if (resetSlug) { Data se vygenerují znovu podle vašich odpovědí —
-      všechny dosavadní změny zmizí. Adresa dema zůstává. } @else { Vlastní
-      ukázková škola s realistickými daty, bez registrace. Za měsíc se sama
-      smaže. }
+      @if (resetSlug) { Data se vygenerují znovu podle vašich odpovědí — všechny
+      dosavadní změny zmizí. Adresa dema zůstává. } @else { Vlastní ukázková
+      škola s realistickými daty, bez registrace. Za měsíc se sama smaže. }
     </p>
   </div>
 
@@ -96,48 +95,22 @@
       </div>
     </div>
     <div class="demo-nav">
-      <p-button label="Zpět" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
       <p-button
         label="Další"
         icon="pi pi-arrow-right"
         iconPos="right"
         [disabled]="!name.trim()"
-        (onClick)="step.set('role')"
-      />
-    </div>
-    } @case ('role') {
-    <p class="demo-step-label">Krok 3 ze 4</p>
-    <h2 class="demo-step-title">Za koho se chcete podívat nejdřív?</h2>
-    <p class="mt-0 mb-3 text-sm text-surface-500 dark:text-surface-400">
-      Mezi uživateli školy můžete kdykoli přepnout.
-    </p>
-    <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Role">
-      @for (option of roles(); track option.role) {
-      <button
-        type="button"
-        role="radio"
-        class="demo-option"
-        [class.selected]="role() === option.role"
-        [attr.aria-checked]="role() === option.role"
-        (click)="role.set(option.role)"
-      >
-        <i class="pi text-xl text-primary" [class]="option.icon"></i>
-        <strong>{{ option.label }}</strong>
-        <span>{{ option.hint }}</span>
-      </button>
-      }
-    </div>
-    <div class="demo-nav">
-      <p-button label="Zpět" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
-      <p-button
-        label="Další"
-        icon="pi pi-arrow-right"
-        iconPos="right"
         (onClick)="step.set('contact')"
       />
     </div>
     } @case ('contact') {
-    <p class="demo-step-label">Krok 4 ze 4</p>
+    <p class="demo-step-label">Krok 3 ze 4</p>
     <h2 class="demo-step-title">Poslat odkaz na demo e-mailem?</h2>
     <p class="mt-0 mb-3 text-sm text-surface-500 dark:text-surface-400">
       Nepovinné. Odkaz otevře demo i na jiném zařízení a týden a den před
@@ -183,23 +156,68 @@
           (i po smazání dema).</label
         >
       </div>
-      @if (error(); as message) {
-      <p-message severity="error" [text]="message" />
-      }
     </div>
     <div class="demo-nav">
-      <p-button label="Zpět" [text]="true" icon="pi pi-arrow-left" (onClick)="back()" />
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
+      <p-button
+        label="Další"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        [disabled]="emailInvalid()"
+        (onClick)="step.set('role')"
+      />
+    </div>
+    } @case ('role') {
+    <p class="demo-step-label">Krok 4 ze 4</p>
+    <h2 class="demo-step-title">Za koho se chcete podívat nejdřív?</h2>
+    <p class="mt-0 mb-3 text-sm text-surface-500 dark:text-surface-400">
+      Mezi uživateli školy můžete kdykoli přepnout.
+    </p>
+    <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Role">
+      @for (option of roles(); track option.role) {
+      <button
+        type="button"
+        role="radio"
+        class="demo-option"
+        [class.selected]="role() === option.role"
+        [attr.aria-checked]="role() === option.role"
+        (click)="role.set(option.role)"
+      >
+        <i class="pi text-xl text-primary" [class]="option.icon"></i>
+        <strong>{{ option.label }}</strong>
+        <span>{{ option.hint }}</span>
+      </button>
+      }
+    </div>
+    @if (error(); as message) {
+    <p-message severity="error" [text]="message" styleClass="mt-3" />
+    }
+    <div class="demo-nav">
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
       <p-button
         [label]="resetSlug ? 'Resetovat data' : 'Vytvořit ukázkovou školu'"
         icon="pi pi-check"
-        [disabled]="emailInvalid()"
         (onClick)="create()"
       />
     </div>
     } @case ('generating') {
     <div class="flex flex-col gap-3 py-4" role="status" aria-live="polite">
       <h2 class="demo-step-title mb-0">Připravuji vaši školu…</h2>
-      <p-progressBar [value]="progress()" [showValue]="false" styleClass="h-2" />
+      <p-progressBar
+        [value]="progress()"
+        [showValue]="false"
+        styleClass="h-2"
+      />
       <p class="m-0 text-sm text-surface-500 dark:text-surface-400">
         {{ progressLabel() }}
       </p>
