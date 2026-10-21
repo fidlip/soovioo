@@ -11,6 +11,10 @@
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# Search engines index only the public site (www.soovioo.cz); the
+		# app, school subdomains and the demo stay out. robots.txt keeps
+		# allowing crawling, otherwise this header would never be seen.
+		X-Robots-Tag "noindex, nofollow"
 		-Server
 	}
 

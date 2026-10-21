@@ -1,2 +1,5 @@
+# Crawling stays allowed: the app is kept out of search results by the
+# X-Robots-Tag: noindex header (deploy/Caddyfile), which a Disallow here
+# would hide from crawlers.
 User-agent: *
 Allow: /
