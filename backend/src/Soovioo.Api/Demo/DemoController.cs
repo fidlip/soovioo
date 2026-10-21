@@ -126,6 +126,28 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         return Ok(ToDto(demo!));
     }
 
+    /// <summary>"Vymazat data" — see <see cref="DemoSchoolService.ClearAsync"/>.
+    /// The caller is then logged in as the remaining admin.</summary>
+    [HttpPost("{slug}/clear")]
+    public async Task<ActionResult<DemoClearedDto>> Clear(string slug)
+    {
+        if (await DemoSchoolAsync(slug) is not { } school)
+        {
+            return NotFound();
+        }
+        sessions.ClearCookie(HttpContext);
+        var adminId = await demos.ClearAsync(school);
+        if (adminId is null)
+        {
+            return BadRequest("Ukázková škola nemá žádného administrátora — použijte Vygenerovat nová data.");
+        }
+        var audit = AuditContext.Of(HttpContext);
+        audit.SchoolId = school.Id;
+        audit.Action = "Vymazání dat";
+        audit.Description = "Vymazání dat ukázkové školy";
+        return Ok(new DemoClearedDto(adminId.Value));
+    }
+
     [HttpDelete("{slug}")]
     public async Task<IActionResult> Delete(string slug)
     {
@@ -199,6 +221,9 @@ public record DemoCreatedDto(string Slug, DateTimeOffset ExpiresAt, IReadOnlyDic
 /// users apart in the picker.</param>
 /// <param name="Featured">Offered first: the most to see as this one.</param>
 public record DemoUserDto(int Id, string Name, string Role, string Detail, bool Featured);
+
+/// <param name="AdminUserId">The account left in the emptied school.</param>
+public record DemoClearedDto(int AdminUserId);
 
 public record DemoLoginRequest(int UserId, bool UseCookie = false);
 

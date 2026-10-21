@@ -8,8 +8,7 @@
     <h1
       class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
     >
-      @if (resetSlug) { Resetovat ukázkovou školu } @else { Vyzkoušejte Soovioo
-      }
+      @if (resetSlug) { Nová ukázková data } @else { Vyzkoušejte Soovioo }
     </h1>
     <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
       @if (resetSlug) { Data se vygenerují znovu podle vašich odpovědí — všechny
@@ -205,7 +204,7 @@
         (onClick)="back()"
       />
       <p-button
-        [label]="resetSlug ? 'Resetovat data' : 'Vytvořit ukázkovou školu'"
+        [label]="resetSlug ? 'Vygenerovat nová data' : 'Vytvořit ukázkovou školu'"
         icon="pi pi-check"
         (onClick)="create()"
       />

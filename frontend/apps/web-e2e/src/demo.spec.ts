@@ -39,8 +39,22 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
   await expect(page.getByRole('link', { name: 'Logy' })).toBeVisible();
 
+  // Empty school: everything goes but the admin account (and the log).
   await page.getByRole('button', { name: 'Možnosti dema' }).click();
-  await page.getByRole('menuitem', { name: 'Smazat demo' }).click();
+  await page.getByRole('menuitem', { name: /Vymazat data/ }).click();
+  // Already on Home — wait for the re-login and the reload it triggers.
+  const relogin = page.waitForResponse((r) =>
+    r.url().endsWith(`/demo/${slug}/login`),
+  );
+  await page.getByRole('button', { name: 'Vymazat data', exact: true }).click();
+  await relogin;
+  await page.waitForLoadState('load');
+  await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
+  await page.goto(`/${slug}/admin`);
+  await expect(page.getByText(/Žádní (žáci|studenti)\./)).toBeAttached();
+
+  await page.getByRole('button', { name: 'Možnosti dema' }).click();
+  await page.getByRole('menuitem', { name: 'Smazat celé demo' }).click();
   await page.getByRole('button', { name: 'Smazat', exact: true }).click();
   await expect(page).toHaveURL(/\/demo\?new=1$/);
   await expect(

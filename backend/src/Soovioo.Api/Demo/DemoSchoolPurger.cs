@@ -15,7 +15,11 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
     /// <summary>Empties the school (keeps the <see cref="Evidence.School"/>
     /// row itself unless <paramref name="deleteSchool"/>). Returns false
     /// when it isn't a demo school — nothing touched.</summary>
-    public async Task<bool> PurgeAsync(int schoolId, bool deleteSchool)
+    /// <param name="keepAuditLog">"Vymazat data": the log (and the support
+    /// sessions it refers to) stays.</param>
+    /// <param name="keepUserId">An account (with its person) that survives —
+    /// somebody has to be able to log into the emptied school.</param>
+    public async Task<bool> PurgeAsync(int schoolId, bool deleteSchool, bool keepAuditLog = false, int? keepUserId = null)
     {
         var school = await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId);
         if (school is null || !school.IsDemo)
@@ -61,12 +65,15 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await DeleteAsync(db.SchoolClasses.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.Subjects.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.Classrooms.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
-        await DeleteAsync(db.SupportSessions.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
-        await DeleteAsync(db.AuditLogEntries.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
+        if (!keepAuditLog)
+        {
+            await DeleteAsync(db.SupportSessions.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
+            await DeleteAsync(db.AuditLogEntries.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
+        }
         await DeleteAsync(db.DemoEmails.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.RefreshTokens.IgnoreQueryFilters().Where(x => x.User!.SchoolId == schoolId));
-        await DeleteAsync(db.Persons.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
-        await DeleteAsync(db.Users.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
+        await DeleteAsync(db.Persons.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && (keepUserId == null || x.UserId != keepUserId)));
+        await DeleteAsync(db.Users.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.Id != keepUserId));
         if (deleteSchool)
         {
             await ForgetVisitorAsync(schoolId);

@@ -239,3 +239,14 @@ p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
 .soovioo-dark .demo-bar-button:hover {
   background: var(--p-sky-900);
 }
+
+/* "Smazat celé demo" — the one irreversible item of the demo menu. */
+.demo-menu-danger .p-menu-item-label,
+.demo-menu-danger .p-menu-item-icon {
+  color: var(--p-red-600);
+}
+
+.soovioo-dark .demo-menu-danger .p-menu-item-label,
+.soovioo-dark .demo-menu-danger .p-menu-item-icon {
+  color: var(--p-red-400);
+}

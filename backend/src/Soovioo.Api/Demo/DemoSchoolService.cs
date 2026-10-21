@@ -127,6 +127,35 @@ public class DemoSchoolService(
         return new DemoCreated(fresh.Slug, fresh.ExpiresAt!.Value, featured);
     }
 
+    /// <summary>"Vymazat data": an empty school to set up from scratch —
+    /// everything goes except the log and one admin account to log in
+    /// with (the featured one, else any admin). Returns that admin's id,
+    /// null when it isn't a demo or has no admin left.</summary>
+    public async Task<int?> ClearAsync(School school)
+    {
+        if (!school.IsDemo)
+        {
+            return null;
+        }
+        var adminIds = await db.Users.IgnoreQueryFilters()
+            .Where(u => u.SchoolId == school.Id && u.Roles.Contains(UserRole.Admin))
+            .Select(u => u.Id)
+            .ToListAsync();
+        int? adminId = school.DemoFeaturedUserIds?.FirstOrDefault(adminIds.Contains) is int featured && featured != 0
+            ? featured
+            : adminIds.Count > 0 ? adminIds.Min() : null;
+        if (adminId is null)
+        {
+            return null;
+        }
+
+        await purger.PurgeAsync(school.Id, deleteSchool: false, keepAuditLog: true, keepUserId: adminId);
+        var fresh = await db.Schools.IgnoreQueryFilters().FirstAsync(s => s.Id == school.Id);
+        fresh.DemoFeaturedUserIds = [adminId.Value];
+        await db.SaveChangesAsync();
+        return adminId;
+    }
+
     private async Task<DemoFeaturedUsers> GenerateAsync(School school, DemoSetupRequest request, DateTimeOffset now)
     {
         // Change tracking of tens of thousands of new rows is the slow part.

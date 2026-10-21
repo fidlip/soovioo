@@ -278,6 +278,28 @@ public class DemoTests
     }
 
     [Fact]
+    public async Task ClearKeepsOnlyTheLogAndOneAdmin()
+    {
+        using var db = NewDb();
+        var (demo, _) = await Service(db, new FakeEmailSender()).CreateAsync(new DemoSetupRequest(SchoolType.Elementary, "Škola", 1));
+        var school = await db.Schools.SingleAsync();
+        db.AuditLogEntries.Add(new Soovioo.Api.Audit.AuditLogEntry { SchoolId = school.Id, Method = "POST", Path = "/api/grades", Area = "Známky" });
+        await db.SaveChangesAsync();
+        var adminId = demo!.Featured.AdminId;
+
+        var kept = await Service(db, new FakeEmailSender()).ClearAsync(school);
+
+        Assert.Equal(adminId, kept);
+        Assert.Equal(adminId, Assert.Single(await db.Users.IgnoreQueryFilters().ToListAsync()).Id);
+        Assert.Single(await db.Persons.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await db.Students.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await db.SchoolClasses.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await db.Grades.IgnoreQueryFilters().ToListAsync());
+        Assert.Single(await db.AuditLogEntries.IgnoreQueryFilters().ToListAsync());
+        Assert.Equal([adminId], (await db.Schools.SingleAsync()).DemoFeaturedUserIds);
+    }
+
+    [Fact]
     public async Task DailyJobDeletesExpiredDemosAndRemindsVisitors()
     {
         using var db = NewDb();

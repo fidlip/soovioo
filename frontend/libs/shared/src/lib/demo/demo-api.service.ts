@@ -102,6 +102,15 @@ export class DemoApiService {
     );
   }
 
+  /** Everything but the log and one admin account; returns that admin. */
+  clear(slug: string): Observable<{ adminUserId: number }> {
+    return this.http.post<{ adminUserId: number }>(
+      `${this.url(slug)}/clear`,
+      {},
+      this.authApi.cookieOptions(),
+    );
+  }
+
   delete(slug: string): Observable<void> {
     return this.http.delete<void>(this.url(slug), this.authApi.cookieOptions());
   }
