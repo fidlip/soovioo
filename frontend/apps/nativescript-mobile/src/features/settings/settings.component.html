@@ -13,6 +13,29 @@
         ></Label>
       }
 
+      @if (!wasForcedPasswordChange && (canTakePhoto() || photo())) {
+        <Label text="Profilová fotka" class="text-lg"></Label>
+        @if (photo()) {
+          <Image
+            [src]="photo()"
+            width="120"
+            height="120"
+            stretch="aspectFill"
+            horizontalAlignment="left"
+            class="m-2"
+          ></Image>
+        }
+        @if (ownStudent()?.status === 'Pending') {
+          <Label text="Čeká na schválení rodičem." textWrap="true"></Label>
+        }
+        @if (canTakePhoto()) {
+          <Button text="Vyfotit a nahrát" (tap)="takePhoto()"></Button>
+        }
+        @if (photoMessage()) {
+          <Label [text]="photoMessage()" textWrap="true"></Label>
+        }
+      }
+
       <Label text="Změna hesla" class="text-lg"></Label>
       <TextField
         hint="Současné heslo"
