@@ -76,6 +76,12 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await DeleteAsync(db.RefreshTokens.IgnoreQueryFilters().Where(x => x.User!.SchoolId == schoolId));
         await DeleteAsync(db.Persons.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && (keepUserId == null || x.UserId != keepUserId)));
         await DeleteAsync(db.Users.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.Id != keepUserId));
+        // The kept account's photo goes with the school's files below.
+        foreach (var kept in await db.Persons.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.PhotoKey != null).ToListAsync())
+        {
+            kept.PhotoKey = null;
+        }
+        await db.SaveChangesAsync();
         if (deleteSchool)
         {
             await ForgetVisitorAsync(schoolId);
