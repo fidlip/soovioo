@@ -68,16 +68,26 @@ public class PhotoStorage(MessageAttachmentStorageService storage)
         await input.CopyToAsync(memory);
         memory.Position = 0;
 
-        using var square = DecodeSquare(memory);
-        if (square is null)
-        {
-            return null;
-        }
+        var files = Process(memory);
+        return files is null ? null : await SaveProcessedAsync(schoolId, files);
+    }
 
+    /// <summary>The image cropped, shrunk and re-encoded in every size;
+    /// null when it isn't a readable image.</summary>
+    public static IReadOnlyDictionary<PhotoSize, byte[]>? Process(Stream image)
+    {
+        using var square = DecodeSquare(image);
+        return square is null ? null : Pixels.ToDictionary(p => p.Key, p => Encode(square, p.Value));
+    }
+
+    /// <summary>Stores what <see cref="Process"/> made under a new key —
+    /// also for photos generated on the server (demo avatars).</summary>
+    public async Task<string> SaveProcessedAsync(int schoolId, IReadOnlyDictionary<PhotoSize, byte[]> files)
+    {
         var name = $"photo-{Guid.NewGuid():N}";
-        foreach (var (size, pixels) in Pixels)
+        foreach (var (size, bytes) in files)
         {
-            await storage.SaveBytesAsync(schoolId, FileName(name, size), Encode(square, pixels));
+            await storage.SaveBytesAsync(schoolId, FileName(name, size), bytes);
         }
         return $"{schoolId}/{name}";
     }

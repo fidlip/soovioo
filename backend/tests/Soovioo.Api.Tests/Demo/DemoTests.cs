@@ -33,6 +33,34 @@ public class DemoTests
         return (school, featured);
     }
 
+    [Fact]
+    public async Task GivesPeopleIllustratedPhotos()
+    {
+        using var db = NewDb();
+        var storage = new MessageAttachmentStorageService(new FakeWebHostEnvironment());
+        var photos = new Soovioo.Api.People.PhotoStorage(storage);
+        var school = new School { Name = "Ukázková škola", Slug = "demo-photos", IsDemo = true, ExpiresAt = Now.AddDays(30) };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+        var featured = await new DemoDataGenerator(db, photos).GenerateAsync(school, new DemoSchoolOptions(SchoolType.Elementary, 1, 7), Now);
+        db.ChangeTracker.Clear();
+
+        var staff = await db.Users.IgnoreQueryFilters().Include(u => u.Person)
+            .Where(u => u.SchoolId == school.Id && (u.Roles.Contains(UserRole.Teacher) || u.Roles.Contains(UserRole.Admin)))
+            .ToListAsync();
+        Assert.True(staff.Count(u => u.Person!.PhotoKey != null) > staff.Count / 2);
+        var key = staff.First(u => u.Person!.PhotoKey != null).Person!.PhotoKey!;
+        Assert.True(File.Exists(photos.FullPath(key, Soovioo.Api.People.PhotoSize.Thumb)));
+
+        var students = await db.Students.IgnoreQueryFilters().Where(s => s.SchoolId == school.Id).ToListAsync();
+        Assert.All(students.Where(s => s.PhotoKey != null), s => Assert.NotNull(s.PhotoConsentAt));
+        Assert.Contains(students, s => s.PhotoConsentAt == null);
+        Assert.Equal(Soovioo.Api.People.PhotoStatus.Approved, students.Single(s => s.UserId == featured.StudentId).PhotoStatus);
+        var featuredChildren = await db.ParentStudents.IgnoreQueryFilters()
+            .Where(ps => ps.ParentProfile!.Person!.UserId == featured.ParentId).Select(ps => ps.StudentId).ToListAsync();
+        Assert.Contains(students, s => featuredChildren.Contains(s.Id) && s.PhotoStatus == Soovioo.Api.People.PhotoStatus.Pending);
+    }
+
     private static DemoSchoolService Service(AppDbContext db, FakeEmailSender mail, DateTimeOffset? now = null, MessageAttachmentStorageService? storage = null) =>
         new(db,
             new DemoDataGenerator(db),

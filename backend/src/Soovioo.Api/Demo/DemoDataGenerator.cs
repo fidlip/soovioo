@@ -28,8 +28,10 @@ public record DemoFeaturedUsers(int AdminId, int TeacherId, int ParentId, int St
 /// and every agenda — grades, absences, behaviour, homework, messages,
 /// events, payments. Deterministic for a given seed and day, so tests can
 /// pin it down. Nobody gets a password: demo users log in by being picked
-/// (see <see cref="DemoController"/>).</summary>
-public class DemoDataGenerator(AppDbContext db)
+/// (see <see cref="DemoController"/>). Profile photos are illustrated
+/// avatars (<see cref="DemoAvatars"/>) — only when a
+/// <see cref="PhotoStorage"/> is given.</summary>
+public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
 {
     // Fixed CET as the fallback for a container without tzdata — an hour
     // off in summer is fine for made-up data.
@@ -164,6 +166,7 @@ public class DemoDataGenerator(AppDbContext db)
         users.Clear();
 
         var elementary = target.Type == SchoolType.Elementary;
+        var seed = options.Seed;
         var subjectDefs = elementary ? ElementarySubjects : SecondarySubjects;
         var plan = elementary ? ElementaryPlan : SecondaryPlan;
 
@@ -215,9 +218,73 @@ public class DemoDataGenerator(AppDbContext db)
         GenerateMessages(admin, classes, featured);
         GenerateEvents(admin.User, classes, elementary);
         GeneratePayments(admin.User, classes, elementary);
+        // Own generator: photos don't shift what the seed gives everything else.
+        await GeneratePhotosAsync(new Random(seed + 1), admin.Person, teachers, classes, featured);
         await SaveAsync();
         return featured;
     }
+
+    // ---- photos -------------------------------------------------------
+
+    /// <summary>Most staff, a share of the pupils (with a recorded consent —
+    /// others have none, to show photos need one) and of the parents get an
+    /// avatar. The featured pupil has an approved photo; a child of the
+    /// featured parent has one waiting for that parent's approval.</summary>
+    private async Task GeneratePhotosAsync(
+        Random photoRng, Person admin, List<TeacherInfo> teachers, List<ClassInfo> classes, DemoFeaturedUsers featured)
+    {
+        if (photos is null)
+        {
+            return;
+        }
+
+        async Task<string> Avatar(bool female, bool adult) =>
+            await photos.SaveProcessedAsync(school.Id,
+                DemoAvatars.Get(female, adult, photoRng.Next(DemoAvatars.VariantsPerKind)));
+
+        foreach (var person in teachers.Select(t => t.Person).Prepend(admin))
+        {
+            if (person == admin || photoRng.NextDouble() < 0.85)
+            {
+                person.PhotoKey = await Avatar(IsFemale(person.FirstName), adult: true);
+            }
+        }
+
+        var students = classes.SelectMany(c => c.Students).ToList();
+        var featuredStudent = students.First(s => s.Student.User?.Id == featured.StudentId);
+        var featuredFamily = students.First(s => s.Family.Parents.Any(p => p.User?.Id == featured.ParentId)).Family;
+        var pendingChild = featuredFamily.Children.FirstOrDefault(c => c != featuredStudent) ?? featuredFamily.Children[0];
+
+        foreach (var info in students)
+        {
+            var student = info.Student;
+            var isFeatured = info == featuredStudent || info == pendingChild;
+            if (!isFeatured && photoRng.NextDouble() >= 0.6)
+            {
+                continue; // no consent
+            }
+            var guardian = info.Family.Parents[0].Person;
+            student.PhotoConsentGivenBy = guardian.FullName;
+            student.PhotoConsentAt = Past(now.AddDays(-photoRng.Next(1, 120)));
+            if (!isFeatured && photoRng.NextDouble() >= 0.75)
+            {
+                continue; // consent, but no photo yet
+            }
+            student.PhotoKey = await Avatar(student.Gender == Gender.Female, adult: false);
+            student.PhotoStatus = info == pendingChild && info != featuredStudent ? PhotoStatus.Pending : PhotoStatus.Approved;
+        }
+
+        foreach (var (person, _, user) in students.SelectMany(s => s.Family.Parents).Distinct())
+        {
+            if (user is not null && photoRng.NextDouble() < 0.3)
+            {
+                person.PhotoKey = await Avatar(IsFemale(person.FirstName), adult: true);
+            }
+        }
+    }
+
+    private static bool IsFemale(string firstName) =>
+        DemoNames.AdultFemaleFirstNames.Contains(firstName) || DemoNames.FemaleFirstNames.Contains(firstName);
 
     // ---- structure ----------------------------------------------------
 
