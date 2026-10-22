@@ -19,7 +19,11 @@ const FORMS: [zak: string, student: string][] = [
 const TO_STUDENT = new Map(FORMS.map(([zak, student]) => [zak, student]));
 const TO_ZAK = new Map(FORMS.map(([zak, student]) => [student, zak]));
 
-const WORD = /(?<!\p{L})(žák\p{L}*|žác\p{L}*|student\p{L}*)(?!\p{L})/giu;
+// Letters spelled out (Latin incl. diacritics, U+00C0–U+024F) instead of
+// `\p{L}`: the mobile app's V8 has no ICU, so a `\p{…}` regex is a syntax
+// error there and the whole bundle fails to load.
+const WORD =
+  /(?<![A-Za-z\u00C0-\u024F])(žák[A-Za-z\u00C0-\u024F]*|žác[A-Za-z\u00C0-\u024F]*|student[A-Za-z\u00C0-\u024F]*)(?![A-Za-z\u00C0-\u024F])/gi;
 
 /** Rewrites every form of "žák"/"student" in a Czech text to the one the
  * school uses. Both words are masculine animate, so the surrounding words
