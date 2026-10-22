@@ -68,7 +68,7 @@
           <th>Narození</th>
           <th>Pohlaví</th>
           <th>Rodiče</th>
-          <th></th>
+          <th><span class="sr-only">Akce</span></th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-student>
@@ -152,7 +152,7 @@
         <tr>
           <th>Jméno</th>
           <th>Děti</th>
-          <th></th>
+          <th><span class="sr-only">Akce</span></th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-parent>
@@ -204,7 +204,9 @@
   </p-tabpanels>
 </p-tabs>
 } @else {
-<p-tabs [(value)]="activeTab" [scrollable]="true">
+<!-- Lazy: a tab's content (tables, forms) renders when first opened, not
+     all six at page load — that was most of the page's blocking time. -->
+<p-tabs [(value)]="activeTab" [scrollable]="true" [lazy]="true">
   <p-tablist>
     <p-tab value="classes">Třídy, předměty a učebny</p-tab>
     <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
@@ -215,6 +217,7 @@
   </p-tablist>
   <p-tabpanels>
     <p-tabpanel value="classes">
+      <ng-template #content>
       <div class="flex flex-col gap-6 pt-4">
         <p-card header="Třídy">
           <div class="mb-3 flex justify-end">
@@ -232,7 +235,7 @@
                 <th>Ročník</th>
                 <th>Třídní učitel</th>
                 <th>Vyuč. jazyk</th>
-                <th></th>
+                <th><span class="sr-only">Akce</span></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-schoolClass>
@@ -290,7 +293,7 @@
                 <th>Zkratka</th>
                 <th>Barva</th>
                 <th>Výchozí učebna</th>
-                <th></th>
+                <th><span class="sr-only">Akce</span></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-subject>
@@ -359,7 +362,7 @@
                 <th>Zkratka</th>
                 <th>Typ</th>
                 <th>Kapacita</th>
-                <th></th>
+                <th><span class="sr-only">Akce</span></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-classroom>
@@ -401,15 +404,19 @@
           </p-table>
         </p-card>
       </div>
+      </ng-template>
     </p-tabpanel>
 
     <p-tabpanel value="students">
+      <ng-template #content>
       <div class="pt-4">
         <ng-container [ngTemplateOutlet]="studentsCard" />
       </div>
+      </ng-template>
     </p-tabpanel>
 
     <p-tabpanel value="users">
+      <ng-template #content>
       <div class="flex flex-col gap-6 pt-4">
         <p-card header="Uživatelé">
           <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
@@ -453,7 +460,7 @@
                 <th>Jméno</th>
                 <th>Role</th>
                 <th>Kontakt</th>
-                <th></th>
+                <th><span class="sr-only">Akce</span></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-user>
@@ -529,9 +536,11 @@
           </p-table>
         </p-card>
       </div>
+      </ng-template>
     </p-tabpanel>
 
     <p-tabpanel value="teachers">
+      <ng-template #content>
       <div class="flex flex-col gap-6 pt-4">
         <p-card>
           <ng-template #title
@@ -546,7 +555,7 @@
                 <th>Třídní učitel</th>
                 <th>Kontakt</th>
                 <th>Další role</th>
-                <th></th>
+                <th><span class="sr-only">Akce</span></th>
               </tr>
             </ng-template>
             <ng-template pTemplate="body" let-teacher>
@@ -584,15 +593,19 @@
           </p-table>
         </p-card>
       </div>
+      </ng-template>
     </p-tabpanel>
 
     <p-tabpanel value="parents">
+      <ng-template #content>
       <div class="flex flex-col gap-6 pt-4">
         <ng-container [ngTemplateOutlet]="parentsCard" />
       </div>
+      </ng-template>
     </p-tabpanel>
 
     <p-tabpanel value="school">
+      <ng-template #content>
       <div class="flex flex-col gap-6 pt-4">
         <p-card>
           <ng-template #title
@@ -903,6 +916,7 @@
           </form>
         </p-card>
       </div>
+      </ng-template>
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

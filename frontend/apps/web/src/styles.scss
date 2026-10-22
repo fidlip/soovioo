@@ -4,11 +4,26 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Optimus has no `--p-surface-ground` (PrimeNG ≤17 had), so this used to
+ * be no background at all: the browser's canvas showed through — its own
+ * dark grey in dark mode, and white for contrast checkers (Lighthouse
+ * flagged light dark-mode text "on white"). */
 body {
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  background: var(--p-surface-ground);
+  background: var(--p-content-background);
   color: var(--p-text-color);
+}
+
+.soovioo-dark body {
+  background: var(--p-surface-950);
+}
+
+/* `text-surface-500` is the app's muted text; on dark cards (surface-900)
+ * it's 3.7:1, under WCAG AA. One shade lighter in dark mode passes — except
+ * where an element already picks its own `dark:` colour. */
+.soovioo-dark .text-surface-500:not([class*='dark:text-']) {
+  color: var(--p-surface-400);
 }
 
 * {
@@ -125,6 +140,18 @@ p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
 /* FullCalendar (Kalendář akcí): it fades the neighbouring months' day
  * numbers to 30 % opacity — 1.7:1 contrast. A muted colour keeps them
  * visibly secondary but readable. */
+/* FullCalendar's own colours are light-only: in dark mode its sticky
+ * day-name header stayed white (white text on it — invisible) and the grid
+ * lines light grey. Taken from the theme instead. */
+.fc {
+  --fc-page-bg-color: var(--p-content-background);
+  --fc-border-color: var(--p-content-border-color);
+}
+
+.soovioo-dark .fc {
+  --fc-neutral-bg-color: var(--p-surface-800);
+}
+
 .fc .fc-day-other .fc-daygrid-day-top {
   opacity: 1;
   color: var(--p-surface-500);

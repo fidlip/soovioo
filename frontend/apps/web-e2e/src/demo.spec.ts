@@ -48,7 +48,9 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   await reloaded;
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
   await page.goto(`/${slug}/admin`);
-  await expect(page.getByText(/Žádní (žáci|studenti)\./)).toBeAttached();
+  // Tabs render lazily — open the pupils' one.
+  await page.getByRole('tab', { name: /^(Žáci|Studenti)$/ }).click();
+  await expect(page.getByText(/Žádní (žáci|studenti)\./)).toBeVisible();
 
   await page.getByRole('button', { name: 'Možnosti dema' }).click();
   await page.getByRole('menuitem', { name: 'Smazat celé demo' }).click();
