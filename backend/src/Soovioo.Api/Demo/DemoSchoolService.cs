@@ -167,6 +167,8 @@ public class DemoSchoolService(
                 school, new DemoSchoolOptions(request.Type, request.ClassesPerGrade, RandomNumberGenerator.GetInt32(int.MaxValue)), now);
             school.DemoFeaturedUserIds = [featured.AdminId, featured.TeacherId, featured.ParentId, featured.StudentId];
             db.VisibilityRules.AddRange(Visibility.DemoRules(school.Id));
+            school.StudentPhotos = true;
+            school.ParentPhotos = true;
             db.ChangeTracker.DetectChanges();
             await db.SaveChangesAsync();
             return featured;

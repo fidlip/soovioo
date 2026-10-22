@@ -18,6 +18,9 @@ export interface Message {
 export interface ConversationParticipant {
   userId: number;
   name: string;
+  /** Photo token for `PhotosApiService` URLs — present only when the
+   * caller may see the photo. */
+  photo?: string | null;
 }
 
 /** One row of the conversation list. */

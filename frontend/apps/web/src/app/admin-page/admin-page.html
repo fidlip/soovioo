@@ -73,7 +73,14 @@
       </ng-template>
       <ng-template pTemplate="body" let-student>
         <tr>
-          <td>{{ student.firstName }} {{ student.lastName }}</td>
+          <td>
+            <div class="flex items-center gap-2">
+              <app-avatar
+                [name]="student.firstName + ' ' + student.lastName"
+                [photoUrl]="studentPhotoUrl(student)"
+              />{{ student.firstName }} {{ student.lastName }}
+            </div>
+          </td>
           <td>{{ student.schoolClassName }}</td>
           <td>{{ student.dateOfBirth ?? '—' }}</td>
           <td>
@@ -98,6 +105,14 @@
                 (onClick)="openCreateAccountForStudent(student)"
               />
               }
+              <p-button
+                icon="pi pi-camera"
+                ariaLabel="Fotka"
+                title="Fotka"
+                size="small"
+                [text]="true"
+                (onClick)="photoStudentId.set(student.id)"
+              />
               <p-button
                 icon="pi pi-pencil"
                 ariaLabel="Upravit"
@@ -473,12 +488,20 @@
               <ng-template pTemplate="body" let-user>
                 <tr>
                   <td>
-                    <div>{{ user.name }}</div>
-                    @if (user.name !== user.username) {
-                    <div class="text-xs text-surface-500">
-                      {{ user.username }}
+                    <div class="flex items-center gap-2">
+                      <app-avatar
+                        [name]="user.name"
+                        [photoUrl]="userPhotoUrl(user)"
+                      />
+                      <div>
+                        <div>{{ user.name }}</div>
+                        @if (user.name !== user.username) {
+                        <div class="text-xs text-surface-500">
+                          {{ user.username }}
+                        </div>
+                        }
+                      </div>
                     </div>
-                    }
                   </td>
                   <td>
                     <div class="flex flex-wrap items-center gap-1">
@@ -503,6 +526,15 @@
                         size="small"
                         [text]="true"
                         (onClick)="sendInvite(user)"
+                      />
+                      } @if (isStaffUser(user)) {
+                      <p-button
+                        icon="pi pi-camera"
+                        ariaLabel="Fotka"
+                        title="Fotka"
+                        size="small"
+                        [text]="true"
+                        (onClick)="photoUser.set(user)"
                       />
                       }
                       <p-button
@@ -1521,3 +1553,14 @@
     />
   </form>
 </p-dialog>
+
+<app-student-photo-dialog
+  [studentId]="photoStudentId()"
+  (closed)="photoStudentId.set(null)"
+  (photoChanged)="studentPhotoChanged($event)"
+/>
+<app-user-photo-dialog
+  [user]="photoUser()"
+  (closed)="photoUser.set(null)"
+  (photoChanged)="userPhotoChanged($event)"
+/>

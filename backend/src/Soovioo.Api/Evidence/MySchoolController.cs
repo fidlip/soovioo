@@ -115,10 +115,14 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     /// <summary>"Viditelnost údajů" — for every <see cref="Visibility.Keys"/>
-    /// entry the range individuals choose from and the default.</summary>
+    /// entry the range individuals choose from and the default, and whether
+    /// pupils' and parents' photos are on at all.</summary>
     [HttpGet("visibility")]
-    public async Task<ActionResult<VisibilityRulesDto>> GetVisibility() =>
-        Ok(ToDto(await Visibility.LoadAsync(db, currentSchool.SchoolId!.Value)));
+    public async Task<ActionResult<VisibilityRulesDto>> GetVisibility()
+    {
+        var schoolId = currentSchool.SchoolId!.Value;
+        return Ok(ToDto(await Visibility.LoadAsync(db, schoolId), await db.Schools.FirstAsync(s => s.Id == schoolId)));
+    }
 
     /// <summary>Replaces the whole set; entries left out mean
     /// <see cref="VisibilityScope.Nobody"/>.</summary>
@@ -137,6 +141,9 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Výchozí viditelnost musí být mezi nejmenší a největší.");
         }
 
+        var school = await db.Schools.FirstAsync(s => s.Id == schoolId);
+        school.StudentPhotos = request.StudentPhotos;
+        school.ParentPhotos = request.ParentPhotos;
         var existing = await db.VisibilityRules.Where(r => r.SchoolId == schoolId).ToListAsync();
         db.VisibilityRules.RemoveRange(existing);
         db.VisibilityRules.AddRange(request.Rules
@@ -153,20 +160,23 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             }));
         await db.SaveChangesAsync();
 
-        return Ok(ToDto(await Visibility.LoadAsync(db, schoolId)));
+        return Ok(ToDto(await Visibility.LoadAsync(db, schoolId), school));
     }
 
-    private static VisibilityRulesDto ToDto(SchoolVisibility visibility) =>
+    private static VisibilityRulesDto ToDto(SchoolVisibility visibility, School school) =>
         new(Visibility.Keys
             .Select(visibility.Rule)
             .Select(r => new VisibilityRuleDto(r.Owner, r.Field, r.Audience, r.Min, r.Default, r.Max))
-            .ToList());
+            .ToList(),
+            school.StudentPhotos, school.ParentPhotos);
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
 
 /// <param name="Rules">One per <see cref="Visibility.Keys"/> entry.</param>
-public record VisibilityRulesDto(IReadOnlyList<VisibilityRuleDto> Rules);
+/// <param name="StudentPhotos">See <see cref="School.StudentPhotos"/>.</param>
+/// <param name="ParentPhotos">See <see cref="School.ParentPhotos"/>.</param>
+public record VisibilityRulesDto(IReadOnlyList<VisibilityRuleDto> Rules, bool StudentPhotos = false, bool ParentPhotos = false);
 
 public record VisibilityRuleDto(
     VisibilityOwner Owner, VisibilityField Field, VisibilityAudience Audience,

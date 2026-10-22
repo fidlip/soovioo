@@ -15,7 +15,7 @@ namespace Soovioo.Api.People;
 [Authorize(Roles = "Parent,Student")]
 [ApiController]
 [Route("api/class-directory")]
-public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext currentSchool, PhotoAccess photoAccess) : ControllerBase
 {
     /// <param name="studentId">One of the caller's children (or the pupil
     /// themselves); omitted = the first of them.</param>
@@ -43,15 +43,17 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
             var pupils = await db.Students
                 .Where(s => s.SchoolClassId == classId)
                 .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
-                .Select(s => new { s.Id, Name = s.FirstName + " " + s.LastName })
                 .ToListAsync();
             var ids = pupils.Select(p => p.Id).ToList();
             var choices = (await db.VisibilityChoices.Where(c => c.StudentId != null && ids.Contains(c.StudentId.Value)).ToListAsync())
                 .ToLookup(c => c.StudentId!.Value);
-            classmates = pupils
+            var listed = pupils
                 .Where(p => accessible.Contains(p.Id) || visibility.Shows(
                     new(VisibilityOwner.Student, VisibilityField.Name, audience), choices[p.Id], VisibilityScope.MyClasses))
-                .Select(p => new ClassmateDto(p.Id, p.Name))
+                .ToList();
+            var photos = await photoAccess.VisibleStudentPhotosAsync(User, listed);
+            classmates = listed
+                .Select(p => new ClassmateDto(p.Id, $"{p.FirstName} {p.LastName}", photos.GetValueOrDefault(p.Id)))
                 .ToList();
         }
 
@@ -84,6 +86,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
         }
         var users = await db.Users.Include(u => u.Person).Where(u => ids.Contains(u.Id)).ToListAsync();
         var choices = await ChoicesOfPersonsAsync(users.Where(u => u.Person != null).Select(u => u.Person!.Id));
+        var userPhotos = await photoAccess.VisibleUserPhotosAsync(User, users);
 
         return users
             .Select(u =>
@@ -100,7 +103,8 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
                 return new DirectoryTeacherDto(
                     u.Id, PersonNames.Display(u), string.Join(", ", notes),
                     Shows(VisibilityField.Phone) ? u.Person?.Phone : null,
-                    Shows(VisibilityField.Email) ? u.Person?.Email : null);
+                    Shows(VisibilityField.Email) ? u.Person?.Email : null,
+                    userPhotos.GetValueOrDefault(u.Id));
             })
             .OrderBy(t => t.UserId == classTeacherId ? 0 : 1)
             .ThenBy(t => t.Name)
@@ -130,6 +134,9 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
             })
             .ToListAsync();
         var choices = await ChoicesOfPersonsAsync(links.Select(l => l.PersonId));
+        var userIds = links.Where(l => l.UserId != null).Select(l => l.UserId!.Value).Distinct().ToList();
+        var photos = await photoAccess.VisibleUserPhotosAsync(
+            User, await db.Users.Include(u => u.Person).Where(u => userIds.Contains(u.Id)).ToListAsync());
         var childNames = classmates?.ToDictionary(c => c.StudentId, c => c.Name) ?? [];
         bool Shows(int personId, VisibilityField field) =>
             visibility.Shows(new(VisibilityOwner.Parent, field, VisibilityAudience.Parents), choices[personId], VisibilityScope.MyClasses);
@@ -146,10 +153,12 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
                     .Select(l => childNames[l.StudentId])
                     .Order()
                     .ToList();
+                var photo = p.UserId is { } userId ? photos.GetValueOrDefault(userId) : null;
                 return new DirectoryParentDto(
                     name.Length == 0 ? p.Username : name, children,
                     Shows(p.PersonId, VisibilityField.Phone) ? p.Phone : null,
-                    Shows(p.PersonId, VisibilityField.Email) ? p.Email : null);
+                    Shows(p.PersonId, VisibilityField.Email) ? p.Email : null,
+                    photo is null ? null : p.UserId, photo);
             })
             .OrderBy(p => p.Name)
             .ToList();
@@ -173,10 +182,14 @@ public record ClassDirectoryDto(
 
 /// <param name="Notes">"třídní učitel, Matematika, …".</param>
 /// <param name="Phone">Null when not shared with the caller.</param>
-public record DirectoryTeacherDto(int UserId, string Name, string Notes, string? Phone, string? Email);
+/// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
+public record DirectoryTeacherDto(int UserId, string Name, string Notes, string? Phone, string? Email, string? Photo);
 
-public record ClassmateDto(int StudentId, string Name);
+/// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
+public record ClassmateDto(int StudentId, string Name, string? Photo);
 
 /// <param name="Children">Their children in the class — empty unless the
 /// class list is shared.</param>
-public record DirectoryParentDto(string Name, IReadOnlyList<string> Children, string? Phone, string? Email);
+/// <param name="UserId">Set only with <paramref name="Photo"/> — the photo URL needs it.</param>
+public record DirectoryParentDto(
+    string Name, IReadOnlyList<string> Children, string? Phone, string? Email, int? UserId, string? Photo);

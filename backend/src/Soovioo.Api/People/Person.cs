@@ -23,6 +23,11 @@ public class Person
     public string? Phone { get; set; }
     public string? Email { get; set; }
 
+    /// <summary>Profile photo — storage key of its files (see
+    /// <see cref="PhotoStorage"/>), null = initials instead. A new upload
+    /// gets a new key, so the key doubles as the clients' cache buster.</summary>
+    public string? PhotoKey { get; set; }
+
     /// <summary>The login account — one-to-one. Nullable so a person can
     /// later be kept on record without an account (e.g. a legal guardian
     /// who doesn't use the system); today every Person has one, and deleting

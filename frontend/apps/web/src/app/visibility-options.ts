@@ -6,9 +6,12 @@ import {
   VisibilityScope,
 } from '@soovioo/shared';
 
-/** Fields offered in the UI. Photo settings exist on the backend already,
- * but there are no photos yet. */
-export const VISIBILITY_FIELDS: VisibilityField[] = ['Name', 'Phone', 'Email'];
+export const VISIBILITY_FIELDS: VisibilityField[] = [
+  'Name',
+  'Phone',
+  'Email',
+  'Photo',
+];
 
 export const VISIBILITY_FIELD_LABELS: Record<VisibilityField, string> = {
   Name: 'Jméno (v seznamu)',

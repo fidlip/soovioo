@@ -56,4 +56,12 @@ public class School
     /// (admin, teacher, parent, pupil) — offered first in the user picker,
     /// and the ones the wizard's "za koho se chcete podívat" logs in as.</summary>
     public List<int>? DemoFeaturedUserIds { get; set; }
+
+    /// <summary>Pupils' photos are on: with a guardian's consent recorded
+    /// per pupil they can be uploaded. Off (the default) = no uploads and
+    /// none shown. Who sees them is up to "Viditelnost údajů".</summary>
+    public bool StudentPhotos { get; set; }
+
+    /// <summary>Parents may upload a photo of themselves (voluntary).</summary>
+    public bool ParentPhotos { get; set; }
 }

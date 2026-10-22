@@ -29,7 +29,10 @@ public class VisibilityTests
     };
 
     private static ClassDirectoryController Directory(AppDbContext db, User user) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = Context(user.Id, user.Role.ToString()) };
+        new(db, new FakeCurrentSchoolContext(SchoolId), new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)))
+        {
+            ControllerContext = Context(user.Id, user.Role.ToString()),
+        };
 
     private static MyProfileController Profile(AppDbContext db, User user) =>
         new(db, AuthTestServices.Sessions(db), AuthTestServices.RefreshTokens(db)) { ControllerContext = Context(user.Id, user.Role.ToString()) };

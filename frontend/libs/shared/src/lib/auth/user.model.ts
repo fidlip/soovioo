@@ -18,6 +18,9 @@ export interface AppUser {
   /** Only in the response to creating an account with an e-mail — what
    * became of the invitation sent along with it. */
   invite?: InviteOutcome;
+  /** Photo token for `PhotosApiService` URLs — present only when the
+   * caller may see the photo. */
+  photo?: string | null;
 }
 
 export type InviteOutcome = 'Sent' | 'NotConfigured' | 'Failed';

@@ -16,11 +16,16 @@ export interface DirectoryTeacher {
   notes: string;
   phone: string | null;
   email: string | null;
+  /** Photo token for `PhotosApiService` URLs — present only when the
+   * caller may see the photo. */
+  photo?: string | null;
 }
 
 export interface Classmate {
   studentId: number;
   name: string;
+  /** Photo token, present only when the caller may see the photo. */
+  photo?: string | null;
 }
 
 export interface DirectoryParent {
@@ -29,4 +34,8 @@ export interface DirectoryParent {
   children: string[];
   phone: string | null;
   email: string | null;
+  /** Set only with `photo` — the photo URL needs it. */
+  userId?: number | null;
+  /** Photo token, present only when the caller may see the photo. */
+  photo?: string | null;
 }

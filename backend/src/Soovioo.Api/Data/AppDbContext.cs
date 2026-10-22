@@ -195,6 +195,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Subject>().HasQueryFilter(s =>
             currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Classroom>().Property(c => c.Type).HasConversion<string>();
+        modelBuilder.Entity<Student>().Property(s => s.PhotoStatus).HasConversion<string>();
         modelBuilder.Entity<Classroom>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Student>().HasQueryFilter(s =>

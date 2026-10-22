@@ -96,4 +96,18 @@ public class Student
     /// (see <see cref="Payments.PaymentRecipient.VariableSymbol"/>, nullable,
     /// null = fall back to this field). Null until an admin fills it in.</summary>
     public string? DefaultVariableSymbol { get; set; }
+
+    /// <summary>Photo — storage key (see <see cref="People.PhotoStorage"/>),
+    /// null = initials. Only ever set while there's a consent
+    /// (<see cref="PhotoConsentAt"/>); revoking it deletes the photo.</summary>
+    public string? PhotoKey { get; set; }
+
+    /// <summary>Set with <see cref="PhotoKey"/>: a photo the pupil uploaded
+    /// waits for a parent's (or the school's) approval.</summary>
+    public People.PhotoStatus? PhotoStatus { get; set; }
+
+    /// <summary>The legal guardian's consent to the pupil's photo (GDPR
+    /// legal basis) — who gave it and when. Null = no consent, no photo.</summary>
+    public string? PhotoConsentGivenBy { get; set; }
+    public DateTimeOffset? PhotoConsentAt { get; set; }
 }

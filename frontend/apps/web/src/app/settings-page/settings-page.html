@@ -151,6 +151,45 @@
     </form>
   </p-card>
 
+  @if (profile(); as p) { @if (p.canUploadPhoto || p.photo) {
+  <p-card>
+    <ng-template #title
+      ><div class="flex items-center justify-between gap-2">
+        <span
+          >Profilová fotka<app-info-hint
+            text="Kdo fotku uvidí, nastavíte vpravo. Při nahrání se ořízne na čtverec a odstraní se z ní údaje o místě a fotoaparátu."
+        /></span>
+        <app-visibility-control
+          [settings]="visibility()"
+          field="Photo"
+          (changed)="setVisibility($event)"
+        /></div
+    ></ng-template>
+    <app-photo-editor
+      [name]="p.name"
+      [photoUrl]="ownPhotoUrl(p)"
+      [canUpload]="p.canUploadPhoto"
+      (upload)="uploadOwnPhoto($event)"
+      (remove)="deleteOwnPhoto()"
+    />
+  </p-card>
+  } } @if (studentPhotos().length > 0) {
+  <p-card>
+    <ng-template #title
+      ><div class="flex items-center justify-between gap-2">
+        <span>Moje fotka</span>
+        <app-visibility-control
+          [settings]="visibility()"
+          field="Photo"
+          (changed)="setVisibility($event)"
+        /></div
+    ></ng-template>
+    @for (s of studentPhotos(); track s.studentId) {
+    <app-student-photo [state]="s" (changed)="studentPhotoChanged($event)" />
+    }
+  </p-card>
+  }
+
   <p-card header="Vzhled">
     <div class="flex items-center gap-3">
       <p-toggleswitch

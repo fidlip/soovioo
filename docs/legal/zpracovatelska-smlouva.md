@@ -63,6 +63,9 @@ služby zřízení školou.
 - údaje o vzdělávání: třída, ročník, předměty, známky a hodnocení, docházka a omluvenky
   včetně důvodu nepřítomnosti, výchovná opatření a hodnocení chování, domácí úkoly, rozvrh;
 - údaje o vztazích: vazba zákonný zástupce — žák;
+- fotografie: profilové fotky zaměstnanců, rodičů a žáků (fotka žáka jen se souhlasem
+  zákonného zástupce, včetně záznamu, kdo a kdy souhlas dal), pokud je škola zapne; slouží
+  jen k zobrazení v aplikaci a nezpracovávají se biometricky (žádné rozpoznávání obličeje);
 - obsah komunikace: zprávy a jejich přílohy;
 - platební údaje: předpisy plateb, variabilní symboly, informace o úhradě (nikoli čísla
   platebních karet);
