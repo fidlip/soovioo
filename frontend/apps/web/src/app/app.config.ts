@@ -5,7 +5,6 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideAnimations } from '@angular/platform-browser/animations';
 import {
   PreloadAllModules,
   provideRouter,
@@ -104,7 +103,6 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(
       withInterceptors([authInterceptor, serverErrorInterceptor]),
     ),
-    provideAnimations(),
     MessageService,
     ConfirmationService,
     provideOptimus({
