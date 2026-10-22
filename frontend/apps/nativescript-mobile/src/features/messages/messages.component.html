@@ -3,7 +3,7 @@
 <GridLayout rows="auto, *">
   <ns-nav-bar row="0"></ns-nav-bar>
 
-  <ListView row="1" [items]="conversations()" *ngIf="!selected()" (itemTap)="open($event.index)">
+  <ListView row="1" [items]="conversations()" *ngIf="!selected()" (itemTap)="open($any($event).index)">
     <ng-template let-item="item">
       <StackLayout class="p-4">
         <Label [text]="(item.unread ? '● ' : '') + item.subject" [class.font-bold]="item.unread"></Label>
