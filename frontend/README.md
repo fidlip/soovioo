@@ -26,7 +26,9 @@ npx nx serve web --host 0.0.0.0     # http://localhost:4200, API očekává na :
 ```
 
 Adresa API se odvozuje z hostname stránky + port `5080`, takže web otevřený z mobilu v LAN
-(`http://<IP>:4200`) volá API na `http://<IP>:5080`.
+(`http://<IP>:4200`) volá API na `http://<IP>:5080`. Port API se posouvá s portem dev serveru
+(`--port 4201` → API na `5081`), takže vedle sebe můžou běžet dvě instance; e2e proti jiné
+instanci přes `BASE_URL=http://127.0.0.1:4201`.
 
 Škola se vybírá cestou (`/<slug>/…`), na hlavní doméně subdoménou (`<slug>.soovioo.cz`).
 

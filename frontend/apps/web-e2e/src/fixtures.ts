@@ -1,7 +1,7 @@
 import { Request, expect, test as base } from '@playwright/test';
 
 const isApiRequest = (request: Request) =>
-  new URL(request.url()).port === '5080';
+  new URL(request.url()).pathname.startsWith('/api/');
 
 /**
  * Drop-in replacement for `@playwright/test`'s `test` that fails any test

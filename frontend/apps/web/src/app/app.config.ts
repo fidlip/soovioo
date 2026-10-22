@@ -85,6 +85,8 @@ const csTranslation: Translation = {
   weekHeader: 'Týd',
 };
 
+const devApiPort = () => 5080 + (Number(window.location.port || 4200) - 4200);
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -126,7 +128,7 @@ export const appConfig: ApplicationConfig = {
       provide: API_BASE_URL,
       useValue: environment.production
         ? window.location.origin
-        : `http://${window.location.hostname}:5080`,
+        : `http://${window.location.hostname}:${devApiPort()}`,
     },
     { provide: TokenStorage, useClass: MemoryTokenStorage },
     // Refresh token as an httpOnly cookie; the access token stays in

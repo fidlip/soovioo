@@ -34,8 +34,8 @@ export default defineConfig({
   },
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npx nx run web:serve',
-    url: 'http://localhost:4200',
+    command: `npx nx run web:serve --port=${new URL(baseURL).port || 4200}`,
+    url: baseURL,
     reuseExistingServer: true,
     cwd: workspaceRoot,
   },
