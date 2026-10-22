@@ -147,7 +147,44 @@
     </div>
   </p-card>
 
-  @if (showCalendarFeed) {
+  @if (privacy(); as pr) { @if (visiblePrivacyOptions(pr).length > 0 ||
+  pr.students.length > 0) {
+  <p-card>
+    <ng-template #title
+      >Soukromí<app-info-hint
+        text="Škola sdílí některé údaje s rodiči a žáky a u těchto vám nechává volbu, jestli je skrýt."
+    /></ng-template>
+    <div class="flex flex-col gap-3">
+      @for (o of visiblePrivacyOptions(pr); track o.option) {
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          [inputId]="'hide-' + o.option"
+          [ngModel]="o.hidden"
+          (ngModelChange)="setOptionHidden(o, $event)"
+        />
+        <label
+          [for]="'hide-' + o.option"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ privacyOptionInfo(o.option)?.hideOwnLabel }}</label
+        >
+      </div>
+      } @for (st of pr.students; track st.studentId) {
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          [inputId]="'hide-student-' + st.studentId"
+          [ngModel]="st.hidden"
+          (ngModelChange)="setStudentHidden(st, $event)"
+        />
+        <label
+          [for]="'hide-student-' + st.studentId"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ st.name }} — nezobrazovat ostatním v seznamu spolužáků</label
+        >
+      </div>
+      }
+    </div>
+  </p-card>
+  } } @if (showCalendarFeed) {
   <p-card>
     <ng-template #title
       >Odběr kalendáře<app-info-hint

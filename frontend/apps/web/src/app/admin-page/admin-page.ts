@@ -111,11 +111,13 @@ import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
+import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
 @Component({
   selector: 'app-admin-page',
   imports: [
     PeriodsEditor,
+    VisibilitySettings,
     ...FORM_FIELDS,
     Checkbox,
     InfoHint,

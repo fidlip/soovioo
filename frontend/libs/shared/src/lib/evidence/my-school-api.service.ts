@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
+import { VisibilitySettings } from '../people/visibility.model';
 import {
   School,
   SetSchoolBankAccountRequest,
@@ -41,6 +42,19 @@ export class MySchoolApiService {
   setBankAccount(request: SetSchoolBankAccountRequest): Observable<School> {
     return this.http.put<School>(
       `${this.baseUrl}/api/my-school/bank-account`,
+      request,
+    );
+  }
+
+  getVisibility(): Observable<VisibilitySettings> {
+    return this.http.get<VisibilitySettings>(
+      `${this.baseUrl}/api/my-school/visibility`,
+    );
+  }
+
+  setVisibility(request: VisibilitySettings): Observable<VisibilitySettings> {
+    return this.http.put<VisibilitySettings>(
+      `${this.baseUrl}/api/my-school/visibility`,
       request,
     );
   }

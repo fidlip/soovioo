@@ -12,6 +12,9 @@ import {
   EventsApiService,
   MyProfile,
   MyProfileApiService,
+  Privacy,
+  PrivacyOption,
+  StudentPrivacy,
 } from '@soovioo/shared';
 import { DarkModeService } from '../dark-mode.service';
 import { SchoolContextService } from '../school-context';
@@ -19,6 +22,7 @@ import { SchoolContextService } from '../school-context';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
+import { visibilityOptionInfo } from '../visibility-options';
 @Component({
   selector: 'app-settings-page',
   imports: [
@@ -67,6 +71,11 @@ export class SettingsPage {
   protected readonly feedUrl = signal<string | null>(null);
   protected readonly feedUrlCopied = signal(false);
 
+  /** Own data the school lets the caller hide ("Viditelnost údajů") —
+   * the card shows only when there's something to decide. */
+  protected readonly privacy = signal<Privacy | null>(null);
+  protected readonly privacyOptionInfo = visibilityOptionInfo;
+
   constructor() {
     this.profileApi.getProfile().subscribe({
       next: (profile) => {
@@ -80,6 +89,13 @@ export class SettingsPage {
         this.profileSettled.set(true);
       },
     });
+
+    if (!this.authApi.isSuperAdmin()) {
+      this.profileApi.getPrivacy().subscribe({
+        next: (privacy) => this.privacy.set(privacy),
+        error: (err) => console.error('getPrivacy failed', err),
+      });
+    }
 
     if (this.showCalendarFeed) {
       this.eventsApi.getCalendarFeedUrl().subscribe({
@@ -140,6 +156,31 @@ export class SettingsPage {
         },
         error: () => this.passwordError.set('Současné heslo nesouhlasí.'),
       });
+  }
+
+  /** Options without a label here (photos, not offered yet) are left out. */
+  protected visiblePrivacyOptions(privacy: Privacy): PrivacyOption[] {
+    return privacy.options.filter(
+      (o) => visibilityOptionInfo(o.option)?.hideOwnLabel,
+    );
+  }
+
+  protected setOptionHidden(option: PrivacyOption, hidden: boolean): void {
+    this.savePrivacy({ options: [{ ...option, hidden }], students: [] });
+  }
+
+  protected setStudentHidden(student: StudentPrivacy, hidden: boolean): void {
+    this.savePrivacy({ options: [], students: [{ ...student, hidden }] });
+  }
+
+  private savePrivacy(change: Privacy): void {
+    this.profileApi.updatePrivacy(change).subscribe({
+      next: (privacy) => {
+        this.privacy.set(privacy);
+        this.notify.success('Uloženo.');
+      },
+      error: (err) => this.notify.actionFailed('updatePrivacy failed', err),
+    });
   }
 
   protected copyFeedUrl(): void {
