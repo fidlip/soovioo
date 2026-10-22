@@ -28,7 +28,7 @@ public class UsersController(
     private static readonly PasswordHasher<User> Hasher = new();
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers([FromServices] PhotoAccess? photoAccess = null)
     {
         var users = await db.Users
             .OrderBy(u => u.Username)
@@ -41,7 +41,8 @@ public class UsersController(
             })
             .ToListAsync();
 
-        return Ok(users.Select(u => ToDto(u.User, u.StudentId)));
+        var photos = photoAccess is null ? [] : await photoAccess.VisibleUserPhotosAsync(User, users.Select(u => u.User));
+        return Ok(users.Select(u => ToDto(u.User, u.StudentId) with { Photo = photos.GetValueOrDefault(u.User.Id) }));
     }
 
     /// <summary>With an e-mail the invitation (see <see cref="SendInvite"/>)
@@ -187,9 +188,9 @@ public class UsersController(
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteUser(int id)
+    public async Task<IActionResult> DeleteUser(int id, [FromServices] PhotoStorage? photos = null)
     {
-        var user = await db.Users.FindAsync(id);
+        var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
         {
             return NotFound();
@@ -211,6 +212,7 @@ public class UsersController(
         db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.ParentProfile!.Person!.UserId == id));
         db.Users.Remove(user);
         await db.SaveChangesAsync();
+        photos?.Delete(user.Person?.PhotoKey);
         return NoContent();
     }
 
@@ -438,7 +440,8 @@ public record SetTeacherProfileRequest(string? Qualification);
 public record UserDto(
     int Id, string Username, string FirstName, string LastName, string Name, string Role, IReadOnlyList<string> Roles,
     string? Phone, string? Email, int? StudentId = null, string? Qualification = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null,
+    string? Photo = null);
 
 public enum InviteOutcome
 {

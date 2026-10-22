@@ -12,7 +12,9 @@ import {
   EventsApiService,
   MyProfile,
   MyProfileApiService,
+  PhotosApiService,
   SetVisibilityRequest,
+  StudentPhotoState,
   VisibilitySetting,
 } from '@soovioo/shared';
 import { DarkModeService } from '../dark-mode.service';
@@ -21,6 +23,8 @@ import { SchoolContextService } from '../school-context';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
+import { PhotoEditor } from '../photo-editor/photo-editor';
+import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
 @Component({
   selector: 'app-settings-page',
@@ -34,6 +38,8 @@ import { VisibilityControl } from '../visibility-control/visibility-control';
     Message,
     Password,
     ToggleSwitch,
+    PhotoEditor,
+    StudentPhoto,
     VisibilityControl,
   ],
   templateUrl: './settings-page.html',
@@ -42,6 +48,7 @@ export class SettingsPage {
   protected readonly notify = inject(NotifyService);
   private readonly profileApi = inject(MyProfileApiService);
   private readonly eventsApi = inject(EventsApiService);
+  private readonly photosApi = inject(PhotosApiService);
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
   private readonly schoolContext = inject(SchoolContextService);
@@ -75,6 +82,10 @@ export class SettingsPage {
    * to each field. */
   protected readonly visibility = signal<VisibilitySetting[]>([]);
 
+  /** A pupil's own photo (parents decide about their children's in Mé
+   * děti). */
+  protected readonly studentPhotos = signal<StudentPhotoState[]>([]);
+
   constructor() {
     this.profileApi.getProfile().subscribe({
       next: (profile) => {
@@ -88,6 +99,15 @@ export class SettingsPage {
         this.profileSettled.set(true);
       },
     });
+
+    if (this.authApi.isStudent()) {
+      this.photosApi.getOwnStudents().subscribe({
+        // Nothing to decide while the school has pupils' photos off.
+        next: (states) =>
+          this.studentPhotos.set(states.filter((s) => s.photosEnabled)),
+        error: (err) => console.error('getOwnStudents failed', err),
+      });
+    }
 
     if (!this.authApi.isSuperAdmin()) {
       this.profileApi.getVisibility().subscribe({
@@ -155,6 +175,46 @@ export class SettingsPage {
         },
         error: () => this.passwordError.set('Současné heslo nesouhlasí.'),
       });
+  }
+
+  protected ownPhotoUrl(profile: MyProfile): string | null {
+    return profile.photo
+      ? this.photosApi.userPhotoUrl(profile.id, profile.photo, 'profile')
+      : null;
+  }
+
+  protected uploadOwnPhoto(file: File): void {
+    const profile = this.profile();
+    if (!profile) {
+      return;
+    }
+    this.photosApi.uploadUserPhoto(profile.id, file, file.name).subscribe({
+      next: ({ photo }) => {
+        this.profile.set({ ...profile, photo });
+        this.notify.success('Fotka nahrána.');
+      },
+      error: (err) => this.notify.actionFailed('uploadUserPhoto failed', err),
+    });
+  }
+
+  protected deleteOwnPhoto(): void {
+    const profile = this.profile();
+    if (!profile) {
+      return;
+    }
+    this.photosApi.deleteUserPhoto(profile.id).subscribe({
+      next: () => {
+        this.profile.set({ ...profile, photo: null });
+        this.notify.success('Fotka smazána.');
+      },
+      error: (err) => this.notify.actionFailed('deleteUserPhoto failed', err),
+    });
+  }
+
+  protected studentPhotoChanged(state: StudentPhotoState): void {
+    this.studentPhotos.update((all) =>
+      all.map((s) => (s.studentId === state.studentId ? state : s)),
+    );
   }
 
   protected setVisibility(request: SetVisibilityRequest): void {

@@ -52,6 +52,8 @@ export * from './lib/people/class-directory.model';
 export * from './lib/people/class-directory-api.service';
 export * from './lib/people/my-child.model';
 export * from './lib/people/my-children-api.service';
+export * from './lib/people/photo.model';
+export * from './lib/people/photos-api.service';
 export * from './lib/dashboard/dashboard.model';
 export * from './lib/dashboard/dashboard-api.service';
 export * from './lib/homework/homework.model';

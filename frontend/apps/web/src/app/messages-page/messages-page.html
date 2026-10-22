@@ -129,7 +129,13 @@
           <div
             class="flex items-center justify-between gap-3 text-xs text-surface-500"
           >
-            <span class="font-medium">{{ message.senderName }}</span>
+            <span class="flex items-center gap-2 font-medium"
+              >@if (!isMine(message)) {<app-avatar
+                [name]="message.senderName"
+                [photoUrl]="senderPhotoUrl(conversation, message)"
+                [size]="24"
+              />}{{ message.senderName }}</span
+            >
             <span class="flex items-center gap-1"
               >{{ message.sentAt | date: 'd. M. y H:mm' }} @if (isMine(message))
               {

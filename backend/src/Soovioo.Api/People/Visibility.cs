@@ -136,7 +136,9 @@ public static class Visibility
             Field = key.Field,
             Audience = key.Audience,
             Min = VisibilityScope.Nobody,
-            Default = key.Field == VisibilityField.Photo ? VisibilityScope.Nobody : VisibilityScope.MyClasses,
+            Default = key.Field == VisibilityField.Photo && key.Owner != VisibilityOwner.Staff
+                ? VisibilityScope.Nobody
+                : VisibilityScope.MyClasses,
             Max = VisibilityScope.School,
         });
 

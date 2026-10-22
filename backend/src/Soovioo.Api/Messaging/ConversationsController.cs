@@ -135,14 +135,24 @@ public class ConversationsController(
         Ok(await db.CountUnreadConversationsAsync(CurrentUserId()));
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<ConversationDto>> GetConversation(int id)
+    public async Task<ActionResult<ConversationDto>> GetConversation(int id, [FromServices] PhotoAccess? photoAccess = null)
     {
         var conversation = await LoadForParticipantAsync(id);
         if (conversation is null)
         {
             return NotFound();
         }
-        return Ok(ToDto(conversation));
+        var dto = ToDto(conversation);
+        if (photoAccess is not null)
+        {
+            var photos = await photoAccess.VisibleUserPhotosAsync(
+                User, conversation.Participants.Where(p => p.User is not null).Select(p => p.User!));
+            dto = dto with
+            {
+                Participants = dto.Participants.Select(p => p with { Photo = photos.GetValueOrDefault(p.UserId) }).ToList(),
+            };
+        }
+        return Ok(dto);
     }
 
     /// <summary>Staff: <c>StudentId</c> required — the pupil's parents and
@@ -511,7 +521,8 @@ public record MessageDto(
     int Id, int? SenderUserId, string SenderName, string Body, DateTimeOffset SentAt,
     IReadOnlyList<MessageAttachmentDto> Attachments);
 
-public record ParticipantDto(int UserId, string Name);
+/// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
+public record ParticipantDto(int UserId, string Name, string? Photo = null);
 
 public record ConversationDto(
     int Id, string Subject, int? StudentId, string? StudentName,

@@ -33,6 +33,9 @@ export interface Student {
   /** Default variable symbol used when generating this student's Payment
    * recipient rows — overridable per-payment. */
   defaultVariableSymbol: string | null;
+  /** Photo token for `PhotosApiService` URLs — present only when the
+   * caller may see the photo. */
+  photo?: string | null;
 }
 
 export interface CreateStudentRequest {

@@ -3,10 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { Select } from '@openng/optimus-ui/select';
+import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
 import {
   MySchoolApiService,
   VisibilityOwner,
   VisibilityRule,
+  VisibilityRules,
   VisibilityScope,
 } from '@soovioo/shared';
 import { InfoHint } from '../info-hint/info-hint';
@@ -30,15 +32,24 @@ type Bound = 'min' | 'default' | 'max';
  * never leaves the backend. */
 @Component({
   selector: 'app-visibility-settings',
-  imports: [FormsModule, Button, Card, Select, InfoHint, TermPipe],
+  imports: [
+    FormsModule,
+    Button,
+    Card,
+    Select,
+    ToggleSwitch,
+    InfoHint,
+    TermPipe,
+  ],
   templateUrl: './visibility-settings.html',
 })
 export class VisibilitySettings {
   private readonly mySchoolApi = inject(MySchoolApiService);
   private readonly notify = inject(NotifyService);
 
-  /** All rules as loaded — photo ones, not shown yet, are saved as they are. */
   protected readonly rules = signal<VisibilityRule[] | null>(null);
+  protected studentPhotos = false;
+  protected parentPhotos = false;
 
   protected readonly groups = computed(() => {
     const rules = this.rules();
@@ -66,7 +77,7 @@ export class VisibilitySettings {
 
   constructor() {
     this.mySchoolApi.getVisibility().subscribe({
-      next: (settings) => this.rules.set(settings.rules),
+      next: (settings) => this.load(settings),
       error: (err) => this.notify.actionFailed('getVisibility failed', err),
     });
   }
@@ -110,12 +121,24 @@ export class VisibilitySettings {
     if (!rules) {
       return;
     }
-    this.mySchoolApi.setVisibility({ rules }).subscribe({
-      next: (saved) => {
-        this.rules.set(saved.rules);
-        this.notify.success('Uloženo.');
-      },
-      error: (err) => this.notify.actionFailed('setVisibility failed', err),
-    });
+    this.mySchoolApi
+      .setVisibility({
+        rules,
+        studentPhotos: this.studentPhotos,
+        parentPhotos: this.parentPhotos,
+      })
+      .subscribe({
+        next: (saved) => {
+          this.load(saved);
+          this.notify.success('Uloženo.');
+        },
+        error: (err) => this.notify.actionFailed('setVisibility failed', err),
+      });
+  }
+
+  private load(settings: VisibilityRules): void {
+    this.rules.set(settings.rules);
+    this.studentPhotos = settings.studentPhotos;
+    this.parentPhotos = settings.parentPhotos;
   }
 }

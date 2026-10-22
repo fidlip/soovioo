@@ -24,6 +24,16 @@ public class MessageAttachmentStorageService(IWebHostEnvironment env)
         return Path.Combine(schoolId.ToString(), storedName);
     }
 
+    /// <summary>Content generated on the server (profile photos, see
+    /// People.PhotoStorage) under a name the caller picks.</summary>
+    public async Task<string> SaveBytesAsync(int schoolId, string fileName, byte[] content)
+    {
+        var schoolDir = Path.Combine(RootPath, schoolId.ToString());
+        Directory.CreateDirectory(schoolDir);
+        await File.WriteAllBytesAsync(Path.Combine(schoolDir, fileName), content);
+        return Path.Combine(schoolId.ToString(), fileName);
+    }
+
     public string GetFullPath(string relativePath) => Path.Combine(RootPath, relativePath);
 
     public void Delete(string relativePath)

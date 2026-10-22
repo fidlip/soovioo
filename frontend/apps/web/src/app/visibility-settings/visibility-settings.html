@@ -5,6 +5,41 @@
   /></ng-template>
   @if (rules()) {
   <div class="flex flex-col gap-6">
+    <section class="flex flex-col gap-3">
+      <h3 class="m-0 text-base font-semibold">Fotky</h3>
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          inputId="vis-student-photos"
+          [(ngModel)]="studentPhotos"
+        />
+        <label
+          for="vis-student-photos"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ 'Fotky žáků' | term }}</label
+        ><app-info-hint
+          [text]="
+            'Jen se souhlasem zákonného zástupce. Fotku nahraje škola, nebo žák sám a rodič ji schválí. Učitelé a vedení ji vidí vždy, spolužáci a rodiče podle řádků Fotka níže.'
+              | term
+          "
+        />
+      </div>
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          inputId="vis-parent-photos"
+          [(ngModel)]="parentPhotos"
+        />
+        <label
+          for="vis-parent-photos"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >Fotky rodičů</label
+        ><app-info-hint
+          text="Dobrovolné, rodiče si je nahrávají sami. Vedení a učitelé jejich dětí je vidí vždy (např. kvůli ověření osoby při vyzvedávání dítěte), ostatní rodiče podle řádku Fotka níže."
+        />
+      </div>
+      <p class="m-0 text-sm text-surface-500">
+        Fotky zaměstnanců jsou zapnuté vždy, kolegové se navzájem vidí.
+      </p>
+    </section>
     @for (g of groups(); track g.owner) {
     <section class="flex flex-col gap-2">
       <h3 class="m-0 text-base font-semibold">Údaje: {{ g.label | term }}</h3>

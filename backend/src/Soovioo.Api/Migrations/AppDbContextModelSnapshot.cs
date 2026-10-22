@@ -662,6 +662,9 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("ParentPhotos")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Phone")
                         .HasColumnType("text");
 
@@ -677,6 +680,9 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<string>("Street")
                         .HasColumnType("text");
+
+                    b.Property<bool>("StudentPhotos")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
@@ -702,11 +708,13 @@ namespace Soovioo.Api.Migrations
                             IsDemo = false,
                             Izo = "308000048",
                             Name = "Testovací škola",
+                            ParentPhotos = false,
                             Phone = "+420 123 456 789",
                             PostalCode = "110 00",
                             RedIzo = "700000089",
                             Slug = "skola",
                             Street = "Školní 8",
+                            StudentPhotos = false,
                             Type = 0
                         });
                 });
@@ -798,6 +806,18 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("MunicipalityCode")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("PhotoConsentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PhotoConsentGivenBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhotoKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhotoStatus")
                         .HasColumnType("text");
 
                     b.Property<string>("PostalCode")
@@ -1446,6 +1466,9 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhotoKey")
                         .HasColumnType("text");
 
                     b.Property<int?>("SchoolId")

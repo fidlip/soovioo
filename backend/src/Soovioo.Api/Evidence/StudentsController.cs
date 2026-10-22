@@ -14,7 +14,7 @@ namespace Soovioo.Api.Evidence;
 public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents()
+    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents([FromServices] People.PhotoAccess? photoAccess = null)
     {
         var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
 
@@ -37,6 +37,12 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail, s.DefaultVariableSymbol))
             .ToListAsync();
 
+        if (photoAccess is not null)
+        {
+            var withPhoto = await query.Where(s => s.PhotoKey != null).ToListAsync();
+            var photos = await photoAccess.VisibleStudentPhotosAsync(User, withPhoto);
+            students = students.Select(s => s with { Photo = photos.GetValueOrDefault(s.Id) }).ToList();
+        }
         return Ok(students);
     }
 
@@ -156,7 +162,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// before calling this.</summary>
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Teacher,Admin")]
-    public async Task<IActionResult> DeleteStudent(int id)
+    public async Task<IActionResult> DeleteStudent(int id, [FromServices] People.PhotoStorage? photos = null)
     {
         var student = await db.Students.FindAsync(id);
         if (student is null)
@@ -187,6 +193,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         }
         db.Students.Remove(student);
         await db.SaveChangesAsync();
+        photos?.Delete(student.PhotoKey);
         return NoContent();
     }
 
@@ -257,4 +264,5 @@ public record StudentDto(
     DateOnly? EnrollmentDate,
     string? ContactPhone,
     string? ContactEmail,
-    string? DefaultVariableSymbol);
+    string? DefaultVariableSymbol,
+    string? Photo = null);

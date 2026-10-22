@@ -1,0 +1,93 @@
+@let s = state();
+<div class="flex flex-col gap-3">
+  @if (!s.photosEnabled) {
+  <p class="m-0 text-sm text-surface-500">
+    {{ 'Škola fotky žáků zatím nemá zapnuté.' | term }}
+  </p>
+  } @else {
+  <div class="text-sm text-surface-700 dark:text-surface-200">
+    @if (s.consentAt) {
+    <i class="pi pi-check-circle mr-1 text-green-600" aria-hidden="true"></i>
+    Souhlas s fotkou dal(a) {{ s.consentGivenBy }}, {{ s.consentAt | date: 'd.
+    M. yyyy' }}. } @else {
+    <i class="pi pi-info-circle mr-1" aria-hidden="true"></i>
+    {{ 'Bez souhlasu zákonného zástupce nemůže mít žák fotku.' | term }} }
+  </div>
+
+  @if (s.consentAt) {
+  <div class="flex flex-wrap items-center gap-3">
+    <app-photo-editor
+      [name]="s.name"
+      [photoUrl]="photoUrl()"
+      [canUpload]="s.canUpload"
+      [canDelete]="s.canDelete"
+      (upload)="upload($event)"
+      (remove)="remove()"
+    />
+    @if (s.status === 'Pending') {
+    <p-tag value="Čeká na schválení" severity="warn" />
+    }
+  </div>
+  @if (s.canApprove) {
+  <div class="flex flex-wrap gap-2">
+    <p-button
+      label="Schválit"
+      icon="pi pi-check"
+      size="small"
+      (onClick)="approve()"
+    />
+    <p-button
+      label="Zamítnout"
+      icon="pi pi-times"
+      size="small"
+      severity="danger"
+      [outlined]="true"
+      (onClick)="reject()"
+    />
+  </div>
+  } } @if (s.canManageConsent) { @if (s.consentAt) {
+  <p-button
+    label="Odvolat souhlas (smaže fotku)"
+    size="small"
+    severity="secondary"
+    [text]="true"
+    styleClass="self-start"
+    (onClick)="revokeConsent()"
+  />
+  } @else if (s.consentNeedsName) {
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="giveConsent()">
+    <div class="flex flex-col gap-1.5">
+      <label
+        [for]="'consent-' + s.studentId"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Souhlas dal(a) (zákonný zástupce)</label
+      >
+      <input
+        pInputText
+        [id]="'consent-' + s.studentId"
+        name="consentGivenBy"
+        [(ngModel)]="consentGivenBy"
+        required
+      />
+    </div>
+    <p-button
+      type="submit"
+      label="Zaznamenat souhlas"
+      size="small"
+      [disabled]="!consentGivenBy.trim()"
+    />
+  </form>
+  } @else {
+  <p class="m-0 text-xs text-surface-500">
+    Fotku uvidí jen učitelé a vedení školy, vy a vaše dítě. Slouží jen k
+    zobrazení v aplikaci, souhlas můžete kdykoli odvolat a fotka se tím smaže.
+  </p>
+  <p-button
+    label="Souhlasím s fotkou svého dítěte"
+    icon="pi pi-check"
+    size="small"
+    styleClass="self-start"
+    (onClick)="giveConsent()"
+  />
+  } } }
+</div>

@@ -31,6 +31,10 @@ export interface VisibilityRule {
 
 export interface VisibilityRules {
   rules: VisibilityRule[];
+  /** Pupils' photos are on at all (each still needs a guardian's consent). */
+  studentPhotos: boolean;
+  /** Parents may upload a photo of themselves. */
+  parentPhotos: boolean;
 }
 
 /** One of someone's settings as offered next to their data. */

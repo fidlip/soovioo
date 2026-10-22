@@ -5,10 +5,15 @@ import { Select } from '@openng/optimus-ui/select';
 import {
   ClassDirectory,
   ClassDirectoryApiService,
+  Classmate,
+  DirectoryParent,
+  DirectoryTeacher,
+  PhotosApiService,
   Student,
   StudentsApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 
 /** "Třída" for parents and pupils: the class's teachers and — as far as
@@ -16,12 +21,13 @@ import { TermPipe } from '../term.pipe';
  * list and the other parents. Sections the API leaves out aren't shown. */
 @Component({
   selector: 'app-class-page',
-  imports: [FormsModule, Card, Select, AppIcon, TermPipe],
+  imports: [FormsModule, Card, Select, AppIcon, Avatar, TermPipe],
   templateUrl: './class-page.html',
 })
 export class ClassPage {
   private readonly classDirectoryApi = inject(ClassDirectoryApiService);
   private readonly studentsApi = inject(StudentsApiService);
+  private readonly photosApi = inject(PhotosApiService);
 
   /** A parent's children (a pupil: just themselves) — the picker shows
    * only with more than one. */
@@ -65,5 +71,23 @@ export class ClassPage {
         this.loaded.set(true);
       },
     });
+  }
+
+  protected teacherPhotoUrl(teacher: DirectoryTeacher): string | null {
+    return teacher.photo
+      ? this.photosApi.userPhotoUrl(teacher.userId, teacher.photo)
+      : null;
+  }
+
+  protected classmatePhotoUrl(classmate: Classmate): string | null {
+    return classmate.photo
+      ? this.photosApi.studentPhotoUrl(classmate.studentId, classmate.photo)
+      : null;
+  }
+
+  protected parentPhotoUrl(parent: DirectoryParent): string | null {
+    return parent.photo && parent.userId
+      ? this.photosApi.userPhotoUrl(parent.userId, parent.photo)
+      : null;
   }
 }

@@ -40,6 +40,7 @@ import {
   MatrikaApiService,
   Municipality,
   MySchoolApiService,
+  PhotosApiService,
   Parent as ParentUser,
   ParentsApiService,
   ParentStudentLink,
@@ -112,12 +113,20 @@ import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
+import { Avatar } from '../avatar/avatar';
+import {
+  StudentPhotoDialog,
+  UserPhotoDialog,
+} from '../photo-dialogs/photo-dialogs';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
 @Component({
   selector: 'app-admin-page',
   imports: [
     PeriodsEditor,
     VisibilitySettings,
+    Avatar,
+    StudentPhotoDialog,
+    UserPhotoDialog,
     ...FORM_FIELDS,
     Checkbox,
     InfoHint,
@@ -160,6 +169,7 @@ export class AdminPage {
   private readonly parentsApi = inject(ParentsApiService);
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
   private readonly mySchoolApi = inject(MySchoolApiService);
+  private readonly photosApi = inject(PhotosApiService);
   private readonly matrikaApi = inject(MatrikaApiService);
   private readonly referenceApi = inject(ReferenceApiService);
 
@@ -182,6 +192,9 @@ export class AdminPage {
     this.classrooms().map((c) => ({ id: c.id, label: c.name })),
   );
   protected readonly users = signal<AppUser[]>([]);
+  /** Photo dialogs (see photo-dialogs.ts) — open while set. */
+  protected readonly photoStudentId = signal<number | null>(null);
+  protected readonly photoUser = signal<AppUser | null>(null);
   protected readonly parents = signal<ParentUser[]>([]);
   protected readonly links = signal<ParentStudentLink[]>([]);
   protected readonly countries = signal<Country[]>([]);
@@ -549,6 +562,43 @@ export class AdminPage {
       .filter((c) => c.classTeacherId === teacherId)
       .map((c) => c.name)
       .join(', ');
+  }
+
+  protected studentPhotoUrl(student: Student): string | null {
+    return student.photo
+      ? this.photosApi.studentPhotoUrl(student.id, student.photo)
+      : null;
+  }
+
+  protected userPhotoUrl(user: AppUser): string | null {
+    return user.photo ? this.photosApi.userPhotoUrl(user.id, user.photo) : null;
+  }
+
+  /** Staff photos are the admin's to set; parents set their own. */
+  protected isStaffUser(user: AppUser): boolean {
+    return user.roles.includes('Teacher') || user.roles.includes('Admin');
+  }
+
+  protected studentPhotoChanged(change: {
+    studentId: number;
+    photo: string | null;
+  }): void {
+    this.students.update((all) =>
+      all.map((s) =>
+        s.id === change.studentId ? { ...s, photo: change.photo } : s,
+      ),
+    );
+  }
+
+  protected userPhotoChanged(change: {
+    userId: number;
+    photo: string | null;
+  }): void {
+    this.users.update((all) =>
+      all.map((u) =>
+        u.id === change.userId ? { ...u, photo: change.photo } : u,
+      ),
+    );
   }
 
   protected roleLabel(role: string): string {

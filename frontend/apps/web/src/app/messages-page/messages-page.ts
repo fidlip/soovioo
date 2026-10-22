@@ -26,12 +26,14 @@ import {
   Message,
   MessageAttachment,
   MessagesApiService,
+  PhotosApiService,
   SchoolClass,
   Student,
   StudentsApiService,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { UnreadMessagesService } from '../unread-messages.service';
 import { FilePicker } from '../file-picker/file-picker';
@@ -94,6 +96,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
   selector: 'app-messages-page',
   imports: [
     ...FORM_FIELDS,
+    Avatar,
     FilePicker,
     Checkbox,
     TermPipe,
@@ -113,6 +116,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 export class MessagesPage {
   protected readonly notify = inject(NotifyService);
   private readonly messagesApi = inject(MessagesApiService);
+  private readonly photosApi = inject(PhotosApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
   private readonly unread = inject(UnreadMessagesService);
@@ -439,6 +443,20 @@ export class MessagesPage {
       },
       error: (err) => this.notify.actionFailed('deleteMessage failed', err),
     });
+  }
+
+  /** The sender's photo — participants carry it only where the caller
+   * may see it. */
+  protected senderPhotoUrl(
+    conversation: Conversation,
+    message: Message,
+  ): string | null {
+    const sender = conversation.participants.find(
+      (p) => p.userId === message.senderUserId,
+    );
+    return sender?.photo
+      ? this.photosApi.userPhotoUrl(sender.userId, sender.photo)
+      : null;
   }
 
   protected isMine(message: Message): boolean {

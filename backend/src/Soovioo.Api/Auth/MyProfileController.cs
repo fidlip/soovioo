@@ -27,7 +27,7 @@ public class MyProfileController(
     public async Task<ActionResult<MyProfileDto>> GetProfile()
     {
         var user = await CurrentUserAsync();
-        return Ok(ToDto(user));
+        return Ok(await ToDtoAsync(user));
     }
 
     [HttpPut]
@@ -38,7 +38,7 @@ public class MyProfileController(
         person.Phone = request.Phone;
         person.Email = request.Email;
         await db.SaveChangesAsync();
-        return Ok(ToDto(user));
+        return Ok(await ToDtoAsync(user));
     }
 
     /// <summary>Returns a freshly signed token, not 204 — the caller may be
@@ -160,11 +160,26 @@ public class MyProfileController(
         return await db.Users.Include(u => u.Person).FirstAsync(u => u.Id == userId);
     }
 
-    private static MyProfileDto ToDto(User user) =>
-        new(user.Username, PersonNames.Display(user), user.Role.ToString(), user.Person?.Phone, user.Person?.Email);
+    /// <summary>Staff may always have a photo, parents where the school
+    /// has parents' photos on (pupils' photos are per <see cref="Evidence.Student"/>,
+    /// see <see cref="PhotosController"/>).</summary>
+    private async Task<MyProfileDto> ToDtoAsync(User user)
+    {
+        var canUploadPhoto = PhotoAccess.IsStaff(user);
+        if (!canUploadPhoto && user.Roles.Contains(UserRole.Parent) && user.SchoolId is { } schoolId)
+        {
+            canUploadPhoto = await db.Schools.AnyAsync(s =>
+                s.Id == schoolId && s.ParentPhotos);
+        }
+        return new(user.Id, user.Username, PersonNames.Display(user), user.Role.ToString(), user.Person?.Phone, user.Person?.Email,
+            PhotoStorage.Token(user.Person?.PhotoKey), canUploadPhoto);
+    }
 }
 
-public record MyProfileDto(string Username, string Name, string Role, string? Phone, string? Email);
+/// <param name="Photo">Token for the own photo's URL, null = no photo.</param>
+/// <param name="CanUploadPhoto">Whether the account may have a photo at all.</param>
+public record MyProfileDto(
+    int Id, string Username, string Name, string Role, string? Phone, string? Email, string? Photo, bool CanUploadPhoto);
 
 public record SwitchRoleRequest(string Role);
 
