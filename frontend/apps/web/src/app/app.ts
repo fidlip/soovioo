@@ -61,6 +61,8 @@ interface NavItem {
   staffOnly?: boolean;
   /** Logy — school admins only. */
   adminOnly?: boolean;
+  /** Třída — parents and pupils only (staff have Administrace). */
+  familyOnly?: boolean;
 }
 
 @Component({
@@ -258,6 +260,7 @@ export class App {
       { label: 'Domácí úkoly', icon: 'homework', link: link('homework') },
       { label: 'Chování', icon: 'behavior', link: link('behavior') },
       { label: 'Platby', icon: 'payments', link: link('payments') },
+      { label: 'Třída', icon: 'class', link: link('class'), familyOnly: true },
       {
         label: 'Administrace',
         icon: 'admin',
@@ -306,6 +309,10 @@ export class App {
    * teacher of something (restricted view) or not (same "jen pro ... "
    * denial as before), since that needs an async lookup this synchronous
    * nav check can't do. */
+  protected isParentOrStudent(): boolean {
+    return this.authApi.isParent() || this.authApi.isStudent();
+  }
+
   protected isTeacher(): boolean {
     return this.authApi.isTeacher();
   }

@@ -214,6 +214,7 @@
     <p-tab value="teachers">Učitelé</p-tab>
     <p-tab value="parents">Rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
+    <p-tab value="visibility">Viditelnost údajů</p-tab>
   </p-tablist>
   <p-tabpanels>
     <p-tabpanel value="classes">
@@ -923,6 +924,12 @@
           </p-card>
         </div>
       </ng-template>
+    </p-tabpanel>
+
+    <p-tabpanel value="visibility">
+      <div class="flex flex-col gap-6 pt-4">
+        <app-visibility-settings />
+      </div>
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

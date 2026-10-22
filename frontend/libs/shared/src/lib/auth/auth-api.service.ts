@@ -250,6 +250,11 @@ export class AuthApiService {
     return this.getRole() === 'SuperAdmin';
   }
 
+  /** True for Parent. */
+  isParent(): boolean {
+    return this.getRole() === 'Parent';
+  }
+
   /** True for Student — a student logging in for themselves. Read-only,
    * same agendas as Parent, but unlike Parent never allowed to submit their
    * own excuse (see `AbsencesController.SubmitExcuse` on the backend). */

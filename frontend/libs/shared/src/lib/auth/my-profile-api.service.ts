@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
+import { Privacy } from '../people/visibility.model';
 import { AuthApiService } from './auth-api.service';
 import { TokenStorage } from './token-storage';
 import {
@@ -24,6 +25,17 @@ export class MyProfileApiService {
 
   updateProfile(request: UpdateMyProfileRequest): Observable<MyProfile> {
     return this.http.put<MyProfile>(`${this.baseUrl}/api/users/me`, request);
+  }
+
+  getPrivacy(): Observable<Privacy> {
+    return this.http.get<Privacy>(`${this.baseUrl}/api/users/me/privacy`);
+  }
+
+  updatePrivacy(request: Privacy): Observable<Privacy> {
+    return this.http.put<Privacy>(
+      `${this.baseUrl}/api/users/me/privacy`,
+      request,
+    );
   }
 
   /** The response carries a freshly signed token — the one the caller is

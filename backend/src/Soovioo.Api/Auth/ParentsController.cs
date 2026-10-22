@@ -6,13 +6,14 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Auth;
 
-/// <summary>Minimal, name-only Parent list for pickers (e.g. the parent↔student
-/// link form) that any authenticated school member needs — same pattern as
+/// <summary>Minimal, name-only Parent list for staff pickers (e.g. the
+/// parent↔student link form) — same pattern as
 /// <see cref="TeachersController"/>, unlike the full <see cref="UsersController"/>
 /// (Admin-only — exposes phone/email). Lets a class teacher's restricted
 /// Administrace view pick a parent to link without granting them the full
-/// user list.</summary>
-[Authorize]
+/// user list. Not for parents and pupils: who the other parents are is the
+/// school's call ("Viditelnost údajů", see <see cref="People.ClassDirectoryController"/>).</summary>
+[Authorize(Roles = "Teacher,Admin")]
 [ApiController]
 [Route("api/parents")]
 public class ParentsController(AppDbContext db) : ControllerBase

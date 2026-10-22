@@ -59,7 +59,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("Absences", (string)null);
+                    b.ToTable("Absences");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Audit.AuditLogEntry", b =>
@@ -137,7 +137,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("UserId", "At");
 
-                    b.ToTable("AuditLogEntries", (string)null);
+                    b.ToTable("AuditLogEntries");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>
@@ -182,7 +182,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.User", b =>
@@ -236,7 +236,7 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("SchoolId", "Username")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Behavior.BehaviorClassification", b =>
@@ -265,7 +265,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("StudentId", "SchoolYearStartYear", "HalfYear");
 
-                    b.ToTable("BehaviorClassifications", (string)null);
+                    b.ToTable("BehaviorClassifications");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Behavior.BehaviorRecord", b =>
@@ -308,7 +308,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("BehaviorRecords", (string)null);
+                    b.ToTable("BehaviorRecords");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Demo.DemoContact", b =>
@@ -350,7 +350,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("DemoContacts", (string)null);
+                    b.ToTable("DemoContacts");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Demo.DemoEmail", b =>
@@ -383,7 +383,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("DemoEmails", (string)null);
+                    b.ToTable("DemoEmails");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Demo.DemoFeedback", b =>
@@ -423,7 +423,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("CreatedAt");
 
-                    b.ToTable("DemoFeedback", (string)null);
+                    b.ToTable("DemoFeedback");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.Event", b =>
@@ -471,7 +471,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Events", (string)null);
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.EventParent", b =>
@@ -491,7 +491,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("EventParents", (string)null);
+                    b.ToTable("EventParents");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.EventSchoolClass", b =>
@@ -511,7 +511,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("EventSchoolClasses", (string)null);
+                    b.ToTable("EventSchoolClasses");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.EventStudent", b =>
@@ -531,7 +531,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("EventStudents", (string)null);
+                    b.ToTable("EventStudents");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.EventTeacher", b =>
@@ -551,7 +551,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("EventTeachers", (string)null);
+                    b.ToTable("EventTeachers");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Evidence.Classroom", b =>
@@ -582,7 +582,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Classrooms", (string)null);
+                    b.ToTable("Classrooms");
 
                     b.HasData(
                         new
@@ -620,7 +620,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("ParentStudents", (string)null);
+                    b.ToTable("ParentStudents");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Evidence.School", b =>
@@ -662,6 +662,9 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("OptOutAllowed")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Phone")
                         .HasColumnType("text");
 
@@ -670,6 +673,9 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<string>("RedIzo")
                         .HasColumnType("text");
+
+                    b.Property<int>("SharedData")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -689,7 +695,7 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Schools", (string)null);
+                    b.ToTable("Schools");
 
                     b.HasData(
                         new
@@ -702,9 +708,11 @@ namespace Soovioo.Api.Migrations
                             IsDemo = false,
                             Izo = "308000048",
                             Name = "Testovací škola",
+                            OptOutAllowed = 0,
                             Phone = "+420 123 456 789",
                             PostalCode = "110 00",
                             RedIzo = "700000089",
+                            SharedData = 0,
                             Slug = "skola",
                             Street = "Školní 8",
                             Type = 0
@@ -741,7 +749,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("SchoolClasses", (string)null);
+                    b.ToTable("SchoolClasses");
 
                     b.HasData(
                         new
@@ -793,6 +801,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("Gender")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("HiddenFromClassmates")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -831,7 +842,7 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Students", (string)null);
+                    b.ToTable("Students");
 
                     b.HasData(
                         new
@@ -845,6 +856,7 @@ namespace Soovioo.Api.Migrations
                             EnrollmentDate = new DateOnly(2020, 9, 1),
                             FirstName = "Jan",
                             Gender = 0,
+                            HiddenFromClassmates = false,
                             LastName = "Novák",
                             PostalCode = "110 00",
                             SchoolClassId = 1,
@@ -883,7 +895,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Subjects", (string)null);
+                    b.ToTable("Subjects");
 
                     b.HasData(
                         new
@@ -949,7 +961,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("Grades", (string)null);
+                    b.ToTable("Grades");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Homework.Homework", b =>
@@ -994,7 +1006,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("Homework", (string)null);
+                    b.ToTable("Homework");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Homework.HomeworkAttachment", b =>
@@ -1030,7 +1042,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("HomeworkId");
 
-                    b.ToTable("HomeworkAttachments", (string)null);
+                    b.ToTable("HomeworkAttachments");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Homework.HomeworkCompletion", b =>
@@ -1051,7 +1063,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("HomeworkCompletions", (string)null);
+                    b.ToTable("HomeworkCompletions");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Homework.HomeworkStudent", b =>
@@ -1069,7 +1081,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("HomeworkStudents", (string)null);
+                    b.ToTable("HomeworkStudents");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.Conversation", b =>
@@ -1112,7 +1124,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("Conversations", (string)null);
+                    b.ToTable("Conversations");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.ConversationParticipant", b =>
@@ -1133,7 +1145,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ConversationParticipants", (string)null);
+                    b.ToTable("ConversationParticipants");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.Message", b =>
@@ -1172,7 +1184,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SenderUserId");
 
-                    b.ToTable("Messages", (string)null);
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.MessageAttachment", b =>
@@ -1208,7 +1220,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("MessageAttachments", (string)null);
+                    b.ToTable("MessageAttachments");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Messaging.MessageBroadcast", b =>
@@ -1253,7 +1265,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SenderUserId");
 
-                    b.ToTable("MessageBroadcasts", (string)null);
+                    b.ToTable("MessageBroadcasts");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.Payment", b =>
@@ -1304,7 +1316,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Payments", (string)null);
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.PaymentParent", b =>
@@ -1324,7 +1336,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("PaymentParents", (string)null);
+                    b.ToTable("PaymentParents");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.PaymentRecipient", b =>
@@ -1370,7 +1382,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("PaymentRecipients", (string)null);
+                    b.ToTable("PaymentRecipients");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.PaymentSchoolClass", b =>
@@ -1390,7 +1402,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("PaymentSchoolClasses", (string)null);
+                    b.ToTable("PaymentSchoolClasses");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.PaymentStudent", b =>
@@ -1410,7 +1422,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
-                    b.ToTable("PaymentStudents", (string)null);
+                    b.ToTable("PaymentStudents");
                 });
 
             modelBuilder.Entity("Soovioo.Api.People.ParentProfile", b =>
@@ -1423,7 +1435,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("PersonId");
 
-                    b.ToTable("ParentProfiles", (string)null);
+                    b.ToTable("ParentProfiles");
                 });
 
             modelBuilder.Entity("Soovioo.Api.People.Person", b =>
@@ -1440,6 +1452,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("HiddenData")
+                        .HasColumnType("integer");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -1461,7 +1476,7 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Persons", (string)null);
+                    b.ToTable("Persons");
                 });
 
             modelBuilder.Entity("Soovioo.Api.People.TeacherProfile", b =>
@@ -1477,7 +1492,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("PersonId");
 
-                    b.ToTable("TeacherProfiles", (string)null);
+                    b.ToTable("TeacherProfiles");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Reference.Country", b =>
@@ -1491,7 +1506,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("Countries", (string)null);
+                    b.ToTable("Countries");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Reference.District", b =>
@@ -1505,7 +1520,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("Districts", (string)null);
+                    b.ToTable("Districts");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Reference.Municipality", b =>
@@ -1525,7 +1540,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("DistrictCode");
 
-                    b.ToTable("Municipalities", (string)null);
+                    b.ToTable("Municipalities");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
@@ -1570,7 +1585,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SuperAdminUserId");
 
-                    b.ToTable("SupportSessions", (string)null);
+                    b.ToTable("SupportSessions");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
@@ -1598,7 +1613,7 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("SchoolId", "PeriodNumber")
                         .IsUnique();
 
-                    b.ToTable("SchoolPeriods", (string)null);
+                    b.ToTable("SchoolPeriods");
 
                     b.HasData(
                         new
@@ -1695,7 +1710,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("TeacherId");
 
-                    b.ToTable("TimetableEntries", (string)null);
+                    b.ToTable("TimetableEntries");
 
                     b.HasData(
                         new

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Evidence;
 
@@ -111,6 +112,52 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
+
+    /// <summary>"Viditelnost údajů" — what the school shares with parents
+    /// and pupils, see <see cref="Visibility"/>.</summary>
+    [HttpGet("visibility")]
+    public async Task<ActionResult<VisibilitySettingsDto>> GetVisibility()
+    {
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(ToVisibilityDto(school));
+    }
+
+    [HttpPut("visibility")]
+    public async Task<ActionResult<VisibilitySettingsDto>> SetVisibility(VisibilitySettingsDto request)
+    {
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        var shared = Visibility.FromNames(request.Shared);
+        var optOut = Visibility.FromNames(request.OptOutAllowed);
+        if (shared is null || optOut is null)
+        {
+            return BadRequest("Neznámá volba viditelnosti.");
+        }
+
+        school.SharedData = shared.Value;
+        // Opting out of something the school doesn't share is moot, and a
+        // pupil's photo hangs on consent, not on an opt-out.
+        school.OptOutAllowed = optOut.Value & shared.Value & Visibility.OptOutCapable;
+        await db.SaveChangesAsync();
+
+        return Ok(ToVisibilityDto(school));
+    }
+
+    private static VisibilitySettingsDto ToVisibilityDto(School school) =>
+        new(Visibility.ToNames(school.SharedData), Visibility.ToNames(school.OptOutAllowed));
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
+
+/// <param name="Shared"><see cref="VisibilityOption"/> names the school shares.</param>
+/// <param name="OptOutAllowed">Those of them individuals may hide for themselves.</param>
+public record VisibilitySettingsDto(IReadOnlyList<string> Shared, IReadOnlyList<string> OptOutAllowed);

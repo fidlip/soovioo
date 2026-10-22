@@ -5,6 +5,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Demo;
 
@@ -73,6 +74,9 @@ public class DemoSchoolService(
             Slug = slug,
             Type = request.Type,
             IsDemo = true,
+            // A demo shows everything the system can do.
+            SharedData = Visibility.All,
+            OptOutAllowed = Visibility.OptOutCapable,
             CreatedAt = now,
             ExpiresAt = now.AddDays(options.Value.LifetimeDays),
         };

@@ -84,7 +84,8 @@
       ><app-icon name="logs" /><span class="app-nav-label">Logy</span></a
     >
     } @else { @for (item of navItems(); track item.icon) { @if (item.adminOnly ?
-    isAdmin() : !item.staffOnly || isAdmin() || isTeacher()) {
+    isAdmin() : item.familyOnly ? isParentOrStudent() : !item.staffOnly ||
+    isAdmin() || isTeacher()) {
     <a
       [routerLink]="item.link"
       routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"

@@ -1,0 +1,47 @@
+<p-card>
+  <ng-template #title
+    >Co škola sdílí s rodiči a {{ 'žáky' | term }}<app-info-hint
+      text="Učitelé a vedení vidí všechno. Rodičům a žákům se zobrazí jen to, co tady zapnete — údaje, které nesdílíte, aplikace vůbec neodešle."
+  /></ng-template>
+  @if (settings()) {
+  <div class="flex flex-col gap-4">
+    @for (o of options; track o.option) {
+    <div
+      class="flex flex-col gap-2 border-b border-surface-200 pb-4 last:border-b-0 last:pb-0 dark:border-surface-700"
+    >
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          [inputId]="'share-' + o.option"
+          [ngModel]="isShared(o.option)"
+          (ngModelChange)="setShared(o.option, $event)"
+        />
+        <label
+          [for]="'share-' + o.option"
+          class="font-medium text-surface-700 dark:text-surface-200"
+          >{{ o.label | term }}</label
+        >
+      </div>
+      <p class="m-0 text-sm text-surface-500">{{ o.hint | term }}</p>
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          [inputId]="'optout-' + o.option"
+          [binary]="true"
+          [disabled]="!isShared(o.option)"
+          [ngModel]="isOptOutAllowed(o.option)"
+          (ngModelChange)="setOptOutAllowed(o.option, $event)"
+        />
+        <label
+          [for]="'optout-' + o.option"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          [class.opacity-50]="!isShared(o.option)"
+          >Své údaje si mohou skrýt {{ o.whoCanHide | term }} (v Nastavení)</label
+        >
+      </div>
+    </div>
+    }
+    <p-button label="Uložit" (onClick)="save()" styleClass="self-start" />
+  </div>
+  } @else {
+  <p class="m-0 text-sm text-surface-500">Načítání…</p>
+  }
+</p-card>
