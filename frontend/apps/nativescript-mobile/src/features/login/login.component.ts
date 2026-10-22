@@ -34,7 +34,11 @@ export class LoginComponent {
         schoolSlug: this.schoolSlug.trim() || undefined,
       })
       .subscribe({
-        next: () => this.router.navigate(['/grades'], { clearHistory: true }),
+        next: () =>
+          this.router.navigate(
+            this.authApi.mustChangePassword() ? ['/settings'] : ['/grades'],
+            { clearHistory: true },
+          ),
         error: () => this.error.set('Neplatné přihlašovací údaje.'),
       });
   }

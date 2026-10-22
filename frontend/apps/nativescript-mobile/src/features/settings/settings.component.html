@@ -1,0 +1,62 @@
+<ActionBar title="Soovioo — Nastavení"></ActionBar>
+
+<GridLayout rows="auto, *">
+  <ns-nav-bar row="0"></ns-nav-bar>
+
+  <ScrollView row="1">
+    <StackLayout class="p-4">
+      @if (wasForcedPasswordChange) {
+        <Label
+          text="Účet má heslo nastavené administrátorem. Než budete pokračovat, zvolte si vlastní."
+          textWrap="true"
+          class="error"
+        ></Label>
+      }
+
+      <Label text="Změna hesla" class="text-lg"></Label>
+      <TextField
+        hint="Současné heslo"
+        secure="true"
+        [(ngModel)]="currentPassword"
+      ></TextField>
+      <TextField
+        hint="Nové heslo"
+        secure="true"
+        [(ngModel)]="newPassword"
+      ></TextField>
+      <TextField
+        hint="Potvrzení nového hesla"
+        secure="true"
+        [(ngModel)]="confirmNewPassword"
+      ></TextField>
+      <Button text="Změnit heslo" (tap)="changePassword()"></Button>
+      @if (passwordError()) {
+        <Label [text]="passwordError()" textWrap="true" class="error"></Label>
+      }
+      @if (passwordMessage()) {
+        <Label [text]="passwordMessage()" textWrap="true"></Label>
+      }
+
+      @if (!wasForcedPasswordChange && profile(); as p) {
+        <Label text="Profil" class="text-lg"></Label>
+        <Label [text]="p.name + ' (' + p.username + ')'" textWrap="true"></Label>
+        <TextField
+          hint="Telefon"
+          keyboardType="phone"
+          [(ngModel)]="phone"
+        ></TextField>
+        <TextField
+          hint="E-mail"
+          keyboardType="email"
+          autocorrect="false"
+          autocapitalizationType="none"
+          [(ngModel)]="email"
+        ></TextField>
+        <Button text="Uložit profil" (tap)="saveProfile()"></Button>
+        @if (profileMessage()) {
+          <Label [text]="profileMessage()" textWrap="true"></Label>
+        }
+      }
+    </StackLayout>
+  </ScrollView>
+</GridLayout>
