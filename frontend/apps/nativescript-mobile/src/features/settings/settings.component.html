@@ -39,7 +39,10 @@
 
       @if (!wasForcedPasswordChange && profile(); as p) {
         <Label text="Profil" class="text-lg"></Label>
-        <Label [text]="p.name + ' (' + p.username + ')'" textWrap="true"></Label>
+        <Label
+          [text]="p.name + ' (' + p.username + ')'"
+          textWrap="true"
+        ></Label>
         <TextField
           hint="Telefon"
           keyboardType="phone"
