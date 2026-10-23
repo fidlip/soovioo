@@ -1,5 +1,9 @@
 import { inject } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivateFn, UrlTree } from '@angular/router';
+import {
+  ActivatedRouteSnapshot,
+  CanActivateFn,
+  UrlTree,
+} from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthApiService } from '@soovioo/shared';
 

@@ -12,7 +12,11 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'grades', component: HomeComponent, canActivate: [authGuard] },
   { path: 'absences', component: AbsencesComponent, canActivate: [authGuard] },
-  { path: 'timetable', component: TimetableComponent, canActivate: [authGuard] },
+  {
+    path: 'timetable',
+    component: TimetableComponent,
+    canActivate: [authGuard],
+  },
   { path: 'messages', component: MessagesComponent, canActivate: [authGuard] },
   { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
 ];
