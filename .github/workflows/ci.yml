@@ -63,6 +63,10 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # Browsers and their system libraries come with the image — installing
+    # the libraries from apt took 7–13 min whenever the mirror was slow. The
+    # tag must match @playwright/test in package-lock.json (checked below).
+    container: mcr.microsoft.com/playwright:v1.64.1-noble
     services:
       postgres:
         image: postgres:17-alpine
@@ -70,8 +74,6 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: soovioo
-        ports:
-          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -81,8 +83,19 @@ jobs:
       # CI-only placeholder — never a real secret, see Program.cs (it refuses
       # to start without one; appsettings.json deliberately has none).
       Jwt__SigningKey: ci-only-signing-key-this-is-not-a-real-secret-32chars
+      # Inside a job container the service is reached by its name.
+      ConnectionStrings__Default: Host=postgres;Database=soovioo;Username=postgres;Password=postgres
     steps:
       - uses: actions/checkout@v5
+
+      - name: Check the Playwright image matches the locked version
+        working-directory: frontend
+        run: |
+          locked=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+          if [ "$locked" != "1.64.1" ]; then
+            echo "::error::@playwright/test is $locked in package-lock.json, the e2e container image is v1.64.1 — update the image tag in ci.yml"
+            exit 1
+          fi
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -94,37 +107,18 @@ jobs:
         working-directory: backend/src/Soovioo.Api
         run: nohup dotnet run --urls http://0.0.0.0:5080 > /tmp/backend.log 2>&1 &
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
+      # Node 24 comes with the image.
       - id: node-modules
         uses: actions/cache@v4
         with:
           path: frontend/node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          key: node-modules-playwright-image-${{ hashFiles('frontend/package-lock.json') }}
       - if: steps.node-modules.outputs.cache-hit != 'true'
         working-directory: frontend
         run: npm ci
       - name: Start frontend
         working-directory: frontend
         run: nohup npx nx run web:serve --host 0.0.0.0 --port 4200 > /tmp/frontend.log 2>&1 &
-
-      # Browser binaries cached per Playwright version; the system libraries
-      # they need still come from apt every run.
-      - id: playwright-version
-        working-directory: frontend
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
-      - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        working-directory: frontend
-        run: npx playwright install-deps chromium
 
       - name: Wait for servers
         run: |
