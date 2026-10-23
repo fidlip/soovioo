@@ -34,7 +34,11 @@ test.describe.serial('payment for one student', () => {
 
     await page.getByRole('button', { name: 'Nová platba' }).click();
     const dialog = page.getByRole('dialog', { name: 'Nová platba' });
-    await dialog.getByPlaceholder('Název platby').fill(title);
+    // The dialog focuses its first field once its open animation ends; on a
+    // slow runner that came mid-typing and took the amount's last key.
+    const titleInput = dialog.getByPlaceholder('Název platby');
+    await expect(titleInput).toBeFocused();
+    await titleInput.fill(title);
     await dialog.locator('#amount').pressSequentially('150');
     await dialog.locator('p-select[name="audience"]').click();
     await page.getByRole('option', { name: 'Výběr', exact: true }).click();
