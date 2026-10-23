@@ -41,6 +41,9 @@ test.describe.serial('absence excuse workflow', () => {
 
     await page.getByRole('button', { name: 'Zapsat absenci' }).click();
     const dialog = page.getByRole('dialog', { name: 'Zapsat absenci' });
+    // Focused by the dialog once its open animation ends — wait for it, so
+    // it can't move focus away while the date is typed below.
+    await expect(dialog.locator('#absenceStudent')).toBeFocused();
     // The dialog preselects no student; Jan Novák is 5.A's demo student.
     await dialog.locator('#absenceStudent').click();
     await page.getByRole('option', { name: 'Jan Novák' }).click();
