@@ -10,7 +10,10 @@ async function login(
   await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/skola\/home$/);
-  await page.getByRole('link', { name: 'Zprávy', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Hlavní navigace' })
+    .getByRole('link', { name: 'Zprávy', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/skola\/messages$/);
   // The list opens filtered to unread conversations; a sender's own new
   // conversation is read, so look at all of them.
