@@ -139,6 +139,15 @@ jobs:
 
       - working-directory: frontend
         run: npx nx run web-e2e:e2e
+      # Traces of retried tests — a flaky test passes on retry, so not only
+      # on failure.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-output
+          path: frontend/dist/.playwright/apps/web-e2e/test-output
+          if-no-files-found: ignore
+          retention-days: 7
 
   images:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
