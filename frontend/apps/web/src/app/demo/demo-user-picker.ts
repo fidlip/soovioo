@@ -11,6 +11,7 @@ import {
   SchoolType,
   localizeStudentTerm,
 } from '@soovioo/shared';
+import { foldForSearch } from '../text-search';
 import { DemoActionsService } from './demo-actions.service';
 
 const ROLE_ORDER: DemoRole[] = ['Admin', 'Teacher', 'Parent', 'Student'];
@@ -67,11 +68,11 @@ export class DemoUserPicker implements OnInit {
   /** Long lists (hundreds of parents) are cut — the search finds the rest. */
   protected readonly filtered = computed(() => {
     const role = this.roleFilter();
-    const query = normalize(this.search().trim());
+    const query = foldForSearch(this.search().trim());
     const all = (this.users() ?? []).filter(
       (u) =>
         (!role || u.role === role) &&
-        (!query || normalize(`${u.name} ${u.detail}`).includes(query)),
+        (!query || foldForSearch(`${u.name} ${u.detail}`).includes(query)),
     );
     return { shown: all.slice(0, 60), total: all.length };
   });
@@ -104,11 +105,4 @@ export class DemoUserPicker implements OnInit {
       },
     });
   }
-}
-
-function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase();
 }

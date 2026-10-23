@@ -1,4 +1,4 @@
-import { foldForSearch, matchesContact } from './admin-page';
+import { foldForSearch, matchesContact } from './text-search';
 
 describe('foldForSearch', () => {
   it('drops diacritics and case', () => {
