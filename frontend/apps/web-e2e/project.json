@@ -5,5 +5,15 @@
   "sourceRoot": "apps/web-e2e/src",
   "implicitDependencies": ["web"],
   "// targets": "to see all targets run: nx show project web-e2e --web",
-  "targets": {}
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", { "externalDependencies": ["typescript"] }],
+      "options": {
+        "cwd": "apps/web-e2e",
+        "command": "tsc --noEmit -p tsconfig.json"
+      }
+    }
+  }
 }
