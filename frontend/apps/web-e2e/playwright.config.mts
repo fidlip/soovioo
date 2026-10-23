@@ -26,6 +26,9 @@ export default defineConfig({
   // The preset runs CI on a single worker; the tests don't depend on each
   // other (they pass locally on all cores), and GitHub's runner has 4 vCPUs.
   workers: process.env['CI'] ? 4 : undefined,
+  // Retries still run (and record traces), but a test that only passes on
+  // a retry fails the run instead of going unnoticed.
+  failOnFlakyTests: !!process.env['CI'],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL,
