@@ -5,7 +5,12 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
-import { DemoApiService, DemoContact, DemoFeedback } from '@soovioo/shared';
+import {
+  DemoApiService,
+  DemoContact,
+  DemoFeedback,
+  ROLE_LABELS,
+} from '@soovioo/shared';
 import { NotifyService } from '../notify.service';
 
 /** Správa škol → what the "Vyzkoušet" demos brought: contacts (CSV) and
@@ -21,6 +26,7 @@ export class DemoAdminPanel {
 
   protected readonly contacts = signal<DemoContact[]>([]);
   protected readonly feedback = signal<DemoFeedback[]>([]);
+  protected readonly roleLabels = ROLE_LABELS;
 
   constructor() {
     this.demoApi.contacts().subscribe({

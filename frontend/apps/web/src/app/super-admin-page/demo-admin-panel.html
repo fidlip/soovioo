@@ -80,7 +80,9 @@
           {{ stars(item.rating) }}
         </td>
         <td class="whitespace-pre-wrap">{{ item.text ?? '—' }}</td>
-        <td class="text-surface-500">{{ item.role ?? '—' }}</td>
+        <td class="text-surface-500">
+          {{ item.role ? (roleLabels[item.role] ?? item.role) : '—' }}
+        </td>
         <td class="text-surface-500">{{ item.email ?? '—' }}</td>
         <td class="text-surface-500">
           {{ item.createdAt | date: 'd.M.yyyy H:mm' }}
