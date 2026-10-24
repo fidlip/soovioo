@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Events;
@@ -29,7 +30,7 @@ public class EventsControllerTests
             new Claim(ClaimTypes.Role, role),
             new Claim(ClaimTypes.Name, "tester"),
         ]);
-        return new EventsController(db, new FakeCurrentSchoolContext(SchoolId))
+        return new EventsController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {

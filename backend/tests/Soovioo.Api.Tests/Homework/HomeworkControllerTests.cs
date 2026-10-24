@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.Timetable;
 using HomeworkEntity = Soovioo.Api.Homework.Homework;
 using Soovioo.Api.People;
@@ -29,7 +30,8 @@ public class HomeworkControllerTests
             new Claim(ClaimTypes.Name, username),
         ]);
         return new Soovioo.Api.Homework.HomeworkController(
-            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()))
+            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()),
+            new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
@@ -407,7 +409,7 @@ public class HomeworkControllerTests
         await db.SaveChangesAsync();
         var env = new FakeWebHostEnvironment();
         var controller = new Soovioo.Api.Homework.HomeworkController(
-            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(env))
+            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(env), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {

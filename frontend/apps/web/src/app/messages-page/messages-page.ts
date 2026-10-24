@@ -7,6 +7,8 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -36,6 +38,7 @@ import { AppIcon } from '../app-icon';
 import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { UnreadMessagesService } from '../unread-messages.service';
+import { UnreadNotificationsService } from '../notification-bell/unread-notifications.service';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
@@ -120,6 +123,7 @@ export class MessagesPage {
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
   private readonly unread = inject(UnreadMessagesService);
+  private readonly unreadNotifications = inject(UnreadNotificationsService);
   private readonly term = (text: string) =>
     localizeStudentTerm(text, this.authApi.getSchoolType());
 
@@ -200,6 +204,16 @@ export class MessagesPage {
 
   constructor() {
     this.reloadList();
+    // ?conversation= — opened from a notification.
+    inject(ActivatedRoute)
+      .queryParamMap.pipe(takeUntilDestroyed())
+      .subscribe((params) => {
+        const id = Number(params.get('conversation'));
+        if (id) {
+          this.selectedBroadcast.set(null);
+          this.open({ id, unread: true } as ConversationSummary);
+        }
+      });
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
@@ -278,6 +292,7 @@ export class MessagesPage {
                   : b,
               );
               this.unread.refresh();
+              this.unreadNotifications.refresh();
             },
             error: (err) => console.error('markRead failed', err),
           });

@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
+using Soovioo.Api.Notifications;
 
 namespace Soovioo.Api.Tests.Grades;
 
@@ -40,7 +41,7 @@ public class GradesControllerTests
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
 
-        var result = await new GradesController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
             .UpdateGrade(grade.Id, new CreateGradeRequest(student.Id, subject.Id, 1, 3, "opravena"));
 
         var dto = Assert.IsType<GradeDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -58,7 +59,7 @@ public class GradesControllerTests
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
 
-        var result = await new GradesController(db, new FakeCurrentSchoolContext(SchoolId)).DeleteGrade(grade.Id);
+        var result = await new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)).DeleteGrade(grade.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Grades.FindAsync(grade.Id));
@@ -69,7 +70,7 @@ public class GradesControllerTests
         var identity = new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimTypes.Role, nameof(UserRole.Teacher))],
             authenticationType: "Test");
-        return new GradesController(db, new FakeCurrentSchoolContext(SchoolId))
+        return new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {

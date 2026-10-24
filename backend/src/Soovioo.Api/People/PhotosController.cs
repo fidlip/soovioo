@@ -8,6 +8,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 
 namespace Soovioo.Api.People;
 
@@ -26,6 +27,7 @@ public class PhotosController(
     PhotoStorage photos,
     IEmailSender emailSender,
     IOptions<AppLinkOptions> appLinkOptions,
+    Notifier notifier,
     ILogger<PhotosController> logger) : ControllerBase
 {
     /// <summary>The token is the photo's version (see
@@ -371,11 +373,19 @@ public class PhotosController(
         return PhysicalFile(path, "image/webp");
     }
 
-    /// <summary>E-mail to the pupil's parents that a photo waits for them.
-    /// A failed send doesn't fail the upload — the pending photo also shows
-    /// in their Settings.</summary>
+    /// <summary>A notification and an e-mail to the pupil's parents that a
+    /// photo waits for them. A failed send doesn't fail the upload — the
+    /// pending photo also shows in Mé děti.</summary>
     private async Task NotifyParentsAsync(Student student)
     {
+        var parentIds = await db.ParentStudents.Where(ps => ps.StudentId == student.Id)
+            .ParentAccountLinks().Select(l => l.UserId).ToListAsync();
+        await notifier.NotifyAsync(
+            student.SchoolId, parentIds, NotificationType.Photo, "Fotka ke schválení",
+            $"{student.FirstName} {student.LastName} si nahrál(a) novou profilovou fotku.",
+            "my-children", student.Id, student.Id);
+        await db.SaveChangesAsync();
+
         var emails = await db.ParentStudents
             .Where(ps => ps.StudentId == student.Id && ps.ParentProfile!.Person!.Email != null)
             .Select(ps => ps.ParentProfile!.Person!.Email!)

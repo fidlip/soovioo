@@ -75,6 +75,44 @@ public static class EventVisibilityExtensions
                     e.Students.Any(s => myStudentIds.Contains(s.StudentId))))));
     }
 
+    /// <summary>Whom the event is addressed to (its notifications): Everyone =
+    /// every account of the school; Selected = the teachers and parents
+    /// picked, the picked classes' and pupils' own accounts and their
+    /// parents. Not the oversight exceptions above — those see it, but it
+    /// isn't for them.</summary>
+    public static async Task<List<int>> AudienceUserIdsAsync(this AppDbContext db, Event e)
+    {
+        switch (e.Audience)
+        {
+            case EventAudience.Everyone:
+                return await db.Users.IgnoreQueryFilters()
+                    .Where(u => u.SchoolId == e.SchoolId && u.DeactivatedAt == null)
+                    .Select(u => u.Id)
+                    .ToListAsync();
+            case EventAudience.Selected:
+                var classIds = e.SchoolClasses.Select(c => c.SchoolClassId).ToList();
+                var pickedIds = e.Students.Select(s => s.StudentId).ToList();
+                var students = await db.Students.IgnoreQueryFilters()
+                    .Where(s => s.SchoolId == e.SchoolId && (pickedIds.Contains(s.Id) || classIds.Contains(s.SchoolClassId)))
+                    .Select(s => new { s.Id, s.UserId })
+                    .ToListAsync();
+                var studentIds = students.Select(s => s.Id).ToList();
+                var parents = await db.ParentStudents
+                    .Where(ps => ps.SchoolId == e.SchoolId && studentIds.Contains(ps.StudentId))
+                    .ParentAccountLinks()
+                    .Select(l => l.UserId)
+                    .ToListAsync();
+                return e.Teachers.Select(t => t.UserId)
+                    .Concat(e.Parents.Select(p => p.UserId))
+                    .Concat(students.Where(s => s.UserId != null).Select(s => s.UserId!.Value))
+                    .Concat(parents)
+                    .Distinct()
+                    .ToList();
+            default:
+                return [];
+        }
+    }
+
     /// <summary>Student sees: Everyone-audience events, and Selected-audience
     /// events targeted at their own class or at themselves directly — same
     /// shape as Parent, just resolved via <see cref="Student.UserId"/>

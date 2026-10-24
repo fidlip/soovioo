@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Notifications;
 
 namespace Soovioo.Api.Grades;
 
 [Authorize]
 [ApiController]
 [Route("api/grades")]
-public class GradesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class GradesController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
@@ -73,6 +74,12 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
         var student = await db.Students.FindAsync(grade.StudentId);
         var subject = await db.Subjects.FindAsync(grade.SubjectId);
+        await notifier.NotifyAsync(
+            grade.SchoolId, await notifier.FamilyAsync(grade.StudentId), NotificationType.Grade,
+            $"Nová známka — {subject!.Name}",
+            $"{student!.FirstName} {student.LastName}: {grade.Value}" + (grade.Weight != 1 ? $" (váha {grade.Weight})" : ""),
+            "grades", grade.Id, grade.StudentId);
+        await db.SaveChangesAsync();
         var dto = new GradeDto(
             grade.Id,
             grade.StudentId,

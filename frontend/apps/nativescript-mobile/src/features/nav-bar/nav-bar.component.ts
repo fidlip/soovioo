@@ -1,6 +1,10 @@
-import { Component, NO_ERRORS_SCHEMA, inject } from '@angular/core';
-import { NativeScriptCommonModule, NativeScriptRouterModule, RouterExtensions } from '@nativescript/angular';
-import { AuthApiService } from '@soovioo/shared';
+import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
+import {
+  NativeScriptCommonModule,
+  NativeScriptRouterModule,
+  RouterExtensions,
+} from '@nativescript/angular';
+import { AuthApiService, NotificationsApiService } from '@soovioo/shared';
 
 @Component({
   selector: 'ns-nav-bar',
@@ -11,6 +15,19 @@ import { AuthApiService } from '@soovioo/shared';
 export class NavBarComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(RouterExtensions);
+
+  /** Unread notifications — the bar is on every page, so it's checked
+   * whenever a page opens. */
+  protected readonly unread = signal(0);
+
+  constructor() {
+    inject(NotificationsApiService)
+      .getUnreadCount()
+      .subscribe({
+        next: (count) => this.unread.set(count),
+        error: () => this.unread.set(0),
+      });
+  }
 
   protected logout(): void {
     this.authApi.logout();

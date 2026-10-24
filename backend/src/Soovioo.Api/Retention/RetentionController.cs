@@ -6,6 +6,8 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Retention;
@@ -18,7 +20,7 @@ namespace Soovioo.Api.Retention;
 [Route("api/retention")]
 public class RetentionController(
     AppDbContext db, ICurrentSchoolContext currentSchool, StudentEraser studentEraser,
-    AccountEraser accountEraser, LeaveNotifier notifier, TimeProvider clock) : ControllerBase
+    AccountEraser accountEraser, LeaveNotifier notifier, Notifier notifications, TimeProvider clock) : ControllerBase
 {
     private int SchoolId => currentSchool.SchoolId!.Value;
     private DateOnly Today => SchoolClock.Today(clock);
@@ -132,10 +134,11 @@ public class RetentionController(
         student.LeaveReason = request.Reason;
         student.LeaveReasonDetail = request.Reason == StudentLeaveReason.Other ? detail : null;
         student.LeaveNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
-        if (kind is { } k)
-        {
-            await notifier.NotifyAsync(student, k, request.Notices ?? [], CurrentUserId());
-        }
+        List<Conversation> sent = kind is { } k
+            ? await notifier.NotifyAsync(student, k, request.Notices ?? [], CurrentUserId())
+            : [];
+        await db.SaveChangesAsync();
+        await notifications.MessagesAsync(sent);
         await db.SaveChangesAsync();
         return Ok(await DtoOfAsync(student));
     }
@@ -156,7 +159,7 @@ public class RetentionController(
             return BadRequest("Část údajů žáka už je vymazaná, ukončení vzdělávání nejde vrátit.");
         }
 
-        await notifier.NotifyAsync(student, LeaveNoticeKind.Cancelled, request?.Notices ?? [], CurrentUserId());
+        var sent = await notifier.NotifyAsync(student, LeaveNoticeKind.Cancelled, request?.Notices ?? [], CurrentUserId());
         student.LeftAt = null;
         student.LeaveReason = null;
         student.LeaveReasonDetail = null;
@@ -170,6 +173,8 @@ public class RetentionController(
         {
             accountEraser.Reactivate(user);
         }
+        await db.SaveChangesAsync();
+        await notifications.MessagesAsync(sent);
         await db.SaveChangesAsync();
         return NoContent();
     }

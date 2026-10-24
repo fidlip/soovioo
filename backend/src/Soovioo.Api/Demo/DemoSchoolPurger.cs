@@ -33,6 +33,7 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         // Children before parents, so no foreign key ever points at a
         // deleted row (the DB cascades would cope with most, not all —
         // e.g. SchoolClass.ClassTeacherId → User has none).
+        await DeleteAsync(db.Notifications.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.MessageAttachments.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.Messages.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.ConversationParticipants.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));

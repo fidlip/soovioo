@@ -27,8 +27,7 @@ public enum LeaveNoticeKind
 /// <summary>Tells the people concerned that a pupil's education at the
 /// school ends (or that it changed): a message in Zprávy from the admin who
 /// recorded it, tied to the pupil. Whoever gets the reason gets a
-/// conversation of their own, so it never reaches the others. Once there's
-/// a notification system (#29), it goes out by e-mail and push too.</summary>
+/// conversation of their own, so it never reaches the others.</summary>
 public class LeaveNotifier(AppDbContext db, TimeProvider clock)
 {
     public static readonly IReadOnlyDictionary<StudentLeaveReason, string> ReasonLabels =
@@ -40,13 +39,15 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
             [StudentLeaveReason.Other] = "jiný",
         };
 
-    /// <summary>Adds the conversations; the caller saves.</summary>
-    public async Task NotifyAsync(
+    /// <summary>Adds the conversations and returns them; the caller saves
+    /// and then notifies (<see cref="Notifications.Notifier.MessagesAsync"/>).</summary>
+    public async Task<List<Conversation>> NotifyAsync(
         Student student, LeaveNoticeKind kind, IReadOnlyCollection<LeaveNotice> notices, int senderId)
     {
+        var added = new List<Conversation>();
         if (notices.Count == 0)
         {
-            return;
+            return added;
         }
         var schoolId = student.SchoolId;
         var school = await db.Schools.IgnoreQueryFilters().FirstAsync(s => s.Id == schoolId);
@@ -75,9 +76,12 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
                 continue;
             }
             var body = StudentTerm.Localize(Body(student, school.Name, kind, reason, grace), school.Type);
-            db.Conversations.Add(ConversationsController.NewConversation(
-                subject, student.Id, senderId, PersonNames.Display(sender), recipients, body, schoolId, now));
+            var conversation = ConversationsController.NewConversation(
+                subject, student.Id, senderId, PersonNames.Display(sender), recipients, body, schoolId, now);
+            db.Conversations.Add(conversation);
+            added.Add(conversation);
         }
+        return added;
     }
 
     private async Task<List<int>> RecipientsAsync(Student student, LeaveNoticeGroup group)

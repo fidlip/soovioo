@@ -3,6 +3,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Retention;
@@ -88,6 +89,12 @@ public class StudentEraser(
                 case RetentionCategory.Profile:
                     break;
             }
+            var types = NotificationTypesOf(category);
+            if (types.Length > 0)
+            {
+                await db.DeleteAsync(db.Notifications.IgnoreQueryFilters()
+                    .Where(n => n.SchoolId == schoolId && n.StudentId == id && types.Contains(n.Type)));
+            }
             if (!student.ErasedCategories.Contains(category))
             {
                 student.ErasedCategories = [.. student.ErasedCategories, category];
@@ -110,6 +117,16 @@ public class StudentEraser(
         }
     }
 
+    private static NotificationType[] NotificationTypesOf(RetentionCategory category) => category switch
+    {
+        RetentionCategory.Photos => [NotificationType.Photo],
+        RetentionCategory.Messages => [NotificationType.Message],
+        RetentionCategory.Homework => [NotificationType.Homework],
+        RetentionCategory.Attendance => [NotificationType.Absence, NotificationType.Excuse],
+        RetentionCategory.Grades => [NotificationType.Grade],
+        _ => [],
+    };
+
     /// <summary>The pupil's record goes; their account and the accounts of
     /// parents left with no pupil at the school are erased.</summary>
     private async Task EraseProfileAsync(Student student)
@@ -124,6 +141,7 @@ public class StudentEraser(
         await db.DeleteAsync(db.EventStudents.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
         await db.DeleteAsync(db.ParentStudents.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
         await db.DeleteAsync(db.VisibilityChoices.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
+        await db.DeleteAsync(db.Notifications.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
 
         var ownAccountId = student.UserId;
         student.UserId = null;

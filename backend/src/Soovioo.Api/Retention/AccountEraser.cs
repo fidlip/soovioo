@@ -69,6 +69,8 @@ public class AccountEraser(AppDbContext db, RefreshTokenService refreshTokens, P
             }
         }
 
+        await db.DeleteAsync(db.Notifications.IgnoreQueryFilters().Where(n => n.UserId == user.Id));
+
         user.Username = $"vymazany-{user.Id}";
         // Not a hash any password can match.
         user.PasswordHash = "";

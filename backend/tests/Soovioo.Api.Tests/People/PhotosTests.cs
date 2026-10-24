@@ -9,6 +9,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.People;
@@ -29,7 +30,8 @@ public class PhotosTests
 
     private PhotosController Controller(AppDbContext db, User user) =>
         new(db, new FakeCurrentSchoolContext(SchoolId), new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)),
-            Photos, emails, Options.Create(new AppLinkOptions()), NullLogger<PhotosController>.Instance)
+            Photos, emails, Options.Create(new AppLinkOptions()), new Notifier(db, TimeProvider.System),
+            NullLogger<PhotosController>.Instance)
         {
             ControllerContext = new ControllerContext
             {

@@ -80,4 +80,8 @@ public class User
     /// events, payments and messages it created still point at it — but it's
     /// no longer anyone and is left out of every list.</summary>
     public DateTimeOffset? ErasedAt { get; set; }
+
+    /// <summary>Kinds of notifications the user switched off in Nastavení —
+    /// empty = all of them on.</summary>
+    public List<Notifications.NotificationType> MutedNotifications { get; set; } = [];
 }

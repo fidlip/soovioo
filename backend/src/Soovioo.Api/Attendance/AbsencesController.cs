@@ -4,13 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
+using Soovioo.Api.Notifications;
 
 namespace Soovioo.Api.Attendance;
 
 [Authorize]
 [ApiController]
 [Route("api/absences")]
-public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AbsenceDto>>> GetAbsences()
@@ -63,6 +65,8 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
+        await NotifyFamilyAsync(absence, student, NotificationType.Absence, "Zapsaná absence");
+        await db.SaveChangesAsync();
 
         var dto = new AbsenceDto(
             absence.Id, absence.StudentId, $"{student.FirstName} {student.LastName}",
@@ -104,8 +108,22 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         absence.Status = request.Approve ? AbsenceStatus.Excused : AbsenceStatus.Rejected;
+        if (await db.Students.FindAsync(absence.StudentId) is { } student)
+        {
+            await NotifyFamilyAsync(absence, student, NotificationType.Excuse,
+                request.Approve ? "Omluvenka schválena" : "Omluvenka zamítnuta");
+        }
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    private async Task NotifyFamilyAsync(Absence absence, Student student, NotificationType type, string title)
+    {
+        var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
+        await notifier.NotifyAsync(
+            absence.SchoolId, await notifier.FamilyAsync(student.Id), type, title,
+            $"{student.FirstName} {student.LastName} — {Notifier.Format(absence.Date)}{periods}",
+            "absences", absence.Id, student.Id);
     }
 
     /// <summary>Direct correction of a record (e.g. a teacher logged the

@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Events;
@@ -13,7 +15,7 @@ namespace Soovioo.Api.Events;
 [Authorize]
 [ApiController]
 [Route("api/events")]
-public partial class EventsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public partial class EventsController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     /// <summary>Visibility depends on the caller's role and the event's
     /// <see cref="EventAudience"/> — see <see cref="EventVisibilityExtensions"/>
@@ -150,6 +152,8 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
 
         db.Events.Add(@event);
         await db.SaveChangesAsync();
+        await NotifyAudienceAsync(@event, "Nová akce");
+        await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetEvents), new { }, ToDto(@event));
     }
@@ -184,6 +188,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         @event.Color = request.Color;
         @event.Audience = request.Audience;
         SetRecipients(@event, request);
+        await NotifyAudienceAsync(@event, "Změna akce");
         await db.SaveChangesAsync();
 
         return Ok(ToDto(@event));
@@ -300,6 +305,16 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         {
             @event.Students.Add(new EventStudent { StudentId = id, SchoolId = schoolId });
         }
+    }
+
+    private async Task NotifyAudienceAsync(Event @event, string what)
+    {
+        var start = SchoolClock.Local(@event.StartAt);
+        var when = Notifier.Format(DateOnly.FromDateTime(start)) + (@event.AllDay ? "" : $" {start:H:mm}");
+        await notifier.NotifyAsync(
+            @event.SchoolId, await db.AudienceUserIdsAsync(@event), NotificationType.Event,
+            $"{what}: {@event.Title}", string.IsNullOrWhiteSpace(@event.Location) ? when : $"{when}, {@event.Location}",
+            "events", @event.Id, exceptUserId: CurrentUserId());
     }
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

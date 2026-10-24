@@ -32,6 +32,8 @@ export * from './lib/timetable/school-period.model';
 export * from './lib/timetable/school-periods-api.service';
 export * from './lib/messaging/message.model';
 export * from './lib/messaging/messages-api.service';
+export * from './lib/notifications/notification.model';
+export * from './lib/notifications/notifications-api.service';
 export * from './lib/events/event.model';
 export * from './lib/events/events-api.service';
 export * from './lib/auth/login-response.model';

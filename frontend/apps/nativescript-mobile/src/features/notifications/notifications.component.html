@@ -1,0 +1,31 @@
+<ActionBar title="Soovioo — Upozornění"></ActionBar>
+
+<GridLayout rows="auto, auto, *">
+  <ns-nav-bar row="0"></ns-nav-bar>
+
+  <StackLayout row="1" orientation="horizontal" class="p-2">
+    <Button text="Označit vše jako přečtené" (tap)="markAllRead()"></Button>
+    @if (hasMore()) {
+      <Button text="Načíst starší" (tap)="loadMore()"></Button>
+    }
+  </StackLayout>
+
+  <ListView row="2" [items]="items()" (itemTap)="open($any($event).index)">
+    <ng-template let-item="item">
+      <StackLayout class="p-4">
+        <Label
+          [text]="(item.read ? '' : '● ') + item.title"
+          [class.font-bold]="!item.read"
+          textWrap="true"
+        ></Label>
+        <Label
+          *ngIf="item.body"
+          [text]="item.body"
+          textWrap="true"
+          class="text-sm"
+        ></Label>
+        <Label [text]="when(item)" class="text-sm"></Label>
+      </StackLayout>
+    </ng-template>
+  </ListView>
+</GridLayout>

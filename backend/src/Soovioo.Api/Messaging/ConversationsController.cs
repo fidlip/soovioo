@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Messaging;
@@ -18,7 +19,8 @@ namespace Soovioo.Api.Messaging;
 [ApiController]
 [Route("api/conversations")]
 public class ConversationsController(
-    AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage) : ControllerBase
+    AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage,
+    Notifier notifier) : ControllerBase
 {
     /// <summary>The caller's conversations, newest first. A bulk send the
     /// caller made shows up once (<c>BroadcastId</c> set, counts of families,
@@ -211,6 +213,8 @@ public class ConversationsController(
         var conversation = await NewConversationAsync(request.Subject, request.StudentId, me, recipients, request.Body);
         db.Conversations.Add(conversation);
         await db.SaveChangesAsync();
+        await notifier.MessagesAsync([conversation]);
+        await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetConversation), new { id = conversation.Id },
             ToDto((await LoadForParticipantAsync(conversation.Id))!));
@@ -246,6 +250,8 @@ public class ConversationsController(
         // Your own reply never counts as unread for you.
         conversation.Participants.First(p => p.UserId == CurrentUserId()).LastReadAt = now;
         await db.SaveChangesAsync();
+        await notifier.MessagesAsync([conversation]);
+        await db.SaveChangesAsync();
 
         return Ok(ToDto(message));
     }
@@ -260,6 +266,13 @@ public class ConversationsController(
             return NotFound();
         }
         participant.LastReadAt = DateTimeOffset.UtcNow;
+        // Read here, read under the bell too.
+        foreach (var notification in await db.Notifications
+            .Where(n => n.UserId == participant.UserId && n.Type == NotificationType.Message && n.TargetId == id && n.ReadAt == null)
+            .ToListAsync())
+        {
+            notification.ReadAt = participant.LastReadAt;
+        }
         await db.SaveChangesAsync();
         return NoContent();
     }

@@ -6,6 +6,7 @@ using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Attendance;
@@ -27,7 +28,7 @@ public class AbsencesControllerTests
         var identity = new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Role, role.ToString())],
             authenticationType: "Test");
-        return new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId))
+        return new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
@@ -47,7 +48,7 @@ public class AbsencesControllerTests
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
 
-        var result = await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
             .UpdateAbsence(absence.Id, new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 2)));
 
         var dto = Assert.IsType<AbsenceDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -65,7 +66,7 @@ public class AbsencesControllerTests
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
 
-        var result = await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId)).DeleteAbsence(absence.Id);
+        var result = await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)).DeleteAbsence(absence.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Absences.FindAsync(absence.Id));
@@ -121,7 +122,7 @@ public class AbsencesControllerTests
         var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
-        var controller = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId));
+        var controller = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System));
 
         var result = await controller.AddAbsence(new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 5), [3, 0, 2, 3]));
         var dto = Assert.IsType<AbsenceDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);

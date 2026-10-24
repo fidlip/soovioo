@@ -64,6 +64,7 @@ builder.Services.AddScoped<Soovioo.Api.Retention.AccountEraser>();
 builder.Services.AddScoped<Soovioo.Api.Retention.StudentEraser>();
 builder.Services.AddScoped<Soovioo.Api.Retention.RetentionJob>();
 builder.Services.AddScoped<Soovioo.Api.Retention.LeaveNotifier>();
+builder.Services.AddScoped<Soovioo.Api.Notifications.Notifier>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
 
 // Generating a demo school is the one anonymous request that costs real
@@ -191,6 +192,8 @@ using (var scope = app.Services.CreateScope())
         "demo-schools-daily", service => service.RunDailyAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Retention.RetentionJob>(
         "retention-daily", job => job.RunAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationCleanupJob>(
+        "notification-cleanup", job => job.RunAsync(), Cron.Daily);
 }
 
 // Configure the HTTP request pipeline.

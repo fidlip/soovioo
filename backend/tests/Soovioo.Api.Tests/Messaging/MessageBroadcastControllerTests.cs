@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Messaging;
@@ -29,7 +30,7 @@ public class MessageBroadcastControllerTests
             new Claim(ClaimTypes.Role, role),
             new Claim(ClaimTypes.Name, "tester"),
         ]);
-        return new MessageBroadcastController(db, new FakeCurrentSchoolContext(SchoolId))
+        return new MessageBroadcastController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {

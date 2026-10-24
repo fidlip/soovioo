@@ -10,6 +10,10 @@ import {
   AuthApiService,
   MyProfile,
   MyProfileApiService,
+  NOTIFICATION_TYPE_LABELS,
+  NotificationType,
+  NotificationTypeSetting,
+  NotificationsApiService,
   PhotosApiService,
   StudentPhotoState,
 } from '@soovioo/shared';
@@ -26,6 +30,7 @@ export class SettingsComponent {
   private readonly profileApi = inject(MyProfileApiService);
   private readonly authApi = inject(AuthApiService);
   private readonly photosApi = inject(PhotosApiService);
+  private readonly notificationsApi = inject(NotificationsApiService);
   private readonly router = inject(RouterExtensions);
 
   // Captured once at page load, before the password change below could flip
@@ -50,6 +55,9 @@ export class SettingsComponent {
   protected readonly ownStudent = signal<StudentPhotoState | null>(null);
   protected readonly photoMessage = signal<string | null>(null);
 
+  protected readonly notificationTypes = signal<NotificationTypeSetting[]>([]);
+  protected readonly notificationLabels = NOTIFICATION_TYPE_LABELS;
+
   constructor() {
     this.profileApi.getProfile().subscribe({
       next: (profile) => {
@@ -64,12 +72,34 @@ export class SettingsComponent {
       },
       error: (err) => console.error('getProfile failed', err),
     });
+    this.notificationsApi.getSettings().subscribe({
+      next: (settings) => this.notificationTypes.set(settings.types),
+      error: (err) => console.error('getNotificationSettings failed', err),
+    });
     if (this.authApi.isStudent()) {
       this.photosApi.getOwnStudents().subscribe({
         next: (states) => this.setOwnStudent(states[0] ?? null),
         error: (err) => console.error('getOwnStudents failed', err),
       });
     }
+  }
+
+  protected setNotificationType(
+    type: NotificationType,
+    enabled: boolean,
+  ): void {
+    const current = this.notificationTypes();
+    // The Switch also fires when the list first renders it.
+    if (current.find((t) => t.type === type)?.enabled === enabled) {
+      return;
+    }
+    const muted = current
+      .filter((t) => (t.type === type ? !enabled : !t.enabled))
+      .map((t) => t.type);
+    this.notificationsApi.setSettings(muted).subscribe({
+      next: (settings) => this.notificationTypes.set(settings.types),
+      error: (err) => console.error('setNotificationSettings failed', err),
+    });
   }
 
   protected canTakePhoto(): boolean {

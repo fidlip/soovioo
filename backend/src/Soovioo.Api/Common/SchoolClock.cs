@@ -9,4 +9,6 @@ public static class SchoolClock
 
     public static DateOnly Today(TimeProvider clock) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), Zone).DateTime);
+
+    public static DateTime Local(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, Zone).DateTime;
 }

@@ -59,6 +59,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<VisibilityRule> VisibilityRules => Set<VisibilityRule>();
     public DbSet<VisibilityChoice> VisibilityChoices => Set<VisibilityChoice>();
     public DbSet<Retention.RetentionPolicy> RetentionPolicies => Set<Retention.RetentionPolicy>();
+    public DbSet<Notifications.Notification> Notifications => Set<Notifications.Notification>();
 
     /// <summary>The day the former-pupil filter compares
     /// <see cref="Student.LeftAt"/> with (read per query).</summary>
@@ -288,6 +289,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasKey(x => x.SchoolId);
             e.Property(x => x.Mode).HasConversion<string>();
             e.HasOne(x => x.School).WithOne().HasForeignKey<Retention.RetentionPolicy>(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+
+        modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedNotifications).ElementType().HasConversion<string>();
+        modelBuilder.Entity<Notifications.Notification>(e =>
+        {
+            e.Property(x => x.Type).HasConversion<string>();
+            e.HasIndex(x => new { x.UserId, x.Id });
+            e.HasIndex(x => x.CreatedAt);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
 
