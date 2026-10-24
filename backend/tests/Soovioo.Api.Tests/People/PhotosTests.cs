@@ -245,6 +245,23 @@ public class PhotosTests
     }
 
     [Fact]
+    public async Task ParentsUploadIsApprovedRightAwayButOnlyForTheirOwnChild()
+    {
+        using var db = NewDb();
+        var fx = await SeedAsync(db);
+        Assert.IsType<BadRequestObjectResult>((await Controller(db, fx.Parent).UploadStudentPhoto(fx.Child.Id, File(TestJpeg()))).Result);
+        await Controller(db, fx.Parent).GiveConsent(fx.Child.Id, new PhotoConsentRequest(null));
+
+        Assert.IsType<ForbidResult>((await Controller(db, fx.OtherParent).UploadStudentPhoto(fx.Child.Id, File(TestJpeg()))).Result);
+        var upload = await Controller(db, fx.Parent).UploadStudentPhoto(fx.Child.Id, File(TestJpeg()));
+
+        var state = Assert.IsType<StudentPhotoStateDto>(Assert.IsType<OkObjectResult>(upload.Result).Value);
+        Assert.Equal("Approved", state.Status);
+        Assert.True(state.CanUpload);
+        Assert.Empty(emails.Sent);
+    }
+
+    [Fact]
     public async Task RejectingAndRevokingConsentDeleteTheFiles()
     {
         using var db = NewDb();
