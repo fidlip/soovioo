@@ -998,7 +998,7 @@ export class AdminPage {
   /** Also removes the student's grades, absences, messages and parent
    * links — see StudentsController.DeleteStudent. The confirmation dialog here
    * guards the one place in this page a mistake can't be undone. */
-  /** The pupil whose departure is being recorded (Odchod ze školy). */
+  /** The pupil whose departure is being recorded (Ukončení vzdělávání). */
   protected readonly leaveStudent = signal<Student | null>(null);
   protected readonly formatDate = formatDateOnly;
 
@@ -1206,7 +1206,7 @@ export class AdminPage {
   }
 
   /** Deactivating ends the account's sessions; the data stays until the
-   * school's retention period for staff (Administrace → Odchody). */
+   * school's retention period for staff (Administrace → Archiv a výmaz údajů). */
   protected toggleActive(user: AppUser): void {
     const name = user.name || user.username;
     if (user.deactivatedAt) {
@@ -1218,7 +1218,7 @@ export class AdminPage {
     }
     this.confirmation.confirm({
       header: 'Deaktivovat účet',
-      message: `Deaktivovat účet ${name}? Přestane fungovat přihlášení, údaje zůstanou a smažou se podle pravidel v záložce Odchody. Účet jde znovu aktivovat.`,
+      message: `Deaktivovat účet ${name}? Přestane fungovat přihlášení, údaje zůstanou a smažou se podle pravidel v záložce Archiv a výmaz údajů. Účet jde znovu aktivovat.`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Deaktivovat',
       rejectLabel: 'Zrušit',

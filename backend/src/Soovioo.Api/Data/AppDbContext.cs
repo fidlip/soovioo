@@ -66,7 +66,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
     /// <summary>Former pupils (<see cref="Student.LeftAt"/> before
     /// <see cref="Today"/>) are left out of every query — the app shows
-    /// pupils of the school. Administrace → Odchody and the retention job
+    /// pupils of the school. Administrace → Archiv a výmaz údajů and the retention job
     /// switch this on to reach them; the tenant filter still applies.</summary>
     public bool IncludeFormerStudents { get; set; }
 

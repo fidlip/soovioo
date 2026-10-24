@@ -10,7 +10,7 @@ import {
   RetentionPolicy,
 } from './retention.model';
 
-/** Administrace → Odchody — see RetentionController. Admin only. */
+/** Administrace → Archiv a výmaz údajů — see RetentionController. Admin only. */
 @Injectable({ providedIn: 'root' })
 export class RetentionApiService {
   private readonly http = inject(HttpClient);

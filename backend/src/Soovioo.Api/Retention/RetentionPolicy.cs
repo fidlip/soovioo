@@ -4,7 +4,7 @@ namespace Soovioo.Api.Retention;
 
 /// <summary>What of a former pupil's data gets erased, and when — each
 /// category so many years after the pupil left (0 = right away). The school
-/// sets it in Administrace → Odchody to match its own spisový a skartační
+/// sets it in Administrace → Archiv a výmaz údajů to match its own spisový a skartační
 /// řád; <see cref="Profile"/> ends it all.</summary>
 public enum RetentionCategory
 {
@@ -28,7 +28,7 @@ public enum RetentionCategory
 
 public enum ErasureMode
 {
-    /// <summary>Due erasures wait in Administrace → Odchody for an admin to
+    /// <summary>Due erasures wait in Administrace → Archiv a výmaz údajů for an admin to
     /// carry them out.</summary>
     Confirm,
 

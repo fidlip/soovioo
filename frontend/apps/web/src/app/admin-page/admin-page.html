@@ -81,7 +81,7 @@
               />{{ student.firstName }} {{ student.lastName }} @if
               (student.leftAt) {
               <p-tag
-                [value]="'Odchází ' + formatDate(student.leftAt)"
+                [value]="'Končí k ' + formatDate(student.leftAt)"
                 severity="info"
               />
               }
@@ -129,8 +129,8 @@
               @if (accessLevel() === 'admin') {
               <p-button
                 icon="pi pi-sign-out"
-                ariaLabel="Odchod ze školy"
-                title="Odchod ze školy"
+                ariaLabel="Ukončení vzdělávání"
+                title="Ukončení vzdělávání"
                 size="small"
                 [text]="true"
                 (onClick)="leaveStudent.set(student)"
@@ -253,7 +253,7 @@
     <p-tab value="parents">Rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
     <p-tab value="visibility">Viditelnost údajů</p-tab>
-    <p-tab value="departures">Odchody</p-tab>
+    <p-tab value="departures">Archiv a výmaz údajů</p-tab>
   </p-tablist>
   <p-tabpanels>
     <p-tabpanel value="classes">
@@ -583,7 +583,7 @@
                         [title]="
                           user.deactivatedAt
                             ? 'Znovu aktivovat'
-                            : 'Deaktivovat (odešel ze školy)'
+                            : 'Deaktivovat (už ve škole nepracuje)'
                         "
                         size="small"
                         [text]="true"

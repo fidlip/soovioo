@@ -10,7 +10,7 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Retention;
 
-/// <summary>Administrace → Odchody: pupils leaving the school, the former
+/// <summary>Administrace → Archiv a výmaz údajů: pupils leaving the school, the former
 /// pupils and staff still on record, and the school's rules for erasing
 /// them (<see cref="RetentionPolicy"/>).</summary>
 [Authorize(Roles = "Admin")]
@@ -112,11 +112,11 @@ public class RetentionController(
         }
         if (student.ErasedCategories.Count > 0)
         {
-            return BadRequest("Část údajů žáka už je vymazaná, odchod nejde změnit.");
+            return BadRequest("Část údajů žáka už je vymazaná, ukončení vzdělávání nejde změnit.");
         }
         if (request.Reason is { } reason && !Enum.IsDefined(reason))
         {
-            return this.FieldError("reason", "Neznámý důvod odchodu.");
+            return this.FieldError("reason", "Neznámý důvod ukončení.");
         }
 
         student.LeftAt = request.LeftAt;
@@ -139,7 +139,7 @@ public class RetentionController(
         }
         if (student.ErasedCategories.Count > 0)
         {
-            return BadRequest("Část údajů žáka už je vymazaná, odchod nejde vrátit.");
+            return BadRequest("Část údajů žáka už je vymazaná, ukončení vzdělávání nejde vrátit.");
         }
 
         student.LeftAt = null;
