@@ -219,7 +219,7 @@ public class UsersController(
 
     /// <summary>Someone who left (a member of staff, typically): the account
     /// stops working, the data stays until the school's retention period
-    /// for staff runs out (Administrace → Odchody).</summary>
+    /// for staff runs out (Administrace → Archiv a výmaz údajů).</summary>
     [HttpPost("{id:int}/deactivate")]
     public async Task<ActionResult<UserDto>> Deactivate(int id, [FromServices] Retention.AccountEraser eraser)
     {

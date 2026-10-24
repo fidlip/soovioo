@@ -110,10 +110,10 @@ public class RetentionTests
     public async Task FormerPupilsAreLeftOutUnlessAskedFor()
     {
         AddStudent("Aktivní");
-        AddStudent("Odchází", leftAt: Today);
+        AddStudent("Končí", leftAt: Today);
         AddStudent("Bývalý", leftAt: Today.AddDays(-1));
 
-        Assert.Equal(["Aktivní", "Odchází"], await db.Students.OrderBy(s => s.Id).Select(s => s.FirstName).ToListAsync());
+        Assert.Equal(["Aktivní", "Končí"], await db.Students.OrderBy(s => s.Id).Select(s => s.FirstName).ToListAsync());
 
         db.IncludeFormerStudents = true;
         Assert.Equal(3, await db.Students.CountAsync());
@@ -330,13 +330,13 @@ public class RetentionTests
     {
         await SetPolicyAsync(p => p.PhotosYears = 0);
         AddStudent("Aktivní");
-        AddStudent("Odchází", leftAt: Today.AddDays(10));
+        AddStudent("Končí", leftAt: Today.AddDays(10));
         AddStudent("Bývalý", leftAt: Today.AddDays(-1));
 
         var result = await Controller().GetPeople();
 
         var overview = Assert.IsType<RetentionOverviewDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal(["Odchází", "Bývalý"], overview.Students.Select(s => s.FirstName));
+        Assert.Equal(["Končí", "Bývalý"], overview.Students.Select(s => s.FirstName));
         var former = overview.Students.Single(s => s.Former);
         Assert.Equal([RetentionCategory.Photos], former.Due);
         Assert.Empty(overview.Students.Single(s => !s.Former).Due);

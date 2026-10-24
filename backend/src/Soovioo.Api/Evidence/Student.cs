@@ -123,7 +123,7 @@ public class Student
     /// <summary>Last day at the school. From the day after, the pupil is a
     /// former pupil: hidden from the whole app by the query filter (see
     /// <see cref="Data.AppDbContext.IncludeFormerStudents"/>), left only in
-    /// Administrace → Odchody, and erased step by step per the school's
+    /// Administrace → Archiv a výmaz údajů, and erased step by step per the school's
     /// <see cref="Retention.RetentionPolicy"/>. A future date = leaving
     /// announced, still a pupil until then.</summary>
     public DateOnly? LeftAt { get; set; }

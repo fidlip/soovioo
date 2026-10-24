@@ -21,7 +21,7 @@ export interface LeaveTarget {
   note?: string | null;
 }
 
-/** Administrace → Studenti / Odchody: records a pupil's departure (or takes it
+/** Administrace → Studenti / Archiv a výmaz údajů: records a pupil's departure (or takes it
  * back). Open while `student` is set. */
 @Component({
   selector: 'app-leave-dialog',
@@ -39,14 +39,14 @@ export interface LeaveTarget {
     <p-dialog
       [visible]="student() !== null"
       (visibleChange)="!$event && closed.emit()"
-      [header]="'Odchod ze školy — ' + name()"
+      [header]="'Ukončení vzdělávání — ' + name()"
       [modal]="true"
       styleClass="w-full max-w-lg"
     >
       <form class="flex flex-col gap-4" #leaveForm="ngForm" (ngSubmit)="save()">
         <p class="m-0 text-sm text-surface-500">
           {{
-            'Od následujícího dne se žák v aplikaci nezobrazuje a jeho rodiče k němu ztratí přístup. Údaje zůstanou v Administraci → Odchody a mažou se podle pravidel školy.'
+            'Od následujícího dne se žák v aplikaci nezobrazuje a jeho rodiče k němu ztratí přístup. Údaje zůstanou v Administraci → Archiv a výmaz údajů a mažou se podle pravidel školy.'
               | term
           }}
         </p>
@@ -90,7 +90,7 @@ export interface LeaveTarget {
         <div class="flex flex-wrap justify-between gap-2">
           @if (student()?.leftAt) {
             <p-button
-              label="Zrušit odchod"
+              label="Zrušit ukončení"
               severity="secondary"
               [outlined]="true"
               (onClick)="cancel()"
@@ -98,7 +98,7 @@ export interface LeaveTarget {
           } @else {
             <span></span>
           }
-          <app-submit-button [form]="leaveForm" label="Uložit odchod" />
+          <app-submit-button [form]="leaveForm" label="Uložit" />
         </div>
       </form>
     </p-dialog>
@@ -145,7 +145,7 @@ export class LeaveDialog {
       })
       .subscribe({
         next: () => {
-          this.notify.success('Odchod uložen.');
+          this.notify.success('Ukončení vzdělávání uloženo.');
           this.changed.emit();
         },
         error: (err) => this.notify.actionFailed('setLeave failed', err),
@@ -159,7 +159,7 @@ export class LeaveDialog {
     }
     this.retentionApi.cancelLeave(student.id).subscribe({
       next: () => {
-        this.notify.success('Odchod zrušen.');
+        this.notify.success('Ukončení vzdělávání zrušeno.');
         this.changed.emit();
       },
       error: (err) => this.notify.actionFailed('cancelLeave failed', err),

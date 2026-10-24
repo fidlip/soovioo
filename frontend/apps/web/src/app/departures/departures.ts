@@ -28,7 +28,7 @@ import {
   formatDateOnly,
 } from './retention-labels';
 
-/** Administrace → Odchody: pupils leaving or gone, staff who left, and
+/** Administrace → Archiv a výmaz údajů: pupils leaving or gone, staff who left, and
  * the school's rules for erasing their data (RetentionController). */
 @Component({
   selector: 'app-departures',

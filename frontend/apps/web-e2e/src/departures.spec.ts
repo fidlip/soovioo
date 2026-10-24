@@ -8,11 +8,11 @@ function yesterday(): string {
   return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
 }
 
-test('a pupil who left moves to Odchody and can be erased', async ({
+test('a former pupil moves to the archive and can be erased', async ({
   page,
 }) => {
   // A pupil of its own — the seeded one is used by other tests.
-  const lastName = `Odchod${Date.now()}`;
+  const lastName = `Archiv${Date.now()}`;
 
   await page.goto('/skola/login');
   await page.locator('#username').fill('admin');
@@ -31,22 +31,22 @@ test('a pupil who left moves to Odchody and can be erased', async ({
 
   const studentsPanel = page.getByRole('tabpanel', { name: 'Žáci' });
   const row = studentsPanel.locator('tr', { hasText: lastName });
-  await row.getByRole('button', { name: 'Odchod ze školy' }).click();
+  await row.getByRole('button', { name: 'Ukončení vzdělávání' }).click();
   const leaveDialog = page.getByRole('dialog', {
-    name: `Odchod ze školy — Ota ${lastName}`,
+    name: `Ukončení vzdělávání — Ota ${lastName}`,
   });
   // Typed key by key — the DatePicker ignores a pasted value.
   await leaveDialog
     .getByLabel('Poslední den ve škole')
     .pressSequentially(yesterday());
   await leaveDialog.getByLabel('Poznámka').fill('Přestup');
-  await leaveDialog.getByRole('button', { name: 'Uložit odchod' }).click();
+  await leaveDialog.getByRole('button', { name: 'Uložit' }).click();
   await expect(leaveDialog).toBeHidden();
   await expect(row).toHaveCount(0);
 
-  await page.getByRole('tab', { name: 'Odchody' }).click();
+  await page.getByRole('tab', { name: 'Archiv a výmaz údajů' }).click();
   const formerRow = page
-    .getByRole('tabpanel', { name: 'Odchody' })
+    .getByRole('tabpanel', { name: 'Archiv a výmaz údajů' })
     .locator('tr', { hasText: lastName });
   await expect(formerRow.getByText('Bývalý')).toBeVisible();
 

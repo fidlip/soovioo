@@ -1,8 +1,8 @@
 <p-card>
   <ng-template #title
-    >{{ 'Odcházející a bývalí žáci' | term }}<app-info-hint
+    >{{ 'Žáci s ukončeným vzděláváním' | term }}<app-info-hint
       [text]="
-        'Odchod se zadává v záložce Studenti. Po posledním dni se žák v aplikaci nezobrazuje, rodiče k němu ztratí přístup a jeho údaje se mažou podle pravidel níže.'
+        'Ukončení vzdělávání se zadává v záložce Studenti. Po posledním dni se žák v aplikaci nezobrazuje, rodiče k němu ztratí přístup a jeho údaje se mažou podle pravidel níže.'
           | term
       "
   /></ng-template>
@@ -51,7 +51,7 @@
           @if (s.accountActive) {
           <div class="text-xs text-surface-500">účet ještě aktivní</div>
           } } @else {
-          <p-tag value="Odchází" severity="info" />
+          <p-tag [value]="'Končí k ' + formatDate(s.leftAt)" severity="info" />
           }
         </td>
         <td class="text-sm text-surface-500">
@@ -71,8 +71,8 @@
             @if (s.erased.length === 0) {
             <p-button
               icon="pi pi-pencil"
-              ariaLabel="Upravit odchod"
-              title="Upravit odchod"
+              ariaLabel="Upravit ukončení"
+              title="Upravit ukončení"
               size="small"
               [text]="true"
               (onClick)="editing.set(s)"
@@ -105,7 +105,7 @@
     <ng-template pTemplate="emptymessage">
       <tr>
         <td colspan="7" class="py-3 text-surface-500">
-          Nikdo neodchází ani neodešel.
+          Nikdo zde neukončil vzdělávání.
         </td>
       </tr>
     </ng-template>
@@ -159,7 +159,7 @@
 <p-card styleClass="mt-6">
   <ng-template #title
     >Pravidla výmazu<app-info-hint
-      text="Nastavte podle spisového a skartačního řádu školy. Lhůty se počítají od posledního dne žáka ve škole, 0 = hned po odchodu. Údaje, které škola musí uchovat (např. pro matriku), nechte v Celém profilu."
+      text="Nastavte podle spisového a skartačního řádu školy. Lhůty se počítají od posledního dne žáka ve škole, 0 = hned po posledním dni. Údaje, které škola musí uchovat (např. pro matriku), nechte v Celém profilu."
   /></ng-template>
   @if (policy(); as policy) {
   <form
@@ -202,7 +202,8 @@
 
     <section class="flex flex-col gap-2">
       <h3 class="m-0 text-base font-semibold">
-        {{ 'Údaje bývalých žáků — za kolik let po odchodu se vymažou' | term }}
+        {{ 'Údaje bývalých žáků — za kolik let po posledním dni se vymažou' |
+        term }}
       </h3>
       <div class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
         @for (f of yearFields; track f.field) {
