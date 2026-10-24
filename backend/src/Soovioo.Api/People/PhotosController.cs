@@ -143,8 +143,9 @@ public class PhotosController(
         return Ok(await StateAsync(student));
     }
 
-    /// <summary>The school (admin, class teacher) uploads an approved photo,
-    /// the pupil one waiting for approval — both only with a consent.</summary>
+    /// <summary>The school (admin, class teacher) or a parent uploads an
+    /// approved photo, the pupil one waiting for approval — all only with a
+    /// consent.</summary>
     [HttpPut("students/{studentId:int}")]
     [RequestSizeLimit(PhotoStorage.MaxUploadBytes + 64 * 1024)]
     public async Task<ActionResult<StudentPhotoStateDto>> UploadStudentPhoto(int studentId, IFormFile? file)
@@ -156,7 +157,8 @@ public class PhotosController(
         }
         var schoolSide = await access.IsSchoolSideAsync(User, student);
         var self = PhotoAccess.IsSelf(User, student);
-        if (!schoolSide && !self)
+        var parent = await IsParentOfAsync(student);
+        if (!schoolSide && !self && !parent)
         {
             return Forbid();
         }
@@ -181,7 +183,7 @@ public class PhotosController(
         photos.Delete(student.PhotoKey);
         student.PhotoKey = key;
         // A pupil — even an adult one — never approves their own photo.
-        student.PhotoStatus = schoolSide ? PhotoStatus.Approved : PhotoStatus.Pending;
+        student.PhotoStatus = schoolSide || parent ? PhotoStatus.Approved : PhotoStatus.Pending;
         await db.SaveChangesAsync();
 
         if (student.PhotoStatus == PhotoStatus.Pending)
@@ -324,7 +326,7 @@ public class PhotosController(
             student.PhotoConsentGivenBy,
             student.PhotoConsentAt,
             enabled,
-            CanUpload: enabled && student.PhotoConsentAt is not null && (schoolSide || self),
+            CanUpload: enabled && student.PhotoConsentAt is not null && (schoolSide || self || parent),
             CanApprove: visible && canApprove && student.PhotoStatus == PhotoStatus.Pending,
             CanDelete: visible && (canApprove || self),
             CanManageConsent: enabled && (schoolSide || parent),
