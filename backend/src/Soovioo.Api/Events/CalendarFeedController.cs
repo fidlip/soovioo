@@ -26,7 +26,7 @@ public class CalendarFeedController(AppDbContext db) : ControllerBase
         // user up (and then their school's events) with it explicitly
         // bypassed, same as the unauthenticated login lookup in AuthController.
         var user = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.CalendarToken == token);
-        if (user?.SchoolId is null)
+        if (user?.SchoolId is null || user.DeactivatedAt is not null)
         {
             return NotFound();
         }

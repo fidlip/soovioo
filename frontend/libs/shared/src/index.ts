@@ -48,6 +48,8 @@ export * from './lib/auth/teachers-api.service';
 export * from './lib/auth/parent.model';
 export * from './lib/auth/parents-api.service';
 export * from './lib/people/visibility.model';
+export * from './lib/retention/retention.model';
+export * from './lib/retention/retention-api.service';
 export * from './lib/people/class-directory.model';
 export * from './lib/people/class-directory-api.service';
 export * from './lib/people/my-child.model';

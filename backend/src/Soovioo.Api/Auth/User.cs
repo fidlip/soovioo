@@ -69,4 +69,15 @@ public class User
     /// two nullable columns rather than a non-nullable default so a stale
     /// expiry can never outlive its token by accident.</summary>
     public DateTimeOffset? InvitationTokenExpiresAt { get; set; }
+
+    /// <summary>Set = the account can't log in (left the school — a former
+    /// pupil, a parent without pupils at the school, a member of staff who
+    /// left). Its data stays until <see cref="ErasedAt"/>.</summary>
+    public DateTimeOffset? DeactivatedAt { get; set; }
+
+    /// <summary>Set = the person's data was erased and the account
+    /// anonymized (<see cref="Retention.AccountEraser"/>). The row stays —
+    /// events, payments and messages it created still point at it — but it's
+    /// no longer anyone and is left out of every list.</summary>
+    public DateTimeOffset? ErasedAt { get; set; }
 }

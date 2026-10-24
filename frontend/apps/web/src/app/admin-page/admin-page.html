@@ -78,7 +78,13 @@
               <app-avatar
                 [name]="student.firstName + ' ' + student.lastName"
                 [photoUrl]="studentPhotoUrl(student)"
-              />{{ student.firstName }} {{ student.lastName }}
+              />{{ student.firstName }} {{ student.lastName }} @if
+              (student.leftAt) {
+              <p-tag
+                [value]="'Odchází ' + formatDate(student.leftAt)"
+                severity="info"
+              />
+              }
             </div>
           </td>
           <td>{{ student.schoolClassName }}</td>
@@ -120,6 +126,16 @@
                 [text]="true"
                 (onClick)="startEditStudent(student)"
               />
+              @if (accessLevel() === 'admin') {
+              <p-button
+                icon="pi pi-sign-out"
+                ariaLabel="Odchod ze školy"
+                title="Odchod ze školy"
+                size="small"
+                [text]="true"
+                (onClick)="leaveStudent.set(student)"
+              />
+              }
               <p-button
                 icon="pi pi-trash"
                 ariaLabel="Smazat"
@@ -237,6 +253,7 @@
     <p-tab value="parents">Rodiče</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
     <p-tab value="visibility">Viditelnost údajů</p-tab>
+    <p-tab value="departures">Odchody</p-tab>
   </p-tablist>
   <p-tabpanels>
     <p-tabpanel value="classes">
@@ -501,7 +518,11 @@
                         [photoUrl]="userPhotoUrl(user)"
                       />
                       <div>
-                        <div>{{ user.name }}</div>
+                        <div>
+                          {{ user.name }} @if (user.deactivatedAt) {
+                          <p-tag value="Neaktivní" severity="secondary" />
+                          }
+                        </div>
                         @if (user.name !== user.username) {
                         <div class="text-xs text-surface-500">
                           {{ user.username }}
@@ -551,6 +572,24 @@
                         [text]="true"
                         (onClick)="startEditUser(user)"
                       />
+                      @if (user.id !== myUserId) {
+                      <p-button
+                        [icon]="
+                          user.deactivatedAt ? 'pi pi-replay' : 'pi pi-ban'
+                        "
+                        [ariaLabel]="
+                          user.deactivatedAt ? 'Znovu aktivovat' : 'Deaktivovat'
+                        "
+                        [title]="
+                          user.deactivatedAt
+                            ? 'Znovu aktivovat'
+                            : 'Deaktivovat (odešel ze školy)'
+                        "
+                        size="small"
+                        [text]="true"
+                        (onClick)="toggleActive(user)"
+                      />
+                      }
                       <!-- Wrapped: a disabled button gets no hover for the tooltip. -->
                       <span
                         [pTooltip]="
@@ -984,6 +1023,14 @@
       <div class="flex flex-col gap-6 pt-4">
         <app-visibility-settings />
       </div>
+    </p-tabpanel>
+
+    <p-tabpanel value="departures">
+      <ng-template #content>
+        <div class="pt-4">
+          <app-departures />
+        </div>
+      </ng-template>
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>
@@ -1576,6 +1623,11 @@
   </form>
 </p-dialog>
 
+<app-leave-dialog
+  [student]="leaveStudent()"
+  (closed)="leaveStudent.set(null)"
+  (changed)="leaveStudent.set(null); reload()"
+/>
 <app-student-photo-dialog
   [studentId]="photoStudentId()"
   (closed)="photoStudentId.set(null)"

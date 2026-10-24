@@ -21,6 +21,8 @@ export interface AppUser {
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */
   photo?: string | null;
+  /** Set = the account can't log in (the person left). */
+  deactivatedAt?: string | null;
 }
 
 export type InviteOutcome = 'Sent' | 'NotConfigured' | 'Failed';

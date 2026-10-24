@@ -51,10 +51,12 @@ public static class PaymentRecipientGenerator
 
     private static async Task<List<int>> ResolveTargetStudentIdsAsync(AppDbContext db, Payment payment)
     {
+        // Former pupils don't get new installments.
+        var today = db.Today;
         if (payment.Audience == PaymentAudience.Everyone)
         {
             return await db.Students.IgnoreQueryFilters()
-                .Where(s => s.SchoolId == payment.SchoolId)
+                .Where(s => s.SchoolId == payment.SchoolId && (s.LeftAt == null || s.LeftAt >= today))
                 .Select(s => s.Id)
                 .ToListAsync();
         }
@@ -74,7 +76,11 @@ public static class PaymentRecipientGenerator
             .Select(ps => ps.StudentId)
             .ToListAsync();
 
-        return fromClasses.Concat(directStudentIds).Concat(fromParents).Distinct().ToList();
+        var ids = fromClasses.Concat(directStudentIds).Concat(fromParents).Distinct().ToList();
+        return await db.Students.IgnoreQueryFilters()
+            .Where(s => ids.Contains(s.Id) && (s.LeftAt == null || s.LeftAt >= today))
+            .Select(s => s.Id)
+            .ToListAsync();
     }
 
     /// <summary>Shared by the controller (computing the second installment's

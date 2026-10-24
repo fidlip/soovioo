@@ -9,6 +9,20 @@ public enum Gender
     Female,
 }
 
+public enum StudentLeaveReason
+{
+    /// <summary>Přestup na jinou školu.</summary>
+    Transfer,
+
+    /// <summary>Řádné ukončení vzdělávání.</summary>
+    Graduated,
+
+    /// <summary>Vyloučení ze školy.</summary>
+    Expelled,
+
+    Other,
+}
+
 public class Student
 {
     public int Id { get; set; }
@@ -105,6 +119,21 @@ public class Student
     /// <summary>Set with <see cref="PhotoKey"/>: a photo the pupil uploaded
     /// waits for a parent's (or the school's) approval.</summary>
     public People.PhotoStatus? PhotoStatus { get; set; }
+
+    /// <summary>Last day at the school. From the day after, the pupil is a
+    /// former pupil: hidden from the whole app by the query filter (see
+    /// <see cref="Data.AppDbContext.IncludeFormerStudents"/>), left only in
+    /// Administrace → Odchody, and erased step by step per the school's
+    /// <see cref="Retention.RetentionPolicy"/>. A future date = leaving
+    /// announced, still a pupil until then.</summary>
+    public DateOnly? LeftAt { get; set; }
+
+    public StudentLeaveReason? LeaveReason { get; set; }
+    public string? LeaveNote { get; set; }
+
+    /// <summary>What has already been erased of a former pupil
+    /// (<see cref="Retention.StudentEraser"/>).</summary>
+    public List<Retention.RetentionCategory> ErasedCategories { get; set; } = [];
 
     /// <summary>The legal guardian's consent to the pupil's photo (GDPR
     /// legal basis) — who gave it and when. Null = no consent, no photo.</summary>
