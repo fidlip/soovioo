@@ -71,10 +71,7 @@ test('teacher can log in, see the nav, and log out', async ({ page }) => {
     page.getByRole('link', { name: 'Administrace', exact: true }),
   ).toBeVisible();
 
-  // "Odhlásit se" now lives inside the user menu (see app.html), behind the
-  // username button, not as its own top-level button.
-  await page.getByRole('button', { name: 'ucitel' }).click();
-  await page.getByText('Odhlásit se').click();
+  await page.getByRole('button', { name: 'Odhlásit se' }).click();
   await expect(page).toHaveURL(/\/skola\/login$/);
 });
 

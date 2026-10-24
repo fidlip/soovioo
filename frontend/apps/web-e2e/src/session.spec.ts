@@ -59,13 +59,12 @@ test('"Zůstat přihlášen" sets a persistent refresh cookie', async ({
 
 test('after logout a reload stays logged out', async ({ page }) => {
   await login(page, false);
-  await page.getByRole('button', { name: 'admin' }).click();
   // The app doesn't wait for the logout call; a reload that cuts it off
   // keeps the revoked cookie and the refresh logs a 401.
   const loggedOut = page.waitForResponse((r) =>
     r.url().endsWith('/api/auth/logout'),
   );
-  await page.getByText('Odhlásit se').click();
+  await page.getByRole('button', { name: 'Odhlásit se' }).click();
   await loggedOut;
   await expect(page).toHaveURL(/\/skola\/login$/);
 

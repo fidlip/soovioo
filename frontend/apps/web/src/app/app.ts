@@ -23,6 +23,7 @@ import {
 } from '@angular/router';
 import { ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
+import { Tooltip } from '@openng/optimus-ui/tooltip';
 import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
@@ -77,6 +78,7 @@ interface NavItem {
     RouterOutlet,
     ButtonDirective,
     Menu,
+    Tooltip,
     AppIcon,
     DemoBar,
     DemoEmailPreview,
@@ -353,8 +355,11 @@ export class App {
     );
   }
 
-  /** Same stable-reference requirement as userMenuItems below, but the
-   * roles come from the token (not a signal) — cached per roles+active. */
+  /** Cached per roles+active (the roles come from the token, not a
+   * signal): p-menu's `@for` tracks items by object reference, so a fresh
+   * array on every change-detection cycle tore its `<li>`s down and
+   * rebuilt them constantly — a real mouse's click landing in between got
+   * dropped. */
   private roleMenuCache: { key: string; items: MenuItem[] } | null = null;
 
   protected roleMenuItems(): MenuItem[] {
@@ -396,47 +401,12 @@ export class App {
     return this.authApi.getUsername() ?? undefined;
   }
 
-  /** Must be `computed()`s, not plain methods called from the template:
-   * p-menu's `@for` tracks items by object reference, so a method re-run on
-   * every change-detection cycle handed it a brand-new array/objects each
-   * time, tearing the `<li>`/`<a>` elements down and rebuilding them
-   * constantly. If that teardown landed between a real mouse's mousedown and
-   * mouseup — never between a test's synthetic click() — the browser dropped
-   * the click, which is why the first click on a menu item did nothing and
-   * only the second one (hitting a settled DOM) worked.
-   *
-   * Two of them, picked in the template, rather than one branching on
-   * `isSuperAdmin()`: that check isn't a signal, so a single computed would
-   * stay stuck on whichever role it first saw. SuperAdmin lives outside the
-   * `:schoolSlug` route tree (see app.routes.ts), so its Settings link can't
-   * go through `SchoolContextService.link()`. */
-  protected readonly userMenuItems = computed<MenuItem[]>(() => {
-    const items = this.buildUserMenu(this.schoolContext.link('settings'));
-    return this.demoSchool()
-      ? [
-          {
-            label: 'Přepnout uživatele',
-            icon: 'pi pi-users',
-            routerLink: this.schoolContext.link('login'),
-          },
-          ...items,
-        ]
-      : items;
-  });
-
-  protected readonly superAdminUserMenuItems = computed<MenuItem[]>(() =>
-    this.buildUserMenu(['/superadmin/settings']),
-  );
-
-  private buildUserMenu(settingsLink: string[]): MenuItem[] {
-    return [
-      { label: 'Nastavení', icon: 'pi pi-cog', routerLink: settingsLink },
-      { separator: true },
-      {
-        label: 'Odhlásit se',
-        icon: 'pi pi-sign-out',
-        command: () => this.logout(),
-      },
-    ];
+  /** SuperAdmin lives outside the `:schoolSlug` route tree (see
+   * app.routes.ts), so its Settings link can't go through
+   * `SchoolContextService.link()`. */
+  protected settingsLink(): string[] {
+    return this.isSuperAdmin()
+      ? ['/superadmin/settings']
+      : this.schoolContext.link('settings');
   }
 }
