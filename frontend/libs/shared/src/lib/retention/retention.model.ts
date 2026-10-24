@@ -14,6 +14,16 @@ export type RetentionCategory =
 /** Confirm: due erasures wait for an admin. Automatic: the daily job does them. */
 export type ErasureMode = 'Confirm' | 'Automatic';
 
+/** Who's told of a departure — the pupil's own account, their parents,
+ * the class teacher. */
+export type LeaveNoticeGroup = 'Student' | 'Parents' | 'ClassTeacher';
+
+export interface LeaveNotice {
+  group: LeaveNoticeGroup;
+  /** The message names the reason. */
+  withReason: boolean;
+}
+
 export type StudentLeaveReason =
   'Transfer' | 'Graduated' | 'Expelled' | 'Other';
 
@@ -48,6 +58,9 @@ export interface FormerStudent {
   /** The pupil's last day at the school. */
   leftAt: string;
   reason: StudentLeaveReason | null;
+  /** The reason in words, with `Other`. */
+  reasonDetail: string | null;
+  /** For the school only. */
   note: string | null;
   /** The last day is over (false = departure announced). */
   former: boolean;
@@ -76,7 +89,12 @@ export interface RetentionOverview {
 export interface LeaveRequest {
   leftAt: string;
   reason: StudentLeaveReason | null;
+  /** Required with `Other`. */
+  reasonDetail: string | null;
+  /** For the school only. */
   note: string | null;
+  /** Who's told (only of a new departure or a new last day). */
+  notices: LeaveNotice[];
 }
 
 export interface EraseDueResult {

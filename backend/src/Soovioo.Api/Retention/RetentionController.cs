@@ -18,7 +18,7 @@ namespace Soovioo.Api.Retention;
 [Route("api/retention")]
 public class RetentionController(
     AppDbContext db, ICurrentSchoolContext currentSchool, StudentEraser studentEraser,
-    AccountEraser accountEraser, TimeProvider clock) : ControllerBase
+    AccountEraser accountEraser, LeaveNotifier notifier, TimeProvider clock) : ControllerBase
 {
     private int SchoolId => currentSchool.SchoolId!.Value;
     private DateOnly Today => SchoolClock.Today(clock);
@@ -100,7 +100,8 @@ public class RetentionController(
     }
 
     /// <summary>Records (or changes) a pupil's departure. Not once anything
-    /// of theirs has been erased.</summary>
+    /// of theirs has been erased. A new departure, or a new last day, goes to
+    /// the people in <see cref="LeaveRequest.Notices"/>.</summary>
     [HttpPut("students/{id:int}/leave")]
     public async Task<ActionResult<FormerStudentDto>> SetLeave(int id, LeaveRequest request)
     {
@@ -118,10 +119,23 @@ public class RetentionController(
         {
             return this.FieldError("reason", "Neznámý důvod ukončení.");
         }
+        var detail = string.IsNullOrWhiteSpace(request.ReasonDetail) ? null : request.ReasonDetail.Trim();
+        if (request.Reason == StudentLeaveReason.Other && detail is null)
+        {
+            return this.FieldError("reasonDetail", "Uveďte odůvodnění.");
+        }
 
+        LeaveNoticeKind? kind = student.LeftAt is null ? LeaveNoticeKind.Set
+            : student.LeftAt != request.LeftAt ? LeaveNoticeKind.DateChanged
+            : null;
         student.LeftAt = request.LeftAt;
         student.LeaveReason = request.Reason;
+        student.LeaveReasonDetail = request.Reason == StudentLeaveReason.Other ? detail : null;
         student.LeaveNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        if (kind is { } k)
+        {
+            await notifier.NotifyAsync(student, k, request.Notices ?? [], CurrentUserId());
+        }
         await db.SaveChangesAsync();
         return Ok(await DtoOfAsync(student));
     }
@@ -129,7 +143,7 @@ public class RetentionController(
     /// <summary>Takes a departure back — the pupil (and their parents'
     /// accounts, unless erased) are back. Not once anything was erased.</summary>
     [HttpDelete("students/{id:int}/leave")]
-    public async Task<IActionResult> CancelLeave(int id)
+    public async Task<IActionResult> CancelLeave(int id, [FromBody] CancelLeaveRequest? request = null)
     {
         db.IncludeFormerStudents = true;
         var student = await db.Students.FirstOrDefaultAsync(s => s.Id == id);
@@ -142,8 +156,10 @@ public class RetentionController(
             return BadRequest("Část údajů žáka už je vymazaná, ukončení vzdělávání nejde vrátit.");
         }
 
+        await notifier.NotifyAsync(student, LeaveNoticeKind.Cancelled, request?.Notices ?? [], CurrentUserId());
         student.LeftAt = null;
         student.LeaveReason = null;
+        student.LeaveReasonDetail = null;
         student.LeaveNote = null;
         var accountIds = await db.ParentStudents
             .Where(ps => ps.StudentId == id)
@@ -224,6 +240,8 @@ public class RetentionController(
         return NoContent();
     }
 
+    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     private async Task<FormerStudentDto> DtoOfAsync(Student student)
     {
         var policy = await RetentionJob.PolicyOfAsync(db, SchoolId);
@@ -243,7 +261,7 @@ public class RetentionController(
             .OrderBy(e => e.On)
             .ToList();
         return new FormerStudentDto(
-            s.Id, s.FirstName, s.LastName, className, leftAt, s.LeaveReason, s.LeaveNote,
+            s.Id, s.FirstName, s.LastName, className, leftAt, s.LeaveReason, s.LeaveReasonDetail, s.LeaveNote,
             Former: leftAt < today, accountActive, s.ErasedCategories,
             Due: leftAt < today ? StudentEraser.Due(s, policy, today) : [],
             Pending: pending);
@@ -295,7 +313,17 @@ public record RetentionPolicyDto(
 }
 
 /// <param name="LeftAt">The pupil's last day at the school.</param>
-public record LeaveRequest(DateOnly LeftAt, StudentLeaveReason? Reason = null, string? Note = null);
+/// <param name="ReasonDetail">Required with <see cref="StudentLeaveReason.Other"/>.</param>
+/// <param name="Note">For the school only.</param>
+/// <param name="Notices">Who's told (only of a new departure or a new last day).</param>
+public record LeaveRequest(
+    DateOnly LeftAt,
+    StudentLeaveReason? Reason = null,
+    string? Note = null,
+    string? ReasonDetail = null,
+    IReadOnlyList<LeaveNotice>? Notices = null);
+
+public record CancelLeaveRequest(IReadOnlyList<LeaveNotice>? Notices = null);
 
 /// <param name="Everything">Erase the whole profile now instead of what is due.</param>
 public record EraseRequest(bool Everything = false);
@@ -315,6 +343,7 @@ public record FormerStudentDto(
     string SchoolClassName,
     DateOnly LeftAt,
     StudentLeaveReason? Reason,
+    string? ReasonDetail,
     string? Note,
     bool Former,
     bool AccountActive,

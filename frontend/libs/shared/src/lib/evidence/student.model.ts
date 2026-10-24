@@ -39,6 +39,7 @@ export interface Student {
    * last day is over isn't listed at all — see RetentionApiService). */
   leftAt?: string | null;
   leaveReason?: StudentLeaveReason | null;
+  leaveReasonDetail?: string | null;
   leaveNote?: string | null;
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */

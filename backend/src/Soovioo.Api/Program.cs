@@ -63,6 +63,7 @@ builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolPurger>();
 builder.Services.AddScoped<Soovioo.Api.Retention.AccountEraser>();
 builder.Services.AddScoped<Soovioo.Api.Retention.StudentEraser>();
 builder.Services.AddScoped<Soovioo.Api.Retention.RetentionJob>();
+builder.Services.AddScoped<Soovioo.Api.Retention.LeaveNotifier>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
 
 // Generating a demo school is the one anonymous request that costs real

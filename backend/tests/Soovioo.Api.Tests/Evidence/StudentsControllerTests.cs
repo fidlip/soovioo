@@ -60,7 +60,7 @@ public class StudentsControllerTests
     }
 
     [Fact]
-    public async Task DeleteStudentRemovesGradesAbsencesMessagesAndParentLinks()
+    public async Task DeleteStudentRefusesOneWithHistory()
     {
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
@@ -82,12 +82,43 @@ public class StudentsControllerTests
 
         var result = await NewController(db, 999).DeleteStudent(student.Id);
 
+        var conflict = Assert.IsType<ConflictObjectResult>(result);
+        Assert.Equal(
+            "Žáka nejde smazat, už má 1 známku, 1 absenci, 1 zprávu. Místo smazání ukončete jeho vzdělávání.",
+            conflict.Value);
+        Assert.NotNull(await db.Students.FindAsync(student.Id));
+        Assert.Single(db.Grades.Where(g => g.StudentId == student.Id));
+    }
+
+    [Fact]
+    public async Task DeleteStudentWithoutHistoryTakesLinksAndUnpaidInstallmentsAlong()
+    {
+        using var db = NewDb();
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        db.SchoolClasses.Add(schoolClass);
+        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        db.Users.Add(parent);
+        await db.SaveChangesAsync();
+        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+        var payment = new Soovioo.Api.Payments.Payment { Title = "Výlet", SchoolId = SchoolId, CreatedByUserId = parent.Id };
+        db.Payments.Add(payment);
+        await db.SaveChangesAsync();
+        db.PaymentRecipients.Add(new Soovioo.Api.Payments.PaymentRecipient
+        {
+            PaymentId = payment.Id, StudentId = student.Id, SchoolId = SchoolId, Amount = 100,
+        });
+        await db.LinkChildAsync(parent.Id, student.Id, SchoolId);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, 999).DeleteStudent(student.Id);
+
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Students.FindAsync(student.Id));
-        Assert.Empty(db.Grades.Where(g => g.StudentId == student.Id));
-        Assert.Empty(db.Absences.Where(a => a.StudentId == student.Id));
-        Assert.Empty(db.Conversations.Where(c => c.StudentId == student.Id));
-        Assert.Empty(db.ParentStudents.Where(ps => ps.StudentId == student.Id));
+        Assert.Empty(db.PaymentRecipients);
+        Assert.Empty(db.ParentStudents);
+        Assert.NotNull(await db.Users.FindAsync(parent.Id));
     }
 
     [Fact]

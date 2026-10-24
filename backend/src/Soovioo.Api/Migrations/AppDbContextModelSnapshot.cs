@@ -824,6 +824,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("LeaveReason")
                         .HasColumnType("text");
 
+                    b.Property<string>("LeaveReasonDetail")
+                        .HasColumnType("text");
+
                     b.Property<DateOnly?>("LeftAt")
                         .HasColumnType("date");
 

@@ -18,6 +18,7 @@ namespace Soovioo.Api.Tests.Retention;
 public class RetentionTests
 {
     private const int SchoolId = 1;
+    private const int AdminId = 900;
 
     // Noon in Prague, so "today" is the same day in either zone.
     private readonly FakeClock clock = new(new DateTimeOffset(2026, 10, 24, 10, 0, 0, TimeSpan.Zero));
@@ -33,6 +34,7 @@ public class RetentionTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId)) { Today = Today };
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
+        db.Users.Add(new User { Id = AdminId, Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = SchoolId });
         schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
@@ -81,12 +83,13 @@ public class RetentionTests
 
     private RetentionJob Job() => new(db, Accounts(), Students(), clock);
 
-    private RetentionController Controller(int adminId = 999)
+    private RetentionController Controller(int adminId = AdminId)
     {
         var identity = new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, adminId.ToString()), new Claim(ClaimTypes.Role, "Admin"),
         ]);
-        return new RetentionController(db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), clock)
+        return new RetentionController(
+            db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), new LeaveNotifier(db, clock), clock)
         {
             ControllerContext = new ControllerContext
             {
@@ -340,5 +343,66 @@ public class RetentionTests
         var former = overview.Students.Single(s => s.Former);
         Assert.Equal([RetentionCategory.Photos], former.Due);
         Assert.Empty(overview.Students.Single(s => !s.Former).Due);
+    }
+
+    private async Task<List<(string Body, List<int> Recipients)>> NoticesAsync() =>
+        (await db.Conversations.IgnoreQueryFilters().Include(c => c.Messages).Include(c => c.Participants).ToListAsync())
+            .Select(c => (c.Messages.Single().Body, c.Participants.Select(p => p.UserId).Where(id => id != AdminId).Order().ToList()))
+            .ToList();
+
+    [Fact]
+    public async Task ADepartureIsToldOnlyThoseChosenAndTheReasonOnlyToSome()
+    {
+        var student = AddStudent("Pavel");
+        var own = AddUser("pavel", UserRole.Student);
+        student.UserId = own.Id;
+        var parent = await AddParentAsync("rodic", student);
+        var teacher = AddUser("tridni", UserRole.Teacher);
+        schoolClass.ClassTeacherId = teacher.Id;
+        await db.SaveChangesAsync();
+
+        await Controller().SetLeave(student.Id, new LeaveRequest(
+            Today.AddDays(30), StudentLeaveReason.Expelled, "jen pro školu",
+            Notices: [new(LeaveNoticeGroup.Parents), new(LeaveNoticeGroup.ClassTeacher, WithReason: true)]));
+
+        var notices = await NoticesAsync();
+        Assert.Equal(2, notices.Count);
+        var toParent = notices.Single(n => n.Recipients.SequenceEqual([parent.Id]));
+        var toTeacher = notices.Single(n => n.Recipients.SequenceEqual([teacher.Id]));
+        Assert.DoesNotContain("Důvod", toParent.Body);
+        Assert.Contains("Důvod: vyloučení ze školy.", toTeacher.Body);
+        Assert.Contains("23. 11. 2026", toParent.Body);
+        Assert.All(notices, n => Assert.DoesNotContain("jen pro školu", n.Body));
+    }
+
+    [Fact]
+    public async Task OnlyANewLastDayIsToldAgain()
+    {
+        var student = AddStudent("Pavel");
+        var parent = await AddParentAsync("rodic", student);
+        IReadOnlyList<LeaveNotice> toParents = [new(LeaveNoticeGroup.Parents)];
+
+        await Controller().SetLeave(student.Id, new LeaveRequest(Today.AddDays(30), Notices: toParents));
+        await Controller().SetLeave(student.Id, new LeaveRequest(Today.AddDays(30), Note: "jen poznámka", Notices: toParents));
+        await Controller().SetLeave(student.Id, new LeaveRequest(Today.AddDays(40), Notices: toParents));
+        await Controller().CancelLeave(student.Id, new CancelLeaveRequest(toParents));
+
+        var bodies = (await NoticesAsync()).Select(n => n.Body).ToList();
+        Assert.Equal(3, bodies.Count);
+        Assert.Contains(bodies, b => b.StartsWith("Mění se datum"));
+        Assert.Contains(bodies, b => b.Contains("bylo zrušeno"));
+    }
+
+    [Fact]
+    public async Task AnOtherReasonNeedsItsWords()
+    {
+        var student = AddStudent("Pavel");
+
+        var missing = await Controller().SetLeave(student.Id, new LeaveRequest(Today, StudentLeaveReason.Other));
+        var given = await Controller().SetLeave(student.Id, new LeaveRequest(Today, StudentLeaveReason.Other, ReasonDetail: " Stěhování do zahraničí "));
+
+        Assert.IsType<BadRequestObjectResult>(missing.Result);
+        var dto = Assert.IsType<FormerStudentDto>(Assert.IsType<OkObjectResult>(given.Result).Value);
+        Assert.Equal("Stěhování do zahraničí", dto.ReasonDetail);
     }
 }
