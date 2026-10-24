@@ -24,7 +24,7 @@ public class DemoAdminController(AppDbContext db) : ControllerBase
         var csv = new StringBuilder("E-mail;Souhlas s kontaktem;Zdroj;Demo;Demo stále existuje;Vytvořeno\r\n");
         foreach (var c in await Contacts().ToListAsync())
         {
-            csv.Append($"{Cell(c.Email)};{(c.Consent ? "ano" : "ne")};{c.Source};{c.DemoSlug};{(c.DemoExists ? "ano" : "ne")};{c.CreatedAt:yyyy-MM-dd HH:mm}\r\n");
+            csv.Append($"{Cell(c.Email)};{(c.Consent ? "ano" : "ne")};{SourceLabel(c.Source)};{c.DemoSlug};{(c.DemoExists ? "ano" : "ne")};{c.CreatedAt:yyyy-MM-dd HH:mm}\r\n");
         }
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
         return File(bytes, "text/csv; charset=utf-8", "soovioo-demo-kontakty.csv");
@@ -37,6 +37,14 @@ public class DemoAdminController(AppDbContext db) : ControllerBase
             .Take(500)
             .Select(f => new DemoFeedbackDto(f.Id, f.DemoSlug, f.Rating, f.Text, f.Email, f.Consent, f.Role, f.CreatedAt))
             .ToListAsync());
+
+    /// <summary>As the contacts table on the web shows it.</summary>
+    private static string SourceLabel(string source) => source switch
+    {
+        "wizard" => "průvodce",
+        "feedback" => "zpětná vazba",
+        _ => source,
+    };
 
     private IQueryable<DemoContactDto> Contacts() =>
         db.DemoContacts
