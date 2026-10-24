@@ -99,9 +99,14 @@ export class HomeworkPage {
   protected filterClassId: number | null = null;
   protected filterSubjectId: number | null = null;
 
-  protected readonly classOptions = computed(() =>
-    this.schoolClasses().map((c) => ({ id: c.id, label: c.name })),
-  );
+  /** Staff pick from every class, a parent or pupil only from their
+   * children's (the students list holds just those). */
+  protected readonly classOptions = computed(() => {
+    const own = new Set(this.students().map((s) => s.schoolClassId));
+    return this.schoolClasses()
+      .filter((c) => this.canManageHomework() || own.has(c.id))
+      .map((c) => ({ id: c.id, label: c.name }));
+  });
   /** Deduplicated (class, subject) pairs a Teacher actually teaches — the
    * create dialog's single "Třída a předmět" picker for that role. */
   protected readonly teachingAssignmentOptions = computed(() => {
