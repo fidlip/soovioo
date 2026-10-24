@@ -240,7 +240,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
 
         async Task<string> Avatar(bool female, bool adult) =>
             await photos.SaveProcessedAsync(school.Id,
-                DemoAvatars.Get(female, adult, photoRng.Next(DemoAvatars.VariantsPerKind)));
+                DemoAvatars.Get(DemoAvatars.SetFor(female, adult), photoRng.Next(DemoAvatars.VariantsPerSet)));
 
         foreach (var person in teachers.Select(t => t.Person).Prepend(admin))
         {

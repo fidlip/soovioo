@@ -33,4 +33,11 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Demo avatar sheets, see Demo/DemoAvatars.cs. -->
+    <Content Include="Demo/Avatars/*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
