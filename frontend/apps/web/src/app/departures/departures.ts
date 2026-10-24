@@ -94,7 +94,12 @@ export class Departures {
   }
 
   protected reasonAndNote(student: FormerStudent): string {
-    const reason = student.reason ? this.reasonLabels[student.reason] : null;
+    const reason =
+      student.reason === 'Other' && student.reasonDetail
+        ? student.reasonDetail
+        : student.reason
+          ? this.reasonLabels[student.reason]
+          : null;
     return [reason, student.note].filter((x) => x).join(' — ');
   }
 

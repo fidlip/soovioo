@@ -42,6 +42,12 @@ namespace Soovioo.Api.Migrations
                 type: "text",
                 nullable: true);
 
+            migrationBuilder.AddColumn<string>(
+                name: "LeaveReasonDetail",
+                table: "Students",
+                type: "text",
+                nullable: true);
+
             migrationBuilder.AddColumn<DateOnly>(
                 name: "LeftAt",
                 table: "Students",
@@ -81,8 +87,8 @@ namespace Soovioo.Api.Migrations
                 table: "Students",
                 keyColumn: "Id",
                 keyValue: 1,
-                columns: new[] { "ErasedCategories", "LeaveNote", "LeaveReason", "LeftAt" },
-                values: new object[] { new string[0], null, null, null });
+                columns: new[] { "ErasedCategories", "LeaveNote", "LeaveReason", "LeaveReasonDetail", "LeftAt" },
+                values: new object[] { new string[0], null, null, null, null });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_DeactivatedAt",
@@ -119,6 +125,10 @@ namespace Soovioo.Api.Migrations
 
             migrationBuilder.DropColumn(
                 name: "LeaveReason",
+                table: "Students");
+
+            migrationBuilder.DropColumn(
+                name: "LeaveReasonDetail",
                 table: "Students");
 
             migrationBuilder.DropColumn(

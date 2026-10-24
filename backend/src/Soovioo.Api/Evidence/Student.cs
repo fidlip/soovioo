@@ -129,6 +129,12 @@ public class Student
     public DateOnly? LeftAt { get; set; }
 
     public StudentLeaveReason? LeaveReason { get; set; }
+
+    /// <summary>The reason in words, for <see cref="StudentLeaveReason.Other"/>
+    /// — may go to the people told about the departure.</summary>
+    public string? LeaveReasonDetail { get; set; }
+
+    /// <summary>For the school only, never sent to anyone.</summary>
     public string? LeaveNote { get; set; }
 
     /// <summary>What has already been erased of a former pupil

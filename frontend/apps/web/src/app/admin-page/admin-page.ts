@@ -1,4 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -995,9 +996,6 @@ export class AdminPage {
     });
   }
 
-  /** Also removes the student's grades, absences, messages and parent
-   * links — see StudentsController.DeleteStudent. The confirmation dialog here
-   * guards the one place in this page a mistake can't be undone. */
   /** The pupil whose departure is being recorded (Ukončení vzdělávání). */
   protected readonly leaveStudent = signal<LeaveTarget | null>(null);
   protected readonly formatDate = formatDateOnly;
@@ -1006,16 +1004,21 @@ export class AdminPage {
     this.leaveStudent.set({
       ...student,
       reason: student.leaveReason,
+      reasonDetail: student.leaveReasonDetail,
       note: student.leaveNote,
     });
   }
 
+  /** Only a pupil without history (one added by mistake) can be deleted;
+   * for one with grades, absences… the server answers 409 with what's
+   * there, and an admin is offered Ukončení vzdělávání instead. */
   protected deleteStudent(student: Student): void {
+    const type = this.authApi.getSchoolType();
     this.confirmation.confirm({
-      header: localizeStudentTerm('Smazat žáka', this.authApi.getSchoolType()),
+      header: localizeStudentTerm('Smazat žáka', type),
       message: localizeStudentTerm(
-        `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smažou se i jeho známky, docházka a zprávy.`,
-        this.authApi.getSchoolType(),
+        `Opravdu smazat žáka ${student.firstName} ${student.lastName}? Smazat jde jen žáka bez záznamů (založeného omylem), jinak se ukončuje jeho vzdělávání.`,
+        type,
       ),
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Smazat',
@@ -1025,9 +1028,37 @@ export class AdminPage {
       accept: () =>
         this.studentsApi.deleteStudent(student.id).subscribe({
           next: () => this.reload(),
-          error: (err) => this.showError('deleteStudent failed', err),
+          error: (err) => {
+            if (err instanceof HttpErrorResponse && err.status === 409) {
+              this.offerLeave(student, String(err.error));
+            } else {
+              this.showError('deleteStudent failed', err);
+            }
+          },
         }),
     });
+  }
+
+  private offerLeave(student: Student, reason: string): void {
+    if (this.accessLevel() !== 'admin') {
+      this.notify.warn(reason);
+      return;
+    }
+    // After the delete confirmation has gone.
+    setTimeout(() =>
+      this.confirmation.confirm({
+        header: localizeStudentTerm(
+          'Žáka nejde smazat',
+          this.authApi.getSchoolType(),
+        ),
+        message: reason,
+        icon: 'pi pi-info-circle',
+        acceptLabel: 'Ukončit vzdělávání',
+        rejectLabel: 'Zavřít',
+        rejectButtonProps: { severity: 'secondary', outlined: true },
+        accept: () => this.openLeave(student),
+      }),
+    );
   }
 
   protected openAddUserDialog(): void {

@@ -1,11 +1,17 @@
 import { Component, effect, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
-import { RetentionApiService, StudentLeaveReason } from '@soovioo/shared';
+import {
+  LeaveNotice,
+  LeaveNoticeGroup,
+  RetentionApiService,
+  StudentLeaveReason,
+} from '@soovioo/shared';
 import { FORM_FIELDS } from '../forms';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
@@ -18,16 +24,26 @@ export interface LeaveTarget {
   lastName: string;
   leftAt?: string | null;
   reason?: StudentLeaveReason | null;
+  reasonDetail?: string | null;
   note?: string | null;
 }
 
-/** Administrace → Studenti / Archiv a výmaz údajů: records a pupil's departure (or takes it
- * back). Open while `student` is set. */
+interface NoticeRow {
+  group: LeaveNoticeGroup;
+  label: string;
+  notify: boolean;
+  withReason: boolean;
+}
+
+/** Administrace → Studenti / Archiv a výmaz údajů: records a pupil's
+ * departure (or takes it back) and tells whom the admin picks. Open while
+ * `student` is set. */
 @Component({
   selector: 'app-leave-dialog',
   imports: [
     FormsModule,
     Button,
+    Checkbox,
     DatePicker,
     Dialog,
     InputText,
@@ -77,8 +93,20 @@ export interface LeaveTarget {
             appendTo="body"
           />
         </div>
+        @if (reason === 'Other') {
+          <div class="flex flex-col gap-1">
+            <label for="leave-reason-detail">Odůvodnění</label>
+            <input
+              pInputText
+              id="leave-reason-detail"
+              name="reasonDetail"
+              required
+              [(ngModel)]="reasonDetail"
+            />
+          </div>
+        }
         <div class="flex flex-col gap-1">
-          <label for="leave-note">Poznámka</label>
+          <label for="leave-note">Poznámka (jen pro školu)</label>
           <input
             pInputText
             id="leave-note"
@@ -87,6 +115,43 @@ export interface LeaveTarget {
             placeholder="Např. kam přestupuje"
           />
         </div>
+        <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+          <legend class="mb-2 text-sm font-medium">
+            Oznámit zprávou
+            <span class="font-normal text-surface-500"
+              >(při zadání, změně data nebo zrušení)</span
+            >
+          </legend>
+          @for (row of notices; track row.group) {
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+              <div class="flex w-40 items-center gap-2">
+                <p-checkbox
+                  [inputId]="'notify-' + row.group"
+                  [name]="'notify-' + row.group"
+                  [binary]="true"
+                  [(ngModel)]="row.notify"
+                />
+                <label [for]="'notify-' + row.group">{{
+                  row.label | term
+                }}</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <p-checkbox
+                  [inputId]="'reason-' + row.group"
+                  [name]="'reason-' + row.group"
+                  [binary]="true"
+                  [disabled]="!row.notify || !reason"
+                  [(ngModel)]="row.withReason"
+                />
+                <label
+                  [for]="'reason-' + row.group"
+                  class="text-sm text-surface-600 dark:text-surface-300"
+                  >i s důvodem</label
+                >
+              </div>
+            </div>
+          }
+        </fieldset>
         <div class="flex flex-wrap justify-between gap-2">
           @if (student()?.leftAt) {
             <p-button
@@ -116,20 +181,43 @@ export class LeaveDialog {
   protected readonly reasons = LEAVE_REASON_OPTIONS;
   protected leftAt: Date | null = null;
   protected reason: StudentLeaveReason | null = null;
+  protected reasonDetail = '';
   protected note = '';
+  protected notices: NoticeRow[] = [];
 
   constructor() {
     effect(() => {
       const student = this.student();
       this.leftAt = student?.leftAt ? new Date(student.leftAt) : null;
       this.reason = student?.reason ?? null;
+      this.reasonDetail = student?.reasonDetail ?? '';
       this.note = student?.note ?? '';
+      // Everyone hears of it; the reason only the class teacher by default.
+      this.notices = [
+        { group: 'Student', label: 'Žák', notify: true, withReason: false },
+        { group: 'Parents', label: 'Rodiče', notify: true, withReason: false },
+        {
+          group: 'ClassTeacher',
+          label: 'Třídní učitel',
+          notify: true,
+          withReason: true,
+        },
+      ];
     });
   }
 
   protected name(): string {
     const s = this.student();
     return s ? `${s.firstName} ${s.lastName}` : '';
+  }
+
+  private chosenNotices(): LeaveNotice[] {
+    return this.notices
+      .filter((n) => n.notify)
+      .map((n) => ({
+        group: n.group,
+        withReason: n.withReason && this.reason !== null,
+      }));
   }
 
   protected save(): void {
@@ -141,7 +229,10 @@ export class LeaveDialog {
       .setLeave(student.id, {
         leftAt: toDateOnly(this.leftAt),
         reason: this.reason,
+        reasonDetail:
+          this.reason === 'Other' ? this.reasonDetail.trim() || null : null,
         note: this.note.trim() || null,
+        notices: this.chosenNotices(),
       })
       .subscribe({
         next: () => {
@@ -157,7 +248,7 @@ export class LeaveDialog {
     if (!student) {
       return;
     }
-    this.retentionApi.cancelLeave(student.id).subscribe({
+    this.retentionApi.cancelLeave(student.id, this.chosenNotices()).subscribe({
       next: () => {
         this.notify.success('Ukončení vzdělávání zrušeno.');
         this.changed.emit();

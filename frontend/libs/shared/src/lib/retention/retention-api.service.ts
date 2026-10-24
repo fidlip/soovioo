@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../api-base-url.token';
 import {
   EraseDueResult,
   FormerStudent,
+  LeaveNotice,
   LeaveRequest,
   RetentionOverview,
   RetentionPolicy,
@@ -46,9 +47,10 @@ export class RetentionApiService {
     );
   }
 
-  cancelLeave(studentId: number): Observable<void> {
+  cancelLeave(studentId: number, notices: LeaveNotice[]): Observable<void> {
     return this.http.delete<void>(
       `${this.baseUrl}/api/retention/students/${studentId}/leave`,
+      { body: { notices } },
     );
   }
 

@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261024152601_StudentDepartureAndRetention")]
+    [Migration("20261024191011_StudentDepartureAndRetention")]
     partial class StudentDepartureAndRetention
     {
         /// <inheritdoc />
@@ -825,6 +825,9 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("LeaveReason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LeaveReasonDetail")
                         .HasColumnType("text");
 
                     b.Property<DateOnly?>("LeftAt")
