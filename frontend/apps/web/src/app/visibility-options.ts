@@ -1,45 +1,76 @@
-import { VisibilityOption } from '@soovioo/shared';
+import {
+  VISIBILITY_SCOPES,
+  VisibilityAudience,
+  VisibilityField,
+  VisibilityOwner,
+  VisibilityScope,
+} from '@soovioo/shared';
 
-export interface VisibilityOptionInfo {
-  option: VisibilityOption;
-  /** Administrace → Viditelnost údajů. */
-  label: string;
-  hint: string;
-  /** Who may hide their own part, if the school allows it. */
-  whoCanHide: string;
-  /** Nastavení → Soukromí: the switch hiding the caller's own data. None
-   * for the class list — that one is per pupil, not per account. */
-  hideOwnLabel?: string;
+/** Fields offered in the UI. Photo settings exist on the backend already,
+ * but there are no photos yet. */
+export const VISIBILITY_FIELDS: VisibilityField[] = ['Name', 'Phone', 'Email'];
+
+export const VISIBILITY_FIELD_LABELS: Record<VisibilityField, string> = {
+  Name: 'Jméno (v seznamu)',
+  Phone: 'Telefon',
+  Email: 'E-mail',
+  Photo: 'Fotka',
+};
+
+export const VISIBILITY_AUDIENCE_LABELS: Record<VisibilityAudience, string> = {
+  Parents: 'Rodiče',
+  Students: 'Žáci',
+};
+
+export const VISIBILITY_OWNER_LABELS: Record<VisibilityOwner, string> = {
+  Staff: 'Zaměstnanci',
+  Parent: 'Rodiče',
+  Student: 'Žáci',
+};
+
+/** "Jako zaměstnanec" — for accounts deciding as more than one owner. */
+export const VISIBILITY_OWNER_ROLE_LABELS: Record<VisibilityOwner, string> = {
+  Staff: 'Jako zaměstnanec',
+  Parent: 'Jako rodič',
+  Student: 'Jako žák',
+};
+
+export const VISIBILITY_SCOPE_LABELS: Record<VisibilityScope, string> = {
+  Nobody: 'Nikdo',
+  MyClasses: 'Moje třídy',
+  School: 'Celá škola',
+};
+
+/** The short form next to a field. */
+export const VISIBILITY_SCOPE_SHORT: Record<VisibilityScope, string> = {
+  Nobody: 'Nikdo',
+  MyClasses: 'Třídy',
+  School: 'Škola',
+};
+
+export const VISIBILITY_SCOPE_ICONS: Record<VisibilityScope, string> = {
+  Nobody: 'pi pi-lock',
+  MyClasses: 'pi pi-users',
+  School: 'pi pi-building',
+};
+
+export function scopeRank(scope: VisibilityScope): number {
+  return VISIBILITY_SCOPES.indexOf(scope);
 }
 
-/** The school's "Viditelnost údajů" options in display order. Photo options
- * exist on the backend already, but there are no photos yet, so they're
- * not offered. */
-export const VISIBILITY_OPTIONS: VisibilityOptionInfo[] = [
-  {
-    option: 'TeacherContacts',
-    label: 'Telefon a e-mail učitelů',
-    hint: 'Rodiče uvidí na stránce Třída telefon a e-mail učitelů, kteří jejich dítě učí.',
-    whoCanHide: 'učitelé',
-    hideOwnLabel: 'Skrýt můj telefon a e-mail před rodiči',
-  },
-  {
-    option: 'Classmates',
-    label: 'Seznam spolužáků',
-    hint: 'Žáci a rodiče uvidí na stránce Třída jména všech žáků ve třídě.',
-    whoCanHide: 'žáci a rodiče (za své dítě)',
-  },
-  {
-    option: 'ParentContacts',
-    label: 'Ostatní rodiče ve třídě',
-    hint: 'Rodiče uvidí na stránce Třída jména, telefony a e-maily ostatních rodičů ze třídy.',
-    whoCanHide: 'rodiče',
-    hideOwnLabel: 'Skrýt mé jméno a kontakt před ostatními rodiči ve třídě',
-  },
-];
+export function widestScope(scopes: VisibilityScope[]): VisibilityScope {
+  return scopes.reduce<VisibilityScope>(
+    (widest, s) => (scopeRank(s) > scopeRank(widest) ? s : widest),
+    'Nobody',
+  );
+}
 
-export function visibilityOptionInfo(
-  option: VisibilityOption,
-): VisibilityOptionInfo | undefined {
-  return VISIBILITY_OPTIONS.find((o) => o.option === option);
+/** Scopes between `min` and `max`. */
+export function scopesBetween(
+  min: VisibilityScope,
+  max: VisibilityScope,
+): VisibilityScope[] {
+  return VISIBILITY_SCOPES.filter(
+    (s) => scopeRank(s) >= scopeRank(min) && scopeRank(s) <= scopeRank(max),
+  );
 }

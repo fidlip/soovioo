@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -113,51 +114,60 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
 
-    /// <summary>"Viditelnost údajů" — what the school shares with parents
-    /// and pupils, see <see cref="Visibility"/>.</summary>
+    /// <summary>"Viditelnost údajů" — for every <see cref="Visibility.Keys"/>
+    /// entry the range individuals choose from and the default.</summary>
     [HttpGet("visibility")]
-    public async Task<ActionResult<VisibilitySettingsDto>> GetVisibility()
-    {
-        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
-        if (school is null)
-        {
-            return NotFound();
-        }
+    public async Task<ActionResult<VisibilityRulesDto>> GetVisibility() =>
+        Ok(ToDto(await Visibility.LoadAsync(db, currentSchool.SchoolId!.Value)));
 
-        return Ok(ToVisibilityDto(school));
-    }
-
+    /// <summary>Replaces the whole set; entries left out mean
+    /// <see cref="VisibilityScope.Nobody"/>.</summary>
     [HttpPut("visibility")]
-    public async Task<ActionResult<VisibilitySettingsDto>> SetVisibility(VisibilitySettingsDto request)
+    public async Task<ActionResult<VisibilityRulesDto>> SetVisibility(VisibilityRulesDto request)
     {
-        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
-        if (school is null)
-        {
-            return NotFound();
-        }
-
-        var shared = Visibility.FromNames(request.Shared);
-        var optOut = Visibility.FromNames(request.OptOutAllowed);
-        if (shared is null || optOut is null)
+        var schoolId = currentSchool.SchoolId!.Value;
+        var keys = request.Rules.Select(r => new VisibilityKey(r.Owner, r.Field, r.Audience)).ToList();
+        if (keys.Any(k => !Visibility.Keys.Contains(k)) || keys.Distinct().Count() != keys.Count
+            || request.Rules.Any(r => !Enum.IsDefined(r.Min) || !Enum.IsDefined(r.Default) || !Enum.IsDefined(r.Max)))
         {
             return BadRequest("Neznámá volba viditelnosti.");
         }
+        if (request.Rules.Any(r => r.Min > r.Default || r.Default > r.Max))
+        {
+            return BadRequest("Výchozí viditelnost musí být mezi nejmenší a největší.");
+        }
 
-        school.SharedData = shared.Value;
-        // Opting out of something the school doesn't share is moot, and a
-        // pupil's photo hangs on consent, not on an opt-out.
-        school.OptOutAllowed = optOut.Value & shared.Value & Visibility.OptOutCapable;
+        var existing = await db.VisibilityRules.Where(r => r.SchoolId == schoolId).ToListAsync();
+        db.VisibilityRules.RemoveRange(existing);
+        db.VisibilityRules.AddRange(request.Rules
+            .Where(r => r.Max != VisibilityScope.Nobody)
+            .Select(r => new VisibilityRule
+            {
+                SchoolId = schoolId,
+                Owner = r.Owner,
+                Field = r.Field,
+                Audience = r.Audience,
+                Min = r.Min,
+                Default = r.Default,
+                Max = r.Max,
+            }));
         await db.SaveChangesAsync();
 
-        return Ok(ToVisibilityDto(school));
+        return Ok(ToDto(await Visibility.LoadAsync(db, schoolId)));
     }
 
-    private static VisibilitySettingsDto ToVisibilityDto(School school) =>
-        new(Visibility.ToNames(school.SharedData), Visibility.ToNames(school.OptOutAllowed));
+    private static VisibilityRulesDto ToDto(SchoolVisibility visibility) =>
+        new(Visibility.Keys
+            .Select(visibility.Rule)
+            .Select(r => new VisibilityRuleDto(r.Owner, r.Field, r.Audience, r.Min, r.Default, r.Max))
+            .ToList());
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
 
-/// <param name="Shared"><see cref="VisibilityOption"/> names the school shares.</param>
-/// <param name="OptOutAllowed">Those of them individuals may hide for themselves.</param>
-public record VisibilitySettingsDto(IReadOnlyList<string> Shared, IReadOnlyList<string> OptOutAllowed);
+/// <param name="Rules">One per <see cref="Visibility.Keys"/> entry.</param>
+public record VisibilityRulesDto(IReadOnlyList<VisibilityRuleDto> Rules);
+
+public record VisibilityRuleDto(
+    VisibilityOwner Owner, VisibilityField Field, VisibilityAudience Audience,
+    VisibilityScope Min, VisibilityScope Default, VisibilityScope Max);

@@ -92,6 +92,14 @@ const schoolRoutes: Route[] = [
     canActivate: [authGuard],
   },
   {
+    path: 'my-children',
+    loadComponent: () =>
+      import('./my-children-page/my-children-page').then(
+        (m) => m.MyChildrenPage,
+      ),
+    canActivate: [authGuard],
+  },
+  {
     path: 'admin',
     loadComponent: () =>
       import('./admin-page/admin-page').then((m) => m.AdminPage),
@@ -173,21 +181,21 @@ export const appRoutes: Route[] = isDemoEntryHost()
       { path: '**', redirectTo: '' },
     ]
   : isPathBasedTenant()
-  ? [
-      ...superAdminRoutes,
-      demoEntryRoute,
-      { path: '', pathMatch: 'full', redirectTo: `/${DEFAULT_DEV_SLUG}` },
-      {
-        path: ':schoolSlug',
-        canActivateChild: [schoolExistsGuard],
-        children: schoolRoutes,
-      },
-    ]
-  : [
-      ...superAdminRoutes,
-      {
-        path: '',
-        canActivateChild: [schoolExistsGuard],
-        children: schoolRoutes,
-      },
-    ];
+    ? [
+        ...superAdminRoutes,
+        demoEntryRoute,
+        { path: '', pathMatch: 'full', redirectTo: `/${DEFAULT_DEV_SLUG}` },
+        {
+          path: ':schoolSlug',
+          canActivateChild: [schoolExistsGuard],
+          children: schoolRoutes,
+        },
+      ]
+    : [
+        ...superAdminRoutes,
+        {
+          path: '',
+          canActivateChild: [schoolExistsGuard],
+          children: schoolRoutes,
+        },
+      ];

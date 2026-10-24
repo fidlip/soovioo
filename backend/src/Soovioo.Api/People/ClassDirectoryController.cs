@@ -8,10 +8,10 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.People;
 
 /// <summary>"Třída" for a parent or pupil: who teaches the class, and —
-/// as far as the school's "Viditelnost údajů" shares them — the teachers'
-/// contacts, the class list and the other parents. What isn't shared never
-/// leaves the API (null section / null contact), the clients only render
-/// what they get.</summary>
+/// as far as everyone's "Viditelnost údajů" shares them with the caller's
+/// audience (parents / pupils) in the class — the teachers' contacts, the
+/// class list and the other parents. What isn't shared never leaves the API
+/// (null section / null contact), the clients only render what they get.</summary>
 [Authorize(Roles = "Parent,Student")]
 [ApiController]
 [Route("api/class-directory")]
@@ -29,29 +29,36 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
             return NotFound();
         }
 
-        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId);
+        var visibility = await Visibility.LoadAsync(db, currentSchool.SchoolId!.Value);
         var student = await db.Students.Include(s => s.SchoolClass).FirstAsync(s => s.Id == id);
         var classId = student.SchoolClassId;
         var isParent = User.IsInRole(nameof(UserRole.Parent));
+        var audience = isParent ? VisibilityAudience.Parents : VisibilityAudience.Students;
 
-        var teachers = await TeachersAsync(school, classId, student.SchoolClass!.ClassTeacherId, isParent);
+        var teachers = await TeachersAsync(visibility, audience, classId, student.SchoolClass!.ClassTeacherId);
 
         List<ClassmateDto>? classmates = null;
-        if (Visibility.Shows(school, VisibilityOption.Classmates))
+        if (visibility.CanShow(new(VisibilityOwner.Student, VisibilityField.Name, audience), VisibilityScope.MyClasses))
         {
-            var optOut = school.OptOutAllowed.HasFlag(VisibilityOption.Classmates);
-            classmates = await db.Students
-                .Where(s => s.SchoolClassId == classId
-                            && (!optOut || !s.HiddenFromClassmates || accessible.Contains(s.Id)))
+            var pupils = await db.Students
+                .Where(s => s.SchoolClassId == classId)
                 .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
-                .Select(s => new ClassmateDto(s.Id, s.FirstName + " " + s.LastName))
+                .Select(s => new { s.Id, Name = s.FirstName + " " + s.LastName })
                 .ToListAsync();
+            var ids = pupils.Select(p => p.Id).ToList();
+            var choices = (await db.VisibilityChoices.Where(c => c.StudentId != null && ids.Contains(c.StudentId.Value)).ToListAsync())
+                .ToLookup(c => c.StudentId!.Value);
+            classmates = pupils
+                .Where(p => accessible.Contains(p.Id) || visibility.Shows(
+                    new(VisibilityOwner.Student, VisibilityField.Name, audience), choices[p.Id], VisibilityScope.MyClasses))
+                .Select(p => new ClassmateDto(p.Id, p.Name))
+                .ToList();
         }
 
         List<DirectoryParentDto>? parents = null;
-        if (isParent && Visibility.Shows(school, VisibilityOption.ParentContacts))
+        if (isParent && visibility.CanShow(new(VisibilityOwner.Parent, VisibilityField.Name, audience), VisibilityScope.MyClasses))
         {
-            parents = await ParentsAsync(school, classId, classmates);
+            parents = await ParentsAsync(visibility, classId, classmates);
         }
 
         return Ok(new ClassDirectoryDto(
@@ -61,9 +68,9 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
 
     /// <summary>Class teacher and everyone with a lesson in the class —
     /// names always (the same people are in Zprávy's contacts), phone and
-    /// e-mail only for parents and only where shared.</summary>
+    /// e-mail where the teacher shares them with the caller's audience.</summary>
     private async Task<List<DirectoryTeacherDto>> TeachersAsync(
-        Evidence.School school, int classId, int? classTeacherId, bool isParent)
+        SchoolVisibility visibility, VisibilityAudience audience, int classId, int? classTeacherId)
     {
         var teaching = await db.TimetableEntries
             .Where(t => t.SchoolClassId == classId && t.TeacherId != null)
@@ -76,6 +83,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
             ids.Add(ct);
         }
         var users = await db.Users.Include(u => u.Person).Where(u => ids.Contains(u.Id)).ToListAsync();
+        var choices = await ChoicesOfPersonsAsync(users.Where(u => u.Person != null).Select(u => u.Person!.Id));
 
         return users
             .Select(u =>
@@ -86,25 +94,27 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
                     notes.Add("třídní učitel");
                 }
                 notes.AddRange(teaching.Where(t => t.TeacherId == u.Id).Select(t => t.Name).Order());
-                var contacts = isParent
-                    && Visibility.Shows(school, VisibilityOption.TeacherContacts, u.Person?.HiddenData ?? VisibilityOption.None);
+                var own = u.Person is null ? [] : choices[u.Person.Id];
+                bool Shows(VisibilityField field) =>
+                    visibility.Shows(new(VisibilityOwner.Staff, field, audience), own, VisibilityScope.MyClasses);
                 return new DirectoryTeacherDto(
                     u.Id, PersonNames.Display(u), string.Join(", ", notes),
-                    contacts ? u.Person?.Phone : null, contacts ? u.Person?.Email : null);
+                    Shows(VisibilityField.Phone) ? u.Person?.Phone : null,
+                    Shows(VisibilityField.Email) ? u.Person?.Email : null);
             })
             .OrderBy(t => t.UserId == classTeacherId ? 0 : 1)
             .ThenBy(t => t.Name)
             .ToList();
     }
 
-    /// <summary>Parents of the class's pupils except the caller. Their
-    /// children are named only when the class list is shared (and the child
-    /// is on it) — otherwise the parent list would leak it.</summary>
+    /// <summary>Parents of the class's pupils except the caller, those who
+    /// share their name with the class's parents. Their children are named
+    /// only when they're on the class list the caller got — otherwise the
+    /// parent list would leak it.</summary>
     private async Task<List<DirectoryParentDto>> ParentsAsync(
-        Evidence.School school, int classId, List<ClassmateDto>? classmates)
+        SchoolVisibility visibility, int classId, List<ClassmateDto>? classmates)
     {
         var me = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var optOut = school.OptOutAllowed.HasFlag(VisibilityOption.ParentContacts);
         var links = await db.ParentStudents
             .Where(ps => ps.Student!.SchoolClassId == classId)
             .Select(ps => new
@@ -117,15 +127,17 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
                 Username = ps.ParentProfile.Person.User == null ? "" : ps.ParentProfile.Person.User.Username,
                 ps.ParentProfile.Person.Phone,
                 ps.ParentProfile.Person.Email,
-                ps.ParentProfile.Person.HiddenData,
             })
             .ToListAsync();
+        var choices = await ChoicesOfPersonsAsync(links.Select(l => l.PersonId));
         var childNames = classmates?.ToDictionary(c => c.StudentId, c => c.Name) ?? [];
+        bool Shows(int personId, VisibilityField field) =>
+            visibility.Shows(new(VisibilityOwner.Parent, field, VisibilityAudience.Parents), choices[personId], VisibilityScope.MyClasses);
 
         return links
             .GroupBy(l => l.PersonId)
             .Select(g => g.First())
-            .Where(p => p.UserId != me && !(optOut && p.HiddenData.HasFlag(VisibilityOption.ParentContacts)))
+            .Where(p => p.UserId != me && Shows(p.PersonId, VisibilityField.Name))
             .Select(p =>
             {
                 var name = $"{p.FirstName} {p.LastName}".Trim();
@@ -134,22 +146,33 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
                     .Select(l => childNames[l.StudentId])
                     .Order()
                     .ToList();
-                return new DirectoryParentDto(name.Length == 0 ? p.Username : name, children, p.Phone, p.Email);
+                return new DirectoryParentDto(
+                    name.Length == 0 ? p.Username : name, children,
+                    Shows(p.PersonId, VisibilityField.Phone) ? p.Phone : null,
+                    Shows(p.PersonId, VisibilityField.Email) ? p.Email : null);
             })
             .OrderBy(p => p.Name)
             .ToList();
     }
+
+    private async Task<ILookup<int, VisibilityChoice>> ChoicesOfPersonsAsync(IEnumerable<int> personIds)
+    {
+        var ids = personIds.Distinct().ToList();
+        return (await db.VisibilityChoices.Where(c => c.PersonId != null && ids.Contains(c.PersonId.Value)).ToListAsync())
+            .ToLookup(c => c.PersonId!.Value);
+    }
 }
 
-/// <param name="Classmates">Null when the school doesn't share the class list.</param>
+/// <param name="Classmates">Null when the school lets nobody share their
+/// place on the class list with the caller's audience.</param>
 /// <param name="Parents">Null unless the caller is a parent and the school
-/// shares the other parents.</param>
+/// lets parents share their names with other parents.</param>
 public record ClassDirectoryDto(
     int StudentId, string StudentName, string ClassName, IReadOnlyList<DirectoryTeacherDto> Teachers,
     IReadOnlyList<ClassmateDto>? Classmates, IReadOnlyList<DirectoryParentDto>? Parents);
 
 /// <param name="Notes">"třídní učitel, Matematika, …".</param>
-/// <param name="Phone">Null when not shared (or hidden by the teacher).</param>
+/// <param name="Phone">Null when not shared with the caller.</param>
 public record DirectoryTeacherDto(int UserId, string Name, string Notes, string? Phone, string? Email);
 
 public record ClassmateDto(int StudentId, string Name);

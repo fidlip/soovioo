@@ -56,6 +56,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<PaymentParent> PaymentParents => Set<PaymentParent>();
     public DbSet<PaymentStudent> PaymentStudents => Set<PaymentStudent>();
     public DbSet<Demo.DemoEmail> DemoEmails => Set<Demo.DemoEmail>();
+    public DbSet<VisibilityRule> VisibilityRules => Set<VisibilityRule>();
+    public DbSet<VisibilityChoice> VisibilityChoices => Set<VisibilityChoice>();
 
     // Not tenant-scoped: SuperAdmin-only lists, and the rows may outlive
     // their demo school (see the classes).
@@ -261,6 +263,32 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Demo.DemoEmail>().HasIndex(x => x.SchoolId);
         modelBuilder.Entity<Demo.DemoContact>().HasIndex(x => x.SchoolId);
         modelBuilder.Entity<Demo.DemoFeedback>().HasIndex(x => x.CreatedAt);
+
+        modelBuilder.Entity<VisibilityRule>(e =>
+        {
+            e.Property(x => x.Owner).HasConversion<string>();
+            e.Property(x => x.Field).HasConversion<string>();
+            e.Property(x => x.Audience).HasConversion<string>();
+            e.Property(x => x.Min).HasConversion<string>();
+            e.Property(x => x.Default).HasConversion<string>();
+            e.Property(x => x.Max).HasConversion<string>();
+            e.HasIndex(x => new { x.SchoolId, x.Owner, x.Field, x.Audience }).IsUnique();
+            e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<VisibilityChoice>(e =>
+        {
+            e.Property(x => x.Owner).HasConversion<string>();
+            e.Property(x => x.Field).HasConversion<string>();
+            e.Property(x => x.Audience).HasConversion<string>();
+            e.Property(x => x.Scope).HasConversion<string>();
+            e.HasIndex(x => new { x.PersonId, x.Owner, x.Field, x.Audience }).IsUnique().HasFilter("\"PersonId\" IS NOT NULL");
+            e.HasIndex(x => new { x.StudentId, x.Field, x.Audience }).IsUnique().HasFilter("\"StudentId\" IS NOT NULL");
+            e.HasOne(x => x.Person).WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable(t => t.HasCheckConstraint("CK_VisibilityChoices_OneSubject", "(\"PersonId\" IS NULL) <> (\"StudentId\" IS NULL)"));
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
 
         modelBuilder.Entity<School>().HasData(
             new School

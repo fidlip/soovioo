@@ -1,35 +1,51 @@
-/** What a school may share with parents and pupils ("Viditelnost údajů"),
- * see backend `People/Visibility.cs`. */
-export type VisibilityOption =
-  | 'StaffPhotos'
-  | 'StudentPhotos'
-  | 'ParentPhotos'
-  | 'TeacherContacts'
-  | 'Classmates'
-  | 'ParentContacts';
+/** "Viditelnost údajů", see backend `People/Visibility.cs`. Whose data
+ * a setting is about — a teacher who is also a parent decides both. */
+export type VisibilityOwner = 'Staff' | 'Parent' | 'Student';
 
-export interface VisibilitySettings {
-  shared: VisibilityOption[];
-  /** Those of `shared` individuals may hide for themselves. */
-  optOutAllowed: VisibilityOption[];
+/** `Name` = being on the list at all; the other fields never reach
+ * further than the name. */
+export type VisibilityField = 'Name' | 'Phone' | 'Email' | 'Photo';
+
+/** Who looks. Staff aren't an audience — that's a matter of permissions. */
+export type VisibilityAudience = 'Parents' | 'Students';
+
+/** Ordered, a wider scope includes the narrower ones. */
+export type VisibilityScope = 'Nobody' | 'MyClasses' | 'School';
+
+export const VISIBILITY_SCOPES: VisibilityScope[] = [
+  'Nobody',
+  'MyClasses',
+  'School',
+];
+
+/** The school's range for one setting: individuals choose between `min`
+ * and `max`, `default` applies until they do. */
+export interface VisibilityRule {
+  owner: VisibilityOwner;
+  field: VisibilityField;
+  audience: VisibilityAudience;
+  min: VisibilityScope;
+  default: VisibilityScope;
+  max: VisibilityScope;
 }
 
-/** What the caller may hide of their own data — offered only where the
- * school shares it and leaves the choice to individuals. */
-export interface Privacy {
-  options: PrivacyOption[];
-  /** Pupils whose entry in the class list the caller decides (own record,
-   * or children). */
-  students: StudentPrivacy[];
+export interface VisibilityRules {
+  rules: VisibilityRule[];
 }
 
-export interface PrivacyOption {
-  option: VisibilityOption;
-  hidden: boolean;
+/** One of someone's settings as offered next to their data. */
+export interface VisibilitySetting extends VisibilityRule {
+  /** What applies now — the choice or the default, within the school's
+   * range and the name's scope. */
+  scope: VisibilityScope;
+  /** Chosen by the person (vs. the school's default). */
+  custom: boolean;
+  editable: boolean;
 }
 
-export interface StudentPrivacy {
-  studentId: number;
-  name: string;
-  hidden: boolean;
+export interface SetVisibilityRequest {
+  owner: VisibilityOwner;
+  field: VisibilityField;
+  audience: VisibilityAudience;
+  scope: VisibilityScope;
 }

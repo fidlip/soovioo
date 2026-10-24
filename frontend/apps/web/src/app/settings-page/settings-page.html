@@ -14,17 +14,29 @@
       <div
         class="flex flex-wrap gap-4 text-sm text-surface-600 dark:text-surface-300"
       >
-        <span><strong>Jméno:</strong> {{ p.name }}</span>
+        <span class="flex items-center gap-1"
+          ><strong>Jméno:</strong> {{ p.name }}<app-visibility-control
+            [settings]="visibility()"
+            field="Name"
+            (changed)="setVisibility($event)"
+        /></span>
         <span><strong>Uživatelské jméno:</strong> {{ p.username }}</span>
         <span><strong>Role:</strong> {{ p.role }}</span>
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label
-          for="phone"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-          >Telefon</label
-        >
+        <div class="flex items-center justify-between gap-2">
+          <label
+            for="phone"
+            class="text-sm font-medium text-surface-700 dark:text-surface-200"
+            >Telefon</label
+          >
+          <app-visibility-control
+            [settings]="visibility()"
+            field="Phone"
+            (changed)="setVisibility($event)"
+          />
+        </div>
         <input
           pInputText
           id="phone"
@@ -35,11 +47,18 @@
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label
-          for="email"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-          >E-mail</label
-        >
+        <div class="flex items-center justify-between gap-2">
+          <label
+            for="email"
+            class="text-sm font-medium text-surface-700 dark:text-surface-200"
+            >E-mail</label
+          >
+          <app-visibility-control
+            [settings]="visibility()"
+            field="Email"
+            (changed)="setVisibility($event)"
+          />
+        </div>
         <input
           pInputText
           id="email"
@@ -147,44 +166,7 @@
     </div>
   </p-card>
 
-  @if (privacy(); as pr) { @if (visiblePrivacyOptions(pr).length > 0 ||
-  pr.students.length > 0) {
-  <p-card>
-    <ng-template #title
-      >Soukromí<app-info-hint
-        text="Škola sdílí některé údaje s rodiči a žáky a u těchto vám nechává volbu, jestli je skrýt."
-    /></ng-template>
-    <div class="flex flex-col gap-3">
-      @for (o of visiblePrivacyOptions(pr); track o.option) {
-      <div class="flex items-center gap-3">
-        <p-toggleswitch
-          [inputId]="'hide-' + o.option"
-          [ngModel]="o.hidden"
-          (ngModelChange)="setOptionHidden(o, $event)"
-        />
-        <label
-          [for]="'hide-' + o.option"
-          class="text-sm text-surface-700 dark:text-surface-200"
-          >{{ privacyOptionInfo(o.option)?.hideOwnLabel }}</label
-        >
-      </div>
-      } @for (st of pr.students; track st.studentId) {
-      <div class="flex items-center gap-3">
-        <p-toggleswitch
-          [inputId]="'hide-student-' + st.studentId"
-          [ngModel]="st.hidden"
-          (ngModelChange)="setStudentHidden(st, $event)"
-        />
-        <label
-          [for]="'hide-student-' + st.studentId"
-          class="text-sm text-surface-700 dark:text-surface-200"
-          >{{ st.name }} — nezobrazovat ostatním v seznamu spolužáků</label
-        >
-      </div>
-      }
-    </div>
-  </p-card>
-  } } @if (showCalendarFeed) {
+  @if (showCalendarFeed) {
   <p-card>
     <ng-template #title
       >Odběr kalendáře<app-info-hint

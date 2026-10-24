@@ -12,7 +12,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 
 /** "Třída" for parents and pupils: the class's teachers and — as far as
- * the school's "Viditelnost údajů" shares them — their contacts, the class
+ * everyone's "Viditelnost údajů" shares them — their contacts, the class
  * list and the other parents. Sections the API leaves out aren't shown. */
 @Component({
   selector: 'app-class-page',

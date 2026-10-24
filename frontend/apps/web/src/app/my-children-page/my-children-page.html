@@ -1,0 +1,29 @@
+<h1 class="mb-6 flex items-center gap-3">
+  <app-icon name="children" />Mé děti
+</h1>
+
+@if (children(); as list) { @if (list.length > 0) {
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  @for (c of list; track c.studentId) {
+  <p-card>
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-lg font-medium text-surface-900 dark:text-surface-0"
+          >{{ c.name }}</span
+        >
+        <app-visibility-control
+          [settings]="c.visibility"
+          field="Name"
+          (changed)="setVisibility(c, $event)"
+        />
+      </div>
+      <span class="text-sm text-surface-500">Třída {{ c.className }}</span>
+    </div>
+  </p-card>
+  }
+</div>
+} @else {
+<p class="m-0 text-surface-500">Nemáte přiřazené žádné dítě.</p>
+} } @else {
+<p class="m-0 text-sm text-surface-500">Načítání…</p>
+}

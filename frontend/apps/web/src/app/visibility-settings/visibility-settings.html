@@ -1,43 +1,57 @@
 <p-card>
   <ng-template #title
     >Co škola sdílí s rodiči a {{ 'žáky' | term }}<app-info-hint
-      text="Učitelé a vedení vidí všechno. Rodičům a žákům se zobrazí jen to, co tady zapnete — údaje, které nesdílíte, aplikace vůbec neodešle."
+      text="Každý si u svých údajů zvolí, kdo je uvidí — v rozsahu od „nejméně“ do „nejvíce“. Dokud nezvolí, platí výchozí. Vedení a učitelé vidí podle svých oprávnění; údaje, které se nesdílí, aplikace vůbec neodešle."
   /></ng-template>
-  @if (settings()) {
-  <div class="flex flex-col gap-4">
-    @for (o of options; track o.option) {
-    <div
-      class="flex flex-col gap-2 border-b border-surface-200 pb-4 last:border-b-0 last:pb-0 dark:border-surface-700"
-    >
-      <div class="flex items-center gap-3">
-        <p-toggleswitch
-          [inputId]="'share-' + o.option"
-          [ngModel]="isShared(o.option)"
-          (ngModelChange)="setShared(o.option, $event)"
-        />
-        <label
-          [for]="'share-' + o.option"
-          class="font-medium text-surface-700 dark:text-surface-200"
-          >{{ o.label | term }}</label
-        >
+  @if (rules()) {
+  <div class="flex flex-col gap-6">
+    @for (g of groups(); track g.owner) {
+    <section class="flex flex-col gap-2">
+      <h3 class="m-0 text-base font-semibold">Údaje: {{ g.label | term }}</h3>
+      <div
+        class="hidden grid-cols-[1fr_repeat(3,9rem)] gap-2 text-xs font-medium text-surface-500 sm:grid"
+      >
+        <span></span><span>Nejméně</span><span>Výchozí</span
+        ><span>Nejvíce</span>
       </div>
-      <p class="m-0 text-sm text-surface-500">{{ o.hint | term }}</p>
-      <div class="flex items-center gap-2">
-        <p-checkbox
-          [inputId]="'optout-' + o.option"
-          [binary]="true"
-          [disabled]="!isShared(o.option)"
-          [ngModel]="isOptOutAllowed(o.option)"
-          (ngModelChange)="setOptOutAllowed(o.option, $event)"
-        />
-        <label
-          [for]="'optout-' + o.option"
-          class="text-sm text-surface-700 dark:text-surface-200"
-          [class.opacity-50]="!isShared(o.option)"
-          >Své údaje si mohou skrýt {{ o.whoCanHide | term }} (v Nastavení)</label
+      @for (r of g.rules; track r.field + r.audience) {
+      <div
+        class="grid grid-cols-1 items-center gap-2 border-b border-surface-200 pb-3 last:border-b-0 sm:grid-cols-[1fr_repeat(3,9rem)] sm:border-b-0 sm:pb-0 dark:border-surface-700"
+      >
+        <span class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ fieldLabels[r.field] }} → vidí {{ audienceLabels[r.audience] |
+          term }}</span
         >
+        @for (b of bounds; track b) {
+        <div class="flex items-center gap-2">
+          <label
+            [for]="inputId(r, b)"
+            class="w-20 shrink-0 text-xs text-surface-500 sm:sr-only"
+            >{{ boundLabels[b] }}</label
+          >
+          <p-select
+            [inputId]="inputId(r, b)"
+            [options]="options(r, b)"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="r[b]"
+            (ngModelChange)="set(r, b, $event)"
+            [ariaLabel]="
+              fieldLabels[r.field] +
+              ' → ' +
+              audienceLabels[r.audience] +
+              ': ' +
+              boundLabels[b]
+            "
+            size="small"
+            class="min-w-0 flex-1"
+            styleClass="w-full"
+          />
+        </div>
+        }
       </div>
-    </div>
+      }
+    </section>
     }
     <p-button label="Uložit" (onClick)="save()" styleClass="self-start" />
   </div>

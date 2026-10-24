@@ -274,7 +274,9 @@ export class AuthApiService {
  * turn "Škola" into mojibake). */
 function decodeJwtPart(part: string): string {
   const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='));
+  const binary = atob(
+    base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='),
+  );
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { VisibilitySettings } from '../people/visibility.model';
+import { VisibilityRules } from '../people/visibility.model';
 import {
   School,
   SetSchoolBankAccountRequest,
@@ -46,14 +46,14 @@ export class MySchoolApiService {
     );
   }
 
-  getVisibility(): Observable<VisibilitySettings> {
-    return this.http.get<VisibilitySettings>(
+  getVisibility(): Observable<VisibilityRules> {
+    return this.http.get<VisibilityRules>(
       `${this.baseUrl}/api/my-school/visibility`,
     );
   }
 
-  setVisibility(request: VisibilitySettings): Observable<VisibilitySettings> {
-    return this.http.put<VisibilitySettings>(
+  setVisibility(request: VisibilityRules): Observable<VisibilityRules> {
+    return this.http.put<VisibilityRules>(
       `${this.baseUrl}/api/my-school/visibility`,
       request,
     );

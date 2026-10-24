@@ -68,9 +68,7 @@
           {{ p.name }}
         </div>
         @if (p.children.length > 0) {
-        <div class="text-sm text-surface-500">
-          {{ p.children.join(', ') }}
-        </div>
+        <div class="text-sm text-surface-500">{{ p.children.join(', ') }}</div>
         } @if (p.phone || p.email) {
         <div class="flex flex-wrap gap-x-4 text-sm">
           @if (p.phone) {

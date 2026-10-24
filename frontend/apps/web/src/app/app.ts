@@ -63,6 +63,8 @@ interface NavItem {
   adminOnly?: boolean;
   /** Třída — parents and pupils only (staff have Administrace). */
   familyOnly?: boolean;
+  /** Mé děti — parents only. */
+  parentOnly?: boolean;
 }
 
 @Component({
@@ -102,12 +104,10 @@ export class App {
     toObservable(this.schoolContext.slug).pipe(
       switchMap((slug) =>
         slug && isDemoSlug(slug)
-          ? this.schoolLookup
-              .lookup(slug)
-              .pipe(
-                map((school) => (school?.isDemo ? { ...school, slug } : null)),
-                catchError(() => of(null)),
-              )
+          ? this.schoolLookup.lookup(slug).pipe(
+              map((school) => (school?.isDemo ? { ...school, slug } : null)),
+              catchError(() => of(null)),
+            )
           : of(null),
       ),
     ),
@@ -262,6 +262,12 @@ export class App {
       { label: 'Platby', icon: 'payments', link: link('payments') },
       { label: 'Třída', icon: 'class', link: link('class'), familyOnly: true },
       {
+        label: 'Mé děti',
+        icon: 'children',
+        link: link('my-children'),
+        parentOnly: true,
+      },
+      {
         label: 'Administrace',
         icon: 'admin',
         link: link('admin'),
@@ -309,8 +315,17 @@ export class App {
    * teacher of something (restricted view) or not (same "jen pro ... "
    * denial as before), since that needs an async lookup this synchronous
    * nav check can't do. */
-  protected isParentOrStudent(): boolean {
-    return this.authApi.isParent() || this.authApi.isStudent();
+  protected showsNavItem(item: NavItem): boolean {
+    if (item.adminOnly) {
+      return this.isAdmin();
+    }
+    if (item.parentOnly) {
+      return this.authApi.isParent();
+    }
+    if (item.familyOnly) {
+      return this.authApi.isParent() || this.authApi.isStudent();
+    }
+    return !item.staffOnly || this.isAdmin() || this.isTeacher();
   }
 
   protected isTeacher(): boolean {

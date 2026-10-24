@@ -1,10 +1,10 @@
+import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-async function login(
-  page: import('@playwright/test').Page,
-  username: string,
-  password: string,
-) {
+// Both tests change the seeded school's "Viditelnost údajů".
+test.describe.configure({ mode: 'serial' });
+
+async function login(page: Page, username: string, password: string) {
   await page.goto('/skola/login');
   await page.locator('#username').fill(username);
   await page.locator('#password').fill(password);
@@ -12,21 +12,23 @@ async function login(
   await expect(page).toHaveURL(/\/skola\/home$/);
 }
 
-/** Administrace → Viditelnost údajů: sets "Seznam spolužáků" and saves. */
-async function setClassmatesShared(
-  page: import('@playwright/test').Page,
-  shared: boolean,
-) {
+/** Administrace → Viditelnost údajů: the pupils' names for parents get
+ * `max` as the widest scope and `def` as the default, then saved. */
+async function setClassListForParents(page: Page, def: string, max: string) {
   await login(page, 'admin', 'admin123');
   await page.goto('/skola/admin');
   await page.getByRole('tab', { name: 'Viditelnost údajů' }).click();
-  const toggle = page.locator('#share-Classmates');
-  await expect(toggle).toBeAttached();
-  // The switch's input is visually hidden — click its label.
-  if ((await toggle.isChecked()) !== shared) {
-    await page.locator('label[for="share-Classmates"]').click();
+  for (const [bound, label] of [
+    ['max', max],
+    ['default', def],
+  ]) {
+    const select = page.locator(`#vis-Student-Name-Parents-${bound}`);
+    await select.click();
+    await page.getByRole('option', { name: label, exact: true }).click();
+    // The previous pick's overlay may still be fading out — make sure
+    // this one took.
+    await expect(select).toHaveText(label);
   }
-  await expect(toggle).toBeChecked({ checked: shared });
   await page.getByRole('button', { name: 'Uložit' }).click();
   await expect(page.getByText('Uloženo.')).toBeVisible();
 }
@@ -36,7 +38,11 @@ test('the class list reaches parents only while the school shares it', async ({
 }) => {
   for (const shared of [true, false]) {
     const admin = await browser.newPage();
-    await setClassmatesShared(admin, shared);
+    await setClassListForParents(
+      admin,
+      shared ? 'Moje třídy' : 'Nikdo',
+      shared ? 'Celá škola' : 'Nikdo',
+    );
     await admin.close();
 
     const parent = await browser.newPage();
@@ -53,10 +59,39 @@ test('the class list reaches parents only while the school shares it', async ({
   }
 });
 
-test('staff have no Třída page in the menu', async ({ page }) => {
+test('a parent decides who sees their child on the class list', async ({
+  browser,
+}) => {
+  const admin = await browser.newPage();
+  await setClassListForParents(admin, 'Moje třídy', 'Celá škola');
+  await admin.close();
+
+  const page = await browser.newPage();
+  await login(page, 'rodic', 'rodic123');
+  await page.getByRole('link', { name: 'Mé děti' }).click();
+  await expect(page.getByText('Jan Novák')).toBeVisible();
+
+  const control = page.getByRole('button', { name: /^Viditelnost: / });
+  await expect(control).toContainText('Třídy');
+  await control.click();
+  const forParents = page.getByRole('group', {
+    name: 'Jméno (v seznamu) — Rodiče',
+  });
+  await forParents.getByText('Nikdo', { exact: true }).click();
+  await expect(page.getByText('Uloženo.')).toBeVisible();
+  await expect(page.getByText('Vlastní volba')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Vrátit výchozí' }).click();
+  await expect(page.getByText('Výchozí nastavení školy').first()).toBeVisible();
+  await expect(page.getByText('Vlastní volba')).toHaveCount(0);
+  await page.close();
+});
+
+test('staff have neither Třída nor Mé děti in the menu', async ({ page }) => {
   await login(page, 'ucitel', 'ucitel123');
   await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Třída', exact: true }),
   ).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Mé děti' })).toHaveCount(0);
 });
