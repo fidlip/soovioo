@@ -574,6 +574,12 @@ export class AdminPage {
     return user.photo ? this.photosApi.userPhotoUrl(user.id, user.photo) : null;
   }
 
+  protected parentPhotoUrl(parent: ParentUser): string | null {
+    return parent.photo
+      ? this.photosApi.userPhotoUrl(parent.id, parent.photo)
+      : null;
+  }
+
   /** Staff photos are the admin's to set; parents set their own. */
   protected isStaffUser(user: AppUser): boolean {
     return user.roles.includes('Teacher') || user.roles.includes('Admin');
