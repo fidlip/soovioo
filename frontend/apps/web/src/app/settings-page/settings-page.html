@@ -11,6 +11,37 @@
   <p-card header="Profil">
     @if (profile(); as p) {
     <div class="flex flex-col gap-3">
+      @if (p.canUploadPhoto || p.photo || studentPhotos().length > 0) {
+      <div class="flex flex-col gap-1.5">
+        <div class="flex items-center justify-between gap-2">
+          <span
+            class="flex items-center text-sm font-medium text-surface-700 dark:text-surface-200"
+            >Profilová fotka<app-info-hint
+              text="Kdo fotku uvidí, nastavíte vpravo. Při nahrání se ořízne na čtverec a odstraní se z ní údaje o místě a fotoaparátu."
+          /></span>
+          <app-visibility-control
+            [settings]="visibility()"
+            field="Photo"
+            (changed)="setVisibility($event)"
+          />
+        </div>
+        @for (s of studentPhotos(); track s.studentId) {
+        <app-student-photo
+          [state]="s"
+          (changed)="studentPhotoChanged($event)"
+        />
+        } @empty {
+        <app-photo-editor
+          [name]="p.name"
+          [photoUrl]="ownPhotoUrl(p)"
+          [canUpload]="p.canUploadPhoto"
+          (upload)="uploadOwnPhoto($event)"
+          (remove)="deleteOwnPhoto()"
+        />
+        }
+      </div>
+      }
+
       <div
         class="flex flex-wrap gap-4 text-sm text-surface-600 dark:text-surface-300"
       >
@@ -150,45 +181,6 @@
       />
     </form>
   </p-card>
-
-  @if (profile(); as p) { @if (p.canUploadPhoto || p.photo) {
-  <p-card>
-    <ng-template #title
-      ><div class="flex items-center justify-between gap-2">
-        <span
-          >Profilová fotka<app-info-hint
-            text="Kdo fotku uvidí, nastavíte vpravo. Při nahrání se ořízne na čtverec a odstraní se z ní údaje o místě a fotoaparátu."
-        /></span>
-        <app-visibility-control
-          [settings]="visibility()"
-          field="Photo"
-          (changed)="setVisibility($event)"
-        /></div
-    ></ng-template>
-    <app-photo-editor
-      [name]="p.name"
-      [photoUrl]="ownPhotoUrl(p)"
-      [canUpload]="p.canUploadPhoto"
-      (upload)="uploadOwnPhoto($event)"
-      (remove)="deleteOwnPhoto()"
-    />
-  </p-card>
-  } } @if (studentPhotos().length > 0) {
-  <p-card>
-    <ng-template #title
-      ><div class="flex items-center justify-between gap-2">
-        <span>Moje fotka</span>
-        <app-visibility-control
-          [settings]="visibility()"
-          field="Photo"
-          (changed)="setVisibility($event)"
-        /></div
-    ></ng-template>
-    @for (s of studentPhotos(); track s.studentId) {
-    <app-student-photo [state]="s" (changed)="studentPhotoChanged($event)" />
-    }
-  </p-card>
-  }
 
   <p-card header="Vzhled">
     <div class="flex items-center gap-3">
