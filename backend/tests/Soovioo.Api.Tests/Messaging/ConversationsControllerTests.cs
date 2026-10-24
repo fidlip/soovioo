@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.Timetable;
 using Soovioo.Api.People;
 
@@ -28,7 +29,8 @@ public class ConversationsControllerTests
             new Claim(ClaimTypes.Name, user.Username),
         ]);
         return new ConversationsController(
-            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()))
+            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()),
+            new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
@@ -211,7 +213,7 @@ public class ConversationsControllerTests
     }
 
     private static MessageBroadcastController BroadcastAs(AppDbContext db, User user) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId))
+        new(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {

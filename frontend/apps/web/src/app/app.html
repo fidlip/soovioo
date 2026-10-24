@@ -21,6 +21,20 @@
     alt="Soovioo"
     class="h-6 w-auto dark:brightness-0 dark:invert"
   />
+  @if (!isSuperAdmin()) {
+  <button
+    type="button"
+    class="app-icon-button app-bell-icon ml-auto text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
+    [attr.aria-label]="bellLabel()"
+    (click)="toggleBell($event)"
+  >
+    <i class="pi pi-bell"></i>@if (unreadNotifications.count() > 0) {<span
+      class="app-nav-badge"
+      aria-hidden="true"
+      >{{ unreadNotifications.count() }}</span
+    >}
+  </button>
+  }
 </header>
 
 @if (drawerOpen()) {
@@ -83,8 +97,22 @@
       title="Logy"
       ><app-icon name="logs" /><span class="app-nav-label">Logy</span></a
     >
-    } @else { @for (item of navItems(); track item.icon) { @if
-    (showsNavItem(item)) {
+    } @else {
+    <button
+      type="button"
+      class="app-nav-link app-bell-nav text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="bellLabel()"
+      title="Upozornění"
+      (click)="toggleBell($event)"
+    >
+      <i class="pi pi-bell"></i><span class="app-nav-label">Upozornění</span>@if
+      (unreadNotifications.count() > 0) {<span
+        class="app-nav-badge"
+        aria-hidden="true"
+        >{{ unreadNotifications.count() }}</span
+      >}
+    </button>
+    @for (item of navItems(); track item.icon) { @if (showsNavItem(item)) {
     <a
       [routerLink]="item.link"
       routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
@@ -212,6 +240,10 @@
   }
   <router-outlet />
 </main>
+
+@if (showSidebar() && !isSuperAdmin()) {
+<app-notification-bell />
+}
 
 <p-confirmDialog />
 

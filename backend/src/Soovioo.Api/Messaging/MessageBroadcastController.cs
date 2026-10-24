@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Messaging;
@@ -20,7 +21,7 @@ namespace Soovioo.Api.Messaging;
 /// the teacher is actually responsible for.</summary>
 [Authorize(Roles = "Teacher,Admin")]
 [ApiController]
-public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     /// <summary>Classes the caller is allowed to broadcast to — every class
     /// for Admin, only owned ones for Teacher. Drives the class picker so
@@ -125,6 +126,8 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
         }
 
         db.Conversations.AddRange(conversations);
+        await db.SaveChangesAsync();
+        await notifier.MessagesAsync(conversations);
         await db.SaveChangesAsync();
 
         // Lets the caller attach a file to every fan-out copy afterwards

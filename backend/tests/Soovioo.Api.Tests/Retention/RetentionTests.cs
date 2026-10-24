@@ -9,6 +9,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 using Soovioo.Api.Retention;
 using Soovioo.Api.Tests.Auth;
@@ -89,7 +90,7 @@ public class RetentionTests
             new Claim(ClaimTypes.NameIdentifier, adminId.ToString()), new Claim(ClaimTypes.Role, "Admin"),
         ]);
         return new RetentionController(
-            db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), new LeaveNotifier(db, clock), clock)
+            db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), new LeaveNotifier(db, clock), new Notifier(db, clock), clock)
         {
             ControllerContext = new ControllerContext
             {

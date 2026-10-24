@@ -27,7 +27,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
 import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
-import { catchError, filter, map, of, switchMap } from 'rxjs';
+import { catchError, filter, interval, map, of, switchMap } from 'rxjs';
 import {
   AuthApiService,
   ROLE_LABELS,
@@ -36,6 +36,8 @@ import {
 } from '@soovioo/shared';
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
+import { NotificationBell } from './notification-bell/notification-bell';
+import { UnreadNotificationsService } from './notification-bell/unread-notifications.service';
 import { installPlaceholderTitles } from './placeholder-title';
 import { DemoBar } from './demo/demo-bar';
 import { DemoEmailPreview } from './demo/demo-email-preview';
@@ -83,6 +85,7 @@ interface NavItem {
     DemoBar,
     DemoEmailPreview,
     DemoFeedbackDialog,
+    NotificationBell,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -94,6 +97,8 @@ export class App {
   private readonly router = inject(Router);
   protected readonly schoolContext = inject(SchoolContextService);
   protected readonly unreadMessages = inject(UnreadMessagesService);
+  protected readonly unreadNotifications = inject(UnreadNotificationsService);
+  private readonly bell = viewChild(NotificationBell);
 
   private readonly confirmDialog = viewChild(ConfirmDialog, {
     read: ElementRef<HTMLElement>,
@@ -167,18 +172,42 @@ export class App {
       )
       .subscribe(() => {
         this.drawerOpen.set(false);
-        // Sidebar "Zprávy" badge — cheap enough to re-check per navigation.
-        if (
-          this.authApi.isLoggedIn() &&
-          !this.authApi.isSuperAdmin() &&
-          !this.hideHeader()
-        ) {
+        // Sidebar "Zprávy" badge and the bell — cheap enough to re-check
+        // per navigation.
+        if (this.showsBadges()) {
           this.unreadMessages.refresh();
+          this.unreadNotifications.refresh();
         }
       });
+    // The bell also while someone stays on one page.
+    interval(60_000)
+      .pipe(
+        filter(
+          () => this.showsBadges() && document.visibilityState === 'visible',
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.unreadNotifications.refresh());
   }
 
   protected title = 'Soovioo';
+
+  private showsBadges(): boolean {
+    return (
+      this.authApi.isLoggedIn() &&
+      !this.authApi.isSuperAdmin() &&
+      !this.hideHeader()
+    );
+  }
+
+  protected toggleBell(event: Event): void {
+    this.bell()?.toggle(event);
+  }
+
+  protected bellLabel(): string {
+    const count = this.unreadNotifications.count();
+    return count > 0 ? `Upozornění, ${count} nepřečtených` : 'Upozornění';
+  }
 
   /** Routes opt out of the app shell (sidebar / header) via `data: { hideHeader: true }`
    * (login and accept-invite pages). Read from the deepest activated route,

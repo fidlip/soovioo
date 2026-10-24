@@ -197,7 +197,30 @@
     </div>
   </p-card>
 
-  @if (showCalendarFeed) {
+  @if (notificationTypes().length > 0) {
+  <p-card>
+    <ng-template #title
+      >Upozornění<app-info-hint
+        text="Co se má objevit pod zvonečkem. Počet nepřečtených zpráv u Zpráv zůstává i bez upozornění."
+    /></ng-template>
+    <div class="flex flex-col gap-3">
+      @for (t of notificationTypes(); track t.type) {
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          [inputId]="'notification-' + t.type"
+          [ngModel]="t.enabled"
+          (onChange)="setNotificationType(t.type, $event.checked)"
+        />
+        <label
+          [for]="'notification-' + t.type"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ notificationLabels[t.type] }}</label
+        >
+      </div>
+      }
+    </div>
+  </p-card>
+  } @if (showCalendarFeed) {
   <p-card>
     <ng-template #title
       >Odběr kalendáře<app-info-hint

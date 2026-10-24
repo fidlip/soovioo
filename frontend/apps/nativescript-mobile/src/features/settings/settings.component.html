@@ -60,6 +60,25 @@
         <Label [text]="passwordMessage()" textWrap="true"></Label>
       }
 
+      @if (!wasForcedPasswordChange && notificationTypes().length > 0) {
+        <Label text="Upozornění" class="text-lg"></Label>
+        @for (t of notificationTypes(); track t.type) {
+          <GridLayout columns="*, auto" class="p-2">
+            <Label
+              col="0"
+              [text]="notificationLabels[t.type]"
+              textWrap="true"
+              verticalAlignment="center"
+            ></Label>
+            <Switch
+              col="1"
+              [checked]="t.enabled"
+              (checkedChange)="setNotificationType(t.type, $any($event).value)"
+            ></Switch>
+          </GridLayout>
+        }
+      }
+
       @if (!wasForcedPasswordChange && profile(); as p) {
         <Label text="Profil" class="text-lg"></Label>
         <Label

@@ -1,0 +1,75 @@
+<p-popover #popover (onShow)="load()">
+  <div
+    class="flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2"
+    role="region"
+    aria-label="Upozornění"
+  >
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-medium text-surface-700 dark:text-surface-200"
+        >Upozornění</span
+      >
+      @if (unread.count() > 0) {
+      <p-button
+        label="Označit vše jako přečtené"
+        size="small"
+        severity="secondary"
+        [text]="true"
+        (onClick)="markAllRead()"
+      />
+      }
+    </div>
+    <ul class="m-0 flex max-h-[60vh] list-none flex-col overflow-y-auto p-0">
+      @for (n of items(); track n.id) {
+      <li>
+        <button
+          type="button"
+          class="flex w-full cursor-pointer items-start gap-3 rounded-md border-0 bg-transparent px-2 py-2 text-left hover:bg-surface-100 dark:hover:bg-surface-800"
+          (click)="open(n)"
+        >
+          <i
+            class="pi mt-0.5 text-surface-500"
+            [class]="icons[n.type]"
+            aria-hidden="true"
+          ></i>
+          <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span
+              class="text-sm text-surface-800 dark:text-surface-100"
+              [class.font-semibold]="!n.read"
+              >{{ n.title }}</span
+            >
+            @if (n.body) {
+            <span
+              class="line-clamp-2 text-xs text-surface-600 dark:text-surface-300"
+              >{{ n.body }}</span
+            >
+            }
+            <span class="text-xs text-surface-500"
+              >{{ n.createdAt | date: 'd. M. y H:mm' }}</span
+            >
+          </span>
+          @if (!n.read) {
+          <span
+            class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
+            aria-label="Nepřečtené"
+          ></span>
+          }
+        </button>
+      </li>
+      } @empty {
+      <li class="px-2 py-4 text-sm text-surface-500">
+        {{ loading() ? 'Načítání…' : 'Zatím žádná upozornění.' }}
+      </li>
+      }
+    </ul>
+    @if (hasMore()) {
+    <p-button
+      label="Načíst starší"
+      size="small"
+      severity="secondary"
+      [text]="true"
+      [loading]="loading()"
+      (onClick)="loadMore()"
+    />
+    }
+  </div>
+</p-popover>

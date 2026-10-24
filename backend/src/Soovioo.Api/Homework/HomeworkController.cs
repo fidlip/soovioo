@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 
 namespace Soovioo.Api.Homework;
 
@@ -13,7 +14,8 @@ namespace Soovioo.Api.Homework;
 [ApiController]
 [Route("api/homework")]
 public class HomeworkController(
-    AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage) : ControllerBase
+    AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage,
+    Notifier notifier) : ControllerBase
 {
     /// <summary>Unscoped, like GET /api/grades — Teacher/Admin see every
     /// homework item in the school (client-side filters by class/subject),
@@ -105,6 +107,18 @@ public class HomeworkController(
         };
 
         db.Homework.Add(homework);
+        await db.SaveChangesAsync();
+
+        var targetIds = studentIds.Count > 0
+            ? studentIds
+            : await db.Students.Where(s => s.SchoolClassId == request.SchoolClassId).Select(s => s.Id).ToListAsync();
+        var families = await notifier.FamiliesAsync(targetIds);
+        await notifier.AddAsync(schoolId, families
+            .SelectMany(f => f.Value.Select(userId => new NotificationDraft(
+                userId, NotificationType.Homework, $"Nový domácí úkol — {subject.Name}",
+                Notifier.Preview($"{homework.Text} (do {Notifier.Format(homework.DueDate)})"),
+                "homework", homework.Id, f.Key)))
+            .ToList());
         await db.SaveChangesAsync();
 
         var dto = new HomeworkDto(

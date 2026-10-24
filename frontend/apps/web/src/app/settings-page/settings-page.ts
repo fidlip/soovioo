@@ -12,6 +12,10 @@ import {
   EventsApiService,
   MyProfile,
   MyProfileApiService,
+  NOTIFICATION_TYPE_LABELS,
+  NotificationType,
+  NotificationTypeSetting,
+  NotificationsApiService,
   PhotosApiService,
   SetVisibilityRequest,
   StudentPhotoState,
@@ -49,6 +53,7 @@ export class SettingsPage {
   private readonly profileApi = inject(MyProfileApiService);
   private readonly eventsApi = inject(EventsApiService);
   private readonly photosApi = inject(PhotosApiService);
+  private readonly notificationsApi = inject(NotificationsApiService);
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
   private readonly schoolContext = inject(SchoolContextService);
@@ -86,6 +91,10 @@ export class SettingsPage {
    * děti). */
   protected readonly studentPhotos = signal<StudentPhotoState[]>([]);
 
+  /** Which kinds of notifications the user wants (all on by default). */
+  protected readonly notificationTypes = signal<NotificationTypeSetting[]>([]);
+  protected readonly notificationLabels = NOTIFICATION_TYPE_LABELS;
+
   constructor() {
     this.profileApi.getProfile().subscribe({
       next: (profile) => {
@@ -113,6 +122,10 @@ export class SettingsPage {
       this.profileApi.getVisibility().subscribe({
         next: (settings) => this.visibility.set(settings),
         error: (err) => console.error('getVisibility failed', err),
+      });
+      this.notificationsApi.getSettings().subscribe({
+        next: (settings) => this.notificationTypes.set(settings.types),
+        error: (err) => console.error('getNotificationSettings failed', err),
       });
     }
 
@@ -224,6 +237,23 @@ export class SettingsPage {
         this.notify.success('Uloženo.');
       },
       error: (err) => this.notify.actionFailed('setVisibility failed', err),
+    });
+  }
+
+  protected setNotificationType(
+    type: NotificationType,
+    enabled: boolean,
+  ): void {
+    const muted = this.notificationTypes()
+      .filter((t) => (t.type === type ? !enabled : !t.enabled))
+      .map((t) => t.type);
+    this.notificationsApi.setSettings(muted).subscribe({
+      next: (settings) => {
+        this.notificationTypes.set(settings.types);
+        this.notify.success('Uloženo.');
+      },
+      error: (err) =>
+        this.notify.actionFailed('setNotificationSettings failed', err),
     });
   }
 

@@ -4,6 +4,7 @@ import { AbsencesComponent } from './features/absences/absences.component';
 import { HomeComponent } from './features/home/home.component';
 import { LoginComponent } from './features/login/login.component';
 import { MessagesComponent } from './features/messages/messages.component';
+import { NotificationsComponent } from './features/notifications/notifications.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { TimetableComponent } from './features/timetable/timetable.component';
 
@@ -18,5 +19,10 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   { path: 'messages', component: MessagesComponent, canActivate: [authGuard] },
+  {
+    path: 'notifications',
+    component: NotificationsComponent,
+    canActivate: [authGuard],
+  },
   { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
 ];

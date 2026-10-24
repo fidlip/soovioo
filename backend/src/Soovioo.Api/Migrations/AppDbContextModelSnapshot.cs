@@ -211,6 +211,10 @@ namespace Soovioo.Api.Migrations
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
 
+                    b.PrimitiveCollection<string[]>("MutedNotifications")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1300,6 +1304,58 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("SenderUserId");
 
                     b.ToTable("MessageBroadcasts");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Notifications.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Page")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TargetId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("UserId", "Id");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.Payment", b =>
@@ -2436,6 +2492,24 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("SenderUser");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Notifications.Notification", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.Payment", b =>
