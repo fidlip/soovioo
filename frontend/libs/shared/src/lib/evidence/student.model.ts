@@ -33,6 +33,9 @@ export interface Student {
   /** Default variable symbol used when generating this student's Payment
    * recipient rows — overridable per-payment. */
   defaultVariableSymbol: string | null;
+  /** Last day at the school, when a departure is announced (a pupil whose
+   * last day is over isn't listed at all — see RetentionApiService). */
+  leftAt?: string | null;
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */
   photo?: string | null;

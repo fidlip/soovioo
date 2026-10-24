@@ -37,6 +37,23 @@ export class UsersApiService {
     return this.http.delete<void>(`${this.baseUrl}/api/users/${id}`);
   }
 
+  /** The account stops working; the data stays until the school's
+   * retention period for staff runs out. Rejected (400) for yourself or
+   * the school's last Admin. */
+  deactivate(id: number): Observable<AppUser> {
+    return this.http.post<AppUser>(
+      `${this.baseUrl}/api/users/${id}/deactivate`,
+      {},
+    );
+  }
+
+  activate(id: number): Observable<AppUser> {
+    return this.http.post<AppUser>(
+      `${this.baseUrl}/api/users/${id}/activate`,
+      {},
+    );
+  }
+
   /** E-mails the user a one-time link to set their own password. Rejected
    * (400) if they have no e-mail on file, or (503) if this environment has
    * no e-mail infrastructure configured. */

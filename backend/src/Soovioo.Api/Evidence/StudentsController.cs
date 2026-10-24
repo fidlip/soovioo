@@ -34,7 +34,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 s.RodneCislo, s.DateOfBirth, s.Gender, s.CitizenshipQualifier, s.CountryCode,
                 s.Country == null ? null : s.Country.Name, s.Street, s.MunicipalityCode,
                 s.Municipality == null ? null : s.Municipality.Name, s.PostalCode,
-                s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail, s.DefaultVariableSymbol))
+                s.CatchmentArea, s.EnrollmentDate, s.ContactPhone, s.ContactEmail, s.DefaultVariableSymbol, s.LeftAt))
             .ToListAsync();
 
         if (photoAccess is not null)
@@ -217,7 +217,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             student.RodneCislo, student.DateOfBirth, student.Gender, student.CitizenshipQualifier,
             student.CountryCode, countryName, student.Street, student.MunicipalityCode, municipalityName,
             student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,
-            student.ContactEmail, student.DefaultVariableSymbol);
+            student.ContactEmail, student.DefaultVariableSymbol, student.LeftAt);
     }
 
     private Task<bool> IsVariableSymbolTakenAsync(string? variableSymbol, int? exceptStudentId) =>
@@ -265,4 +265,5 @@ public record StudentDto(
     string? ContactPhone,
     string? ContactEmail,
     string? DefaultVariableSymbol,
+    DateOnly? LeftAt = null,
     string? Photo = null);

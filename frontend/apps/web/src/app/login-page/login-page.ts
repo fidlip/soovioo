@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -122,7 +123,15 @@ export class LoginPage {
               : this.schoolContext.link('home'),
           );
         },
-        error: () => this.error.set('Neplatné přihlašovací údaje.'),
+        error: (err: unknown) =>
+          this.error.set(
+            // 403 = right password, but the account was deactivated.
+            err instanceof HttpErrorResponse &&
+              err.status === 403 &&
+              typeof err.error === 'string'
+              ? err.error
+              : 'Neplatné přihlašovací údaje.',
+          ),
       });
   }
 }

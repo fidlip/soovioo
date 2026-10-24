@@ -113,6 +113,9 @@ import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
+import { Departures } from '../departures/departures';
+import { LeaveDialog } from '../departures/leave-dialog';
+import { formatDateOnly } from '../departures/retention-labels';
 import { Avatar } from '../avatar/avatar';
 import {
   StudentPhotoDialog,
@@ -124,6 +127,8 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
   imports: [
     PeriodsEditor,
     VisibilitySettings,
+    Departures,
+    LeaveDialog,
     Avatar,
     StudentPhotoDialog,
     UserPhotoDialog,
@@ -432,7 +437,7 @@ export class AdminPage {
    * every mutation handler below (addStudent, addLink, ...) calls this
    * rather than `reloadAll`/`reloadClassTeacherData` directly, so the same
    * handler works correctly regardless of which view is active. */
-  private reload(): void {
+  protected reload(): void {
     if (this.accessLevel() === 'classTeacher') {
       this.reloadClassTeacherData();
     } else {
@@ -993,6 +998,10 @@ export class AdminPage {
   /** Also removes the student's grades, absences, messages and parent
    * links — see StudentsController.DeleteStudent. The confirmation dialog here
    * guards the one place in this page a mistake can't be undone. */
+  /** The pupil whose departure is being recorded (Odchod ze školy). */
+  protected readonly leaveStudent = signal<Student | null>(null);
+  protected readonly formatDate = formatDateOnly;
+
   protected deleteStudent(student: Student): void {
     this.confirmation.confirm({
       header: localizeStudentTerm('Smazat žáka', this.authApi.getSchoolType()),
@@ -1192,6 +1201,32 @@ export class AdminPage {
         this.usersApi.deleteUser(user.id).subscribe({
           next: () => this.reload(),
           error: (err) => this.showError('deleteUser failed', err),
+        }),
+    });
+  }
+
+  /** Deactivating ends the account's sessions; the data stays until the
+   * school's retention period for staff (Administrace → Odchody). */
+  protected toggleActive(user: AppUser): void {
+    const name = user.name || user.username;
+    if (user.deactivatedAt) {
+      this.usersApi.activate(user.id).subscribe({
+        next: () => this.reload(),
+        error: (err) => this.showError('activate failed', err),
+      });
+      return;
+    }
+    this.confirmation.confirm({
+      header: 'Deaktivovat účet',
+      message: `Deaktivovat účet ${name}? Přestane fungovat přihlášení, údaje zůstanou a smažou se podle pravidel v záložce Odchody. Účet jde znovu aktivovat.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Deaktivovat',
+      rejectLabel: 'Zrušit',
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () =>
+        this.usersApi.deactivate(user.id).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.showError('deactivate failed', err),
         }),
     });
   }

@@ -60,6 +60,9 @@ builder.Services.Configure<AppLinkOptions>(builder.Configuration.GetSection("App
 builder.Services.Configure<Soovioo.Api.Demo.DemoOptions>(builder.Configuration.GetSection("Demo"));
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoDataGenerator>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolPurger>();
+builder.Services.AddScoped<Soovioo.Api.Retention.AccountEraser>();
+builder.Services.AddScoped<Soovioo.Api.Retention.StudentEraser>();
+builder.Services.AddScoped<Soovioo.Api.Retention.RetentionJob>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
 
 // Generating a demo school is the one anonymous request that costs real
@@ -185,6 +188,8 @@ using (var scope = app.Services.CreateScope())
         "audit-log-cleanup", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Demo.DemoSchoolService>(
         "demo-schools-daily", service => service.RunDailyAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Retention.RetentionJob>(
+        "retention-daily", job => job.RunAsync(), Cron.Daily);
 }
 
 // Configure the HTTP request pipeline.

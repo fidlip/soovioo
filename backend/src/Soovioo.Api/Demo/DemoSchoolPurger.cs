@@ -60,6 +60,7 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await DeleteAsync(db.SchoolPeriods.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.VisibilityChoices.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.VisibilityRules.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
+        await DeleteAsync(db.RetentionPolicies.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.ParentStudents.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.ParentProfiles.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.TeacherProfiles.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
@@ -118,15 +119,5 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await db.SaveChangesAsync();
     }
 
-    private async Task DeleteAsync<T>(IQueryable<T> rows) where T : class
-    {
-        if (db.Database.IsRelational())
-        {
-            await rows.ExecuteDeleteAsync();
-            return;
-        }
-        // The InMemory provider (tests) has no ExecuteDelete.
-        db.RemoveRange(await rows.ToListAsync());
-        await db.SaveChangesAsync();
-    }
+    private Task DeleteAsync<T>(IQueryable<T> rows) where T : class => db.DeleteAsync(rows);
 }

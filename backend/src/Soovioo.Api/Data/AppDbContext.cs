@@ -58,6 +58,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Demo.DemoEmail> DemoEmails => Set<Demo.DemoEmail>();
     public DbSet<VisibilityRule> VisibilityRules => Set<VisibilityRule>();
     public DbSet<VisibilityChoice> VisibilityChoices => Set<VisibilityChoice>();
+    public DbSet<Retention.RetentionPolicy> RetentionPolicies => Set<Retention.RetentionPolicy>();
+
+    /// <summary>The day the former-pupil filter compares
+    /// <see cref="Student.LeftAt"/> with (read per query).</summary>
+    public DateOnly Today { get; set; } = Common.SchoolClock.Today(TimeProvider.System);
+
+    /// <summary>Former pupils (<see cref="Student.LeftAt"/> before
+    /// <see cref="Today"/>) are left out of every query — the app shows
+    /// pupils of the school. Administrace → Odchody and the retention job
+    /// switch this on to reach them; the tenant filter still applies.</summary>
+    public bool IncludeFormerStudents { get; set; }
 
     // Not tenant-scoped: SuperAdmin-only lists, and the rows may outlive
     // their demo school (see the classes).
@@ -199,7 +210,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Classroom>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Student>().HasQueryFilter(s =>
-            currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId);
+            (currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId)
+            && (IncludeFormerStudents || s.LeftAt == null || s.LeftAt >= Today));
         modelBuilder.Entity<Grade>().HasQueryFilter(g =>
             currentSchool.IsSuperAdmin || g.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Absence>().HasQueryFilter(a =>
@@ -247,8 +259,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ParentProfile>().HasQueryFilter(pp =>
             currentSchool.IsSuperAdmin || pp.SchoolId == currentSchool.SchoolId);
+        // A former pupil's parents lose access to them with the rest of the
+        // app: every parent check goes through these links.
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
-            currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId);
+            (currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId)
+            && Set<Student>().Any(s => s.Id == ps.StudentId));
         modelBuilder.Entity<Payment>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<PaymentRecipient>().HasQueryFilter(r =>
@@ -264,6 +279,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Demo.DemoEmail>().HasIndex(x => x.SchoolId);
         modelBuilder.Entity<Demo.DemoContact>().HasIndex(x => x.SchoolId);
         modelBuilder.Entity<Demo.DemoFeedback>().HasIndex(x => x.CreatedAt);
+
+        modelBuilder.Entity<Student>().Property(s => s.LeaveReason).HasConversion<string>();
+        modelBuilder.Entity<Student>().PrimitiveCollection(s => s.ErasedCategories).ElementType().HasConversion<string>();
+        modelBuilder.Entity<User>().HasIndex(u => u.DeactivatedAt).HasFilter("\"DeactivatedAt\" IS NOT NULL");
+        modelBuilder.Entity<Retention.RetentionPolicy>(e =>
+        {
+            e.HasKey(x => x.SchoolId);
+            e.Property(x => x.Mode).HasConversion<string>();
+            e.HasOne(x => x.School).WithOne().HasForeignKey<Retention.RetentionPolicy>(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
 
         modelBuilder.Entity<VisibilityRule>(e =>
         {

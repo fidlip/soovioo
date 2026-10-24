@@ -1,0 +1,258 @@
+<p-card>
+  <ng-template #title
+    >{{ 'Odcházející a bývalí žáci' | term }}<app-info-hint
+      [text]="
+        'Odchod se zadává v záložce Studenti. Po posledním dni se žák v aplikaci nezobrazuje, rodiče k němu ztratí přístup a jeho údaje se mažou podle pravidel níže.'
+          | term
+      "
+  /></ng-template>
+  @if (dueCount() > 0) {
+  <div
+    class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-orange-50 p-3 text-sm dark:bg-orange-950"
+  >
+    <span
+      >Některým údajům uplynula lhůta k výmazu (počet osob: {{ dueCount()
+      }}).</span
+    >
+    <p-button
+      label="Provést všechny výmazy"
+      icon="pi pi-eraser"
+      size="small"
+      severity="danger"
+      (onClick)="eraseAllDue()"
+    />
+  </div>
+  } @if (people(); as p) {
+  <p-table [value]="p.students" dataKey="id">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Jméno</th>
+        <th>Třída</th>
+        <th>Poslední den</th>
+        <th>Stav</th>
+        <th>Vymazáno</th>
+        <th>K výmazu</th>
+        <th><span class="sr-only">Akce</span></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-s>
+      <tr>
+        <td>
+          <div>{{ s.firstName }} {{ s.lastName }}</div>
+          @if (s.reason || s.note) {
+          <div class="text-xs text-surface-500">{{ reasonAndNote(s) }}</div>
+          }
+        </td>
+        <td>{{ s.schoolClassName }}</td>
+        <td>{{ formatDate(s.leftAt) }}</td>
+        <td>
+          @if (s.former) {
+          <p-tag value="Bývalý" severity="secondary" />
+          @if (s.accountActive) {
+          <div class="text-xs text-surface-500">účet ještě aktivní</div>
+          } } @else {
+          <p-tag value="Odchází" severity="info" />
+          }
+        </td>
+        <td class="text-sm text-surface-500">
+          {{ s.erased.length ? labels(s.erased) : '—' }}
+        </td>
+        <td class="text-sm">
+          @if (s.due.length) {
+          <span class="text-orange-600 dark:text-orange-400"
+            >teď: {{ labels(s.due) }}</span
+          >
+          } @else {
+          <span class="text-surface-500">{{ next(s) }}</span>
+          }
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            @if (s.erased.length === 0) {
+            <p-button
+              icon="pi pi-pencil"
+              ariaLabel="Upravit odchod"
+              title="Upravit odchod"
+              size="small"
+              [text]="true"
+              (onClick)="editing.set(s)"
+            />
+            } @if (s.due.length) {
+            <p-button
+              icon="pi pi-eraser"
+              ariaLabel="Vymazat, čemu uplynula lhůta"
+              title="Vymazat, čemu uplynula lhůta"
+              size="small"
+              severity="danger"
+              [text]="true"
+              (onClick)="eraseDueOf(s)"
+            />
+            } @if (s.former) {
+            <p-button
+              icon="pi pi-trash"
+              ariaLabel="Vymazat vše hned"
+              title="Vymazat vše hned"
+              size="small"
+              severity="danger"
+              [text]="true"
+              (onClick)="eraseEverything(s)"
+            />
+            }
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7" class="py-3 text-surface-500">
+          Nikdo neodchází ani neodešel.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+  } @else {
+  <p class="m-0 text-surface-500">Načítání…</p>
+  }
+</p-card>
+
+@if (people(); as p) { @if (p.staff.length) {
+<p-card styleClass="mt-6">
+  <ng-template #title
+    >Bývalí zaměstnanci<app-info-hint
+      text="Účty zaměstnanců deaktivované v záložce Uživatelé. Po lhůtě se vymaže jméno, kontakty a fotka a účet se zruší; jejich záznamy (známky, akce, zprávy) zůstanou bez jména."
+  /></ng-template>
+  <p-table [value]="p.staff" dataKey="userId">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Jméno</th>
+        <th>Deaktivován</th>
+        <th>Výmaz</th>
+        <th><span class="sr-only">Akce</span></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-s>
+      <tr>
+        <td>{{ s.name }}</td>
+        <td>{{ formatDate(s.deactivatedAt.slice(0, 10)) }}</td>
+        <td [class.text-orange-600]="s.due">
+          {{ s.due ? 'teď' : formatDate(s.erasesOn) }}
+        </td>
+        <td>
+          <div class="flex justify-end">
+            <p-button
+              icon="pi pi-trash"
+              ariaLabel="Vymazat hned"
+              title="Vymazat hned"
+              size="small"
+              severity="danger"
+              [text]="true"
+              (onClick)="eraseStaff(s)"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-card>
+} }
+
+<p-card styleClass="mt-6">
+  <ng-template #title
+    >Pravidla výmazu<app-info-hint
+      text="Nastavte podle spisového a skartačního řádu školy. Lhůty se počítají od posledního dne žáka ve škole, 0 = hned po odchodu. Údaje, které škola musí uchovat (např. pro matriku), nechte v Celém profilu."
+  /></ng-template>
+  @if (policy(); as policy) {
+  <form
+    class="flex flex-col gap-5"
+    #policyForm="ngForm"
+    (ngSubmit)="savePolicy()"
+  >
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="flex flex-col gap-1">
+        <label for="ret-mode">Výmaz po uplynutí lhůty</label>
+        <p-select
+          inputId="ret-mode"
+          name="mode"
+          [options]="modes"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="policy.mode"
+          (ngModelChange)="policy.mode = $event"
+          appendTo="body"
+        />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="ret-grace"
+          >Účty žáka a rodičů zůstanou aktivní (dní)<app-info-hint
+            text="Po posledním dni žáka — např. aby si rodiče dočetli zprávy. Rodič, kterému ve škole zůstává jiné dítě, účet nepřijde."
+        /></label>
+        <p-inputNumber
+          inputId="ret-grace"
+          name="accountGraceDays"
+          [ngModel]="policy.accountGraceDays"
+          (ngModelChange)="policy.accountGraceDays = $event ?? 0"
+          [min]="0"
+          [max]="365"
+          [showButtons]="true"
+          class="self-start"
+          inputStyleClass="w-24"
+        />
+      </div>
+    </div>
+
+    <section class="flex flex-col gap-2">
+      <h3 class="m-0 text-base font-semibold">
+        {{ 'Údaje bývalých žáků — za kolik let po odchodu se vymažou' | term }}
+      </h3>
+      <div class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+        @for (f of yearFields; track f.field) {
+        <div class="flex items-center justify-between gap-2">
+          <label [for]="'ret-' + f.field" class="text-sm"
+            >{{ categoryLabels[f.category] }}<app-info-hint [text]="f.hint"
+          /></label>
+          <p-inputNumber
+            [inputId]="'ret-' + f.field"
+            [name]="f.field"
+            [ngModel]="yearsOf(f.field)"
+            (ngModelChange)="setYears(f.field, $event)"
+            [min]="0"
+            [max]="100"
+            inputStyleClass="w-24"
+          />
+        </div>
+        }
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+      <h3 class="m-0 text-base font-semibold">Bývalí zaměstnanci</h3>
+      <div class="flex items-center gap-3">
+        <label for="ret-staffYears" class="text-sm"
+          >Za kolik let od deaktivace účtu se vymažou</label
+        >
+        <p-inputNumber
+          inputId="ret-staffYears"
+          name="staffYears"
+          [ngModel]="policy.staffYears"
+          (ngModelChange)="policy.staffYears = $event ?? 0"
+          [min]="0"
+          [max]="100"
+          inputStyleClass="w-24"
+        />
+      </div>
+    </section>
+
+    <div>
+      <app-submit-button [form]="policyForm" />
+    </div>
+  </form>
+  } @else {
+  <p class="m-0 text-surface-500">Načítání…</p>
+  }
+</p-card>
+
+<app-leave-dialog
+  [student]="editing()"
+  (closed)="editing.set(null)"
+  (changed)="leaveChanged()"
+/>

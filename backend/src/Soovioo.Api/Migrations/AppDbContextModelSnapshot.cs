@@ -196,6 +196,12 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("CalendarToken")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ErasedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("InvitationToken")
                         .HasColumnType("text");
 
@@ -228,6 +234,9 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("CalendarToken")
                         .IsUnique()
                         .HasFilter("\"CalendarToken\" IS NOT NULL");
+
+                    b.HasIndex("DeactivatedAt")
+                        .HasFilter("\"DeactivatedAt\" IS NOT NULL");
 
                     b.HasIndex("Username")
                         .IsUnique()
@@ -794,6 +803,10 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateOnly?>("EnrollmentDate")
                         .HasColumnType("date");
 
+                    b.PrimitiveCollection<string[]>("ErasedCategories")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -804,6 +817,15 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("LeaveNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LeaveReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("LeftAt")
+                        .HasColumnType("date");
 
                     b.Property<string>("MunicipalityCode")
                         .HasColumnType("text");
@@ -863,6 +885,7 @@ namespace Soovioo.Api.Migrations
                             ContactPhone = "+420 777 123 456",
                             DateOfBirth = new DateOnly(2015, 3, 10),
                             EnrollmentDate = new DateOnly(2020, 9, 1),
+                            ErasedCategories = new string[0],
                             FirstName = "Jan",
                             Gender = 0,
                             LastName = "Novák",
@@ -1641,6 +1664,53 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("DistrictCode");
 
                     b.ToTable("Municipalities");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Retention.RetentionPolicy", b =>
+                {
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AccountGraceDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AttendanceYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BehaviorYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ContactsYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GradesYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HomeworkYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MessagesYears")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PaymentsYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PhotosYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProfileYears")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffYears")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SchoolId");
+
+                    b.ToTable("RetentionPolicies");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
@@ -2559,6 +2629,17 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("District");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Retention.RetentionPolicy", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithOne()
+                        .HasForeignKey("Soovioo.Api.Retention.RetentionPolicy", "SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>

@@ -443,13 +443,16 @@ public class UsersControllerTests
         using var db = NewDb();
         var created = await NewController(db, 999).AddUser(new CreateUserRequest("mama", "heslo123", ["Parent"]));
         var id = ((UserDto)((CreatedAtActionResult)created.Result!).Value!).Id;
-        await db.LinkChildAsync(id, 42, SchoolId);
+        var child = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId };
+        db.Students.Add(child);
+        await db.SaveChangesAsync();
+        await db.LinkChildAsync(id, child.Id, SchoolId);
         await db.SaveChangesAsync();
 
         await NewController(db, 999).UpdateUser(id, new UpdateUserRequest("mama", ["Teacher"]));
         await NewController(db, 999).UpdateUser(id, new UpdateUserRequest("mama", ["Teacher", "Parent"]));
 
-        Assert.Equal([42], db.ChildIdsOf(id));
+        Assert.Equal([child.Id], db.ChildIdsOf(id));
     }
 
     [Fact]

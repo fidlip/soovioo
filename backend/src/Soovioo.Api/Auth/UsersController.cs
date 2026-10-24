@@ -31,6 +31,7 @@ public class UsersController(
     public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers([FromServices] PhotoAccess? photoAccess = null)
     {
         var users = await db.Users
+            .Where(u => u.ErasedAt == null)
             .OrderBy(u => u.Username)
             .Select(u => new
             {
@@ -216,6 +217,45 @@ public class UsersController(
         return NoContent();
     }
 
+    /// <summary>Someone who left (a member of staff, typically): the account
+    /// stops working, the data stays until the school's retention period
+    /// for staff runs out (Administrace → Odchody).</summary>
+    [HttpPost("{id:int}/deactivate")]
+    public async Task<ActionResult<UserDto>> Deactivate(int id, [FromServices] Retention.AccountEraser eraser)
+    {
+        var user = await db.Users.Include(u => u.Person).ThenInclude(p => p!.TeacherProfile)
+            .FirstOrDefaultAsync(u => u.Id == id && u.ErasedAt == null);
+        if (user is null)
+        {
+            return NotFound();
+        }
+        if (id == int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!))
+        {
+            return BadRequest("Nelze deaktivovat vlastní účet.");
+        }
+        if (user.Roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
+        {
+            return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
+        }
+        await eraser.DeactivateAsync(user);
+        await db.SaveChangesAsync();
+        return Ok(ToDto(user, await db.Students.Where(s => s.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
+    }
+
+    [HttpPost("{id:int}/activate")]
+    public async Task<ActionResult<UserDto>> Activate(int id, [FromServices] Retention.AccountEraser eraser)
+    {
+        var user = await db.Users.Include(u => u.Person).ThenInclude(p => p!.TeacherProfile)
+            .FirstOrDefaultAsync(u => u.Id == id && u.ErasedAt == null);
+        if (user is null)
+        {
+            return NotFound();
+        }
+        eraser.Reactivate(user);
+        await db.SaveChangesAsync();
+        return Ok(ToDto(user, await db.Students.Where(s => s.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
+    }
+
     /// <summary>Teacher-only data (TeacherProfile) — currently the aprobace.</summary>
     [HttpPut("{id:int}/teacher-profile")]
     public async Task<ActionResult<UserDto>> SetTeacherProfile(int id, SetTeacherProfileRequest request)
@@ -348,7 +388,8 @@ public class UsersController(
     private static UserDto ToDto(User user, int? studentId) =>
         new(user.Id, user.Username, user.Person?.FirstName ?? "", user.Person?.LastName ?? "",
             PersonNames.Display(user), user.Role.ToString(), RoleNames(user.Roles),
-            user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification);
+            user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification,
+            DeactivatedAt: user.DeactivatedAt);
 
     /// <summary>Writes name/contacts to the account's Person and creates the
     /// profile of every role it now has (profiles of removed roles stay, so
@@ -377,7 +418,7 @@ public class UsersController(
     /// the current school — deleting/demoting them would leave the school
     /// with no one able to manage it.</summary>
     private async Task<bool> IsLastAdminAsync(int userId) =>
-        !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Contains(UserRole.Admin));
+        !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Contains(UserRole.Admin) && u.DeactivatedAt == null);
 
     /// <summary>Validates and resolves the <see cref="Student"/> a Student-role
     /// account must link to (null/error otherwise). Doesn't write anything —
@@ -441,7 +482,8 @@ public record UserDto(
     int Id, string Username, string FirstName, string LastName, string Name, string Role, IReadOnlyList<string> Roles,
     string? Phone, string? Email, int? StudentId = null, string? Qualification = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null,
-    string? Photo = null);
+    string? Photo = null,
+    DateTimeOffset? DeactivatedAt = null);
 
 public enum InviteOutcome
 {

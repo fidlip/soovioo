@@ -17,6 +17,8 @@ public class AuthController(
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
+    public const string DeactivatedMessage = "Účet už není aktivní. S dotazy se obraťte na školu.";
+
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
@@ -50,10 +52,19 @@ public class AuthController(
         }
 
         audit.UserId = user.Id;
+        if (user.ErasedAt is not null)
+        {
+            return Unauthorized();
+        }
         var result = Hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
         if (result == PasswordVerificationResult.Failed)
         {
             return Unauthorized();
+        }
+        // After the password, so it doesn't tell strangers the account exists.
+        if (user.DeactivatedAt is not null)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, DeactivatedMessage);
         }
         audit.Action = "Přihlášení";
         audit.Description = "Přihlášení";
@@ -80,7 +91,8 @@ public class AuthController(
 
         var user = await db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.InvitationToken == request.Token);
-        if (user is null || user.InvitationTokenExpiresAt is null || user.InvitationTokenExpiresAt < DateTimeOffset.UtcNow)
+        if (user is null || user.InvitationTokenExpiresAt is null || user.InvitationTokenExpiresAt < DateTimeOffset.UtcNow
+            || user.DeactivatedAt is not null)
         {
             return BadRequest("Pozvánka je neplatná nebo už vypršela.");
         }
@@ -122,7 +134,7 @@ public class AuthController(
         }
 
         var rotated = await refreshTokens.RotateAsync(token);
-        if (rotated is null)
+        if (rotated is null || rotated.User.DeactivatedAt is not null)
         {
             if (fromCookie)
             {
