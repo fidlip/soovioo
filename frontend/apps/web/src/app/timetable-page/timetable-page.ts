@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -155,6 +156,7 @@ export class TimetablePage {
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
   protected readonly authApi = inject(AuthApiService);
   private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Optional: the grid isn't rendered until gridReady().
   private readonly headerScroller =
@@ -486,6 +488,10 @@ export class TimetablePage {
    * sticky day column — on a phone the morning periods would otherwise push
    * it off screen. No-op on other weeks, weekends and after the last period. */
   private scrollToCurrentPeriodAfterRender(): void {
+    // A timetable request may answer after the page was left (NG0911).
+    if (this.destroyRef.destroyed) {
+      return;
+    }
     afterNextRender(
       () => {
         const now = new Date();
