@@ -37,8 +37,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
-import { UnreadMessagesService } from '../unread-messages.service';
-import { UnreadNotificationsService } from '../notification-bell/unread-notifications.service';
+import { UnreadCountsService } from '../unread-counts.service';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
@@ -122,8 +121,7 @@ export class MessagesPage {
   private readonly photosApi = inject(PhotosApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
-  private readonly unread = inject(UnreadMessagesService);
-  private readonly unreadNotifications = inject(UnreadNotificationsService);
+  private readonly unread = inject(UnreadCountsService);
   private readonly term = (text: string) =>
     localizeStudentTerm(text, this.authApi.getSchoolType());
 
@@ -292,7 +290,6 @@ export class MessagesPage {
                   : b,
               );
               this.unread.refresh();
-              this.unreadNotifications.refresh();
             },
             error: (err) => console.error('markRead failed', err),
           });

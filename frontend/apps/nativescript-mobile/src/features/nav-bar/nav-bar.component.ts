@@ -22,9 +22,9 @@ export class NavBarComponent {
 
   constructor() {
     inject(NotificationsApiService)
-      .getUnreadCount()
+      .getUnreadCounts()
       .subscribe({
-        next: (count) => this.unread.set(count),
+        next: (counts) => this.unread.set(counts.notifications),
         error: () => this.unread.set(0),
       });
   }

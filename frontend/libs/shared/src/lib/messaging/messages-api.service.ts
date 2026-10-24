@@ -27,12 +27,6 @@ export class MessagesApiService {
     );
   }
 
-  getUnreadCount(): Observable<number> {
-    return this.http.get<number>(
-      `${this.baseUrl}/api/conversations/unread-count`,
-    );
-  }
-
   /** A bulk send of the current user with all its conversations. */
   getBroadcast(id: number): Observable<Broadcast> {
     return this.http.get<Broadcast>(
