@@ -8,6 +8,16 @@ async function login(page: import('@playwright/test').Page) {
   await expect(page).toHaveURL(/\/skola\/home$/);
 }
 
+test('collapsed sidebar keeps the logout button', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole('button', { name: 'Sbalit menu' }).click();
+
+  await page.getByRole('button', { name: 'Odhlásit se' }).click();
+
+  await expect(page).toHaveURL(/\/skola\/login$/);
+});
+
 test('desktop sidebar collapses to icons and remembers it after reload', async ({
   page,
 }) => {
@@ -45,4 +55,24 @@ test('mobile drawer opens from the hamburger and closes after navigating', async
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
   expect(overflow).toBe(false);
+});
+
+test.describe('on a touch phone', () => {
+  test.use({
+    viewport: { width: 375, height: 800 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test('settings and logout are in the drawer', async ({ page }) => {
+    await login(page);
+
+    await page.getByRole('button', { name: 'Otevřít menu' }).tap();
+    await page.getByRole('link', { name: 'Nastavení' }).tap();
+    await expect(page).toHaveURL(/\/skola\/settings$/);
+
+    await page.getByRole('button', { name: 'Otevřít menu' }).tap();
+    await page.getByRole('button', { name: 'Odhlásit se' }).tap();
+    await expect(page).toHaveURL(/\/skola\/login$/);
+  });
 });

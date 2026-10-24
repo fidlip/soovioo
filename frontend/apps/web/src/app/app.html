@@ -120,6 +120,14 @@
       ></i>
       <span class="app-nav-label">Sbalit menu</span>
     </button>
+    <a
+      [routerLink]="settingsLink()"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Nastavení"
+      title="Nastavení"
+      ><i class="pi pi-cog"></i><span class="app-nav-label">Nastavení</span></a
+    >
     @if (hasSeveralRoles()) {
     <button
       type="button"
@@ -133,21 +141,24 @@
     </button>
     <p-menu #roleMenu [popup]="true" [model]="roleMenuItems()" />
     }
-    <button
-      type="button"
-      class="app-nav-link text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
-      [attr.aria-label]="username()"
-      [title]="username() ?? ''"
-      (click)="userMenu.toggle($event)"
-    >
-      <i class="pi pi-user"></i>
-      <span class="app-nav-label truncate">{{ username() }}</span>
-    </button>
-    <p-menu
-      #userMenu
-      [popup]="true"
-      [model]="isSuperAdmin() ? superAdminUserMenuItems() : userMenuItems()"
-    />
+    <div class="app-user-row">
+      <span
+        class="app-nav-link app-user-name text-surface-700 dark:text-surface-200"
+        [title]="username() ?? ''"
+        ><i class="pi pi-user"></i
+        ><span class="app-nav-label truncate">{{ username() }}</span></span
+      >
+      <button
+        type="button"
+        class="app-icon-button text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        aria-label="Odhlásit se"
+        pTooltip="Odhlásit se"
+        tooltipPosition="top"
+        (click)="logout()"
+      >
+        <i class="pi pi-sign-out"></i>
+      </button>
+    </div>
   </div>
 </aside>
 } @else if (!hideHeader()) {

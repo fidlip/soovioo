@@ -131,6 +131,19 @@
   display: none;
 }
 
+/* Name with the logout button beside it. */
+.app-user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-user-name {
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+}
+
 @media (min-width: 768px) {
   .app-topbar,
   .app-backdrop,
@@ -169,6 +182,15 @@
       }
 
       .app-nav-label {
+        display: none;
+      }
+
+      /* Icon-only sidebar: just the logout button. */
+      .app-user-row {
+        justify-content: center;
+      }
+
+      .app-user-name {
         display: none;
       }
 
