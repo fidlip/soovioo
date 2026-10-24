@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Messaging;
 
 namespace Soovioo.Api.Notifications;
 
@@ -34,9 +35,13 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return Ok(new NotificationPageDto(items.Take(PageSize).ToList(), items.Count > PageSize));
     }
 
-    [HttpGet("unread-count")]
-    public async Task<ActionResult<int>> GetUnreadCount() =>
-        Ok(await Mine().CountAsync(n => n.ReadAt == null));
+    /// <summary>The bell's and the Zprávy badge's numbers in one request —
+    /// the app asks on every navigation and once a minute.</summary>
+    [HttpGet("unread-counts")]
+    public async Task<ActionResult<UnreadCountsDto>> GetUnreadCounts() =>
+        Ok(new UnreadCountsDto(
+            await Mine().CountAsync(n => n.ReadAt == null),
+            await db.CountUnreadConversationsAsync(CurrentUserId())));
 
     [HttpPost("{id:int}/read")]
     public async Task<IActionResult> MarkRead(int id)
@@ -116,6 +121,9 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 public record NotificationDto(
     int Id, NotificationType Type, string Title, string? Body, string Page, int? TargetId,
     DateTimeOffset CreatedAt, bool Read);
+
+/// <param name="Messages">Conversations with something unread.</param>
+public record UnreadCountsDto(int Notifications, int Messages);
 
 public record NotificationPageDto(IReadOnlyList<NotificationDto> Items, bool HasMore);
 

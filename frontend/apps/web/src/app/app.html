@@ -28,10 +28,10 @@
     [attr.aria-label]="bellLabel()"
     (click)="toggleBell($event)"
   >
-    <i class="pi pi-bell"></i>@if (unreadNotifications.count() > 0) {<span
+    <i class="pi pi-bell"></i>@if (unread.notifications() > 0) {<span
       class="app-nav-badge"
       aria-hidden="true"
-      >{{ unreadNotifications.count() }}</span
+      >{{ unread.notifications() }}</span
     >}
   </button>
   }
@@ -106,10 +106,10 @@
       (click)="toggleBell($event)"
     >
       <i class="pi pi-bell"></i><span class="app-nav-label">Upozornění</span>@if
-      (unreadNotifications.count() > 0) {<span
+      (unread.notifications() > 0) {<span
         class="app-nav-badge"
         aria-hidden="true"
-        >{{ unreadNotifications.count() }}</span
+        >{{ unread.notifications() }}</span
       >}
     </button>
     @for (item of navItems(); track item.icon) { @if (showsNavItem(item)) {
@@ -121,10 +121,10 @@
       [title]="item.label"
       ><app-icon [name]="item.icon" /><span class="app-nav-label"
         >{{ item.label }}</span
-      >@if (item.icon === 'messages' && unreadMessages.count() > 0) {<span
+      >@if (item.icon === 'messages' && unread.messages() > 0) {<span
         class="app-nav-badge"
-        [attr.aria-label]="unreadMessages.count() + ' nepřečtených'"
-        >{{ unreadMessages.count() }}</span
+        [attr.aria-label]="unread.messages() + ' nepřečtených'"
+        >{{ unread.messages() }}</span
       >}</a
     >
     } } }

@@ -37,7 +37,6 @@ import {
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { NotificationBell } from './notification-bell/notification-bell';
-import { UnreadNotificationsService } from './notification-bell/unread-notifications.service';
 import { installPlaceholderTitles } from './placeholder-title';
 import { DemoBar } from './demo/demo-bar';
 import { DemoEmailPreview } from './demo/demo-email-preview';
@@ -49,7 +48,7 @@ import {
   isDemoSlug,
   superAdminUrl,
 } from './school-context';
-import { UnreadMessagesService } from './unread-messages.service';
+import { UnreadCountsService } from './unread-counts.service';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'soovioo-sidebar-collapsed';
 
@@ -96,8 +95,7 @@ export class App {
   private readonly supportApi = inject(SupportApiService);
   private readonly router = inject(Router);
   protected readonly schoolContext = inject(SchoolContextService);
-  protected readonly unreadMessages = inject(UnreadMessagesService);
-  protected readonly unreadNotifications = inject(UnreadNotificationsService);
+  protected readonly unread = inject(UnreadCountsService);
   private readonly bell = viewChild(NotificationBell);
 
   private readonly confirmDialog = viewChild(ConfirmDialog, {
@@ -175,11 +173,10 @@ export class App {
         // Sidebar "Zprávy" badge and the bell — cheap enough to re-check
         // per navigation.
         if (this.showsBadges()) {
-          this.unreadMessages.refresh();
-          this.unreadNotifications.refresh();
+          this.unread.refresh();
         }
       });
-    // The bell also while someone stays on one page.
+    // Also while someone stays on one page.
     interval(60_000)
       .pipe(
         filter(
@@ -187,7 +184,7 @@ export class App {
         ),
         takeUntilDestroyed(),
       )
-      .subscribe(() => this.unreadNotifications.refresh());
+      .subscribe(() => this.unread.refresh());
   }
 
   protected title = 'Soovioo';
@@ -205,7 +202,7 @@ export class App {
   }
 
   protected bellLabel(): string {
-    const count = this.unreadNotifications.count();
+    const count = this.unread.notifications();
     return count > 0 ? `Upozornění, ${count} nepřečtených` : 'Upozornění';
   }
 

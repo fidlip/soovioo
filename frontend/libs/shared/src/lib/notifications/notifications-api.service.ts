@@ -6,6 +6,7 @@ import {
   NotificationPage,
   NotificationSettings,
   NotificationType,
+  UnreadCounts,
 } from './notification.model';
 
 /** The caller's notifications — see NotificationsController. */
@@ -22,9 +23,10 @@ export class NotificationsApiService {
     );
   }
 
-  getUnreadCount(): Observable<number> {
-    return this.http.get<number>(
-      `${this.baseUrl}/api/notifications/unread-count`,
+  /** The bell's and the Zprávy badge's numbers in one request. */
+  getUnreadCounts(): Observable<UnreadCounts> {
+    return this.http.get<UnreadCounts>(
+      `${this.baseUrl}/api/notifications/unread-counts`,
     );
   }
 

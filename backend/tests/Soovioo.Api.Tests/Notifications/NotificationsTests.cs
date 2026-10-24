@@ -199,6 +199,23 @@ public class NotificationsTests
         Assert.Empty(await Of(db, w.Teacher));
     }
 
+    private static async Task<int> UnreadAsync(NotificationsController bell) =>
+        Assert.IsType<UnreadCountsDto>(Assert.IsType<OkObjectResult>((await bell.GetUnreadCounts()).Result).Value).Notifications;
+
+    [Fact]
+    public async Task UnreadCountsCarryTheMessagesBadgeToo()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        await Conversations(db, w.Teacher).StartConversation(
+            new StartConversationRequest("Výlet", "Ve středu jedeme.", w.Student.Id));
+
+        var counts = Assert.IsType<UnreadCountsDto>(
+            Assert.IsType<OkObjectResult>((await Bell(db, w.Parent).GetUnreadCounts()).Result).Value);
+
+        Assert.Equal(new UnreadCountsDto(1, 1), counts);
+    }
+
     [Fact]
     public async Task BellListsPagesCountsAndMarksRead()
     {
@@ -221,12 +238,12 @@ public class NotificationsTests
         Assert.Equal(2, rest.Items.Count);
         Assert.False(rest.HasMore);
 
-        Assert.Equal(NotificationsController.PageSize + 2, Assert.IsType<OkObjectResult>((await bell.GetUnreadCount()).Result).Value);
+        Assert.Equal(NotificationsController.PageSize + 2, (await UnreadAsync(bell)));
         await bell.MarkRead(page.Items[0].Id);
-        Assert.Equal(NotificationsController.PageSize + 1, Assert.IsType<OkObjectResult>((await bell.GetUnreadCount()).Result).Value);
+        Assert.Equal(NotificationsController.PageSize + 1, (await UnreadAsync(bell)));
         Assert.IsType<NotFoundResult>(await bell.MarkRead((await Of(db, w.OtherParent)).Single().Id));
         await bell.MarkAllRead();
-        Assert.Equal(0, Assert.IsType<OkObjectResult>((await bell.GetUnreadCount()).Result).Value);
+        Assert.Equal(0, (await UnreadAsync(bell)));
         Assert.Null((await Of(db, w.OtherParent)).Single().ReadAt);
     }
 

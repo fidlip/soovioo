@@ -9,7 +9,7 @@ import {
   NotificationsApiService,
 } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
-import { UnreadNotificationsService } from './unread-notifications.service';
+import { UnreadCountsService } from '../unread-counts.service';
 
 const TYPE_ICONS: Record<NotificationType, string> = {
   Grade: 'pi-star',
@@ -30,7 +30,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   templateUrl: './notification-bell.html',
 })
 export class NotificationBell {
-  protected readonly unread = inject(UnreadNotificationsService);
+  protected readonly unread = inject(UnreadCountsService);
   private readonly api = inject(NotificationsApiService);
   private readonly router = inject(Router);
   private readonly schoolContext = inject(SchoolContextService);
@@ -92,7 +92,7 @@ export class NotificationBell {
     this.api.markAllRead().subscribe({
       next: () => {
         this.items.update((items) => items.map((n) => ({ ...n, read: true })));
-        this.unread.count.set(0);
+        this.unread.notifications.set(0);
       },
       error: (err) => console.error('markAllRead failed', err),
     });

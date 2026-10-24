@@ -130,12 +130,6 @@ public class ConversationsController(
                 .ToList()));
     }
 
-    /// <summary>Number of conversations with something unread — Home and
-    /// the sidebar badge.</summary>
-    [HttpGet("unread-count")]
-    public async Task<ActionResult<int>> GetUnreadCount() =>
-        Ok(await db.CountUnreadConversationsAsync(CurrentUserId()));
-
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ConversationDto>> GetConversation(int id, [FromServices] PhotoAccess? photoAccess = null)
     {

@@ -14,6 +14,12 @@ export interface AppNotification {
   read: boolean;
 }
 
+export interface UnreadCounts {
+  notifications: number;
+  /** Conversations with something unread. */
+  messages: number;
+}
+
 export interface NotificationPage {
   items: AppNotification[];
   hasMore: boolean;
