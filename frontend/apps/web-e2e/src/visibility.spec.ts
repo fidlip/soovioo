@@ -71,7 +71,9 @@ test('a parent decides who sees their child on the class list', async ({
   await page.getByRole('link', { name: 'Mé děti' }).click();
   await expect(page.getByText('Jan Novák')).toBeVisible();
 
-  const control = page.getByRole('button', { name: /^Viditelnost: / });
+  const control = page.getByRole('button', {
+    name: /^Viditelnost: Jméno/,
+  });
   await expect(control).toContainText('Třídy');
   await control.click();
   const forParents = page.getByRole('group', {
