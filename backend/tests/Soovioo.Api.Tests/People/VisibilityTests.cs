@@ -363,4 +363,29 @@ public class VisibilityTests
         var notAStudentSetting = await Children(db, fx.Parent).SetVisibility(fx.Child.Id, request with { Owner = VisibilityOwner.Parent });
         Assert.IsType<BadRequestObjectResult>(notAStudentSetting.Result);
     }
+
+    [Fact]
+    public async Task PhotoSettingsAreOfferedOnlyWhileTheSchoolHasThosePhotosOn()
+    {
+        using var db = NewDb();
+        var fx = await SeedAsync(db, demoRules: true);
+        fx.Teacher.Roles.Add(UserRole.Parent);
+        await db.SaveChangesAsync();
+        var photo = new SetVisibilityRequest(
+            VisibilityOwner.Student, VisibilityField.Photo, VisibilityAudience.Parents, VisibilityScope.MyClasses);
+
+        var child = Assert.Single(Ok(await Children(db, fx.Parent).Get()));
+        Assert.DoesNotContain(child.Visibility, s => s.Field == VisibilityField.Photo);
+        Assert.IsType<BadRequestObjectResult>((await Children(db, fx.Parent).SetVisibility(fx.Child.Id, photo)).Result);
+        var own = Ok(await Profile(db, fx.Teacher).GetVisibility());
+        Assert.Contains(own, s => s.Owner == VisibilityOwner.Staff && s.Field == VisibilityField.Photo);
+        Assert.DoesNotContain(own, s => s.Owner == VisibilityOwner.Parent && s.Field == VisibilityField.Photo);
+
+        fx.School.StudentPhotos = true;
+        fx.School.ParentPhotos = true;
+        await db.SaveChangesAsync();
+        Assert.IsType<OkObjectResult>((await Children(db, fx.Parent).SetVisibility(fx.Child.Id, photo)).Result);
+        Assert.Contains(Ok(await Profile(db, fx.Teacher).GetVisibility()),
+            s => s.Owner == VisibilityOwner.Parent && s.Field == VisibilityField.Photo);
+    }
 }
