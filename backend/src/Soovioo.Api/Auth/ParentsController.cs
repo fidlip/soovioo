@@ -16,19 +16,22 @@ namespace Soovioo.Api.Auth;
 [Authorize(Roles = "Teacher,Admin")]
 [ApiController]
 [Route("api/parents")]
-public class ParentsController(AppDbContext db) : ControllerBase
+public class ParentsController(AppDbContext db, PhotoAccess photoAccess) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ParentDto>>> GetParents()
     {
-        var parents = await db.Users
+        var users = await db.Users
+            .Include(u => u.Person)
             .Where(u => u.Roles.Contains(UserRole.Parent))
             .OrderBy(u => u.Username)
-            .Select(u => new ParentDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();
+        var photos = await photoAccess.VisibleUserPhotosAsync(User, users);
 
-        return Ok(parents);
+        return Ok(users.Select(u => new ParentDto(
+            u.Id, u.Username, PersonNames.Display(u.Person, u.Username), photos.GetValueOrDefault(u.Id))));
     }
 }
 
-public record ParentDto(int Id, string Username, string Name);
+/// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
+public record ParentDto(int Id, string Username, string Name, string? Photo);

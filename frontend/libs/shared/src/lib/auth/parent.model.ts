@@ -6,4 +6,7 @@ export interface Parent {
   username: string;
   /** Display name ("Petr Novák", or the username). */
   name: string;
+  /** Photo token for `PhotosApiService` URLs — present only when the
+   * caller may see the photo. */
+  photo?: string | null;
 }

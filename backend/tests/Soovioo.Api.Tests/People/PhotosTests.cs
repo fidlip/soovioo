@@ -351,4 +351,27 @@ public class PhotosTests
         await db.SaveChangesAsync();
         Assert.IsType<NotFoundResult>(await Controller(db, fx.OtherParent).GetStudentPhoto(fx.Child.Id, PhotoSize.Thumb));
     }
+
+    [Fact]
+    public async Task ParentListCarriesThePhotoOnlyForThoseWhoMaySeeIt()
+    {
+        using var db = NewDb();
+        var fx = await SeedAsync(db);
+        await Controller(db, fx.Parent).UploadUserPhoto(fx.Parent.Id, File(TestJpeg()));
+
+        async Task<string?> PhotoSeenBy(User viewer)
+        {
+            var controller = new ParentsController(db, new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)))
+            {
+                ControllerContext = Controller(db, viewer).ControllerContext,
+            };
+            var parents = Assert.IsAssignableFrom<IEnumerable<ParentDto>>(
+                Assert.IsType<OkObjectResult>((await controller.GetParents()).Result).Value);
+            return parents.Single(p => p.Id == fx.Parent.Id).Photo;
+        }
+
+        Assert.NotNull(await PhotoSeenBy(fx.Admin));
+        Assert.NotNull(await PhotoSeenBy(fx.ClassTeacher));
+        Assert.Null(await PhotoSeenBy(fx.OtherTeacher));
+    }
 }

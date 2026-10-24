@@ -172,7 +172,14 @@
       </ng-template>
       <ng-template pTemplate="body" let-parent>
         <tr>
-          <td>{{ parent.name }}</td>
+          <td>
+            <div class="flex items-center gap-2">
+              <app-avatar
+                [name]="parent.name"
+                [photoUrl]="parentPhotoUrl(parent)"
+              />{{ parent.name }}
+            </div>
+          </td>
           <td
             class="max-w-64 overflow-hidden text-ellipsis whitespace-nowrap text-surface-500"
             [title]="parentChildNames(parent.id)"
@@ -599,7 +606,14 @@
               </ng-template>
               <ng-template pTemplate="body" let-teacher>
                 <tr>
-                  <td>{{ teacher.name }}</td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      <app-avatar
+                        [name]="teacher.name"
+                        [photoUrl]="userPhotoUrl(teacher)"
+                      />{{ teacher.name }}
+                    </div>
+                  </td>
                   <td>{{ teacher.qualification ?? '—' }}</td>
                   <td>{{ teacherClassNames(teacher.id) || '—' }}</td>
                   <td class="text-surface-500">
@@ -612,6 +626,14 @@
                     } }
                   </td>
                   <td class="text-right">
+                    <p-button
+                      icon="pi pi-camera"
+                      ariaLabel="Fotka"
+                      title="Fotka"
+                      size="small"
+                      [text]="true"
+                      (onClick)="photoUser.set(teacher)"
+                    />
                     <p-button
                       icon="pi pi-pencil"
                       size="small"
