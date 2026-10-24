@@ -48,8 +48,8 @@ export class VisibilitySettings {
   private readonly notify = inject(NotifyService);
 
   protected readonly rules = signal<VisibilityRule[] | null>(null);
-  protected studentPhotos = false;
-  protected parentPhotos = false;
+  protected readonly studentPhotos = signal(false);
+  protected readonly parentPhotos = signal(false);
 
   protected readonly groups = computed(() => {
     const rules = this.rules();
@@ -57,11 +57,20 @@ export class VisibilitySettings {
       return [];
     }
     const owners: VisibilityOwner[] = ['Staff', 'Parent', 'Student'];
+    // Rows of switched-off photos are hidden, but saved as they are.
+    const photosOn: Record<VisibilityOwner, boolean> = {
+      Staff: true,
+      Parent: this.parentPhotos(),
+      Student: this.studentPhotos(),
+    };
     return owners.map((owner) => ({
       owner,
       label: VISIBILITY_OWNER_LABELS[owner],
       rules: rules.filter(
-        (r) => r.owner === owner && VISIBILITY_FIELDS.includes(r.field),
+        (r) =>
+          r.owner === owner &&
+          VISIBILITY_FIELDS.includes(r.field) &&
+          (r.field !== 'Photo' || photosOn[owner]),
       ),
     }));
   });
@@ -124,8 +133,8 @@ export class VisibilitySettings {
     this.mySchoolApi
       .setVisibility({
         rules,
-        studentPhotos: this.studentPhotos,
-        parentPhotos: this.parentPhotos,
+        studentPhotos: this.studentPhotos(),
+        parentPhotos: this.parentPhotos(),
       })
       .subscribe({
         next: (saved) => {
@@ -138,7 +147,7 @@ export class VisibilitySettings {
 
   private load(settings: VisibilityRules): void {
     this.rules.set(settings.rules);
-    this.studentPhotos = settings.studentPhotos;
-    this.parentPhotos = settings.parentPhotos;
+    this.studentPhotos.set(settings.studentPhotos);
+    this.parentPhotos.set(settings.parentPhotos);
   }
 }

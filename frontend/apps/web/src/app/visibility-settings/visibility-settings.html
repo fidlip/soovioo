@@ -10,7 +10,8 @@
       <div class="flex items-center gap-3">
         <p-toggleswitch
           inputId="vis-student-photos"
-          [(ngModel)]="studentPhotos"
+          [ngModel]="studentPhotos()"
+          (ngModelChange)="studentPhotos.set($event)"
         />
         <label
           for="vis-student-photos"
@@ -26,7 +27,8 @@
       <div class="flex items-center gap-3">
         <p-toggleswitch
           inputId="vis-parent-photos"
-          [(ngModel)]="parentPhotos"
+          [ngModel]="parentPhotos()"
+          (ngModelChange)="parentPhotos.set($event)"
         />
         <label
           for="vis-parent-photos"

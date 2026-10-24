@@ -9,7 +9,7 @@ public static class VisibilitySettings
     public static IReadOnlyList<VisibilitySettingDto> Of(
         SchoolVisibility visibility, IEnumerable<VisibilityOwner> owners, IReadOnlyList<VisibilityChoice> choices, bool editable) =>
         owners
-            .SelectMany(owner => Visibility.Keys.Where(k => k.Owner == owner))
+            .SelectMany(owner => Visibility.Keys.Where(k => k.Owner == owner && visibility.InUse(k)))
             .Select(key =>
             {
                 var rule = visibility.Rule(key);
@@ -28,7 +28,8 @@ public static class VisibilitySettings
         List<VisibilityChoice> choices, SetVisibilityRequest request, Func<VisibilityChoice> newChoice)
     {
         var key = new VisibilityKey(request.Owner, request.Field, request.Audience);
-        if (!owners.Contains(key.Owner) || !Visibility.Keys.Contains(key) || !Enum.IsDefined(request.Scope))
+        if (!owners.Contains(key.Owner) || !Visibility.Keys.Contains(key) || !visibility.InUse(key)
+            || !Enum.IsDefined(request.Scope))
         {
             return "Tento údaj nastavit nemůžete.";
         }

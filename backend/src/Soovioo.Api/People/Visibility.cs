@@ -142,16 +142,26 @@ public static class Visibility
             Max = VisibilityScope.School,
         });
 
-    public static async Task<SchoolVisibility> LoadAsync(AppDbContext db, int schoolId) =>
-        new(await db.VisibilityRules.Where(r => r.SchoolId == schoolId).ToListAsync());
+    public static async Task<SchoolVisibility> LoadAsync(AppDbContext db, int schoolId)
+    {
+        var photos = await db.Schools.Where(s => s.Id == schoolId)
+            .Select(s => new { s.StudentPhotos, s.ParentPhotos })
+            .FirstAsync();
+        return new(await db.VisibilityRules.Where(r => r.SchoolId == schoolId).ToListAsync(),
+            photos.StudentPhotos, photos.ParentPhotos);
+    }
 
     private static IEnumerable<VisibilityKey> Combine(
         VisibilityOwner owner, VisibilityField[] fields, VisibilityAudience[] audiences) =>
         fields.SelectMany(f => audiences.Select(a => new VisibilityKey(owner, f, a)));
 }
 
-/// <summary>A school's rules, resolving what someone's data is shown to.</summary>
-public class SchoolVisibility(IEnumerable<VisibilityRule> rules)
+/// <summary>A school's rules, resolving what someone's data is shown to.
+/// Pupils' and parents' photo settings are out of use while the school has
+/// those photos off (<see cref="School.StudentPhotos"/>,
+/// <see cref="School.ParentPhotos"/>): not offered, nothing shown — the
+/// rules and choices stay for when they're back on.</summary>
+public class SchoolVisibility(IEnumerable<VisibilityRule> rules, bool studentPhotos, bool parentPhotos)
 {
     private readonly Dictionary<VisibilityKey, VisibilityRule> rules = rules.ToDictionary(r => r.Key);
 
@@ -161,8 +171,20 @@ public class SchoolVisibility(IEnumerable<VisibilityRule> rules)
     /// <summary>The choice, or the default, kept within the school's range
     /// (it may have changed since) — and never wider than the name: data of
     /// someone who isn't on the list would be nameless.</summary>
+    public bool InUse(VisibilityKey key) =>
+        key.Field != VisibilityField.Photo || key.Owner switch
+        {
+            VisibilityOwner.Student => studentPhotos,
+            VisibilityOwner.Parent => parentPhotos,
+            _ => true,
+        };
+
     public VisibilityScope Effective(VisibilityKey key, IEnumerable<VisibilityChoice> choices)
     {
+        if (!InUse(key))
+        {
+            return VisibilityScope.Nobody;
+        }
         var rule = Rule(key);
         var chosen = choices.FirstOrDefault(c => c.Key == key)?.Scope ?? rule.Default;
         var scope = Clamp(chosen, rule.Min, rule.Max);
@@ -182,7 +204,7 @@ public class SchoolVisibility(IEnumerable<VisibilityRule> rules)
 
     /// <summary>Whether anybody's data under <paramref name="key"/> can be
     /// shown at <paramref name="distance"/> at all.</summary>
-    public bool CanShow(VisibilityKey key, VisibilityScope distance) => Rule(key).Max >= distance;
+    public bool CanShow(VisibilityKey key, VisibilityScope distance) => InUse(key) && Rule(key).Max >= distance;
 
     public static VisibilityScope Clamp(VisibilityScope scope, VisibilityScope min, VisibilityScope max) =>
         scope < min ? min : scope > max ? max : scope;
