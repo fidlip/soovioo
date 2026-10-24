@@ -114,7 +114,7 @@ import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
-import { LeaveDialog } from '../departures/leave-dialog';
+import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
 import { formatDateOnly } from '../departures/retention-labels';
 import { Avatar } from '../avatar/avatar';
 import {
@@ -999,8 +999,16 @@ export class AdminPage {
    * links — see StudentsController.DeleteStudent. The confirmation dialog here
    * guards the one place in this page a mistake can't be undone. */
   /** The pupil whose departure is being recorded (Ukončení vzdělávání). */
-  protected readonly leaveStudent = signal<Student | null>(null);
+  protected readonly leaveStudent = signal<LeaveTarget | null>(null);
   protected readonly formatDate = formatDateOnly;
+
+  protected openLeave(student: Student): void {
+    this.leaveStudent.set({
+      ...student,
+      reason: student.leaveReason,
+      note: student.leaveNote,
+    });
+  }
 
   protected deleteStudent(student: Student): void {
     this.confirmation.confirm({

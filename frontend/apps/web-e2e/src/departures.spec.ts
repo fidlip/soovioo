@@ -1,9 +1,9 @@
 import { expect, test } from './fixtures';
 
-/** dd.mm.yyyy of yesterday — the DatePicker's input format. */
-function yesterday(): string {
+/** dd.mm.yyyy `days` from today — the DatePicker's input format. */
+function inDays(days: number): string {
   const date = new Date();
-  date.setDate(date.getDate() - 1);
+  date.setDate(date.getDate() + days);
   const pad = (n: number) => `${n}`.padStart(2, '0');
   return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
 }
@@ -35,11 +35,19 @@ test('a former pupil moves to the archive and can be erased', async ({
   const leaveDialog = page.getByRole('dialog', {
     name: `Ukončení vzdělávání — Ota ${lastName}`,
   });
+  const lastDay = leaveDialog.getByLabel('Poslední den ve škole');
   // Typed key by key — the DatePicker ignores a pasted value.
-  await leaveDialog
-    .getByLabel('Poslední den ve škole')
-    .pressSequentially(yesterday());
+  await lastDay.pressSequentially(inDays(30));
   await leaveDialog.getByLabel('Poznámka').fill('Přestup');
+  await leaveDialog.getByRole('button', { name: 'Uložit' }).click();
+  await expect(leaveDialog).toBeHidden();
+  await expect(row.getByText(/Končí k/)).toBeVisible();
+
+  // Opened again, the dialog shows what was saved.
+  await row.getByRole('button', { name: 'Ukončení vzdělávání' }).click();
+  await expect(leaveDialog.getByLabel('Poznámka')).toHaveValue('Přestup');
+  await lastDay.press('Control+a');
+  await lastDay.pressSequentially(inDays(-1));
   await leaveDialog.getByRole('button', { name: 'Uložit' }).click();
   await expect(leaveDialog).toBeHidden();
   await expect(row).toHaveCount(0);

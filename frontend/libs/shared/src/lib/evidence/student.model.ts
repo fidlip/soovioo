@@ -1,3 +1,5 @@
+import { StudentLeaveReason } from '../retention/retention.model';
+
 export type Gender = 'Male' | 'Female';
 
 export interface Student {
@@ -36,6 +38,8 @@ export interface Student {
   /** Last day at the school, when a departure is announced (a pupil whose
    * last day is over isn't listed at all — see RetentionApiService). */
   leftAt?: string | null;
+  leaveReason?: StudentLeaveReason | null;
+  leaveNote?: string | null;
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */
   photo?: string | null;
