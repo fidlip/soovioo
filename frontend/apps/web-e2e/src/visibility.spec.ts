@@ -25,9 +25,10 @@ async function setClassListForParents(page: Page, def: string, max: string) {
     const select = page.locator(`#vis-Student-Name-Parents-${bound}`);
     await select.click();
     await page.getByRole('option', { name: label, exact: true }).click();
-    // The previous pick's overlay may still be fading out — make sure
-    // this one took.
     await expect(select).toHaveText(label);
+    // The overlay fades out — until it's gone, the next select's options
+    // would have twins.
+    await expect(page.getByRole('option')).toHaveCount(0);
   }
   await page.getByRole('button', { name: 'Uložit' }).click();
   await expect(page.getByText('Uloženo.')).toBeVisible();
