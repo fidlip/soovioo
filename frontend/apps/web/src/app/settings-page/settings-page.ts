@@ -12,9 +12,8 @@ import {
   EventsApiService,
   MyProfile,
   MyProfileApiService,
-  Privacy,
-  PrivacyOption,
-  StudentPrivacy,
+  SetVisibilityRequest,
+  VisibilitySetting,
 } from '@soovioo/shared';
 import { DarkModeService } from '../dark-mode.service';
 import { SchoolContextService } from '../school-context';
@@ -22,7 +21,7 @@ import { SchoolContextService } from '../school-context';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
-import { visibilityOptionInfo } from '../visibility-options';
+import { VisibilityControl } from '../visibility-control/visibility-control';
 @Component({
   selector: 'app-settings-page',
   imports: [
@@ -35,6 +34,7 @@ import { visibilityOptionInfo } from '../visibility-options';
     Message,
     Password,
     ToggleSwitch,
+    VisibilityControl,
   ],
   templateUrl: './settings-page.html',
 })
@@ -71,10 +71,9 @@ export class SettingsPage {
   protected readonly feedUrl = signal<string | null>(null);
   protected readonly feedUrlCopied = signal(false);
 
-  /** Own data the school lets the caller hide ("Viditelnost údajů") —
-   * the card shows only when there's something to decide. */
-  protected readonly privacy = signal<Privacy | null>(null);
-  protected readonly privacyOptionInfo = visibilityOptionInfo;
+  /** Who sees the caller's own data ("Viditelnost údajů"), offered next
+   * to each field. */
+  protected readonly visibility = signal<VisibilitySetting[]>([]);
 
   constructor() {
     this.profileApi.getProfile().subscribe({
@@ -91,9 +90,9 @@ export class SettingsPage {
     });
 
     if (!this.authApi.isSuperAdmin()) {
-      this.profileApi.getPrivacy().subscribe({
-        next: (privacy) => this.privacy.set(privacy),
-        error: (err) => console.error('getPrivacy failed', err),
+      this.profileApi.getVisibility().subscribe({
+        next: (settings) => this.visibility.set(settings),
+        error: (err) => console.error('getVisibility failed', err),
       });
     }
 
@@ -158,28 +157,13 @@ export class SettingsPage {
       });
   }
 
-  /** Options without a label here (photos, not offered yet) are left out. */
-  protected visiblePrivacyOptions(privacy: Privacy): PrivacyOption[] {
-    return privacy.options.filter(
-      (o) => visibilityOptionInfo(o.option)?.hideOwnLabel,
-    );
-  }
-
-  protected setOptionHidden(option: PrivacyOption, hidden: boolean): void {
-    this.savePrivacy({ options: [{ ...option, hidden }], students: [] });
-  }
-
-  protected setStudentHidden(student: StudentPrivacy, hidden: boolean): void {
-    this.savePrivacy({ options: [], students: [{ ...student, hidden }] });
-  }
-
-  private savePrivacy(change: Privacy): void {
-    this.profileApi.updatePrivacy(change).subscribe({
-      next: (privacy) => {
-        this.privacy.set(privacy);
+  protected setVisibility(request: SetVisibilityRequest): void {
+    this.profileApi.setVisibility(request).subscribe({
+      next: (settings) => {
+        this.visibility.set(settings);
         this.notify.success('Uloženo.');
       },
-      error: (err) => this.notify.actionFailed('updatePrivacy failed', err),
+      error: (err) => this.notify.actionFailed('setVisibility failed', err),
     });
   }
 

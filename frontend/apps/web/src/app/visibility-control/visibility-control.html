@@ -1,0 +1,64 @@
+@if (own().length > 0) {
+<p-button
+  [icon]="icon()"
+  [label]="short()"
+  size="small"
+  severity="secondary"
+  [text]="true"
+  [pTooltip]="summary()"
+  tooltipPosition="top"
+  [ariaLabel]="'Viditelnost: ' + summary()"
+  (onClick)="popover.toggle($event)"
+/>
+<p-popover #popover>
+  <div class="flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-3">
+    <span class="font-medium text-surface-700 dark:text-surface-200"
+      >{{ fieldLabel() }} — kdo uvidí</span
+    >
+    @for (g of groups(); track g.owner) { @if (g.label) {
+    <span class="text-xs font-semibold uppercase text-surface-500"
+      >{{ g.label }}</span
+    >
+    } @for (r of g.rows; track r.setting.audience) {
+    <div class="flex flex-col gap-1">
+      <span class="text-sm text-surface-600 dark:text-surface-300"
+        >{{ r.label }}</span
+      >
+      <p-selectbutton
+        [options]="r.options"
+        optionLabel="label"
+        optionValue="value"
+        optionDisabled="disabled"
+        [allowEmpty]="false"
+        size="small"
+        [ngModel]="r.setting.scope"
+        (ngModelChange)="choose(r.setting, $event)"
+        [ariaLabel]="fieldLabel() + ' — ' + r.label"
+      />
+      @if (r.setting.editable) {
+      <span class="flex items-center gap-1 text-xs text-surface-500">
+        @if (r.setting.custom) { Vlastní volba
+        <p-button
+          label="Vrátit výchozí"
+          size="small"
+          [text]="true"
+          [link]="true"
+          (onClick)="resetToDefault(r.setting)"
+        />
+        } @else { Výchozí nastavení školy }
+      </span>
+      }
+    </div>
+    } }
+    <span class="flex items-center gap-2 text-xs text-surface-500">
+      <i class="pi pi-lock"></i>Vedení školy a učitelé vidí podle svých
+      oprávnění.
+    </span>
+    @if (!editable()) {
+    <span class="text-xs text-surface-500"
+      >Nastavují rodiče v agendě Mé děti.</span
+    >
+    }
+  </div>
+</p-popover>
+}

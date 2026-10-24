@@ -43,15 +43,6 @@ public class School
     /// QR code.</summary>
     public string? BankAccountNumber { get; set; }
 
-    /// <summary>What the school shares with parents and pupils ("Viditelnost
-    /// údajů", see <see cref="People.Visibility"/>). A new school shares
-    /// nothing until an admin turns options on; a demo school shares all.</summary>
-    public People.VisibilityOption SharedData { get; set; }
-
-    /// <summary>Options where individuals may hide their own data (see
-    /// <see cref="People.Person.HiddenData"/>).</summary>
-    public People.VisibilityOption OptOutAllowed { get; set; }
-
     /// <summary>A "Vyzkoušet" demo school (see <c>Demo/</c>): generated
     /// data, passwordless login by picking a user, deleted with everything
     /// in it once <see cref="ExpiresAt"/> passes. The demo-only endpoints

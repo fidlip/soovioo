@@ -74,9 +74,6 @@ public class DemoSchoolService(
             Slug = slug,
             Type = request.Type,
             IsDemo = true,
-            // A demo shows everything the system can do.
-            SharedData = Visibility.All,
-            OptOutAllowed = Visibility.OptOutCapable,
             CreatedAt = now,
             ExpiresAt = now.AddDays(options.Value.LifetimeDays),
         };
@@ -169,6 +166,7 @@ public class DemoSchoolService(
             var featured = await generator.GenerateAsync(
                 school, new DemoSchoolOptions(request.Type, request.ClassesPerGrade, RandomNumberGenerator.GetInt32(int.MaxValue)), now);
             school.DemoFeaturedUserIds = [featured.AdminId, featured.TeacherId, featured.ParentId, featured.StudentId];
+            db.VisibilityRules.AddRange(Visibility.DemoRules(school.Id));
             db.ChangeTracker.DetectChanges();
             await db.SaveChangesAsync();
             return featured;

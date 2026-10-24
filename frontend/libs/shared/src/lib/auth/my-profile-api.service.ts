@@ -2,7 +2,10 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { Privacy } from '../people/visibility.model';
+import {
+  SetVisibilityRequest,
+  VisibilitySetting,
+} from '../people/visibility.model';
 import { AuthApiService } from './auth-api.service';
 import { TokenStorage } from './token-storage';
 import {
@@ -27,13 +30,17 @@ export class MyProfileApiService {
     return this.http.put<MyProfile>(`${this.baseUrl}/api/users/me`, request);
   }
 
-  getPrivacy(): Observable<Privacy> {
-    return this.http.get<Privacy>(`${this.baseUrl}/api/users/me/privacy`);
+  getVisibility(): Observable<VisibilitySetting[]> {
+    return this.http.get<VisibilitySetting[]>(
+      `${this.baseUrl}/api/users/me/visibility`,
+    );
   }
 
-  updatePrivacy(request: Privacy): Observable<Privacy> {
-    return this.http.put<Privacy>(
-      `${this.baseUrl}/api/users/me/privacy`,
+  setVisibility(
+    request: SetVisibilityRequest,
+  ): Observable<VisibilitySetting[]> {
+    return this.http.put<VisibilitySetting[]>(
+      `${this.baseUrl}/api/users/me/visibility`,
       request,
     );
   }

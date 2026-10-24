@@ -96,9 +96,4 @@ public class Student
     /// (see <see cref="Payments.PaymentRecipient.VariableSymbol"/>, nullable,
     /// null = fall back to this field). Null until an admin fills it in.</summary>
     public string? DefaultVariableSymbol { get; set; }
-
-    /// <summary>Left out of the class list other pupils and parents see
-    /// (<see cref="People.VisibilityOption.Classmates"/>) — set by the pupil
-    /// or a parent, counts only where the school allows opting out.</summary>
-    public bool HiddenFromClassmates { get; set; }
 }

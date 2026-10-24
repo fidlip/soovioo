@@ -662,9 +662,6 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("OptOutAllowed")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Phone")
                         .HasColumnType("text");
 
@@ -673,9 +670,6 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<string>("RedIzo")
                         .HasColumnType("text");
-
-                    b.Property<int>("SharedData")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -708,11 +702,9 @@ namespace Soovioo.Api.Migrations
                             IsDemo = false,
                             Izo = "308000048",
                             Name = "Testovací škola",
-                            OptOutAllowed = 0,
                             Phone = "+420 123 456 789",
                             PostalCode = "110 00",
                             RedIzo = "700000089",
-                            SharedData = 0,
                             Slug = "skola",
                             Street = "Školní 8",
                             Type = 0
@@ -801,9 +793,6 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("Gender")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("HiddenFromClassmates")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -856,7 +845,6 @@ namespace Soovioo.Api.Migrations
                             EnrollmentDate = new DateOnly(2020, 9, 1),
                             FirstName = "Jan",
                             Gender = 0,
-                            HiddenFromClassmates = false,
                             LastName = "Novák",
                             PostalCode = "110 00",
                             SchoolClassId = 1,
@@ -1453,9 +1441,6 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("HiddenData")
-                        .HasColumnType("integer");
-
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1493,6 +1478,98 @@ namespace Soovioo.Api.Migrations
                     b.HasKey("PersonId");
 
                     b.ToTable("TeacherProfiles");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.VisibilityChoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("PersonId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "Field", "Audience")
+                        .IsUnique()
+                        .HasFilter("\"StudentId\" IS NOT NULL");
+
+                    b.HasIndex("PersonId", "Owner", "Field", "Audience")
+                        .IsUnique()
+                        .HasFilter("\"PersonId\" IS NOT NULL");
+
+                    b.ToTable("VisibilityChoices", t =>
+                        {
+                            t.HasCheckConstraint("CK_VisibilityChoices_OneSubject", "(\"PersonId\" IS NULL) <> (\"StudentId\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.VisibilityRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Default")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Max")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Min")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "Owner", "Field", "Audience")
+                        .IsUnique();
+
+                    b.ToTable("VisibilityRules");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Reference.Country", b =>
@@ -2420,6 +2497,34 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Person");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.VisibilityChoice", b =>
+                {
+                    b.HasOne("Soovioo.Api.People.Person", "Person")
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Person");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.VisibilityRule", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Reference.Municipality", b =>

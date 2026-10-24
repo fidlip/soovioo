@@ -1,102 +1,189 @@
+using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.People;
 
-/// <summary>Data a school may share with parents and pupils beyond what
-/// they see anyway (own grades, absences…) — the school's "Viditelnost
-/// údajů" settings. Flags: <see cref="School.SharedData"/> holds what the
-/// school shares, <see cref="School.OptOutAllowed"/> where individuals may
-/// hide their own part, <see cref="Person.HiddenData"/> (and
-/// <see cref="Student.HiddenFromClassmates"/>) what they did hide.</summary>
-[Flags]
-public enum VisibilityOption
+/// <summary>Whose data a visibility setting is about. A teacher who is also
+/// a parent decides both as <see cref="Staff"/> and as <see cref="Parent"/>
+/// — each is shown to different people for a different reason.</summary>
+public enum VisibilityOwner
 {
-    None = 0,
+    Staff,
+    Parent,
+    Student,
+}
 
-    /// <summary>Employees' photos visible to parents and pupils.</summary>
-    StaffPhotos = 1,
+public enum VisibilityField
+{
+    /// <summary>Being on the list at all — who can't see the name sees none
+    /// of the other fields either.</summary>
+    Name,
+    Phone,
+    Email,
+    Photo,
+}
 
-    /// <summary>Pupils' photos at all (each still needs a guardian's consent).</summary>
-    StudentPhotos = 2,
+/// <summary>Who looks. Staff aren't one of them: what teachers and the
+/// school's management see is a matter of permissions, not of anyone's
+/// privacy settings.</summary>
+public enum VisibilityAudience
+{
+    Parents,
+    Students,
+}
 
-    /// <summary>Parents' photos at all (voluntary, staff only).</summary>
-    ParentPhotos = 4,
+/// <summary>How far data reaches within an audience, ordered — a wider
+/// scope includes the narrower ones.</summary>
+public enum VisibilityScope
+{
+    Nobody,
 
-    /// <summary>Teachers' phone and e-mail visible to parents.</summary>
-    TeacherContacts = 8,
+    /// <summary>A teacher's classes (taught or led), a parent's children's
+    /// classes, a pupil's own class — on the viewer's side the same.</summary>
+    MyClasses,
 
-    /// <summary>The class list visible to pupils and parents.</summary>
-    Classmates = 16,
+    School,
+}
 
-    /// <summary>Names and contacts of the other parents in the class
-    /// visible to parents.</summary>
-    ParentContacts = 32,
+public readonly record struct VisibilityKey(VisibilityOwner Owner, VisibilityField Field, VisibilityAudience Audience);
+
+/// <summary>The school's "Viditelnost údajů" for one <see cref="VisibilityKey"/>:
+/// individuals choose between <see cref="Min"/> and <see cref="Max"/>,
+/// <see cref="Default"/> applies until they do. A missing row means
+/// <see cref="VisibilityScope.Nobody"/> throughout — a new school shares
+/// nothing until an admin turns it on.</summary>
+public class VisibilityRule
+{
+    public int Id { get; set; }
+    public int SchoolId { get; set; }
+    public School? School { get; set; }
+
+    public VisibilityOwner Owner { get; set; }
+    public VisibilityField Field { get; set; }
+    public VisibilityAudience Audience { get; set; }
+
+    public VisibilityScope Min { get; set; }
+    public VisibilityScope Default { get; set; }
+    public VisibilityScope Max { get; set; }
+
+    public VisibilityKey Key => new(Owner, Field, Audience);
+}
+
+/// <summary>An individual's own choice, stored only where it differs from
+/// the school's default. Staff and parents choose for their
+/// <see cref="Person"/>, a parent for their child's <see cref="Student"/>
+/// record (exactly one of the two is set).</summary>
+public class VisibilityChoice
+{
+    public int Id { get; set; }
+    public int SchoolId { get; set; }
+
+    public int? PersonId { get; set; }
+    public Person? Person { get; set; }
+    public int? StudentId { get; set; }
+    public Student? Student { get; set; }
+
+    public VisibilityOwner Owner { get; set; }
+    public VisibilityField Field { get; set; }
+    public VisibilityAudience Audience { get; set; }
+    public VisibilityScope Scope { get; set; }
+
+    public VisibilityKey Key => new(Owner, Field, Audience);
 }
 
 public static class Visibility
 {
-    public const VisibilityOption All =
-        VisibilityOption.StaffPhotos | VisibilityOption.StudentPhotos | VisibilityOption.ParentPhotos
-        | VisibilityOption.TeacherContacts | VisibilityOption.Classmates | VisibilityOption.ParentContacts;
+    /// <summary>Every setting there is. Staff names aren't one: the
+    /// teachers of a class are always shown, as in Zprávy's contacts.
+    /// Pupils have no contacts of their own on record (<see cref="Student.ContactPhone"/>
+    /// is the guardians' emergency contact).</summary>
+    public static readonly IReadOnlyList<VisibilityKey> Keys =
+    [
+        .. Combine(VisibilityOwner.Staff, [VisibilityField.Phone, VisibilityField.Email, VisibilityField.Photo],
+            [VisibilityAudience.Parents, VisibilityAudience.Students]),
+        .. Combine(VisibilityOwner.Parent, [VisibilityField.Name, VisibilityField.Phone, VisibilityField.Email, VisibilityField.Photo],
+            [VisibilityAudience.Parents]),
+        .. Combine(VisibilityOwner.Student, [VisibilityField.Name, VisibilityField.Photo],
+            [VisibilityAudience.Students, VisibilityAudience.Parents]),
+    ];
 
-    /// <summary>A pupil's photo is decided by the guardian's consent, not
-    /// by an opt-out — every other option can be left to individuals.</summary>
-    public const VisibilityOption OptOutCapable = All & ~VisibilityOption.StudentPhotos;
-
-    /// <summary>Whether data under <paramref name="option"/> of someone who
-    /// hid <paramref name="hidden"/> is shown. A hide only counts while the
-    /// school allows it — turning opt-outs off makes everyone visible
-    /// again.</summary>
-    public static bool Shows(School school, VisibilityOption option, VisibilityOption hidden = VisibilityOption.None) =>
-        school.SharedData.HasFlag(option)
-        && !(school.OptOutAllowed.HasFlag(option) && hidden.HasFlag(option));
-
-    /// <summary>The options concerning the own data of an account with
-    /// <paramref name="roles"/> — what it may hide in its Settings. Pupils'
-    /// classmate-list entries are per <see cref="Student"/>, see
-    /// <see cref="Student.HiddenFromClassmates"/>.</summary>
-    public static VisibilityOption OwnDataOptions(IEnumerable<UserRole> roles)
+    /// <summary>The owners whose settings an account with
+    /// <paramref name="roles"/> decides for itself — a pupil's are decided
+    /// by the parents.</summary>
+    public static IReadOnlyList<VisibilityOwner> OwnOwners(IEnumerable<UserRole> roles)
     {
-        var options = VisibilityOption.None;
-        foreach (var role in roles)
+        var owners = new List<VisibilityOwner>();
+        if (roles.Any(r => r is UserRole.Teacher or UserRole.Admin))
         {
-            options |= role switch
-            {
-                UserRole.Teacher => VisibilityOption.StaffPhotos | VisibilityOption.TeacherContacts,
-                UserRole.Admin => VisibilityOption.StaffPhotos,
-                UserRole.Parent => VisibilityOption.ParentPhotos | VisibilityOption.ParentContacts,
-                _ => VisibilityOption.None,
-            };
+            owners.Add(VisibilityOwner.Staff);
         }
-        return options;
+        if (roles.Contains(UserRole.Parent))
+        {
+            owners.Add(VisibilityOwner.Parent);
+        }
+        return owners;
     }
 
-    /// <summary>Whether pupils (or their parents) may take a pupil off the
-    /// class list.</summary>
-    public static bool AllowsClassmatesOptOut(School school) =>
-        school.SharedData.HasFlag(VisibilityOption.Classmates)
-        && school.OptOutAllowed.HasFlag(VisibilityOption.Classmates);
-
-    public static IReadOnlyList<string> ToNames(VisibilityOption options) =>
-        Enum.GetValues<VisibilityOption>()
-            .Where(o => o != VisibilityOption.None && options.HasFlag(o))
-            .Select(o => o.ToString())
-            .ToList();
-
-    /// <summary>Null when a name isn't a single known option.</summary>
-    public static VisibilityOption? FromNames(IEnumerable<string> names)
-    {
-        var options = VisibilityOption.None;
-        foreach (var name in names)
+    /// <summary>What a demo school starts with — enough sharing to show what
+    /// the system can do, the choice left to individuals.</summary>
+    public static IEnumerable<VisibilityRule> DemoRules(int schoolId) =>
+        Keys.Select(key => new VisibilityRule
         {
-            if (!Enum.TryParse<VisibilityOption>(name, out var option)
-                || option == VisibilityOption.None || !Enum.IsDefined(option) || int.TryParse(name, out _))
-            {
-                return null;
-            }
-            options |= option;
+            SchoolId = schoolId,
+            Owner = key.Owner,
+            Field = key.Field,
+            Audience = key.Audience,
+            Min = VisibilityScope.Nobody,
+            Default = key.Field == VisibilityField.Photo ? VisibilityScope.Nobody : VisibilityScope.MyClasses,
+            Max = VisibilityScope.School,
+        });
+
+    public static async Task<SchoolVisibility> LoadAsync(AppDbContext db, int schoolId) =>
+        new(await db.VisibilityRules.Where(r => r.SchoolId == schoolId).ToListAsync());
+
+    private static IEnumerable<VisibilityKey> Combine(
+        VisibilityOwner owner, VisibilityField[] fields, VisibilityAudience[] audiences) =>
+        fields.SelectMany(f => audiences.Select(a => new VisibilityKey(owner, f, a)));
+}
+
+/// <summary>A school's rules, resolving what someone's data is shown to.</summary>
+public class SchoolVisibility(IEnumerable<VisibilityRule> rules)
+{
+    private readonly Dictionary<VisibilityKey, VisibilityRule> rules = rules.ToDictionary(r => r.Key);
+
+    public VisibilityRule Rule(VisibilityKey key) =>
+        rules.GetValueOrDefault(key) ?? new VisibilityRule { Owner = key.Owner, Field = key.Field, Audience = key.Audience };
+
+    /// <summary>The choice, or the default, kept within the school's range
+    /// (it may have changed since) — and never wider than the name: data of
+    /// someone who isn't on the list would be nameless.</summary>
+    public VisibilityScope Effective(VisibilityKey key, IEnumerable<VisibilityChoice> choices)
+    {
+        var rule = Rule(key);
+        var chosen = choices.FirstOrDefault(c => c.Key == key)?.Scope ?? rule.Default;
+        var scope = Clamp(chosen, rule.Min, rule.Max);
+        var name = key with { Field = VisibilityField.Name };
+        if (key.Field != VisibilityField.Name && Visibility.Keys.Contains(name))
+        {
+            scope = Min(scope, Effective(name, choices));
         }
-        return options;
+        return scope;
     }
+
+    /// <summary>Whether a viewer at <paramref name="distance"/> (same class
+    /// = <see cref="VisibilityScope.MyClasses"/>, same school only =
+    /// <see cref="VisibilityScope.School"/>) sees the data.</summary>
+    public bool Shows(VisibilityKey key, IEnumerable<VisibilityChoice> choices, VisibilityScope distance) =>
+        Effective(key, choices) >= distance;
+
+    /// <summary>Whether anybody's data under <paramref name="key"/> can be
+    /// shown at <paramref name="distance"/> at all.</summary>
+    public bool CanShow(VisibilityKey key, VisibilityScope distance) => Rule(key).Max >= distance;
+
+    public static VisibilityScope Clamp(VisibilityScope scope, VisibilityScope min, VisibilityScope max) =>
+        scope < min ? min : scope > max ? max : scope;
+
+    private static VisibilityScope Min(VisibilityScope a, VisibilityScope b) => a < b ? a : b;
 }

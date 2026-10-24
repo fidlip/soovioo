@@ -95,93 +95,63 @@ public class MyProfileController(
         return Ok(new SwitchRoleResponse(await sessions.IssueAccessTokenAsync(user)));
     }
 
-    /// <summary>What the caller may hide of their own data (the school's
-    /// "Viditelnost údajů" shares it and allows opting out), and whether
-    /// they did — for the account itself and for the pupils whose entry in
-    /// the class list they decide (own record, or children).</summary>
-    [HttpGet("privacy")]
-    public async Task<ActionResult<PrivacyDto>> GetPrivacy()
+    /// <summary>Who sees the caller's own data ("Viditelnost údajů") —
+    /// as staff and/or parent. A pupil gets their own settings read-only,
+    /// those are their parents' call (Mé děti).</summary>
+    [HttpGet("visibility")]
+    public async Task<ActionResult<IReadOnlyList<VisibilitySettingDto>>> GetVisibility()
     {
         var user = await CurrentUserAsync();
-        return Ok(await PrivacyAsync(user));
+        return Ok(await VisibilityAsync(user));
     }
 
-    /// <summary>Only what <see cref="GetPrivacy"/> offers can be changed —
-    /// hiding is the individual's call, sharing beyond the school's settings
-    /// isn't.</summary>
-    [HttpPut("privacy")]
-    public async Task<ActionResult<PrivacyDto>> UpdatePrivacy(PrivacyDto request)
+    [HttpPut("visibility")]
+    public async Task<ActionResult<IReadOnlyList<VisibilitySettingDto>>> SetVisibility(SetVisibilityRequest request)
     {
         var user = await CurrentUserAsync();
-        var school = user.SchoolId is { } schoolId ? await db.Schools.FindAsync(schoolId) : null;
-        if (school is null)
+        if (user.SchoolId is not { } schoolId)
         {
             return BadRequest("Účet nepatří žádné škole.");
         }
 
-        var decidable = DecidableOptions(user, school);
-        var hidden = Visibility.FromNames(request.Options.Where(o => o.Hidden).Select(o => o.Option));
-        var touched = Visibility.FromNames(request.Options.Select(o => o.Option));
-        if (hidden is null || touched is null || (touched.Value & ~decidable) != VisibilityOption.None)
+        var person = await db.EnsurePersonAsync(user);
+        var choices = person.Id == 0 ? [] : await db.VisibilityChoices.Where(c => c.PersonId == person.Id).ToListAsync();
+        var error = VisibilitySettings.Choose(
+            db, await Visibility.LoadAsync(db, schoolId), Visibility.OwnOwners(user.Roles), choices, request,
+            () => new VisibilityChoice { SchoolId = schoolId, Person = person });
+        if (error is not null)
         {
-            return BadRequest("Tento údaj si skrýt nemůžete.");
-        }
-
-        var students = await DecidableStudentsAsync(user, school);
-        if (request.Students.Any(s => !students.Any(own => own.Id == s.StudentId)))
-        {
-            return BadRequest("Tento údaj si skrýt nemůžete.");
-        }
-
-        if (touched.Value != VisibilityOption.None)
-        {
-            var person = await db.EnsurePersonAsync(user);
-            person.HiddenData = (person.HiddenData & ~touched.Value) | hidden.Value;
-        }
-        foreach (var update in request.Students)
-        {
-            students.First(s => s.Id == update.StudentId).HiddenFromClassmates = update.Hidden;
+            return BadRequest(error);
         }
         await db.SaveChangesAsync();
 
-        return Ok(await PrivacyAsync(user));
+        return Ok(await VisibilityAsync(user));
     }
 
-    private async Task<PrivacyDto> PrivacyAsync(User user)
+    private async Task<IReadOnlyList<VisibilitySettingDto>> VisibilityAsync(User user)
     {
-        var school = user.SchoolId is { } schoolId ? await db.Schools.FindAsync(schoolId) : null;
-        if (school is null)
-        {
-            return new PrivacyDto([], []);
-        }
-
-        var hidden = user.Person?.HiddenData ?? VisibilityOption.None;
-        var options = Visibility.ToNames(DecidableOptions(user, school))
-            .Select(name => new PrivacyOptionDto(name, hidden.HasFlag(Enum.Parse<VisibilityOption>(name))))
-            .ToList();
-        var students = (await DecidableStudentsAsync(user, school))
-            .Select(s => new StudentPrivacyDto(s.Id, $"{s.FirstName} {s.LastName}", s.HiddenFromClassmates))
-            .ToList();
-        return new PrivacyDto(options, students);
-    }
-
-    private static VisibilityOption DecidableOptions(User user, Evidence.School school) =>
-        Visibility.OwnDataOptions(user.Roles) & school.SharedData & school.OptOutAllowed;
-
-    /// <summary>The pupil's own record, and a parent's children — tracked,
-    /// so <see cref="UpdatePrivacy"/> can flip them.</summary>
-    private async Task<List<Evidence.Student>> DecidableStudentsAsync(User user, Evidence.School school)
-    {
-        if (!Visibility.AllowsClassmatesOptOut(school))
+        if (user.SchoolId is not { } schoolId)
         {
             return [];
         }
-        var childIds = user.Roles.Contains(UserRole.Parent) ? await db.ChildIdsOf(user.Id).ToListAsync() : [];
-        var isStudent = user.Roles.Contains(UserRole.Student);
-        return await db.Students
-            .Where(s => childIds.Contains(s.Id) || (isStudent && s.UserId == user.Id))
-            .OrderBy(s => s.FirstName)
-            .ToListAsync();
+        var visibility = await Visibility.LoadAsync(db, schoolId);
+        var settings = new List<VisibilitySettingDto>();
+
+        var owners = Visibility.OwnOwners(user.Roles);
+        if (owners.Count > 0)
+        {
+            var choices = user.Person is null
+                ? []
+                : await db.VisibilityChoices.Where(c => c.PersonId == user.Person.Id).ToListAsync();
+            settings.AddRange(VisibilitySettings.Of(visibility, owners, choices, editable: true));
+        }
+        if (user.Roles.Contains(UserRole.Student)
+            && await db.Students.FirstOrDefaultAsync(s => s.UserId == user.Id) is { } student)
+        {
+            var choices = await db.VisibilityChoices.Where(c => c.StudentId == student.Id).ToListAsync();
+            settings.AddRange(VisibilitySettings.Of(visibility, [VisibilityOwner.Student], choices, editable: false));
+        }
+        return settings;
     }
 
     private async Task<User> CurrentUserAsync()
@@ -197,15 +167,6 @@ public class MyProfileController(
 public record MyProfileDto(string Username, string Name, string Role, string? Phone, string? Email);
 
 public record SwitchRoleRequest(string Role);
-
-/// <param name="Options">The caller's own data they may hide (<see cref="VisibilityOption"/> names).</param>
-/// <param name="Students">Pupils whose entry in the class list the caller decides.</param>
-public record PrivacyDto(IReadOnlyList<PrivacyOptionDto> Options, IReadOnlyList<StudentPrivacyDto> Students);
-
-public record PrivacyOptionDto(string Option, bool Hidden);
-
-/// <param name="Name">Ignored on update.</param>
-public record StudentPrivacyDto(int StudentId, string Name, bool Hidden);
 
 public record SwitchRoleResponse(string Token);
 

@@ -23,11 +23,6 @@ public class Person
     public string? Phone { get; set; }
     public string? Email { get; set; }
 
-    /// <summary>Own data this person hid from parents/pupils in their
-    /// Settings — counts only where the school allows it, see
-    /// <see cref="Visibility.Shows"/>.</summary>
-    public VisibilityOption HiddenData { get; set; }
-
     /// <summary>The login account — one-to-one. Nullable so a person can
     /// later be kept on record without an account (e.g. a legal guardian
     /// who doesn't use the system); today every Person has one, and deleting
