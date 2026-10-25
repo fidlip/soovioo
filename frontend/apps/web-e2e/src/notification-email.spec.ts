@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 /** The dev API runs 880 ports above the web dev server (see devApiPort). */
@@ -17,6 +17,28 @@ const SCHOOL_DEFAULTS = {
   pushQuietFrom: '21:00',
   pushQuietTo: '07:00',
 };
+
+async function tokenOf(
+  request: APIRequestContext,
+  page: Page,
+  username: string,
+  password: string,
+): Promise<string> {
+  const response = await request.post(`${apiUrl(page)}/auth/login`, {
+    data: { username, password, schoolSlug: 'skola' },
+  });
+  return (await response.json()).token;
+}
+
+/** The parent's push settings as a new account has them. */
+async function resetParentPush(request: APIRequestContext, page: Page) {
+  await request.put(`${apiUrl(page)}/notifications/push-settings`, {
+    headers: {
+      Authorization: `Bearer ${await tokenOf(request, page, 'rodic', 'rodic123')}`,
+    },
+    data: { muted: [], fullText: false, quiet: 'School' },
+  });
+}
 
 async function login(page: Page, username: string, password: string) {
   await page.goto('/skola/login');
@@ -75,7 +97,11 @@ test('push: the school allows the whole text, the parent agrees and sets own nig
   page,
   request,
 }) => {
+  // Two accounts and a dozen saves — over 30 s on a busy CI runner.
+  test.slow();
   await login(page, 'admin', 'admin123');
+  // A retry starts where a timed-out attempt left the parent.
+  await resetParentPush(request, page);
   await page.goto('/skola/admin');
   await page.getByRole('tab', { name: 'Škola a matrika' }).click();
   const card = page.locator('p-card', { hasText: 'Upozornění e-mailem' });
@@ -119,27 +145,13 @@ test('push: the school allows the whole text, the parent agrees and sets own nig
     await expect(fullText).toBeChecked();
   } finally {
     await parent.close();
-    const api = apiUrl(page);
-    const tokenOf = async (username: string, password: string) =>
-      (
-        await (
-          await request.post(`${api}/auth/login`, {
-            data: { username, password, schoolSlug: 'skola' },
-          })
-        ).json()
-      ).token;
-    await request.put(`${api}/my-school/notifications`, {
+    await request.put(`${apiUrl(page)}/my-school/notifications`, {
       headers: {
-        Authorization: `Bearer ${await tokenOf('admin', 'admin123')}`,
+        Authorization: `Bearer ${await tokenOf(request, page, 'admin', 'admin123')}`,
       },
       data: SCHOOL_DEFAULTS,
     });
-    await request.put(`${api}/notifications/push-settings`, {
-      headers: {
-        Authorization: `Bearer ${await tokenOf('rodic', 'rodic123')}`,
-      },
-      data: { muted: [], fullText: false, quiet: 'School' },
-    });
+    await resetParentPush(request, page);
   }
 });
 

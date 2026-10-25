@@ -37,6 +37,8 @@ async function setClassListForParents(page: Page, def: string, max: string) {
 test('the class list reaches parents only while the school shares it', async ({
   browser,
 }) => {
+  // Four logins in turn — over 30 s on a busy CI runner.
+  test.slow();
   for (const shared of [true, false]) {
     const admin = await browser.newPage();
     await setClassListForParents(
