@@ -98,6 +98,8 @@ test.describe('deleting a pupil', () => {
     });
     await expect(refusal).toContainText('už má 1 známku');
     await refusal.getByRole('button', { name: 'Ukončit vzdělávání' }).click();
+    // Closing, it gives the focus back — typing before that loses keys.
+    await expect(refusal).toBeHidden();
 
     const leaveDialog = page.getByRole('dialog', {
       name: `Ukončení vzdělávání — Ota ${lastName}`,
