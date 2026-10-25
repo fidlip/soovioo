@@ -1,5 +1,6 @@
-import { Component, NO_ERRORS_SCHEMA } from '@angular/core';
+import { Component, NO_ERRORS_SCHEMA, inject } from '@angular/core';
 import { PageRouterOutlet } from '@nativescript/angular';
+import { PushService } from './push.service';
 
 @Component({
   selector: 'ns-app',
@@ -7,4 +8,8 @@ import { PageRouterOutlet } from '@nativescript/angular';
   imports: [PageRouterOutlet],
   schemas: [NO_ERRORS_SCHEMA],
 })
-export class AppComponent {}
+export class AppComponent {
+  constructor() {
+    inject(PushService).start();
+  }
+}

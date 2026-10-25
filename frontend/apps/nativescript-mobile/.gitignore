@@ -41,3 +41,7 @@ npm-debug.log
 
 package-lock.json
 !tools/**
+
+# Firebase app config — kept out of the public repo
+App_Resources/Android/src/google-services.json
+App_Resources/iOS/GoogleService-Info.plist

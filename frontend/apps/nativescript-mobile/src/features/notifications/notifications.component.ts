@@ -4,10 +4,8 @@ import {
   RouterExtensions,
 } from '@nativescript/angular';
 import { AppNotification, NotificationsApiService } from '@soovioo/shared';
+import { MOBILE_PAGES } from '../../push.service';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
-
-/** Pages of the app a notification can open — the others stay on the web. */
-const MOBILE_PAGES = ['grades', 'absences', 'messages'];
 
 /** The notifications (the web's bell): tap reads it and opens its page
  * when the app has one. */

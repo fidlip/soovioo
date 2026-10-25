@@ -62,8 +62,12 @@
 
       @if (!wasForcedPasswordChange && notificationTypes().length > 0) {
         <Label text="Upozornění" class="text-lg"></Label>
+        <GridLayout columns="*, 90, 90" class="px-2">
+          <Label col="1" text="V aplikaci" class="text-xs text-center"></Label>
+          <Label col="2" text="Na mobil" class="text-xs text-center"></Label>
+        </GridLayout>
         @for (t of notificationTypes(); track t.type) {
-          <GridLayout columns="*, auto" class="p-2">
+          <GridLayout columns="*, 90, 90" class="p-2">
             <Label
               col="0"
               [text]="notificationLabels[t.type]"
@@ -72,10 +76,54 @@
             ></Label>
             <Switch
               col="1"
+              horizontalAlignment="center"
               [checked]="t.enabled"
               (checkedChange)="setNotificationType(t.type, $any($event).value)"
             ></Switch>
+            <Switch
+              col="2"
+              horizontalAlignment="center"
+              [checked]="t.push"
+              (checkedChange)="
+                setPush({ type: t.type, enabled: $any($event).value })
+              "
+            ></Switch>
           </GridLayout>
+        }
+        @if (notificationSettings(); as settings) {
+          <GridLayout columns="*, auto" class="p-2">
+            <Label
+              col="0"
+              [text]="quietLabel(settings)"
+              textWrap="true"
+              verticalAlignment="center"
+            ></Label>
+            <Switch
+              col="1"
+              [checked]="settings.push.quiet !== 'Off'"
+              (checkedChange)="setPush({ quiet: $any($event).value })"
+            ></Switch>
+          </GridLayout>
+          <Label
+            text="Co přijde v nočním klidu, dostanete ráno najednou. Vlastní čas nastavíte na webu."
+            textWrap="true"
+            class="text-xs px-2"
+          ></Label>
+          @if (settings.push.fullTextAllowed) {
+            <GridLayout columns="*, auto" class="p-2">
+              <Label
+                col="0"
+                text="Zobrazovat v upozornění celý text. Text doručují servery Google a Apple; zapnutím s tím souhlasíte."
+                textWrap="true"
+                verticalAlignment="center"
+              ></Label>
+              <Switch
+                col="1"
+                [checked]="settings.push.fullText"
+                (checkedChange)="setPush({ fullText: $any($event).value })"
+              ></Switch>
+            </GridLayout>
+          }
         }
       }
 

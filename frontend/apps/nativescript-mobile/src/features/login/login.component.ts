@@ -6,6 +6,7 @@ import {
 } from '@nativescript/angular';
 import { AuthApiService } from '@soovioo/shared';
 import { environment } from '../../environments/environment';
+import { PushService } from '../../push.service';
 
 @Component({
   selector: 'ns-login',
@@ -16,6 +17,7 @@ import { environment } from '../../environments/environment';
 export class LoginComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(RouterExtensions);
+  private readonly push = inject(PushService);
 
   protected username = '';
   protected password = '';
@@ -34,11 +36,13 @@ export class LoginComponent {
         schoolSlug: this.schoolSlug.trim() || undefined,
       })
       .subscribe({
-        next: () =>
+        next: () => {
+          this.push.enable();
           this.router.navigate(
             this.authApi.mustChangePassword() ? ['/settings'] : ['/grades'],
             { clearHistory: true },
-          ),
+          );
+        },
         error: () => this.error.set('Neplatné přihlašovací údaje.'),
       });
   }
