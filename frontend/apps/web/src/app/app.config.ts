@@ -1,5 +1,8 @@
+import { registerLocaleData } from '@angular/common';
+import localeCs from '@angular/common/locales/cs';
 import {
   ApplicationConfig,
+  LOCALE_ID,
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
@@ -19,6 +22,7 @@ import {
 import { provideOptimus } from '@openng/optimus-ui/config';
 import {
   API_BASE_URL,
+  APP_LOCALE,
   AUTH_REFRESH_VIA_COOKIE,
   AuthApiService,
   CURRENT_SCHOOL_SLUG,
@@ -37,6 +41,8 @@ import { sooviooTheme } from './theme';
 // follow Angular's LOCALE_ID or a page's `lang` attribute; they need this
 // explicit translation object, same as FullCalendar needs its own
 // `@fullcalendar/core/locales/cs` import (see events-page.ts).
+registerLocaleData(localeCs);
+
 const csTranslation: Translation = {
   dayNames: [
     'neděle',
@@ -89,6 +95,7 @@ const devApiPort = () => 5080 + (Number(window.location.port || 4200) - 4200);
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: LOCALE_ID, useValue: APP_LOCALE },
     // 'always': a route nested under `:schoolSlug` sees that param on its
     // own paramMap too, so components/guards don't need to walk up the
     // route tree to find it.

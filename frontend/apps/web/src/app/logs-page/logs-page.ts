@@ -1,4 +1,4 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -20,9 +20,11 @@ import {
   AuditLogOption,
   AuditLogQuery,
   AuthApiService,
+  DateFormatPipe,
   SchoolsApiService,
   SupportApiService,
   SupportSession,
+  formatDate,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
@@ -46,7 +48,7 @@ const ROLE_LABELS: Record<string, string> = {
     Button,
     Card,
     DatePicker,
-    DatePipe,
+    DateFormatPipe,
     FormsModule,
     GroupedTable,
     NgTemplateOutlet,
@@ -81,8 +83,8 @@ export class LogsPage {
   protected readonly groups: GroupLevel<AuditLogEntry>[] = [
     {
       label: 'Datum',
-      key: (e) => localDay(e.at),
-      text: (e) => localDay(e.at),
+      key: (e) => formatDate(e.at, 'date'),
+      text: (e) => formatDate(e.at, 'date'),
     },
     {
       label: 'Kdo',
@@ -311,10 +313,4 @@ export class LogsPage {
         },
       });
   }
-}
-
-/** "19.10.2026" in the viewer's time zone. */
-function localDay(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }

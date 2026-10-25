@@ -41,7 +41,7 @@
           @if (!contact.demoExists) { (smazáno) }
         </td>
         <td class="text-surface-500">
-          {{ contact.createdAt | date: 'd.M.yyyy H:mm' }}
+          {{ contact.createdAt | dateFormat: 'dateTime' }}
         </td>
       </tr>
     </ng-template>
@@ -85,7 +85,7 @@
         </td>
         <td class="text-surface-500">{{ item.email ?? '—' }}</td>
         <td class="text-surface-500">
-          {{ item.createdAt | date: 'd.M.yyyy H:mm' }}
+          {{ item.createdAt | dateFormat: 'dateTime' }}
         </td>
       </tr>
     </ng-template>

@@ -31,6 +31,7 @@ import {
   TeachersApiService,
   TimetableApiService,
   WeekParity,
+  formatDate,
   isoWeekNumber,
   localizeStudentTerm,
 } from '@soovioo/shared';
@@ -39,6 +40,7 @@ import { TermPipe } from '../term.pipe';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
+import { toDateOnly } from '../departures/retention-labels';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -127,7 +129,7 @@ function mondayOf(date: Date): Date {
  * (this page is the first thing that actually resolves "which week is
  * this"), so this is the standard, unambiguous choice. */
 function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+  return formatDate(toDateOnly(date), 'dayMonth');
 }
 
 @Component({

@@ -87,9 +87,3 @@ export function toDateOnly(date: Date): string {
   const day = `${date.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-
-/** "2026-10-24" -> "24. 10. 2026". */
-export function formatDateOnly(value: string): string {
-  const [year, month, day] = value.split('-').map(Number);
-  return `${day}. ${month}. ${year}`;
-}

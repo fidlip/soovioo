@@ -1,10 +1,10 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Popover } from '@openng/optimus-ui/popover';
 import {
   AppNotification,
+  DateFormatPipe,
   NotificationType,
   NotificationsApiService,
 } from '@soovioo/shared';
@@ -26,7 +26,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
  * top bar), they call `toggle`. */
 @Component({
   selector: 'app-notification-bell',
-  imports: [DatePipe, Button, Popover],
+  imports: [DateFormatPipe, Button, Popover],
   templateUrl: './notification-bell.html',
 })
 export class NotificationBell {

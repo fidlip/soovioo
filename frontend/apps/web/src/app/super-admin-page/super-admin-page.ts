@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
@@ -14,6 +13,7 @@ import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import {
   AuthApiService,
   CreateSchoolRequest,
+  DateFormatPipe,
   School,
   SchoolsApiService,
   SuperAdmin,
@@ -33,7 +33,7 @@ const DEFAULT_PAGE_SIZE = 10;
   imports: [
     ...FORM_FIELDS,
     AppIcon,
-    DatePipe,
+    DateFormatPipe,
     FormsModule,
     Button,
     Card,

@@ -114,7 +114,7 @@
               formatAmount(view.totalAmount) }} }
             </span>
             <span class="text-sm text-surface-500"
-              >Splatnost {{ formatDate(payment.dueDate) }}</span
+              >Splatnost {{ payment.dueDate | dateFormat: 'date' }}</span
             >
           </div>
           <div class="mt-1 flex flex-wrap items-center gap-2">
@@ -128,7 +128,8 @@
             />
             @if (payment.recurrence !== 'None' && payment.recurrenceEndDate) {
             <span class="text-sm text-surface-500"
-              >Opakuje se do {{ formatDate(payment.recurrenceEndDate) }}</span
+              >Opakuje se do {{ payment.recurrenceEndDate | dateFormat: 'date'
+              }}</span
             >
             }
           </div>
@@ -178,7 +179,8 @@
               >
               @if (payment.recurrence !== 'None') {
               <span class="text-sm text-surface-500 dark:text-surface-400"
-                >· splátka {{ formatDate(recipient.installmentDueDate) }}</span
+                >· splátka {{ recipient.installmentDueDate | dateFormat: 'date'
+                }}</span
               >
               }
             </div>
@@ -512,7 +514,9 @@
         {{ d.recipient.effectiveVariableSymbol || '—' }}
       </dd>
       <dt class="text-surface-500">Splatnost</dt>
-      <dd class="m-0">{{ formatDate(d.recipient.installmentDueDate) }}</dd>
+      <dd class="m-0">
+        {{ d.recipient.installmentDueDate | dateFormat: 'date' }}
+      </dd>
       <dt class="text-surface-500">Stav</dt>
       <dd class="m-0">
         <p-tag
@@ -559,9 +563,11 @@
   @if (target.recipient.effectiveVariableSymbol) {
   <p>Variabilní symbol: {{ target.recipient.effectiveVariableSymbol }}</p>
   }
-  <p>Splatnost: {{ formatDate(target.recipient.installmentDueDate) }}</p>
+  <p>
+    Splatnost: {{ target.recipient.installmentDueDate | dateFormat: 'date' }}
+  </p>
   <p>Stav: {{ target.recipient.paid ? 'Zaplaceno' : 'Nezaplaceno' }}</p>
   @if (target.recipient.paidAt) {
-  <p>Datum zaplacení: {{ target.recipient.paidAt }}</p>
+  <p>Datum zaplacení: {{ target.recipient.paidAt | dateFormat: 'date' }}</p>
   } }
 </div>

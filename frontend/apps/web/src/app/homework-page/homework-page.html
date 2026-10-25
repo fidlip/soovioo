@@ -11,7 +11,6 @@
   }
 </div>
 
-
 <div class="mb-6 flex flex-wrap items-end gap-3">
   <div class="flex flex-col gap-1.5">
     <label
@@ -85,7 +84,7 @@
             >{{ item.schoolClassName }}</span
           >
           <p-tag
-            [value]="'Termín ' + formatDueDate(item.dueDate)"
+            [value]="'Termín ' + (item.dueDate | dateFormat: 'date')"
             severity="info"
           />
         </div>
@@ -154,7 +153,8 @@
   </p-card>
   } @empty {
   <p class="text-surface-500">
-    {{ filterPeriod === 'archive' ? 'Žádné úkoly s prošlým termínem.' : 'Žádné aktuální domácí úkoly.' }}
+    {{ filterPeriod === 'archive' ? 'Žádné úkoly s prošlým termínem.' : 'Žádné
+    aktuální domácí úkoly.' }}
   </p>
   }
 </div>
@@ -169,8 +169,11 @@
   @if (createError(); as error) {
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
-  <form class="flex flex-col gap-3" #hwForm="ngForm"
-    (ngSubmit)="saveHomework()">
+  <form
+    class="flex flex-col gap-3"
+    #hwForm="ngForm"
+    (ngSubmit)="saveHomework()"
+  >
     @if (authApi.isAdmin()) {
     <div class="flex flex-wrap gap-3">
       <div class="flex flex-col gap-1.5">

@@ -44,14 +44,17 @@
           }
         </td>
         <td>{{ s.schoolClassName }}</td>
-        <td>{{ formatDate(s.leftAt) }}</td>
+        <td>{{ s.leftAt | dateFormat: 'date' }}</td>
         <td>
           @if (s.former) {
           <p-tag value="Bývalý" severity="secondary" />
           @if (s.accountActive) {
           <div class="text-xs text-surface-500">účet ještě aktivní</div>
           } } @else {
-          <p-tag [value]="'Končí k ' + formatDate(s.leftAt)" severity="info" />
+          <p-tag
+            [value]="'Končí k ' + (s.leftAt | dateFormat: 'date')"
+            severity="info"
+          />
           }
         </td>
         <td class="text-sm text-surface-500">
@@ -133,9 +136,9 @@
     <ng-template pTemplate="body" let-s>
       <tr>
         <td>{{ s.name }}</td>
-        <td>{{ formatDate(s.deactivatedAt.slice(0, 10)) }}</td>
+        <td>{{ s.deactivatedAt | dateFormat: 'date' }}</td>
         <td [class.text-orange-600]="s.due">
-          {{ s.due ? 'teď' : formatDate(s.erasesOn) }}
+          {{ s.due ? 'teď' : (s.erasesOn | dateFormat: 'date') }}
         </td>
         <td>
           <div class="flex justify-end">

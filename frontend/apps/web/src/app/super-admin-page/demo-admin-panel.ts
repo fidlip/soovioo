@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
@@ -6,6 +5,7 @@ import { Card } from '@openng/optimus-ui/card';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
+  DateFormatPipe,
   DemoApiService,
   DemoContact,
   DemoFeedback,
@@ -17,7 +17,7 @@ import { NotifyService } from '../notify.service';
  * feedback. */
 @Component({
   selector: 'app-demo-admin-panel',
-  imports: [DatePipe, Button, Card, PrimeTemplate, TableModule, Tag],
+  imports: [DateFormatPipe, Button, Card, PrimeTemplate, TableModule, Tag],
   templateUrl: './demo-admin-panel.html',
 })
 export class DemoAdminPanel {

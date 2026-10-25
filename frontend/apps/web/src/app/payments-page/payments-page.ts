@@ -15,6 +15,7 @@ import { Textarea } from '@openng/optimus-ui/textarea';
 import {
   AuthApiService,
   CreatePaymentRequest,
+  DateFormatPipe,
   Payment,
   PaymentAmountType,
   PaymentAudience,
@@ -25,6 +26,7 @@ import {
   PaymentSchoolClassOption,
   PaymentStudentOption,
   PaymentsApiService,
+  formatAmount,
   formatIban,
   localizeStudentTerm,
 } from '@soovioo/shared';
@@ -87,6 +89,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    DateFormatPipe,
     ...FORM_FIELDS,
     Checkbox,
     TermPipe,
@@ -168,7 +171,8 @@ export class PaymentsPage {
             (r) =>
               (paid === 'all' || r.paid === (paid === 'paid')) &&
               (studentId === null || r.studentId === studentId) &&
-              (classId === null || this.studentClassId(r.studentId) === classId),
+              (classId === null ||
+                this.studentClassId(r.studentId) === classId),
           )
           .sort(
             (a, b) =>
@@ -305,9 +309,7 @@ export class PaymentsPage {
     );
   }
 
-  protected formatAmount(amount: number): string {
-    return `${amount.toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} Kč`;
-  }
+  protected readonly formatAmount = formatAmount;
 
   protected formattedBankAccount(): string | null {
     const account = this.bankAccountNumber();
@@ -456,12 +458,6 @@ export class PaymentsPage {
     // Let the receipt block actually render (printTarget is a signal write,
     // picked up on the next change-detection pass) before invoking print.
     setTimeout(() => window.print(), 0);
-  }
-
-  /** "YYYY-MM-DD" (DateOnly on the backend) → "DD.MM.YYYY". */
-  protected formatDate(date: string): string {
-    const [year, month, day] = date.split('-');
-    return `${day}.${month}.${year}`;
   }
 
   /** Local (not UTC) y-m-d. */
