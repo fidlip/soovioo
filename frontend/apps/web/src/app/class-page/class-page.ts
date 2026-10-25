@@ -12,16 +12,15 @@ import {
   Student,
   StudentsApiService,
 } from '@soovioo/shared';
-import { AppIcon } from '../app-icon';
 import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 
-/** "Třída" for parents and pupils: the class's teachers and — as far as
+/** Lidé → Třída for parents and pupils: the class's teachers and — as far as
  * everyone's "Viditelnost údajů" shares them — their contacts, the class
  * list and the other parents. Sections the API leaves out aren't shown. */
 @Component({
   selector: 'app-class-page',
-  imports: [FormsModule, Card, Select, AppIcon, Avatar, TermPipe],
+  imports: [FormsModule, Card, Select, Avatar, TermPipe],
   templateUrl: './class-page.html',
 })
 export class ClassPage {

@@ -1,0 +1,15 @@
+<h1 class="mb-6 flex items-center gap-3"><app-icon name="class" />Lidé</h1>
+<p-tabs [(value)]="activeTab">
+  <p-tablist>
+    <p-tab value="class">Třída</p-tab>
+    <p-tab value="school">Škola</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <p-tabpanel value="class"><app-class-page /></p-tabpanel>
+    <p-tabpanel value="school">
+      @if (activeTab() === 'school') {
+      <app-school-directory />
+      }
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>

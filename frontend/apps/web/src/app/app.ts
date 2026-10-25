@@ -63,7 +63,7 @@ interface NavItem {
   staffOnly?: boolean;
   /** Logy — school admins only. */
   adminOnly?: boolean;
-  /** Třída — parents and pupils only (staff have Administrace). */
+  /** Lidé — parents and pupils only (staff have Administrace). */
   familyOnly?: boolean;
   /** Mé děti — parents only. */
   parentOnly?: boolean;
@@ -288,7 +288,7 @@ export class App {
       { label: 'Domácí úkoly', icon: 'homework', link: link('homework') },
       { label: 'Chování', icon: 'behavior', link: link('behavior') },
       { label: 'Platby', icon: 'payments', link: link('payments') },
-      { label: 'Třída', icon: 'class', link: link('class'), familyOnly: true },
+      { label: 'Lidé', icon: 'class', link: link('people'), familyOnly: true },
       {
         label: 'Mé děti',
         icon: 'children',
