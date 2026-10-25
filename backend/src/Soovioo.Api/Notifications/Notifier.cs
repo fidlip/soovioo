@@ -155,5 +155,4 @@ public class Notifier(AppDbContext db, TimeProvider clock)
         return flat.Length <= PreviewLength ? flat : flat[..(PreviewLength - 1)].TrimEnd() + "…";
     }
 
-    public static string Format(DateOnly date) => $"{date.Day}. {date.Month}. {date.Year}";
 }

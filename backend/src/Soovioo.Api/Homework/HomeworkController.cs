@@ -116,7 +116,7 @@ public class HomeworkController(
         await notifier.AddAsync(schoolId, families
             .SelectMany(f => f.Value.Select(userId => new NotificationDraft(
                 userId, NotificationType.Homework, $"Nový domácí úkol — {subject.Name}",
-                Notifier.Preview($"{homework.Text} (do {Notifier.Format(homework.DueDate)})"),
+                Notifier.Preview($"{homework.Text} (do {SchoolFormat.Date(homework.DueDate)})"),
                 "homework", homework.Id, f.Key)))
             .ToList());
         await db.SaveChangesAsync();

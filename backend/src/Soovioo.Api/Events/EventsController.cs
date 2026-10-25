@@ -309,8 +309,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
 
     private async Task NotifyAudienceAsync(Event @event, string what)
     {
-        var start = SchoolClock.Local(@event.StartAt);
-        var when = Notifier.Format(DateOnly.FromDateTime(start)) + (@event.AllDay ? "" : $" {start:H:mm}");
+        var when = @event.AllDay ? SchoolFormat.Date(@event.StartAt) : SchoolFormat.DateTime(@event.StartAt);
         await notifier.NotifyAsync(
             @event.SchoolId, await db.AudienceUserIdsAsync(@event), NotificationType.Event,
             $"{what}: {@event.Title}", string.IsNullOrWhiteSpace(@event.Location) ? when : $"{when}, {@event.Location}",
