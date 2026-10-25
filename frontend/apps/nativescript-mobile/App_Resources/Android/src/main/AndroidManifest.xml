@@ -37,6 +37,10 @@
 			tools:replace="android:resource"></meta-data>
 		</provider>
 
+		<meta-data
+			android:name="com.google.firebase.messaging.default_notification_channel_id"
+			android:value="upozorneni" />
+
 		<activity
 			android:name="com.tns.NativeScriptActivity"
 			android:label="@string/title_activity_kimera"
