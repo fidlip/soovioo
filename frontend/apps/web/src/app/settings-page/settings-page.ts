@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
@@ -8,6 +9,7 @@ import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
 import { Select } from '@openng/optimus-ui/select';
 import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
+import { Subject, catchError, concatMap, of } from 'rxjs';
 import {
   AuthApiService,
   EventsApiService,
@@ -136,6 +138,30 @@ export class SettingsPage {
   protected readonly label = digestTimeLabel;
 
   constructor() {
+    this.pushSaves
+      .pipe(
+        concatMap((request) =>
+          this.notificationsApi.setPushSettings(request).pipe(
+            catchError((err) => {
+              this.notify.actionFailed(
+                'setNotificationPushSettings failed',
+                err,
+              );
+              return of(null);
+            }),
+          ),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((saved) => {
+        // An older answer would undo what was changed since.
+        if (--this.pendingPushSaves === 0 && saved) {
+          this.notificationSettings.set(saved);
+          this.notify.success('Uloženo.');
+        } else if (!saved) {
+          this.loadNotificationSettings();
+        }
+      });
     this.profileApi.getProfile().subscribe({
       next: (profile) => {
         this.profile.set(profile);
@@ -356,15 +382,28 @@ export class SettingsPage {
             digestTimeLabel(push.quietTo ?? push.schoolQuietTo))
           : null,
     };
-    this.notificationsApi.setPushSettings(request).subscribe({
-      next: (saved) => {
-        this.notificationSettings.set(saved);
-        this.notify.success('Uloženo.');
+    // Shown right away, so a change made before this one is saved builds
+    // on it; the saves go one after another.
+    this.notificationSettings.set({
+      ...settings,
+      types: settings.types.map((t) => ({
+        ...t,
+        push: !request.muted.includes(t.type),
+      })),
+      push: {
+        ...push,
+        fullText: request.fullText,
+        quiet,
+        quietFrom: request.quietFrom,
+        quietTo: request.quietTo,
       },
-      error: (err) =>
-        this.notify.actionFailed('setNotificationPushSettings failed', err),
     });
+    this.pendingPushSaves++;
+    this.pushSaves.next(request);
   }
+
+  private readonly pushSaves = new Subject<PushSettingsRequest>();
+  private pendingPushSaves = 0;
 
   protected copyFeedUrl(): void {
     const url = this.feedUrl();
