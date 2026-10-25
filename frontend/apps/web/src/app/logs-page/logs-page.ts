@@ -1,6 +1,7 @@
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import {
   AutoComplete,
   AutoCompleteCompleteEvent,
@@ -114,6 +115,7 @@ export class LogsPage {
   protected readonly actionText = signal('');
   private actionExact = false;
   private actionSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  private entriesRequest: Subscription | undefined;
   protected readonly actionSuggestions = signal<string[]>([]);
 
   protected readonly supportSessions = signal<SupportSession[]>([]);
@@ -284,7 +286,9 @@ export class LogsPage {
   private reload(): void {
     this.loading.set(true);
     const action = this.actionText().trim();
-    this.auditApi
+    // A slower answer to an older filter must not replace this one.
+    this.entriesRequest?.unsubscribe();
+    this.entriesRequest = this.auditApi
       .getEntries({
         ...this.query(),
         action: this.actionExact ? action : null,
