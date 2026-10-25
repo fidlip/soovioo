@@ -4,14 +4,32 @@
   <ns-nav-bar row="0"></ns-nav-bar>
 
   <StackLayout row="1" orientation="horizontal" class="p-4">
-    <Label [text]="students()[selectedStudentIndex]?.firstName + ' ' + students()[selectedStudentIndex]?.lastName"></Label>
-    <Button text="Zapsat absenci (dnes)" (tap)="addAbsence()" *ngIf="canManageAbsences()"></Button>
+    <Label
+      [text]="
+        students()[selectedStudentIndex]?.firstName +
+        ' ' +
+        students()[selectedStudentIndex]?.lastName
+      "
+    ></Label>
+    <Button
+      text="Zapsat absenci (dnes)"
+      (tap)="addAbsence()"
+      *ngIf="canManageAbsences()"
+    ></Button>
   </StackLayout>
 
   <ListView row="2" [items]="absences()">
     <ng-template let-item="item">
       <StackLayout class="p-4">
-        <Label [text]="item.studentName + ' — ' + item.date + ' — ' + item.status"></Label>
+        <Label
+          [text]="
+            item.studentName +
+            ' — ' +
+            (item.date | dateFormat: 'date') +
+            ' — ' +
+            item.status
+          "
+        ></Label>
         @if (item.excuseReason) {
           <Label [text]="'(' + item.excuseReason + ')'"></Label>
         }
