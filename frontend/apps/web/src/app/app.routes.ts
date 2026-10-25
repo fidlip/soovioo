@@ -94,11 +94,13 @@ const schoolRoutes: Route[] = [
     canActivate: [authGuard],
   },
   {
-    path: 'class',
+    path: 'people',
     loadComponent: () =>
-      import('./class-page/class-page').then((m) => m.ClassPage),
+      import('./class-page/people-page').then((m) => m.PeoplePage),
     canActivate: [authGuard],
   },
+  // The page was called Třída before it got the whole school.
+  { path: 'class', redirectTo: 'people' },
   {
     path: 'my-children',
     loadComponent: () =>

@@ -48,7 +48,7 @@ test('the class list reaches parents only while the school shares it', async ({
 
     const parent = await browser.newPage();
     await login(parent, 'rodic', 'rodic123');
-    await parent.getByRole('link', { name: 'Třída', exact: true }).click();
+    await parent.getByRole('link', { name: 'Lidé', exact: true }).click();
     await expect(parent.getByText('Učitelé třídy')).toBeVisible();
     await expect(parent.getByText(/Spolužáci \(\d+\)/)).toHaveCount(
       shared ? 1 : 0,
@@ -90,11 +90,28 @@ test('a parent decides who sees their child on the class list', async ({
   await page.close();
 });
 
-test('staff have neither Třída nor Mé děti in the menu', async ({ page }) => {
+test('staff have neither Lidé nor Mé děti in the menu', async ({ page }) => {
   await login(page, 'ucitel', 'ucitel123');
   await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Třída', exact: true }),
+    page.getByRole('link', { name: 'Lidé', exact: true }),
   ).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Mé děti' })).toHaveCount(0);
+});
+
+test('Lidé → Škola: staff of the whole school by name, searched without diacritics; /class leads to Lidé', async ({
+  page,
+}) => {
+  await login(page, 'rodic', 'rodic123');
+  await page.goto('/skola/class');
+  await expect(page).toHaveURL(/\/skola\/people$/);
+  await expect(page.getByRole('heading', { name: 'Lidé' })).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Škola' }).click();
+  const list = page.getByRole('list', { name: 'Lidé ve škole' });
+  await page.getByLabel('Hledat jméno').fill('ucitelova');
+  await expect(list.getByText('Jana Učitelová')).toBeVisible();
+
+  await page.getByLabel('Hledat jméno').fill('nikdo takovy');
+  await expect(list.getByText('Nikdo neodpovídá hledání.')).toBeVisible();
 });

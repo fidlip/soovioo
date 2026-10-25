@@ -56,6 +56,8 @@ export * from './lib/retention/retention.model';
 export * from './lib/retention/retention-api.service';
 export * from './lib/people/class-directory.model';
 export * from './lib/people/class-directory-api.service';
+export * from './lib/people/school-directory.model';
+export * from './lib/people/school-directory-api.service';
 export * from './lib/people/my-child.model';
 export * from './lib/people/my-children-api.service';
 export * from './lib/people/photo.model';
