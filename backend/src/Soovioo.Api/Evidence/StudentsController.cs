@@ -62,12 +62,23 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         var schoolId = currentSchool.SchoolId!.Value;
-        var variableSymbol = string.IsNullOrWhiteSpace(request.DefaultVariableSymbol)
-            ? await VariableSymbols.NextAsync(db, schoolId, DateTime.Today.Year)
-            : request.DefaultVariableSymbol.Trim();
-        if (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: null))
+        string variableSymbol;
+        if (string.IsNullOrWhiteSpace(request.DefaultVariableSymbol))
         {
-            return this.FieldError("defaultVariableSymbol", "Tento variabilní symbol už má jiný žák.");
+            // Another pupil added at the same moment may have just taken it.
+            do
+            {
+                variableSymbol = await VariableSymbols.NextAsync(db, schoolId, DateTime.Today.Year);
+            }
+            while (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: null));
+        }
+        else
+        {
+            variableSymbol = request.DefaultVariableSymbol.Trim();
+            if (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: null))
+            {
+                return this.FieldError("defaultVariableSymbol", "Tento variabilní symbol už má jiný žák.");
+            }
         }
 
         var student = new Student

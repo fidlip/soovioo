@@ -30,29 +30,22 @@ test('teacher can record a grade and see it appear in the table', async ({
 }) => {
   await login(page, 'ucitel', 'ucitel123');
 
-  // The grades table fetch is still in flight right after navigation —
-  // wait for it to actually render (rows, or the empty state on a fresh
-  // database, as in CI) before counting rows, or rowsBefore can be
-  // captured as 0 and make the +1 assertion below flaky.
   await expect(gradesLoaded(page)).toBeVisible();
-  const rowsBefore = await page.locator('table tbody tr').count();
 
+  // Other tests add grades in parallel — the new one is found by its note.
+  const note = `E2E ${Date.now()}`;
   await page.getByRole('button', { name: 'Zapsat známku' }).click();
   await page.locator('#gradeValue').fill('2');
   await page.locator('#gradeWeight').fill('4');
+  await page.locator('#gradeNote').fill(note);
   // Not getByRole('button', { name: 'Zapsat', exact: true }) — PrimeNG's
   // icon span contributes a leading space to the computed accessible name
   // (" Zapsat"), which an exact match never finds. The dialog's submit
   // button is the only `type="submit"` button on the page.
   await page.locator('button[type="submit"]').click();
 
-  // Grades are listed by GradedOn (defaults to today) descending, then
-  // student surname, then CreatedAt descending — the dialog preselects the
-  // first student (Jan Novák, first by surname too), so the row just
-  // submitted is always the first one, even when earlier runs left other
-  // grades with the same values.
-  await expect(page.locator('table tbody tr')).toHaveCount(rowsBefore + 1);
-  const newRow = page.locator('table tbody tr').first();
+  const newRow = page.locator('table tbody tr').filter({ hasText: note });
+  await expect(newRow).toHaveCount(1);
   await expect(newRow).toContainText('2');
   await expect(newRow).toContainText('4');
 });
