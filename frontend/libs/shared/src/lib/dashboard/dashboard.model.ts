@@ -1,6 +1,7 @@
 import { Absence } from '../attendance/absence.model';
 import { BehaviorRecord } from '../behavior/behavior.model';
 import { Grade } from '../grades/grade.model';
+import { ConversationSummary } from '../messaging/message.model';
 import { TimetableEntry } from '../timetable/timetable-entry.model';
 
 export interface UpcomingEvent {
@@ -29,6 +30,8 @@ export interface Dashboard {
   recentGrades: Grade[];
   pendingAbsences: Absence[];
   unreadMessageCount: number;
+  /** Up to 5 most recent of the unreadMessageCount conversations. */
+  unreadConversations: ConversationSummary[];
   upcomingEvents: UpcomingEvent[];
   /** Up to 5 most recent — same shared-read-state as unreadMessageCount. */
   unreadBehaviorRecords: BehaviorRecord[];

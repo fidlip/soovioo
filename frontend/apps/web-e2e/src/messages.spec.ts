@@ -79,6 +79,22 @@ test.describe.serial('teacher and parent exchange messages', () => {
     ).toBeVisible();
   });
 
+  test('teacher finds the unread reply on Home', async ({ page }) => {
+    await page.goto('/skola/login');
+    await page.locator('#username').fill('ucitel');
+    await page.locator('#password').fill('ucitel123');
+    await page.getByRole('button', { name: 'Přihlásit se' }).click();
+    await expect(page).toHaveURL(/\/skola\/home$/);
+
+    await page
+      .getByRole('link', {
+        name: new RegExp(`${subject}.*Děkujeme, připravíme\\.`),
+      })
+      .click();
+    await expect(page).toHaveURL(/\/skola\/messages\?conversation=\d+$/);
+    await expect(page.getByRole('heading', { name: subject })).toBeVisible();
+  });
+
   test('teacher sees the reply', async ({ page }) => {
     await login(page, 'ucitel', 'ucitel123');
     await conversation(page, subject).click();

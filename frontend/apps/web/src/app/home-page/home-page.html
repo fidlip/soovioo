@@ -116,6 +116,30 @@
       >
       nepřečteno
     </p>
+    <ul class="m-0 flex list-none flex-col p-0 gap-2">
+      @for (c of d.unreadConversations; track c.id) {
+      <li class="min-w-0 text-sm">
+        <a
+          [routerLink]="schoolContext.link('messages')"
+          [queryParams]="{ conversation: c.id }"
+          class="flex flex-col gap-0.5 text-inherit no-underline hover:underline"
+        >
+          <span class="flex items-center justify-between gap-2">
+            <span
+              class="truncate font-semibold text-surface-900 dark:text-surface-0"
+              >{{ c.subject }}</span
+            >
+            <span class="shrink-0 text-xs text-surface-500"
+              >{{ c.lastMessageAt | dateFormat: 'dayMonthTime' }}</span
+            >
+          </span>
+          <span class="truncate text-surface-500"
+            >{{ c.lastSenderName }}: {{ c.lastMessagePreview }}</span
+          >
+        </a>
+      </li>
+      }
+    </ul>
     } @case ('behavior') {
     <ul class="m-0 flex list-none flex-col p-0 gap-2">
       @for (record of d.unreadBehaviorRecords; track record.id) {
