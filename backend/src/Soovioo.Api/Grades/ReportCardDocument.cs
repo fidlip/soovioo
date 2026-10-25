@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Common;
 
 namespace Soovioo.Api.Grades;
 
@@ -57,7 +58,7 @@ public static class ReportCardDocument
                         foreach (var (subject, average) in grades)
                         {
                             table.Cell().Text(subject);
-                            table.Cell().Text(average.ToString("0.0"));
+                            table.Cell().Text(SchoolFormat.Number(average, "0.0"));
                         }
                     });
                 });
@@ -65,7 +66,7 @@ public static class ReportCardDocument
                 page.Footer().AlignCenter().Text(text =>
                 {
                     text.Span("Vygenerováno: ");
-                    text.Span(DateTime.Now.ToString("d.M.yyyy"));
+                    text.Span(SchoolFormat.Date(SchoolClock.Today(TimeProvider.System)));
                 });
             });
         }).GeneratePdf();

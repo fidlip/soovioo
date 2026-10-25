@@ -6,6 +6,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
+using Soovioo.Api.Common;
 
 namespace Soovioo.Api.Demo;
 
@@ -264,7 +265,7 @@ public class DemoSchoolService(
             je připravená na adrese:</p>
             <p><a href="{link}">{link}</a></p>
             <p>Odkaz otevře demo i na jiném zařízení. Demo bude i se všemi daty smazáno
-            {school.ExpiresAt!.Value.ToOffset(TimeSpan.FromHours(1)):d. M. yyyy}; týden a den předem vám připomeneme.</p>
+            {SchoolFormat.Date(school.ExpiresAt!.Value)}; týden a den předem vám připomeneme.</p>
             <p>Dotazy a připomínky rádi uvítáme na <a href="mailto:info@soovioo.cz">info@soovioo.cz</a>.</p>
             """;
     }

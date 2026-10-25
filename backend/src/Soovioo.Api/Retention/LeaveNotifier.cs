@@ -3,6 +3,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.People;
+using Soovioo.Api.Common;
 
 namespace Soovioo.Api.Retention;
 
@@ -119,8 +120,8 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
         var lines = new List<string>
         {
             kind == LeaveNoticeKind.Set
-                ? $"Vzdělávání žáka {name} ve škole {schoolName} končí. Poslední den ve škole: {Format(lastDay)}."
-                : $"Mění se datum ukončení vzdělávání žáka {name} ve škole {schoolName}. Poslední den ve škole je nově {Format(lastDay)}.",
+                ? $"Vzdělávání žáka {name} ve škole {schoolName} končí. Poslední den ve škole: {SchoolFormat.Date(lastDay)}."
+                : $"Mění se datum ukončení vzdělávání žáka {name} ve škole {schoolName}. Poslední den ve škole je nově {SchoolFormat.Date(lastDay)}.",
         };
         if (withReason && student.LeaveReason is { } reason)
         {
@@ -128,9 +129,8 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
                 ? $"Důvod: {student.LeaveReasonDetail}"
                 : $"Důvod: {ReasonLabels[reason]}.");
         }
-        lines.Add($"Účty žáka a jeho rodičů budou fungovat do {Format(lastDay.AddDays(graceDays))}.");
+        lines.Add($"Účty žáka a jeho rodičů budou fungovat do {SchoolFormat.Date(lastDay.AddDays(graceDays))}.");
         return string.Join("\n\n", lines);
     }
 
-    private static string Format(DateOnly date) => $"{date.Day}. {date.Month}. {date.Year}";
 }

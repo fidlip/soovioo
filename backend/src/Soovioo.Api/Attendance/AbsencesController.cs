@@ -122,7 +122,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
         await notifier.NotifyAsync(
             absence.SchoolId, await notifier.FamilyAsync(student.Id), type, title,
-            $"{student.FirstName} {student.LastName} — {Notifier.Format(absence.Date)}{periods}",
+            $"{student.FirstName} {student.LastName} — {SchoolFormat.Date(absence.Date)}{periods}",
             "absences", absence.Id, student.Id);
     }
 
