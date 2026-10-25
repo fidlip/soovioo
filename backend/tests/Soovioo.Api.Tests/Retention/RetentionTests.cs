@@ -82,13 +82,15 @@ public class RetentionTests
         return new StudentEraser(db, Accounts(), new PhotoStorage(storage), storage);
     }
 
-    private RetentionJob Job() => new(db, Accounts(), Students(), clock);
+    private StaffLeaving StaffLeaving() => new(db, Accounts(), clock);
+
+    private RetentionJob Job() => new(db, Accounts(), Students(), StaffLeaving(), clock);
 
     private RetentionController Controller(int adminId = AdminId)
     {
         var principal = TestRoles.Principal(db, adminId, UserRole.Admin, SchoolId);
         return new RetentionController(
-            db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), new LeaveNotifier(db, clock), new Notifier(db, clock), clock)
+            db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), new LeaveNotifier(db, clock), new Notifier(db, clock), StaffLeaving(), clock)
         {
             ControllerContext = new ControllerContext
             {

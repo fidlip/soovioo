@@ -5,10 +5,15 @@ import { API_BASE_URL } from '../api-base-url.token';
 import {
   EraseDueResult,
   FormerStudent,
+  HandoverConflict,
   LeaveNotice,
   LeaveRequest,
   RetentionOverview,
   RetentionPolicy,
+  StaffLeaveNoticeGroup,
+  StaffLeavePreview,
+  StaffLeaveRequest,
+  SubjectSubstitute,
 } from './retention.model';
 
 /** Administrace → Archiv a výmaz údajů — see RetentionController. Admin only. */
@@ -44,6 +49,42 @@ export class RetentionApiService {
     return this.http.put<FormerStudent>(
       `${this.baseUrl}/api/retention/students/${studentId}/leave`,
       request,
+    );
+  }
+
+  getStaffLeave(userId: number): Observable<StaffLeavePreview> {
+    return this.http.get<StaffLeavePreview>(
+      `${this.baseUrl}/api/retention/staff/${userId}/leave`,
+    );
+  }
+
+  getHandoverConflicts(
+    userId: number,
+    substitutes: SubjectSubstitute[],
+  ): Observable<HandoverConflict[]> {
+    return this.http.post<HandoverConflict[]>(
+      `${this.baseUrl}/api/retention/staff/${userId}/leave/conflicts`,
+      { substitutes },
+    );
+  }
+
+  setStaffLeave(
+    userId: number,
+    request: StaffLeaveRequest,
+  ): Observable<StaffLeavePreview> {
+    return this.http.put<StaffLeavePreview>(
+      `${this.baseUrl}/api/retention/staff/${userId}/leave`,
+      request,
+    );
+  }
+
+  cancelStaffLeave(
+    userId: number,
+    notices: StaffLeaveNoticeGroup[],
+  ): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/retention/staff/${userId}/leave`,
+      { body: { notices } },
     );
   }
 

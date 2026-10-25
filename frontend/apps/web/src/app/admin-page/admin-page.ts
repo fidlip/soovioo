@@ -125,6 +125,10 @@ import {
   matrikaOf,
   studentFormOf,
 } from '../people/student-fields';
+import {
+  StaffLeaveDialog,
+  StaffLeaveTarget,
+} from '../departures/staff-leave-dialog';
 import { Avatar } from '../avatar/avatar';
 import {
   StudentPhotoDialog,
@@ -144,6 +148,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
     PersonCard,
     PersonDialog,
     StudentFields,
+    StaffLeaveDialog,
     Avatar,
     StudentPhotoDialog,
     UserPhotoDialog,
@@ -941,6 +946,8 @@ export class AdminPage {
       error: (err) => this.showError('saveStudent failed', err),
     });
   }
+
+  protected readonly leaveStaff = signal<StaffLeaveTarget | null>(null);
 
   /** Only a pupil without history (one added by mistake) can be deleted;
    * for one with grades, absences… the server answers 409 with what's

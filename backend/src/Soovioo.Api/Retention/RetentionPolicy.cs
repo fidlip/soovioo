@@ -66,6 +66,10 @@ public class RetentionPolicy
     /// person's data is erased and the account anonymized.</summary>
     public int StaffYears { get; set; } = 5;
 
+    /// <summary>Whom a member of staff's departure is announced to by
+    /// default — nobody unless the school chooses.</summary>
+    public List<StaffLeaveNoticeGroup> StaffLeaveNotices { get; set; } = [];
+
     public const int MaxYears = 100;
     public const int MaxGraceDays = 365;
 

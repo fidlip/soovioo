@@ -121,27 +121,49 @@
 @if (people(); as p) { @if (p.staff.length) {
 <p-card styleClass="mt-6">
   <ng-template #title
-    >Bývalí zaměstnanci<app-info-hint
-      text="Účty zaměstnanců deaktivované v záložce Uživatelé. Po lhůtě se vymaže jméno, kontakty a fotka a účet se zruší; jejich záznamy (známky, akce, zprávy) zůstanou bez jména."
+    >Odcházející a bývalí zaměstnanci<app-info-hint
+      text="Zaměstnanci s ukončeným pracovním poměrem a účty deaktivované v záložce Uživatelé. Po lhůtě se vymaže jméno, kontakty a fotka a účet se zruší; jejich záznamy (známky, akce, zprávy) zůstanou bez jména."
   /></ng-template>
   <p-table [value]="p.staff" dataKey="userId">
     <ng-template pTemplate="header">
       <tr>
         <th>Jméno</th>
-        <th>Deaktivován</th>
+        <th>Poslední den</th>
+        <th>Nepředáno</th>
         <th>Výmaz</th>
         <th><span class="sr-only">Akce</span></th>
       </tr>
     </ng-template>
     <ng-template pTemplate="body" let-s>
       <tr>
-        <td>{{ s.name }}</td>
-        <td>{{ s.deactivatedAt | dateFormat: 'date' }}</td>
+        <td>
+          {{ s.name }} @if (!s.deactivatedAt) {
+          <p-tag value="Ještě ve škole" severity="info" />
+          }
+        </td>
+        <td>
+          {{ s.leftAt ? (s.leftAt | dateFormat: 'date') : 'deaktivován ' +
+          (s.deactivatedAt | dateFormat: 'date') }}
+        </td>
+        <td [class.text-orange-600]="s.classesLed + s.lessons > 0">
+          {{ handoverLeft(s) }}
+        </td>
         <td [class.text-orange-600]="s.due">
-          {{ s.due ? 'teď' : (s.erasesOn | dateFormat: 'date') }}
+          {{ s.due ? 'teď' : s.erasesOn ? (s.erasesOn | dateFormat: 'date') :
+          '—' }}
         </td>
         <td>
           <div class="flex justify-end">
+            @if (!s.deactivatedAt) {
+            <p-button
+              icon="pi pi-pencil"
+              ariaLabel="Upravit ukončení"
+              title="Upravit ukončení"
+              size="small"
+              [text]="true"
+              (onClick)="editingStaff.set({ userId: s.userId, name: s.name })"
+            />
+            } @else {
             <p-button
               icon="pi pi-trash"
               ariaLabel="Vymazat hned"
@@ -151,6 +173,7 @@
               [text]="true"
               (onClick)="eraseStaff(s)"
             />
+            }
           </div>
         </td>
       </tr>
@@ -244,6 +267,24 @@
           inputStyleClass="w-24"
         />
       </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <label for="ret-staffNotices" class="text-sm"
+          >Odchod zaměstnance oznámit</label
+        >
+        <p-multiselect
+          inputId="ret-staffNotices"
+          name="staffLeaveNotices"
+          [options]="staffNoticeOptions"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="policy.staffLeaveNotices"
+          placeholder="Nikomu"
+          [showToggleAll]="false"
+          [filter]="false"
+          styleClass="w-80"
+          appendTo="body"
+        />
+      </div>
     </section>
 
     <div>
@@ -254,6 +295,12 @@
   <p class="m-0 text-surface-500">Načítání…</p>
   }
 </p-card>
+
+<app-staff-leave-dialog
+  [staff]="editingStaff()"
+  (closed)="editingStaff.set(null)"
+  (changed)="editingStaff.set(null); load()"
+/>
 
 <app-leave-dialog
   [student]="editing()"

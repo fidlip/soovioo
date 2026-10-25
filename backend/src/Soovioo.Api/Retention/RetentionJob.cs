@@ -8,7 +8,7 @@ namespace Soovioo.Api.Retention;
 /// <summary>Daily Hangfire job (registered in Program.cs) — switches off the
 /// accounts of people who left and, in schools that erase automatically,
 /// erases what is due. Demo schools are left alone: they go as a whole.</summary>
-public class RetentionJob(AppDbContext db, AccountEraser accounts, StudentEraser students, TimeProvider clock)
+public class RetentionJob(AppDbContext db, AccountEraser accounts, StudentEraser students, StaffLeaving staffLeaving, TimeProvider clock)
 {
     public async Task RunAsync()
     {
@@ -26,6 +26,7 @@ public class RetentionJob(AppDbContext db, AccountEraser accounts, StudentEraser
     {
         var today = SchoolClock.Today(clock);
         var policy = await PolicyOfAsync(db, schoolId);
+        await staffLeaving.ApplyDueAsync(schoolId);
         await DeactivateAccountsAsync(schoolId, policy, today);
         if (policy.Mode != ErasureMode.Automatic)
         {

@@ -4,6 +4,7 @@ import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
+import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
@@ -16,6 +17,7 @@ import {
   RetentionCategory,
   RetentionOverview,
   RetentionPolicy,
+  StaffLeaveNoticeGroup,
   formatDate,
 } from '@soovioo/shared';
 import { FORM_FIELDS } from '../forms';
@@ -23,10 +25,12 @@ import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
 import { LeaveDialog, LeaveTarget } from './leave-dialog';
+import { StaffLeaveDialog, StaffLeaveTarget } from './staff-leave-dialog';
 import {
   LEAVE_REASON_LABELS,
   RETENTION_CATEGORY_LABELS,
   RETENTION_YEAR_FIELDS,
+  STAFF_LEAVE_NOTICE_LABELS,
 } from './retention-labels';
 
 /** Administrace → Archiv a výmaz údajů: pupils leaving or gone, staff who left, and
@@ -46,6 +50,8 @@ import {
     InfoHint,
     TermPipe,
     LeaveDialog,
+    MultiSelect,
+    StaffLeaveDialog,
     ...FORM_FIELDS,
   ],
   templateUrl: './departures.html',
@@ -58,6 +64,10 @@ export class Departures {
   protected readonly people = signal<RetentionOverview | null>(null);
   protected readonly policy = signal<RetentionPolicy | null>(null);
   protected readonly editing = signal<LeaveTarget | null>(null);
+  protected readonly editingStaff = signal<StaffLeaveTarget | null>(null);
+  protected readonly staffNoticeOptions = (
+    Object.keys(STAFF_LEAVE_NOTICE_LABELS) as StaffLeaveNoticeGroup[]
+  ).map((value) => ({ value, label: STAFF_LEAVE_NOTICE_LABELS[value] }));
 
   protected readonly dueCount = computed(() => {
     const people = this.people();
@@ -139,6 +149,15 @@ export class Departures {
           error: (err) => this.notify.actionFailed('eraseStudent failed', err),
         }),
     );
+  }
+
+  /** "třídnictví 5.A, 4 h" — what's still theirs. */
+  protected handoverLeft(staff: FormerStaff): string {
+    const parts = [
+      staff.classesLed > 0 ? `třídnictví ${staff.classesLed}×` : '',
+      staff.lessons > 0 ? `${staff.lessons} h rozvrhu` : '',
+    ].filter(Boolean);
+    return parts.length ? parts.join(', ') : '—';
   }
 
   protected eraseStaff(staff: FormerStaff): void {

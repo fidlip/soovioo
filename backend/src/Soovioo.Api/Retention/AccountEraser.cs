@@ -26,11 +26,16 @@ public class AccountEraser(AppDbContext db, RefreshTokenService refreshTokens, P
         await refreshTokens.RevokeAllForUserAsync(user.Id);
     }
 
+    /// <summary>Also forgets a staff departure — its last day is over, the
+    /// daily job would deactivate the account again.</summary>
     public void Reactivate(User user)
     {
         if (user.ErasedAt is null)
         {
             user.DeactivatedAt = null;
+            user.LeftAt = null;
+            user.LeaveReason = null;
+            user.LeaveNote = null;
         }
     }
 

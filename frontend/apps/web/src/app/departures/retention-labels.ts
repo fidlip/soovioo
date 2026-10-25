@@ -1,6 +1,8 @@
 import {
   RetentionCategory,
   RetentionPolicy,
+  StaffLeaveNoticeGroup,
+  StaffLeaveReason,
   StudentLeaveReason,
 } from '@soovioo/shared';
 
@@ -14,6 +16,34 @@ export const LEAVE_REASON_LABELS: Record<StudentLeaveReason, string> = {
 export const LEAVE_REASON_OPTIONS = (
   Object.keys(LEAVE_REASON_LABELS) as StudentLeaveReason[]
 ).map((value) => ({ value, label: LEAVE_REASON_LABELS[value] }));
+
+export const STAFF_LEAVE_REASON_OPTIONS: {
+  value: StaffLeaveReason;
+  label: string;
+}[] = [
+  { value: 'Agreement', label: 'Dohoda' },
+  { value: 'Notice', label: 'Výpověď' },
+  { value: 'FixedTermEnd', label: 'Konec smlouvy na dobu určitou' },
+  { value: 'Retirement', label: 'Odchod do důchodu' },
+  { value: 'Other', label: 'Jiný' },
+];
+
+export const STAFF_LEAVE_NOTICE_LABELS: Record<StaffLeaveNoticeGroup, string> =
+  {
+    LedClasses: 'Žáci a rodiče tříd, kde je třídní',
+    TaughtClasses: 'Žáci a rodiče tříd, které učí',
+    Colleagues: 'Kolegové',
+  };
+
+export const DAY_LABELS: Record<string, string> = {
+  Monday: 'Po',
+  Tuesday: 'Út',
+  Wednesday: 'St',
+  Thursday: 'Čt',
+  Friday: 'Pá',
+  Saturday: 'So',
+  Sunday: 'Ne',
+};
 
 export const RETENTION_CATEGORY_LABELS: Record<RetentionCategory, string> = {
   Photos: 'Fotka',

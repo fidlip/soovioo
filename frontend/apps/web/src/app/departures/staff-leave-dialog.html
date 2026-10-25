@@ -1,0 +1,167 @@
+<p-dialog
+  [visible]="staff() !== null"
+  (visibleChange)="!$event && closed.emit()"
+  [header]="'Ukončení pracovního poměru — ' + (staff()?.name ?? '')"
+  [modal]="true"
+  styleClass="w-full max-w-2xl"
+>
+  @if (preview(); as p) {
+  <form class="flex flex-col gap-4" #leaveForm="ngForm" (ngSubmit)="save()">
+    <p class="m-0 text-sm text-surface-500">
+      Do posledního dne vše funguje. Den poté se účet deaktivuje, převezme se
+      vybrané třídnictví a hodiny a zaměstnanec přejde do Archivu a výmazu
+      údajů.
+    </p>
+    <div class="flex flex-wrap gap-4">
+      <div class="flex flex-col gap-1">
+        <label for="staff-last-day">Poslední den ve škole</label>
+        <p-datePicker
+          inputId="staff-last-day"
+          name="lastDay"
+          required
+          [(ngModel)]="lastDay"
+          [minDate]="minDate"
+          [showIcon]="true"
+          [showOnFocus]="false"
+          appendTo="body"
+        />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="staff-reason">Důvod</label>
+        <p-select
+          inputId="staff-reason"
+          ariaLabel="Důvod"
+          name="reason"
+          [options]="reasons"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="reason"
+          [showClear]="true"
+          placeholder="Neuvedeno"
+          styleClass="w-64"
+          appendTo="body"
+        />
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="staff-note">Poznámka</label>
+      <input pInputText id="staff-note" name="note" [(ngModel)]="note" />
+      <small class="text-surface-500"
+        >Důvod a poznámku vidí jen vedení, do oznámení se nedostanou.</small
+      >
+    </div>
+
+    @if (p.ledClasses.length > 0 || p.subjects.length > 0) {
+    <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend class="mb-2 text-sm font-medium">
+        Předání
+        <span class="font-normal text-surface-500">(den po posledním dni)</span>
+      </legend>
+      @for (c of p.ledClasses; track c.classId) {
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <label [for]="'successor-' + c.classId" class="w-56 text-sm"
+          >Třídnictví {{ c.name }}</label
+        >
+        <p-select
+          [inputId]="'successor-' + c.classId"
+          [ariaLabel]="'Třídnictví ' + c.name"
+          [name]="'successor-' + c.classId"
+          [options]="staffOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="successors[c.classId]"
+          [showClear]="true"
+          [filter]="true"
+          placeholder="Nepředávat"
+          styleClass="w-64"
+          appendTo="body"
+        />
+      </div>
+      } @for (s of p.subjects; track s.subjectId) {
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <label [for]="'substitute-' + s.subjectId" class="w-56 text-sm"
+          >{{ s.name }}
+          <span class="text-surface-500"
+            >({{ s.lessons }} h týdně, {{ s.classes.join(', ') }})</span
+          ></label
+        >
+        <p-select
+          [inputId]="'substitute-' + s.subjectId"
+          [ariaLabel]="'Zástupce — ' + s.name"
+          [name]="'substitute-' + s.subjectId"
+          [options]="staffOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="substitutes[s.subjectId]"
+          (ngModelChange)="checkConflicts()"
+          [showClear]="true"
+          [filter]="true"
+          placeholder="Nepředávat"
+          styleClass="w-64"
+          appendTo="body"
+        />
+      </div>
+      } @if (conflicts().length > 0) {
+      <p-message severity="warn">
+        <div class="flex flex-col gap-1">
+          <span>Zástupce by v tu hodinu už učil:</span>
+          @for (c of conflicts(); track $index) {
+          <span
+            >{{ days[c.dayOfWeek] }} {{ c.periodNumber }}. hodina — {{
+            subjectName(c.subjectId) }} {{ c.class }}: {{ c.substituteName }}
+            učí {{ c.otherClass }}</span
+          >
+          }
+          <span class="text-sm"
+            >Rozvrh pak upravte v Rozvrhu, případně vyberte jiného
+            zástupce.</span
+          >
+        </div>
+      </p-message>
+      } @if (notHandedOver() > 0) {
+      <small class="text-surface-500"
+        >Co se nepředá, zůstane na zaměstnanci a v Archivu a výmazu údajů se
+        ukáže jako nepředané.</small
+      >
+      }
+    </fieldset>
+    }
+
+    <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend class="mb-2 text-sm font-medium">
+        Oznámit zprávou
+        <span class="font-normal text-surface-500"
+          >(při zadání, změně data nebo zrušení)</span
+        >
+      </legend>
+      @for (n of noticeGroups; track n.group) {
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          [inputId]="'staff-notice-' + n.group"
+          [name]="'staff-notice-' + n.group"
+          [binary]="true"
+          [(ngModel)]="notices[n.group]"
+        />
+        <label [for]="'staff-notice-' + n.group">{{ n.label }}</label>
+      </div>
+      }
+    </fieldset>
+
+    <div class="flex flex-wrap justify-between gap-2">
+      @if (p.lastDay) {
+      <p-button
+        label="Zrušit ukončení"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="cancel()"
+      />
+      } @else {
+      <span></span>
+      }
+      <app-submit-button [form]="leaveForm" label="Uložit" />
+    </div>
+  </form>
+  } @else {
+  <p class="text-surface-500">Načítání…</p>
+  }
+</p-dialog>
