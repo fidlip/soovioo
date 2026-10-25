@@ -11,4 +11,11 @@ public static class SchoolClock
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), Zone).DateTime);
 
     public static DateTime Local(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, Zone).DateTime;
+
+    /// <summary>The moment <paramref name="time"/> on <paramref name="date"/> in Prague.</summary>
+    public static DateTimeOffset At(DateOnly date, TimeOnly time)
+    {
+        var local = date.ToDateTime(time);
+        return new DateTimeOffset(local, Zone.GetUtcOffset(local));
+    }
 }

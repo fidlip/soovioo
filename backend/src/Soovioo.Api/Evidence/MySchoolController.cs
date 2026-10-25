@@ -163,6 +163,30 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(ToDto(await Visibility.LoadAsync(db, schoolId), school));
     }
 
+    /// <summary>The daily e-mail of notifications — when it goes out for
+    /// people who didn't pick their own time, and the kinds nobody can
+    /// switch off.</summary>
+    [HttpGet("notifications")]
+    public async Task<ActionResult<SchoolNotificationSettingsDto>> GetNotifications()
+    {
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
+        return Ok(new SchoolNotificationSettingsDto(school.DigestTime, school.ForcedEmailNotifications));
+    }
+
+    [HttpPut("notifications")]
+    public async Task<ActionResult<SchoolNotificationSettingsDto>> SetNotifications(SchoolNotificationSettingsDto request)
+    {
+        if (request.ForcedEmail.Any(t => !Enum.IsDefined(t)))
+        {
+            return BadRequest("Neznámý druh upozornění.");
+        }
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
+        school.DigestTime = new TimeOnly(request.DigestTime.Hour, request.DigestTime.Minute);
+        school.ForcedEmailNotifications = request.ForcedEmail.Distinct().Order().ToList();
+        await db.SaveChangesAsync();
+        return Ok(new SchoolNotificationSettingsDto(school.DigestTime, school.ForcedEmailNotifications));
+    }
+
     private static VisibilityRulesDto ToDto(SchoolVisibility visibility, School school) =>
         new(Visibility.Keys
             .Select(visibility.Rule)
@@ -172,6 +196,10 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
+
+/// <param name="DigestTime">See <see cref="School.DigestTime"/>.</param>
+/// <param name="ForcedEmail">See <see cref="School.ForcedEmailNotifications"/>.</param>
+public record SchoolNotificationSettingsDto(TimeOnly DigestTime, IReadOnlyList<Notifications.NotificationType> ForcedEmail);
 
 /// <param name="Rules">One per <see cref="Visibility.Keys"/> entry.</param>
 /// <param name="StudentPhotos">See <see cref="School.StudentPhotos"/>.</param>

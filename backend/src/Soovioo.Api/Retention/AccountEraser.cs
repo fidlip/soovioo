@@ -76,6 +76,7 @@ public class AccountEraser(AppDbContext db, RefreshTokenService refreshTokens, P
         user.PasswordHash = "";
         user.MustChangePassword = false;
         user.CalendarToken = null;
+        user.EmailUnsubscribeToken = null;
         user.ErasedAt = clock.GetUtcNow();
         await db.SaveChangesAsync();
         photos.Delete(photoKey);

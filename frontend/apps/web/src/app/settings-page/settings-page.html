@@ -197,30 +197,92 @@
     </div>
   </p-card>
 
-  @if (notificationTypes().length > 0) {
+  @if (notificationSettings(); as settings) { @if (settings.types.length > 0) {
   <p-card>
     <ng-template #title
       >Upozornění<app-info-hint
-        text="Co se má objevit pod zvonečkem. Počet nepřečtených zpráv u Zpráv zůstává i bez upozornění."
+        text="Co se má objevit pod zvonečkem a co v denním souhrnu e-mailem. Souhrn přijde jen v den, kdy je něco nového a nepřečteného. Počet nepřečtených zpráv u Zpráv zůstává i bez upozornění."
     /></ng-template>
-    <div class="flex flex-col gap-3">
-      @for (t of notificationTypes(); track t.type) {
-      <div class="flex items-center gap-3">
-        <p-toggleswitch
-          [inputId]="'notification-' + t.type"
-          [ngModel]="t.enabled"
-          (onChange)="setNotificationType(t.type, $event.checked)"
-        />
-        <label
-          [for]="'notification-' + t.type"
-          class="text-sm text-surface-700 dark:text-surface-200"
-          >{{ notificationLabels[t.type] }}</label
+    <div
+      class="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 gap-y-3"
+      role="table"
+      aria-label="Upozornění"
+    >
+      <div role="row" class="contents">
+        <span role="columnheader"></span>
+        <span
+          role="columnheader"
+          class="text-xs font-medium text-surface-500 dark:text-surface-400"
+          >V aplikaci</span
         >
+        <span
+          role="columnheader"
+          class="text-xs font-medium text-surface-500 dark:text-surface-400"
+          >E-mail</span
+        >
+      </div>
+      @for (t of settings.types; track t.type) {
+      <div role="row" class="contents">
+        <span
+          role="cell"
+          [id]="'notification-label-' + t.type"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ notificationLabels[t.type] }}</span
+        >
+        <span role="cell">
+          <p-toggleswitch
+            [inputId]="'notification-' + t.type"
+            [ariaLabel]="notificationLabels[t.type] + ' v aplikaci'"
+            [ngModel]="t.enabled"
+            (onChange)="setNotificationType(t.type, $event.checked)"
+          />
+        </span>
+        <span
+          role="cell"
+          [title]="t.emailForced ? 'Tento e-mail posílá škola všem.' : ''"
+        >
+          <p-toggleswitch
+            [inputId]="'notification-email-' + t.type"
+            [ariaLabel]="notificationLabels[t.type] + ' e-mailem'"
+            [ngModel]="t.email"
+            [disabled]="t.emailForced || !settings.hasEmail"
+            (onChange)="
+              setEmailNotifications({ type: t.type, email: $event.checked })
+            "
+          />
+        </span>
       </div>
       }
     </div>
+    <div class="mt-4 flex flex-col gap-1.5">
+      <label
+        for="digestTime"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Denní souhrn e-mailem přijde v</label
+      >
+      <p-select
+        inputId="digestTime"
+        [options]="digestTimeOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="digestTime()"
+        (ngModelChange)="setEmailNotifications(null, $event)"
+        [disabled]="!settings.hasEmail"
+        styleClass="w-56"
+        appendTo="body"
+      />
+    </div>
+    @if (!settings.hasEmail) {
+    <p class="mt-3 text-sm text-surface-500 dark:text-surface-400">
+      E-mailem nic nepřijde, dokud v Profilu nevyplníte e-mail.
+    </p>
+    } @else if (hasForcedEmail()) {
+    <p class="mt-3 text-sm text-surface-500 dark:text-surface-400">
+      Zamčené e-maily posílá škola všem.
+    </p>
+    }
   </p-card>
-  } @if (showCalendarFeed) {
+  } } @if (showCalendarFeed) {
   <p-card>
     <ng-template #title
       >Odběr kalendáře<app-info-hint

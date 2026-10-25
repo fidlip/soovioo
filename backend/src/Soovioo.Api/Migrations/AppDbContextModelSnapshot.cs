@@ -199,6 +199,15 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateTimeOffset?>("DeactivatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("DigestSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<TimeOnly?>("DigestTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("EmailUnsubscribeToken")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset?>("ErasedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -210,6 +219,10 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<string[]>("MutedEmailNotifications")
+                        .IsRequired()
+                        .HasColumnType("text[]");
 
                     b.PrimitiveCollection<string[]>("MutedNotifications")
                         .IsRequired()
@@ -241,6 +254,9 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("DeactivatedAt")
                         .HasFilter("\"DeactivatedAt\" IS NOT NULL");
+
+                    b.HasIndex("EmailUnsubscribeToken")
+                        .IsUnique();
 
                     b.HasIndex("Username")
                         .IsUnique()
@@ -656,6 +672,9 @@ namespace Soovioo.Api.Migrations
                     b.PrimitiveCollection<List<int>>("DemoFeaturedUserIds")
                         .HasColumnType("integer[]");
 
+                    b.Property<TimeOnly>("DigestTime")
+                        .HasColumnType("time without time zone");
+
                     b.Property<string>("DirectorName")
                         .HasColumnType("text");
 
@@ -664,6 +683,10 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<DateTimeOffset?>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<string[]>("ForcedEmailNotifications")
+                        .IsRequired()
+                        .HasColumnType("text[]");
 
                     b.Property<bool>("IsDemo")
                         .HasColumnType("boolean");
@@ -716,8 +739,10 @@ namespace Soovioo.Api.Migrations
                             Id = 1,
                             City = "Praha 1",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DigestTime = new TimeOnly(17, 0, 0),
                             DirectorName = "Mgr. Jana Ředitelová",
                             Email = "skola@demo.cz",
+                            ForcedEmailNotifications = new string[0],
                             IsDemo = false,
                             Izo = "308000048",
                             Name = "Testovací škola",
@@ -1319,6 +1344,9 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("InApp")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Page")
                         .IsRequired()

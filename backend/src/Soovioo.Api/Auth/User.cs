@@ -84,4 +84,20 @@ public class User
     /// <summary>Kinds of notifications the user switched off in Nastavení —
     /// empty = all of them on.</summary>
     public List<Notifications.NotificationType> MutedNotifications { get; set; } = [];
+
+    /// <summary>Kinds left out of the daily e-mail — the ones the school
+    /// forces (<see cref="School.ForcedEmailNotifications"/>) come anyway.</summary>
+    public List<Notifications.NotificationType> MutedEmailNotifications { get; set; } = [];
+
+    /// <summary>When the daily e-mail goes out (Prague time); null = the
+    /// school's <see cref="School.DigestTime"/>.</summary>
+    public TimeOnly? DigestTime { get; set; }
+
+    /// <summary>The last daily e-mail's turn — the next one has what came
+    /// after it.</summary>
+    public DateTimeOffset? DigestSentAt { get; set; }
+
+    /// <summary>Secret of the "odhlásit" link in the daily e-mail (works
+    /// without logging in) — generated with the first e-mail.</summary>
+    public string? EmailUnsubscribeToken { get; set; }
 }

@@ -1,0 +1,54 @@
+<div class="mx-auto flex max-w-sm flex-col gap-4 pt-8 sm:pt-16">
+  <div class="text-center">
+    <img
+      src="/images/logo.svg"
+      alt="Soovioo"
+      class="mx-auto h-24 w-auto dark:brightness-0 dark:invert"
+    />
+    <h1
+      class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
+    >
+      Upozornění e-mailem
+    </h1>
+  </div>
+
+  <p-card>
+    @if (!token) {
+    <p-message
+      severity="error"
+      text="Odkaz je neplatný — chybí v něm token. Zkontrolujte, jestli jste otevřeli celý odkaz z e-mailu."
+    />
+    } @else if (forced(); as forced) {
+    <div class="flex flex-col gap-3">
+      <p-message
+        severity="success"
+        text="Hotovo, denní souhrn upozornění vám už chodit nebude."
+      />
+      @if (forced.length > 0) {
+      <p class="m-0 text-sm text-surface-600 dark:text-surface-300">
+        Škola ale všem posílá: {{ forcedLabels() }}.
+      </p>
+      }
+      <p class="m-0 text-sm text-surface-600 dark:text-surface-300">
+        Zapnout ho můžete znovu po přihlášení v Nastavení.
+      </p>
+    </div>
+    } @else {
+    <div class="flex flex-col gap-4">
+      <p class="m-0 text-sm text-surface-600 dark:text-surface-300">
+        Přestat posílat denní souhrn upozornění na tento e-mail? Pod zvonečkem v
+        aplikaci zůstanou.
+      </p>
+      @if (error(); as errorMessage) {
+      <p-message severity="error" [text]="errorMessage" />
+      }
+      <p-button
+        label="Odhlásit e-maily"
+        [loading]="busy()"
+        (onClick)="unsubscribe()"
+        styleClass="w-full"
+      />
+    </div>
+    }
+  </p-card>
+</div>
