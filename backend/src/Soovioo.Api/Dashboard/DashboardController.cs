@@ -33,7 +33,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             // SuperAdmin isn't tied to a school and has no agenda pages to
             // summarize — same "nothing to show" stance as EventsController.
-            return Ok(new DashboardDto([], null, [], [], 0, [], [], null));
+            return Ok(new DashboardDto([], null, [], [], 0, [], [], [], null));
         }
 
         var schoolId = currentSchool.SchoolId.Value;
@@ -88,6 +88,25 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .ToListAsync();
 
         var unreadMessageCount = await db.CountUnreadConversationsAsync(userId);
+        var unreadConversations = (await db.UnreadConversations(userId)
+            .OrderByDescending(c => c.LastMessageAt)
+            .Take(5)
+            .Select(c => new
+            {
+                c.Id,
+                c.Subject,
+                c.StudentId,
+                StudentName = c.Student == null ? null : c.Student.FirstName + " " + c.Student.LastName,
+                Participants = c.Participants.Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
+                c.LastMessageAt,
+                LastMessage = c.Messages.OrderByDescending(m => m.SentAt)
+                    .Select(m => new { m.SenderName, m.Body }).FirstOrDefault(),
+            })
+            .ToListAsync())
+            .Select(c => new ConversationSummaryDto(
+                c.Id, c.Subject, c.StudentId, c.StudentName, c.Participants, c.LastMessageAt,
+                c.LastMessage?.SenderName, ConversationsController.Preview(c.LastMessage?.Body), Unread: true))
+            .ToList();
 
         var behaviorRecordsQuery = db.BehaviorRecords.AsQueryable();
         if (allowedStudentIds is not null)
@@ -129,7 +148,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         return Ok(new DashboardDto(
             todayLessons, todayLessonsContext, recentGrades, pendingAbsences,
-            unreadMessageCount, upcomingEvents, unreadBehaviorRecords, schoolCounts));
+            unreadMessageCount, unreadConversations, upcomingEvents, unreadBehaviorRecords, schoolCounts));
     }
 
     /// <summary>Filtered by day of week only, not <see cref="WeekParity"/> —
@@ -195,6 +214,9 @@ public record DashboardDto(
     IReadOnlyList<GradeDto> RecentGrades,
     IReadOnlyList<AbsenceDto> PendingAbsences,
     int UnreadMessageCount,
+    /// <summary>Up to 5 most recent of the <see cref="UnreadMessageCount"/>
+    /// conversations.</summary>
+    IReadOnlyList<ConversationSummaryDto> UnreadConversations,
     IReadOnlyList<UpcomingEventDto> UpcomingEvents,
     /// <summary>Up to 5 most recent, same shared-read-state as
     /// <see cref="UnreadMessageCount"/> — see <see cref="BehaviorRecord.ReadAt"/>.</summary>

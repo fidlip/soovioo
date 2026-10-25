@@ -482,7 +482,7 @@ public class ConversationsController(
         m.Id, m.SenderUserId, m.SenderName, m.Body, m.SentAt,
         m.Attachments.Select(a => new MessageAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList());
 
-    private static string? Preview(string? body) =>
+    internal static string? Preview(string? body) =>
         body is null ? null : body.Length <= 120 ? body : body[..120] + "…";
 
     /// <summary>Snapshot of the sender's display name at send time.</summary>
@@ -508,11 +508,16 @@ public static class ConversationQueries
     }
 
     public static Task<int> CountUnreadConversationsAsync(this AppDbContext db, int userId) =>
+        db.UnreadConversations(userId).CountAsync();
+
+    /// <summary>Conversations of <paramref name="userId"/> with a message from
+    /// someone else they haven't read yet.</summary>
+    public static IQueryable<Conversation> UnreadConversations(this AppDbContext db, int userId) =>
         db.ConversationParticipants
-            .Where(p => p.UserId == userId)
-            .CountAsync(p => p.Conversation!.Messages.Any(m =>
+            .Where(p => p.UserId == userId && p.Conversation!.Messages.Any(m =>
                 (m.SenderUserId == null || m.SenderUserId != userId)
-                && (p.LastReadAt == null || m.SentAt > p.LastReadAt)));
+                && (p.LastReadAt == null || m.SentAt > p.LastReadAt)))
+            .Select(p => p.Conversation!);
 }
 
 /// <param name="StudentOnly">Staff: only the pupil's own account, not the parents.</param>

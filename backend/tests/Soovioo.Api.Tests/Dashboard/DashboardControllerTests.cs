@@ -175,6 +175,11 @@ public class DashboardControllerTests
 
         var dto = Assert.IsType<DashboardDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(1, dto.UnreadMessageCount);
+        var unread = Assert.Single(dto.UnreadConversations);
+        Assert.Equal("s1", unread.Subject);
+        Assert.Equal("ucitel", unread.LastSenderName);
+        Assert.Equal("b1", unread.LastMessagePreview);
+        Assert.True(unread.Unread);
     }
 
     [Fact]
