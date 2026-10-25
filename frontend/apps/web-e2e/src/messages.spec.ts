@@ -88,6 +88,29 @@ test.describe.serial('teacher and parent exchange messages', () => {
   });
 });
 
+test('a long conversation in the list does not widen the page on a phone', async ({
+  page,
+}) => {
+  await login(page, 'ucitel', 'ucitel123');
+  await page.setViewportSize({ width: 375, height: 800 });
+  const subject = `E2E dlouhý předmět ${runId} ${'a'.repeat(60)}`;
+  await sendAsTeacher(
+    page,
+    'Pouze vybranému žákovi',
+    subject,
+    `Dlouhý text bez mezer ${'b'.repeat(120)}`,
+  );
+  await page.getByRole('button', { name: 'Zpět na seznam' }).click();
+  await expect(conversation(page, subject)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Nová zpráva' }).click();
+  await expect(page.getByRole('dialog', { name: 'Nová zpráva' })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+});
+
 test.describe.serial('message only for the student', () => {
   const subject = `E2E jen žákovi ${runId}`;
 
