@@ -35,6 +35,10 @@ test('teacher can record a grade and see it appear in the table', async ({
   // Other tests add grades in parallel — the new one is found by its note.
   const note = `E2E ${Date.now()}`;
   await page.getByRole('button', { name: 'Zapsat známku' }).click();
+  // Not the preselected first pupil — that can be one another test just
+  // added (and is about to erase).
+  await page.locator('#gradeStudent').click();
+  await page.getByRole('option', { name: 'Jan Novák' }).click();
   await page.locator('#gradeValue').fill('2');
   await page.locator('#gradeWeight').fill('4');
   await page.locator('#gradeNote').fill(note);
