@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
+import { NavigationEnd } from '@angular/router';
 import { RouterExtensions } from '@nativescript/angular';
 import { Application, isAndroid, isIOS } from '@nativescript/core';
 import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-messaging';
 import { AuthApiService, NotificationsApiService } from '@soovioo/shared';
-import { Subject } from 'rxjs';
+import { Subject, filter, take } from 'rxjs';
 
 /** Pages of the app a notification can open — the others stay on the web. */
 export const MOBILE_PAGES = ['grades', 'absences', 'messages'];
@@ -93,10 +94,24 @@ export class PushService {
 
   private open(data: Record<string, string> | undefined): void {
     const page = data?.['page'] ?? '';
-    this.router.navigate([
-      MOBILE_PAGES.includes(page) ? `/${page}` : '/notifications',
-    ]);
-    this.changed.next();
+    const go = () => {
+      this.router.navigate([
+        MOBILE_PAGES.includes(page) ? `/${page}` : '/notifications',
+      ]);
+      this.changed.next();
+    };
+    // A tap that started the app comes before its first page — which
+    // would replace this one.
+    if (this.router.router.navigated) {
+      go();
+    } else {
+      this.router.router.events
+        .pipe(
+          filter((e) => e instanceof NavigationEnd),
+          take(1),
+        )
+        .subscribe(go);
+    }
   }
 }
 
