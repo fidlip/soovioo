@@ -66,6 +66,7 @@ builder.Services.AddScoped<Soovioo.Api.Retention.AccountEraser>();
 builder.Services.AddScoped<Soovioo.Api.Retention.StudentEraser>();
 builder.Services.AddScoped<Soovioo.Api.Retention.RetentionJob>();
 builder.Services.AddScoped<Soovioo.Api.Retention.LeaveNotifier>();
+builder.Services.AddScoped<Soovioo.Api.Retention.StaffLeaving>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.Notifier>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.NotificationDigestJob>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.PushJob>();

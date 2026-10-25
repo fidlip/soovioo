@@ -491,6 +491,11 @@
                         <div>
                           {{ user.name }} @if (user.deactivatedAt) {
                           <p-tag value="Neaktivní" severity="secondary" />
+                          } @else if (user.leftAt) {
+                          <p-tag
+                            [value]="'Končí k ' + (user.leftAt | dateFormat: 'date')"
+                            severity="info"
+                          />
                           }
                         </div>
                         @if (user.name !== user.username) {
@@ -542,7 +547,17 @@
                         [text]="true"
                         (onClick)="startEditUser(user)"
                       />
-                      @if (user.id !== myUserId) {
+                      @if (user.id !== myUserId && isStaffUser(user) &&
+                      !user.deactivatedAt) {
+                      <p-button
+                        icon="pi pi-sign-out"
+                        ariaLabel="Ukončení pracovního poměru"
+                        title="Ukončení pracovního poměru"
+                        size="small"
+                        [text]="true"
+                        (onClick)="leaveStaff.set({ userId: user.id, name: user.name })"
+                      />
+                      } @if (user.id !== myUserId) {
                       <p-button
                         [icon]="
                           user.deactivatedAt ? 'pi pi-replay' : 'pi pi-ban'
@@ -1411,6 +1426,11 @@
 </p-dialog>
 }
 
+<app-staff-leave-dialog
+  [staff]="leaveStaff()"
+  (closed)="leaveStaff.set(null)"
+  (changed)="leaveStaff.set(null); reload()"
+/>
 <app-person-dialog
   [target]="personDialog()"
   (closed)="personDialog.set(null)"

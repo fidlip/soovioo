@@ -59,6 +59,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<VisibilityRule> VisibilityRules => Set<VisibilityRule>();
     public DbSet<VisibilityChoice> VisibilityChoices => Set<VisibilityChoice>();
     public DbSet<Retention.RetentionPolicy> RetentionPolicies => Set<Retention.RetentionPolicy>();
+    public DbSet<Retention.StaffHandover> StaffHandovers => Set<Retention.StaffHandover>();
     public DbSet<Notifications.Notification> Notifications => Set<Notifications.Notification>();
     public DbSet<Notifications.PushDevice> PushDevices => Set<Notifications.PushDevice>();
     public DbSet<Role> Roles => Set<Role>();
@@ -315,8 +316,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<StudentProfile>().Property(s => s.LeaveReason).HasConversion<string>();
         modelBuilder.Entity<StudentProfile>().PrimitiveCollection(s => s.ErasedCategories).ElementType().HasConversion<string>();
         modelBuilder.Entity<User>().HasIndex(u => u.DeactivatedAt).HasFilter("\"DeactivatedAt\" IS NOT NULL");
+        modelBuilder.Entity<User>().Property(u => u.LeaveReason).HasConversion<string>();
+        modelBuilder.Entity<Retention.StaffHandover>(e =>
+        {
+            e.Property(x => x.Kind).HasConversion<string>();
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<Retention.RetentionPolicy>(e =>
         {
+            e.PrimitiveCollection(x => x.StaffLeaveNotices).ElementType().HasConversion<string>();
             e.HasKey(x => x.SchoolId);
             e.Property(x => x.Mode).HasConversion<string>();
             e.HasOne(x => x.School).WithOne().HasForeignKey<Retention.RetentionPolicy>(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);

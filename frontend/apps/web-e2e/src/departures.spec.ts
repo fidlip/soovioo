@@ -183,3 +183,44 @@ test('a former pupil moves to the archive and can be erased', async ({
     .click();
   await expect(formerRow).toHaveCount(0);
 });
+
+test('a teacher leaving: last day ahead, třídnictví handed over, cancelled from the archive', async ({
+  page,
+}) => {
+  test.slow();
+  await login(page, 'admin');
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Uživatelé' }).click();
+  const row = page
+    .getByRole('tabpanel', { name: 'Uživatelé' })
+    .locator('tr', { hasText: 'Jana Učitelová' });
+  await row.getByRole('button', { name: 'Ukončení pracovního poměru' }).click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Ukončení pracovního poměru — Jana Učitelová',
+  });
+  // Nobody is told unless the school says so.
+  await expect(
+    dialog.getByRole('checkbox', { name: 'Kolegové' }),
+  ).not.toBeChecked();
+  await dialog
+    .getByLabel('Poslední den ve škole')
+    .pressSequentially(inDays(30));
+  await dialog.getByLabel('Poznámka').fill('Stěhuje se');
+  await dialog.getByLabel('Třídnictví 5.A').click();
+  await page.getByRole('option').first().click();
+  await dialog.getByRole('button', { name: 'Uložit' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(row.getByText(/Končí k/)).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Archiv a výmaz údajů' }).click();
+  const archived = page
+    .getByRole('tabpanel', { name: 'Archiv a výmaz údajů' })
+    .locator('tr', { hasText: 'Jana Učitelová' });
+  await expect(archived.getByText('Ještě ve škole')).toBeVisible();
+
+  await archived.getByRole('button', { name: 'Upravit ukončení' }).click();
+  await expect(dialog.getByLabel('Poznámka')).toHaveValue('Stěhuje se');
+  await dialog.getByRole('button', { name: 'Zrušit ukončení' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(archived).toHaveCount(0);
+});

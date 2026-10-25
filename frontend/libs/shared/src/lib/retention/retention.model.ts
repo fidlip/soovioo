@@ -43,6 +43,8 @@ export interface RetentionPolicy {
   profileYears: number;
   /** Years after a staff account was deactivated. */
   staffYears: number;
+  /** Whom a member of staff's departure is announced to by default. */
+  staffLeaveNotices: StaffLeaveNoticeGroup[];
 }
 
 export interface ScheduledErasure {
@@ -76,9 +78,74 @@ export interface FormerStudent {
 export interface FormerStaff {
   userId: number;
   name: string;
-  deactivatedAt: string;
-  erasesOn: string;
+  /** Null = the departure is announced, the account still works. */
+  deactivatedAt: string | null;
+  /** The last day, when recorded (Ukončení pracovního poměru). */
+  leftAt: string | null;
+  erasesOn: string | null;
   due: boolean;
+  /** Třídnictví still theirs — not handed over. */
+  classesLed: number;
+  /** Their lessons in the timetable, not handed over. */
+  lessons: number;
+}
+
+export type StaffLeaveReason =
+  'Agreement' | 'Notice' | 'FixedTermEnd' | 'Retirement' | 'Other';
+
+/** Pupils and parents of the classes they lead / teach, the other staff. */
+export type StaffLeaveNoticeGroup =
+  'LedClasses' | 'TaughtClasses' | 'Colleagues';
+
+export interface ClassSuccessor {
+  classId: number;
+  successorId: number;
+}
+
+export interface SubjectSubstitute {
+  subjectId: number;
+  substituteId: number;
+}
+
+export interface StaffLeavePreview {
+  /** `YYYY-MM-DD`, null = no departure yet. */
+  lastDay: string | null;
+  reason: StaffLeaveReason | null;
+  note: string | null;
+  ledClasses: { classId: number; name: string; successorId: number | null }[];
+  subjects: {
+    subjectId: number;
+    name: string;
+    /** Their lessons of it in a week. */
+    lessons: number;
+    classes: string[];
+    substituteId: number | null;
+  }[];
+  /** Colleagues to hand things over to. */
+  staff: { userId: number; name: string }[];
+  /** The school's default — only for a new departure. */
+  noticeDefaults: StaffLeaveNoticeGroup[] | null;
+}
+
+export interface StaffLeaveRequest {
+  lastDay: string;
+  reason: StaffLeaveReason | null;
+  note: string | null;
+  classTeachers: ClassSuccessor[];
+  substitutes: SubjectSubstitute[];
+  notices: StaffLeaveNoticeGroup[];
+}
+
+/** A handed-over lesson at a time the substitute already teaches. */
+export interface HandoverConflict {
+  subjectId: number;
+  substituteId: number;
+  substituteName: string;
+  /** `Monday` … `Sunday`. */
+  dayOfWeek: string;
+  periodNumber: number;
+  class: string;
+  otherClass: string;
 }
 
 export interface RetentionOverview {

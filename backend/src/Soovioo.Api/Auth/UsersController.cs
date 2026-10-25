@@ -357,7 +357,7 @@ public class UsersController(
         new(user.Id, user.Username, user.Person?.FirstName ?? "", user.Person?.LastName ?? "",
             PersonNames.Display(user), user.ActiveRoleId, RoleRefDto.ListOf(user.Roles),
             user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification,
-            DeactivatedAt: user.DeactivatedAt, PersonId: user.Person?.Id);
+            DeactivatedAt: user.DeactivatedAt, PersonId: user.Person?.Id, LeftAt: user.LeftAt);
 
     private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
@@ -434,7 +434,8 @@ public record UserDto(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null,
     string? Photo = null,
     DateTimeOffset? DeactivatedAt = null,
-    int? PersonId = null);
+    int? PersonId = null,
+    DateOnly? LeftAt = null);
 
 public enum InviteOutcome
 {

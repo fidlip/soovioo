@@ -90,6 +90,15 @@ public class User
     /// no longer anyone and is left out of every list.</summary>
     public DateTimeOffset? ErasedAt { get; set; }
 
+    /// <summary>Staff: the last day at the school (Ukončení pracovního
+    /// poměru) — the account works through it and is deactivated the day
+    /// after (<see cref="Retention.StaffLeaving"/>).</summary>
+    public DateOnly? LeftAt { get; set; }
+
+    /// <summary>For the school's management only.</summary>
+    public Retention.StaffLeaveReason? LeaveReason { get; set; }
+    public string? LeaveNote { get; set; }
+
     /// <summary>Kinds of notifications the user switched off in Nastavení —
     /// empty = all of them on.</summary>
     public List<Notifications.NotificationType> MutedNotifications { get; set; } = [];

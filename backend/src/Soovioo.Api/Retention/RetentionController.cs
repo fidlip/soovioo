@@ -21,7 +21,8 @@ namespace Soovioo.Api.Retention;
 [Route("api/retention")]
 public class RetentionController(
     AppDbContext db, ICurrentSchoolContext currentSchool, StudentEraser studentEraser,
-    AccountEraser accountEraser, LeaveNotifier notifier, Notifier notifications, TimeProvider clock) : ControllerBase
+    AccountEraser accountEraser, LeaveNotifier notifier, Notifier notifications, StaffLeaving staffLeaving,
+    TimeProvider clock) : ControllerBase
 {
     private int SchoolId => currentSchool.SchoolId!.Value;
     private DateOnly Today => SchoolClock.Today(clock);
@@ -86,8 +87,15 @@ public class RetentionController(
             })
             .ToListAsync();
 
-        var staff = await RetentionJob.DeactivatedStaff(db, SchoolId)
-            .Select(u => new { u.Id, u.Username, u.Person, u.DeactivatedAt })
+        var staff = await db.Users
+            .Where(u => u.ErasedAt == null && (u.DeactivatedAt != null || u.LeftAt != null)
+                && u.Roles.Any(r => r.Kind == RoleKind.Staff))
+            .Select(u => new
+            {
+                u.Id, u.Username, u.Person, u.DeactivatedAt, u.LeftAt,
+                Classes = db.SchoolClasses.Count(c => c.ClassTeacherId == u.Id),
+                Lessons = db.TimetableEntries.Count(t => t.TeacherId == u.Id),
+            })
             .ToListAsync();
 
         return Ok(new RetentionOverviewDto(
@@ -95,10 +103,14 @@ public class RetentionController(
             staff
                 .Select(u =>
                 {
-                    var erasesOn = policy.StaffDueOn(DateOnly.FromDateTime(u.DeactivatedAt!.Value.UtcDateTime));
-                    return new FormerStaffDto(u.Id, PersonNames.Display(u.Person, u.Username), u.DeactivatedAt.Value, erasesOn, erasesOn <= today);
+                    var erasesOn = u.DeactivatedAt is { } deactivated
+                        ? policy.StaffDueOn(DateOnly.FromDateTime(deactivated.UtcDateTime))
+                        : (DateOnly?)null;
+                    return new FormerStaffDto(
+                        u.Id, PersonNames.Display(u.Person, u.Username), u.DeactivatedAt, u.LeftAt, erasesOn,
+                        erasesOn <= today, u.Classes, u.Lessons);
                 })
-                .OrderBy(s => s.ErasesOn)
+                .OrderBy(s => s.DeactivatedAt is null ? 0 : 1).ThenBy(s => s.LeftAt).ThenBy(s => s.ErasesOn)
                 .ToList()));
     }
 
@@ -246,6 +258,110 @@ public class RetentionController(
         return NoContent();
     }
 
+    /// <summary>Ukončení pracovního poměru: what the dialog needs — the
+    /// departure so far, třídnictví and subjects to hand over, colleagues to
+    /// hand them to, the school's default notice.</summary>
+    [HttpGet("staff/{userId:int}/leave")]
+    public async Task<ActionResult<StaffLeavePreviewDto>> GetStaffLeave(int userId)
+    {
+        var user = await ActiveStaffAsync(userId);
+        return user is null ? NotFound() : Ok(await staffLeaving.PreviewAsync(user));
+    }
+
+    /// <summary>Lessons the chosen substitutes would get at a time they already teach.</summary>
+    [HttpPost("staff/{userId:int}/leave/conflicts")]
+    public async Task<ActionResult<IReadOnlyList<HandoverConflictDto>>> GetHandoverConflicts(int userId, HandoverCheckRequest request)
+    {
+        var user = await ActiveStaffAsync(userId);
+        return user is null ? NotFound() : Ok(await staffLeaving.ConflictsAsync(user.Id, request.Substitutes));
+    }
+
+    /// <summary>Records (or changes) a member of staff's departure and its
+    /// handover; a new departure or a new last day goes to
+    /// <see cref="StaffLeaveRequest.Notices"/>.</summary>
+    [HttpPut("staff/{userId:int}/leave")]
+    public async Task<ActionResult<StaffLeavePreviewDto>> SetStaffLeave(int userId, StaffLeaveRequest request)
+    {
+        var user = await ActiveStaffAsync(userId);
+        if (user is null)
+        {
+            return NotFound();
+        }
+        if (userId == CurrentUserId())
+        {
+            return BadRequest("Vlastní odchod zadá jiný admin.");
+        }
+        if (request.LastDay < Today)
+        {
+            return this.FieldError("lastDay", "Poslední den nemůže být v minulosti — účet hned zrušíte deaktivací.");
+        }
+        if (request.Reason is { } reason && !Enum.IsDefined(reason))
+        {
+            return this.FieldError("reason", "Neznámý důvod.");
+        }
+        if ((request.Notices ?? []).Any(n => !Enum.IsDefined(n)))
+        {
+            return BadRequest("Neznámý okruh oznámení.");
+        }
+        if (user.HasBuiltIn(UserRole.Admin)
+            && !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Any(r => r.BuiltIn == UserRole.Admin) && u.DeactivatedAt == null && u.LeftAt == null))
+        {
+            return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
+        }
+        var successorIds = (request.ClassTeachers ?? []).Select(c => c.SuccessorId)
+            .Concat((request.Substitutes ?? []).Select(s => s.SubstituteId))
+            .Distinct().ToList();
+        var activeStaff = await db.Users
+            .Where(u => successorIds.Contains(u.Id) && u.Id != userId && u.DeactivatedAt == null && u.ErasedAt == null
+                && u.Roles.Any(r => r.Kind == RoleKind.Staff))
+            .CountAsync();
+        if (activeStaff != successorIds.Count)
+        {
+            return BadRequest("Předat jde jen jinému aktivnímu zaměstnanci.");
+        }
+        var classIds = (request.ClassTeachers ?? []).Select(c => c.ClassId).ToList();
+        if (classIds.Distinct().Count() != classIds.Count
+            || await db.SchoolClasses.CountAsync(c => classIds.Contains(c.Id) && c.ClassTeacherId == userId) != classIds.Count)
+        {
+            return BadRequest("Předat jde jen třídnictví, které zaměstnanec má.");
+        }
+        var subjectIds = (request.Substitutes ?? []).Select(s => s.SubjectId).ToList();
+        if (subjectIds.Distinct().Count() != subjectIds.Count
+            || await db.TimetableEntries.Where(t => t.TeacherId == userId && subjectIds.Contains(t.SubjectId))
+                .Select(t => t.SubjectId).Distinct().CountAsync() != subjectIds.Count)
+        {
+            return BadRequest("Předat jde jen hodiny, které zaměstnanec učí.");
+        }
+
+        var sent = await staffLeaving.SetAsync(user, request, CurrentUserId());
+        await db.SaveChangesAsync();
+        await notifications.MessagesAsync(sent);
+        await db.SaveChangesAsync();
+        return Ok(await staffLeaving.PreviewAsync(user));
+    }
+
+    /// <summary>Takes a departure back while the account still works.</summary>
+    [HttpDelete("staff/{userId:int}/leave")]
+    public async Task<IActionResult> CancelStaffLeave(int userId, [FromBody] CancelStaffLeaveRequest? request = null)
+    {
+        var user = await ActiveStaffAsync(userId);
+        if (user?.LeftAt is null)
+        {
+            return NotFound();
+        }
+        var sent = await staffLeaving.CancelAsync(user, request?.Notices ?? [], CurrentUserId());
+        await db.SaveChangesAsync();
+        await notifications.MessagesAsync(sent);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>Teacher or admin of the school whose account still works.</summary>
+    private Task<User?> ActiveStaffAsync(int userId) =>
+        db.Users.Include(u => u.Person).Include(u => u.Roles).FirstOrDefaultAsync(u =>
+            u.Id == userId && u.DeactivatedAt == null && u.ErasedAt == null
+            && u.Roles.Any(r => r.Kind == RoleKind.Staff));
+
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     private async Task<FormerStudentDto> DtoOfAsync(StudentProfile student)
@@ -286,11 +402,13 @@ public record RetentionPolicyDto(
     int GradesYears,
     int PaymentsYears,
     int ProfileYears,
-    int StaffYears)
+    int StaffYears,
+    IReadOnlyList<StaffLeaveNoticeGroup>? StaffLeaveNotices = null)
 {
     public static RetentionPolicyDto From(RetentionPolicy p) => new(
         p.Mode, p.AccountGraceDays, p.PhotosYears, p.ContactsYears, p.MessagesYears, p.HomeworkYears,
-        p.BehaviorYears, p.AttendanceYears, p.GradesYears, p.PaymentsYears, p.ProfileYears, p.StaffYears);
+        p.BehaviorYears, p.AttendanceYears, p.GradesYears, p.PaymentsYears, p.ProfileYears, p.StaffYears,
+        p.StaffLeaveNotices);
 
     /// <summary>Every "years" field with its JSON name.</summary>
     public IEnumerable<(string Field, int Years)> Years() =>
@@ -315,6 +433,10 @@ public record RetentionPolicyDto(
         p.PaymentsYears = PaymentsYears;
         p.ProfileYears = ProfileYears;
         p.StaffYears = StaffYears;
+        if (StaffLeaveNotices is not null)
+        {
+            p.StaffLeaveNotices = StaffLeaveNotices.Where(Enum.IsDefined).Distinct().Order().ToList();
+        }
     }
 }
 
@@ -357,6 +479,13 @@ public record FormerStudentDto(
     IReadOnlyList<RetentionCategory> Due,
     IReadOnlyList<ScheduledErasureDto> Pending);
 
-public record FormerStaffDto(int UserId, string Name, DateTimeOffset DeactivatedAt, DateOnly ErasesOn, bool Due);
+/// <param name="DeactivatedAt">Null = the departure is announced, the account still works.</param>
+/// <param name="LeftAt">The last day, when recorded (Ukončení pracovního poměru).</param>
+/// <param name="ErasesOn">Set once deactivated.</param>
+/// <param name="ClassesLed">Třídnictví still theirs — not handed over.</param>
+/// <param name="Lessons">Their lessons in the timetable, not handed over.</param>
+public record FormerStaffDto(
+    int UserId, string Name, DateTimeOffset? DeactivatedAt, DateOnly? LeftAt, DateOnly? ErasesOn, bool Due,
+    int ClassesLed, int Lessons);
 
 public record RetentionOverviewDto(IReadOnlyList<FormerStudentDto> Students, IReadOnlyList<FormerStaffDto> Staff);

@@ -28,6 +28,8 @@ export interface AppUser {
   /** Whose account it is (Administrace → Osoby); name and contacts are
    * that person's. */
   personId: number | null;
+  /** Staff: the last day at the school, recorded ahead (`YYYY-MM-DD`). */
+  leftAt?: string | null;
 }
 
 export type InviteOutcome = 'Sent' | 'NotConfigured' | 'Failed';

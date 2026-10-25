@@ -274,6 +274,15 @@ namespace Soovioo.Api.Migrations
                     b.Property<bool>("IsSuperAdmin")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("LeaveNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LeaveReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("LeftAt")
+                        .HasColumnType("date");
+
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
 
@@ -1878,12 +1887,47 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("ProfileYears")
                         .HasColumnType("integer");
 
+                    b.PrimitiveCollection<string[]>("StaffLeaveNotices")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<int>("StaffYears")
                         .HasColumnType("integer");
 
                     b.HasKey("SchoolId");
 
                     b.ToTable("RetentionPolicies");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Retention.StaffHandover", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SuccessorId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("StaffHandovers");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
@@ -2879,6 +2923,17 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("School");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Retention.StaffHandover", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
