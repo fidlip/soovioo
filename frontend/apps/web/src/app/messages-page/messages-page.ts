@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   WritableSignal,
@@ -25,6 +24,7 @@ import {
   Contact,
   Conversation,
   ConversationSummary,
+  DateFormatPipe,
   Message,
   MessageAttachment,
   MessagesApiService,
@@ -103,7 +103,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
     Checkbox,
     TermPipe,
     AppIcon,
-    DatePipe,
+    DateFormatPipe,
     FormsModule,
     Button,
     Dialog,

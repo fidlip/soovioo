@@ -1,10 +1,13 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Tag } from '@openng/optimus-ui/tag';
-import { PhotosApiService, StudentPhotoState } from '@soovioo/shared';
+import {
+  DateFormatPipe,
+  PhotosApiService,
+  StudentPhotoState,
+} from '@soovioo/shared';
 import { Observable } from 'rxjs';
 import { NotifyService } from '../notify.service';
 import { PhotoEditor } from '../photo-editor/photo-editor';
@@ -16,7 +19,7 @@ import { TermPipe } from '../term.pipe';
 @Component({
   selector: 'app-student-photo',
   imports: [
-    DatePipe,
+    DateFormatPipe,
     FormsModule,
     Button,
     InputText,

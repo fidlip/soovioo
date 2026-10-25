@@ -1,6 +1,7 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Menu } from '@openng/optimus-ui/menu';
+import { formatDate } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
 import { DemoActionsService } from './demo-actions.service';
 import { DemoFeedbackService } from './demo-feedback.service';
@@ -56,8 +57,11 @@ export class DemoBar {
     if (!expires) {
       return 'data se po čase smažou';
     }
-    const days = Math.max(0, Math.ceil((new Date(expires).getTime() - Date.now()) / DAY_MS));
-    const date = new Date(expires).toLocaleDateString('cs-CZ');
+    const days = Math.max(
+      0,
+      Math.ceil((new Date(expires).getTime() - Date.now()) / DAY_MS),
+    );
+    const date = formatDate(expires, 'date');
     if (days <= 1) {
       return `data budou smazána zítra (${date})`;
     }

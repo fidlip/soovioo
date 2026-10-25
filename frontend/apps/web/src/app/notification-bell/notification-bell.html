@@ -44,7 +44,7 @@
             >
             }
             <span class="text-xs text-surface-500"
-              >{{ n.createdAt | date: 'd. M. y H:mm' }}</span
+              >{{ n.createdAt | dateFormat: 'dateTime' }}</span
             >
           </span>
           @if (!n.read) {

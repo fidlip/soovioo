@@ -29,7 +29,7 @@
               [severity]="recordTypeSeverity(record.type)"
             />
             <span class="text-sm text-surface-500"
-              >{{ formatDate(record.date) }}</span
+              >{{ record.date | dateFormat: 'date' }}</span
             >
             @if (!record.readAt) {
             <p-tag value="Nové" severity="info" />

@@ -103,7 +103,7 @@
   <ng-template #rowCells let-grade>
     @if (!isStaff()) {
     <td class="whitespace-nowrap px-4 py-2 align-middle">
-      {{ formatDate(grade.gradedOn) }}
+      {{ grade.gradedOn | dateFormat: 'date' }}
     </td>
     }
     <td class="px-4 py-2 align-middle">
@@ -147,7 +147,7 @@
     <div class="flex items-center gap-3 text-sm">
       @if (!isStaff()) {
       <span class="whitespace-nowrap text-surface-500"
-        >{{ formatDate(grade.gradedOn) }}</span
+        >{{ grade.gradedOn | dateFormat: 'date' }}</span
       >
       }
       <span class="min-w-0 flex-1 truncate">{{ grade.subjectName }}</span>
@@ -190,8 +190,11 @@
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
-  <form class="flex flex-col gap-3" #gradeForm="ngForm"
-    (ngSubmit)="saveGrade()">
+  <form
+    class="flex flex-col gap-3"
+    #gradeForm="ngForm"
+    (ngSubmit)="saveGrade()"
+  >
     <div class="flex flex-col gap-1.5">
       <label
         for="gradeStudent"

@@ -8,6 +8,7 @@ import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
+  DateFormatPipe,
   ErasureMode,
   FormerStaff,
   FormerStudent,
@@ -15,6 +16,7 @@ import {
   RetentionCategory,
   RetentionOverview,
   RetentionPolicy,
+  formatDate,
 } from '@soovioo/shared';
 import { FORM_FIELDS } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
@@ -25,7 +27,6 @@ import {
   LEAVE_REASON_LABELS,
   RETENTION_CATEGORY_LABELS,
   RETENTION_YEAR_FIELDS,
-  formatDateOnly,
 } from './retention-labels';
 
 /** Administrace → Archiv a výmaz údajů: pupils leaving or gone, staff who left, and
@@ -33,6 +34,7 @@ import {
 @Component({
   selector: 'app-departures',
   imports: [
+    DateFormatPipe,
     FormsModule,
     PrimeTemplate,
     Button,
@@ -68,7 +70,6 @@ export class Departures {
   protected readonly yearFields = RETENTION_YEAR_FIELDS;
   protected readonly categoryLabels = RETENTION_CATEGORY_LABELS;
   protected readonly reasonLabels = LEAVE_REASON_LABELS;
-  protected readonly formatDate = formatDateOnly;
   protected readonly modes: { label: string; value: ErasureMode }[] = [
     { label: 'Výmaz potvrzuje administrátor', value: 'Confirm' },
     { label: 'Automaticky každý den', value: 'Automatic' },
@@ -107,7 +108,7 @@ export class Departures {
   protected next(student: FormerStudent): string {
     const next = student.pending.find((p) => !student.due.includes(p.category));
     return next
-      ? `${this.categoryLabels[next.category]} ${formatDateOnly(next.on)}`
+      ? `${this.categoryLabels[next.category]} ${formatDate(next.on, 'date')}`
       : '—';
   }
 

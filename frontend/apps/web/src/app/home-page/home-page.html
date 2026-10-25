@@ -79,7 +79,10 @@
       @for (absence of d.pendingAbsences; track absence.id) {
       <li class="flex flex-col gap-1 text-sm">
         <div class="flex items-center justify-between gap-2">
-          <span>{{ absence.studentName }} — {{ absence.date }}</span>
+          <span
+            >{{ absence.studentName }} — {{ absence.date | dateFormat: 'date'
+            }}</span
+          >
           <p-tag
             [value]="absenceStatusLabel(absence.status)"
             [severity]="absenceStatusSeverity(absence.status)"

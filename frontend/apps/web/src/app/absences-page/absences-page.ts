@@ -10,9 +10,10 @@ import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   Absence,
-  AbsencesApiService,
   AbsenceStatus,
+  AbsencesApiService,
   AuthApiService,
+  DateFormatPipe,
   DayOfWeek,
   SchoolPeriod,
   SchoolPeriodsApiService,
@@ -77,6 +78,7 @@ export function formatPeriods(periods: number[]): string {
 @Component({
   selector: 'app-absences-page',
   imports: [
+    DateFormatPipe,
     ...FORM_FIELDS,
     TermPipe,
     AppIcon,
@@ -134,7 +136,9 @@ export class AbsencesPage {
   protected readonly newPeriods = signal<number[]>([]);
   protected readonly schoolPeriods = signal<SchoolPeriod[]>([]);
   /** Timetable of the dialog's student's class, cached per class id. */
-  private readonly classTimetables = signal<Record<number, TimetableEntry[]>>({});
+  private readonly classTimetables = signal<Record<number, TimetableEntry[]>>(
+    {},
+  );
   private readonly dialogStudentId = signal<number | null>(null);
   private readonly dialogDate = signal(new Date());
 
@@ -142,7 +146,9 @@ export class AbsencesPage {
    * student's class has then (by timetable, incl. odd/even weeks) — the
    * chips to pick missed periods from. */
   protected readonly dayPeriods = computed(() => {
-    const student = this.students().find((s) => s.id === this.dialogStudentId());
+    const student = this.students().find(
+      (s) => s.id === this.dialogStudentId(),
+    );
     const date = this.dialogDate();
     const entries = student
       ? (this.classTimetables()[student.schoolClassId] ?? [])

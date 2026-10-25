@@ -16,6 +16,7 @@ import {
   BehaviorClassificationValue,
   BehaviorRecord,
   BehaviorRecordType,
+  DateFormatPipe,
   SchoolClass,
   SchoolClassesApiService,
   SchoolHalfYear,
@@ -71,6 +72,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
 @Component({
   selector: 'app-behavior-page',
   imports: [
+    DateFormatPipe,
     ...FORM_FIELDS,
     TermPipe,
     AppIcon,
@@ -310,7 +312,8 @@ export class BehaviorPage {
   protected deleteRecord(record: BehaviorRecord): void {
     this.behaviorApi.deleteBehaviorRecord(record.id).subscribe({
       next: () => this.reload(),
-      error: (err) => this.notify.actionFailed('deleteBehaviorRecord failed', err),
+      error: (err) =>
+        this.notify.actionFailed('deleteBehaviorRecord failed', err),
     });
   }
 
@@ -366,13 +369,6 @@ export class BehaviorPage {
           );
         },
       });
-  }
-
-  /** "YYYY-MM-DD" (DateOnly on the backend) → "DD.MM.YYYY" — string-only,
-   * same reasoning as homework-page.ts's formatDueDate. */
-  protected formatDate(date: string): string {
-    const [year, month, day] = date.split('-');
-    return `${day}.${month}.${year}`;
   }
 
   private defaultSchoolYearStartYear(): number {

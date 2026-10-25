@@ -58,8 +58,8 @@
         <td class="text-surface-500">{{ school.studentCount }}</td>
         <td class="text-surface-500">{{ school.userCount }}</td>
         <td class="text-surface-500">
-          {{ school.createdAt | date: 'd.M.yyyy' }} @if (school.expiresAt) { /
-          {{ school.expiresAt | date: 'd.M.yyyy' }} }
+          {{ school.createdAt | dateFormat: 'date' }} @if (school.expiresAt) { /
+          {{ school.expiresAt | dateFormat: 'date' }} }
         </td>
         <td>
           <div class="flex justify-end gap-1">

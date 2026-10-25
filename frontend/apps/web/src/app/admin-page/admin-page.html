@@ -81,7 +81,7 @@
               />{{ student.firstName }} {{ student.lastName }} @if
               (student.leftAt) {
               <p-tag
-                [value]="'Končí k ' + formatDate(student.leftAt)"
+                [value]="'Končí k ' + (student.leftAt | dateFormat: 'date')"
                 severity="info"
               />
               }

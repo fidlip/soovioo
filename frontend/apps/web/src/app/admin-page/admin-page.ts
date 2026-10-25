@@ -34,30 +34,31 @@ import {
   Classroom,
   ClassroomType,
   ClassroomsApiService,
-  formatIban,
   Country,
   CreateUserRequest,
+  DateFormatPipe,
   Gender,
   MatrikaApiService,
   Municipality,
   MySchoolApiService,
-  PhotosApiService,
   Parent as ParentUser,
-  ParentsApiService,
   ParentStudentLink,
   ParentStudentsApiService,
+  ParentsApiService,
+  PhotosApiService,
+  ROLE_LABELS,
   ReferenceApiService,
   SchoolClass,
   SchoolClassesApiService,
+  SchoolType,
   Student,
   StudentsApiService,
   Subject,
   SubjectsApiService,
   UpdateUserRequest,
   UsersApiService,
+  formatIban,
   localizeStudentTerm,
-  ROLE_LABELS,
-  SchoolType,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -117,7 +118,6 @@ import { SchoolNotifications } from '../school-notifications/school-notification
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
 import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
-import { formatDateOnly } from '../departures/retention-labels';
 import { Avatar } from '../avatar/avatar';
 import {
   StudentPhotoDialog,
@@ -127,6 +127,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    DateFormatPipe,
     PeriodsEditor,
     SchoolNotifications,
     VisibilitySettings,
@@ -1000,7 +1001,6 @@ export class AdminPage {
 
   /** The pupil whose departure is being recorded (Ukončení vzdělávání). */
   protected readonly leaveStudent = signal<LeaveTarget | null>(null);
-  protected readonly formatDate = formatDateOnly;
 
   protected openLeave(student: Student): void {
     this.leaveStudent.set({

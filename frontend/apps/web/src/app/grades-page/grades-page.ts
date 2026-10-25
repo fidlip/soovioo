@@ -9,6 +9,7 @@ import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
+  DateFormatPipe,
   Grade,
   GradesApiService,
   ReportCardApiService,
@@ -16,6 +17,7 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  formatDate,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
@@ -39,14 +41,10 @@ function toDateOnlyString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatDate(value: string): string {
-  return parseDateOnly(value).toLocaleDateString('cs-CZ');
-}
-
 const DATE_GROUP: GroupLevel<Grade> = {
   label: 'Datum',
   key: (g) => g.gradedOn,
-  text: (g) => formatDate(g.gradedOn),
+  text: (g) => formatDate(g.gradedOn, 'date'),
 };
 
 const STUDENT_GROUP: GroupLevel<Grade> = {
@@ -58,6 +56,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
 @Component({
   selector: 'app-grades-page',
   imports: [
+    DateFormatPipe,
     ...FORM_FIELDS,
     TermPipe,
     AppIcon,
@@ -138,7 +137,6 @@ export class GradesPage {
   };
 
   protected readonly gradeId = (grade: Grade) => grade.id;
-  protected readonly formatDate = formatDate;
 
   protected readonly gradeDialogVisible = signal(false);
   /** null = add mode, otherwise the grade being edited — same "new… fields

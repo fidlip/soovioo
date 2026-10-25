@@ -199,7 +199,7 @@
 
       <ng-template #rowCells let-entry>
         <td class="whitespace-nowrap px-4 py-2 align-middle text-surface-500">
-          {{ entry.at | date: 'H:mm:ss' }}
+          {{ entry.at | dateFormat: 'timeWithSeconds' }}
         </td>
         @if (isSuperAdmin) {
         <td class="px-4 py-2 align-middle text-surface-500">
@@ -226,7 +226,7 @@
       <ng-template #mobileRow let-entry>
         <div class="flex items-start gap-2 text-sm">
           <span class="whitespace-nowrap text-surface-500"
-            >{{ entry.at | date: 'H:mm:ss' }}</span
+            >{{ entry.at | dateFormat: 'timeWithSeconds' }}</span
           >
           <span class="min-w-0 flex-1">
             <ng-container
@@ -324,9 +324,9 @@
     <summary class="flex cursor-pointer flex-wrap items-center gap-2 text-sm">
       <strong>{{ session.schoolName }}</strong>
       <span class="text-surface-500"
-        >{{ session.superAdminUsername }} · {{ session.startedAt | date:
-        'd.M.yyyy H:mm' }} @if (session.endedAt) { – {{ session.endedAt | date:
-        'H:mm' }} }</span
+        >{{ session.superAdminUsername }} · {{ session.startedAt | dateFormat:
+        'dateTime' }} @if (session.endedAt) { – {{ session.endedAt | dateFormat:
+        'time' }} }</span
       >
       <p-tag
         [value]="changesLabel(session.actions.length)"
@@ -339,8 +339,8 @@
     >
       @for (action of session.actions; track $index) {
       <li>
-        {{ action.at | date: 'H:mm:ss' }} @if (action.description) { {{
-        action.description }} } @else {
+        {{ action.at | dateFormat: 'timeWithSeconds' }} @if (action.description)
+        { {{ action.description }} } @else {
         <span class="font-mono">{{ action.method }} {{ action.path }}</span>
         } → {{ action.statusCode }}
       </li>

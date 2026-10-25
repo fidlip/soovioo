@@ -13,6 +13,7 @@ import { Textarea } from '@openng/optimus-ui/textarea';
 import {
   AuthApiService,
   CreateHomeworkRequest,
+  DateFormatPipe,
   Homework,
   HomeworkApiService,
   HomeworkAttachment,
@@ -55,6 +56,7 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
 @Component({
   selector: 'app-homework-page',
   imports: [
+    DateFormatPipe,
     ...FORM_FIELDS,
     FilePicker,
     Checkbox,
@@ -399,14 +401,6 @@ export class HomeworkPage {
       return `${Math.round(bytes / 1024)} KB`;
     }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  /** "YYYY-MM-DD" (DateOnly on the backend) → "DD.MM.YYYY" — string-only,
-   * deliberately not routed through `new Date(...)` so no timezone
-   * conversion can ever shift the date by a day. */
-  protected formatDueDate(dueDate: string): string {
-    const [year, month, day] = dueDate.split('-');
-    return `${day}.${month}.${year}`;
   }
 
   /** Local (not UTC) y-m-d — see absences-page.ts's identical helper for

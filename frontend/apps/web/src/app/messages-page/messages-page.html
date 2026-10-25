@@ -42,7 +42,7 @@
               >{{ c.subject }}</span
             >
             <span class="shrink-0 text-xs text-surface-500"
-              >{{ c.lastMessageAt | date: 'd. M. H:mm' }}</span
+              >{{ c.lastMessageAt | dateFormat: 'dayMonthTime' }}</span
             >
           </div>
           @if (c.broadcastId) {
@@ -137,8 +137,8 @@
               />}{{ message.senderName }}</span
             >
             <span class="flex items-center gap-1"
-              >{{ message.sentAt | date: 'd. M. y H:mm' }} @if (isMine(message))
-              {
+              >{{ message.sentAt | dateFormat: 'dateTime' }} @if
+              (isMine(message)) {
               <p-button
                 icon="pi pi-trash"
                 size="small"
@@ -227,7 +227,7 @@
           </h2>
           <div class="text-sm text-surface-500">
             Hromadná zpráva · {{ broadcast.audienceLabel }} · {{
-            broadcast.createdAt | date: 'd. M. y H:mm' }}
+            broadcast.createdAt | dateFormat: 'dateTime' }}
           </div>
         </div>
       </div>
@@ -297,8 +297,8 @@
               ></span>
               } @if (item.replyCount > 0) { {{ item.replyCount }} {{
               item.replyCount === 1 ? 'odpověď' : item.replyCount < 5 ?
-              'odpovědi' : 'odpovědí' }} · {{ item.lastMessageAt | date: 'd. M.
-              H:mm' }} } @else { bez odpovědi }
+              'odpovědi' : 'odpovědí' }} · {{ item.lastMessageAt | dateFormat:
+              'dayMonthTime' }} } @else { bez odpovědi }
             </span>
           </button>
         </li>

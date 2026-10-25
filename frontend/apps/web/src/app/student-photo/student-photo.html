@@ -8,8 +8,8 @@
   <div class="text-sm text-surface-700 dark:text-surface-200">
     @if (s.consentAt) {
     <i class="pi pi-check-circle mr-1 text-green-600" aria-hidden="true"></i>
-    Souhlas s fotkou dal(a) {{ s.consentGivenBy }}, {{ s.consentAt | date: 'd.
-    M. yyyy' }}. } @else {
+    Souhlas s fotkou dal(a) {{ s.consentGivenBy }}, {{ s.consentAt | dateFormat:
+    'date' }}. } @else {
     <i class="pi pi-info-circle mr-1" aria-hidden="true"></i>
     {{ 'Bez souhlasu zákonného zástupce nemůže mít žák fotku.' | term }} }
   </div>

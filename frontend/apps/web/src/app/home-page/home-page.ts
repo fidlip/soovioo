@@ -13,6 +13,8 @@ import {
   BehaviorRecordType,
   Dashboard,
   DashboardApiService,
+  DateFormatPipe,
+  formatDate,
 } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
 import { AppIcon, AppIconName } from '../app-icon';
@@ -87,6 +89,7 @@ interface Widget {
 @Component({
   selector: 'app-home-page',
   imports: [
+    DateFormatPipe,
     TermPipe,
     AppIcon,
     Button,
@@ -238,27 +241,20 @@ export class HomePage {
     endAt: string,
     allDay: boolean,
   ): string {
-    const start = new Date(startAt);
-    const end = new Date(endAt);
-    const sameDay = start.toDateString() === end.toDateString();
-    const startDate = start.toLocaleDateString('cs-CZ');
+    const startDate = formatDate(startAt, 'date');
+    const endDate = formatDate(endAt, 'date');
+    const sameDay = startDate === endDate;
 
     if (allDay) {
-      return sameDay
-        ? startDate
-        : `${startDate}–${end.toLocaleDateString('cs-CZ')}`;
+      return sameDay ? startDate : `${startDate}–${endDate}`;
     }
 
-    const timeOptions: Intl.DateTimeFormatOptions = {
-      hour: '2-digit',
-      minute: '2-digit',
-    };
-    const startTime = start.toLocaleTimeString('cs-CZ', timeOptions);
-    const endTime = end.toLocaleTimeString('cs-CZ', timeOptions);
+    const startTime = formatDate(startAt, 'time');
+    const endTime = formatDate(endAt, 'time');
     if (sameDay) {
       return `${startDate} ${startTime}–${endTime}`;
     }
-    return `${startDate} ${startTime} – ${end.toLocaleDateString('cs-CZ')} ${endTime}`;
+    return `${startDate} ${startTime} – ${endDate} ${endTime}`;
   }
 
   protected recordTypeLabel(type: BehaviorRecordType): string {

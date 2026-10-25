@@ -17,13 +17,14 @@ async function login(
 /** A random past date, so this run's absence is the only row with it — even
  * against a local database where earlier runs (or other spec files running
  * in parallel) left absences behind. */
-function randomPastDate(): { iso: string; typed: string } {
+function randomPastDate(): { shown: RegExp; typed: string } {
   const year = 2001 + Math.floor(Math.random() * 20);
   const month = 1 + Math.floor(Math.random() * 12);
   const day = 1 + Math.floor(Math.random() * 28);
   const pad = (n: number) => `${n}`.padStart(2, '0');
   return {
-    iso: `${year}-${pad(month)}-${pad(day)}`,
+    // "1. 2. 2003", but not inside "21. 2. 2003".
+    shown: new RegExp(`(^|\\D)${day}\\. ${month}\\. ${year}`),
     typed: `${pad(day)}.${pad(month)}.${year}`,
   };
 }
@@ -34,7 +35,7 @@ function randomPastDate(): { iso: string; typed: string } {
 test.describe.serial('absence excuse workflow', () => {
   const date = randomPastDate();
   const row = (page: import('@playwright/test').Page) =>
-    page.locator('table tbody tr').filter({ hasText: date.iso });
+    page.locator('table tbody tr').filter({ hasText: date.shown });
 
   test('teacher records an absence', async ({ page }) => {
     await login(page, 'ucitel', 'ucitel123');
