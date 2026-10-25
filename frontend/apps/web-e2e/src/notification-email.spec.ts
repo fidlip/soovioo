@@ -103,8 +103,15 @@ test('push: the school allows the whole text, the parent agrees and sets own nig
     await expect(parent.locator('#pushQuietFrom')).toContainText('22:30');
 
     const fullText = parent.getByRole('switch', { name: /celý text/ });
+    // Saves go one after another — wait for the last one before reloading.
+    const saved = parent.waitForResponse(
+      (r) =>
+        r.url().endsWith('/notifications/push-settings') &&
+        r.request().postDataJSON().fullText === true,
+    );
     await fullText.click();
     await expect(fullText).toBeChecked();
+    await saved;
 
     await parent.reload();
     await expect(push).not.toBeChecked();
