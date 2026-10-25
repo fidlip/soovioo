@@ -20,11 +20,13 @@ test('school admin sees their own login in Logy, password masked', async ({
   await expect(page).toHaveURL(/\/skola\/logs$/);
 
   // The login just made (other tests log in in parallel, so not
-  // necessarily the very first row).
+  // necessarily the very first row). "Přihlášení" is also the agenda of
+  // their logouts.
   const row = page
     .locator('tbody tr')
     .filter({ hasText: 'Alena Správcová' })
     .filter({ hasText: 'Přihlášení' })
+    .filter({ hasNotText: 'Odhlášení' })
     .first();
   await expect(row).toBeVisible();
   // SuperAdmin-only column.
