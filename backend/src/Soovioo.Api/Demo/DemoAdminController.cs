@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Demo;
@@ -24,7 +25,7 @@ public class DemoAdminController(AppDbContext db) : ControllerBase
         var csv = new StringBuilder("E-mail;Souhlas s kontaktem;Zdroj;Demo;Demo stále existuje;Vytvořeno\r\n");
         foreach (var c in await Contacts().ToListAsync())
         {
-            csv.Append($"{Cell(c.Email)};{(c.Consent ? "ano" : "ne")};{SourceLabel(c.Source)};{c.DemoSlug};{(c.DemoExists ? "ano" : "ne")};{c.CreatedAt:yyyy-MM-dd HH:mm}\r\n");
+            csv.Append($"{Cell(c.Email)};{(c.Consent ? "ano" : "ne")};{SourceLabel(c.Source)};{c.DemoSlug};{(c.DemoExists ? "ano" : "ne")};{SchoolClock.Local(c.CreatedAt):yyyy-MM-dd HH:mm}\r\n");
         }
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
         return File(bytes, "text/csv; charset=utf-8", "soovioo-demo-kontakty.csv");
