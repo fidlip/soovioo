@@ -1,12 +1,19 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
-import { Absence, AbsencesApiService, AuthApiService, Student, StudentsApiService } from '@soovioo/shared';
+import {
+  Absence,
+  AbsencesApiService,
+  AuthApiService,
+  DateFormatPipe,
+  Student,
+  StudentsApiService,
+} from '@soovioo/shared';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
   selector: 'ns-absences',
   templateUrl: './absences.component.html',
-  imports: [NativeScriptCommonModule, NavBarComponent],
+  imports: [NativeScriptCommonModule, NavBarComponent, DateFormatPipe],
   schemas: [NO_ERRORS_SCHEMA],
 })
 export class AbsencesComponent {
@@ -43,7 +50,10 @@ export class AbsencesComponent {
       return;
     }
     this.absencesApi
-      .addAbsence({ studentId: student.id, date: new Date().toISOString().slice(0, 10) })
+      .addAbsence({
+        studentId: student.id,
+        date: new Date().toISOString().slice(0, 10),
+      })
       .subscribe({
         next: () => this.reload(),
         error: (err) => console.error('addAbsence failed', err),

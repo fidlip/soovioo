@@ -24,7 +24,10 @@
           textWrap="true"
           class="text-sm"
         ></Label>
-        <Label [text]="when(item)" class="text-sm"></Label>
+        <Label
+          [text]="item.createdAt | dateFormat: 'dateTime'"
+          class="text-sm"
+        ></Label>
       </StackLayout>
     </ng-template>
   </ListView>

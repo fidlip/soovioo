@@ -3,7 +3,11 @@ import {
   NativeScriptCommonModule,
   RouterExtensions,
 } from '@nativescript/angular';
-import { AppNotification, NotificationsApiService } from '@soovioo/shared';
+import {
+  AppNotification,
+  DateFormatPipe,
+  NotificationsApiService,
+} from '@soovioo/shared';
 import { MOBILE_PAGES } from '../../push.service';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
@@ -12,7 +16,7 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
 @Component({
   selector: 'ns-notifications',
   templateUrl: './notifications.component.html',
-  imports: [NativeScriptCommonModule, NavBarComponent],
+  imports: [NativeScriptCommonModule, NavBarComponent, DateFormatPipe],
   schemas: [NO_ERRORS_SCHEMA],
 })
 export class NotificationsComponent {
@@ -70,11 +74,5 @@ export class NotificationsComponent {
         this.items.update((items) => items.map((n) => ({ ...n, read: true }))),
       error: (err) => console.error('markAllRead failed', err),
     });
-  }
-
-  protected when(notification: AppNotification): string {
-    const d = new Date(notification.createdAt);
-    const minutes = `${d.getMinutes()}`.padStart(2, '0');
-    return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()} ${d.getHours()}:${minutes}`;
   }
 }
