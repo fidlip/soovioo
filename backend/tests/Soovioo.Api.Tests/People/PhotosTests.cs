@@ -30,7 +30,7 @@ public class PhotosTests
 
     private PhotosController Controller(AppDbContext db, User user) =>
         new(db, new FakeCurrentSchoolContext(SchoolId), new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)),
-            Photos, emails, Options.Create(new AppLinkOptions()), new Notifier(db, TimeProvider.System),
+            Photos, emails, Options.Create(new AppLinkOptions { MainDomain = "soovioo.cloud" }), new Notifier(db, TimeProvider.System),
             NullLogger<PhotosController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -234,7 +234,10 @@ public class PhotosTests
 
         var state = Assert.IsType<StudentPhotoStateDto>(Assert.IsType<OkObjectResult>(upload.Result).Value);
         Assert.Equal("Pending", state.Status);
-        Assert.Equal("petr@example.com", Assert.Single(emails.Sent).To);
+        var email = Assert.Single(emails.Sent);
+        Assert.Equal("petr@example.com", email.To);
+        Assert.Contains("v sekci Mé děti", email.HtmlBody);
+        Assert.Contains("https://skola.soovioo.cloud/my-children", email.HtmlBody);
         // Pending: the pupil and approvers only.
         Assert.IsType<PhysicalFileResult>(await Controller(db, fx.Pupil).GetStudentPhoto(fx.Child.Id, PhotoSize.Thumb));
         Assert.IsType<PhysicalFileResult>(await Controller(db, fx.ClassTeacher).GetStudentPhoto(fx.Child.Id, PhotoSize.Thumb));
