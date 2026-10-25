@@ -12,8 +12,11 @@ import {
   MyProfileApiService,
   NOTIFICATION_TYPE_LABELS,
   NotificationType,
+  NotificationSettings,
   NotificationTypeSetting,
   NotificationsApiService,
+  PushSettingsRequest,
+  digestTimeLabel,
   PhotosApiService,
   StudentPhotoState,
 } from '@soovioo/shared';
@@ -57,6 +60,10 @@ export class SettingsComponent {
 
   protected readonly notificationTypes = signal<NotificationTypeSetting[]>([]);
   protected readonly notificationLabels = NOTIFICATION_TYPE_LABELS;
+  protected readonly notificationSettings = signal<NotificationSettings | null>(
+    null,
+  );
+  protected readonly time = digestTimeLabel;
 
   constructor() {
     this.profileApi.getProfile().subscribe({
@@ -73,7 +80,7 @@ export class SettingsComponent {
       error: (err) => console.error('getProfile failed', err),
     });
     this.notificationsApi.getSettings().subscribe({
-      next: (settings) => this.notificationTypes.set(settings.types),
+      next: (settings) => this.setNotificationSettings(settings),
       error: (err) => console.error('getNotificationSettings failed', err),
     });
     if (this.authApi.isStudent()) {
@@ -97,9 +104,62 @@ export class SettingsComponent {
       .filter((t) => (t.type === type ? !enabled : !t.enabled))
       .map((t) => t.type);
     this.notificationsApi.setSettings(muted).subscribe({
-      next: (settings) => this.notificationTypes.set(settings.types),
+      next: (settings) => this.setNotificationSettings(settings),
       error: (err) => console.error('setNotificationSettings failed', err),
     });
+  }
+
+  private setNotificationSettings(settings: NotificationSettings): void {
+    this.notificationSettings.set(settings);
+    this.notificationTypes.set(settings.types);
+  }
+
+  /** One change of the push settings, the rest as it is. The night quiet
+   * is only on (the school's, or own times set on the web) or off here. */
+  protected setPush(change: {
+    type?: NotificationType;
+    enabled?: boolean;
+    fullText?: boolean;
+    quiet?: boolean;
+  }): void {
+    const settings = this.notificationSettings();
+    if (!settings) {
+      return;
+    }
+    const push = settings.push;
+    const quietOn = push.quiet !== 'Off';
+    // The Switch also fires when the list first renders it.
+    if (
+      (change.type &&
+        settings.types.find((t) => t.type === change.type)?.push ===
+          change.enabled) ||
+      (change.fullText !== undefined && change.fullText === push.fullText) ||
+      (change.quiet !== undefined && change.quiet === quietOn)
+    ) {
+      return;
+    }
+    const quiet =
+      change.quiet === undefined ? push.quiet : change.quiet ? 'School' : 'Off';
+    const request: PushSettingsRequest = {
+      muted: settings.types
+        .filter((t) => (t.type === change.type ? !change.enabled : !t.push))
+        .map((t) => t.type),
+      fullText: change.fullText ?? push.fullText,
+      quiet,
+      quietFrom: quiet === 'Own' ? push.quietFrom : null,
+      quietTo: quiet === 'Own' ? push.quietTo : null,
+    };
+    this.notificationsApi.setPushSettings(request).subscribe({
+      next: (saved) => this.setNotificationSettings(saved),
+      error: (err) => console.error('setPushSettings failed', err),
+    });
+  }
+
+  protected quietLabel(settings: NotificationSettings): string {
+    const push = settings.push;
+    return push.quiet === 'Own'
+      ? `Noční klid ${this.time(push.quietFrom ?? '')}–${this.time(push.quietTo ?? '')}`
+      : `Noční klid ${this.time(push.schoolQuietFrom)}–${this.time(push.schoolQuietTo)}`;
   }
 
   protected canTakePhoto(): boolean {

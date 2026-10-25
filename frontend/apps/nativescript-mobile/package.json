@@ -5,7 +5,9 @@
   "version": "0.0.0",
   "dependencies": {
     "@nativescript/core": "*",
-    "@nativescript/camera": "7.0.0"
+    "@nativescript/camera": "7.0.0",
+    "@nativescript/firebase-core": "5.0.2",
+    "@nativescript/firebase-messaging": "5.0.2"
   },
   "devDependencies": {
     "@nativescript/android": "~9.0.0",

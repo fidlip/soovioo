@@ -25,6 +25,8 @@
     "@fullcalendar/timegrid": "6.1.22",
     "@nativescript/angular": "^22.0.0",
     "@nativescript/camera": "7.0.0",
+    "@nativescript/firebase-core": "5.0.2",
+    "@nativescript/firebase-messaging": "5.0.2",
     "@nativescript/core": "~9.0.0",
     "@openng/icons": "^1.0.0",
     "@openng/optimus-ui": "^2.0.2",
