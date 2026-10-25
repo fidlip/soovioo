@@ -73,7 +73,6 @@ interface NoticeRow {
             name="leaveDate"
             required
             [(ngModel)]="leftAt"
-            dateFormat="dd.mm.yy"
             [showIcon]="true"
             [showOnFocus]="false"
             appendTo="body"

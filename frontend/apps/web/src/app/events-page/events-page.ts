@@ -5,7 +5,6 @@ import {
   DateSelectArg,
   EventClickArg,
 } from '@fullcalendar/core';
-import csLocale from '@fullcalendar/core/locales/cs';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
@@ -51,6 +50,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS } from '../forms';
+import { CALENDAR_LOCALE } from '../locale';
 
 type ViewOption = { value: string; label: string };
 
@@ -177,7 +177,7 @@ export class EventsPage {
       interactionPlugin,
     ],
     initialView: this.activeView(),
-    locale: csLocale,
+    locale: CALENDAR_LOCALE,
     headerToolbar: false,
     height: 'auto',
     // Den/Týden only — Month/List/Year ignore this. Bounds the visible
