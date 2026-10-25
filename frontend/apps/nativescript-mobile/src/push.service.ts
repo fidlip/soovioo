@@ -1,9 +1,17 @@
 import { Injectable, inject } from '@angular/core';
 import { NavigationEnd } from '@angular/router';
 import { RouterExtensions } from '@nativescript/angular';
-import { Application, isAndroid, isIOS } from '@nativescript/core';
+import {
+  AndroidActivityNewIntentEventData,
+  AndroidApplication,
+  Application,
+  Utils,
+  isAndroid,
+  isIOS,
+} from '@nativescript/core';
 import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-messaging';
+import type { RemoteMessage } from '@nativescript/firebase-messaging';
 import { AuthApiService, NotificationsApiService } from '@soovioo/shared';
 import { Subject, filter, take } from 'rxjs';
 
@@ -11,6 +19,13 @@ import { Subject, filter, take } from 'rxjs';
 export const MOBILE_PAGES = ['grades', 'absences', 'messages'];
 
 const NOTIFICATION_PERMISSION = 'android.permission.POST_NOTIFICATIONS';
+
+/** The Android channel of all our notifications, also FCM's default for
+ * the ones it shows itself (AndroidManifest.xml). */
+const CHANNEL_ID = 'upozorneni';
+
+/** The page a notification shown by the app itself opens. */
+const PAGE_EXTRA = 'cz.soovioo.app.page';
 
 /** Push notifications: registers this phone for the logged-in account
  * (after logging in, at start, whenever FCM changes the token), removes it
@@ -34,6 +49,18 @@ export class PushService {
       return;
     }
     Application.on(Application.resumeEvent, () => this.changed.next());
+    if (isAndroid) {
+      createChannel();
+      Application.android.on(
+        AndroidApplication.activityNewIntentEvent,
+        (args: AndroidActivityNewIntentEventData) => {
+          const page = args.intent?.getStringExtra(PAGE_EXTRA);
+          if (page) {
+            this.open({ page });
+          }
+        },
+      );
+    }
     this.ready = firebase()
       .initializeApp()
       .then(() => {
@@ -43,7 +70,13 @@ export class PushService {
           this.token = token;
           this.register();
         });
-        messaging.onMessage(() => this.changed.next());
+        messaging.onMessage((message) => {
+          // Android shows nothing on its own while the app is open.
+          if (isAndroid) {
+            showAndroidNotification(message);
+          }
+          this.changed.next();
+        });
         messaging.onNotificationTap((message) => this.open(message.data));
       })
       .catch((err) => console.error('Firebase start failed', err));
@@ -137,5 +170,58 @@ function requestNotificationPermission(): void {
     activity,
     permissions,
     1201,
+  );
+}
+
+function createChannel(): void {
+  if (android.os.Build.VERSION.SDK_INT < 26) {
+    return;
+  }
+  const context = Utils.android.getApplicationContext();
+  const manager = context.getSystemService(
+    android.content.Context.NOTIFICATION_SERVICE,
+  ) as android.app.NotificationManager;
+  manager.createNotificationChannel(
+    new android.app.NotificationChannel(
+      CHANNEL_ID,
+      'Upozornění',
+      android.app.NotificationManager.IMPORTANCE_HIGH,
+    ),
+  );
+}
+
+/** A push that came while the app is open, as a notification of its own —
+ * tapping it brings the app's activity a new intent with the page. */
+function showAndroidNotification(message: RemoteMessage): void {
+  const context = Utils.android.getApplicationContext();
+  const intent = context
+    .getPackageManager()
+    .getLaunchIntentForPackage(context.getPackageName());
+  if (!intent) {
+    return;
+  }
+  intent.putExtra(PAGE_EXTRA, message.data?.['page'] ?? '');
+  intent.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+  const id = Date.now() % 2147483647;
+  const tap = android.app.PendingIntent.getActivity(
+    context,
+    id,
+    intent,
+    android.app.PendingIntent.FLAG_IMMUTABLE |
+      android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+  );
+  const notification = new androidx.core.app.NotificationCompat.Builder(
+    context,
+    CHANNEL_ID,
+  )
+    .setSmallIcon(context.getApplicationInfo().icon)
+    .setContentTitle(message.notification?.title ?? 'Soovioo')
+    .setContentText(message.notification?.body ?? '')
+    .setAutoCancel(true)
+    .setContentIntent(tap)
+    .build();
+  androidx.core.app.NotificationManagerCompat.from(context).notify(
+    id,
+    notification,
   );
 }
