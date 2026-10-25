@@ -5,10 +5,10 @@
   <p-button label="Nová zpráva" icon="pi pi-send" (onClick)="openNewDialog()" />
 </div>
 
-<div class="grid gap-4 md:grid-cols-[20rem_1fr]">
+<div class="grid grid-cols-1 gap-4 md:grid-cols-[20rem_1fr]">
   <!-- Conversation list — on a phone hidden while one is open. -->
   <section
-    class="flex flex-col gap-2"
+    class="flex min-w-0 flex-col gap-2"
     [class.hidden]="selected() !== null || selectedBroadcast() !== null"
     [class.md:flex]="selected() !== null || selectedBroadcast() !== null"
     aria-label="Konverzace"
