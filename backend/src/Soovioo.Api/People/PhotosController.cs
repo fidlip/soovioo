@@ -397,12 +397,12 @@ public class PhotosController(
         }
         var school = await access.SchoolAsync();
         var origin = appLinkOptions.Value.SchoolOrigin(school.Slug);
-        var link = origin is null ? "" : $"""<p><a href="{origin}/settings">{origin}/settings</a></p>""";
+        var link = origin is null ? "" : $"""<p><a href="{origin}/my-children">{origin}/my-children</a></p>""";
         var name = System.Net.WebUtility.HtmlEncode($"{student.FirstName} {student.LastName}");
         var body = $"""
             <p>Dobrý den,</p>
             <p>{name} si v Soovioo nahrál(a) novou profilovou fotku. Než ji uvidí učitelé,
-            musíte ji schválit (nebo zamítnout) v Nastavení.</p>
+            musíte ji schválit (nebo zamítnout) v sekci Mé děti.</p>
             {link}
             """;
         foreach (var email in emails)
