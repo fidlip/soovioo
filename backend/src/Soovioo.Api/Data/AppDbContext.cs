@@ -60,6 +60,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<VisibilityChoice> VisibilityChoices => Set<VisibilityChoice>();
     public DbSet<Retention.RetentionPolicy> RetentionPolicies => Set<Retention.RetentionPolicy>();
     public DbSet<Notifications.Notification> Notifications => Set<Notifications.Notification>();
+    public DbSet<Notifications.PushDevice> PushDevices => Set<Notifications.PushDevice>();
 
     /// <summary>The day the former-pupil filter compares
     /// <see cref="Student.LeftAt"/> with (read per query).</summary>
@@ -294,6 +295,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
         modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedNotifications).ElementType().HasConversion<string>();
         modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedEmailNotifications).ElementType().HasConversion<string>();
+        modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedPushNotifications).ElementType().HasConversion<string>();
         modelBuilder.Entity<User>().HasIndex(u => u.EmailUnsubscribeToken).IsUnique();
         modelBuilder.Entity<School>().PrimitiveCollection(s => s.ForcedEmailNotifications).ElementType().HasConversion<string>();
         modelBuilder.Entity<Notifications.Notification>(e =>
@@ -301,8 +303,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.Property(x => x.Type).HasConversion<string>();
             e.HasIndex(x => new { x.UserId, x.Id });
             e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.UserId).HasDatabaseName("IX_Notifications_PushPending")
+                .HasFilter("\"Push\" AND \"PushedAt\" IS NULL");
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<Notifications.PushDevice>(e =>
+        {
+            e.Property(x => x.Platform).HasConversion<string>();
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
 

@@ -71,4 +71,14 @@ public class School
 
     /// <summary>Kinds whose e-mail people can't switch off.</summary>
     public List<Notifications.NotificationType> ForcedEmailNotifications { get; set; } = [];
+
+    /// <summary>A push may carry the whole text of a notification, for
+    /// people who agree to it (<see cref="User.PushFullTextAt"/>). Off = only
+    /// the kind of event goes through Google's and Apple's servers.</summary>
+    public bool PushFullText { get; set; }
+
+    /// <summary>Night quiet for push (Prague time) of everyone who didn't
+    /// set their own — what comes in it is sent when it ends.</summary>
+    public TimeOnly PushQuietFrom { get; set; } = new(21, 0);
+    public TimeOnly PushQuietTo { get; set; } = new(7, 0);
 }

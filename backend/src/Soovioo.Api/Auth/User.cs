@@ -97,6 +97,23 @@ public class User
     /// after it.</summary>
     public DateTimeOffset? DigestSentAt { get; set; }
 
+    /// <summary>Kinds not sent to the phone as a push.</summary>
+    public List<Notifications.NotificationType> MutedPushNotifications { get; set; } = [];
+
+    /// <summary>When the user agreed that a push carries the whole text
+    /// (it passes Google's and Apple's servers); null = only the kind of
+    /// event. Takes effect only while the school allows it
+    /// (<see cref="School.PushFullText"/>).</summary>
+    public DateTimeOffset? PushFullTextAt { get; set; }
+
+    /// <summary>Own night quiet for push (Prague time); both null = the
+    /// school's <see cref="School.PushQuietFrom"/>–<see cref="School.PushQuietTo"/>.</summary>
+    public TimeOnly? PushQuietFrom { get; set; }
+    public TimeOnly? PushQuietTo { get; set; }
+
+    /// <summary>Push comes at night too.</summary>
+    public bool PushQuietOff { get; set; }
+
     /// <summary>Secret of the "odhlásit" link in the daily e-mail (works
     /// without logging in) — generated with the first e-mail.</summary>
     public string? EmailUnsubscribeToken { get; set; }

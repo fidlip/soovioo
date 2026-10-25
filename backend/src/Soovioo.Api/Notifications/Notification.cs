@@ -50,6 +50,13 @@ public class Notification
     /// off there and it's only for the daily e-mail.</summary>
     public bool InApp { get; set; } = true;
 
+    /// <summary>Goes to the user's phones as a push (<see cref="PushJob"/>).</summary>
+    public bool Push { get; set; }
+
+    /// <summary>When the push went out (or was given up on); null while it
+    /// waits — for the next run, or for the end of the night's quiet.</summary>
+    public DateTimeOffset? PushedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? ReadAt { get; set; }
 }

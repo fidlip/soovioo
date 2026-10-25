@@ -4,11 +4,13 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Select } from '@openng/optimus-ui/select';
+import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
 import {
   DIGEST_TIMES,
   NOTIFICATION_TYPE_LABELS,
   NotificationType,
   NotificationsApiService,
+  SchoolNotificationSettings,
   digestTimeLabel,
 } from '@soovioo/shared';
 import { FORM_FIELDS } from '../forms';
@@ -16,7 +18,8 @@ import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 
 /** The school's daily e-mail of notifications — its default time and the
- * kinds nobody can switch off. */
+ * kinds nobody can switch off; push — whether it may carry the whole text,
+ * and the night quiet. */
 @Component({
   selector: 'app-school-notifications',
   imports: [
@@ -26,6 +29,7 @@ import { NotifyService } from '../notify.service';
     Card,
     MultiSelect,
     Select,
+    ToggleSwitch,
     InfoHint,
   ],
   templateUrl: './school-notifications.html',
@@ -41,16 +45,24 @@ export class SchoolNotifications {
 
   protected readonly digestTime = signal('17:00');
   protected readonly forcedEmail = signal<NotificationType[]>([]);
+  protected readonly pushFullText = signal(false);
+  protected readonly pushQuietFrom = signal('21:00');
+  protected readonly pushQuietTo = signal('07:00');
 
   constructor() {
     this.notificationsApi.getSchoolSettings().subscribe({
-      next: (settings) => {
-        this.digestTime.set(digestTimeLabel(settings.digestTime));
-        this.forcedEmail.set(settings.forcedEmail);
-      },
+      next: (settings) => this.apply(settings),
       error: (err) =>
         console.error('getSchoolNotificationSettings failed', err),
     });
+  }
+
+  private apply(settings: SchoolNotificationSettings): void {
+    this.digestTime.set(digestTimeLabel(settings.digestTime));
+    this.forcedEmail.set(settings.forcedEmail);
+    this.pushFullText.set(settings.pushFullText);
+    this.pushQuietFrom.set(digestTimeLabel(settings.pushQuietFrom));
+    this.pushQuietTo.set(digestTimeLabel(settings.pushQuietTo));
   }
 
   protected save(): void {
@@ -58,11 +70,13 @@ export class SchoolNotifications {
       .setSchoolSettings({
         digestTime: this.digestTime(),
         forcedEmail: this.forcedEmail(),
+        pushFullText: this.pushFullText(),
+        pushQuietFrom: this.pushQuietFrom(),
+        pushQuietTo: this.pushQuietTo(),
       })
       .subscribe({
         next: (settings) => {
-          this.digestTime.set(digestTimeLabel(settings.digestTime));
-          this.forcedEmail.set(settings.forcedEmail);
+          this.apply(settings);
           this.notify.success('Uloženo.');
         },
         error: (err) =>

@@ -1,7 +1,7 @@
 <p-card>
   <ng-template #title
-    >Upozornění e-mailem<app-info-hint
-      text="Denní souhrn nových a nepřečtených upozornění. Přijde jen v den, kdy je co poslat, a každý si ho může v Nastavení upravit — čas i druhy, kromě těch, které škola posílá všem."
+    >Upozornění e-mailem a na mobil<app-info-hint
+      text="Denní souhrn nových a nepřečtených upozornění e-mailem přijde jen v den, kdy je co poslat. Upozornění na mobil chodí hned, v nočním klidu se pošlou až ráno. Každý si v Nastavení upraví čas, noční klid i druhy, kromě e-mailů, které škola posílá všem."
   /></ng-template>
   <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
     <div class="flex flex-col gap-1.5">
@@ -40,6 +40,55 @@
         styleClass="w-72"
         appendTo="body"
       />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolPushQuietFrom"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Noční klid na mobilu od</label
+      >
+      <p-select
+        inputId="schoolPushQuietFrom"
+        [options]="timeOptions"
+        [ngModel]="pushQuietFrom()"
+        (ngModelChange)="pushQuietFrom.set($event)"
+        name="schoolPushQuietFrom"
+        styleClass="w-40"
+        appendTo="body"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolPushQuietTo"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >do</label
+      >
+      <p-select
+        inputId="schoolPushQuietTo"
+        [options]="timeOptions"
+        [ngModel]="pushQuietTo()"
+        (ngModelChange)="pushQuietTo.set($event)"
+        name="schoolPushQuietTo"
+        styleClass="w-40"
+        appendTo="body"
+      />
+    </div>
+    <div class="flex basis-full items-start gap-3 py-2">
+      <p-toggleswitch
+        class="shrink-0"
+        inputId="schoolPushFullText"
+        [ngModel]="pushFullText()"
+        (ngModelChange)="pushFullText.set($event)"
+        name="schoolPushFullText"
+      />
+      <label
+        for="schoolPushFullText"
+        class="text-sm text-surface-700 dark:text-surface-200"
+        >Povolit celý text v upozorněních na mobil (např. známku nebo začátek
+        zprávy). Text doručují servery Google a Apple, proto ho každý uvidí až
+        po vlastním souhlasu v Nastavení. Vypnuté = jen druh události, např.
+        „Nová známka“.</label
+      >
     </div>
     <p-button
       type="submit"

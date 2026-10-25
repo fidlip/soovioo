@@ -18,6 +18,8 @@ import {
   NotificationSettings,
   NotificationType,
   NotificationsApiService,
+  PushQuietMode,
+  PushSettingsRequest,
   digestTimeLabel,
   PhotosApiService,
   SetVisibilityRequest,
@@ -119,6 +121,19 @@ export class SettingsPage {
     const time = this.notificationSettings()?.digestTime;
     return time ? digestTimeLabel(time) : null;
   });
+  protected readonly quietOptions = computed(() => {
+    const push = this.notificationSettings()?.push;
+    return [
+      {
+        label: `Podle školy (${digestTimeLabel(push?.schoolQuietFrom ?? '')}–${digestTimeLabel(push?.schoolQuietTo ?? '')})`,
+        value: 'School' as PushQuietMode,
+      },
+      { label: 'Vlastní', value: 'Own' as PushQuietMode },
+      { label: 'Bez nočního klidu', value: 'Off' as PushQuietMode },
+    ];
+  });
+  protected readonly quietTimes = DIGEST_TIMES;
+  protected readonly label = digestTimeLabel;
 
   constructor() {
     this.profileApi.getProfile().subscribe({
@@ -308,6 +323,46 @@ export class SettingsPage {
       },
       error: (err) =>
         this.notify.actionFailed('setNotificationEmailSettings failed', err),
+    });
+  }
+
+  /** One change of the push settings, the rest as it is. */
+  protected setPushSettings(
+    change: Partial<PushSettingsRequest> & {
+      type?: NotificationType;
+      enabled?: boolean;
+    },
+  ): void {
+    const settings = this.notificationSettings();
+    if (!settings) {
+      return;
+    }
+    const push = settings.push;
+    const quiet = change.quiet ?? push.quiet;
+    const request: PushSettingsRequest = {
+      muted: settings.types
+        .filter((t) => (t.type === change.type ? !change.enabled : !t.push))
+        .map((t) => t.type),
+      fullText: change.fullText ?? push.fullText,
+      quiet,
+      quietFrom:
+        quiet === 'Own'
+          ? (change.quietFrom ??
+            digestTimeLabel(push.quietFrom ?? push.schoolQuietFrom))
+          : null,
+      quietTo:
+        quiet === 'Own'
+          ? (change.quietTo ??
+            digestTimeLabel(push.quietTo ?? push.schoolQuietTo))
+          : null,
+    };
+    this.notificationsApi.setPushSettings(request).subscribe({
+      next: (saved) => {
+        this.notificationSettings.set(saved);
+        this.notify.success('Uloženo.');
+      },
+      error: (err) =>
+        this.notify.actionFailed('setNotificationPushSettings failed', err),
     });
   }
 

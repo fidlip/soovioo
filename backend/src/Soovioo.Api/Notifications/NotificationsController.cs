@@ -8,8 +8,9 @@ using Soovioo.Api.Messaging;
 
 namespace Soovioo.Api.Notifications;
 
-/// <summary>The caller's own notifications (the bell) and which kinds they
-/// want under it and in the daily e-mail (Nastavení).</summary>
+/// <summary>The caller's own notifications (the bell), which kinds they
+/// want under it, in the daily e-mail and as a push (Nastavení), and the
+/// phones the push goes to.</summary>
 [Authorize]
 [ApiController]
 [Route("api/notifications")]
@@ -105,6 +106,75 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return Ok(SettingsOf(user));
     }
 
+    /// <summary>Push: the kinds, the whole text or just the kind of event
+    /// (only while the school allows it), and the night quiet.</summary>
+    [HttpPut("push-settings")]
+    public async Task<ActionResult<NotificationSettingsDto>> SetPushSettings(NotificationPushSettingsRequest request)
+    {
+        var user = await MeAsync();
+        if (user is null)
+        {
+            return NotFound();
+        }
+        if (request.FullText && !user.School!.PushFullText)
+        {
+            return BadRequest("Škola celý text v upozorněních na mobil nepovoluje.");
+        }
+        if (request.Quiet == PushQuietMode.Own && (request.QuietFrom is null || request.QuietTo is null))
+        {
+            return BadRequest("Vyberte začátek a konec nočního klidu.");
+        }
+        user.MutedPushNotifications = request.Muted.Distinct().Order().ToList();
+        user.PushFullTextAt = request.FullText ? user.PushFullTextAt ?? clock.GetUtcNow() : null;
+        user.PushQuietOff = request.Quiet == PushQuietMode.Off;
+        user.PushQuietFrom = request.Quiet == PushQuietMode.Own ? Minutes(request.QuietFrom!.Value) : null;
+        user.PushQuietTo = request.Quiet == PushQuietMode.Own ? Minutes(request.QuietTo!.Value) : null;
+        await db.SaveChangesAsync();
+        return Ok(SettingsOf(user));
+    }
+
+    /// <summary>The mobile app after logging in and whenever its token
+    /// changes. A token another account registered moves to the caller —
+    /// the phone was logged in as someone else before.</summary>
+    [HttpPost("push-devices")]
+    public async Task<IActionResult> RegisterDevice(PushDeviceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Token) || request.Token.Length > 4096 || !Enum.IsDefined(request.Platform))
+        {
+            return BadRequest();
+        }
+        var user = await MeAsync();
+        if (user?.SchoolId is null)
+        {
+            return NotFound();
+        }
+        var now = clock.GetUtcNow();
+        var device = await db.PushDevices.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.Token == request.Token);
+        if (device is null)
+        {
+            device = new PushDevice { Token = request.Token, CreatedAt = now };
+            db.PushDevices.Add(device);
+        }
+        device.UserId = user.Id;
+        device.SchoolId = user.SchoolId.Value;
+        device.Platform = request.Platform;
+        device.LastSeenAt = now;
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>The mobile app when logging out — nothing more for this
+    /// account comes to that phone.</summary>
+    [HttpPost("push-devices/remove")]
+    public async Task<IActionResult> RemoveDevice(PushDeviceRemoveRequest request)
+    {
+        var me = CurrentUserId();
+        await db.DeleteAsync(db.PushDevices.Where(d => d.UserId == me && d.Token == request.Token));
+        return NoContent();
+    }
+
+    private static TimeOnly Minutes(TimeOnly time) => new(time.Hour, time.Minute);
+
     /// <summary>The "odhlásit" link of the daily e-mail — switches off every
     /// kind the school doesn't force, without logging in.</summary>
     [AllowAnonymous]
@@ -141,16 +211,23 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return [NotificationType.Message, NotificationType.Event];
     }
 
-    private static NotificationSettingsDto SettingsOf(User user)
+    private NotificationSettingsDto SettingsOf(User user)
     {
-        var forced = user.School!.ForcedEmailNotifications;
+        var school = user.School!;
+        var forced = school.ForcedEmailNotifications;
         return new(
             TypesFor(user.Roles)
                 .Select(t => new NotificationTypeSettingDto(
                     t, !user.MutedNotifications.Contains(t),
-                    forced.Contains(t) || !user.MutedEmailNotifications.Contains(t), forced.Contains(t)))
+                    forced.Contains(t) || !user.MutedEmailNotifications.Contains(t), forced.Contains(t),
+                    !user.MutedPushNotifications.Contains(t)))
                 .ToList(),
-            user.Person?.Email != null, user.DigestTime, user.School.DigestTime);
+            user.Person?.Email != null, user.DigestTime, school.DigestTime,
+            new PushSettingsDto(
+                db.PushDevices.Any(d => d.UserId == user.Id),
+                school.PushFullText, school.PushFullText && user.PushFullTextAt != null,
+                user.PushQuietOff ? PushQuietMode.Off : user.PushQuietFrom is null ? PushQuietMode.School : PushQuietMode.Own,
+                user.PushQuietFrom, user.PushQuietTo, school.PushQuietFrom, school.PushQuietTo));
     }
 
     private Task<User?> MeAsync()
@@ -181,16 +258,44 @@ public record NotificationPageDto(IReadOnlyList<NotificationDto> Items, bool Has
 
 /// <param name="Enabled">Under the bell.</param>
 /// <param name="EmailForced">The school sends this one by e-mail to everyone.</param>
-public record NotificationTypeSettingDto(NotificationType Type, bool Enabled, bool Email, bool EmailForced);
+/// <param name="Push">To the phone.</param>
+public record NotificationTypeSettingDto(NotificationType Type, bool Enabled, bool Email, bool EmailForced, bool Push);
+
+public enum PushQuietMode
+{
+    /// <summary>The school's night quiet.</summary>
+    School,
+    Own,
+    Off,
+}
+
+/// <param name="HasDevice">The mobile app is logged in as this user on some phone.</param>
+/// <param name="FullTextAllowed">The school lets a push carry the whole text.</param>
+/// <param name="FullText">The user agreed to it — and the school allows it.</param>
+/// <param name="QuietFrom">Own night quiet, set with <see cref="PushQuietMode.Own"/>.</param>
+public record PushSettingsDto(
+    bool HasDevice, bool FullTextAllowed, bool FullText, PushQuietMode Quiet,
+    TimeOnly? QuietFrom, TimeOnly? QuietTo, TimeOnly SchoolQuietFrom, TimeOnly SchoolQuietTo);
 
 /// <param name="HasEmail">The account has an e-mail address for the daily e-mail to go to.</param>
 /// <param name="DigestTime">The user's own time of the daily e-mail, null = <paramref name="SchoolDigestTime"/>.</param>
 public record NotificationSettingsDto(
-    IReadOnlyList<NotificationTypeSettingDto> Types, bool HasEmail, TimeOnly? DigestTime, TimeOnly SchoolDigestTime);
+    IReadOnlyList<NotificationTypeSettingDto> Types, bool HasEmail, TimeOnly? DigestTime, TimeOnly SchoolDigestTime,
+    PushSettingsDto Push);
 
 public record NotificationSettingsRequest(IReadOnlyList<NotificationType> Muted);
 
 public record NotificationEmailSettingsRequest(IReadOnlyList<NotificationType> Muted, TimeOnly? DigestTime);
+
+/// <param name="FullText">Agreeing that a push carries the whole text.</param>
+/// <param name="QuietFrom">With <see cref="PushQuietMode.Own"/>.</param>
+public record NotificationPushSettingsRequest(
+    IReadOnlyList<NotificationType> Muted, bool FullText, PushQuietMode Quiet, TimeOnly? QuietFrom, TimeOnly? QuietTo);
+
+/// <param name="Token">The app's FCM registration token.</param>
+public record PushDeviceRequest(string Token, PushPlatform Platform);
+
+public record PushDeviceRemoveRequest(string Token);
 
 public record UnsubscribeRequest(string Token);
 
