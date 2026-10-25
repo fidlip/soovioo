@@ -14,11 +14,7 @@ import {
   withPreloading,
   withRouterConfig,
 } from '@angular/router';
-import {
-  ConfirmationService,
-  MessageService,
-  Translation,
-} from '@openng/optimus-ui/api';
+import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
 import { provideOptimus } from '@openng/optimus-ui/config';
 import {
   API_BASE_URL,
@@ -31,64 +27,13 @@ import {
 } from '@soovioo/shared';
 import { environment } from '../environments/environment';
 import { appRoutes } from './app.routes';
+import { OPTIMUS_TRANSLATION } from './locale';
 import { MemoryTokenStorage } from './memory-token-storage';
 import { currentSchoolSlugFromUrl } from './school-context';
 import { serverErrorInterceptor } from './server-error.interceptor';
 import { sooviooTheme } from './theme';
 
-// optimus-ui (PrimeNG) components with their own locale-dependent text —
-// the DatePicker's month/day names and "today" button, for now — don't
-// follow Angular's LOCALE_ID or a page's `lang` attribute; they need this
-// explicit translation object, same as FullCalendar needs its own
-// `@fullcalendar/core/locales/cs` import (see events-page.ts).
 registerLocaleData(localeCs);
-
-const csTranslation: Translation = {
-  dayNames: [
-    'neděle',
-    'pondělí',
-    'úterý',
-    'středa',
-    'čtvrtek',
-    'pátek',
-    'sobota',
-  ],
-  dayNamesShort: ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'],
-  dayNamesMin: ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'],
-  monthNames: [
-    'leden',
-    'únor',
-    'březen',
-    'duben',
-    'květen',
-    'červen',
-    'červenec',
-    'srpen',
-    'září',
-    'říjen',
-    'listopad',
-    'prosinec',
-  ],
-  monthNamesShort: [
-    'led',
-    'úno',
-    'bře',
-    'dub',
-    'kvě',
-    'čvn',
-    'čvc',
-    'srp',
-    'zář',
-    'říj',
-    'lis',
-    'pro',
-  ],
-  today: 'Dnes',
-  clear: 'Vymazat',
-  firstDayOfWeek: 1,
-  dateFormat: 'dd.mm.yy',
-  weekHeader: 'Týd',
-};
 
 const devApiPort = () => 5080 + (Number(window.location.port || 4200) - 4200);
 
@@ -113,7 +58,7 @@ export const appConfig: ApplicationConfig = {
     MessageService,
     ConfirmationService,
     provideOptimus({
-      translation: csTranslation,
+      translation: OPTIMUS_TRANSLATION,
       theme: {
         preset: sooviooTheme,
         options: {
