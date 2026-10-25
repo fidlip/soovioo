@@ -201,10 +201,10 @@
   <p-card>
     <ng-template #title
       >Upozornění<app-info-hint
-        text="Co se má objevit pod zvonečkem a co v denním souhrnu e-mailem. Souhrn přijde jen v den, kdy je něco nového a nepřečteného. Počet nepřečtených zpráv u Zpráv zůstává i bez upozornění."
+        text="Co se má objevit pod zvonečkem, co v denním souhrnu e-mailem a co jako upozornění v mobilní aplikaci. Souhrn přijde jen v den, kdy je něco nového a nepřečteného. Počet nepřečtených zpráv u Zpráv zůstává i bez upozornění."
     /></ng-template>
     <div
-      class="grid grid-cols-[1fr_auto_auto] items-center gap-x-6 gap-y-3"
+      class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-6 gap-y-3"
       role="table"
       aria-label="Upozornění"
     >
@@ -219,6 +219,11 @@
           role="columnheader"
           class="text-xs font-medium text-surface-500 dark:text-surface-400"
           >E-mail</span
+        >
+        <span
+          role="columnheader"
+          class="text-xs font-medium text-surface-500 dark:text-surface-400"
+          >Mobil</span
         >
       </div>
       @for (t of settings.types; track t.type) {
@@ -251,6 +256,14 @@
             "
           />
         </span>
+        <span role="cell">
+          <p-toggleswitch
+            [inputId]="'notification-push-' + t.type"
+            [ariaLabel]="notificationLabels[t.type] + ' na mobil'"
+            [ngModel]="t.push"
+            (onChange)="setPushSettings({ type: t.type, enabled: $event.checked })"
+          />
+        </span>
       </div>
       }
     </div>
@@ -272,7 +285,82 @@
         appendTo="body"
       />
     </div>
-    @if (!settings.hasEmail) {
+    <div class="mt-4 flex flex-wrap items-end gap-2">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="pushQuiet"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Noční klid na mobilu</label
+        >
+        <p-select
+          inputId="pushQuiet"
+          [options]="quietOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="settings.push.quiet"
+          (ngModelChange)="setPushSettings({ quiet: $event })"
+          styleClass="w-72 max-w-full"
+          appendTo="body"
+        />
+      </div>
+      @if (settings.push.quiet === 'Own') {
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="pushQuietFrom"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Od</label
+        >
+        <p-select
+          inputId="pushQuietFrom"
+          [options]="quietTimes"
+          [ngModel]="label(settings.push.quietFrom ?? '')"
+          (ngModelChange)="setPushSettings({ quietFrom: $event })"
+          styleClass="w-28"
+          appendTo="body"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="pushQuietTo"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Do</label
+        >
+        <p-select
+          inputId="pushQuietTo"
+          [options]="quietTimes"
+          [ngModel]="label(settings.push.quietTo ?? '')"
+          (ngModelChange)="setPushSettings({ quietTo: $event })"
+          styleClass="w-28"
+          appendTo="body"
+        />
+      </div>
+      }
+    </div>
+    <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+      Co přijde v nočním klidu, dostanete na mobil ráno najednou.
+    </p>
+    @if (settings.push.fullTextAllowed) {
+    <div class="mt-4 flex items-start gap-3">
+      <p-toggleswitch
+        class="shrink-0"
+        inputId="pushFullText"
+        [ngModel]="settings.push.fullText"
+        (onChange)="setPushSettings({ fullText: $event.checked })"
+      />
+      <label
+        for="pushFullText"
+        class="text-sm text-surface-700 dark:text-surface-200"
+        >Zobrazovat v upozornění na mobilu celý text (např. známku nebo začátek
+        zprávy). Text upozornění doručují servery Google a Apple; zapnutím s tím
+        souhlasíte. Bez souhlasu uvidíte jen druh události, např. „Nová
+        známka“.</label
+      >
+    </div>
+    } @if (!settings.push.hasDevice) {
+    <p class="mt-3 text-sm text-surface-500 dark:text-surface-400">
+      Na mobil nic nepřijde, dokud se nepřihlásíte v mobilní aplikaci Soovioo.
+    </p>
+    } @if (!settings.hasEmail) {
     <p class="mt-3 text-sm text-surface-500 dark:text-surface-400">
       E-mailem nic nepřijde, dokud v Profilu nevyplníte e-mail.
     </p>

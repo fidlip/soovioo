@@ -33,7 +33,38 @@ export interface NotificationTypeSetting {
   email: boolean;
   /** The school sends it by e-mail to everyone. */
   emailForced: boolean;
+  /** To the phone. */
+  push: boolean;
 }
+
+/** Night quiet for push: the school's, own, or none. */
+export type PushQuietMode = 'School' | 'Own' | 'Off';
+
+export interface PushSettings {
+  /** The mobile app is logged in as this user on some phone. */
+  hasDevice: boolean;
+  /** The school lets a push carry the whole text. */
+  fullTextAllowed: boolean;
+  /** The user agreed to it (and the school allows it). */
+  fullText: boolean;
+  quiet: PushQuietMode;
+  /** `HH:mm:ss`, set with `quiet: 'Own'`. */
+  quietFrom: string | null;
+  quietTo: string | null;
+  schoolQuietFrom: string;
+  schoolQuietTo: string;
+}
+
+export interface PushSettingsRequest {
+  muted: NotificationType[];
+  fullText: boolean;
+  quiet: PushQuietMode;
+  /** `HH:mm`, with `quiet: 'Own'`. */
+  quietFrom: string | null;
+  quietTo: string | null;
+}
+
+export type PushPlatform = 'Android' | 'Ios';
 
 export interface NotificationSettings {
   types: NotificationTypeSetting[];
@@ -42,6 +73,7 @@ export interface NotificationSettings {
   /** `HH:mm:ss`, null = `schoolDigestTime`. */
   digestTime: string | null;
   schoolDigestTime: string;
+  push: PushSettings;
 }
 
 /** Admin: the school's daily e-mail of notifications. */
@@ -50,6 +82,11 @@ export interface SchoolNotificationSettings {
   digestTime: string;
   /** Kinds nobody can switch off in the e-mail. */
   forcedEmail: NotificationType[];
+  /** A push may carry the whole text, for people who agree. */
+  pushFullText: boolean;
+  /** `HH:mm:ss`, push night quiet of everyone who didn't set their own. */
+  pushQuietFrom: string;
+  pushQuietTo: string;
 }
 
 export interface UnsubscribeResult {

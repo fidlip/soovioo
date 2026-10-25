@@ -165,12 +165,13 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 
     /// <summary>The daily e-mail of notifications — when it goes out for
     /// people who didn't pick their own time, and the kinds nobody can
-    /// switch off.</summary>
+    /// switch off; push — whether it may carry the whole text, and the
+    /// night quiet.</summary>
     [HttpGet("notifications")]
     public async Task<ActionResult<SchoolNotificationSettingsDto>> GetNotifications()
     {
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
-        return Ok(new SchoolNotificationSettingsDto(school.DigestTime, school.ForcedEmailNotifications));
+        return Ok(NotificationsOf(school));
     }
 
     [HttpPut("notifications")]
@@ -183,9 +184,15 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
         school.DigestTime = new TimeOnly(request.DigestTime.Hour, request.DigestTime.Minute);
         school.ForcedEmailNotifications = request.ForcedEmail.Distinct().Order().ToList();
+        school.PushFullText = request.PushFullText;
+        school.PushQuietFrom = new TimeOnly(request.PushQuietFrom.Hour, request.PushQuietFrom.Minute);
+        school.PushQuietTo = new TimeOnly(request.PushQuietTo.Hour, request.PushQuietTo.Minute);
         await db.SaveChangesAsync();
-        return Ok(new SchoolNotificationSettingsDto(school.DigestTime, school.ForcedEmailNotifications));
+        return Ok(NotificationsOf(school));
     }
+
+    private static SchoolNotificationSettingsDto NotificationsOf(School school) =>
+        new(school.DigestTime, school.ForcedEmailNotifications, school.PushFullText, school.PushQuietFrom, school.PushQuietTo);
 
     private static VisibilityRulesDto ToDto(SchoolVisibility visibility, School school) =>
         new(Visibility.Keys
@@ -199,7 +206,11 @@ public record SetSchoolBankAccountRequest(string? BankAccountNumber);
 
 /// <param name="DigestTime">See <see cref="School.DigestTime"/>.</param>
 /// <param name="ForcedEmail">See <see cref="School.ForcedEmailNotifications"/>.</param>
-public record SchoolNotificationSettingsDto(TimeOnly DigestTime, IReadOnlyList<Notifications.NotificationType> ForcedEmail);
+/// <param name="PushFullText">See <see cref="School.PushFullText"/>.</param>
+/// <param name="PushQuietFrom">See <see cref="School.PushQuietFrom"/>.</param>
+public record SchoolNotificationSettingsDto(
+    TimeOnly DigestTime, IReadOnlyList<Notifications.NotificationType> ForcedEmail,
+    bool PushFullText, TimeOnly PushQuietFrom, TimeOnly PushQuietTo);
 
 /// <param name="Rules">One per <see cref="Visibility.Keys"/> entry.</param>
 /// <param name="StudentPhotos">See <see cref="School.StudentPhotos"/>.</param>

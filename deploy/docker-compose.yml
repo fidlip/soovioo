@@ -51,6 +51,7 @@ services:
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cz}
       Smtp__FromName: Soovioo
+      Push__FcmServiceAccountJson: ${FCM_SERVICE_ACCOUNT_JSON:-}
     volumes:
       - attachments:/app/AttachmentStorage
     logging: *logging

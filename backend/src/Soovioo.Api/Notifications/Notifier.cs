@@ -11,8 +11,8 @@ public record NotificationDraft(
 
 /// <summary>Where the agendas send what's new. Adds the notifications;
 /// the caller saves. Leaves out deactivated accounts and the kinds a user
-/// switched off both under the bell and in the e-mail; an unread notification about the same thing is updated
-/// instead of adding another one.</summary>
+/// switched off under the bell, in the e-mail and for push; an unread notification about the same thing is updated
+/// instead of adding another one (and pushed again).</summary>
 public class Notifier(AppDbContext db, TimeProvider clock)
 {
     public const int PreviewLength = 140;
@@ -79,20 +79,28 @@ public class Notifier(AppDbContext db, TimeProvider clock)
         var userIds = drafts.Select(d => d.UserId).Distinct().ToList();
         var users = (await db.Users.IgnoreQueryFilters()
                 .Where(u => userIds.Contains(u.Id) && u.SchoolId == schoolId && u.DeactivatedAt == null)
-                .Select(u => new { u.Id, u.MutedNotifications, u.MutedEmailNotifications, HasEmail = u.Person!.Email != null })
+                .Select(u => new
+                {
+                    u.Id, u.MutedNotifications, u.MutedEmailNotifications, u.MutedPushNotifications,
+                    HasEmail = u.Person!.Email != null,
+                    HasDevice = db.PushDevices.IgnoreQueryFilters().Any(d => d.UserId == u.Id),
+                })
                 .ToListAsync())
             .ToDictionary(u => u.Id);
-        var forced = await db.Schools.IgnoreQueryFilters()
+        var school = await db.Schools.IgnoreQueryFilters()
             .Where(s => s.Id == schoolId)
-            .Select(s => s.ForcedEmailNotifications)
-            .FirstOrDefaultAsync() ?? [];
+            .Select(s => new { s.ForcedEmailNotifications, s.IsDemo })
+            .FirstOrDefaultAsync();
+        var forced = school?.ForcedEmailNotifications ?? [];
         var wanted = drafts
             .Distinct()
             .Where(d => users.ContainsKey(d.UserId))
             .Select(d => (Draft: d, InApp: !users[d.UserId].MutedNotifications.Contains(d.Type),
                 Email: users[d.UserId].HasEmail
-                    && (forced.Contains(d.Type) || !users[d.UserId].MutedEmailNotifications.Contains(d.Type))))
-            .Where(x => x.InApp || x.Email)
+                    && (forced.Contains(d.Type) || !users[d.UserId].MutedEmailNotifications.Contains(d.Type)),
+                Push: school?.IsDemo == false && users[d.UserId].HasDevice
+                    && !users[d.UserId].MutedPushNotifications.Contains(d.Type)))
+            .Where(x => x.InApp || x.Email || x.Push)
             .ToList();
         if (wanted.Count == 0)
         {
@@ -109,7 +117,7 @@ public class Notifier(AppDbContext db, TimeProvider clock)
                 .ToListAsync();
 
         var now = clock.GetUtcNow();
-        foreach (var (draft, inApp, _) in wanted)
+        foreach (var (draft, inApp, _, push) in wanted)
         {
             var notification = draft.TargetId is null
                 ? null
@@ -135,6 +143,8 @@ public class Notifier(AppDbContext db, TimeProvider clock)
             notification.Body = draft.Body;
             notification.StudentId = draft.StudentId;
             notification.InApp = inApp;
+            notification.Push = push;
+            notification.PushedAt = null;
             notification.CreatedAt = now;
         }
     }

@@ -13,6 +13,7 @@ using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Matrika;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.Payments;
 using Soovioo.Api.People;
 using Soovioo.Api.Reference;
@@ -66,6 +67,8 @@ builder.Services.AddScoped<Soovioo.Api.Retention.RetentionJob>();
 builder.Services.AddScoped<Soovioo.Api.Retention.LeaveNotifier>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.Notifier>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.NotificationDigestJob>();
+builder.Services.AddScoped<Soovioo.Api.Notifications.PushJob>();
+builder.Services.AddPush(builder.Configuration);
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
 
 // Generating a demo school is the one anonymous request that costs real
@@ -197,6 +200,8 @@ using (var scope = app.Services.CreateScope())
         "notification-cleanup", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationDigestJob>(
         "notification-digest", job => job.RunAsync(), "*/15 * * * *");
+    recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.PushJob>(
+        "notification-push", job => job.RunAsync(), Cron.Minutely);
 }
 
 // Configure the HTTP request pipeline.

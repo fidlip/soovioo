@@ -228,9 +228,25 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text[]");
 
+                    b.PrimitiveCollection<string[]>("MutedPushNotifications")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("PushFullTextAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<TimeOnly?>("PushQuietFrom")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<bool>("PushQuietOff")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly?>("PushQuietTo")
+                        .HasColumnType("time without time zone");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer");
@@ -707,6 +723,15 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("PostalCode")
                         .HasColumnType("text");
 
+                    b.Property<bool>("PushFullText")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly>("PushQuietFrom")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly>("PushQuietTo")
+                        .HasColumnType("time without time zone");
+
                     b.Property<string>("RedIzo")
                         .HasColumnType("text");
 
@@ -749,6 +774,9 @@ namespace Soovioo.Api.Migrations
                             ParentPhotos = false,
                             Phone = "+420 123 456 789",
                             PostalCode = "110 00",
+                            PushFullText = false,
+                            PushQuietFrom = new TimeOnly(21, 0, 0),
+                            PushQuietTo = new TimeOnly(7, 0, 0),
                             RedIzo = "700000089",
                             Slug = "skola",
                             Street = "Školní 8",
@@ -1352,6 +1380,12 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("Push")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("PushedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset?>("ReadAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1381,9 +1415,51 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Notifications_PushPending")
+                        .HasFilter("\"Push\" AND \"PushedAt\" IS NULL");
+
                     b.HasIndex("UserId", "Id");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Notifications.PushDevice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PushDevices");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Payments.Payment", b =>
@@ -2536,6 +2612,17 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Student");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Notifications.PushDevice", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

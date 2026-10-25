@@ -5,6 +5,8 @@ import { API_BASE_URL } from '../api-base-url.token';
 import {
   NotificationPage,
   NotificationSettings,
+  PushPlatform,
+  PushSettingsRequest,
   NotificationType,
   SchoolNotificationSettings,
   UnreadCounts,
@@ -67,6 +69,31 @@ export class NotificationsApiService {
     return this.http.put<NotificationSettings>(
       `${this.baseUrl}/api/notifications/email-settings`,
       { muted, digestTime },
+    );
+  }
+
+  setPushSettings(
+    request: PushSettingsRequest,
+  ): Observable<NotificationSettings> {
+    return this.http.put<NotificationSettings>(
+      `${this.baseUrl}/api/notifications/push-settings`,
+      request,
+    );
+  }
+
+  /** The mobile app after logging in and when its token changes. */
+  registerPushDevice(token: string, platform: PushPlatform): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/notifications/push-devices`,
+      { token, platform },
+    );
+  }
+
+  /** The mobile app when logging out. */
+  removePushDevice(token: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/notifications/push-devices/remove`,
+      { token },
     );
   }
 
