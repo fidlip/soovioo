@@ -1,0 +1,51 @@
+<p-card>
+  <ng-template #title
+    >Upozornění e-mailem<app-info-hint
+      text="Denní souhrn nových a nepřečtených upozornění. Přijde jen v den, kdy je co poslat, a každý si ho může v Nastavení upravit — čas i druhy, kromě těch, které škola posílá všem."
+  /></ng-template>
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="schoolDigestTime"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Výchozí čas souhrnu</label
+      >
+      <p-select
+        inputId="schoolDigestTime"
+        [options]="timeOptions"
+        [ngModel]="digestTime()"
+        (ngModelChange)="digestTime.set($event)"
+        name="schoolDigestTime"
+        styleClass="w-40"
+        appendTo="body"
+      />
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="forcedEmail"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Posílat všem (nejde vypnout)</label
+      >
+      <p-multiselect
+        inputId="forcedEmail"
+        [options]="typeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="forcedEmail()"
+        (ngModelChange)="forcedEmail.set($event)"
+        name="forcedEmail"
+        placeholder="Nic"
+        [showToggleAll]="false"
+        [filter]="false"
+        styleClass="w-72"
+        appendTo="body"
+      />
+    </div>
+    <p-button
+      type="submit"
+      label="Uložit"
+      severity="secondary"
+      [outlined]="true"
+    />
+  </form>
+</p-card>

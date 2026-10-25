@@ -22,6 +22,14 @@ const schoolRoutes: Route[] = [
       ),
     data: { hideHeader: true },
   },
+  {
+    path: 'unsubscribe',
+    loadComponent: () =>
+      import('./unsubscribe-page/unsubscribe-page').then(
+        (m) => m.UnsubscribePage,
+      ),
+    data: { hideHeader: true },
+  },
   // SuperAdmin "Vstoupit do školy" — no guard: it's what logs in.
   {
     path: 'support/enter',

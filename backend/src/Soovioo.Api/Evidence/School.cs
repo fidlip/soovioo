@@ -64,4 +64,11 @@ public class School
 
     /// <summary>Parents may upload a photo of themselves (voluntary).</summary>
     public bool ParentPhotos { get; set; }
+
+    /// <summary>When the daily e-mail of new notifications goes out (Prague
+    /// time) for everyone who didn't pick their own time.</summary>
+    public TimeOnly DigestTime { get; set; } = new(17, 0);
+
+    /// <summary>Kinds whose e-mail people can't switch off.</summary>
+    public List<Notifications.NotificationType> ForcedEmailNotifications { get; set; } = [];
 }

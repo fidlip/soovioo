@@ -6,7 +6,9 @@ import {
   NotificationPage,
   NotificationSettings,
   NotificationType,
+  SchoolNotificationSettings,
   UnreadCounts,
+  UnsubscribeResult,
 } from './notification.model';
 
 /** The caller's notifications — see NotificationsController. */
@@ -54,6 +56,40 @@ export class NotificationsApiService {
     return this.http.put<NotificationSettings>(
       `${this.baseUrl}/api/notifications/settings`,
       { muted },
+    );
+  }
+
+  /** The kinds in the daily e-mail and its time (`HH:mm`, null = the school's). */
+  setEmailSettings(
+    muted: NotificationType[],
+    digestTime: string | null,
+  ): Observable<NotificationSettings> {
+    return this.http.put<NotificationSettings>(
+      `${this.baseUrl}/api/notifications/email-settings`,
+      { muted, digestTime },
+    );
+  }
+
+  /** The e-mail's "odhlásit" link — no login needed. */
+  unsubscribe(token: string): Observable<UnsubscribeResult> {
+    return this.http.post<UnsubscribeResult>(
+      `${this.baseUrl}/api/notifications/unsubscribe`,
+      { token },
+    );
+  }
+
+  getSchoolSettings(): Observable<SchoolNotificationSettings> {
+    return this.http.get<SchoolNotificationSettings>(
+      `${this.baseUrl}/api/my-school/notifications`,
+    );
+  }
+
+  setSchoolSettings(
+    settings: SchoolNotificationSettings,
+  ): Observable<SchoolNotificationSettings> {
+    return this.http.put<SchoolNotificationSettings>(
+      `${this.baseUrl}/api/my-school/notifications`,
+      settings,
     );
   }
 }

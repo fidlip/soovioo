@@ -9,7 +9,7 @@ using Soovioo.Api.Messaging;
 namespace Soovioo.Api.Notifications;
 
 /// <summary>The caller's own notifications (the bell) and which kinds they
-/// want (Nastavení).</summary>
+/// want under it and in the daily e-mail (Nastavení).</summary>
 [Authorize]
 [ApiController]
 [Route("api/notifications")]
@@ -71,14 +71,15 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     [HttpGet("settings")]
     public async Task<ActionResult<NotificationSettingsDto>> GetSettings()
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == CurrentUserId());
+        var user = await MeAsync();
         return user is null ? NotFound() : Ok(SettingsOf(user));
     }
 
+    /// <summary>The kinds under the bell.</summary>
     [HttpPut("settings")]
     public async Task<ActionResult<NotificationSettingsDto>> SetSettings(NotificationSettingsRequest request)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == CurrentUserId());
+        var user = await MeAsync();
         if (user is null)
         {
             return NotFound();
@@ -86,6 +87,42 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         user.MutedNotifications = request.Muted.Distinct().Order().ToList();
         await db.SaveChangesAsync();
         return Ok(SettingsOf(user));
+    }
+
+    /// <summary>The kinds in the daily e-mail and when it comes (null = the
+    /// school's time).</summary>
+    [HttpPut("email-settings")]
+    public async Task<ActionResult<NotificationSettingsDto>> SetEmailSettings(NotificationEmailSettingsRequest request)
+    {
+        var user = await MeAsync();
+        if (user is null)
+        {
+            return NotFound();
+        }
+        user.MutedEmailNotifications = request.Muted.Distinct().Order().ToList();
+        user.DigestTime = request.DigestTime is { } time ? new TimeOnly(time.Hour, time.Minute) : null;
+        await db.SaveChangesAsync();
+        return Ok(SettingsOf(user));
+    }
+
+    /// <summary>The "odhlásit" link of the daily e-mail — switches off every
+    /// kind the school doesn't force, without logging in.</summary>
+    [AllowAnonymous]
+    [HttpPost("unsubscribe")]
+    public async Task<ActionResult<UnsubscribeResultDto>> Unsubscribe(UnsubscribeRequest request)
+    {
+        var user = string.IsNullOrEmpty(request.Token)
+            ? null
+            : await db.Users.IgnoreQueryFilters().Include(u => u.School)
+                .FirstOrDefaultAsync(u => u.EmailUnsubscribeToken == request.Token && u.ErasedAt == null);
+        if (user?.School is null)
+        {
+            return NotFound();
+        }
+        user.MutedEmailNotifications = Enum.GetValues<NotificationType>().ToList();
+        await db.SaveChangesAsync();
+        return Ok(new UnsubscribeResultDto(
+            TypesFor(user.Roles).Where(user.School.ForcedEmailNotifications.Contains).ToList()));
     }
 
     /// <summary>The kinds that can reach this account — staff alone hear
@@ -104,13 +141,28 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return [NotificationType.Message, NotificationType.Event];
     }
 
-    private static NotificationSettingsDto SettingsOf(User user) =>
-        new(TypesFor(user.Roles).Select(t => new NotificationTypeSettingDto(t, !user.MutedNotifications.Contains(t))).ToList());
+    private static NotificationSettingsDto SettingsOf(User user)
+    {
+        var forced = user.School!.ForcedEmailNotifications;
+        return new(
+            TypesFor(user.Roles)
+                .Select(t => new NotificationTypeSettingDto(
+                    t, !user.MutedNotifications.Contains(t),
+                    forced.Contains(t) || !user.MutedEmailNotifications.Contains(t), forced.Contains(t)))
+                .ToList(),
+            user.Person?.Email != null, user.DigestTime, user.School.DigestTime);
+    }
+
+    private Task<User?> MeAsync()
+    {
+        var me = CurrentUserId();
+        return db.Users.Include(u => u.School).Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == me);
+    }
 
     private IQueryable<Notification> Mine()
     {
         var me = CurrentUserId();
-        return db.Notifications.Where(n => n.UserId == me);
+        return db.Notifications.Where(n => n.UserId == me && n.InApp);
     }
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -127,8 +179,20 @@ public record UnreadCountsDto(int Notifications, int Messages);
 
 public record NotificationPageDto(IReadOnlyList<NotificationDto> Items, bool HasMore);
 
-public record NotificationTypeSettingDto(NotificationType Type, bool Enabled);
+/// <param name="Enabled">Under the bell.</param>
+/// <param name="EmailForced">The school sends this one by e-mail to everyone.</param>
+public record NotificationTypeSettingDto(NotificationType Type, bool Enabled, bool Email, bool EmailForced);
 
-public record NotificationSettingsDto(IReadOnlyList<NotificationTypeSettingDto> Types);
+/// <param name="HasEmail">The account has an e-mail address for the daily e-mail to go to.</param>
+/// <param name="DigestTime">The user's own time of the daily e-mail, null = <paramref name="SchoolDigestTime"/>.</param>
+public record NotificationSettingsDto(
+    IReadOnlyList<NotificationTypeSettingDto> Types, bool HasEmail, TimeOnly? DigestTime, TimeOnly SchoolDigestTime);
 
 public record NotificationSettingsRequest(IReadOnlyList<NotificationType> Muted);
+
+public record NotificationEmailSettingsRequest(IReadOnlyList<NotificationType> Muted, TimeOnly? DigestTime);
+
+public record UnsubscribeRequest(string Token);
+
+/// <param name="Forced">Kinds that keep coming — the school sends them to everyone.</param>
+public record UnsubscribeResultDto(IReadOnlyList<NotificationType> Forced);

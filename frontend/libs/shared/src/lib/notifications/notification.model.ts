@@ -27,11 +27,34 @@ export interface NotificationPage {
 
 export interface NotificationTypeSetting {
   type: NotificationType;
+  /** Under the bell. */
   enabled: boolean;
+  /** In the daily e-mail. */
+  email: boolean;
+  /** The school sends it by e-mail to everyone. */
+  emailForced: boolean;
 }
 
 export interface NotificationSettings {
   types: NotificationTypeSetting[];
+  /** The account has an e-mail address for the daily e-mail. */
+  hasEmail: boolean;
+  /** `HH:mm:ss`, null = `schoolDigestTime`. */
+  digestTime: string | null;
+  schoolDigestTime: string;
+}
+
+/** Admin: the school's daily e-mail of notifications. */
+export interface SchoolNotificationSettings {
+  /** `HH:mm:ss`, for everyone who didn't pick their own. */
+  digestTime: string;
+  /** Kinds nobody can switch off in the e-mail. */
+  forcedEmail: NotificationType[];
+}
+
+export interface UnsubscribeResult {
+  /** Kinds that keep coming — the school sends them to everyone. */
+  forced: NotificationType[];
 }
 
 export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
@@ -43,3 +66,15 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   Event: 'Nové a změněné akce v kalendáři',
   Photo: 'Fotky dětí ke schválení',
 };
+
+/** Times offered for the daily e-mail, `HH:mm` every half hour. */
+export const DIGEST_TIMES: string[] = Array.from(
+  { length: 48 },
+  (_, i) =>
+    `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`,
+);
+
+/** `17:00:00` → `17:00`. */
+export function digestTimeLabel(time: string): string {
+  return time.slice(0, 5);
+}

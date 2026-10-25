@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Soovioo.Api.Data;
+using Soovioo.Api.Email;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
@@ -63,6 +66,7 @@ public class NotificationsTests
             OtherClass = new SchoolClass { Name = "5.B", SchoolId = SchoolId },
             Subject = new Subject { Name = "Matematika", SchoolId = SchoolId },
         };
+        db.Schools.Add(new School { Id = SchoolId, Name = "ZŠ Lipová", Slug = "skola" });
         db.Users.AddRange(w.Teacher, w.OtherTeacher, w.Parent, w.StudentUser, w.OtherParent);
         await db.SaveChangesAsync();
         w.Class.ClassTeacherId = w.Teacher.Id;
@@ -281,5 +285,196 @@ public class NotificationsTests
         await new NotificationCleanupJob(db, clock).RunAsync();
 
         Assert.Equal("Nová", (await Of(db, w.Parent)).Single().Title);
+    }
+
+    private static async Task GiveEmailAsync(AppDbContext db, User user, string email)
+    {
+        var person = await db.Persons.FirstOrDefaultAsync(p => p.UserId == user.Id);
+        if (person is null)
+        {
+            person = new Person { SchoolId = SchoolId, UserId = user.Id };
+            db.Persons.Add(person);
+        }
+        person.Email = email;
+        await db.SaveChangesAsync();
+    }
+
+    private static NotificationDigestJob Digest(AppDbContext db, TimeProvider clock, IEmailSender email) =>
+        new(db, email, Options.Create(new AppLinkOptions { PathBasedTenant = true, FrontendBaseUrl = "http://app" }),
+            clock, NullLogger<NotificationDigestJob>.Instance);
+
+    /// <summary>17:00 in Prague on 2026-10-26 (winter time, UTC+1).</summary>
+    private static readonly DateTimeOffset SchoolDigest = new(2026, 10, 26, 16, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task OffUnderTheBellButOnInTheEmailIsKeptOnlyForTheEmail()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        w.Parent.MutedNotifications = [NotificationType.Event];
+        w.OtherParent.MutedNotifications = [NotificationType.Event];
+        w.StudentUser.MutedNotifications = [NotificationType.Event];
+        w.StudentUser.MutedEmailNotifications = [NotificationType.Event];
+        await db.SaveChangesAsync();
+        await GiveEmailAsync(db, w.Parent, "rodic@example.com");
+        await GiveEmailAsync(db, w.StudentUser, "zak@example.com");
+        var notifier = new Notifier(db, TimeProvider.System);
+
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id, w.OtherParent.Id, w.StudentUser.Id], NotificationType.Event, "Výlet", null, "events");
+        await db.SaveChangesAsync();
+
+        Assert.False(Assert.Single(await Of(db, w.Parent)).InApp);
+        // No e-mail address to send it to.
+        Assert.Empty(await Of(db, w.OtherParent));
+        Assert.Empty(await Of(db, w.StudentUser));
+        var bell = Bell(db, w.Parent);
+        var page = Assert.IsType<NotificationPageDto>(Assert.IsType<OkObjectResult>((await bell.GetNotifications(null)).Result).Value);
+        Assert.Empty(page.Items);
+        var counts = Assert.IsType<UnreadCountsDto>(Assert.IsType<OkObjectResult>((await bell.GetUnreadCounts()).Result).Value);
+        Assert.Equal(0, counts.Notifications);
+    }
+
+    [Fact]
+    public async Task SchoolForcedEmailComesEvenToWhoeverSwitchedItOff()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        (await db.Schools.FindAsync(SchoolId))!.ForcedEmailNotifications = [NotificationType.Event];
+        w.Parent.MutedNotifications = [NotificationType.Event];
+        w.Parent.MutedEmailNotifications = [NotificationType.Event];
+        await db.SaveChangesAsync();
+        await GiveEmailAsync(db, w.Parent, "rodic@example.com");
+
+        await new Notifier(db, TimeProvider.System).NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Event, "Výlet", null, "events");
+        await db.SaveChangesAsync();
+
+        Assert.False(Assert.Single(await Of(db, w.Parent)).InApp);
+        var settings = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, w.Parent).GetSettings()).Result).Value);
+        var events = settings.Types.Single(t => t.Type == NotificationType.Event);
+        Assert.True(events.Email);
+        Assert.True(events.EmailForced);
+        Assert.True(settings.HasEmail);
+    }
+
+    [Fact]
+    public async Task DailyEmailGoesAtTheSchoolsTimeOnceWithWhatIsNewAndUnread()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        await GiveEmailAsync(db, w.Parent, "rodic@example.com");
+        var clock = new FakeClock(SchoolDigest - TimeSpan.FromHours(3));
+        var notifier = new Notifier(db, clock);
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Grade, "Nová známka — Matematika", "Jan Novák: 1", "grades");
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Message, "Nová zpráva: Výlet", "Učitelka: <b>středa</b>", "messages", targetId: 7);
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Event, "Přečtená akce", null, "events");
+        await db.SaveChangesAsync();
+        (await db.Notifications.SingleAsync(n => n.Title == "Přečtená akce")).ReadAt = clock.Now;
+        await db.SaveChangesAsync();
+        var mailer = new FakeEmailSender();
+
+        clock.Now = SchoolDigest - TimeSpan.FromMinutes(1);
+        await Digest(db, clock, mailer).RunAsync();
+        Assert.Empty(mailer.Sent);
+
+        clock.Now = SchoolDigest + TimeSpan.FromMinutes(5);
+        await Digest(db, clock, mailer).RunAsync();
+        var (to, subject, body) = Assert.Single(mailer.Sent);
+        Assert.Equal("rodic@example.com", to);
+        Assert.Equal("2 nová upozornění — ZŠ Lipová", subject);
+        Assert.Contains("""<a href="http://app/skola/grades">Nová známka — Matematika</a>""", body);
+        Assert.Contains("""<a href="http://app/skola/messages?conversation=7">""", body);
+        Assert.Contains("Učitelka: &lt;b&gt;středa&lt;/b&gt;", body);
+        Assert.DoesNotContain("Přečtená akce", body);
+        var token = (await db.Users.FindAsync(w.Parent.Id))!.EmailUnsubscribeToken;
+        Assert.NotNull(token);
+        Assert.Contains($"http://app/skola/unsubscribe?token={token}", body);
+
+        clock.Now += TimeSpan.FromMinutes(15);
+        await Digest(db, clock, mailer).RunAsync();
+        Assert.Single(mailer.Sent);
+
+        // The next day: only what came after.
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Homework, "Nový úkol", null, "homework");
+        await db.SaveChangesAsync();
+        clock.Now += TimeSpan.FromDays(1);
+        await Digest(db, clock, mailer).RunAsync();
+        Assert.Equal(2, mailer.Sent.Count);
+        Assert.Equal("1 nové upozornění — ZŠ Lipová", mailer.Sent[1].Subject);
+        Assert.DoesNotContain("Nová známka", mailer.Sent[1].HtmlBody);
+    }
+
+    [Fact]
+    public async Task DailyEmailLeavesOutKindsSwitchedOffAndGoesAtThePersonsOwnTime()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        await GiveEmailAsync(db, w.Parent, "rodic@example.com");
+        await Bell(db, w.Parent).SetEmailSettings(new NotificationEmailSettingsRequest([NotificationType.Grade], new TimeOnly(19, 30, 12)));
+        var clock = new FakeClock(SchoolDigest - TimeSpan.FromHours(1));
+        var notifier = new Notifier(db, clock);
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Grade, "Nová známka", null, "grades");
+        await db.SaveChangesAsync();
+        var mailer = new FakeEmailSender();
+
+        clock.Now = SchoolDigest + TimeSpan.FromHours(3);
+        await Digest(db, clock, mailer).RunAsync();
+        // Only the grade, which stays under the bell but not in the e-mail.
+        Assert.Empty(mailer.Sent);
+        Assert.True(Assert.Single(await Of(db, w.Parent)).InApp);
+
+        await notifier.NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Event, "Výlet", null, "events");
+        await db.SaveChangesAsync();
+        clock.Now = SchoolDigest.AddDays(1) + TimeSpan.FromHours(2);
+        await Digest(db, clock, mailer).RunAsync();
+        Assert.Empty(mailer.Sent);
+        clock.Now = SchoolDigest.AddDays(1) + TimeSpan.FromHours(2.5);
+        await Digest(db, clock, mailer).RunAsync();
+        Assert.Contains("Výlet", Assert.Single(mailer.Sent).HtmlBody);
+        Assert.Equal(new TimeOnly(19, 30), (await db.Users.FindAsync(w.Parent.Id))!.DigestTime);
+    }
+
+    [Fact]
+    public async Task DemoSchoolsDailyEmailIsOnlyPreviewed()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        (await db.Schools.FindAsync(SchoolId))!.IsDemo = true;
+        await db.SaveChangesAsync();
+        await GiveEmailAsync(db, w.Parent, "rodic@example.com");
+        var clock = new FakeClock(SchoolDigest - TimeSpan.FromHours(1));
+        await new Notifier(db, clock).NotifyAsync(SchoolId, [w.Parent.Id], NotificationType.Event, "Výlet", null, "events");
+        await db.SaveChangesAsync();
+        var mailer = new FakeEmailSender();
+
+        clock.Now = SchoolDigest;
+        await Digest(db, clock, mailer).RunAsync();
+
+        Assert.Empty(mailer.Sent);
+        var preview = Assert.Single(await db.DemoEmails.ToListAsync());
+        Assert.Equal("rodic@example.com", preview.To);
+        Assert.Equal("1 nové upozornění — ZŠ Lipová", preview.Subject);
+    }
+
+    [Fact]
+    public async Task UnsubscribeLinkSwitchesOffEveryEmailTheSchoolDoesNotForce()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        (await db.Schools.FindAsync(SchoolId))!.ForcedEmailNotifications = [NotificationType.Absence];
+        w.Parent.EmailUnsubscribeToken = "ABC";
+        await db.SaveChangesAsync();
+        var anonymous = new NotificationsController(db, TimeProvider.System)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+
+        Assert.IsType<NotFoundResult>((await anonymous.Unsubscribe(new UnsubscribeRequest("XYZ"))).Result);
+        var result = Assert.IsType<UnsubscribeResultDto>(
+            Assert.IsType<OkObjectResult>((await anonymous.Unsubscribe(new UnsubscribeRequest("ABC"))).Result).Value);
+
+        Assert.Equal([NotificationType.Absence], result.Forced);
+        var parent = (await db.Users.FindAsync(w.Parent.Id))!;
+        Assert.Equal(Enum.GetValues<NotificationType>(), parent.MutedEmailNotifications);
+        Assert.Empty(parent.MutedNotifications);
     }
 }

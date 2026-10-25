@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
@@ -6,16 +6,19 @@ import { Card } from '@openng/optimus-ui/card';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
+import { Select } from '@openng/optimus-ui/select';
 import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
 import {
   AuthApiService,
   EventsApiService,
   MyProfile,
   MyProfileApiService,
+  DIGEST_TIMES,
   NOTIFICATION_TYPE_LABELS,
+  NotificationSettings,
   NotificationType,
-  NotificationTypeSetting,
   NotificationsApiService,
+  digestTimeLabel,
   PhotosApiService,
   SetVisibilityRequest,
   StudentPhotoState,
@@ -41,6 +44,7 @@ import { VisibilityControl } from '../visibility-control/visibility-control';
     InputText,
     Message,
     Password,
+    Select,
     ToggleSwitch,
     PhotoEditor,
     StudentPhoto,
@@ -91,9 +95,30 @@ export class SettingsPage {
    * děti). */
   protected readonly studentPhotos = signal<StudentPhotoState[]>([]);
 
-  /** Which kinds of notifications the user wants (all on by default). */
-  protected readonly notificationTypes = signal<NotificationTypeSetting[]>([]);
+  /** Which kinds of notifications the user wants under the bell and in
+   * the daily e-mail (all on by default), and when the e-mail comes. */
+  protected readonly notificationSettings = signal<NotificationSettings | null>(
+    null,
+  );
   protected readonly notificationLabels = NOTIFICATION_TYPE_LABELS;
+  protected readonly digestTimeOptions = computed(() => {
+    const settings = this.notificationSettings();
+    return [
+      {
+        label: `Podle školy (${digestTimeLabel(settings?.schoolDigestTime ?? '')})`,
+        value: null as string | null,
+      },
+      ...DIGEST_TIMES.map((t) => ({ label: t, value: t as string | null })),
+    ];
+  });
+  protected readonly hasForcedEmail = computed(
+    () =>
+      this.notificationSettings()?.types.some((t) => t.emailForced) ?? false,
+  );
+  protected readonly digestTime = computed(() => {
+    const time = this.notificationSettings()?.digestTime;
+    return time ? digestTimeLabel(time) : null;
+  });
 
   constructor() {
     this.profileApi.getProfile().subscribe({
@@ -123,10 +148,7 @@ export class SettingsPage {
         next: (settings) => this.visibility.set(settings),
         error: (err) => console.error('getVisibility failed', err),
       });
-      this.notificationsApi.getSettings().subscribe({
-        next: (settings) => this.notificationTypes.set(settings.types),
-        error: (err) => console.error('getNotificationSettings failed', err),
-      });
+      this.loadNotificationSettings();
     }
 
     if (this.showCalendarFeed) {
@@ -147,6 +169,10 @@ export class SettingsPage {
         next: (profile) => {
           this.profile.set(profile);
           this.notify.success('Uloženo.');
+          // Whether there's an address for the daily e-mail.
+          if (!this.authApi.isSuperAdmin()) {
+            this.loadNotificationSettings();
+          }
         },
         error: (err) => this.notify.actionFailed('updateProfile failed', err),
       });
@@ -240,20 +266,48 @@ export class SettingsPage {
     });
   }
 
+  private loadNotificationSettings(): void {
+    this.notificationsApi.getSettings().subscribe({
+      next: (settings) => this.notificationSettings.set(settings),
+      error: (err) => console.error('getNotificationSettings failed', err),
+    });
+  }
+
   protected setNotificationType(
     type: NotificationType,
     enabled: boolean,
   ): void {
-    const muted = this.notificationTypes()
+    const muted = (this.notificationSettings()?.types ?? [])
       .filter((t) => (t.type === type ? !enabled : !t.enabled))
       .map((t) => t.type);
     this.notificationsApi.setSettings(muted).subscribe({
       next: (settings) => {
-        this.notificationTypes.set(settings.types);
+        this.notificationSettings.set(settings);
         this.notify.success('Uloženo.');
       },
       error: (err) =>
         this.notify.actionFailed('setNotificationSettings failed', err),
+    });
+  }
+
+  protected setEmailNotifications(
+    change: { type: NotificationType; email: boolean } | null,
+    digestTime: string | null = this.digestTime(),
+  ): void {
+    const muted = (this.notificationSettings()?.types ?? [])
+      .filter(
+        (t) =>
+          !t.emailForced &&
+          (t.type === change?.type ? !change.email : !t.email),
+      )
+      .map((t) => t.type);
+    this.notificationsApi.setEmailSettings(muted, digestTime).subscribe({
+      next: (settings) => {
+        this.notificationSettings.set(settings);
+        this.notify.success('Uloženo.');
+      },
+      error: (err) =>
+        this.notify.actionFailed('setNotificationEmailSettings failed', err),
     });
   }
 

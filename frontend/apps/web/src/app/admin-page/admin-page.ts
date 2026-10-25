@@ -113,6 +113,7 @@ import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
+import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
 import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
@@ -127,6 +128,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
   selector: 'app-admin-page',
   imports: [
     PeriodsEditor,
+    SchoolNotifications,
     VisibilitySettings,
     Departures,
     LeaveDialog,

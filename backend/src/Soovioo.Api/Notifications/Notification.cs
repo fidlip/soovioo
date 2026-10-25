@@ -46,6 +46,10 @@ public class Notification
     public int? StudentId { get; set; }
     public Student? Student { get; set; }
 
+    /// <summary>Shown under the bell. False = the user switched the kind
+    /// off there and it's only for the daily e-mail.</summary>
+    public bool InApp { get; set; } = true;
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? ReadAt { get; set; }
 }

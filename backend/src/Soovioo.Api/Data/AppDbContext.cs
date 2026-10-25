@@ -293,6 +293,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         });
 
         modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedNotifications).ElementType().HasConversion<string>();
+        modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedEmailNotifications).ElementType().HasConversion<string>();
+        modelBuilder.Entity<User>().HasIndex(u => u.EmailUnsubscribeToken).IsUnique();
+        modelBuilder.Entity<School>().PrimitiveCollection(s => s.ForcedEmailNotifications).ElementType().HasConversion<string>();
         modelBuilder.Entity<Notifications.Notification>(e =>
         {
             e.Property(x => x.Type).HasConversion<string>();
