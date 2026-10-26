@@ -75,3 +75,70 @@ test.describe.serial('behavior record', () => {
     await expect(record(page)).toHaveCount(0);
   });
 });
+
+/** The choices a select offers once opened. */
+async function options(
+  page: import('@playwright/test').Page,
+  select: import('@playwright/test').Locator,
+): Promise<string[]> {
+  await expect(page.getByRole('listbox')).toBeHidden();
+  await select.click();
+  const list = page.getByRole('listbox');
+  await expect(list.getByRole('option').first()).toBeVisible();
+  const texts = await list.getByRole('option').allInnerTexts();
+  await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
+  return texts.map((t) => t.trim());
+}
+
+// Which measures and classification a user may give follows their role:
+// the class teacher (ucitel, of Jan's class) up to their own measures and
+// "velmi dobré", the admin everything.
+for (const [user, types, values] of [
+  [
+    'ucitel',
+    [
+      'Pochvala',
+      'Poznámka',
+      'Napomenutí třídního učitele',
+      'Důtka třídního učitele',
+    ],
+    ['Velmi dobré'],
+  ],
+  [
+    'admin',
+    [
+      'Pochvala',
+      'Poznámka',
+      'Napomenutí třídního učitele',
+      'Důtka třídního učitele',
+      'Napomenutí ředitele školy',
+      'Důtka ředitele školy',
+    ],
+    ['Velmi dobré', 'Uspokojivé', 'Neuspokojivé'],
+  ],
+] as const) {
+  test(`${user} is offered the measures and classification of their role`, async ({
+    page,
+  }) => {
+    await login(page, user, `${user}123`);
+
+    await page.getByRole('button', { name: 'Nový záznam' }).click();
+    const record = page.getByRole('dialog', { name: 'Nový záznam chování' });
+    await record.locator('#recordStudent').click();
+    await page.getByRole('option', { name: 'Jan Novák' }).click();
+    expect(await options(page, record.locator('#recordType'))).toEqual(types);
+    await page.keyboard.press('Escape');
+    await expect(record).toBeHidden();
+
+    await page.getByRole('button', { name: 'Nastavit klasifikaci' }).click();
+    const classification = page.getByRole('dialog', {
+      name: 'Nastavit klasifikaci',
+    });
+    await classification.locator('#classStudent').click();
+    await page.getByRole('option', { name: 'Jan Novák' }).click();
+    expect(await options(page, classification.locator('#classValue'))).toEqual(
+      values,
+    );
+  });
+}

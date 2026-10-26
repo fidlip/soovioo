@@ -37,6 +37,18 @@ class FakeTokenStorage extends TokenStorage {
   }
 }
 
+/** An unsigned JWT with these claims (the client only reads them). */
+function jwt(claims: Record<string, unknown>): string {
+  const part = (value: object) =>
+    btoa(
+      String.fromCharCode(...new TextEncoder().encode(JSON.stringify(value))),
+    )
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  return `${part({ alg: 'none' })}.${part(claims)}.x`;
+}
+
 describe('AuthApiService', () => {
   let service: AuthApiService;
   let httpMock: HttpTestingController;
@@ -103,14 +115,12 @@ describe('AuthApiService', () => {
       service.refresh().subscribe((t) => results.push(t));
       service.refresh().subscribe((t) => results.push(t));
 
-      httpMock
-        .expectOne('http://test/api/auth/refresh')
-        .flush({
-          token: 'new',
-          refreshToken: 'r2',
-          username: 'u',
-          role: 'Teacher',
-        });
+      httpMock.expectOne('http://test/api/auth/refresh').flush({
+        token: 'new',
+        refreshToken: 'r2',
+        username: 'u',
+        role: 'Teacher',
+      });
 
       expect(results).toEqual(['new', 'new']);
       expect(tokenStorage.getRefreshToken()).toBe('r2');
@@ -126,14 +136,12 @@ describe('AuthApiService', () => {
       httpMock
         .expectOne('http://test/api/grades')
         .flush(null, { status: 401, statusText: 'Unauthorized' });
-      httpMock
-        .expectOne('http://test/api/auth/refresh')
-        .flush({
-          token: 'fresh',
-          refreshToken: 'r2',
-          username: 'u',
-          role: 'Teacher',
-        });
+      httpMock.expectOne('http://test/api/auth/refresh').flush({
+        token: 'fresh',
+        refreshToken: 'r2',
+        username: 'u',
+        role: 'Teacher',
+      });
       const retry = httpMock.expectOne('http://test/api/grades');
       expect(retry.request.headers.get('Authorization')).toBe('Bearer fresh');
       retry.flush([1]);
@@ -205,6 +213,112 @@ describe('AuthApiService', () => {
       await restored;
 
       expect(service.isLoggedIn()).toBe(false);
+    });
+  });
+
+  describe('permissions from the token', () => {
+    beforeEach(() => setup(false));
+
+    const teacher = jwt({
+      role: 'Staff',
+      roleId: '5',
+      roleName: 'Učitel',
+      roles: JSON.stringify([
+        { id: 5, name: 'Učitel', kind: 'Staff' },
+        { id: 6, name: 'Rodič', kind: 'Parent' },
+      ]),
+      perms: 'GradesRead:MyClasses,GradesWrite:MyClasses,Students:ClassTeacher',
+    });
+
+    it('reads the scope of each permission, none when missing', () => {
+      tokenStorage.setToken(teacher);
+
+      expect(service.scope('GradesRead')).toBe('MyClasses');
+      expect(service.scope('Students')).toBe('ClassTeacher');
+      expect(service.scope('Timetable')).toBe('None');
+      expect(service.can('GradesWrite')).toBe(true);
+      expect(service.can('AuditLog')).toBe(false);
+      expect(service.isAdmin()).toBe(false);
+    });
+
+    it('knows the kind, the active role and the ones to switch to', () => {
+      tokenStorage.setToken(teacher);
+
+      expect(service.isStaff()).toBe(true);
+      expect(service.isParent()).toBe(false);
+      expect(service.getActiveRole()).toEqual({ id: 5, name: 'Učitel' });
+      expect(service.getRoles().map((r) => r.name)).toEqual([
+        'Učitel',
+        'Rodič',
+      ]);
+    });
+
+    it('is the admin by the administration permission, not by a name', () => {
+      tokenStorage.setToken(
+        jwt({
+          role: 'Staff',
+          roleId: '1',
+          roleName: 'Ředitelka',
+          perms: 'Administration:School',
+        }),
+      );
+
+      expect(service.isAdmin()).toBe(true);
+    });
+
+    it('allows nothing without a token or for a SuperAdmin', () => {
+      expect(service.can('GradesRead')).toBe(false);
+      expect(service.getRoles()).toEqual([]);
+
+      tokenStorage.setToken(jwt({ role: 'SuperAdmin' }));
+      expect(service.isSuperAdmin()).toBe(true);
+      expect(service.can('Administration')).toBe(false);
+      expect(service.getActiveRole()).toBeNull();
+    });
+
+    it('switches the active role by its id', () => {
+      tokenStorage.setToken(teacher);
+      service.switchRole(6).subscribe();
+
+      const req = httpMock.expectOne('http://test/api/users/me/active-role');
+      expect(req.request.body).toEqual({ roleId: 6 });
+      req.flush({ token: jwt({ role: 'Parent', roleId: '6' }) });
+      expect(service.isParent()).toBe(true);
+    });
+
+    it('refreshes the session in the background after a 403, so the permissions catch up', () => {
+      tokenStorage.setToken(teacher);
+      tokenStorage.setRefreshToken('r1');
+      const http = TestBed.inject(HttpClient);
+      let failed = false;
+      http
+        .get('http://test/api/grades')
+        .subscribe({ error: () => (failed = true) });
+
+      httpMock
+        .expectOne('http://test/api/grades')
+        .flush(null, { status: 403, statusText: 'Forbidden' });
+      httpMock.expectOne('http://test/api/auth/refresh').flush({
+        token: jwt({ role: 'Staff', roleId: '5', perms: '' }),
+        refreshToken: 'r2',
+        username: 'u',
+        role: 'Staff',
+      });
+
+      expect(failed).toBe(true);
+      expect(service.can('GradesRead')).toBe(false);
+    });
+
+    it('does not refresh after a 403 in support mode', () => {
+      tokenStorage.setToken(jwt({ role: 'Staff', supportBy: 'superadmin' }));
+      tokenStorage.setRefreshToken('r1');
+      const http = TestBed.inject(HttpClient);
+      http.get('http://test/api/grades').subscribe({ error: () => undefined });
+
+      httpMock
+        .expectOne('http://test/api/grades')
+        .flush(null, { status: 403, statusText: 'Forbidden' });
+      httpMock.expectNone('http://test/api/auth/refresh');
     });
   });
 });
