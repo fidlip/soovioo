@@ -1,3 +1,5 @@
+import { RoleRef } from './role.model';
+
 export interface AppUser {
   id: number;
   username: string;
@@ -6,9 +8,9 @@ export interface AppUser {
   /** Display name ("Jana Nováková", or the username). */
   name: string;
   /** The active role (what the account currently acts as). */
-  role: string;
+  activeRoleId: number | null;
   /** Every role the account may switch between. */
-  roles: string[];
+  roles: RoleRef[];
   phone: string | null;
   email: string | null;
   /** Set only for role Student — the one Student this account logs in as. */
@@ -35,8 +37,8 @@ export interface CreateUserRequest {
   /** Optional when the person has an e-mail — the account is then usable
    * only through the invitation e-mailed right away. */
   password?: string;
-  /** At least one; 'Student' can't be combined with others. */
-  roles: string[];
+  /** At least one; a pupil's role can't be combined with others. */
+  roleIds: number[];
   /** The person must have the profile each role needs (Teacher, Parent,
    * Student — see Person). */
   personId: number | null;
@@ -44,18 +46,8 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   username: string;
-  roles: string[];
+  roleIds: number[];
   personId: number | null;
   /** Omit to keep the current password. */
   password?: string;
 }
-
-/** Czech UI names of the roles (the Student one still goes through
- * `localizeStudentTerm` — "žák"/"student" by school type). */
-export const ROLE_LABELS: Record<string, string> = {
-  SuperAdmin: 'Superadmin',
-  Admin: 'Admin',
-  Teacher: 'Učitel',
-  Parent: 'Rodič',
-  Student: 'Žák',
-};

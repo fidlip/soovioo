@@ -28,12 +28,7 @@ import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { catchError, filter, interval, map, of, switchMap } from 'rxjs';
-import {
-  AuthApiService,
-  ROLE_LABELS,
-  SupportApiService,
-  localizeStudentTerm,
-} from '@soovioo/shared';
+import { AuthApiService, RoleRef, SupportApiService } from '@soovioo/shared';
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { NotificationBell } from './notification-bell/notification-bell';
@@ -59,9 +54,9 @@ interface NavItem {
   label: string;
   icon: AppIconName;
   link: string[];
-  /** Administrace — shown to admins and teachers only. */
+  /** Administrace — the whole of it, or a class teacher's pupils. */
   staffOnly?: boolean;
-  /** Logy — school admins only. */
+  /** Logy. */
   adminOnly?: boolean;
   /** Lidé — parents and pupils only (staff have Administrace). */
   familyOnly?: boolean;
@@ -334,18 +329,13 @@ export class App {
     );
   }
 
-  protected isAdmin(): boolean {
-    return this.authApi.isAdmin();
-  }
-
-  /** Shows the Administrace nav link to any Teacher, not just class
-   * teachers — AdminPage itself resolves whether they're actually a class
-   * teacher of something (restricted view) or not (same "jen pro ... "
-   * denial as before), since that needs an async lookup this synchronous
-   * nav check can't do. */
+  /** Administrace shows to whoever may manage pupils even in part —
+   * AdminPage itself resolves whether they're actually a class teacher of
+   * something (restricted view) or not, since that needs an async lookup
+   * this synchronous nav check can't do. */
   protected showsNavItem(item: NavItem): boolean {
     if (item.adminOnly) {
-      return this.isAdmin();
+      return this.authApi.can('AuditLog');
     }
     if (item.parentOnly) {
       return this.authApi.isParent();
@@ -353,11 +343,9 @@ export class App {
     if (item.familyOnly) {
       return this.authApi.isParent() || this.authApi.isStudent();
     }
-    return !item.staffOnly || this.isAdmin() || this.isTeacher();
-  }
-
-  protected isTeacher(): boolean {
-    return this.authApi.isTeacher();
+    return (
+      !item.staffOnly || this.authApi.isAdmin() || this.authApi.can('Students')
+    );
   }
 
   protected isSuperAdmin(): boolean {
@@ -371,14 +359,7 @@ export class App {
   }
 
   protected activeRoleLabel(): string {
-    return this.roleLabel(this.authApi.getRole() ?? '');
-  }
-
-  private roleLabel(role: string): string {
-    return localizeStudentTerm(
-      ROLE_LABELS[role] ?? role,
-      this.authApi.getSchoolType(),
-    );
+    return this.authApi.getActiveRole()?.name ?? '';
   }
 
   /** Cached per roles+active (the roles come from the token, not a
@@ -390,14 +371,14 @@ export class App {
 
   protected roleMenuItems(): MenuItem[] {
     const roles = this.authApi.getRoles();
-    const active = this.authApi.getRole();
-    const key = `${roles.join(',')}|${active}`;
+    const active = this.authApi.getActiveRole()?.id;
+    const key = `${roles.map((r) => `${r.id}:${r.name}`).join(',')}|${active}`;
     if (this.roleMenuCache?.key !== key) {
       this.roleMenuCache = {
         key,
         items: roles.map((role) => ({
-          label: this.roleLabel(role),
-          icon: role === active ? 'pi pi-check' : 'pi pi-fw',
+          label: role.name,
+          icon: role.id === active ? 'pi pi-check' : 'pi pi-fw',
           command: () => this.switchRole(role),
         })),
       };
@@ -408,11 +389,11 @@ export class App {
   /** Every page decides what to show by the role once, when it's created —
    * a full reload onto Home is the simplest way to make all of them
    * re-decide. */
-  private switchRole(role: string): void {
-    if (role === this.authApi.getRole()) {
+  private switchRole(role: RoleRef): void {
+    if (role.id === this.authApi.getActiveRole()?.id) {
       return;
     }
-    this.authApi.switchRole(role).subscribe({
+    this.authApi.switchRole(role.id).subscribe({
       next: () =>
         window.location.assign(
           this.router.serializeUrl(

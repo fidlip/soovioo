@@ -97,7 +97,7 @@ export class GradesPage {
   protected readonly filterStudentId = signal<number | null>(null);
   protected readonly filterSubjectId = signal<number | null>(null);
 
-  protected readonly isStaff = computed(() => this.authApi.isTeacherOrAdmin());
+  protected readonly isStaff = computed(() => this.authApi.isStaff());
 
   /** A student only ever sees themself — nothing to filter. */
   protected readonly showStudentFilter = computed(
@@ -206,7 +206,7 @@ export class GradesPage {
   }
 
   protected canAddGrade(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('GradesWrite');
   }
 
   protected startEditGrade(grade: Grade): void {

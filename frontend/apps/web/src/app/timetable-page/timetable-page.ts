@@ -207,7 +207,7 @@ export class TimetablePage {
   );
 
   protected readonly viewModeOptions = computed(() => {
-    if (this.authApi.isAdmin()) {
+    if (this.authApi.can('Timetable')) {
       return [
         { label: 'Třída', value: 'class' as ViewMode },
         { label: 'Učitel', value: 'teacher' as ViewMode },
@@ -347,11 +347,11 @@ export class TimetablePage {
       error: (err) => console.error('getClassrooms failed', err),
     });
 
-    if (this.authApi.isAdmin()) {
+    if (this.authApi.can('Timetable')) {
       this.viewMode.set('class');
       this.loadSchoolClasses(true);
       this.loadTeachers(false);
-    } else if (this.authApi.isTeacher()) {
+    } else if (this.authApi.isStaff()) {
       this.viewMode.set('teacher');
       this.loadTeachers(true);
       this.loadSchoolClasses(false);
@@ -403,7 +403,7 @@ export class TimetablePage {
   }
 
   protected canManageTimetable(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('Timetable');
   }
 
   /** Adding a brand new entry only makes sense picking a single class to

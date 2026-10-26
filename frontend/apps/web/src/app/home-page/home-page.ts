@@ -122,7 +122,7 @@ export class HomePage {
       return [];
     }
     const isAdmin = this.authApi.isAdmin();
-    const isStaff = this.authApi.isTeacherOrAdmin();
+    const isStaff = this.authApi.isStaff();
     const widgets: Widget[] = [];
     if (isAdmin) {
       widgets.push({

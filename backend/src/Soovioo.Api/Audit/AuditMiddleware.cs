@@ -121,7 +121,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
             UserId = userId,
             Username = username,
             UserDisplayName = displayName,
-            Role = user.FindFirstValue(ClaimTypes.Role),
+            Role = user.FindFirstValue("roleName") ?? user.FindFirstValue(ClaimTypes.Role),
             SupportSessionId = ParseInt(user.FindFirstValue(SupportClaims.SessionId)) ?? audit?.SupportSessionId,
             SupportBy = user.FindFirstValue(SupportClaims.By) ?? audit?.SupportBy,
             Method = request.Method,

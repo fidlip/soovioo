@@ -40,6 +40,8 @@ export * from './lib/events/event.model';
 export * from './lib/events/events-api.service';
 export * from './lib/auth/login-response.model';
 export * from './lib/auth/user.model';
+export * from './lib/auth/role.model';
+export * from './lib/auth/roles-api.service';
 export * from './lib/auth/token-storage';
 export * from './lib/auth/auth-api.service';
 export * from './lib/auth/auth.interceptor';

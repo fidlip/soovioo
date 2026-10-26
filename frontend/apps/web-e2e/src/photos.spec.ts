@@ -41,7 +41,12 @@ test('a teacher uploads and deletes their own profile photo', async ({
         data: {
           username,
           password: 'foto12345',
-          roles: ['Teacher'],
+          roleIds: [
+            (
+              await (await request.get(`${api}/roles`, { headers })).json()
+            ).find((r: { builtIn: string | null }) => r.builtIn === 'Teacher')
+              .id,
+          ],
           personId: person.id,
         },
       })

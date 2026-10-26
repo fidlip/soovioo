@@ -115,7 +115,12 @@ export class PaymentsPage {
 
   private readonly term = (text: string) =>
     localizeStudentTerm(text, this.authApi.getSchoolType());
-  protected readonly audienceOptions = AUDIENCE_OPTIONS.map((o) => ({
+  /** "Všichni žáci" only for whom payments reach the whole school. */
+  private readonly wholeSchool =
+    this.authApi.scope('PaymentsWrite') === 'School';
+  protected readonly audienceOptions = AUDIENCE_OPTIONS.filter(
+    (o) => this.wholeSchool || o.value !== 'Everyone',
+  ).map((o) => ({
     ...o,
     label: this.term(o.label),
   }));
@@ -212,7 +217,9 @@ export class PaymentsPage {
   protected newAmount: number | null = null;
   protected newRecurrence: PaymentRecurrence = 'None';
   protected newRecurrenceEndDate: Date | null = null;
-  protected newAudience: PaymentAudience = 'Everyone';
+  protected newAudience: PaymentAudience = this.wholeSchool
+    ? 'Everyone'
+    : 'Selected';
   protected selectedClassIds: number[] = [];
   protected selectedParentIds: number[] = [];
   protected selectedStudentIds: number[] = [];
@@ -272,7 +279,7 @@ export class PaymentsPage {
   }
 
   protected canManagePayments(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('PaymentsWrite');
   }
 
   protected recurrenceLabel(recurrence: PaymentRecurrence): string {
@@ -387,7 +394,7 @@ export class PaymentsPage {
     this.newAmount = null;
     this.newRecurrence = 'None';
     this.newRecurrenceEndDate = null;
-    this.newAudience = 'Everyone';
+    this.newAudience = this.wholeSchool ? 'Everyone' : 'Selected';
     this.selectedClassIds = [];
     this.selectedParentIds = [];
     this.selectedStudentIds = [];

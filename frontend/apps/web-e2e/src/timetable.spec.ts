@@ -29,16 +29,17 @@ function cell(
     .locator(`td[data-period="${period}"]`);
 }
 
-/** A teacher opens on their own timetable; lessons are added per class —
- * Jan Novák's, whose parent then checks it. The class is looked up in
- * Administrace (ucitel is its class teacher) rather than hard-coded: the
+/** Jan Novák's class, whose parent then checks the lesson — looked up in
+ * the class teacher's Administrace (ucitel's) rather than hard-coded: the
  * seed calls it 5.A, but a local database may have it renamed. */
-async function showJansClass(page: import('@playwright/test').Page) {
+async function jansClassName(
+  page: import('@playwright/test').Page,
+): Promise<string> {
   await page
     .getByRole('navigation', { name: 'Hlavní navigace' })
     .getByRole('link', { name: 'Administrace', exact: true })
     .click();
-  const className = (
+  return (
     await page
       .getByRole('row')
       .filter({ hasText: 'Jan Novák' })
@@ -47,27 +48,39 @@ async function showJansClass(page: import('@playwright/test').Page) {
       .nth(1)
       .innerText()
   ).trim();
-  await page
-    .getByRole('navigation', { name: 'Hlavní navigace' })
-    .getByRole('link', { name: 'Rozvrh', exact: true })
-    .click();
+}
 
+/** Lessons are added per class, by the admin. */
+async function showClass(
+  page: import('@playwright/test').Page,
+  className: string,
+) {
   await page.locator('p-select[name="viewMode"]').click();
   await page.getByRole('option', { name: 'Třída', exact: true }).click();
   await page.locator('p-select[name="classPicker"]').click();
   await page.getByRole('option', { name: className, exact: true }).click();
 }
 
-// One lesson goes through its life: the teacher adds it to Jan Novák's
-// class in a free slot, Jan's parent sees it, the teacher removes
-// it again — so the shared timetable ends up as it started.
+// One lesson goes through its life: the admin adds it to Jan Novák's
+// class in a free slot, Jan's parent sees it, the admin removes it again —
+// so the shared timetable ends up as it started. A teacher only looks.
 test.describe.serial('timetable lesson', () => {
-  const slot = { day: '', period: '', text: '' };
+  const slot = { day: '', period: '', text: '', className: '' };
 
-  test('teacher adds a lesson to a free slot', async ({ page }) => {
+  test('a teacher sees the timetable but does not edit it', async ({
+    page,
+  }) => {
     await login(page, 'ucitel', 'ucitel123');
+    await expect(
+      page.getByRole('button', { name: 'Upravit rozvrh' }),
+    ).toHaveCount(0);
+    slot.className = await jansClassName(page);
+  });
 
-    await showJansClass(page);
+  test('admin adds a lesson to a free slot', async ({ page }) => {
+    await login(page, 'admin', 'admin123');
+
+    await showClass(page, slot.className);
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
 
     const addButton = page
@@ -112,10 +125,10 @@ test.describe.serial('timetable lesson', () => {
     await expect(cell(page, slot.day, slot.period)).toContainText(slot.text);
   });
 
-  test('teacher deletes the lesson', async ({ page }) => {
-    await login(page, 'ucitel', 'ucitel123');
+  test('admin deletes the lesson', async ({ page }) => {
+    await login(page, 'admin', 'admin123');
 
-    await showJansClass(page);
+    await showClass(page, slot.className);
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     await cell(page, slot.day, slot.period).hover();
     await cell(page, slot.day, slot.period)

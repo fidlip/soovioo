@@ -41,8 +41,9 @@ import {
   PeopleApiService,
   Person,
   PhotosApiService,
-  ROLE_LABELS,
   ReferenceApiService,
+  RoleRef,
+  RolesApiService,
   SchoolClass,
   SchoolClassesApiService,
   SchoolType,
@@ -67,19 +68,21 @@ import { foldForSearch, matchesContact } from '../text-search';
  * non-Admin navigating here directly). */
 type AccessLevel = 'admin' | 'classTeacher' | 'denied' | 'loading';
 
-const ROLES = ['Admin', 'Teacher', 'Parent', 'Student'];
-
-/** The person profile a role needs (Admin none), and its name for the
- * "potřebuje profil …" hint. */
-const ROLE_PROFILES: Record<string, PersonProfile> = {
-  Teacher: 'teacher',
-  Parent: 'parent',
-  Student: 'student',
-};
-const PROFILE_NAMES: Record<string, string> = {
-  Teacher: 'učitele',
-  Parent: 'rodiče',
-  Student: 'žáka',
+/** The person profile a role needs — the built-in Teacher a teacher's, a
+ * parent's or pupil's role theirs, other staff roles none. */
+function profileOf(role: RoleRef): PersonProfile | null {
+  return role.builtIn === 'Teacher'
+    ? 'teacher'
+    : role.kind === 'Parent'
+      ? 'parent'
+      : role.kind === 'Student'
+        ? 'student'
+        : null;
+}
+const PROFILE_NAMES: Record<PersonProfile, string> = {
+  teacher: 'učitele',
+  parent: 'rodiče',
+  student: 'žáka',
 };
 
 // Fixed pastel palette (Tailwind 200 shades, not a free picker) — soft
@@ -107,6 +110,7 @@ import { SchoolNotifications } from '../school-notifications/school-notification
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
 import { PeopleTab } from '../people/people-tab';
+import { RolesTab } from '../roles/roles-tab';
 import { PersonCard } from '../people/person-card';
 import {
   PersonDialog,
@@ -136,6 +140,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
     VisibilitySettings,
     Departures,
     PeopleTab,
+    RolesTab,
     PersonCard,
     PersonDialog,
     StudentFields,
@@ -178,6 +183,7 @@ export class AdminPage {
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly usersApi = inject(UsersApiService);
+  private readonly rolesApi = inject(RolesApiService);
   private readonly parentsApi = inject(ParentsApiService);
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
   private readonly mySchoolApi = inject(MySchoolApiService);
@@ -221,20 +227,23 @@ export class AdminPage {
   protected readonly newUserDialogVisible = signal(false);
   protected readonly editParentChildrenDialogVisible = signal(false);
 
-  protected readonly roleOptions = ROLES.map((value) => ({
-    value,
-    label: localizeStudentTerm(
-      ROLE_LABELS[value],
-      this.authApi.getSchoolType(),
-    ),
-    disabled: false,
-  }));
+  /** The school's roles (Administrace → Role). */
+  protected readonly schoolRoles = signal<RoleRef[]>([]);
+  protected readonly roleOptions = computed(() =>
+    this.schoolRoles().map((role) => ({
+      value: role.id,
+      label: role.name,
+      disabled: false,
+    })),
+  );
   /** For the admin's own account: dropping Admin would lock them out of
    * this page (the backend rejects it too). */
-  protected readonly ownRoleOptions = this.roleOptions.map((option) => ({
-    ...option,
-    disabled: option.value === 'Admin',
-  }));
+  protected readonly ownRoleOptions = computed(() =>
+    this.roleOptions().map((option) => ({
+      ...option,
+      disabled: option.value === this.adminRoleId(),
+    })),
+  );
   protected readonly myUserId = this.authApi.getUserId();
   protected readonly genderOptions = GENDER_OPTIONS;
   protected readonly subjectColorPalette = SUBJECT_COLOR_PALETTE;
@@ -249,7 +258,7 @@ export class AdminPage {
 
   /** Třídní učitel candidates — Teacher role only. */
   protected readonly teacherOptions = computed(() =>
-    this.users().filter((u) => u.roles.includes('Teacher')),
+    this.users().filter((u) => u.roles.some((r) => r.builtIn === 'Teacher')),
   );
 
   /** "Rodiče" overview list — Admin sees every Parent-role account; a class
@@ -283,7 +292,7 @@ export class AdminPage {
     return this.people().filter(
       (p) =>
         (!p.account || p.account.userId === this.editingUserId) &&
-        missingProfiles(p, this.newUserRoles).length === 0,
+        missingProfiles(p, this.chosenRoles()).length === 0,
     );
   }
 
@@ -346,13 +355,13 @@ export class AdminPage {
 
   protected newUsername = '';
   protected newPassword = '';
-  protected newUserRoles: string[] = ['Parent'];
+  protected newUserRoles: number[] = [];
   protected newUserPersonId: number | null = null;
 
   protected filterStudentName = '';
   protected filterStudentSchoolClassId: number | null = null;
   protected filterStudentGender: Gender | null = null;
-  protected filterUserRole: string | null = null;
+  protected filterUserRole: number | null = null;
   protected filterUserName = '';
   protected filterUserContact = '';
 
@@ -412,11 +421,12 @@ export class AdminPage {
       // then filling them shoved the lower cards down the page.
       this.reloadAll();
       this.loadMySchool();
+      this.loadRoles();
       this.referenceApi.getCountries().subscribe({
         next: (countries) => this.countries.set(countries),
         error: (err) => console.error('getCountries failed', err),
       });
-    } else if (this.authApi.isTeacher()) {
+    } else if (this.authApi.can('Students')) {
       this.resolveClassTeacherAccess();
     } else {
       this.accessLevel.set('denied');
@@ -564,7 +574,11 @@ export class AdminPage {
 
   /** Staff photos are the admin's to set; parents set their own. */
   protected isStaffUser(user: AppUser): boolean {
-    return user.roles.includes('Teacher') || user.roles.includes('Admin');
+    return user.roles.some((r) => r.kind === 'Staff');
+  }
+
+  protected isPupilAccount(user: AppUser): boolean {
+    return user.roles.some((r) => r.kind === 'Student');
   }
 
   protected studentPhotoChanged(change: {
@@ -589,11 +603,13 @@ export class AdminPage {
     );
   }
 
-  protected roleLabel(role: string): string {
-    return localizeStudentTerm(
-      ROLE_LABELS[role] ?? role,
-      this.authApi.getSchoolType(),
-    );
+  private adminRoleId(): number | undefined {
+    return this.schoolRoles().find((r) => r.builtIn === 'Admin')?.id;
+  }
+
+  /** The roles picked in the account dialog. */
+  private chosenRoles(): RoleRef[] {
+    return this.schoolRoles().filter((r) => this.newUserRoles.includes(r.id));
   }
 
   protected filteredUsers(): AppUser[] {
@@ -602,7 +618,7 @@ export class AdminPage {
     return this.users().filter(
       (u) =>
         (this.filterUserRole === null ||
-          u.roles.includes(this.filterUserRole)) &&
+          u.roles.some((r) => r.id === this.filterUserRole)) &&
         (!name || foldForSearch(`${u.name} ${u.username}`).includes(name)) &&
         (!contact || matchesContact(u, contact)),
     );
@@ -624,6 +640,13 @@ export class AdminPage {
     if (--this.initialAdminRequests === 0) {
       this.accessLevel.set('admin');
     }
+  }
+
+  protected loadRoles(): void {
+    this.rolesApi.getRoles().subscribe({
+      next: (roles) => this.schoolRoles.set(roles),
+      error: (err) => console.error('getRoles failed', err),
+    });
   }
 
   private reloadAll(): void {
@@ -972,12 +995,16 @@ export class AdminPage {
   /** "Vytvořit účet" from Osoby: roles after the person's profiles. */
   protected openCreateAccountFor(person: Person): void {
     this.openAddUserDialog();
-    this.newUserRoles = person.student
-      ? ['Student']
-      : [
-          ...(person.teacher ? ['Teacher'] : []),
-          ...(person.parent ? ['Parent'] : []),
-        ];
+    const builtIn = (name: string) =>
+      this.schoolRoles().find((r) => r.builtIn === name)?.id;
+    this.newUserRoles = (
+      person.student
+        ? [builtIn('Student')]
+        : [
+            ...(person.teacher ? [builtIn('Teacher')] : []),
+            ...(person.parent ? [builtIn('Parent')] : []),
+          ]
+    ).filter((id): id is number => id !== undefined);
     this.setUserPerson(person);
   }
 
@@ -1001,15 +1028,15 @@ export class AdminPage {
     if (!person) {
       return ['Vyberte nebo založte osobu.'];
     }
-    return missingProfiles(person, this.newUserRoles).map(
+    return missingProfiles(person, this.chosenRoles()).map(
       (role) =>
-        `Role ${this.roleLabel(role)} potřebuje profil ${PROFILE_NAMES[role]} — doplňte ho tužkou.`,
+        `Role ${role.name} potřebuje profil ${PROFILE_NAMES[profileOf(role)!]} — doplňte ho tužkou.`,
     );
   }
 
   protected openNewPersonForUser(): void {
-    const profiles = this.newUserRoles
-      .map((role) => ROLE_PROFILES[role])
+    const profiles = this.chosenRoles()
+      .map(profileOf)
       .filter((profile): profile is PersonProfile => !!profile);
     this.personDialog.set({ id: null, profiles });
   }
@@ -1038,7 +1065,7 @@ export class AdminPage {
   protected startEditUser(user: AppUser): void {
     this.editingUserId = user.id;
     this.newUsername = user.username;
-    this.newUserRoles = [...user.roles];
+    this.newUserRoles = user.roles.map((r) => r.id);
     this.newPassword = ''; // left blank = keep the current password
     this.showPassword = false;
     this.newUserPersonId = user.personId;
@@ -1063,7 +1090,7 @@ export class AdminPage {
       const request: CreateUserRequest = {
         username: this.newUsername,
         password: this.newPassword || undefined,
-        roles: this.newUserRoles,
+        roleIds: this.newUserRoles,
         personId: this.newUserPersonId,
       };
       this.usersApi.addUser(request).subscribe({
@@ -1079,7 +1106,7 @@ export class AdminPage {
 
     const request: UpdateUserRequest = {
       username: this.newUsername,
-      roles: this.newUserRoles,
+      roleIds: this.newUserRoles,
       personId: this.newUserPersonId,
       password: this.newPassword || undefined,
     };
@@ -1095,10 +1122,13 @@ export class AdminPage {
 
   /** Editing your own account keeps the Admin role even if its chip gets
    * removed (the option itself is disabled, see ownRoleOptions). */
-  protected onUserRolesChange(roles: string[]): void {
+  protected onUserRolesChange(roles: number[]): void {
+    const admin = this.adminRoleId();
     this.newUserRoles =
-      this.editingUserId === this.myUserId && !roles.includes('Admin')
-        ? ['Admin', ...roles]
+      this.editingUserId === this.myUserId &&
+      admin !== undefined &&
+      !roles.includes(admin)
+        ? [admin, ...roles]
         : roles;
   }
 
@@ -1427,13 +1457,11 @@ export class AdminPage {
 }
 
 /** The roles of `roles` whose profile the person lacks. */
-function missingProfiles(person: Person, roles: string[]): string[] {
-  const has: Record<string, boolean> = {
-    Teacher: !!person.teacher,
-    Parent: !!person.parent,
-    Student: !!person.student,
-  };
-  return roles.filter((role) => role in has && !has[role]);
+function missingProfiles(person: Person, roles: RoleRef[]): RoleRef[] {
+  return roles.filter((role) => {
+    const profile = profileOf(role);
+    return profile !== null && !person[profile];
+  });
 }
 
 /** "Jan Novák" -> "jan.novak" (no diacritics, letters/digits only). */

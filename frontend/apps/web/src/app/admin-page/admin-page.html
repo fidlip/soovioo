@@ -210,12 +210,13 @@
 </p-tabs>
 } @else {
 <!-- Lazy: a tab's content (tables, forms) renders when first opened, not
-     all six at page load — that was most of the page's blocking time. -->
+     all seven at page load — that was most of the page's blocking time. -->
 <p-tabs [(value)]="activeTab" [scrollable]="true" [lazy]="true">
   <p-tablist>
     <p-tab value="classes">Třídy, předměty a učebny</p-tab>
     <p-tab value="people">Osoby</p-tab>
     <p-tab value="users">Uživatelé</p-tab>
+    <p-tab value="roles">Role</p-tab>
     <p-tab value="school">Škola a matrika</p-tab>
     <p-tab value="visibility">Viditelnost údajů</p-tab>
     <p-tab value="departures">Archiv a výmaz údajů</p-tab>
@@ -451,7 +452,7 @@
                   name="filterUserContact"
                 />
                 <p-select
-                  [options]="roleOptions"
+                  [options]="roleOptions()"
                   optionLabel="label"
                   optionValue="value"
                   placeholder="Všechny role"
@@ -502,9 +503,9 @@
                   </td>
                   <td>
                     <div class="flex flex-wrap items-center gap-1">
-                      @for (role of user.roles; track role) {
-                      <p-tag [value]="roleLabel(role)" severity="secondary" />
-                      } @if (user.roles.includes('Student')) {
+                      @for (role of user.roles; track role.id) {
+                      <p-tag [value]="role.name" severity="secondary" />
+                      } @if (isPupilAccount(user)) {
                       <span class="text-sm text-surface-500"
                         >{{ studentName(user.studentId) }}</span
                       >
@@ -589,6 +590,14 @@
               </ng-template>
             </p-table>
           </p-card>
+        </div>
+      </ng-template>
+    </p-tabpanel>
+
+    <p-tabpanel value="roles">
+      <ng-template #content>
+        <div class="pt-4">
+          <app-roles-tab (changed)="loadRoles()" />
         </div>
       </ng-template>
     </p-tabpanel>
@@ -1127,8 +1136,8 @@
         inputId="roles"
         [options]="
           editingUserId !== null && editingUserId === myUserId
-            ? ownRoleOptions
-            : roleOptions
+            ? ownRoleOptions()
+            : roleOptions()
         "
         optionLabel="label"
         optionValue="value"

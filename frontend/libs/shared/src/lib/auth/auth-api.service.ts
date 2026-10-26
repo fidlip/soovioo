@@ -20,6 +20,7 @@ import {
 import { LoginRequest, LoginResponse } from './login-response.model';
 import { TokenStorage } from './token-storage';
 import { SchoolType } from '../evidence/student-term';
+import { Permission, PermissionScope, RoleRef } from './role.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
@@ -127,7 +128,8 @@ export class AuthApiService {
     return !!this.tokenStorage.getToken();
   }
 
-  /** Role claim from the stored JWT, or null if not logged in / unparseable. */
+  /** Role claim from the stored JWT: the active role's kind (`Staff`,
+   * `Parent`, `Student`) or `SuperAdmin`; null if not logged in. */
   getRole(): string | null {
     return this.getClaim(
       'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
@@ -154,20 +156,45 @@ export class AuthApiService {
     return Number.isNaN(id) ? null : id;
   }
 
-  /** Every role the account may switch between (`roles` claim) — the
-   * active one is `getRole()`. */
-  getRoles(): string[] {
-    return this.getClaim('roles')?.split(',').filter(Boolean) ?? [];
+  /** Every role the account may switch between (`roles` claim). */
+  getRoles(): RoleRef[] {
+    try {
+      return JSON.parse(this.getClaim('roles') ?? '[]') as RoleRef[];
+    } catch {
+      return [];
+    }
+  }
+
+  /** The active role (`roleId`/`roleName` claims); null for SuperAdmin. */
+  getActiveRole(): { id: number; name: string } | null {
+    const id = Number(this.getClaim('roleId'));
+    return id ? { id, name: this.getClaim('roleName') ?? '' } : null;
   }
 
   /** Makes another of `getRoles()` the active one — the backend remembers
    * it and hands back an access token carrying it. */
-  switchRole(role: string): Observable<void> {
+  switchRole(roleId: number): Observable<void> {
     return this.http
       .post<{ token: string }>(`${this.baseUrl}/api/users/me/active-role`, {
-        role,
+        roleId,
       })
       .pipe(map((response) => this.store(response)));
+  }
+
+  /** How far the active role's permission reaches (`perms` claim). The
+   * API checks for itself; this only decides what the UI offers. */
+  scope(permission: Permission): PermissionScope {
+    for (const pair of (this.getClaim('perms') ?? '').split(',')) {
+      const [name, scope] = pair.split(':');
+      if (name === permission) {
+        return scope as PermissionScope;
+      }
+    }
+    return 'None';
+  }
+
+  can(permission: Permission): boolean {
+    return this.scope(permission) !== 'None';
   }
 
   /** ZŠ/SŠ of the user's school (`schoolType` claim) — drives "žák" vs.
@@ -228,21 +255,14 @@ export class AuthApiService {
     }
   }
 
-  /** True for Teacher/Admin — the roles allowed to write grades/absences/timetable/messages. */
-  isTeacherOrAdmin(): boolean {
-    const role = this.getRole();
-    return role === 'Teacher' || role === 'Admin';
+  /** Staff (any role of the kind) — vs. a parent or a pupil. */
+  isStaff(): boolean {
+    return this.getRole() === 'Staff';
   }
 
-  /** True for Teacher specifically — e.g. the Rozvrh page defaults a
-   * Teacher's view to their own schedule, which doesn't apply to Admin. */
-  isTeacher(): boolean {
-    return this.getRole() === 'Teacher';
-  }
-
-  /** True for Admin — the only role allowed to manage users/classes/subjects/parent links. */
+  /** Administrace in full: people, accounts, roles, the school's settings. */
   isAdmin(): boolean {
-    return this.getRole() === 'Admin';
+    return this.can('Administration');
   }
 
   /** True for SuperAdmin — manages schools themselves, not any one school's data. */
@@ -250,14 +270,11 @@ export class AuthApiService {
     return this.getRole() === 'SuperAdmin';
   }
 
-  /** True for Parent. */
   isParent(): boolean {
     return this.getRole() === 'Parent';
   }
 
-  /** True for Student — a student logging in for themselves. Read-only,
-   * same agendas as Parent, but unlike Parent never allowed to submit their
-   * own excuse (see `AbsencesController.SubmitExcuse` on the backend). */
+  /** A pupil logging in for themselves. */
   isStudent(): boolean {
     return this.getRole() === 'Student';
   }

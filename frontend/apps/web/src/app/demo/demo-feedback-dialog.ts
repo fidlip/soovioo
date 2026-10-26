@@ -38,7 +38,9 @@ export class DemoFeedbackDialog {
   protected readonly sending = signal(false);
 
   protected canSend(): boolean {
-    return (this.rating() !== null || this.text.trim().length > 0) && !this.sending();
+    return (
+      (this.rating() !== null || this.text.trim().length > 0) && !this.sending()
+    );
   }
 
   protected send(): void {
@@ -49,7 +51,7 @@ export class DemoFeedbackDialog {
         text: this.text.trim() || null,
         email: this.email.trim() || null,
         consent: this.consent && this.email.trim().length > 0,
-        role: this.authApi.getRole(),
+        role: this.authApi.getActiveRole()?.name ?? this.authApi.getRole(),
       })
       .subscribe({
         next: () => {
