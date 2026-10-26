@@ -13,7 +13,7 @@ namespace Soovioo.Api.Auth;
 /// Administrace view pick a parent to link without granting them the full
 /// user list. Not for parents and pupils: who the other parents are is the
 /// school's call ("Viditelnost údajů", see <see cref="People.ClassDirectoryController"/>).</summary>
-[Authorize(Roles = "Teacher,Admin")]
+[Authorize(Roles = nameof(RoleKind.Staff))]
 [ApiController]
 [Route("api/parents")]
 public class ParentsController(AppDbContext db, PhotoAccess photoAccess) : ControllerBase
@@ -23,7 +23,7 @@ public class ParentsController(AppDbContext db, PhotoAccess photoAccess) : Contr
     {
         var users = await db.Users
             .Include(u => u.Person)
-            .Where(u => u.Roles.Contains(UserRole.Parent))
+            .Where(u => u.Roles.Any(r => r.Kind == RoleKind.Parent))
             .OrderBy(u => u.Username)
             .ToListAsync();
         var photos = await photoAccess.VisibleUserPhotosAsync(User, users);

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,10 +23,15 @@ public class HomeworkController(
     [HttpGet]
     public async Task<ActionResult<IEnumerable<HomeworkDto>>> GetHomework()
     {
-        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.HomeworkRead);
 
         var query = db.Homework.AsQueryable();
-        if (allowedStudentIds is not null)
+        if (User.IsStaff() && await User.ClassIdsAsync(db, Permission.HomeworkRead) is { } classIds)
+        {
+            // Staff see their classes' homework, pupils or not.
+            query = query.Where(h => classIds.Contains(h.SchoolClassId));
+        }
+        else if (allowedStudentIds is not null)
         {
             query = query.Where(h =>
                 (h.Students.Count == 0 &&
@@ -61,7 +65,7 @@ public class HomeworkController(
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.HomeworkWrite)]
     public async Task<ActionResult<HomeworkDto>> CreateHomework(CreateHomeworkRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
@@ -76,8 +80,7 @@ public class HomeworkController(
             return BadRequest("Neznámý předmět.");
         }
 
-        if (!User.IsInRole("Admin") &&
-            !await db.TeachesClassInSubjectAsync(CurrentUserId(), request.SchoolClassId, request.SubjectId))
+        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, request.SchoolClassId, request.SubjectId))
         {
             return Forbid();
         }
@@ -132,7 +135,7 @@ public class HomeworkController(
     /// current and the new class+subject. Moving it to another class drops
     /// completions and targets that don't belong there anymore.</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.HomeworkWrite)]
     public async Task<ActionResult<HomeworkDto>> UpdateHomework(int id, CreateHomeworkRequest request)
     {
         var homework = await db.Homework
@@ -157,9 +160,8 @@ public class HomeworkController(
             return BadRequest("Neznámý předmět.");
         }
 
-        if (!User.IsInRole("Admin") &&
-            (!await db.TeachesClassInSubjectAsync(CurrentUserId(), homework.SchoolClassId, homework.SubjectId) ||
-             !await db.TeachesClassInSubjectAsync(CurrentUserId(), request.SchoolClassId, request.SubjectId)))
+        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, homework.SchoolClassId, homework.SubjectId)
+            || !await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, request.SchoolClassId, request.SubjectId))
         {
             return Forbid();
         }
@@ -212,13 +214,17 @@ public class HomeworkController(
     /// MessagesController.UploadAttachment — multipart/form-data stays out
     /// of the plain-JSON create request.</summary>
     [HttpPost("{id:int}/attachments")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.HomeworkWrite)]
     public async Task<ActionResult<HomeworkAttachmentDto>> UploadAttachment(int id, IFormFile file)
     {
         var homework = await db.Homework.FindAsync(id);
         if (homework is null)
         {
             return NotFound();
+        }
+        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, homework.SchoolClassId, homework.SubjectId))
+        {
+            return Forbid();
         }
 
         if (file.Length == 0)
@@ -280,13 +286,10 @@ public class HomeworkController(
         return PhysicalFile(fullPath, attachment.ContentType, attachment.FileName);
     }
 
-    /// <summary>"žák/rodič" (roadmap wording) — unlike AbsencesController.
-    /// SubmitExcuse, Student is deliberately NOT excluded here; marking
-    /// your own homework done has no equivalent restriction.</summary>
     [HttpPost("{id:int}/complete")]
     public async Task<IActionResult> MarkComplete(int id, MarkHomeworkCompleteRequest request)
     {
-        if (!await User.CanAccessStudentAsync(db, request.StudentId))
+        if (!await User.ReachesStudentAsync(db, Permission.HomeworkComplete, request.StudentId))
         {
             return Forbid();
         }
@@ -326,11 +329,9 @@ public class HomeworkController(
         return NoContent();
     }
 
-    /// <summary>Same ownership rule as creating it — a Teacher may only
-    /// delete homework for a class+subject they actually teach; Admin can
-    /// delete anything.</summary>
+    /// <summary>Same ownership rule as creating it.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.HomeworkWrite)]
     public async Task<IActionResult> DeleteHomework(int id)
     {
         var homework = await db.Homework.FindAsync(id);
@@ -339,8 +340,7 @@ public class HomeworkController(
             return NotFound();
         }
 
-        if (!User.IsInRole("Admin") &&
-            !await db.TeachesClassInSubjectAsync(CurrentUserId(), homework.SchoolClassId, homework.SubjectId))
+        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, homework.SchoolClassId, homework.SubjectId))
         {
             return Forbid();
         }
@@ -356,8 +356,6 @@ public class HomeworkController(
 
         return NoContent();
     }
-
-    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateHomeworkRequest(

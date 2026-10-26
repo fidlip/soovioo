@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Soovioo.Api.Auth;
 
 namespace Soovioo.Api.Matrika;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequirePermission(Permission.MatrikaExport)]
 [ApiController]
 [Route("api/matrika")]
 public class MatrikaController(MatrikaExportService exportService) : ControllerBase

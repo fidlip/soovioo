@@ -109,14 +109,14 @@ public static class Visibility
     /// <summary>The owners whose settings an account with
     /// <paramref name="roles"/> decides for itself — a pupil's are decided
     /// by the parents.</summary>
-    public static IReadOnlyList<VisibilityOwner> OwnOwners(IEnumerable<UserRole> roles)
+    public static IReadOnlyList<VisibilityOwner> OwnOwners(IEnumerable<Role> roles)
     {
         var owners = new List<VisibilityOwner>();
-        if (roles.Any(r => r is UserRole.Teacher or UserRole.Admin))
+        if (roles.Any(r => r.Kind == RoleKind.Staff))
         {
             owners.Add(VisibilityOwner.Staff);
         }
-        if (roles.Contains(UserRole.Parent))
+        if (roles.Any(r => r.Kind == RoleKind.Parent))
         {
             owners.Add(VisibilityOwner.Parent);
         }

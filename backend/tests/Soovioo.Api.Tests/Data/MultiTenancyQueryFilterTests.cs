@@ -40,8 +40,8 @@ public class MultiTenancyQueryFilterTests
             new StudentProfile { Person = new Person { FirstName = "Žák", LastName = "Školy A", SchoolId = schoolA.Id }, SchoolClassId = classA.Id, SchoolId = schoolA.Id },
             new StudentProfile { Person = new Person { FirstName = "Žák", LastName = "Školy B", SchoolId = schoolB.Id }, SchoolClassId = classB.Id, SchoolId = schoolB.Id });
         seedDb.Users.AddRange(
-            new User { Username = "admin.a", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = schoolA.Id },
-            new User { Username = "admin.b", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = schoolB.Id });
+            new User { Username = "admin.a", PasswordHash = "x", ActiveRole = seedDb.Role(UserRole.Admin, schoolA.Id), SchoolId = schoolA.Id },
+            new User { Username = "admin.b", PasswordHash = "x", ActiveRole = seedDb.Role(UserRole.Admin, schoolB.Id), SchoolId = schoolB.Id });
         seedDb.Events.AddRange(
             new Event { Title = "Akce A", SchoolId = schoolA.Id, StartAt = DateTimeOffset.UtcNow, EndAt = DateTimeOffset.UtcNow.AddHours(1) },
             new Event { Title = "Akce B", SchoolId = schoolB.Id, StartAt = DateTimeOffset.UtcNow, EndAt = DateTimeOffset.UtcNow.AddHours(1) });

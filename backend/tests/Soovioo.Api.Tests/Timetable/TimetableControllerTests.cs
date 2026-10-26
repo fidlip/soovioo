@@ -84,7 +84,7 @@ public class TimetableControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
-        var teacher = new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
         db.Subjects.Add(subject);
         db.Users.Add(teacher);
@@ -107,7 +107,7 @@ public class TimetableControllerTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         // An Admin, not a Teacher — picking them as a timetable teacher is invalid.
-        var admin = new User { Username = "admin", PasswordHash = "", ActiveRole = UserRole.Admin, SchoolId = SchoolId };
+        var admin = new User { Username = "admin", PasswordHash = "", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
         db.Subjects.Add(subject);
         db.Users.Add(admin);
@@ -128,8 +128,8 @@ public class TimetableControllerTests
         var classA = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         var classB = new SchoolClass { Name = "2.B", SchoolId = SchoolId };
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
-        var teacher = new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.SchoolClasses.AddRange(classA, classB);
         db.Subjects.Add(subject);
         db.Users.AddRange(teacher, otherTeacher);
@@ -275,7 +275,7 @@ public class TimetableControllerTests
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         var teacher = new User
         {
-            Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, Roles = [UserRole.Teacher], SchoolId = SchoolId,
+            Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId,
         };
         db.SchoolClasses.AddRange(classA, classB);
         db.Subjects.Add(subject);

@@ -18,14 +18,14 @@ public class StudentAccessExtensionsTests
 
     private static ClaimsPrincipal StudentPrincipal(int userId) =>
         new(new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Role, nameof(UserRole.Student))],
+            [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Role, nameof(RoleKind.Student))],
             authenticationType: "Test"));
 
     [Fact]
     public async Task StudentSeesOnlyTheirOwnStudentId()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         var otherStudent = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         db.Students.Add(otherStudent);
@@ -44,7 +44,7 @@ public class StudentAccessExtensionsTests
     public async Task StudentWithNoLinkedStudentSeesNothing()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
 
@@ -58,7 +58,7 @@ public class StudentAccessExtensionsTests
     public async Task StudentCannotAccessAnotherStudent()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var ownStudent = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };

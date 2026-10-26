@@ -31,14 +31,14 @@ public class VisibilityTests
     private static ClassDirectoryController Directory(AppDbContext db, User user) =>
         new(db, new FakeCurrentSchoolContext(SchoolId), new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)))
         {
-            ControllerContext = Context(user.Id, user.ActiveRole.ToString()),
+            ControllerContext = TestRoles.Context(TestRoles.PrincipalOf(user)),
         };
 
     private static MyProfileController Profile(AppDbContext db, User user) =>
-        new(db, AuthTestServices.Sessions(db), AuthTestServices.RefreshTokens(db)) { ControllerContext = Context(user.Id, user.ActiveRole.ToString()) };
+        new(db, AuthTestServices.Sessions(db), AuthTestServices.RefreshTokens(db)) { ControllerContext = TestRoles.Context(TestRoles.PrincipalOf(user)) };
 
     private static MyChildrenController Children(AppDbContext db, User user) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = Context(user.Id, user.ActiveRole.ToString()) };
+        new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = TestRoles.Context(TestRoles.PrincipalOf(user)) };
 
     private static MySchoolController MySchool(AppDbContext db) => new(db, new FakeCurrentSchoolContext(SchoolId));
 
@@ -57,10 +57,10 @@ public class VisibilityTests
         {
             db.VisibilityRules.AddRange(Visibility.DemoRules(SchoolId));
         }
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-        var otherParent = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-        var pupil = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+        var otherParent = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+        var pupil = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.AddRange(teacher, parent, otherParent, pupil);
         await db.SaveChangesAsync();
         db.Persons.AddRange(
@@ -281,7 +281,7 @@ public class VisibilityTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
-        fx.Teacher.Roles.Add(UserRole.Parent);
+        fx.Teacher.Roles.Add(db.Role(UserRole.Parent, SchoolId));
         await db.SaveChangesAsync();
 
         var teacher = Ok(await Profile(db, fx.Teacher).GetVisibility());
@@ -369,7 +369,7 @@ public class VisibilityTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
-        fx.Teacher.Roles.Add(UserRole.Parent);
+        fx.Teacher.Roles.Add(db.Role(UserRole.Parent, SchoolId));
         await db.SaveChangesAsync();
         var photo = new SetVisibilityRequest(
             VisibilityOwner.Student, VisibilityField.Photo, VisibilityAudience.Parents, VisibilityScope.MyClasses);

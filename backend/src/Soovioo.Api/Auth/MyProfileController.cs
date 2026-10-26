@@ -85,7 +85,7 @@ public class MyProfileController(
     public async Task<ActionResult<SwitchRoleResponse>> SwitchRole(SwitchRoleRequest request)
     {
         var user = await CurrentUserAsync();
-        if (!Enum.TryParse<UserRole>(request.Role, out var role) || !user.Roles.Contains(role))
+        if (user.Roles.FirstOrDefault(r => r.Id == request.RoleId) is not { } role)
         {
             return BadRequest("Tuto roli účet nemá.");
         }
@@ -145,7 +145,7 @@ public class MyProfileController(
                 : await db.VisibilityChoices.Where(c => c.PersonId == user.Person.Id).ToListAsync();
             settings.AddRange(VisibilitySettings.Of(visibility, owners, choices, editable: true));
         }
-        if (user.Roles.Contains(UserRole.Student) && user.Person is not null)
+        if (user.HasKind(RoleKind.Student) && user.Person is not null)
         {
             var choices = await db.VisibilityChoices.Where(c => c.PersonId == user.Person.Id).ToListAsync();
             settings.AddRange(VisibilitySettings.Of(visibility, [VisibilityOwner.Student], choices, editable: false));
@@ -165,12 +165,12 @@ public class MyProfileController(
     private async Task<MyProfileDto> ToDtoAsync(User user)
     {
         var canUploadPhoto = PhotoAccess.IsStaff(user);
-        if (!canUploadPhoto && user.Roles.Contains(UserRole.Parent) && user.SchoolId is { } schoolId)
+        if (!canUploadPhoto && user.HasKind(RoleKind.Parent) && user.SchoolId is { } schoolId)
         {
             canUploadPhoto = await db.Schools.AnyAsync(s =>
                 s.Id == schoolId && s.ParentPhotos);
         }
-        return new(user.Id, user.Username, PersonNames.Display(user), user.ActiveRole.ToString(), user.Person?.Phone, user.Person?.Email,
+        return new(user.Id, user.Username, PersonNames.Display(user), user.ActiveRole?.Name ?? nameof(UserRole.SuperAdmin), user.Person?.Phone, user.Person?.Email,
             PhotoStorage.Token(user.Person?.PhotoKey), canUploadPhoto);
     }
 }
@@ -180,7 +180,7 @@ public class MyProfileController(
 public record MyProfileDto(
     int Id, string Username, string Name, string Role, string? Phone, string? Email, string? Photo, bool CanUploadPhoto);
 
-public record SwitchRoleRequest(string Role);
+public record SwitchRoleRequest(int RoleId);
 
 public record SwitchRoleResponse(string Token);
 

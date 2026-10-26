@@ -65,7 +65,7 @@ public class SupportSessionService(
         await db.SaveChangesAsync();
 
         http.Response.Cookies.Append(CookieName, secret, CookieOptionsFor(session.ExpiresAt));
-        return Respond(session);
+        return await RespondAsync(session);
     }
 
     /// <summary>A fresh support token when the request carries a live
@@ -86,18 +86,22 @@ public class SupportSessionService(
             .FirstOrDefaultAsync(s => s.RefreshSecretHash == hash);
         return session is { EndedAt: null, SuperAdminUser: not null, School: not null }
                && session.ExpiresAt > now && session.School.Slug == schoolSlug
-            ? Respond(session)
+            ? await RespondAsync(session)
             : null;
     }
 
     public void ClearCookie(HttpContext http) =>
         http.Response.Cookies.Delete(CookieName, CookieOptionsFor(null));
 
-    private LoginResponse Respond(SupportSession session)
+    private async Task<LoginResponse> RespondAsync(SupportSession session)
     {
-        var (token, _) = tokens.CreateSupportToken(session.SuperAdminUser!, session.School!, session.Id, session.ExpiresAt);
+        var adminRole = await db.Roles.IgnoreQueryFilters()
+            .FirstAsync(r => r.SchoolId == session.SchoolId && r.BuiltIn == UserRole.Admin);
+        var (token, _) = tokens.CreateSupportToken(
+            session.SuperAdminUser!, session.School!, adminRole,
+            await PermissionAccess.EffectivePermissionsAsync(db, adminRole.Id), session.Id, session.ExpiresAt);
         return new LoginResponse(
-            token, session.SuperAdminUser!.Username, nameof(UserRole.Admin), session.School!.Name, session.School.Slug);
+            token, session.SuperAdminUser!.Username, nameof(RoleKind.Staff), session.School!.Name, session.School.Slug);
     }
 
     private CookieOptions CookieOptionsFor(DateTimeOffset? expires) => new()

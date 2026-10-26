@@ -37,8 +37,7 @@ public class PhotosTests
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity(
-                        [new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Role, user.ActiveRole.ToString())])),
+                    User = TestRoles.PrincipalOf(user),
                 },
             },
         };
@@ -50,12 +49,12 @@ public class PhotosTests
     {
         var school = new School { Id = SchoolId, Name = "Škola", Slug = "skola", StudentPhotos = photosOn, ParentPhotos = photosOn };
         db.Schools.Add(school);
-        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId };
-        var classTeacher = new User { Username = "tridni", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-        var otherTeacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-        var otherParent = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-        var pupil = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
+        var classTeacher = new User { Username = "tridni", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        var otherTeacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+        var otherParent = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+        var pupil = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.AddRange(admin, classTeacher, otherTeacher, parent, otherParent, pupil);
         await db.SaveChangesAsync();
         db.Persons.Add(new Person { UserId = parent.Id, SchoolId = SchoolId, FirstName = "Petr", LastName = "Rodič", Email = "petr@example.com" });

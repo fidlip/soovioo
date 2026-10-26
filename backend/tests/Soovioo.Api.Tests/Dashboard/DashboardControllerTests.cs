@@ -30,15 +30,12 @@ public class DashboardControllerTests
 
     private static DashboardController NewController(AppDbContext db, int currentUserId, string role)
     {
-        var identity = new ClaimsIdentity([
-            new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString()),
-            new Claim(ClaimTypes.Role, role),
-        ]);
+        var principal = TestRoles.Principal(db, currentUserId, Enum.Parse<UserRole>(role), SchoolId, null);
         return new DashboardController(db, new FakeCurrentSchoolContext(SchoolId))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }
@@ -49,7 +46,7 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         db.Students.Add(new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
@@ -72,8 +69,8 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.AddRange(teacher, otherTeacher);
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.Subjects.Add(subject);
@@ -107,7 +104,7 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parent);
         var subject = new Subject { Name = "Čeština", SchoolId = SchoolId };
         db.Subjects.Add(subject);
@@ -146,7 +143,7 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
         var myStudent = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -154,7 +151,7 @@ public class DashboardControllerTests
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         var now = DateTimeOffset.UtcNow;
@@ -188,7 +185,7 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
         var myStudent = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -226,7 +223,7 @@ public class DashboardControllerTests
     public async Task StudentWithNoLinkedStudentGetsEmptyWidgetsNotAnError()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
 

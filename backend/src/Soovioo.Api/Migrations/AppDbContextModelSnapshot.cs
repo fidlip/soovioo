@@ -185,6 +185,57 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Auth.Role", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BuiltIn")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "BuiltIn")
+                        .IsUnique()
+                        .HasFilter("\"BuiltIn\" IS NOT NULL");
+
+                    b.HasIndex("SchoolId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.RolePermission", b =>
+                {
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Permission")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("RoleId", "Permission");
+
+                    b.ToTable("RolePermissions");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.User", b =>
                 {
                     b.Property<int>("Id")
@@ -193,7 +244,7 @@ namespace Soovioo.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ActiveRole")
+                    b.Property<int?>("ActiveRoleId")
                         .HasColumnType("integer");
 
                     b.Property<string>("CalendarToken")
@@ -219,6 +270,9 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<DateTimeOffset?>("InvitationTokenExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsSuperAdmin")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
@@ -251,10 +305,6 @@ namespace Soovioo.Api.Migrations
                     b.Property<TimeOnly?>("PushQuietTo")
                         .HasColumnType("time without time zone");
 
-                    b.PrimitiveCollection<int[]>("Roles")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
-
                     b.Property<int?>("SchoolId")
                         .HasColumnType("integer");
 
@@ -263,6 +313,8 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ActiveRoleId");
 
                     b.HasIndex("CalendarToken")
                         .IsUnique()
@@ -2047,6 +2099,21 @@ namespace Soovioo.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("UserRoles", b =>
+                {
+                    b.Property<int>("RolesId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsersId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RolesId", "UsersId");
+
+                    b.HasIndex("UsersId");
+
+                    b.ToTable("UserRoles");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Attendance.Absence", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -2077,11 +2144,38 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Auth.Role", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany("Roles")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.RolePermission", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.Role", null)
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.User", b =>
                 {
+                    b.HasOne("Soovioo.Api.Auth.Role", "ActiveRole")
+                        .WithMany()
+                        .HasForeignKey("ActiveRoleId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId");
+
+                    b.Navigation("ActiveRole");
 
                     b.Navigation("School");
                 });
@@ -2855,6 +2949,26 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("UserRoles", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RolesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", null)
+                        .WithMany()
+                        .HasForeignKey("UsersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.Role", b =>
+                {
+                    b.Navigation("Permissions");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.User", b =>
                 {
                     b.Navigation("Person");
@@ -2869,6 +2983,11 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Students");
 
                     b.Navigation("Teachers");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Evidence.School", b =>
+                {
+                    b.Navigation("Roles");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Evidence.SchoolClass", b =>

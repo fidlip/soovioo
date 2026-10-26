@@ -198,13 +198,13 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// <summary>The kinds that can reach this account — staff alone hear
     /// only about messages and events, pupils' and parents' agendas are
     /// theirs.</summary>
-    public static IReadOnlyList<NotificationType> TypesFor(IReadOnlyCollection<UserRole> roles)
+    public static IReadOnlyList<NotificationType> TypesFor(IReadOnlyCollection<Role> roles)
     {
-        if (roles.Contains(UserRole.Parent))
+        if (roles.Any(r => r.Kind == RoleKind.Parent))
         {
             return Enum.GetValues<NotificationType>();
         }
-        if (roles.Contains(UserRole.Student))
+        if (roles.Any(r => r.Kind == RoleKind.Student))
         {
             return Enum.GetValues<NotificationType>().Where(t => t != NotificationType.Photo).ToList();
         }

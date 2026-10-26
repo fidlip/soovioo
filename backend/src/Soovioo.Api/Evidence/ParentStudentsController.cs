@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,12 +7,11 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Evidence;
 
-/// <summary>Admin manages every link in the school. A Teacher only gets in
-/// here at all as a class teacher (třídní učitel) — restricted-Administrace
-/// access (see ROADMAP "Administrace — redesign") — scoped to links
-/// touching their own class's students, same restriction as
-/// <see cref="StudentsController"/>.</summary>
-[Authorize(Roles = "Teacher,Admin")]
+/// <summary>Parent↔pupil links of the pupils the caller's
+/// <see cref="Permission.Students"/> reaches (by default: Admin all, a
+/// class teacher their class), same as <see cref="StudentsController"/>.</summary>
+[Authorize]
+[RequirePermission(Permission.Students)]
 [ApiController]
 [Route("api/parent-student-links")]
 public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
@@ -22,10 +20,9 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
     public async Task<ActionResult<IEnumerable<ParentStudentDto>>> GetLinks()
     {
         var query = db.ParentStudents.AsQueryable();
-        if (!User.IsInRole(nameof(UserRole.Admin)))
+        if (await User.ClassIdsAsync(db, Permission.Students) is { } classIds)
         {
-            var ownClassIds = await db.GetOwnClassIdsAsClassTeacherAsync(CurrentUserId());
-            query = query.Where(ps => ownClassIds.Contains(ps.Student!.SchoolClassId));
+            query = query.Where(ps => classIds.Contains(ps.Student!.SchoolClassId));
         }
 
         var links = await query
@@ -57,7 +54,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
             return BadRequest("Neznámý uživatel nebo žák.");
         }
 
-        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
+        if (!await User.ReachesClassAsync(db, Permission.Students, student.SchoolClassId))
         {
             return Forbid();
         }
@@ -86,13 +83,10 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
             return NotFound();
         }
 
-        if (!User.IsInRole(nameof(UserRole.Admin)))
+        var student = await db.Students.FindAsync(studentId);
+        if (student is null || !await User.ReachesClassAsync(db, Permission.Students, student.SchoolClassId))
         {
-            var student = await db.Students.FindAsync(studentId);
-            if (student is null || !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
-            {
-                return Forbid();
-            }
+            return Forbid();
         }
 
         db.ParentStudents.Remove(link);
@@ -102,8 +96,6 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
 
     private static string Display(string firstName, string lastName, string username) =>
         $"{firstName} {lastName}".Trim() is { Length: > 0 } name ? name : username;
-
-    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateParentStudentLinkRequest(int UserId, int StudentId);

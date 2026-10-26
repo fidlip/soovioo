@@ -18,7 +18,7 @@ public class TeachersController(AppDbContext db) : ControllerBase
     public async Task<ActionResult<IEnumerable<TeacherDto>>> GetTeachers()
     {
         var teachers = await db.Users
-            .Where(u => u.Roles.Contains(UserRole.Teacher) && u.DeactivatedAt == null)
+            .Where(u => u.Roles.Any(r => r.BuiltIn == UserRole.Teacher) && u.DeactivatedAt == null)
             .OrderBy(u => u.Username)
             .Select(u => new TeacherDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();

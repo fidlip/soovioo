@@ -22,9 +22,9 @@ public class TeachersControllerTests
     {
         using var db = NewDb();
         db.Users.AddRange(
-            new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = SchoolId },
-            new User { Username = "admin", PasswordHash = "", ActiveRole = UserRole.Admin, SchoolId = SchoolId },
-            new User { Username = "rodic", PasswordHash = "", ActiveRole = UserRole.Parent, SchoolId = SchoolId });
+            new User { Username = "ucitel", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId },
+            new User { Username = "admin", PasswordHash = "", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId },
+            new User { Username = "rodic", PasswordHash = "", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
         var result = await new TeachersController(db).GetTeachers();

@@ -25,16 +25,12 @@ public class EventsControllerTests
 
     private static EventsController NewController(AppDbContext db, int currentUserId, string role)
     {
-        var identity = new ClaimsIdentity([
-            new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString()),
-            new Claim(ClaimTypes.Role, role),
-            new Claim(ClaimTypes.Name, "tester"),
-        ]);
+        var principal = TestRoles.Principal(db, currentUserId, Enum.Parse<UserRole>(role), SchoolId, "tester");
         return new EventsController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }
@@ -44,7 +40,7 @@ public class EventsControllerTests
     {
         using var db = NewDb();
 
-        var result = await NewController(db, 7, "Teacher")
+        var result = await NewController(db, 7, "Admin")
             .CreateEvent(new CreateEventRequest(
                 "Školní výlet", "Celodenní výlet do zoo", null,
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
@@ -64,7 +60,7 @@ public class EventsControllerTests
     {
         using var db = NewDb();
 
-        var result = await NewController(db, 7, "Teacher")
+        var result = await NewController(db, 7, "Admin")
             .CreateEvent(new CreateEventRequest(
                 "Zelená akce", null, null,
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
@@ -80,7 +76,7 @@ public class EventsControllerTests
     {
         using var db = NewDb();
 
-        var result = await NewController(db, 7, "Teacher")
+        var result = await NewController(db, 7, "Admin")
             .CreateEvent(new CreateEventRequest(
                 "Špatná barva", null, null,
                 new DateTimeOffset(2026, 5, 1, 8, 0, 0, TimeSpan.Zero),
@@ -176,9 +172,9 @@ public class EventsControllerTests
 
         public static async Task<AudienceFixture> SeedAsync(AppDbContext db)
         {
-            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-            var otherTeacher = new User { Username = "ucitelB", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-            var studentUserA = new User { Username = "zakA", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+            var otherTeacher = new User { Username = "ucitelB", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+            var studentUserA = new User { Username = "zakA", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
             db.Users.AddRange(teacherA, otherTeacher, studentUserA);
             await db.SaveChangesAsync();
 
@@ -192,8 +188,8 @@ public class EventsControllerTests
             db.Students.AddRange(studentA, studentB);
             await db.SaveChangesAsync();
 
-            var parentA = new User { Username = "rodicA", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-            var parentB = new User { Username = "rodicB", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+            var parentA = new User { Username = "rodicA", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+            var parentB = new User { Username = "rodicB", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
             db.Users.AddRange(parentA, parentB);
             await db.SaveChangesAsync();
 
@@ -325,7 +321,7 @@ public class EventsControllerTests
     {
         using var db = NewDb();
         var fx = await AudienceFixture.SeedAsync(db);
-        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
             "Pro celou školu", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
             AllDay: false, Audience: EventAudience.Everyone));
 
@@ -381,13 +377,13 @@ public class EventsControllerTests
     {
         using var db = NewDb();
         var fx = await AudienceFixture.SeedAsync(db);
-        var unlinkedStudentUser = new User { Username = "zakC", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var unlinkedStudentUser = new User { Username = "zakC", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(unlinkedStudentUser);
         await db.SaveChangesAsync();
         await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
             "Pro třídu A", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
             AllDay: false, Audience: EventAudience.Selected, SchoolClassIds: [fx.ClassA.Id]));
-        await NewController(db, fx.TeacherA.Id, "Teacher").CreateEvent(new CreateEventRequest(
+        await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(
             "Pro celou školu", null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
             AllDay: false, Audience: EventAudience.Everyone));
 

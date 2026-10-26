@@ -24,18 +24,14 @@ public class HomeworkControllerTests
 
     private static Soovioo.Api.Homework.HomeworkController NewController(AppDbContext db, int userId, string role, string username = "tester")
     {
-        var identity = new ClaimsIdentity([
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Role, role),
-            new Claim(ClaimTypes.Name, username),
-        ]);
+        var principal = TestRoles.Principal(db, userId, Enum.Parse<UserRole>(role), SchoolId, username);
         return new Soovioo.Api.Homework.HomeworkController(
             db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()),
             new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }
@@ -132,7 +128,7 @@ public class HomeworkControllerTests
     }
 
     [Fact]
-    public async Task GetHomeworkShowsEverythingUnfilteredForTeacher()
+    public async Task GetHomeworkShowsTheTeachersClassesWork()
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
@@ -155,7 +151,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         db.Students.Add(student);
@@ -180,7 +176,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var parentUser = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         db.Homework.Add(new HomeworkEntity
         {
@@ -201,7 +197,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         var myKid = new StudentProfile { Person = new Person { FirstName = "Můj", LastName = "Syn", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         var otherKid = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Users.Add(parentUser);
@@ -230,7 +226,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -255,7 +251,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -281,7 +277,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -305,7 +301,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -367,7 +363,7 @@ public class HomeworkControllerTests
         var teacherController = NewController(db, 7, "Teacher");
         var uploadResult = await teacherController.UploadAttachment(homework.Id, FakeFile("zadani.pdf"));
         var attachmentDto = (Soovioo.Api.Homework.HomeworkAttachmentDto)Assert.IsType<OkObjectResult>(uploadResult.Result).Value!;
-        var unrelatedParent = new User { Username = "rodic4", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var unrelatedParent = new User { Username = "rodic4", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(unrelatedParent);
         await db.SaveChangesAsync();
 
@@ -415,11 +411,7 @@ public class HomeworkControllerTests
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity([
-                        new Claim(ClaimTypes.NameIdentifier, "7"),
-                        new Claim(ClaimTypes.Role, "Teacher"),
-                        new Claim(ClaimTypes.Name, "ucitel"),
-                    ])),
+                    User = TestRoles.Principal(db, 7, UserRole.Teacher, SchoolId, "ucitel"),
                 },
             },
         };

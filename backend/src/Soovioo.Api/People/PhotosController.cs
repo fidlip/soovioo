@@ -89,7 +89,7 @@ public class PhotosController(
             return NotFound();
         }
         if (userId != PhotoAccess.ViewerId(User)
-            && !(User.IsInRole(nameof(UserRole.Admin)) && PhotoAccess.IsStaff(user)))
+            && !(await User.HasPermissionAsync(db, Permission.Administration) && PhotoAccess.IsStaff(user)))
         {
             return Forbid();
         }
@@ -336,20 +336,20 @@ public class PhotosController(
     }
 
     private async Task<bool> IsParentOfAsync(StudentProfile student) =>
-        User.IsInRole(nameof(UserRole.Parent))
+        User.ActiveKind() == RoleKind.Parent
         && await db.ChildIdsOf(PhotoAccess.ViewerId(User)).AnyAsync(id => id == student.Id);
 
     private async Task<ActionResult?> CanManageUserPhotoAsync(User user)
     {
         if (user.Id != PhotoAccess.ViewerId(User))
         {
-            return User.IsInRole(nameof(UserRole.Admin)) && PhotoAccess.IsStaff(user) ? null : Forbid();
+            return await User.HasPermissionAsync(db, Permission.Administration) && PhotoAccess.IsStaff(user) ? null : Forbid();
         }
         if (PhotoAccess.IsStaff(user))
         {
             return null;
         }
-        return user.Roles.Contains(UserRole.Parent)
+        return user.HasKind(RoleKind.Parent)
                && (await access.SchoolAsync()).ParentPhotos
             ? null
             : BadRequest("Škola fotky rodičů nemá zapnuté.");

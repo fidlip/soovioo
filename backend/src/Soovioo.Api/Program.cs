@@ -46,6 +46,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSchoolContext, HttpCurrentSchoolContext>();
 builder.Services.AddScoped<MatrikaExportService>();
 builder.Services.AddScoped<JwtTokenFactory>();
+builder.Services.AddSingleton<RolePermissionCache>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<AuthSessionService>();
 builder.Services.AddScoped<Soovioo.Api.Support.SupportSessionService>();
@@ -166,6 +167,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    RoleSeeder.Ensure(db);
     SeedUsers(db, app.Configuration.GetSection("Seed").Get<SeedOptions>() ?? new SeedOptions());
     BackfillDemoTimetableTeacher(db);
     BackfillDemoClassTeacher(db);
@@ -253,7 +255,7 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
         {
             Username = Soovioo.Api.Support.SupportController.BuiltInUsername,
             PasswordHash = "",
-            ActiveRole = UserRole.SuperAdmin,
+            IsSuperAdmin = true,
             SchoolId = null,
             MustChangePassword = true,
         };
@@ -262,13 +264,15 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
         db.SaveChanges();
         return;
     }
+    var roles = db.Roles.IgnoreQueryFilters().Where(r => r.SchoolId == demoSchoolId && r.BuiltIn != null)
+        .ToDictionary(r => r.BuiltIn!.Value);
     var demoUsers = new[]
     {
-        new User { Username = Soovioo.Api.Support.SupportController.BuiltInUsername, PasswordHash = "", ActiveRole = UserRole.SuperAdmin, SchoolId = null },
-        new User { Username = "admin", PasswordHash = "", ActiveRole = UserRole.Admin, SchoolId = demoSchoolId },
-        new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = demoSchoolId },
-        new User { Username = "rodic", PasswordHash = "", ActiveRole = UserRole.Parent, SchoolId = demoSchoolId },
-        new User { Username = "zak", PasswordHash = "", ActiveRole = UserRole.Student, SchoolId = demoSchoolId },
+        new User { Username = Soovioo.Api.Support.SupportController.BuiltInUsername, PasswordHash = "", IsSuperAdmin = true, SchoolId = null },
+        new User { Username = "admin", PasswordHash = "", ActiveRole = roles[UserRole.Admin], SchoolId = demoSchoolId },
+        new User { Username = "ucitel", PasswordHash = "", ActiveRole = roles[UserRole.Teacher], SchoolId = demoSchoolId },
+        new User { Username = "rodic", PasswordHash = "", ActiveRole = roles[UserRole.Parent], SchoolId = demoSchoolId },
+        new User { Username = "zak", PasswordHash = "", ActiveRole = roles[UserRole.Student], SchoolId = demoSchoolId },
     };
 
     foreach (var user in demoUsers)

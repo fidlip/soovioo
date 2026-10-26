@@ -15,7 +15,8 @@ namespace Soovioo.Api.Retention;
 /// <summary>Administrace → Archiv a výmaz údajů: pupils leaving the school, the former
 /// pupils and staff still on record, and the school's rules for erasing
 /// them (<see cref="RetentionPolicy"/>).</summary>
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequirePermission(Permission.Retention)]
 [ApiController]
 [Route("api/retention")]
 public class RetentionController(

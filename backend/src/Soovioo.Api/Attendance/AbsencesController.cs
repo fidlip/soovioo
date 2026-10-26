@@ -17,7 +17,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AbsenceDto>>> GetAbsences()
     {
-        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.AbsencesRead);
 
         var query = db.Absences.AsQueryable();
         if (allowedStudentIds is not null)
@@ -41,13 +41,17 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.AbsencesWrite)]
     public async Task<ActionResult<AbsenceDto>> AddAbsence(CreateAbsenceRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);
         if (student is null)
         {
             return BadRequest("Neznámý žák.");
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesWrite, student.Id))
+        {
+            return Forbid();
         }
 
         var periods = NormalizePeriods(request.Periods);
@@ -83,10 +87,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        // A Student can read their own absences (CanAccessStudentAsync would
-        // allow it) but, per product decision, may never submit their own
-        // excuse — that stays a Parent/Teacher/Admin action.
-        if (User.IsInRole(nameof(UserRole.Student)) || !await User.CanAccessStudentAsync(db, absence.StudentId))
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesExcuse, absence.StudentId))
         {
             return Forbid();
         }
@@ -98,13 +99,17 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPost("{id}/review")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.AbsencesWrite)]
     public async Task<ActionResult> ReviewAbsence(int id, ReviewAbsenceRequest request)
     {
         var absence = await db.Absences.FindAsync(id);
         if (absence is null)
         {
             return NotFound();
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesWrite, absence.StudentId))
+        {
+            return Forbid();
         }
 
         absence.Status = request.Approve ? AbsenceStatus.Excused : AbsenceStatus.Rejected;
@@ -130,7 +135,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
     /// wrong date) — separate from the excuse/review workflow above, which
     /// stays the normal path for actually processing an absence.</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.AbsencesWrite)]
     public async Task<ActionResult<AbsenceDto>> UpdateAbsence(int id, CreateAbsenceRequest request)
     {
         var absence = await db.Absences.FindAsync(id);
@@ -143,6 +148,11 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         if (student is null)
         {
             return BadRequest("Neznámý žák.");
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesWrite, absence.StudentId)
+            || !await User.ReachesStudentAsync(db, Permission.AbsencesWrite, student.Id))
+        {
+            return Forbid();
         }
 
         var periods = NormalizePeriods(request.Periods);
@@ -163,13 +173,17 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.AbsencesWrite)]
     public async Task<IActionResult> DeleteAbsence(int id)
     {
         var absence = await db.Absences.FindAsync(id);
         if (absence is null)
         {
             return NotFound();
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesWrite, absence.StudentId))
+        {
+            return Forbid();
         }
 
         db.Absences.Remove(absence);

@@ -5,9 +5,9 @@ using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Homework;
 
-/// <summary>"Can this caller see/act on this one Homework row" — Teacher/
-/// Admin always can (GetAccessibleStudentIdsAsync returns null for them,
-/// same convention as everywhere else); a Parent/Student can only if at
+/// <summary>"Can this caller see/act on this one Homework row" — staff
+/// when its class is within their <see cref="Permission.HomeworkRead"/>;
+/// a Parent/Student only if at
 /// least one of their accessible students is actually targeted by it
 /// (whole class, or specifically listed — see Homework.Students' doc
 /// comment).</summary>
@@ -15,7 +15,12 @@ public static class HomeworkAccessExtensions
 {
     public static async Task<bool> CanAccessHomeworkAsync(this ClaimsPrincipal user, AppDbContext db, int homeworkId)
     {
-        var allowed = await user.GetAccessibleStudentIdsAsync(db);
+        if (user.IsStaff())
+        {
+            return await user.ClassIdsAsync(db, Permission.HomeworkRead) is not { } classIds
+                || await db.Homework.AnyAsync(h => h.Id == homeworkId && classIds.Contains(h.SchoolClassId));
+        }
+        var allowed = await user.StudentIdsAsync(db, Permission.HomeworkRead);
         if (allowed is null)
         {
             return true;

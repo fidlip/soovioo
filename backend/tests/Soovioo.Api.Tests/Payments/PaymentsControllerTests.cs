@@ -26,11 +26,7 @@ public class PaymentsControllerTests
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity([
-                        new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                        new Claim(ClaimTypes.Role, role),
-                        new Claim(ClaimTypes.Name, "tester"),
-                    ])),
+                    User = TestRoles.Principal(db, userId, Enum.Parse<UserRole>(role), SchoolId, "tester"),
                 },
             },
         };
@@ -52,8 +48,8 @@ public class PaymentsControllerTests
 
         public static async Task<Fixture> SeedAsync(AppDbContext db)
         {
-            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-            var studentUserA = new User { Username = "zakA", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+            var studentUserA = new User { Username = "zakA", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
             db.Users.AddRange(teacherA, studentUserA);
             await db.SaveChangesAsync();
 
@@ -73,8 +69,8 @@ public class PaymentsControllerTests
             db.Students.AddRange(studentA, studentB);
             await db.SaveChangesAsync();
 
-            var parentA = new User { Username = "rodicA", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-            var parentB = new User { Username = "rodicB", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+            var parentA = new User { Username = "rodicA", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+            var parentB = new User { Username = "rodicB", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
             db.Users.AddRange(parentA, parentB);
             await db.SaveChangesAsync();
 

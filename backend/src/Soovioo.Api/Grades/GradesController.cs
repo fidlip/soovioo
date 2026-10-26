@@ -15,7 +15,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
     {
-        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.GradesRead);
 
         var query = db.Grades.AsQueryable();
         if (allowedStudentIds is not null)
@@ -45,7 +45,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.GradesWrite)]
     public async Task<ActionResult<GradeDto>> AddGrade(CreateGradeRequest request)
     {
         var studentExists = await db.Students.AnyAsync(s => s.Id == request.StudentId);
@@ -53,6 +53,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         if (!studentExists || !subjectExists)
         {
             return BadRequest("Neznámý žák nebo předmět.");
+        }
+        if (!await MayGradeAsync(request.StudentId, request.SubjectId))
+        {
+            return Forbid();
         }
 
         var grade = new Grade
@@ -96,7 +100,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.GradesWrite)]
     public async Task<ActionResult<GradeDto>> UpdateGrade(int id, CreateGradeRequest request)
     {
         var grade = await db.Grades.FindAsync(id);
@@ -110,6 +114,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         if (student is null || subject is null)
         {
             return BadRequest("Neznámý žák nebo předmět.");
+        }
+        if (!await MayGradeAsync(grade.StudentId, grade.SubjectId) || !await MayGradeAsync(request.StudentId, request.SubjectId))
+        {
+            return Forbid();
         }
 
         grade.StudentId = request.StudentId;
@@ -130,7 +138,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.GradesWrite)]
     public async Task<IActionResult> DeleteGrade(int id)
     {
         var grade = await db.Grades.FindAsync(id);
@@ -138,11 +146,22 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             return NotFound();
         }
+        if (!await MayGradeAsync(grade.StudentId, grade.SubjectId))
+        {
+            return Forbid();
+        }
 
         db.Grades.Remove(grade);
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    /// <summary>The pupil's class and the subject within the caller's
+    /// <see cref="Permission.GradesWrite"/> (by default: a teacher grades
+    /// what they teach).</summary>
+    private async Task<bool> MayGradeAsync(int studentId, int subjectId) =>
+        await db.Students.Where(s => s.Id == studentId).Select(s => (int?)s.SchoolClassId).FirstOrDefaultAsync() is { } classId
+        && await User.ReachesClassSubjectAsync(db, Permission.GradesWrite, classId, subjectId);
 }
 
 /// <param name="GradedOn">Omitted = today on create, unchanged on update.</param>

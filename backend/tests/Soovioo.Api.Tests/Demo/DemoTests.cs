@@ -27,6 +27,7 @@ public class DemoTests
         AppDbContext db, SchoolType type = SchoolType.Elementary, int perGrade = 2, int seed = 42)
     {
         var school = new School { Name = "Ukázková škola", Slug = "demo-test" + seed, Type = type, IsDemo = true, ExpiresAt = Now.AddDays(30) };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
         var featured = await new DemoDataGenerator(db).GenerateAsync(school, new DemoSchoolOptions(type, perGrade, seed), Now);
@@ -41,13 +42,14 @@ public class DemoTests
         var storage = new MessageAttachmentStorageService(new FakeWebHostEnvironment());
         var photos = new Soovioo.Api.People.PhotoStorage(storage);
         var school = new School { Name = "Ukázková škola", Slug = "demo-photos", IsDemo = true, ExpiresAt = Now.AddDays(30) };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
         var featured = await new DemoDataGenerator(db, photos).GenerateAsync(school, new DemoSchoolOptions(SchoolType.Elementary, 1, 7), Now);
         db.ChangeTracker.Clear();
 
         var staff = await db.Users.IgnoreQueryFilters().Include(u => u.Person)
-            .Where(u => u.SchoolId == school.Id && (u.Roles.Contains(UserRole.Teacher) || u.Roles.Contains(UserRole.Admin)))
+            .Where(u => u.SchoolId == school.Id && u.Roles.Any(r => r.Kind == RoleKind.Staff))
             .ToListAsync();
         Assert.True(staff.Count(u => u.Person!.PhotoKey != null) > staff.Count / 2);
         var key = staff.First(u => u.Person!.PhotoKey != null).Person!.PhotoKey!;
@@ -114,11 +116,11 @@ public class DemoTests
 
         // Featured users exist with the right roles; nobody has a password.
         var users = await db.Users.IgnoreQueryFilters().Where(u => u.SchoolId == id).ToListAsync();
-        Assert.Equal(UserRole.Admin, users.Single(u => u.Id == featured.AdminId).ActiveRole);
-        Assert.Equal(UserRole.Teacher, users.Single(u => u.Id == featured.TeacherId).ActiveRole);
-        Assert.Equal(UserRole.Parent, users.Single(u => u.Id == featured.ParentId).ActiveRole);
-        Assert.Equal(UserRole.Student, users.Single(u => u.Id == featured.StudentId).ActiveRole);
-        Assert.Single(users, u => u.ActiveRole == UserRole.Admin);
+        Assert.Equal(UserRole.Admin, users.Single(u => u.Id == featured.AdminId).ActiveRole!.BuiltIn);
+        Assert.Equal(UserRole.Teacher, users.Single(u => u.Id == featured.TeacherId).ActiveRole!.BuiltIn);
+        Assert.Equal(UserRole.Parent, users.Single(u => u.Id == featured.ParentId).ActiveRole!.BuiltIn);
+        Assert.Equal(UserRole.Student, users.Single(u => u.Id == featured.StudentId).ActiveRole!.BuiltIn);
+        Assert.Single(users, u => u.ActiveRole!.BuiltIn == UserRole.Admin);
         Assert.All(users, u => Assert.Equal("", u.PasswordHash));
         var personUserIds = await db.Persons.IgnoreQueryFilters().Where(p => p.UserId != null).Select(p => p.UserId!.Value).ToListAsync();
         Assert.All(users, u => Assert.Contains(u.Id, personUserIds));
@@ -194,6 +196,7 @@ public class DemoTests
     {
         using var db = NewDb();
         var school = new School { Name = "Ostrá", Slug = "ostra" };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         db.Students.Add(new StudentProfile { Person = new Person { FirstName = "A", LastName = "B", SchoolId = 1 }, SchoolId = 1 });
         await db.SaveChangesAsync();
@@ -209,7 +212,7 @@ public class DemoTests
     {
         using var db = NewDb();
         db.Schools.Add(new School { Name = "Ostrá", Slug = "ostra" });
-        db.Users.Add(new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = 1 });
+        db.Users.Add(new User { Username = "admin", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, 1), SchoolId = 1 });
         await db.SaveChangesAsync();
         var controller = Controller(db);
 
@@ -238,7 +241,7 @@ public class DemoTests
 
         var login = await controller.Login(school.Slug, new DemoLoginRequest(featured.TeacherId));
         var response = Assert.IsType<LoginResponse>(Assert.IsType<OkObjectResult>(login.Result).Value);
-        Assert.Equal("Teacher", response.Role);
+        Assert.Equal("Staff", response.Role);
         Assert.Equal(school.Slug, response.SchoolSlug);
 
         // A user of another school can't be smuggled in.
@@ -386,6 +389,7 @@ public class DemoTests
     {
         using var db = NewDb();
         var school = new School { Name = "Demo", Slug = "demo-fb", IsDemo = true, ExpiresAt = Now.AddDays(30) };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
         var mail = new FakeEmailSender();

@@ -27,14 +27,12 @@ public class StudentsControllerTests
 
     private static StudentsController NewController(AppDbContext db, int currentUserId, string role = "Admin")
     {
-        var identity = new ClaimsIdentity([
-            new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString()), new Claim(ClaimTypes.Role, role),
-        ]);
+        var principal = TestRoles.Principal(db, currentUserId, Enum.Parse<UserRole>(role), SchoolId, null);
         return new StudentsController(db, new FakeCurrentSchoolContext(SchoolId))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }
@@ -68,7 +66,7 @@ public class StudentsControllerTests
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         var subject = new Soovioo.Api.Evidence.Subject { Name = "Matematika", SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Students.Add(student);
         db.Subjects.Add(subject);
         db.Users.Add(parent);
@@ -96,7 +94,7 @@ public class StudentsControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
@@ -128,7 +126,7 @@ public class StudentsControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile
@@ -173,7 +171,7 @@ public class StudentsControllerTests
     public async Task ClassTeacherCanAddStudentToTheirOwnClass()
     {
         using var db = NewDb();
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         var ownClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
@@ -190,7 +188,7 @@ public class StudentsControllerTests
     public async Task NonClassTeacherCannotAddStudentToAnyClass()
     {
         using var db = NewDb();
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         // Not the class teacher of this class — just an ordinary Teacher.
@@ -208,7 +206,7 @@ public class StudentsControllerTests
     public async Task ClassTeacherCannotMoveAStudentIntoAClassTheyDoNotOwn()
     {
         using var db = NewDb();
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         var ownClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
@@ -229,7 +227,7 @@ public class StudentsControllerTests
     public async Task ClassTeacherCannotDeleteAStudentFromAnotherClass()
     {
         using var db = NewDb();
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         db.SchoolClasses.Add(new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id });
@@ -258,7 +256,7 @@ public class StudentsControllerTests
     public async Task AddStudentGeneratesVariableSymbolAndRejectsDuplicates()
     {
         using var db = NewDb();
-        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
         db.Users.Add(admin);
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);

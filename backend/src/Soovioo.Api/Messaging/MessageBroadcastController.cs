@@ -14,27 +14,24 @@ namespace Soovioo.Api.Messaging;
 /// fan-out into one <see cref="Conversation"/> per pupil (sender + the
 /// pupil's account + parents), so every family can reply privately; the
 /// same shape <see cref="ConversationsController"/> creates for one pupil.
-/// Admin can target any class or the whole school; Teacher can only target a
-/// class they actually teach (třídní učitel or has a timetable entry in it)
-/// — unlike single-student messaging, which stays unrestricted for both
-/// roles, broadcast reaches many parents at once, so it's scoped to classes
-/// the teacher is actually responsible for.</summary>
-[Authorize(Roles = "Teacher,Admin")]
+/// Who may target which classes, and the whole school, are permissions —
+/// unlike single-student messaging, which stays unrestricted for staff,
+/// broadcast reaches many parents at once.</summary>
+[Authorize(Roles = nameof(RoleKind.Staff))]
 [ApiController]
 public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
-    /// <summary>Classes the caller is allowed to broadcast to — every class
-    /// for Admin, only owned ones for Teacher. Drives the class picker so
-    /// the frontend never offers a class that would 403.</summary>
+    /// <summary>Classes the caller is allowed to broadcast to. Drives the
+    /// class picker so the frontend never offers a class that would 403.</summary>
     [HttpGet("api/messages/broadcastable-classes")]
     public async Task<ActionResult<IEnumerable<SchoolClass>>> GetBroadcastableClasses()
     {
-        if (User.IsInRole("Admin"))
+        var classIds = await User.ClassIdsAsync(db, Permission.MessagesBroadcastClass);
+        if (classIds is null)
         {
             return Ok(await db.SchoolClasses.OrderBy(c => c.Name).ToListAsync());
         }
 
-        var classIds = await db.GetTeacherClassIdsAsync(CurrentUserId());
         var classes = await db.SchoolClasses
             .Where(c => classIds.Contains(c.Id))
             .OrderBy(c => c.Name)
@@ -43,6 +40,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     }
 
     [HttpPost("api/school-classes/{schoolClassId:int}/messages/broadcast")]
+    [RequirePermission(Permission.MessagesBroadcastClass)]
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToClass(int schoolClassId, BroadcastRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
@@ -51,7 +49,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Neznámá třída.");
         }
 
-        if (!User.IsInRole("Admin") && !await db.TeacherOwnsClassAsync(CurrentUserId(), schoolClassId))
+        if (!await User.ReachesClassAsync(db, Permission.MessagesBroadcastClass, schoolClassId))
         {
             return Forbid();
         }
@@ -60,11 +58,8 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
         return Ok(await SendToStudentsAsync(studentIds, request, schoolClass.Name));
     }
 
-    /// <summary>Whole school — Admin only (not combined with the class-level
-    /// Teacher,Admin authorize on this controller, the method's own Admin
-    /// role requirement is ANDed on top of it).</summary>
     [HttpPost("api/messages/broadcast")]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Permission.MessagesBroadcastSchool)]
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToSchool(BroadcastRequest request)
     {
         var studentIds = await db.Students.Select(s => s.Id).ToListAsync();

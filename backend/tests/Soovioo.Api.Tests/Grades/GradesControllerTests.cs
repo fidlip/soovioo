@@ -30,6 +30,7 @@ public class GradesControllerTests
         db.Students.Add(student);
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
+        db.Teaches(1, student.SchoolClassId, subject.Id);
         return (student, subject);
     }
 
@@ -42,7 +43,7 @@ public class GradesControllerTests
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
 
-        var result = await new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+        var result = await NewTeacherController(db)
             .UpdateGrade(grade.Id, new CreateGradeRequest(student.Id, subject.Id, 1, 3, "opravena"));
 
         var dto = Assert.IsType<GradeDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -60,7 +61,7 @@ public class GradesControllerTests
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
 
-        var result = await new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)).DeleteGrade(grade.Id);
+        var result = await NewTeacherController(db).DeleteGrade(grade.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Grades.FindAsync(grade.Id));
@@ -68,14 +69,12 @@ public class GradesControllerTests
 
     private static GradesController NewTeacherController(AppDbContext db)
     {
-        var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimTypes.Role, nameof(UserRole.Teacher))],
-            authenticationType: "Test");
+        var principal = TestRoles.Principal(db, 1, UserRole.Teacher, SchoolId);
         return new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }

@@ -25,14 +25,12 @@ public class AbsencesControllerTests
 
     private static AbsencesController NewControllerAs(AppDbContext db, int userId, UserRole role)
     {
-        var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Role, role.ToString())],
-            authenticationType: "Test");
+        var principal = TestRoles.Principal(db, userId, role, SchoolId);
         return new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }
@@ -48,7 +46,7 @@ public class AbsencesControllerTests
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
 
-        var result = await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+        var result = await NewControllerAs(db, 999, UserRole.Admin)
             .UpdateAbsence(absence.Id, new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 2)));
 
         var dto = Assert.IsType<AbsenceDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -66,7 +64,7 @@ public class AbsencesControllerTests
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
 
-        var result = await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)).DeleteAbsence(absence.Id);
+        var result = await NewControllerAs(db, 999, UserRole.Admin).DeleteAbsence(absence.Id);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Null(await db.Absences.FindAsync(absence.Id));
@@ -76,7 +74,7 @@ public class AbsencesControllerTests
     public async Task SubmitExcuseRejectsTheStudentThemselves()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
@@ -97,7 +95,7 @@ public class AbsencesControllerTests
     public async Task SubmitExcuseAllowsTheLinkedParent()
     {
         using var db = NewDb();
-        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
@@ -122,7 +120,7 @@ public class AbsencesControllerTests
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
-        var controller = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System));
+        var controller = NewControllerAs(db, 999, UserRole.Admin);
 
         var result = await controller.AddAbsence(new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 5), [3, 0, 2, 3]));
         var dto = Assert.IsType<AbsenceDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);

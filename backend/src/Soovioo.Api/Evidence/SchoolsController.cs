@@ -79,6 +79,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
             Izo = request.Izo,
             RedIzo = request.RedIzo,
         };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
@@ -86,7 +87,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         {
             Username = request.AdminUsername,
             PasswordHash = string.Empty,
-            ActiveRole = UserRole.Admin,
+            ActiveRole = school.Roles.Single(r => r.BuiltIn == UserRole.Admin),
             SchoolId = school.Id,
         };
         admin.PasswordHash = Hasher.HashPassword(admin, request.AdminPassword);

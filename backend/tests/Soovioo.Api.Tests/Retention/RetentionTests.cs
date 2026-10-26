@@ -35,7 +35,7 @@ public class RetentionTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId)) { Today = Today };
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
-        db.Users.Add(new User { Id = AdminId, Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId });
+        db.Users.Add(new User { Id = AdminId, Username = "admin", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId });
         schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
@@ -53,7 +53,7 @@ public class RetentionTests
 
     private User AddUser(string username, params UserRole[] roles)
     {
-        var user = new User { Username = username, PasswordHash = "x", ActiveRole = roles[0], Roles = [.. roles], SchoolId = SchoolId };
+        var user = new User { Username = username, PasswordHash = "x", Roles = [.. roles.Select(r => db.Role(r, SchoolId))], ActiveRole = db.Role(roles[0], SchoolId), SchoolId = SchoolId };
         db.Users.Add(user);
         db.SaveChanges();
         return user;
@@ -86,15 +86,13 @@ public class RetentionTests
 
     private RetentionController Controller(int adminId = AdminId)
     {
-        var identity = new ClaimsIdentity([
-            new Claim(ClaimTypes.NameIdentifier, adminId.ToString()), new Claim(ClaimTypes.Role, "Admin"),
-        ]);
+        var principal = TestRoles.Principal(db, adminId, UserRole.Admin, SchoolId);
         return new RetentionController(
             db, new FakeCurrentSchoolContext(SchoolId), Students(), Accounts(), new LeaveNotifier(db, clock), new Notifier(db, clock), clock)
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }

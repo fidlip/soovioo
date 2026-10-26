@@ -81,7 +81,7 @@ public class AuditTests
     public async Task EntryNamesWhoAndWhatAndMasksPasswords()
     {
         using var db = NewDb();
-        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = 1 };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, 1), SchoolId = 1 };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/users",
@@ -156,7 +156,7 @@ public class AuditTests
         using var db = NewDb();
         var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<User>();
         db.Schools.Add(new School { Id = 1, Name = "ZŠ", Slug = "demo" });
-        var user = new User { Username = "rodic", PasswordHash = "", ActiveRole = UserRole.Parent, SchoolId = 1 };
+        var user = new User { Username = "rodic", PasswordHash = "", ActiveRole = db.Role(UserRole.Parent, 1), SchoolId = 1 };
         user.PasswordHash = hasher.HashPassword(user, "spravne");
         db.Users.Add(user);
         await db.SaveChangesAsync();

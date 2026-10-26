@@ -113,6 +113,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
     private DemoSchoolCalendar calendar = null!;
     private readonly HashSet<string> usernames = [];
     private readonly List<User> users = [];
+    private Dictionary<UserRole, Role> roles = [];
 
     private sealed class TeacherInfo
     {
@@ -164,6 +165,9 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         calendar = new DemoSchoolCalendar(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Prague).DateTime));
         usernames.Clear();
         users.Clear();
+        roles = await db.Roles.IgnoreQueryFilters()
+            .Where(r => r.SchoolId == target.Id && r.BuiltIn != null)
+            .ToDictionaryAsync(r => r.BuiltIn!.Value);
 
         var elementary = target.Type == SchoolType.Elementary;
         var seed = options.Seed;
@@ -565,14 +569,14 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         family.Parents.Add((person, profile, person.User));
     }
 
-    private (User User, Person Person) NewPerson(bool female, bool adult, List<UserRole> roles)
+    private (User User, Person Person) NewPerson(bool female, bool adult, List<UserRole> builtIns)
     {
         var first = Pick(female
             ? adult ? DemoNames.AdultFemaleFirstNames : DemoNames.FemaleFirstNames
             : adult ? DemoNames.AdultMaleFirstNames : DemoNames.MaleFirstNames);
         var surname = Pick(DemoNames.Surnames);
         var last = female ? surname.Female : surname.Male;
-        var user = NewUser(first, last, roles);
+        var user = NewUser(first, last, builtIns);
         var person = new Person
         {
             FirstName = first,
@@ -586,7 +590,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         return (user, person);
     }
 
-    private User NewUser(string first, string last, List<UserRole> roles)
+    private User NewUser(string first, string last, List<UserRole> builtIns)
     {
         var baseName = DemoNames.Ascii($"{first}.{last}");
         var username = baseName;
@@ -595,7 +599,11 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             username = $"{baseName}{i}";
         }
         // Empty hash never verifies: demo users are picked, not logged in.
-        var user = new User { Username = username, PasswordHash = "", Roles = [.. roles], ActiveRole = roles[0], SchoolId = school.Id };
+        var user = new User
+        {
+            Username = username, PasswordHash = "", Roles = [.. builtIns.Select(r => roles[r])],
+            ActiveRole = roles[builtIns[0]], SchoolId = school.Id,
+        };
         db.Users.Add(user);
         users.Add(user);
         return user;

@@ -12,7 +12,8 @@ namespace Soovioo.Api.Evidence;
 /// the IZO/RED_IZO the matrika export needs. Separate from the SuperAdmin-only
 /// <see cref="SchoolsController"/> so an Admin can fill these in without
 /// needing SuperAdmin involvement.</summary>
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/my-school")]
 public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
@@ -56,6 +57,13 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
+        // The pupils' role follows "žák"/"student" unless the school renamed it.
+        var pupils = await db.Roles.FirstOrDefaultAsync(r => r.BuiltIn == UserRole.Student);
+        if (pupils is not null && pupils.Name == PermissionCatalog.DefaultName(UserRole.Student, school.Type)
+            && !await db.Roles.AnyAsync(r => r.Name == PermissionCatalog.DefaultName(UserRole.Student, request.Type)))
+        {
+            pupils.Name = PermissionCatalog.DefaultName(UserRole.Student, request.Type);
+        }
         school.Type = request.Type;
         await db.SaveChangesAsync();
 

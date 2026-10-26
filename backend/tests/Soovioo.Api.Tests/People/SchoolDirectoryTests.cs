@@ -28,7 +28,8 @@ public class SchoolDirectoryTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity([
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
+                        new Claim(ClaimTypes.Role, user.ActiveRole?.Kind.ToString() ?? nameof(UserRole.SuperAdmin)),
+                        new Claim(PermissionAccess.RoleIdClaim, user.ActiveRole?.Id.ToString() ?? ""),
                     ])),
                 },
             },
@@ -46,7 +47,7 @@ public class SchoolDirectoryTests
     {
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
         db.VisibilityRules.AddRange(Visibility.DemoRules(SchoolId));
-        User NewUser(string name, UserRole role) => new() { Username = name, PasswordHash = "x", ActiveRole = role, SchoolId = SchoolId };
+        User NewUser(string name, UserRole role) => new() { Username = name, PasswordHash = "x", ActiveRole = db.Role(role, SchoolId), SchoolId = SchoolId };
         var teacherA = NewUser("ucitelA", UserRole.Teacher);
         var teacherB = NewUser("ucitelB", UserRole.Teacher);
         var parent = NewUser("rodic", UserRole.Parent);

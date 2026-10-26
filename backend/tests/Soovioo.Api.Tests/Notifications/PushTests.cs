@@ -41,8 +41,8 @@ public class PushTests
     private static async Task<(School School, User Parent, User Other)> SeedAsync(AppDbContext db, bool demo = false)
     {
         var school = new School { Id = SchoolId, Name = "ZŠ Lipová", Slug = "skola", IsDemo = demo };
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
-        var other = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
+        var other = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Schools.Add(school);
         db.Users.AddRange(parent, other);
         await db.SaveChangesAsync();
@@ -59,10 +59,7 @@ public class PushTests
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity([
-                        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
-                    ], "Test")),
+                    User = TestRoles.PrincipalOf(user),
                 },
             },
         };

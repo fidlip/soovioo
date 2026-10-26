@@ -78,6 +78,7 @@ public class DemoSchoolService(
             CreatedAt = now,
             ExpiresAt = now.AddDays(options.Value.LifetimeDays),
         };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
@@ -140,7 +141,7 @@ public class DemoSchoolService(
             return null;
         }
         var adminIds = await db.Users.IgnoreQueryFilters()
-            .Where(u => u.SchoolId == school.Id && u.Roles.Contains(UserRole.Admin))
+            .Where(u => u.SchoolId == school.Id && u.Roles.Any(r => r.BuiltIn == UserRole.Admin))
             .Select(u => u.Id)
             .ToListAsync();
         int? adminId = school.DemoFeaturedUserIds?.FirstOrDefault(adminIds.Contains) is int featured && featured != 0

@@ -14,7 +14,7 @@ public class ReportCardController(AppDbContext db, ICurrentSchoolContext current
     [HttpGet]
     public async Task<IActionResult> GetReportCard(int studentId)
     {
-        if (!await User.CanAccessStudentAsync(db, studentId))
+        if (!await User.ReachesStudentAsync(db, Permission.GradesRead, studentId))
         {
             return Forbid();
         }

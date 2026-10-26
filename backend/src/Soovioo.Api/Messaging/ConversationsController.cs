@@ -165,7 +165,7 @@ public class ConversationsController(
 
         var me = CurrentUserId();
         List<int> recipients;
-        if (User.IsInRole(nameof(UserRole.Teacher)) || User.IsInRole(nameof(UserRole.Admin)))
+        if (User.IsStaff())
         {
             if (request.StudentId is not { } studentId || !await db.Students.AnyAsync(s => s.Id == studentId))
             {
@@ -427,7 +427,7 @@ public class ConversationsController(
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.Subject!.Name })
             .Distinct()
             .ToListAsync();
-        var adminIds = await db.Users.Where(u => u.Roles.Contains(UserRole.Admin)).Select(u => u.Id).ToListAsync();
+        var adminIds = await db.Users.Where(u => u.Roles.Any(r => r.BuiltIn == UserRole.Admin)).Select(u => u.Id).ToListAsync();
 
         var userIds = teaching.Select(t => t.TeacherId).Concat(adminIds).ToHashSet();
         if (classTeacherId is { } ct)

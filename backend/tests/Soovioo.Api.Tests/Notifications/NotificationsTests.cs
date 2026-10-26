@@ -31,11 +31,7 @@ public class NotificationsTests
     {
         HttpContext = new DefaultHttpContext
         {
-            User = new ClaimsPrincipal(new ClaimsIdentity([
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-            ], "Test")),
+            User = TestRoles.PrincipalOf(user),
         },
     };
 
@@ -52,7 +48,7 @@ public class NotificationsTests
     private static async Task<World> SeedAsync(AppDbContext db)
     {
         User NewUser(string name, UserRole role) =>
-            new() { Username = name, PasswordHash = "x", ActiveRole = role, SchoolId = SchoolId };
+            new() { Username = name, PasswordHash = "x", ActiveRole = db.Role(role, SchoolId), SchoolId = SchoolId };
         var w = new World
         {
             Teacher = NewUser("ucitel", UserRole.Teacher),
@@ -78,6 +74,7 @@ public class NotificationsTests
         w.OtherStudent.SchoolClassId = w.OtherClass.Id;
         db.Students.AddRange(w.Student, w.OtherStudent);
         await db.SaveChangesAsync();
+        db.Teaches(w.Teacher.Id, w.Class.Id, w.Subject.Id);
         await db.LinkChildAsync(w.Parent.Id, w.Student.Id, SchoolId);
         await db.LinkChildAsync(w.OtherParent.Id, w.OtherStudent.Id, SchoolId);
         await db.SaveChangesAsync();

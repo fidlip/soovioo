@@ -1,22 +1,19 @@
 namespace Soovioo.Api.Auth;
 
+/// <summary>The built-in roles (<see cref="Role.BuiltIn"/>) — every school
+/// has these four, plus any of its own. SuperAdmin isn't a school role
+/// (<see cref="User.IsSuperAdmin"/>); its name is the role claim of a
+/// SuperAdmin's token.</summary>
 public enum UserRole
 {
-    /// <summary>Manages schools themselves (create/list tenants). Not tied to any
-    /// one School — <see cref="User.SchoolId"/> is null.</summary>
     SuperAdmin,
 
-    /// <summary>Manages one School: users, classes, subjects, parent links.</summary>
+    /// <summary>Manages one School: users, roles, classes, subjects, settings.</summary>
     Admin,
     Teacher,
     Parent,
 
-    /// <summary>A student logging in for themselves — read-only access to
-    /// their own grades/absences/timetable/messages (same shape as Parent),
-    /// but unlike Parent, never allowed to submit an excuse (see
-    /// AbsencesController.SubmitExcuse). The account of exactly one
-    /// <see cref="Evidence.StudentProfile"/>'s Person (<see cref="People.Person.UserId"/>),
-    /// not a new join table — a pupil has at most one Student-role
-    /// account.</summary>
+    /// <summary>A pupil logging in for themselves. Linked to exactly one
+    /// <see cref="Evidence.StudentProfile"/> through its Person.</summary>
     Student,
 }
