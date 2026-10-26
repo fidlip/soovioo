@@ -42,16 +42,16 @@ export class DemoEmailPreviewService {
       styleClass="w-full max-w-xl"
     >
       @if (preview.email(); as email) {
-      <dl class="m-0 mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        <dt class="text-surface-500">Komu</dt>
-        <dd class="m-0">{{ email.to }}</dd>
-        <dt class="text-surface-500">Předmět</dt>
-        <dd class="m-0 font-medium">{{ email.subject }}</dd>
-      </dl>
-      <div
-        class="demo-email-body rounded-md border border-surface-200 p-3 text-sm dark:border-surface-700"
-        [innerHTML]="body()"
-      ></div>
+        <dl class="m-0 mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <dt class="text-surface-500">Komu</dt>
+          <dd class="m-0">{{ email.to }}</dd>
+          <dt class="text-surface-500">Předmět</dt>
+          <dd class="m-0 font-medium">{{ email.subject }}</dd>
+        </dl>
+        <div
+          class="demo-email-body rounded-md border border-surface-200 p-3 text-sm [overflow-wrap:anywhere] dark:border-surface-700"
+          [innerHTML]="body()"
+        ></div>
       }
     </p-dialog>
   `,
@@ -61,5 +61,7 @@ export class DemoEmailPreview {
   /** Our own server-rendered template (names HTML-encoded there);
    * Angular's [innerHTML] sanitizing still runs over it — links stay,
    * scripts wouldn't. */
-  protected readonly body = computed(() => this.preview.email()?.htmlBody ?? '');
+  protected readonly body = computed(
+    () => this.preview.email()?.htmlBody ?? '',
+  );
 }
