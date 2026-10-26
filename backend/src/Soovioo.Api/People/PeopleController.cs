@@ -89,7 +89,12 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             return NoContent();
         }
 
-        await db.DeleteAsync(db.ParentStudents.Where(ps => ps.ParentProfileId == person.Id));
+        // Loaded with the person, so removed with it rather than in bulk —
+        // a bulk delete would leave them tracked as still there.
+        if (person.ParentProfile is { } parent)
+        {
+            db.ParentStudents.RemoveRange(parent.Children);
+        }
         await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id));
         db.Persons.Remove(person);
         await db.SaveChangesAsync();
