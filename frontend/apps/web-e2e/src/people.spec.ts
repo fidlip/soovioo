@@ -1,4 +1,22 @@
+import { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+
+// Osoby and Uživatelé list everyone's photo — the photos test deletes its
+// own teacher's in parallel, a thumbnail already asked for then 404s.
+test.use({ allowedConsoleMessages: [/status of 404/] });
+
+/** Picks an option of a multiselect and closes its list — Escape only
+ * once the list is open, otherwise it closes the dialog instead. */
+async function pick(page: Page, field: Locator, option: string | RegExp) {
+  await field.click();
+  const list = page.getByRole('listbox');
+  await expect(list).toBeVisible();
+  await list
+    .getByRole('option', { name: option, exact: typeof option === 'string' })
+    .click();
+  await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
+}
 
 test('an account is a person’s: picked, completed with the missing profile, then created', async ({
   page,
@@ -18,9 +36,11 @@ test('an account is a person’s: picked, completed with the missing profile, th
   const personDialog = page.getByRole('dialog', { name: 'Nová osoba' });
   await personDialog.getByRole('textbox', { name: /^Jméno/ }).fill('Eva');
   await personDialog.getByRole('textbox', { name: /^Příjmení/ }).fill(lastName);
-  await personDialog.locator('p-multiselect[name="profiles"]').click();
-  await page.getByRole('option', { name: 'Učitel', exact: true }).click();
-  await page.keyboard.press('Escape');
+  await pick(
+    page,
+    personDialog.locator('p-multiselect[name="profiles"]'),
+    'Učitel',
+  );
   await personDialog.getByRole('textbox', { name: 'Aprobace' }).fill('M');
   await personDialog.getByRole('button', { name: 'Vytvořit osobu' }).click();
   await expect(personDialog).toBeHidden();
@@ -33,14 +53,10 @@ test('an account is a person’s: picked, completed with the missing profile, th
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
   await page.getByRole('button', { name: 'Nový uživatel' }).click();
   const userDialog = page.getByRole('dialog', { name: 'Nový uživatel' });
-  await userDialog.locator('p-multiselect[name="roles"]').click();
-  await page.getByRole('option', { name: 'Učitel' }).click();
-  await page.keyboard.press('Escape');
+  await pick(page, userDialog.locator('p-multiselect[name="roles"]'), 'Učitel');
   await userDialog.locator('#userPersonId').click();
   await page.getByRole('option', { name: `Eva ${lastName}` }).click();
-  await userDialog.locator('p-multiselect[name="roles"]').click();
-  await page.getByRole('option', { name: 'Rodič' }).click();
-  await page.keyboard.press('Escape');
+  await pick(page, userDialog.locator('p-multiselect[name="roles"]'), 'Rodič');
   await expect(
     userDialog.getByText('Role Rodič potřebuje profil rodiče'),
   ).toBeVisible();
@@ -50,13 +66,17 @@ test('an account is a person’s: picked, completed with the missing profile, th
 
   await userDialog.getByRole('button', { name: 'Upravit osobu' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Upravit osobu' });
-  await editDialog.locator('p-multiselect[name="profiles"]').click();
-  await page.getByRole('option', { name: 'Rodič', exact: true }).click();
-  await page.keyboard.press('Escape');
+  await pick(
+    page,
+    editDialog.locator('p-multiselect[name="profiles"]'),
+    'Rodič',
+  );
   // A child too — deleting her below takes the link along.
-  await editDialog.locator('p-multiselect[name="childIds"]').click();
-  await page.getByRole('option', { name: /^Jan Novák/ }).click();
-  await page.keyboard.press('Escape');
+  await pick(
+    page,
+    editDialog.locator('p-multiselect[name="childIds"]'),
+    /^Jan Novák/,
+  );
   await editDialog.getByRole('button', { name: 'Uložit' }).click();
   await expect(editDialog).toBeHidden();
   await expect(

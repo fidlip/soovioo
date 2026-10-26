@@ -31,8 +31,11 @@ async function addPupil(page: Page, lastName: string) {
   await dialog.getByRole('textbox', { name: /^Jméno/ }).fill('Ota');
   await dialog.getByRole('textbox', { name: /^Příjmení/ }).fill(lastName);
   await dialog.locator('p-multiselect[name="profiles"]').click();
-  await page.getByRole('option', { name: 'Žák', exact: true }).click();
+  const list = page.getByRole('listbox');
+  await list.getByRole('option', { name: 'Žák', exact: true }).click();
+  // Escape only once the list is open — otherwise it closes the dialog.
   await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
   await dialog.getByRole('button', { name: 'Vytvořit osobu' }).click();
   await expect(dialog).toBeHidden();
   return page
