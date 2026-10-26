@@ -8,13 +8,16 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { MultiSelect } from '@openng/optimus-ui/multiselect';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ConfirmationService } from '@openng/optimus-ui/api';
 import {
+  AuthApiService,
   Country,
   PeopleApiService,
+  PhotosApiService,
   Person,
   ReferenceApiService,
   SavePersonRequest,
@@ -22,7 +25,9 @@ import {
   SchoolClassesApiService,
   Student,
   StudentsApiService,
+  localizeStudentTerm,
 } from '@soovioo/shared';
+import { Avatar } from '../avatar/avatar';
 import { FORM_FIELDS } from '../forms';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
@@ -33,6 +38,7 @@ import {
   matrikaOf,
   studentFormOf,
 } from './student-fields';
+import { personPhotoUrl } from './person-photo';
 
 export type PersonProfile = 'teacher' | 'parent' | 'student';
 
@@ -47,7 +53,7 @@ export interface PersonDialogTarget {
 @Component({
   selector: 'app-person-dialog',
   imports: [
-    Checkbox,
+    Avatar,
     Dialog,
     FormsModule,
     InputText,
@@ -64,16 +70,27 @@ export class PersonDialog {
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly referenceApi = inject(ReferenceApiService);
   private readonly notify = inject(NotifyService);
+  private readonly photosApi = inject(PhotosApiService);
+  private readonly confirmation = inject(ConfirmationService);
+  private readonly authApi = inject(AuthApiService);
 
   readonly target = input<PersonDialogTarget | null>(null);
+  /** Offer Ukončení vzdělávání when a pupil's profile with history can't
+   * be removed (`endEducation` then opens it). */
+  readonly canEndEducation = input(false);
   readonly closed = output<void>();
   readonly saved = output<Person>();
+  readonly endEducation = output<Student>();
 
   protected readonly visible = computed(() => this.target() !== null);
   protected readonly loading = signal(false);
   protected readonly busy = signal(false);
   /** The person as loaded — null for a new one. */
   protected readonly person = signal<Person | null>(null);
+  protected readonly photoUrl = computed(() => {
+    const person = this.person();
+    return person ? personPhotoUrl(this.photosApi, person, 'profile') : null;
+  });
   protected readonly classes = signal<SchoolClass[]>([]);
   protected readonly countries = signal<Country[]>([]);
   private readonly students = signal<Student[]>([]);
@@ -90,16 +107,14 @@ export class PersonDialog {
   protected lastName = '';
   protected phone = '';
   protected email = '';
-  protected isTeacher = false;
+  protected profiles: PersonProfile[] = [];
   protected qualification = '';
-  protected isParent = false;
   protected childIds: number[] = [];
-  protected isStudent = false;
   protected studentForm: StudentForm = emptyStudentForm(null);
 
-  /** A profile the account's role needs can't be unticked here — the
-   * server refuses it too (and a pupil's with history). */
-  protected readonly locked = computed(() => {
+  /** A profile the account's role needs can't be removed here — the
+   * server refuses it too. */
+  private readonly locked = computed(() => {
     const p = this.person();
     const roles = p?.account?.roles ?? [];
     return {
@@ -108,6 +123,36 @@ export class PersonDialog {
       student: !!p?.student && roles.includes('Student'),
     };
   });
+
+  protected readonly profileOptions = computed(() => {
+    const locked = this.locked();
+    return [
+      { value: 'teacher', label: 'Učitel', disabled: locked.teacher },
+      { value: 'parent', label: 'Rodič', disabled: locked.parent },
+      {
+        value: 'student',
+        label: localizeStudentTerm('Žák', this.authApi.getSchoolType()),
+        disabled: locked.student,
+      },
+    ];
+  });
+
+  /** A locked profile's chip comes back if removed. */
+  protected setProfiles(profiles: PersonProfile[]): void {
+    const locked = this.profileOptions()
+      .filter((o) => o.disabled && !profiles.includes(o.value as PersonProfile))
+      .map((o) => o.value as PersonProfile);
+    this.profiles = [...profiles, ...locked];
+  }
+
+  protected readonly lockReasons = computed(() =>
+    this.profileOptions()
+      .filter((o) => o.disabled)
+      .map(
+        (o) =>
+          `${o.label}: účet má tuto roli — profil jde odebrat až s ní (Uživatelé).`,
+      ),
+  );
 
   constructor() {
     effect(() => {
@@ -125,11 +170,9 @@ export class PersonDialog {
     this.lastName = '';
     this.phone = '';
     this.email = '';
-    this.isTeacher = target.profiles?.includes('teacher') ?? false;
+    this.profiles = [...(target.profiles ?? [])];
     this.qualification = '';
-    this.isParent = target.profiles?.includes('parent') ?? false;
     this.childIds = [];
-    this.isStudent = target.profiles?.includes('student') ?? false;
     this.studentForm = emptyStudentForm(null);
     this.loadLists();
     if (target.id === null) {
@@ -143,11 +186,13 @@ export class PersonDialog {
         this.lastName = person.lastName;
         this.phone = person.phone ?? '';
         this.email = person.email ?? '';
-        this.isTeacher = !!person.teacher;
+        this.profiles = [
+          ...(person.teacher ? ['teacher' as const] : []),
+          ...(person.parent ? ['parent' as const] : []),
+          ...(person.student ? ['student' as const] : []),
+        ];
         this.qualification = person.teacher?.qualification ?? '';
-        this.isParent = !!person.parent;
         this.childIds = person.parent?.children.map((c) => c.studentId) ?? [];
-        this.isStudent = !!person.student;
         if (person.student) {
           this.studentForm = studentFormOf(person.student);
         }
@@ -186,11 +231,15 @@ export class PersonDialog {
       lastName: this.lastName.trim(),
       phone: this.phone.trim() || undefined,
       email: this.email.trim() || undefined,
-      teacher: this.isTeacher
+      teacher: this.profiles.includes('teacher')
         ? { qualification: this.qualification.trim() || undefined }
         : undefined,
-      parent: this.isParent ? { childIds: this.childIds } : undefined,
-      student: this.isStudent ? matrikaOf(this.studentForm) : undefined,
+      parent: this.profiles.includes('parent')
+        ? { childIds: this.childIds }
+        : undefined,
+      student: this.profiles.includes('student')
+        ? matrikaOf(this.studentForm)
+        : undefined,
     };
     const id = this.person()?.id ?? null;
     this.busy.set(true);
@@ -204,8 +253,33 @@ export class PersonDialog {
       },
       error: (err) => {
         this.busy.set(false);
-        this.notify.actionFailed('savePerson failed', err);
+        const student = this.person()?.student;
+        if (err instanceof HttpErrorResponse && err.status === 409 && student) {
+          this.refused(student, String(err.error));
+        } else {
+          this.notify.actionFailed('savePerson failed', err);
+        }
       },
+    });
+  }
+
+  /** The pupil's profile has history — their education is ended instead. */
+  private refused(student: Student, reason: string): void {
+    if (!this.canEndEducation()) {
+      this.notify.warn(reason);
+      return;
+    }
+    this.confirmation.confirm({
+      header: localizeStudentTerm(
+        'Profil žáka nejde odebrat',
+        this.authApi.getSchoolType(),
+      ),
+      message: reason,
+      icon: 'pi pi-info-circle',
+      acceptLabel: 'Ukončit vzdělávání',
+      rejectLabel: 'Zavřít',
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () => this.endEducation.emit(student),
     });
   }
 }

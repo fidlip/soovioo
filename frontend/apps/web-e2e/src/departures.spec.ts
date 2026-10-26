@@ -30,7 +30,9 @@ async function addPupil(page: Page, lastName: string) {
   const dialog = page.getByRole('dialog', { name: 'Nová osoba' });
   await dialog.getByRole('textbox', { name: /^Jméno/ }).fill('Ota');
   await dialog.getByRole('textbox', { name: /^Příjmení/ }).fill(lastName);
-  await dialog.getByRole('checkbox', { name: 'Žák' }).check();
+  await dialog.locator('p-multiselect[name="profiles"]').click();
+  await page.getByRole('option', { name: 'Žák', exact: true }).click();
+  await page.keyboard.press('Escape');
   await dialog.getByRole('button', { name: 'Vytvořit osobu' }).click();
   await expect(dialog).toBeHidden();
   return page

@@ -28,6 +28,7 @@ import {
 import { TermPipe } from '../term.pipe';
 import { foldForSearch } from '../text-search';
 import { PersonDialog, PersonDialogTarget } from './person-dialog';
+import { personPhotoUrl } from './person-photo';
 
 type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
 
@@ -141,15 +142,7 @@ export class PeopleTab {
   }
 
   protected photoUrl(person: Person): string | null {
-    if (!person.photo) {
-      return null;
-    }
-    if (person.student) {
-      return this.photosApi.studentPhotoUrl(person.student.id, person.photo);
-    }
-    return person.account
-      ? this.photosApi.userPhotoUrl(person.account.userId, person.photo)
-      : null;
+    return personPhotoUrl(this.photosApi, person);
   }
 
   /** Pupils' photos go with consent; staff photos are the admin's to set;

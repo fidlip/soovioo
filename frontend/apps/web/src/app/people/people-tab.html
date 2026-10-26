@@ -175,8 +175,10 @@
 
 <app-person-dialog
   [target]="dialog()"
+  [canEndEducation]="true"
   (closed)="dialog.set(null)"
   (saved)="onSaved()"
+  (endEducation)="dialog.set(null); openLeave($event)"
 />
 <app-leave-dialog
   [student]="leaveStudent()"

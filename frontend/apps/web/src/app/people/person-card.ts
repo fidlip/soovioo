@@ -1,12 +1,14 @@
-import { Component, input } from '@angular/core';
-import { DateFormatPipe, Person } from '@soovioo/shared';
+import { Component, computed, inject, input } from '@angular/core';
+import { DateFormatPipe, Person, PhotosApiService } from '@soovioo/shared';
+import { Avatar } from '../avatar/avatar';
+import { personPhotoUrl } from './person-photo';
 import { TermPipe } from '../term.pipe';
 
 /** A person and their profiles, read only, in a frame — actions (edit,
  * remove) go into the header via content projection. */
 @Component({
   selector: 'app-person-card',
-  imports: [DateFormatPipe, TermPipe],
+  imports: [Avatar, DateFormatPipe, TermPipe],
   template: `
     @let p = person();
     <div
@@ -15,10 +17,15 @@ import { TermPipe } from '../term.pipe';
       [attr.aria-label]="'Osoba ' + p.name"
     >
       <div class="flex items-start justify-between gap-2">
-        <div>
-          <div class="font-medium">{{ p.name }}</div>
-          <div class="text-surface-500">
-            {{ [p.phone, p.email].filter(isSet).join(' · ') || 'Bez kontaktu' }}
+        <div class="flex items-center gap-3">
+          <app-avatar [name]="p.name" [photoUrl]="photoUrl()" [size]="48" />
+          <div>
+            <div class="font-medium">{{ p.name }}</div>
+            <div class="text-surface-500">
+              {{
+                [p.phone, p.email].filter(isSet).join(' · ') || 'Bez kontaktu'
+              }}
+            </div>
           </div>
         </div>
         <div class="flex gap-1"><ng-content /></div>
@@ -61,7 +68,12 @@ import { TermPipe } from '../term.pipe';
   `,
 })
 export class PersonCard {
+  private readonly photosApi = inject(PhotosApiService);
+
   readonly person = input.required<Person>();
+  protected readonly photoUrl = computed(() =>
+    personPhotoUrl(this.photosApi, this.person(), 'profile'),
+  );
 
   protected readonly isSet = (value: string | null) => !!value;
   protected readonly childName = (child: { name: string }) => child.name;
