@@ -296,6 +296,32 @@ export class AdminPage {
    * the invitation. */
   protected showPassword = false;
 
+  /** A new account without an invitation needs a password; otherwise the
+   * field opens with the key. */
+  protected passwordShown(): boolean {
+    return (
+      this.showPassword || (this.editingUserId === null && !this.sendsInvite())
+    );
+  }
+
+  /** The edited account's "send a link to set the password" — the same
+   * e-mail as the invitation. */
+  protected sendInviteFromDialog(): void {
+    const user = this.users().find((u) => u.id === this.editingUserId);
+    const email = this.userPerson()?.email;
+    if (user && email) {
+      this.sendInvite({ ...user, email });
+    }
+  }
+
+  /** Hidden again, the password isn't set (or changed). */
+  protected togglePassword(): void {
+    this.showPassword = !this.showPassword;
+    if (!this.showPassword) {
+      this.newPassword = '';
+    }
+  }
+
   // The "new…" fields below double as the dialog's form state for BOTH
   // adding and editing — one dialog, one set of fields, same pattern as
   // Rozvrh's "Nová hodina"/"Upravit hodinu" dialog. Which mode it's in is
@@ -1014,6 +1040,7 @@ export class AdminPage {
     this.newUsername = user.username;
     this.newUserRoles = [...user.roles];
     this.newPassword = ''; // left blank = keep the current password
+    this.showPassword = false;
     this.newUserPersonId = user.personId;
     this.userPerson.set(null);
     this.peopleApi.getPeople().subscribe({
@@ -1106,21 +1133,13 @@ export class AdminPage {
     });
   }
 
-  /** Backend rejects (400) deleting yourself or the school's last Admin. */
-  /** Confirms first; a parent's links to their children go too (the server
-   * removes them with the account) — the dialog names those children. */
+  /** Backend rejects (400) deleting yourself or the school's last Admin.
+   * The person stays in Osoby, with their children. */
   protected deleteUser(user: AppUser): void {
-    const children = this.links()
-      .filter((l) => l.userId === user.id)
-      .map((l) => l.studentName);
     const name = user.name || user.username;
-    const message =
-      children.length > 0
-        ? `Opravdu smazat účet ${name}? Odebere se i vazba na děti: ${children.join(', ')}. Údaje dětí zůstanou.`
-        : `Opravdu smazat účet ${name}?`;
     this.confirmation.confirm({
       header: 'Smazat uživatele',
-      message,
+      message: `Opravdu smazat účet ${name}? Osoba i s profily zůstane v záložce Osoby.`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Smazat',
       rejectLabel: 'Zrušit',
