@@ -1216,54 +1216,67 @@
         [(ngModel)]="newUsername"
       />
     </div>
-    <div class="flex flex-col gap-1.5">
-      @if (sendsInvite() && !showPassword) {
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Heslo</span
-      >
-      <div
-        class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300"
-      >
-        <span
-          >Na {{ userPerson()?.email }} přijde pozvánka k nastavení hesla.</span
-        >
-        <p-button
-          icon="pi pi-key"
-          ariaLabel="Nastavit heslo hned"
-          pTooltip="Chci nastavit heslo již teď"
-          tooltipPosition="top"
-          size="small"
-          [text]="true"
-          (onClick)="showPassword = true"
-        />
-      </div>
-      } @else {
+    <div class="flex flex-col justify-end gap-1.5">
+      @if (passwordShown()) {
       <label
         for="password"
         class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ editingUserId !== null ? 'Nové heslo (nepovinné)' : sendsInvite() ?
-        'Heslo (pozvánka přijde i tak)' : 'Heslo' }}</label
+        >{{ editingUserId !== null ? 'Nové heslo' : sendsInvite() ? 'Heslo
+        (nepovinné)' : 'Heslo' }}</label
       >
-      <p-password
-        inputId="password"
-        name="password"
-        [required]="editingUserId === null && !sendsInvite()"
-        autocomplete="new-password"
-        [(ngModel)]="newPassword"
-        [toggleMask]="true"
-        [feedback]="false"
-        styleClass="w-full"
-        inputStyleClass="w-full"
-      />
+      }
+      <div class="flex items-center gap-1">
+        @if (passwordShown()) {
+        <p-password
+          inputId="password"
+          name="password"
+          [required]="editingUserId === null && !sendsInvite()"
+          autocomplete="new-password"
+          [(ngModel)]="newPassword"
+          [toggleMask]="true"
+          [feedback]="false"
+          styleClass="w-full min-w-0 flex-1"
+          inputStyleClass="w-full"
+        />
+        } @if (editingUserId !== null || sendsInvite()) {
+        <p-button
+          icon="pi pi-key"
+          [ariaLabel]="editingUserId !== null ? 'Nastavit nové heslo' : 'Nastavit heslo hned'"
+          [pTooltip]="
+            showPassword
+              ? 'Heslo neměnit'
+              : editingUserId !== null
+                ? 'Nastavit nové heslo'
+                : 'Chci nastavit heslo již teď'
+          "
+          tooltipPosition="top"
+          size="small"
+          [text]="!showPassword"
+          (onClick)="togglePassword()"
+        />
+        } @if (editingUserId !== null && userPerson()?.email) {
+        <p-button
+          icon="pi pi-envelope"
+          ariaLabel="Poslat odkaz k nastavení hesla"
+          [pTooltip]="
+            'Poslat na ' + userPerson()?.email + ' odkaz k nastavení hesla'
+          "
+          tooltipPosition="top"
+          size="small"
+          [text]="true"
+          (onClick)="sendInviteFromDialog()"
+        />
+        }
+      </div>
       @if (editingUserId === null && userPerson() && !sendsInvite()) {
       <small class="text-surface-500"
         >Osoba nemá e-mail, pozvánku jí poslat nejde.</small
       >
-      } }
+      }
     </div>
-    <div class="sm:col-span-2">
+    <div class="flex items-center gap-3 sm:col-span-2">
       <span
-        class="inline-flex"
+        class="inline-flex shrink-0"
         [pTooltip]="userPersonProblems().join(' ')"
         tooltipPosition="top"
       >
@@ -1274,6 +1287,11 @@
           [busy]="userPersonProblems().length > 0"
         />
       </span>
+      @if (sendsInvite()) {
+      <span class="min-w-0 text-sm text-surface-600 dark:text-surface-300"
+        >Na {{ userPerson()?.email }} přijde pozvánka.</span
+      >
+      }
     </div>
   </form>
 </p-dialog>
