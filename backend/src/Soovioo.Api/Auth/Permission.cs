@@ -42,7 +42,9 @@ public enum PermissionScope
 {
     None,
 
-    /// <summary>A parent's own children, a pupil themselves.</summary>
+    /// <summary>A parent's own children, a pupil themselves. For what goes
+    /// to whole classes (events, payments, class messages) a parent's
+    /// children's classes — e.g. the parents' class representative.</summary>
     Own,
 
     /// <summary>The classes the member of staff is třídní of.</summary>
@@ -98,10 +100,10 @@ public static class PermissionCatalog
         new(Permission.HomeworkRead, "Úkoly", "Vidět úkoly", Classes, Own, Own),
         new(Permission.HomeworkWrite, "Úkoly", "Zadat, upravit a smazat úkol", Classes, NoneOnly, NoneOnly),
         new(Permission.HomeworkComplete, "Úkoly", "Označit úkol jako hotový", Classes, Own, Own),
-        new(Permission.EventsWrite, "Akce", "Vytvořit, upravit a smazat akci", Classes, NoneOnly, NoneOnly),
+        new(Permission.EventsWrite, "Akce", "Vytvořit, upravit a smazat akci", Classes, Own, NoneOnly),
         new(Permission.PaymentsRead, "Platby", "Vidět platby", Classes, Own, Own),
-        new(Permission.PaymentsWrite, "Platby", "Založit a smazat platbu, označit zaplaceno", Classes, NoneOnly, NoneOnly),
-        new(Permission.MessagesBroadcastClass, "Zprávy", "Hromadná zpráva třídě", Classes, NoneOnly, NoneOnly),
+        new(Permission.PaymentsWrite, "Platby", "Založit a smazat platbu, označit zaplaceno", Classes, Own, NoneOnly),
+        new(Permission.MessagesBroadcastClass, "Zprávy", "Hromadná zpráva třídě", Classes, Own, NoneOnly),
         new(Permission.MessagesBroadcastSchool, "Zprávy", "Hromadná zpráva celé škole", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Timetable, "Rozvrh", "Upravit rozvrh a zvonění", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Classes, "Škola", "Upravit třídy", SchoolOnly, NoneOnly, NoneOnly),

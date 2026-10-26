@@ -121,7 +121,7 @@ export class RolesTab {
   protected scopeOptions(info: PermissionInfo, kind: RoleKind) {
     return scopesFor(info, kind).map((value) => ({
       value,
-      label: scopeLabel(value, kind),
+      label: scopeLabel(value, kind, info.permission),
     }));
   }
 

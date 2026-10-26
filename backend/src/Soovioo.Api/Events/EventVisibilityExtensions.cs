@@ -51,7 +51,8 @@ public static class EventVisibilityExtensions
                     e.Parents.Any(p => parentUserIds.Contains(p.UserId))))));
     }
 
-    /// <summary>Parent sees: Everyone-audience events, and Selected-audience
+    /// <summary>Parent sees: their own creations (a class's parent
+    /// representative may make events), Everyone-audience events, and Selected-audience
     /// events targeted at them directly, at a class one of their children is
     /// in, or at one of their children directly. No oversight exception —
     /// "Pouze já" from a Teacher is genuinely invisible to every Parent.</summary>
@@ -68,6 +69,7 @@ public static class EventVisibilityExtensions
 
         return db.Events.IgnoreQueryFilters()
             .Where(e => e.SchoolId == schoolId && (
+                e.CreatedByUserId == parentUserId ||
                 e.Audience == EventAudience.Everyone ||
                 (e.Audience == EventAudience.Selected && (
                     e.Parents.Any(p => p.UserId == parentUserId) ||

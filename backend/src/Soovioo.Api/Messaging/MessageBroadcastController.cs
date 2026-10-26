@@ -14,16 +14,18 @@ namespace Soovioo.Api.Messaging;
 /// fan-out into one <see cref="Conversation"/> per pupil (sender + the
 /// pupil's account + parents), so every family can reply privately; the
 /// same shape <see cref="ConversationsController"/> creates for one pupil.
-/// Who may target which classes, and the whole school, are permissions —
+/// Who may target which classes (staff their classes, a parents'
+/// representative their children's), and the whole school, are permissions —
 /// unlike single-student messaging, which stays unrestricted for staff,
 /// broadcast reaches many parents at once.</summary>
-[Authorize(Roles = nameof(RoleKind.Staff))]
+[Authorize]
 [ApiController]
 public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     /// <summary>Classes the caller is allowed to broadcast to. Drives the
     /// class picker so the frontend never offers a class that would 403.</summary>
     [HttpGet("api/messages/broadcastable-classes")]
+    [RequirePermission(Permission.MessagesBroadcastClass)]
     public async Task<ActionResult<IEnumerable<SchoolClass>>> GetBroadcastableClasses()
     {
         var classIds = await User.ClassIdsAsync(db, Permission.MessagesBroadcastClass);
