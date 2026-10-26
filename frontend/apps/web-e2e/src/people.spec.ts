@@ -26,12 +26,19 @@ test('an account is a person’s: picked, completed with the missing profile, th
   await expect(personRow.getByText('Učitel (M)')).toBeVisible();
   await expect(personRow.getByText('bez účtu')).toBeVisible();
 
-  // A parent's account for her: she has no parent profile yet.
+  // Her account as a teacher — she's offered — then also a parent, which
+  // she has no profile for yet.
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
   await page.getByRole('button', { name: 'Nový uživatel' }).click();
   const userDialog = page.getByRole('dialog', { name: 'Nový uživatel' });
+  await userDialog.locator('p-multiselect[name="roles"]').click();
+  await page.getByRole('option', { name: 'Učitel' }).click();
+  await page.keyboard.press('Escape');
   await userDialog.locator('#userPersonId').click();
   await page.getByRole('option', { name: `Eva ${lastName}` }).click();
+  await userDialog.locator('p-multiselect[name="roles"]').click();
+  await page.getByRole('option', { name: 'Rodič' }).click();
+  await page.keyboard.press('Escape');
   await expect(
     userDialog.getByText('Role Rodič potřebuje profil rodiče'),
   ).toBeVisible();

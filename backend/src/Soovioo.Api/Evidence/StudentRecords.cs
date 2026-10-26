@@ -82,13 +82,18 @@ public static class StudentRecords
             .ToList();
     }
 
-    /// <summary>The 409 text for a pupil with <paramref name="history"/>.</summary>
-    public static async Task<string> RefusalAsync(AppDbContext db, StudentProfile student, List<string> history)
+    /// <summary>The refusal for a pupil with <paramref name="history"/> —
+    /// deleting them, or (<paramref name="profileOnly"/>) their profile.</summary>
+    public static async Task<string> RefusalAsync(
+        AppDbContext db, StudentProfile student, List<string> history, bool profileOnly = false)
     {
         var type = await db.Schools.Where(s => s.Id == student.SchoolId).Select(s => (SchoolType?)s.Type).FirstOrDefaultAsync()
             ?? SchoolType.Elementary;
+        var (what, instead) = profileOnly
+            ? ("Profil žáka nejde odebrat", "Místo toho")
+            : ("Žáka nejde smazat", "Místo smazání");
         return StudentTerm.Localize(
-            $"Žáka nejde smazat, už má {string.Join(", ", history)}. Místo smazání ukončete jeho vzdělávání.", type);
+            $"{what}, už má {string.Join(", ", history)}. {instead} ukončete jeho vzdělávání.", type);
     }
 
     /// <summary>Deletes a pupil without history (see <see cref="HistoryOfAsync"/>)
@@ -97,22 +102,40 @@ public static class StudentRecords
     /// never wrote anything). Saves.</summary>
     public static async Task DeleteAsync(AppDbContext db, StudentProfile student, People.PhotoStorage? photos)
     {
+        var person = student.Person!;
+        var photoKey = await RemoveProfileAsync(db, student);
+        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id));
+        if (person.UserId is { } linkedUserId && await db.Users.FindAsync(linkedUserId) is { } linkedUser)
+        {
+            db.Users.Remove(linkedUser);
+        }
+        db.Persons.Remove(person);
+        await db.SaveChangesAsync();
+        photos?.Delete(photoKey);
+    }
+
+    /// <summary>The pupil's profile of a Person who stays (one ticked as a
+    /// pupil by mistake): the matrika with what it got on its own, the
+    /// visibility a parent chose for the pupil, and the photo — its consent
+    /// was the pupil's. Returns the photo's key to delete once saved; the
+    /// caller saves.</summary>
+    public static async Task<string?> RemoveProfileAsync(AppDbContext db, StudentProfile student)
+    {
         var id = student.Id;
         await db.DeleteAsync(db.PaymentRecipients.Where(r => r.StudentId == id));
         await db.DeleteAsync(db.PaymentStudents.Where(x => x.StudentId == id));
         await db.DeleteAsync(db.HomeworkStudents.Where(x => x.StudentId == id));
         await db.DeleteAsync(db.EventStudents.Where(x => x.StudentId == id));
         await db.DeleteAsync(db.ParentStudents.Where(ps => ps.StudentId == id));
+        await db.DeleteAsync(db.Notifications.Where(n => n.StudentId == id));
         var person = student.Person!;
-        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id));
-        if (person.UserId is { } linkedUserId && await db.Users.FindAsync(linkedUserId) is { } linkedUser)
-        {
-            db.Users.Remove(linkedUser);
-        }
+        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id && c.Owner == People.VisibilityOwner.Student));
+        var photoKey = person.PhotoKey;
+        person.PhotoKey = null;
+        person.PhotoStatus = null;
         db.Students.Remove(student);
-        db.Persons.Remove(person);
-        await db.SaveChangesAsync();
-        photos?.Delete(person.PhotoKey);
+        person.Student = null;
+        return photoKey;
     }
 
     // Country/Municipality names are looked up by code rather than via

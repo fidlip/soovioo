@@ -276,13 +276,25 @@ export class AdminPage {
   protected readonly userPerson = signal<Person | null>(null);
   protected readonly personDialog = signal<PersonDialogTarget | null>(null);
 
-  /** People an account can be made for: without one, or the edited
-   * account's own. A plain method — `editingUserId` is a plain field. */
+  /** People an account can be made for: without one (or the edited
+   * account's own), with the profile of every chosen role. A plain method —
+   * `editingUserId` and `newUserRoles` are plain fields. */
   protected availablePeople(): Person[] {
     return this.people().filter(
-      (p) => !p.account || p.account.userId === this.editingUserId,
+      (p) =>
+        (!p.account || p.account.userId === this.editingUserId) &&
+        missingProfiles(p, this.newUserRoles).length === 0,
     );
   }
+
+  /** A new account whose person has an e-mail gets an invitation. */
+  protected sendsInvite(): boolean {
+    return this.editingUserId === null && !!this.userPerson()?.email;
+  }
+
+  /** "Chci nastavit heslo již teď" — the password field instead of just
+   * the invitation. */
+  protected showPassword = false;
 
   // The "new…" fields below double as the dialog's form state for BOTH
   // adding and editing — one dialog, one set of fields, same pattern as
@@ -915,7 +927,8 @@ export class AdminPage {
     this.editingUserId = null;
     this.newUsername = '';
     this.newPassword = '';
-    this.newUserRoles = ['Parent'];
+    this.newUserRoles = [];
+    this.showPassword = false;
     this.newUserPersonId = null;
     this.userPerson.set(null);
     this.loadPeople();
@@ -939,9 +952,6 @@ export class AdminPage {
           ...(person.teacher ? ['Teacher'] : []),
           ...(person.parent ? ['Parent'] : []),
         ];
-    if (this.newUserRoles.length === 0) {
-      this.newUserRoles = ['Parent'];
-    }
     this.setUserPerson(person);
   }
 
@@ -965,17 +975,10 @@ export class AdminPage {
     if (!person) {
       return ['Vyberte nebo založte osobu.'];
     }
-    const missing: Record<string, boolean> = {
-      Teacher: !person.teacher,
-      Parent: !person.parent,
-      Student: !person.student,
-    };
-    return this.newUserRoles
-      .filter((role) => missing[role])
-      .map(
-        (role) =>
-          `Role ${this.roleLabel(role)} potřebuje profil ${PROFILE_NAMES[role]} — doplňte ho tužkou.`,
-      );
+    return missingProfiles(person, this.newUserRoles).map(
+      (role) =>
+        `Role ${this.roleLabel(role)} potřebuje profil ${PROFILE_NAMES[role]} — doplňte ho tužkou.`,
+    );
   }
 
   protected openNewPersonForUser(): void {
@@ -1402,6 +1405,16 @@ export class AdminPage {
   private showError(context: string, err: unknown): void {
     this.notify.actionFailed(context, err);
   }
+}
+
+/** The roles of `roles` whose profile the person lacks. */
+function missingProfiles(person: Person, roles: string[]): string[] {
+  const has: Record<string, boolean> = {
+    Teacher: !!person.teacher,
+    Parent: !!person.parent,
+    Student: !!person.student,
+  };
+  return roles.filter((role) => role in has && !has[role]);
 }
 
 /** "Jan Novák" -> "jan.novak" (no diacritics, letters/digits only). */

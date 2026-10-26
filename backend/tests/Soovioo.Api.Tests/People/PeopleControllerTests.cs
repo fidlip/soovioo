@@ -95,13 +95,30 @@ public class PeopleControllerTests
     }
 
     [Fact]
-    public async Task APupilsProfileIsNotRemovedByAnEdit()
+    public async Task APupilsProfileWithoutHistoryIsRemovedAndThePersonStays()
+    {
+        var person = Value(await Controller().AddPerson(new SavePersonRequest(
+            "Pan", "Učitel", Teacher: new TeacherProfileRequest(), Student: Matrika())));
+
+        var updated = Value(await Controller().UpdatePerson(person.Id, new SavePersonRequest(
+            "Pan", "Učitel", Teacher: new TeacherProfileRequest())));
+
+        Assert.Null(updated.Student);
+        Assert.NotNull(updated.Teacher);
+        Assert.False(await db.Students.AnyAsync());
+        Assert.True(await db.Persons.AnyAsync(p => p.Id == person.Id));
+    }
+
+    [Fact]
+    public async Task APupilsProfileWithHistoryStays()
     {
         var pupil = Value(await Controller().AddPerson(new SavePersonRequest("Jan", "Novák", Student: Matrika())));
+        db.Grades.Add(new Grade { StudentId = pupil.Student!.Id, SubjectId = 1, Value = 1, SchoolId = SchoolId });
+        await db.SaveChangesAsync();
 
         var result = await Controller().UpdatePerson(pupil.Id, new SavePersonRequest("Jan", "Novák"));
 
-        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("1 známku", Assert.IsType<BadRequestObjectResult>(result.Result).Value!.ToString());
         Assert.True(await db.Students.AnyAsync());
     }
 

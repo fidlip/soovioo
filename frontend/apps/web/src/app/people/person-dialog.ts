@@ -97,15 +97,15 @@ export class PersonDialog {
   protected isStudent = false;
   protected studentForm: StudentForm = emptyStudentForm(null);
 
-  /** A profile the account's role needs (or a pupil's) can't be unticked
-   * here — the server refuses it too. */
+  /** A profile the account's role needs can't be unticked here — the
+   * server refuses it too (and a pupil's with history). */
   protected readonly locked = computed(() => {
     const p = this.person();
     const roles = p?.account?.roles ?? [];
     return {
       teacher: !!p?.teacher && roles.includes('Teacher'),
       parent: !!p?.parent && roles.includes('Parent'),
-      student: !!p?.student,
+      student: !!p?.student && roles.includes('Student'),
     };
   });
 
