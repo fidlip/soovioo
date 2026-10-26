@@ -143,13 +143,24 @@ export class MessagesPage {
       : this.conversations(),
   );
 
-  protected readonly modeOptions = MODE_OPTIONS.filter((o) =>
-    o.value === 'school' || o.value === 'schoolStudents'
-      ? this.authApi.can('MessagesBroadcastSchool')
-      : o.value === 'class' || o.value === 'classStudents'
-        ? this.authApi.can('MessagesBroadcastClass')
-        : true,
-  ).map((o) => ({ ...o, label: this.term(o.label) }));
+  /** Staff, or a parents' representative writing to their children's class. */
+  protected readonly canBroadcast =
+    this.isStaff || this.authApi.can('MessagesBroadcastClass');
+  protected readonly modeOptions = (this.isStaff
+    ? MODE_OPTIONS
+    : [
+        { value: 'individual' as SendMode, label: 'Učitelům a vedení' },
+        ...MODE_OPTIONS.filter((o) => o.value === 'class'),
+      ]
+  )
+    .filter((o) =>
+      o.value === 'school' || o.value === 'schoolStudents'
+        ? this.authApi.can('MessagesBroadcastSchool')
+        : o.value === 'class' || o.value === 'classStudents'
+          ? this.authApi.can('MessagesBroadcastClass')
+          : true,
+    )
+    .map((o) => ({ ...o, label: this.term(o.label) }));
 
   /** Open bulk send (sender's view) — alternative to `selected`. */
   protected readonly selectedBroadcast = signal<Broadcast | null>(null);
@@ -218,7 +229,7 @@ export class MessagesPage {
       next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
     });
-    if (this.isStaff) {
+    if (this.authApi.can('MessagesBroadcastClass')) {
       this.messagesApi.getBroadcastableClasses().subscribe({
         next: (classes) => this.broadcastClasses.set(classes),
         error: (err) => console.error('getBroadcastableClasses failed', err),
@@ -356,7 +367,7 @@ export class MessagesPage {
     this.error.set(null);
     const request = { subject: this.subject, body: this.body };
 
-    if (this.isStaff && !this.isSingleStudentMode()) {
+    if (!this.isSingleStudentMode()) {
       const studentsOnly =
         this.sendMode === 'classStudents' || this.sendMode === 'schoolStudents';
       const broadcastRequest = { ...request, studentsOnly };

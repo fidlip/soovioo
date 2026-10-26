@@ -34,17 +34,20 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .OrderByDescending(p => p.DueDate)
             .ToListAsync();
 
+        var me = CurrentUserId();
         var result = new List<PaymentDto>();
         foreach (var payment in payments)
         {
             IEnumerable<PaymentRecipient> recipients = payment.Recipients;
-            if (allowedStudentIds is not null)
+            // Whoever created it (e.g. a parents' representative) sees all of it.
+            var restricted = allowedStudentIds is not null && payment.CreatedByUserId != me;
+            if (restricted)
             {
                 recipients = recipients.Where(r => allowedStudentIds.Contains(r.StudentId));
             }
 
             var recipientDtos = recipients.OrderBy(r => r.InstallmentDueDate).Select(ToRecipientDto).ToList();
-            if (allowedStudentIds is not null && recipientDtos.Count == 0)
+            if (restricted && recipientDtos.Count == 0)
             {
                 // Nothing here is actually theirs — don't even show the
                 // payment exists.
@@ -210,7 +213,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return NotFound();
         }
-        if (!await User.ReachesStudentAsync(db, Permission.PaymentsWrite, recipient.StudentId))
+        if (!await MayManageRecipientAsync(recipient))
         {
             return Forbid();
         }
@@ -232,7 +235,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return NotFound();
         }
-        if (!await User.ReachesStudentAsync(db, Permission.PaymentsWrite, recipient.StudentId))
+        if (!await MayManageRecipientAsync(recipient))
         {
             return Forbid();
         }
@@ -330,6 +333,11 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             payment.Students.Add(new PaymentStudent { StudentId = id, SchoolId = schoolId });
         }
     }
+
+    /// <summary>A pupil within reach, or any recipient of one's own payment.</summary>
+    private async Task<bool> MayManageRecipientAsync(PaymentRecipient recipient) =>
+        await db.Payments.AnyAsync(p => p.Id == recipient.PaymentId && p.CreatedByUserId == CurrentUserId())
+        || await User.ReachesStudentAsync(db, Permission.PaymentsWrite, recipient.StudentId);
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

@@ -206,6 +206,35 @@ public class RolesTests
     }
 
     [Fact]
+    public async Task AParentsRepresentativeWritesToTheirChildsClassOnly()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var rep = Assert.IsType<RoleDto>(Assert.IsType<CreatedAtActionResult>(
+            (await Roles(db).AddRole(new CreateRoleRequest("Třídní důvěrník", RoleKind.Parent, db.Role(UserRole.Parent).Id))).Result).Value);
+        var permissions = new Dictionary<Permission, PermissionScope>(rep.Permissions)
+        {
+            [Permission.MessagesBroadcastClass] = PermissionScope.Own,
+        };
+        Assert.IsType<OkObjectResult>((await Roles(db).UpdateRole(rep.Id, new UpdateRoleRequest(rep.Name, permissions))).Result);
+        var parent = new User { Username = "duvernik", PasswordHash = "x", SchoolId = SchoolId, ActiveRole = await db.Roles.FindAsync(rep.Id) };
+        db.Users.Add(parent);
+        await db.SaveChangesAsync();
+        await db.LinkChildAsync(parent.Id, w.Jan.Id, SchoolId);
+        await db.SaveChangesAsync();
+        var controller = new Soovioo.Api.Messaging.MessageBroadcastController(
+            db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+        {
+            ControllerContext = TestRoles.Context(TestRoles.PrincipalOf(parent)),
+        };
+
+        var classes = Assert.IsAssignableFrom<IEnumerable<SchoolClass>>(
+            Assert.IsType<OkObjectResult>((await controller.GetBroadcastableClasses()).Result).Value);
+        Assert.Equal([w.A.Id], classes.Select(c => c.Id));
+        Assert.IsType<ForbidResult>((await controller.BroadcastToClass(w.B.Id, new("Výlet", "Text"))).Result);
+    }
+
+    [Fact]
     public void TheCacheForgetsAfterAMinute()
     {
         var clock = new FakeClock(new DateTimeOffset(2026, 10, 26, 12, 0, 0, TimeSpan.Zero));

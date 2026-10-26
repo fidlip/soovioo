@@ -76,10 +76,23 @@ const SCOPE_LABELS: Record<PermissionScope, string> = {
   School: 'Celé školy',
 };
 
-export function scopeLabel(scope: PermissionScope, kind: RoleKind): string {
-  return scope === 'Own' && kind === 'Parent'
-    ? 'Svých dětí'
-    : SCOPE_LABELS[scope];
+/** What goes to whole classes — a parent's "own" there are their
+ * children's classes (the parents' representative). */
+const TO_CLASSES: Permission[] = [
+  'EventsWrite',
+  'PaymentsWrite',
+  'MessagesBroadcastClass',
+];
+
+export function scopeLabel(
+  scope: PermissionScope,
+  kind: RoleKind,
+  permission: Permission,
+): string {
+  if (scope === 'Own' && kind === 'Parent') {
+    return TO_CLASSES.includes(permission) ? 'Tříd svých dětí' : 'Svých dětí';
+  }
+  return SCOPE_LABELS[scope];
 }
 
 export function scopesFor(
