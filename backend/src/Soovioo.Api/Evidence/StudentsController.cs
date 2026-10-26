@@ -28,9 +28,9 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         // translate this straight to SQL instead of materializing every
         // column and mapping client-side.
         var students = await query
-            .OrderBy(s => s.LastName)
+            .OrderBy(s => s.Person!.LastName)
             .Select(s => new StudentDto(
-                s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name,
+                s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name,
                 s.RodneCislo, s.DateOfBirth, s.Gender, s.CitizenshipQualifier, s.CountryCode,
                 s.Country == null ? null : s.Country.Name, s.Street, s.MunicipalityCode,
                 s.Municipality == null ? null : s.Municipality.Name, s.PostalCode,
@@ -39,7 +39,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         if (photoAccess is not null)
         {
-            var withPhoto = await query.Where(s => s.PhotoKey != null).ToListAsync();
+            var withPhoto = await query.Where(s => s.Person!.PhotoKey != null).ToListAsync();
             var photos = await photoAccess.VisibleStudentPhotosAsync(User, withPhoto);
             students = students.Select(s => s with { Photo = photos.GetValueOrDefault(s.Id) }).ToList();
         }
@@ -83,8 +83,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         var student = new Student
         {
-            FirstName = request.FirstName,
-            LastName = request.LastName,
+            Person = new People.Person { FirstName = request.FirstName, LastName = request.LastName, SchoolId = schoolId },
             SchoolClassId = request.SchoolClassId,
             SchoolId = currentSchool.SchoolId!.Value,
             RodneCislo = request.RodneCislo,
@@ -137,8 +136,8 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             }
         }
 
-        student.FirstName = request.FirstName;
-        student.LastName = request.LastName;
+        student.Person!.FirstName = request.FirstName;
+        student.Person.LastName = request.LastName;
         student.SchoolClassId = request.SchoolClassId;
         student.RodneCislo = request.RodneCislo;
         student.DateOfBirth = request.DateOfBirth;
@@ -202,16 +201,18 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.DeleteAsync(db.HomeworkStudents.Where(x => x.StudentId == id));
         await db.DeleteAsync(db.EventStudents.Where(x => x.StudentId == id));
         await db.DeleteAsync(db.ParentStudents.Where(ps => ps.StudentId == id));
-        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.StudentId == id));
+        var person = student.Person!;
+        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id));
         // Their own login (role Student) goes too — it never wrote anything
         // (see HistoryOfAsync).
-        if (student.UserId is { } linkedUserId && await db.Users.FindAsync(linkedUserId) is { } linkedUser)
+        if (person.UserId is { } linkedUserId && await db.Users.FindAsync(linkedUserId) is { } linkedUser)
         {
             db.Users.Remove(linkedUser);
         }
         db.Students.Remove(student);
+        db.Persons.Remove(person);
         await db.SaveChangesAsync();
-        photos?.Delete(student.PhotoKey);
+        photos?.Delete(person.PhotoKey);
         return NoContent();
     }
 
@@ -220,7 +221,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     private async Task<List<string>> HistoryOfAsync(Student student)
     {
         var id = student.Id;
-        var ownId = student.UserId;
+        var ownId = student.Person!.UserId;
         var counts = new (int Count, string One, string Few, string Many)[]
         {
             (await db.Grades.CountAsync(g => g.StudentId == id), "známku", "známky", "známek"),
@@ -256,7 +257,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             : await db.Municipalities.Where(m => m.Code == student.MunicipalityCode).Select(m => m.Name).FirstOrDefaultAsync();
 
         return new StudentDto(
-            student.Id, student.FirstName, student.LastName, student.SchoolClassId, schoolClassName,
+            student.Id, student.Person!.FirstName, student.Person!.LastName, student.SchoolClassId, schoolClassName,
             student.RodneCislo, student.DateOfBirth, student.Gender, student.CitizenshipQualifier,
             student.CountryCode, countryName, student.Street, student.MunicipalityCode, municipalityName,
             student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,

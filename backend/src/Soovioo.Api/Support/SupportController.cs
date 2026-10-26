@@ -229,6 +229,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
             return BadRequest("Poslední superadmin — nejdřív přidejte jiného.");
         }
 
+        db.Persons.RemoveRange(db.Persons.Where(p => p.UserId == id));
         db.Users.Remove(user);
         await db.SaveChangesAsync();
         return NoContent();

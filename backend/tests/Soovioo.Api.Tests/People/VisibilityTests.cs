@@ -70,8 +70,8 @@ public class VisibilityTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var child = new Student { FirstName = "Jan", LastName = "Rodič", SchoolClassId = schoolClass.Id, SchoolId = SchoolId, UserId = pupil.Id };
-        var classmate = new Student { FirstName = "Eva", LastName = "Jiná", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var child = new Student { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var classmate = new Student { Person = new Person { FirstName = "Eva", LastName = "Jiná", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(child, classmate);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);
@@ -83,11 +83,11 @@ public class VisibilityTests
     private static async Task<int> PersonIdAsync(AppDbContext db, User user) =>
         (await db.Persons.FirstAsync(p => p.UserId == user.Id)).Id;
 
-    private static void Choose(AppDbContext db, int? personId, int? studentId, VisibilityOwner owner,
+    private static void Choose(AppDbContext db, int personId, VisibilityOwner owner,
         VisibilityField field, VisibilityAudience audience, VisibilityScope scope) =>
         db.VisibilityChoices.Add(new VisibilityChoice
         {
-            SchoolId = SchoolId, PersonId = personId, StudentId = studentId,
+            SchoolId = SchoolId, PersonId = personId,
             Owner = owner, Field = field, Audience = audience, Scope = scope,
         });
 
@@ -141,7 +141,7 @@ public class VisibilityTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
-        Choose(db, await PersonIdAsync(db, fx.Teacher), null, VisibilityOwner.Staff, VisibilityField.Phone,
+        Choose(db, await PersonIdAsync(db, fx.Teacher), VisibilityOwner.Staff, VisibilityField.Phone,
             VisibilityAudience.Students, VisibilityScope.Nobody);
         await db.SaveChangesAsync();
 
@@ -159,11 +159,11 @@ public class VisibilityTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
-        Choose(db, await PersonIdAsync(db, fx.Teacher), null, VisibilityOwner.Staff, VisibilityField.Phone,
+        Choose(db, await PersonIdAsync(db, fx.Teacher), VisibilityOwner.Staff, VisibilityField.Phone,
             VisibilityAudience.Parents, VisibilityScope.Nobody);
-        Choose(db, null, fx.Classmate.Id, VisibilityOwner.Student, VisibilityField.Name,
+        Choose(db, fx.Classmate.PersonId, VisibilityOwner.Student, VisibilityField.Name,
             VisibilityAudience.Parents, VisibilityScope.Nobody);
-        Choose(db, await PersonIdAsync(db, fx.OtherParent), null, VisibilityOwner.Parent, VisibilityField.Email,
+        Choose(db, await PersonIdAsync(db, fx.OtherParent), VisibilityOwner.Parent, VisibilityField.Email,
             VisibilityAudience.Parents, VisibilityScope.Nobody);
         await db.SaveChangesAsync();
 
@@ -185,8 +185,8 @@ public class VisibilityTests
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
         var teacherPerson = await PersonIdAsync(db, fx.Teacher);
-        Choose(db, teacherPerson, null, VisibilityOwner.Staff, VisibilityField.Phone, VisibilityAudience.Parents, VisibilityScope.Nobody);
-        Choose(db, teacherPerson, null, VisibilityOwner.Staff, VisibilityField.Email, VisibilityAudience.Parents, VisibilityScope.School);
+        Choose(db, teacherPerson, VisibilityOwner.Staff, VisibilityField.Phone, VisibilityAudience.Parents, VisibilityScope.Nobody);
+        Choose(db, teacherPerson, VisibilityOwner.Staff, VisibilityField.Email, VisibilityAudience.Parents, VisibilityScope.School);
         await db.SaveChangesAsync();
         await SetRuleAsync(db, new(VisibilityOwner.Staff, VisibilityField.Phone, VisibilityAudience.Parents),
             VisibilityScope.MyClasses, VisibilityScope.MyClasses, VisibilityScope.School);
@@ -205,8 +205,8 @@ public class VisibilityTests
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
         var otherParent = await PersonIdAsync(db, fx.OtherParent);
-        Choose(db, otherParent, null, VisibilityOwner.Parent, VisibilityField.Name, VisibilityAudience.Parents, VisibilityScope.Nobody);
-        Choose(db, otherParent, null, VisibilityOwner.Parent, VisibilityField.Phone, VisibilityAudience.Parents, VisibilityScope.School);
+        Choose(db, otherParent, VisibilityOwner.Parent, VisibilityField.Name, VisibilityAudience.Parents, VisibilityScope.Nobody);
+        Choose(db, otherParent, VisibilityOwner.Parent, VisibilityField.Phone, VisibilityAudience.Parents, VisibilityScope.School);
         await db.SaveChangesAsync();
 
         Assert.Empty((await GetDirectoryAsync(db, fx.Parent)).Parents!);
@@ -221,7 +221,7 @@ public class VisibilityTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db, demoRules: true);
-        Choose(db, null, fx.Child.Id, VisibilityOwner.Student, VisibilityField.Name, VisibilityAudience.Parents, VisibilityScope.Nobody);
+        Choose(db, fx.Child.PersonId, VisibilityOwner.Student, VisibilityField.Name, VisibilityAudience.Parents, VisibilityScope.Nobody);
         await db.SaveChangesAsync();
 
         Assert.Equal(2, (await GetDirectoryAsync(db, fx.Parent)).Classmates!.Count);
@@ -355,7 +355,7 @@ public class VisibilityTests
         Assert.Equal("1.A", child.ClassName);
         Assert.Equal(VisibilityScope.Nobody, child.Visibility.Single(s =>
             s.Field == VisibilityField.Name && s.Audience == VisibilityAudience.Students).Scope);
-        Assert.Equal(fx.Child.Id, Assert.Single(db.VisibilityChoices).StudentId);
+        Assert.Equal(fx.Child.PersonId, Assert.Single(db.VisibilityChoices).PersonId);
 
         var foreign = await Children(db, fx.Parent).SetVisibility(fx.Classmate.Id, request);
         Assert.IsType<NotFoundResult>(foreign.Result);

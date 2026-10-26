@@ -48,6 +48,6 @@ public class ReportCardController(AppDbContext db, ICurrentSchoolContext current
                 .Select(g => (g.Subject, Average: g.WeightedSum / (double)g.TotalWeight))
                 .ToList());
 
-        return File(pdfBytes, "application/pdf", $"vysvedceni-{student.LastName}.pdf");
+        return File(pdfBytes, "application/pdf", $"vysvedceni-{student.Person!.LastName}.pdf");
     }
 }

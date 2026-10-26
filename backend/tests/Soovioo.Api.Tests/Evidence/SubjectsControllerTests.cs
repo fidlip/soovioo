@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Evidence;
 
@@ -61,7 +62,7 @@ public class SubjectsControllerTests
     {
         using var db = NewDb();
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
-        var student = new Student { FirstName = "A", LastName = "B", SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "A", LastName = "B", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Subjects.Add(subject);
         db.Students.Add(student);
         await db.SaveChangesAsync();

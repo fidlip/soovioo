@@ -44,15 +44,17 @@ public class StudentEraser(
             switch (category)
             {
                 case RetentionCategory.Photos:
-                    photoKey = student.PhotoKey;
-                    student.PhotoKey = null;
-                    student.PhotoStatus = null;
+                    photoKey = student.Person!.PhotoKey;
+                    student.Person.PhotoKey = null;
+                    student.Person.PhotoStatus = null;
                     student.PhotoConsentGivenBy = null;
                     student.PhotoConsentAt = null;
                     break;
                 case RetentionCategory.Contacts:
                     student.ContactPhone = null;
                     student.ContactEmail = null;
+                    student.Person!.Phone = null;
+                    student.Person.Email = null;
                     break;
                 case RetentionCategory.Messages:
                     var conversations = db.Conversations.IgnoreQueryFilters()
@@ -140,15 +142,20 @@ public class StudentEraser(
 
         await db.DeleteAsync(db.EventStudents.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
         await db.DeleteAsync(db.ParentStudents.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
-        await db.DeleteAsync(db.VisibilityChoices.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
+        await db.DeleteAsync(db.VisibilityChoices.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.PersonId == student.PersonId));
         await db.DeleteAsync(db.Notifications.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
 
-        var ownAccountId = student.UserId;
-        student.UserId = null;
+        // With an account the Person stays with it, anonymized like any
+        // erased account's; without one it goes with the record.
+        var person = student.Person!;
         db.Students.Remove(student);
+        if (person.UserId is null)
+        {
+            db.Persons.Remove(person);
+        }
         await db.SaveChangesAsync();
 
-        if (ownAccountId is { } accountId
+        if (person.UserId is { } accountId
             && await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == accountId) is { } own)
         {
             await accounts.EraseAsync(own);

@@ -1,4 +1,3 @@
-using Soovioo.Api.Auth;
 using Soovioo.Api.Reference;
 
 namespace Soovioo.Api.Evidence;
@@ -26,8 +25,11 @@ public enum StudentLeaveReason
 public class Student
 {
     public int Id { get; set; }
-    public required string FirstName { get; set; }
-    public required string LastName { get; set; }
+
+    /// <summary>The pupil — name, own contacts, photo and login account
+    /// (<see cref="People.Person.UserId"/>); this record is their matrika.</summary>
+    public int PersonId { get; set; }
+    public People.Person? Person { get; set; }
 
     public int SchoolClassId { get; set; }
     public SchoolClass? SchoolClass { get; set; }
@@ -93,32 +95,11 @@ public class Student
     public string? ContactPhone { get; set; }
     public string? ContactEmail { get; set; }
 
-    /// <summary>The Student-role account that lets this student log in for
-    /// themselves (nullable — most students won't have one yet). Deliberately
-    /// a direct FK, not a join table like <see cref="ParentStudent"/>: a
-    /// student only ever has at most one own account, unlike a parent who may
-    /// be linked to several children. Set via <see cref="UsersController"/>
-    /// when an Admin creates/edits a Student-role user, cleared automatically
-    /// (see AppDbContext) if that account is deleted, and cleared explicitly
-    /// in <see cref="StudentsController.DeleteStudent"/> which deletes the
-    /// account outright — the student is gone, so is their login.</summary>
-    public int? UserId { get; set; }
-    public User? User { get; set; }
-
     /// <summary>Default variable symbol used when generating this student's
     /// <see cref="Payments.PaymentRecipient"/> rows — overridable per-payment
     /// (see <see cref="Payments.PaymentRecipient.VariableSymbol"/>, nullable,
     /// null = fall back to this field). Null until an admin fills it in.</summary>
     public string? DefaultVariableSymbol { get; set; }
-
-    /// <summary>Photo — storage key (see <see cref="People.PhotoStorage"/>),
-    /// null = initials. Only ever set while there's a consent
-    /// (<see cref="PhotoConsentAt"/>); revoking it deletes the photo.</summary>
-    public string? PhotoKey { get; set; }
-
-    /// <summary>Set with <see cref="PhotoKey"/>: a photo the pupil uploaded
-    /// waits for a parent's (or the school's) approval.</summary>
-    public People.PhotoStatus? PhotoStatus { get; set; }
 
     /// <summary>Last day at the school. From the day after, the pupil is a
     /// former pupil: hidden from the whole app by the query filter (see
@@ -141,8 +122,9 @@ public class Student
     /// (<see cref="Retention.StudentEraser"/>).</summary>
     public List<Retention.RetentionCategory> ErasedCategories { get; set; } = [];
 
-    /// <summary>The legal guardian's consent to the pupil's photo (GDPR
-    /// legal basis) — who gave it and when. Null = no consent, no photo.</summary>
+    /// <summary>The legal guardian's consent to the pupil's photo
+    /// (<see cref="People.Person.PhotoKey"/>; GDPR legal basis) — who gave it
+    /// and when. Null = no consent, no photo.</summary>
     public string? PhotoConsentGivenBy { get; set; }
     public DateTimeOffset? PhotoConsentAt { get; set; }
 }

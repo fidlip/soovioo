@@ -76,12 +76,12 @@ public class RetentionController(
         db.IncludeFormerStudents = true;
         var students = await db.Students
             .Where(s => s.LeftAt != null)
-            .OrderByDescending(s => s.LeftAt).ThenBy(s => s.LastName)
+            .OrderByDescending(s => s.LeftAt).ThenBy(s => s.Person!.LastName)
             .Select(s => new
             {
                 Student = s,
                 ClassName = s.SchoolClass!.Name,
-                AccountActive = s.User != null && s.User.DeactivatedAt == null,
+                AccountActive = s.Person!.User != null && s.Person!.User.DeactivatedAt == null,
             })
             .ToListAsync();
 
@@ -168,7 +168,7 @@ public class RetentionController(
             .Where(ps => ps.StudentId == id)
             .Select(ps => ps.ParentProfile!.Person!.UserId)
             .ToListAsync();
-        accountIds.Add(student.UserId);
+        accountIds.Add(student.Person!.UserId);
         foreach (var user in await db.Users.Where(u => accountIds.Contains(u.Id)).ToListAsync())
         {
             accountEraser.Reactivate(user);
@@ -250,7 +250,7 @@ public class RetentionController(
     private async Task<FormerStudentDto> DtoOfAsync(Student student)
     {
         var policy = await RetentionJob.PolicyOfAsync(db, SchoolId);
-        var accountActive = student.UserId is { } userId
+        var accountActive = student.Person!.UserId is { } userId
             && await db.Users.AnyAsync(u => u.Id == userId && u.DeactivatedAt == null);
         var className = student.SchoolClass?.Name
             ?? await db.SchoolClasses.Where(c => c.Id == student.SchoolClassId).Select(c => c.Name).FirstAsync();
@@ -266,7 +266,7 @@ public class RetentionController(
             .OrderBy(e => e.On)
             .ToList();
         return new FormerStudentDto(
-            s.Id, s.FirstName, s.LastName, className, leftAt, s.LeaveReason, s.LeaveReasonDetail, s.LeaveNote,
+            s.Id, s.Person!.FirstName, s.Person!.LastName, className, leftAt, s.LeaveReason, s.LeaveReasonDetail, s.LeaveNote,
             Former: leftAt < today, accountActive, s.ErasedCategories,
             Due: leftAt < today ? StudentEraser.Due(s, policy, today) : [],
             Pending: pending);

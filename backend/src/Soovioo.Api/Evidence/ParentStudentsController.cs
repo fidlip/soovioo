@@ -37,7 +37,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
                 ps.ParentProfile.Person.FirstName,
                 ps.ParentProfile.Person.LastName,
                 ps.StudentId,
-                StudentName = ps.Student!.FirstName + " " + ps.Student.LastName,
+                StudentName = ps.Student!.Person!.FirstName + " " + ps.Student.Person!.LastName,
             })
             .ToListAsync();
 
@@ -72,7 +72,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
 
         var person = await db.EnsurePersonAsync(user);
         var dto = new ParentStudentDto(
-            user.Id, user.Username, PersonNames.Display(person, user.Username), student.Id, $"{student.FirstName} {student.LastName}");
+            user.Id, user.Username, PersonNames.Display(person, user.Username), student.Id, student.Person!.FullName);
         return CreatedAtAction(nameof(GetLinks), dto);
     }
 

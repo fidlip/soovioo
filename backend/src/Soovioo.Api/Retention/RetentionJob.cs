@@ -56,8 +56,8 @@ public class RetentionJob(AppDbContext db, AccountEraser accounts, StudentEraser
     {
         var lastDayWithAccess = today.AddDays(-policy.AccountGraceDays - 1);
         var pupilAccountIds = await db.Students.IgnoreQueryFilters()
-            .Where(s => s.SchoolId == schoolId && s.LeftAt <= lastDayWithAccess && s.UserId != null)
-            .Select(s => s.UserId!.Value)
+            .Where(s => s.SchoolId == schoolId && s.LeftAt <= lastDayWithAccess && s.Person!.UserId != null)
+            .Select(s => s.Person!.UserId!.Value)
             .ToListAsync();
         var leftParentIds = await db.ParentStudents.IgnoreQueryFilters()
             .Where(ps => ps.SchoolId == schoolId && ps.Student!.LeftAt <= lastDayWithAccess)

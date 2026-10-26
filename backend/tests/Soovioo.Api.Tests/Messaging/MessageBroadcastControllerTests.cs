@@ -7,6 +7,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.People;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Messaging;
@@ -46,8 +47,8 @@ public class MessageBroadcastControllerTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = 42 };
         db.SchoolClasses.Add(schoolClass);
         db.Students.AddRange(
-            new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, SchoolClassId = 0, UserId = 100 },
-            new Student { FirstName = "B", LastName = "B", SchoolId = SchoolId, SchoolClassId = 0, UserId = 101 });
+            new Student { Person = new Person { FirstName = "A", LastName = "A", UserId = 100, SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = 0 },
+            new Student { Person = new Person { FirstName = "B", LastName = "B", UserId = 101, SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = 0 });
         await db.SaveChangesAsync();
         foreach (var student in db.Students)
         {
@@ -122,7 +123,7 @@ public class MessageBroadcastControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = 42 };
         db.SchoolClasses.Add(schoolClass);
-        db.Students.Add(new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, SchoolClassId = schoolClass.Id, UserId = 100 });
+        db.Students.Add(new Student { Person = new Person { FirstName = "A", LastName = "A", UserId = 100, SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = schoolClass.Id });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999, "Admin")
@@ -137,9 +138,9 @@ public class MessageBroadcastControllerTests
     {
         using var db = NewDb();
         db.Students.AddRange(
-            new Student { FirstName = "A", LastName = "A", SchoolId = SchoolId, UserId = 100 },
-            new Student { FirstName = "B", LastName = "B", SchoolId = SchoolId, UserId = 101 },
-            new Student { FirstName = "C", LastName = "C", SchoolId = SchoolId });
+            new Student { Person = new Person { FirstName = "A", LastName = "A", UserId = 100, SchoolId = SchoolId }, SchoolId = SchoolId },
+            new Student { Person = new Person { FirstName = "B", LastName = "B", UserId = 101, SchoolId = SchoolId }, SchoolId = SchoolId },
+            new Student { Person = new Person { FirstName = "C", LastName = "C", SchoolId = SchoolId }, SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 1, "Admin")

@@ -89,8 +89,8 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
             .Select(l => new { l.StudentId, l.UserId })
             .ToListAsync();
         var ownAccounts = await db.Students
-            .Where(s => studentIds.Contains(s.Id) && s.UserId != null)
-            .Select(s => new { StudentId = s.Id, UserId = s.UserId!.Value })
+            .Where(s => studentIds.Contains(s.Id) && s.Person!.UserId != null)
+            .Select(s => new { StudentId = s.Id, UserId = s.Person!.UserId!.Value })
             .ToListAsync();
         var familyByStudent = parentLinks.Concat(ownAccounts)
             .GroupBy(x => x.StudentId)

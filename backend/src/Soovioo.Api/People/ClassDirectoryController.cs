@@ -42,18 +42,18 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
         {
             var pupils = await db.Students
                 .Where(s => s.SchoolClassId == classId)
-                .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
+                .OrderBy(s => s.Person!.LastName).ThenBy(s => s.Person!.FirstName)
                 .ToListAsync();
-            var ids = pupils.Select(p => p.Id).ToList();
-            var choices = (await db.VisibilityChoices.Where(c => c.StudentId != null && ids.Contains(c.StudentId.Value)).ToListAsync())
-                .ToLookup(c => c.StudentId!.Value);
+            var personIds = pupils.Select(p => p.PersonId).ToList();
+            var choices = (await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync())
+                .ToLookup(c => c.PersonId);
             var listed = pupils
                 .Where(p => accessible.Contains(p.Id) || visibility.Shows(
-                    new(VisibilityOwner.Student, VisibilityField.Name, audience), choices[p.Id], VisibilityScope.MyClasses))
+                    new(VisibilityOwner.Student, VisibilityField.Name, audience), choices[p.PersonId], VisibilityScope.MyClasses))
                 .ToList();
             var photos = await photoAccess.VisibleStudentPhotosAsync(User, listed);
             classmates = listed
-                .Select(p => new ClassmateDto(p.Id, $"{p.FirstName} {p.LastName}", photos.GetValueOrDefault(p.Id)))
+                .Select(p => new ClassmateDto(p.Id, p.Person!.FullName, photos.GetValueOrDefault(p.Id)))
                 .ToList();
         }
 
@@ -64,7 +64,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
         }
 
         return Ok(new ClassDirectoryDto(
-            student.Id, $"{student.FirstName} {student.LastName}", student.SchoolClass.Name,
+            student.Id, student.Person!.FullName, student.SchoolClass.Name,
             teachers, classmates, parents));
     }
 
@@ -167,8 +167,8 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
     private async Task<ILookup<int, VisibilityChoice>> ChoicesOfPersonsAsync(IEnumerable<int> personIds)
     {
         var ids = personIds.Distinct().ToList();
-        return (await db.VisibilityChoices.Where(c => c.PersonId != null && ids.Contains(c.PersonId.Value)).ToListAsync())
-            .ToLookup(c => c.PersonId!.Value);
+        return (await db.VisibilityChoices.Where(c => ids.Contains(c.PersonId)).ToListAsync())
+            .ToLookup(c => c.PersonId);
     }
 }
 

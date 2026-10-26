@@ -7,6 +7,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Grades;
 
@@ -24,7 +25,7 @@ public class GradesControllerTests
 
     private static async Task<(Student student, Subject subject)> SeedStudentAndSubject(AppDbContext db)
     {
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.Students.Add(student);
         db.Subjects.Add(subject);
@@ -128,7 +129,7 @@ public class GradesControllerTests
     {
         using var db = NewDb();
         var (novak, subject) = await SeedStudentAndSubject(db);
-        var adamec = new Student { FirstName = "Petr", LastName = "Adamec", SchoolClassId = 1, SchoolId = SchoolId };
+        var adamec = new Student { Person = new Person { FirstName = "Petr", LastName = "Adamec", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(adamec);
         await db.SaveChangesAsync();
         var older = new DateOnly(2026, 9, 1);

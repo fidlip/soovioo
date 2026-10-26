@@ -108,11 +108,11 @@ public class PhotosController(
     public async Task<IActionResult> GetStudentPhoto(int studentId, PhotoSize size)
     {
         var student = await db.Students.FindAsync(studentId);
-        if (student?.PhotoKey is null || !await access.CanSeeStudentPhotoAsync(User, student))
+        if (student?.Person!.PhotoKey is null || !await access.CanSeeStudentPhotoAsync(User, student))
         {
             return NotFound();
         }
-        return PhotoFile(student.PhotoKey, size);
+        return PhotoFile(student.Person!.PhotoKey, size);
     }
 
     /// <summary>The pupils whose photo the caller decides about — a parent's
@@ -125,7 +125,7 @@ public class PhotosController(
         {
             return Ok(Array.Empty<StudentPhotoStateDto>());
         }
-        var students = await db.Students.Where(s => ids.Contains(s.Id)).OrderBy(s => s.FirstName).ToListAsync();
+        var students = await db.Students.Where(s => ids.Contains(s.Id)).OrderBy(s => s.Person!.FirstName).ToListAsync();
         var states = new List<StudentPhotoStateDto>();
         foreach (var student in students)
         {
@@ -182,13 +182,13 @@ public class PhotosController(
         {
             return BadRequest("Soubor se nepodařilo přečíst jako obrázek.");
         }
-        photos.Delete(student.PhotoKey);
-        student.PhotoKey = key;
+        photos.Delete(student.Person!.PhotoKey);
+        student.Person!.PhotoKey = key;
         // A pupil — even an adult one — never approves their own photo.
-        student.PhotoStatus = schoolSide || parent ? PhotoStatus.Approved : PhotoStatus.Pending;
+        student.Person!.PhotoStatus = schoolSide || parent ? PhotoStatus.Approved : PhotoStatus.Pending;
         await db.SaveChangesAsync();
 
-        if (student.PhotoStatus == PhotoStatus.Pending)
+        if (student.Person!.PhotoStatus == PhotoStatus.Pending)
         {
             await NotifyParentsAsync(student);
         }
@@ -199,7 +199,7 @@ public class PhotosController(
     public async Task<ActionResult<StudentPhotoStateDto>> ApproveStudentPhoto(int studentId)
     {
         var student = await db.Students.FindAsync(studentId);
-        if (student?.PhotoKey is null)
+        if (student?.Person!.PhotoKey is null)
         {
             return NotFound();
         }
@@ -207,7 +207,7 @@ public class PhotosController(
         {
             return Forbid();
         }
-        student.PhotoStatus = PhotoStatus.Approved;
+        student.Person!.PhotoStatus = PhotoStatus.Approved;
         await db.SaveChangesAsync();
         return Ok(await StateAsync(student));
     }
@@ -217,7 +217,7 @@ public class PhotosController(
     public async Task<ActionResult<StudentPhotoStateDto>> RejectStudentPhoto(int studentId)
     {
         var student = await db.Students.FindAsync(studentId);
-        if (student?.PhotoKey is null)
+        if (student?.Person!.PhotoKey is null)
         {
             return NotFound();
         }
@@ -306,9 +306,9 @@ public class PhotosController(
 
     private void RemovePhoto(Student student)
     {
-        photos.Delete(student.PhotoKey);
-        student.PhotoKey = null;
-        student.PhotoStatus = null;
+        photos.Delete(student.Person!.PhotoKey);
+        student.Person!.PhotoKey = null;
+        student.Person!.PhotoStatus = null;
     }
 
     private async Task<StudentPhotoStateDto> StateAsync(Student student)
@@ -322,14 +322,14 @@ public class PhotosController(
         var visible = await access.CanSeeStudentPhotoAsync(User, student);
         return new StudentPhotoStateDto(
             student.Id,
-            $"{student.FirstName} {student.LastName}",
-            visible ? PhotoStorage.Token(student.PhotoKey) : null,
-            visible ? student.PhotoStatus?.ToString() : null,
+            student.Person!.FullName,
+            visible ? PhotoStorage.Token(student.Person!.PhotoKey) : null,
+            visible ? student.Person!.PhotoStatus?.ToString() : null,
             student.PhotoConsentGivenBy,
             student.PhotoConsentAt,
             enabled,
             CanUpload: enabled && student.PhotoConsentAt is not null && (schoolSide || self || parent),
-            CanApprove: visible && canApprove && student.PhotoStatus == PhotoStatus.Pending,
+            CanApprove: visible && canApprove && student.Person!.PhotoStatus == PhotoStatus.Pending,
             CanDelete: visible && (canApprove || self),
             CanManageConsent: enabled && (schoolSide || parent),
             ConsentNeedsName: schoolSide && !parent);
@@ -382,7 +382,7 @@ public class PhotosController(
             .ParentAccountLinks().Select(l => l.UserId).ToListAsync();
         await notifier.NotifyAsync(
             student.SchoolId, parentIds, NotificationType.Photo, "Fotka ke schválení",
-            $"{student.FirstName} {student.LastName} si nahrál(a) novou profilovou fotku.",
+            $"{student.Person!.FullName} si nahrál(a) novou profilovou fotku.",
             "my-children", student.Id, student.Id);
         await db.SaveChangesAsync();
 
@@ -398,7 +398,7 @@ public class PhotosController(
         var school = await access.SchoolAsync();
         var origin = appLinkOptions.Value.SchoolOrigin(school.Slug);
         var link = origin is null ? "" : $"""<p><a href="{origin}/my-children">{origin}/my-children</a></p>""";
-        var name = System.Net.WebUtility.HtmlEncode($"{student.FirstName} {student.LastName}");
+        var name = System.Net.WebUtility.HtmlEncode(student.Person!.FullName);
         var body = $"""
             <p>Dobrý den,</p>
             <p>{name} si v Soovioo nahrál(a) novou profilovou fotku. Než ji uvidí učitelé,

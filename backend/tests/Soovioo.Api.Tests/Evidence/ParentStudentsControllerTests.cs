@@ -47,8 +47,8 @@ public class ParentStudentsControllerTests
         var otherClass = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
         db.SchoolClasses.AddRange(ownClass, otherClass);
         await db.SaveChangesAsync();
-        var ownStudent = new Student { FirstName = "Žák", LastName = "Vlastní", SchoolClassId = ownClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { FirstName = "Žák", LastName = "Cizí", SchoolClassId = otherClass.Id, SchoolId = SchoolId };
+        var ownStudent = new Student { Person = new Person { FirstName = "Žák", LastName = "Vlastní", SchoolId = SchoolId }, SchoolClassId = ownClass.Id, SchoolId = SchoolId };
+        var otherStudent = new Student { Person = new Person { FirstName = "Žák", LastName = "Cizí", SchoolId = SchoolId }, SchoolClassId = otherClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(ownStudent, otherStudent);
         await db.SaveChangesAsync();
 

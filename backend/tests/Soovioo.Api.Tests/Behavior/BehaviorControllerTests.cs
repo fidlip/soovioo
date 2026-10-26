@@ -39,7 +39,7 @@ public class BehaviorControllerTests
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId, ClassTeacherId = classTeacherId };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         return (schoolClass, student);

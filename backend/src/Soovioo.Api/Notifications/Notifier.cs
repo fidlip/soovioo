@@ -35,8 +35,8 @@ public class Notifier(AppDbContext db, TimeProvider clock)
             .Select(l => new { l.StudentId, l.UserId })
             .ToListAsync();
         var own = await db.Students
-            .Where(s => ids.Contains(s.Id) && s.UserId != null)
-            .Select(s => new { StudentId = s.Id, UserId = s.UserId!.Value })
+            .Where(s => ids.Contains(s.Id) && s.Person!.UserId != null)
+            .Select(s => new { StudentId = s.Id, UserId = s.Person!.UserId!.Value })
             .ToListAsync();
         return parents.Concat(own)
             .GroupBy(x => x.StudentId)

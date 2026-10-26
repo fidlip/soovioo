@@ -30,7 +30,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             .Select(a => new AbsenceDto(
                 a.Id,
                 a.StudentId,
-                a.Student!.FirstName + " " + a.Student.LastName,
+                a.Student!.Person!.FirstName + " " + a.Student.Person!.LastName,
                 a.Date,
                 a.Status,
                 a.ExcuseReason,
@@ -69,7 +69,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
 
         var dto = new AbsenceDto(
-            absence.Id, absence.StudentId, $"{student.FirstName} {student.LastName}",
+            absence.Id, absence.StudentId, student.Person!.FullName,
             absence.Date, absence.Status, absence.ExcuseReason, absence.Periods);
         return CreatedAtAction(nameof(GetAbsences), new { id = absence.Id }, dto);
     }
@@ -122,7 +122,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
         await notifier.NotifyAsync(
             absence.SchoolId, await notifier.FamilyAsync(student.Id), type, title,
-            $"{student.FirstName} {student.LastName} — {SchoolFormat.Date(absence.Date)}{periods}",
+            $"{student.Person!.FullName} — {SchoolFormat.Date(absence.Date)}{periods}",
             "absences", absence.Id, student.Id);
     }
 
@@ -157,7 +157,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
 
         var dto = new AbsenceDto(
-            absence.Id, absence.StudentId, $"{student.FirstName} {student.LastName}",
+            absence.Id, absence.StudentId, student.Person!.FullName,
             absence.Date, absence.Status, absence.ExcuseReason, absence.Periods);
         return Ok(dto);
     }

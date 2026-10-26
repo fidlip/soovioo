@@ -24,12 +24,12 @@ public static class StudentAccessExtensions
 
         if (user.IsInRole(nameof(UserRole.Student)))
         {
-            // A direct FK (Student.UserId), not a join table like
-            // ParentStudent — a student only ever has at most one own
-            // account. Empty set, not null, when unlinked/not-yet-found —
+            // The pupil's own Person carries the account (Person.UserId), not
+            // a join table like ParentStudent — a student only ever has at
+            // most one own account. Empty set, not null, when unlinked/not-yet-found —
             // "no restriction" must never be the fallback for a bad lookup.
             var ownStudentId = await db.Students
-                .Where(s => s.UserId == userId)
+                .Where(s => s.Person!.UserId == userId)
                 .Select(s => (int?)s.Id)
                 .FirstOrDefaultAsync();
             return ownStudentId is { } id ? [id] : [];

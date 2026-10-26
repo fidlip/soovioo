@@ -29,7 +29,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         var records = await query
             .OrderByDescending(r => r.Date)
             .Select(r => new BehaviorRecordDto(
-                r.Id, r.StudentId, r.Student!.FirstName + " " + r.Student.LastName,
+                r.Id, r.StudentId, r.Student!.Person!.FirstName + " " + r.Student.Person!.LastName,
                 r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt, r.ReadAt))
             .ToListAsync();
 
@@ -92,7 +92,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
 
         var dto = new BehaviorRecordDto(
-            record.Id, record.StudentId, student.FirstName + " " + student.LastName,
+            record.Id, record.StudentId, student.Person!.FirstName + " " + student.Person!.LastName,
             record.Type, record.Text, record.Date, record.RecordedByName, record.CreatedAt, record.ReadAt);
         return CreatedAtAction(nameof(GetBehaviorRecords), dto);
     }
@@ -135,7 +135,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         var classifications = await query
             .OrderByDescending(c => c.SchoolYearStartYear).ThenByDescending(c => c.HalfYear)
             .Select(c => new BehaviorClassificationDto(
-                c.StudentId, c.Student!.FirstName + " " + c.Student.LastName,
+                c.StudentId, c.Student!.Person!.FirstName + " " + c.Student.Person!.LastName,
                 c.SchoolYearStartYear, c.HalfYear, c.Value, c.SetByName, c.SetAt))
             .ToListAsync();
 
@@ -194,7 +194,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
 
         var dto = new BehaviorClassificationDto(
-            existing.StudentId, student.FirstName + " " + student.LastName, existing.SchoolYearStartYear,
+            existing.StudentId, student.Person!.FirstName + " " + student.Person!.LastName, existing.SchoolYearStartYear,
             existing.HalfYear, existing.Value, existing.SetByName, existing.SetAt);
         return Ok(dto);
     }

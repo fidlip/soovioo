@@ -251,7 +251,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         }
 
         var students = classes.SelectMany(c => c.Students).ToList();
-        var featuredStudent = students.First(s => s.Student.User?.Id == featured.StudentId);
+        var featuredStudent = students.First(s => s.Student.Person!.User?.Id == featured.StudentId);
         var featuredFamily = students.First(s => s.Family.Parents.Any(p => p.User?.Id == featured.ParentId)).Family;
         var pendingChild = featuredFamily.Children.FirstOrDefault(c => c != featuredStudent) ?? featuredFamily.Children[0];
 
@@ -270,8 +270,8 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             {
                 continue; // consent, but no photo yet
             }
-            student.PhotoKey = await Avatar(student.Gender == Gender.Female, adult: false);
-            student.PhotoStatus = info == pendingChild && info != featuredStudent ? PhotoStatus.Pending : PhotoStatus.Approved;
+            student.Person!.PhotoKey = await Avatar(student.Gender == Gender.Female, adult: false);
+            student.Person.PhotoStatus = info == pendingChild && info != featuredStudent ? PhotoStatus.Pending : PhotoStatus.Approved;
         }
 
         foreach (var (person, _, user) in students.SelectMany(s => s.Family.Parents).Distinct())
@@ -472,7 +472,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 var info = classes.Where(c => c.Grade == grade && c.Students.Count < c.TargetSize).OrderBy(c => c.Students.Count).First();
                 var male = rng.Next(2) == 0;
                 var first = Pick(male ? DemoNames.MaleFirstNames : DemoNames.FemaleFirstNames);
-                if (family.Children.Any(c => c.Student.FirstName == first))
+                if (family.Children.Any(c => c.Student.Person!.FirstName == first))
                 {
                     first = Pick(male ? DemoNames.MaleFirstNames : DemoNames.FemaleFirstNames);
                 }
@@ -484,8 +484,12 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 variableSymbolCounters[enrolledYear] = variableSymbolCounters.GetValueOrDefault(enrolledYear) + 1;
                 var student = new Student
                 {
-                    FirstName = first,
-                    LastName = male ? family.Surname.Male : family.Surname.Female,
+                    Person = new Person
+                    {
+                        FirstName = first,
+                        LastName = male ? family.Surname.Male : family.Surname.Female,
+                        SchoolId = school.Id,
+                    },
                     SchoolClass = info.Class,
                     SchoolId = school.Id,
                     DateOfBirth = born,
@@ -597,18 +601,12 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         return user;
     }
 
-    /// <summary>The pupil's own login, with a Person like every account.</summary>
+    /// <summary>The pupil's own login, on their Person.</summary>
     private void StudentAccount(Student student)
     {
-        student.User = NewUser(student.FirstName, student.LastName, [UserRole.Student]);
-        db.Persons.Add(new Person
-        {
-            FirstName = student.FirstName,
-            LastName = student.LastName,
-            SchoolId = school.Id,
-            User = student.User,
-            Email = $"{student.User.Username}@example.com",
-        });
+        var person = student.Person!;
+        person.User = NewUser(person.FirstName, person.LastName, [UserRole.Student]);
+        person.Email = $"{person.User.Username}@example.com";
     }
 
     private string Phone() => $"+420 {rng.Next(601, 799)} {rng.Next(100, 999)} {rng.Next(100, 999)}";
@@ -1008,8 +1006,8 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         var featuredClass = classes.FirstOrDefault(c => c.Grade == (school.Type == SchoolType.Elementary ? 6 : 2)) ?? classes[0];
         var teacher = featuredClass.ClassTeacher.User;
 
-        var student = featuredClass.Students.FirstOrDefault(s => s.Student.User is not null)
-            ?? classes.SelectMany(c => c.Students).FirstOrDefault(s => s.Student.User is not null);
+        var student = featuredClass.Students.FirstOrDefault(s => s.Student.Person!.User is not null)
+            ?? classes.SelectMany(c => c.Students).FirstOrDefault(s => s.Student.Person!.User is not null);
         if (student is null)
         {
             student = featuredClass.Students[0];
@@ -1029,13 +1027,13 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             parent = NewUser(person.FirstName, person.LastName, [UserRole.Parent]);
             person.User = parent;
         }
-        if (student.Student.User!.Id == 0 || parent.Id == 0)
+        if (student.Student.Person!.User!.Id == 0 || parent.Id == 0)
         {
             // Accounts added just now — the ids come with the next save.
             db.ChangeTracker.DetectChanges();
             db.SaveChanges();
         }
-        return new DemoFeaturedUsers(admin.Id, teacher.Id, parent.Id, student.Student.User!.Id);
+        return new DemoFeaturedUsers(admin.Id, teacher.Id, parent.Id, student.Student.Person!.User!.Id);
     }
 
     private static readonly (string Subject, string Body)[] SchoolBroadcasts =
@@ -1069,7 +1067,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         }
         var families = classes.SelectMany(c => c.Students)
             .ToDictionary(s => s.Student.Id, s => s.Family.Parents.Where(p => p.User is not null).Select(p => p.User!.Id)
-                .Concat(s.Student.User is { } own ? [own.Id] : [])
+                .Concat(s.Student.Person!.User is { } own ? [own.Id] : [])
                 .ToList());
 
         void Broadcast(User sender, string senderName, string subject, string body, string audience, IEnumerable<StudentInfo> students, DateOnly day)
@@ -1132,7 +1130,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 var day = days[rng.Next(Math.Max(0, days.Count - 30), days.Count)];
                 var startedAt = Past(At(day, 16, 0));
                 var parentFirst = subject == "Omluva z výuky";
-                var firstBody = parentFirst ? parentText : string.Format(teacherText, student.Student.FirstName);
+                var firstBody = parentFirst ? parentText : string.Format(teacherText, student.Student.Person!.FirstName);
                 var conversation = ConversationsController.NewConversation(
                     subject, student.Student.Id,
                     parentFirst ? parentUser.User!.Id : teacher.User.Id,
@@ -1147,7 +1145,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                         SchoolId = school.Id,
                         SenderUserId = parentFirst ? teacher.User.Id : parentUser.User!.Id,
                         SenderName = parentFirst ? teacher.Person.FullName : parentUser.Person.FullName,
-                        Body = parentFirst ? string.Format(teacherText, student.Student.FirstName) : parentText,
+                        Body = parentFirst ? string.Format(teacherText, student.Student.Person!.FirstName) : parentText,
                         SentAt = replyAt,
                     });
                     conversation.LastMessageAt = replyAt;

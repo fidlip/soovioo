@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Matrika;
+using Soovioo.Api.People;
 using Soovioo.Api.Reference;
 
 namespace Soovioo.Api.Tests.Matrika;
@@ -49,8 +50,7 @@ public class MatrikaExportServiceTests
     {
         var student = new Student
         {
-            FirstName = "Jan",
-            LastName = "Novák",
+            Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId },
             SchoolClassId = schoolClass.Id,
             SchoolId = SchoolId,
             RodneCislo = rodneCislo,

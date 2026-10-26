@@ -54,8 +54,8 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
         var isStaff = isAdmin || viewer.IsInRole(nameof(UserRole.Teacher));
         HashSet<int>? teacherClassIds = null;
         var personIds = withPhoto.Select(u => u.Person!.Id).ToList();
-        var choices = (await db.VisibilityChoices.Where(c => c.PersonId != null && personIds.Contains(c.PersonId.Value)).ToListAsync())
-            .ToLookup(c => c.PersonId!.Value);
+        var choices = (await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync())
+            .ToLookup(c => c.PersonId);
 
         foreach (var user in withPhoto)
         {
@@ -105,21 +105,21 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
     /// <summary>The photo tokens of <paramref name="students"/> the caller may see.</summary>
     public async Task<Dictionary<int, string>> VisibleStudentPhotosAsync(ClaimsPrincipal viewer, IEnumerable<Student> students)
     {
-        var withPhoto = students.Where(st => st.PhotoKey is not null).ToList();
+        var withPhoto = students.Where(st => st.Person!.PhotoKey is not null).ToList();
         var result = new Dictionary<int, string>();
         if (withPhoto.Count == 0 || !(await SchoolAsync()).StudentPhotos)
         {
             return result;
         }
 
-        var ids = withPhoto.Select(st => st.Id).ToList();
-        var choices = (await db.VisibilityChoices.Where(c => c.StudentId != null && ids.Contains(c.StudentId.Value)).ToListAsync())
-            .ToLookup(c => c.StudentId!.Value);
+        var personIds = withPhoto.Select(st => st.PersonId).ToList();
+        var choices = (await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync())
+            .ToLookup(c => c.PersonId);
         foreach (var student in withPhoto)
         {
-            if (await CanSeeStudentPhotoAsync(viewer, student, choices[student.Id]))
+            if (await CanSeeStudentPhotoAsync(viewer, student, choices[student.PersonId]))
             {
-                result[student.Id] = PhotoStorage.Token(student.PhotoKey)!;
+                result[student.Id] = PhotoStorage.Token(student.Person!.PhotoKey)!;
             }
         }
         return result;
@@ -127,16 +127,16 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
 
     public async Task<bool> CanSeeStudentPhotoAsync(ClaimsPrincipal viewer, Student student) =>
         await CanSeeStudentPhotoAsync(
-            viewer, student, await db.VisibilityChoices.Where(c => c.StudentId == student.Id).ToListAsync());
+            viewer, student, await db.VisibilityChoices.Where(c => c.PersonId == student.PersonId).ToListAsync());
 
     private async Task<bool> CanSeeStudentPhotoAsync(
         ClaimsPrincipal viewer, Student student, IEnumerable<VisibilityChoice> choices)
     {
-        if (student.PhotoKey is null || student.PhotoConsentAt is null || !(await SchoolAsync()).StudentPhotos)
+        if (student.Person!.PhotoKey is null || student.PhotoConsentAt is null || !(await SchoolAsync()).StudentPhotos)
         {
             return false;
         }
-        var approved = student.PhotoStatus == PhotoStatus.Approved;
+        var approved = student.Person!.PhotoStatus == PhotoStatus.Approved;
         if (IsSelf(viewer, student) || (approved && viewer.IsInRole(nameof(UserRole.Teacher))))
         {
             return true;
@@ -214,7 +214,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             .ToListAsync();
 
     public static bool IsSelf(ClaimsPrincipal viewer, Student student) =>
-        viewer.IsInRole(nameof(UserRole.Student)) && student.UserId == ViewerId(viewer);
+        viewer.IsInRole(nameof(UserRole.Student)) && student.Person!.UserId == ViewerId(viewer);
 
     public static bool IsStaff(User user) =>
         user.Roles.Contains(UserRole.Teacher) || user.Roles.Contains(UserRole.Admin);

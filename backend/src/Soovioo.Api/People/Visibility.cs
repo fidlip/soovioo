@@ -72,18 +72,15 @@ public class VisibilityRule
 }
 
 /// <summary>An individual's own choice, stored only where it differs from
-/// the school's default. Staff and parents choose for their
-/// <see cref="Person"/>, a parent for their child's <see cref="Student"/>
-/// record (exactly one of the two is set).</summary>
+/// the school's default, for their own <see cref="Person"/> — a parent
+/// chooses for their child's.</summary>
 public class VisibilityChoice
 {
     public int Id { get; set; }
     public int SchoolId { get; set; }
 
-    public int? PersonId { get; set; }
+    public int PersonId { get; set; }
     public Person? Person { get; set; }
-    public int? StudentId { get; set; }
-    public Student? Student { get; set; }
 
     public VisibilityOwner Owner { get; set; }
     public VisibilityField Field { get; set; }
