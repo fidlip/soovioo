@@ -187,8 +187,8 @@ public class EventsControllerTests
             db.SchoolClasses.AddRange(classA, classB);
             await db.SaveChangesAsync();
 
-            var studentA = new Student { FirstName = "Žák", LastName = "A", SchoolId = SchoolId, SchoolClassId = classA.Id, UserId = studentUserA.Id };
-            var studentB = new Student { FirstName = "Žák", LastName = "B", SchoolId = SchoolId, SchoolClassId = classB.Id };
+            var studentA = new Student { Person = new Person { FirstName = "Žák", LastName = "A", UserId = studentUserA.Id, SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classA.Id };
+            var studentB = new Student { Person = new Person { FirstName = "Žák", LastName = "B", SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classB.Id };
             db.Students.AddRange(studentA, studentB);
             await db.SaveChangesAsync();
 

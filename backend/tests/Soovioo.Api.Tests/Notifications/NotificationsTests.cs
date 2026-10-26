@@ -60,8 +60,8 @@ public class NotificationsTests
             Parent = NewUser("rodic", UserRole.Parent),
             StudentUser = NewUser("zak", UserRole.Student),
             OtherParent = NewUser("rodic2", UserRole.Parent),
-            Student = new Student { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId },
-            OtherStudent = new Student { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId },
+            Student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolId = SchoolId },
+            OtherStudent = new Student { Person = new Person { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId }, SchoolId = SchoolId },
             Class = new SchoolClass { Name = "5.A", SchoolId = SchoolId },
             OtherClass = new SchoolClass { Name = "5.B", SchoolId = SchoolId },
             Subject = new Subject { Name = "Matematika", SchoolId = SchoolId },
@@ -74,7 +74,7 @@ public class NotificationsTests
         db.Subjects.Add(w.Subject);
         await db.SaveChangesAsync();
         w.Student.SchoolClassId = w.Class.Id;
-        w.Student.UserId = w.StudentUser.Id;
+        w.Student.Person!.UserId = w.StudentUser.Id;
         w.OtherStudent.SchoolClassId = w.OtherClass.Id;
         db.Students.AddRange(w.Student, w.OtherStudent);
         await db.SaveChangesAsync();

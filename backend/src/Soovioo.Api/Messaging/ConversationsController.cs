@@ -38,7 +38,7 @@ public class ConversationsController(
                 c.Id,
                 c.Subject,
                 c.StudentId,
-                StudentName = c.Student == null ? null : c.Student.FirstName + " " + c.Student.LastName,
+                StudentName = c.Student == null ? null : c.Student.Person!.FirstName + " " + c.Student.Person!.LastName,
                 c.LastMessageAt,
                 Participants = c.Participants.Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
                 LastMessage = c.Messages.OrderByDescending(m => m.SentAt)
@@ -95,7 +95,7 @@ public class ConversationsController(
             .Select(c => new
             {
                 c.Id,
-                StudentName = c.Student == null ? null : c.Student.FirstName + " " + c.Student.LastName,
+                StudentName = c.Student == null ? null : c.Student.Person!.FirstName + " " + c.Student.Person!.LastName,
                 Participants = c.Participants.Where(p => p.UserId != me)
                     .Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
                 ReplyCount = c.Messages.Count(m => m.SenderUserId == null || m.SenderUserId != me),
@@ -174,8 +174,8 @@ public class ConversationsController(
             if (request.StudentOnly)
             {
                 // Just the pupil (no parents) — e.g. a reminder that would only bother the family.
-                recipients = await db.Students.Where(s => s.Id == studentId && s.UserId != null)
-                    .Select(s => s.UserId!.Value).ToListAsync();
+                recipients = await db.Students.Where(s => s.Id == studentId && s.Person!.UserId != null)
+                    .Select(s => s.Person!.UserId!.Value).ToListAsync();
                 if (recipients.Count == 0)
                 {
                     return BadRequest("Žák nemá vlastní účet — zprávu by nikdo nedostal.");
@@ -474,7 +474,7 @@ public class ConversationsController(
         c.Id,
         c.Subject,
         c.StudentId,
-        c.Student is null ? null : $"{c.Student.FirstName} {c.Student.LastName}",
+        c.Student is null ? null : c.Student.Person!.FullName,
         c.Participants.Select(p => new ParticipantDto(p.UserId, p.User is null ? "?" : PersonNames.Display(p.User))).OrderBy(p => p.Name).ToList(),
         c.Messages.OrderBy(m => m.SentAt).Select(ToDto).ToList());
 
@@ -503,7 +503,7 @@ public static class ConversationQueries
     {
         var parents = await db.ParentStudents.Where(ps => ps.StudentId == studentId)
             .ParentAccountLinks().Select(l => l.UserId).ToListAsync();
-        var own = await db.Students.Where(s => s.Id == studentId && s.UserId != null).Select(s => s.UserId!.Value).ToListAsync();
+        var own = await db.Students.Where(s => s.Id == studentId && s.Person!.UserId != null).Select(s => s.Person!.UserId!.Value).ToListAsync();
         return parents.Concat(own).Distinct().ToList();
     }
 

@@ -3,6 +3,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Data;
 
@@ -36,8 +37,8 @@ public class MultiTenancyQueryFilterTests
         seedDb.SaveChanges();
 
         seedDb.Students.AddRange(
-            new Student { FirstName = "Žák", LastName = "Školy A", SchoolClassId = classA.Id, SchoolId = schoolA.Id },
-            new Student { FirstName = "Žák", LastName = "Školy B", SchoolClassId = classB.Id, SchoolId = schoolB.Id });
+            new Student { Person = new Person { FirstName = "Žák", LastName = "Školy A", SchoolId = schoolA.Id }, SchoolClassId = classA.Id, SchoolId = schoolA.Id },
+            new Student { Person = new Person { FirstName = "Žák", LastName = "Školy B", SchoolId = schoolB.Id }, SchoolClassId = classB.Id, SchoolId = schoolB.Id });
         seedDb.Users.AddRange(
             new User { Username = "admin.a", PasswordHash = "x", Role = UserRole.Admin, SchoolId = schoolA.Id },
             new User { Username = "admin.b", PasswordHash = "x", Role = UserRole.Admin, SchoolId = schoolB.Id });
@@ -58,7 +59,7 @@ public class MultiTenancyQueryFilterTests
         var students = db.Students.ToList();
 
         Assert.Single(students);
-        Assert.Equal("Školy A", students[0].LastName);
+        Assert.Equal("Školy A", students[0].Person!.LastName);
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public class MultiTenancyQueryFilterTests
         var students = db.Students.ToList();
 
         Assert.Single(students);
-        Assert.Equal("Školy B", students[0].LastName);
+        Assert.Equal("Školy B", students[0].Person!.LastName);
     }
 
     [Fact]

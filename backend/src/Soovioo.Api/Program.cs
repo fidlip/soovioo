@@ -280,7 +280,8 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
     db.SaveChanges();
 
     // The humans behind the demo accounts (see People/Person.cs) — pupil
-    // "zak" gets the demo student's own name.
+    // "zak" is the demo student Jan Novák (Id 1, from the migrations), whom
+    // the demo parent sees too.
     Person DemoPerson(string username, string firstName, string lastName)
     {
         var person = new Person
@@ -296,7 +297,6 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
     DemoPerson("admin", "Alena", "Správcová");
     var teacherPerson = DemoPerson("ucitel", "Jana", "Učitelová");
     var parentPerson = DemoPerson("rodic", "Petr", "Novák");
-    DemoPerson("zak", "Jan", "Novák");
     db.TeacherProfiles.Add(new TeacherProfile { Person = teacherPerson, SchoolId = demoSchoolId, Qualification = "M, Čj" });
     db.ParentProfiles.Add(new ParentProfile
     {
@@ -305,15 +305,8 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
         Children = [new ParentStudent { StudentId = 1, SchoolId = demoSchoolId }],
     });
 
-    // Demo Student-role account logs in as the same demo student ("Jan
-    // Novák", Id 1) the demo parent already sees — Student.UserId is a
-    // direct FK (see Student.cs), settable here directly rather than via a
-    // separate backfill: unlike TimetableEntry.TeacherId/Country/
-    // MunicipalityCode elsewhere in this file, the Student row this points
-    // at was already migrated in (HasData) before this function ever runs.
-    var studentUser = demoUsers.First(u => u.Username == "zak");
     var demoStudent = db.Students.IgnoreQueryFilters().First(s => s.Id == 1);
-    demoStudent.UserId = studentUser.Id;
+    demoStudent.Person!.UserId = demoUsers.First(u => u.Username == "zak").Id;
 
     db.SaveChanges();
 }
@@ -425,9 +418,9 @@ static void SeedReferenceData(AppDbContext db)
 }
 
 // The demo student's municipality/country can't be set via migration-time
-// HasData (see AppDbContext.cs comment) since the referenced rows don't
-// exist until SeedReferenceData runs — so it's backfilled here instead,
-// once, guarded by the field still being null.
+// HasData since the referenced rows don't exist until SeedReferenceData
+// runs — so it's backfilled here instead, once, guarded by the field still
+// being null.
 static void BackfillDemoStudentReferenceCodes(AppDbContext db)
 {
     var student = db.Students.IgnoreQueryFilters().FirstOrDefault(s => s.Id == 1 && s.MunicipalityCode == null);

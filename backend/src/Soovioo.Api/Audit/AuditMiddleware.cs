@@ -104,7 +104,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
         {
             var student = await db.Students.IgnoreQueryFilters()
                 .Where(s => s.Id == studentId && (schoolId == null || s.SchoolId == schoolId))
-                .Select(s => new { s.SchoolClassId, s.FirstName, s.LastName })
+                .Select(s => new { s.SchoolClassId, s.Person!.FirstName, s.Person!.LastName })
                 .FirstOrDefaultAsync();
             if (student is not null)
             {

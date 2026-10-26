@@ -63,9 +63,9 @@ public class SchoolDirectoryTests
         var classB = new SchoolClass { Name = "2.B", SchoolId = SchoolId, ClassTeacherId = teacherB.Id };
         db.SchoolClasses.AddRange(classA, classB);
         await db.SaveChangesAsync();
-        var child = new Student { FirstName = "Jan", LastName = "Rodič", SchoolClassId = classA.Id, SchoolId = SchoolId, UserId = pupil.Id };
-        var classmate = new Student { FirstName = "Eva", LastName = "Malá", SchoolClassId = classA.Id, SchoolId = SchoolId };
-        var stranger = new Student { FirstName = "Adam", LastName = "Jiný", SchoolClassId = classB.Id, SchoolId = SchoolId };
+        var child = new Student { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
+        var classmate = new Student { Person = new Person { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
+        var stranger = new Student { Person = new Person { FirstName = "Adam", LastName = "Jiný", SchoolId = SchoolId }, SchoolClassId = classB.Id, SchoolId = SchoolId };
         db.Students.AddRange(child, classmate, stranger);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);
@@ -74,11 +74,11 @@ public class SchoolDirectoryTests
         return new Fixture(teacherA, teacherB, parent, otherParent, pupil, child, classmate, stranger, classA, classB);
     }
 
-    private static async Task ShareWithSchoolAsync(AppDbContext db, int? personId, int? studentId, VisibilityOwner owner, VisibilityField field)
+    private static async Task ShareWithSchoolAsync(AppDbContext db, int personId, VisibilityOwner owner, VisibilityField field)
     {
         db.VisibilityChoices.Add(new VisibilityChoice
         {
-            SchoolId = SchoolId, PersonId = personId, StudentId = studentId, Owner = owner, Field = field,
+            SchoolId = SchoolId, PersonId = personId, Owner = owner, Field = field,
             Audience = VisibilityAudience.Parents, Scope = VisibilityScope.School,
         });
         await db.SaveChangesAsync();
@@ -107,7 +107,7 @@ public class SchoolDirectoryTests
         // Teacher B doesn't teach the child's class and shares only within their classes.
         Assert.Null(staff.Single(s => s.Name == "Bohumil Šťastný").Phone);
 
-        await ShareWithSchoolAsync(db, await PersonIdAsync(db, fx.TeacherB), null, VisibilityOwner.Staff, VisibilityField.Phone);
+        await ShareWithSchoolAsync(db, await PersonIdAsync(db, fx.TeacherB), VisibilityOwner.Staff, VisibilityField.Phone);
         var shared = (await GetAsync(db, fx.Parent, kind: SchoolPersonKind.Staff)).People.Items;
         Assert.Equal("222", shared.Single(s => s.Name == "Bohumil Šťastný").Phone);
     }
@@ -123,7 +123,7 @@ public class SchoolDirectoryTests
         Assert.DoesNotContain(before, p => p.Kind == SchoolPersonKind.Parent);
 
         // The other parent shares their name with the school, but not the child's: no child named.
-        await ShareWithSchoolAsync(db, await PersonIdAsync(db, fx.OtherParent), null, VisibilityOwner.Parent, VisibilityField.Name);
+        await ShareWithSchoolAsync(db, await PersonIdAsync(db, fx.OtherParent), VisibilityOwner.Parent, VisibilityField.Name);
         var parentOnly = (await GetAsync(db, fx.Parent, kind: SchoolPersonKind.Parent)).People.Items;
         var other = Assert.Single(parentOnly);
         Assert.Equal("Olga Jiná", other.Name);
@@ -133,7 +133,7 @@ public class SchoolDirectoryTests
         // …and the class filter doesn't give the child's class away either.
         Assert.Empty((await GetAsync(db, fx.Parent, kind: SchoolPersonKind.Parent, classId: fx.ClassB.Id)).People.Items);
 
-        await ShareWithSchoolAsync(db, null, fx.Stranger.Id, VisibilityOwner.Student, VisibilityField.Name);
+        await ShareWithSchoolAsync(db, fx.Stranger.PersonId, VisibilityOwner.Student, VisibilityField.Name);
         var after = (await GetAsync(db, fx.Parent, classId: fx.ClassB.Id)).People.Items;
         Assert.Equal(["Adam Jiný", "Bohumil Šťastný", "Olga Jiná"], after.Select(p => p.Name).Order());
         Assert.Equal(["Adam Jiný (2.B)"], after.Single(p => p.Kind == SchoolPersonKind.Parent).Children);
@@ -145,7 +145,7 @@ public class SchoolDirectoryTests
     {
         using var db = NewDb();
         var fx = await SeedAsync(db);
-        await ShareWithSchoolAsync(db, await PersonIdAsync(db, fx.OtherParent), null, VisibilityOwner.Parent, VisibilityField.Name);
+        await ShareWithSchoolAsync(db, await PersonIdAsync(db, fx.OtherParent), VisibilityOwner.Parent, VisibilityField.Name);
 
         var dto = await GetAsync(db, fx.Pupil);
 

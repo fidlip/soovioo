@@ -145,10 +145,9 @@ public class MyProfileController(
                 : await db.VisibilityChoices.Where(c => c.PersonId == user.Person.Id).ToListAsync();
             settings.AddRange(VisibilitySettings.Of(visibility, owners, choices, editable: true));
         }
-        if (user.Roles.Contains(UserRole.Student)
-            && await db.Students.FirstOrDefaultAsync(s => s.UserId == user.Id) is { } student)
+        if (user.Roles.Contains(UserRole.Student) && user.Person is not null)
         {
-            var choices = await db.VisibilityChoices.Where(c => c.StudentId == student.Id).ToListAsync();
+            var choices = await db.VisibilityChoices.Where(c => c.PersonId == user.Person.Id).ToListAsync();
             settings.AddRange(VisibilitySettings.Of(visibility, [VisibilityOwner.Student], choices, editable: false));
         }
         return settings;

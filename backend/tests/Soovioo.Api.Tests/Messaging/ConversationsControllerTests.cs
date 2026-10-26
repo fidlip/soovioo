@@ -7,8 +7,8 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
-using Soovioo.Api.Timetable;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Messaging;
 
@@ -60,7 +60,7 @@ public class ConversationsControllerTests
             Parent = NewUser("rodic", UserRole.Parent),
             StudentUser = NewUser("zak", UserRole.Student),
             Stranger = NewUser("cizi", UserRole.Parent),
-            Student = new Student { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId },
+            Student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolId = SchoolId },
         };
         db.Users.AddRange(w.Teacher, w.MathTeacher, w.Admin, w.Parent, w.StudentUser, w.Stranger);
         await db.SaveChangesAsync();
@@ -70,7 +70,7 @@ public class ConversationsControllerTests
         db.Subjects.Add(math);
         await db.SaveChangesAsync();
         w.Student.SchoolClassId = schoolClass.Id;
-        w.Student.UserId = w.StudentUser.Id;
+        w.Student.Person!.UserId = w.StudentUser.Id;
         db.Students.Add(w.Student);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(w.Parent.Id, w.Student.Id, SchoolId);
@@ -238,8 +238,9 @@ public class ConversationsControllerTests
         await db.SaveChangesAsync();
         db.Students.Add(new Student
         {
-            FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId,
-            SchoolClassId = w.Student.SchoolClassId, UserId = evaUser.Id,
+            Person = new Person { FirstName = "Eva", LastName = "Malá", UserId = evaUser.Id, SchoolId = SchoolId },
+            SchoolId = SchoolId,
+            SchoolClassId = w.Student.SchoolClassId,
         });
         await db.SaveChangesAsync();
 

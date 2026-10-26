@@ -27,10 +27,11 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
         }
 
         var schoolId = currentSchool.SchoolId!.Value;
-        var choices = await db.VisibilityChoices.Where(c => c.StudentId == studentId).ToListAsync();
+        var personId = await db.Students.Where(s => s.Id == studentId).Select(s => s.PersonId).FirstAsync();
+        var choices = await db.VisibilityChoices.Where(c => c.PersonId == personId).ToListAsync();
         var error = VisibilitySettings.Choose(
             db, await Visibility.LoadAsync(db, schoolId), [VisibilityOwner.Student], choices, request,
-            () => new VisibilityChoice { SchoolId = schoolId, StudentId = studentId });
+            () => new VisibilityChoice { SchoolId = schoolId, PersonId = personId });
         if (error is not null)
         {
             return BadRequest(error);
@@ -46,17 +47,18 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
         var childIds = await db.ChildIdsOf(me).ToListAsync();
         var children = await db.Students
             .Where(s => childIds.Contains(s.Id))
-            .OrderBy(s => s.FirstName)
-            .Select(s => new { s.Id, Name = s.FirstName + " " + s.LastName, ClassName = s.SchoolClass!.Name })
+            .OrderBy(s => s.Person!.FirstName)
+            .Select(s => new { s.Id, s.PersonId, Name = s.Person!.FirstName + " " + s.Person!.LastName, ClassName = s.SchoolClass!.Name })
             .ToListAsync();
-        var choices = await db.VisibilityChoices.Where(c => c.StudentId != null && childIds.Contains(c.StudentId.Value)).ToListAsync();
+        var personIds = children.Select(c => c.PersonId).ToList();
+        var choices = await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync();
         var visibility = await Visibility.LoadAsync(db, currentSchool.SchoolId!.Value);
 
         return children
             .Select(c => new MyChildDto(
                 c.Id, c.Name, c.ClassName,
                 VisibilitySettings.Of(
-                    visibility, [VisibilityOwner.Student], choices.Where(ch => ch.StudentId == c.Id).ToList(), editable: true)))
+                    visibility, [VisibilityOwner.Student], choices.Where(ch => ch.PersonId == c.PersonId).ToList(), editable: true)))
             .ToList();
     }
 }

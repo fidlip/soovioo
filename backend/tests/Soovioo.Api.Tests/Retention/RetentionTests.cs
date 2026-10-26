@@ -45,7 +45,7 @@ public class RetentionTests
 
     private Student AddStudent(string name, DateOnly? leftAt = null)
     {
-        var student = new Student { FirstName = name, LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId, LeftAt = leftAt };
+        var student = new Student { Person = new Person { FirstName = name, LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId, LeftAt = leftAt };
         db.Students.Add(student);
         db.SaveChanges();
         return student;
@@ -117,7 +117,7 @@ public class RetentionTests
         AddStudent("Končí", leftAt: Today);
         AddStudent("Bývalý", leftAt: Today.AddDays(-1));
 
-        Assert.Equal(["Aktivní", "Končí"], await db.Students.OrderBy(s => s.Id).Select(s => s.FirstName).ToListAsync());
+        Assert.Equal(["Aktivní", "Končí"], await db.Students.OrderBy(s => s.Id).Select(s => s.Person!.FirstName).ToListAsync());
 
         db.IncludeFormerStudents = true;
         Assert.Equal(3, await db.Students.CountAsync());
@@ -139,7 +139,7 @@ public class RetentionTests
         await SetPolicyAsync(p => p.AccountGraceDays = 30);
         var pupil = AddStudent("Pavel", leftAt: Today.AddDays(-31));
         var pupilAccount = AddUser("pavel", UserRole.Student);
-        pupil.UserId = pupilAccount.Id;
+        pupil.Person!.UserId = pupilAccount.Id;
         var sibling = AddStudent("Petr");
         var recent = AddStudent("Jana", leftAt: Today.AddDays(-5));
         var onlyFormer = await AddParentAsync("rodic1", pupil);
@@ -192,7 +192,7 @@ public class RetentionTests
         var former = AddStudent("Pavel", leftAt: Today.AddDays(-1));
         var sibling = AddStudent("Petr");
         var own = AddUser("pavel", UserRole.Student);
-        former.UserId = own.Id;
+        former.Person!.UserId = own.Id;
         var orphan = await AddParentAsync("rodic1", former);
         var stays = await AddParentAsync("rodic2", former, sibling);
         db.Grades.Add(new Grade { StudentId = former.Id, SubjectId = subject.Id, Value = 2, SchoolId = SchoolId });
@@ -210,11 +210,23 @@ public class RetentionTests
 
         Assert.NotNull(own.ErasedAt);
         Assert.Equal($"vymazany-{own.Id}", own.Username);
+        Assert.Equal(AccountEraser.ErasedFirstName, (await db.Persons.IgnoreQueryFilters().SingleAsync(p => p.UserId == own.Id)).FirstName);
         Assert.NotNull(orphan.ErasedAt);
         var orphanPerson = await db.Persons.IgnoreQueryFilters().SingleAsync(p => p.UserId == orphan.Id);
         Assert.Equal(AccountEraser.ErasedFirstName, orphanPerson.FirstName);
         Assert.Null(stays.ErasedAt);
         Assert.Equal([sibling.Id], await db.ChildIdsOf(stays.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ErasingTheProfileOfAPupilWithoutAnAccountRemovesTheirPerson()
+    {
+        var former = AddStudent("Pavel", leftAt: Today.AddDays(-1));
+        await db.SaveChangesAsync();
+
+        await Controller().EraseStudent(former.Id, new EraseRequest(Everything: true));
+
+        Assert.Null(await db.Persons.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == former.PersonId));
     }
 
     [Fact]
@@ -356,7 +368,7 @@ public class RetentionTests
     {
         var student = AddStudent("Pavel");
         var own = AddUser("pavel", UserRole.Student);
-        student.UserId = own.Id;
+        student.Person!.UserId = own.Id;
         var parent = await AddParentAsync("rodic", student);
         var teacher = AddUser("tridni", UserRole.Teacher);
         schoolClass.ClassTeacherId = teacher.Id;

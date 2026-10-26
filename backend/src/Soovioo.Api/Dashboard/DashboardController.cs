@@ -63,7 +63,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 .ThenByDescending(g => g.CreatedAt)
                 .Take(5)
                 .Select(g => new GradeDto(
-                    g.Id, g.StudentId, g.Student!.FirstName + " " + g.Student.LastName,
+                    g.Id, g.StudentId, g.Student!.Person!.FirstName + " " + g.Student.Person!.LastName,
                     g.SubjectId, g.Subject!.Name, g.Value, g.Weight, g.Note, g.GradedOn, g.CreatedAt))
                 .ToListAsync();
         }
@@ -84,7 +84,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderByDescending(a => a.Date)
             .Take(5)
             .Select(a => new AbsenceDto(
-                a.Id, a.StudentId, a.Student!.FirstName + " " + a.Student.LastName, a.Date, a.Status, a.ExcuseReason, a.Periods))
+                a.Id, a.StudentId, a.Student!.Person!.FirstName + " " + a.Student.Person!.LastName, a.Date, a.Status, a.ExcuseReason, a.Periods))
             .ToListAsync();
 
         var unreadMessageCount = await db.CountUnreadConversationsAsync(userId);
@@ -96,7 +96,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 c.Id,
                 c.Subject,
                 c.StudentId,
-                StudentName = c.Student == null ? null : c.Student.FirstName + " " + c.Student.LastName,
+                StudentName = c.Student == null ? null : c.Student.Person!.FirstName + " " + c.Student.Person!.LastName,
                 Participants = c.Participants.Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
                 c.LastMessageAt,
                 LastMessage = c.Messages.OrderByDescending(m => m.SentAt)
@@ -118,7 +118,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .OrderByDescending(r => r.Date)
             .Take(5)
             .Select(r => new BehaviorRecordDto(
-                r.Id, r.StudentId, r.Student!.FirstName + " " + r.Student.LastName,
+                r.Id, r.StudentId, r.Student!.Person!.FirstName + " " + r.Student.Person!.LastName,
                 r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt, r.ReadAt))
             .ToListAsync();
 
@@ -182,7 +182,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         var student = await db.Students
             .Where(s => allowedStudentIds.Contains(s.Id))
             .OrderBy(s => s.Id)
-            .Select(s => new { s.Id, s.FirstName, s.LastName, s.SchoolClassId, SchoolClassName = s.SchoolClass!.Name })
+            .Select(s => new { s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, SchoolClassName = s.SchoolClass!.Name })
             .FirstOrDefaultAsync();
         if (student is null)
         {

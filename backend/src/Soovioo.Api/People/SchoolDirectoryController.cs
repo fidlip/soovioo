@@ -145,17 +145,17 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
     {
         var key = new VisibilityKey(VisibilityOwner.Student, VisibilityField.Name, audience);
         var pupils = await db.Students.ToListAsync();
-        var ids = pupils.Select(p => p.Id).ToList();
-        var choices = (await db.VisibilityChoices.Where(c => c.StudentId != null && ids.Contains(c.StudentId.Value)).ToListAsync())
-            .ToLookup(c => c.StudentId!.Value);
+        var personIds = pupils.Select(p => p.PersonId).ToList();
+        var choices = (await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync())
+            .ToLookup(c => c.PersonId);
         return pupils
             .Where(p => accessible.Contains(p.Id) || visibility.Shows(
-                key, choices[p.Id], myClassIds.Contains(p.SchoolClassId) ? VisibilityScope.MyClasses : VisibilityScope.School))
+                key, choices[p.PersonId], myClassIds.Contains(p.SchoolClassId) ? VisibilityScope.MyClasses : VisibilityScope.School))
             .Select(p => new Entry(
                 new SchoolPersonDto(
-                    SchoolPersonKind.Student, $"{p.FirstName} {p.LastName}", classNames.GetValueOrDefault(p.SchoolClassId) ?? "",
+                    SchoolPersonKind.Student, p.Person!.FullName, classNames.GetValueOrDefault(p.SchoolClassId) ?? "",
                     [], null, null, null, p.Id, null),
-                SortKey(p.LastName, p.FirstName, ""), new HashSet<int> { p.SchoolClassId }))
+                SortKey(p.Person!.LastName, p.Person!.FirstName, ""), new HashSet<int> { p.SchoolClassId }))
             .ToList();
     }
 
@@ -212,8 +212,8 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
     private async Task<ILookup<int, VisibilityChoice>> ChoicesOfPersonsAsync(IEnumerable<int> personIds)
     {
         var ids = personIds.Distinct().ToList();
-        return (await db.VisibilityChoices.Where(c => c.PersonId != null && ids.Contains(c.PersonId.Value)).ToListAsync())
-            .ToLookup(c => c.PersonId!.Value);
+        return (await db.VisibilityChoices.Where(c => ids.Contains(c.PersonId)).ToListAsync())
+            .ToLookup(c => c.PersonId);
     }
 
     private static string SortKey(string? lastName, string? firstName, string fallback) =>

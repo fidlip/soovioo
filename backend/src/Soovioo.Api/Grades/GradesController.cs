@@ -25,13 +25,13 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
         var grades = await query
             .OrderByDescending(g => g.GradedOn)
-            .ThenBy(g => g.Student!.LastName)
-            .ThenBy(g => g.Student!.FirstName)
+            .ThenBy(g => g.Student!.Person!.LastName)
+            .ThenBy(g => g.Student!.Person!.FirstName)
             .ThenByDescending(g => g.CreatedAt)
             .Select(g => new GradeDto(
                 g.Id,
                 g.StudentId,
-                g.Student!.FirstName + " " + g.Student.LastName,
+                g.Student!.Person!.FirstName + " " + g.Student.Person!.LastName,
                 g.SubjectId,
                 g.Subject!.Name,
                 g.Value,
@@ -77,13 +77,13 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         await notifier.NotifyAsync(
             grade.SchoolId, await notifier.FamilyAsync(grade.StudentId), NotificationType.Grade,
             $"Nová známka — {subject!.Name}",
-            $"{student!.FirstName} {student.LastName}: {grade.Value}" + (grade.Weight != 1 ? $" (váha {grade.Weight})" : ""),
+            $"{student!.Person!.FullName}: {grade.Value}" + (grade.Weight != 1 ? $" (váha {grade.Weight})" : ""),
             "grades", grade.Id, grade.StudentId);
         await db.SaveChangesAsync();
         var dto = new GradeDto(
             grade.Id,
             grade.StudentId,
-            $"{student!.FirstName} {student.LastName}",
+            student!.Person!.FullName,
             grade.SubjectId,
             subject!.Name,
             grade.Value,
@@ -124,7 +124,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         await db.SaveChangesAsync();
 
         var dto = new GradeDto(
-            grade.Id, grade.StudentId, $"{student.FirstName} {student.LastName}",
+            grade.Id, grade.StudentId, student.Person!.FullName,
             grade.SubjectId, subject.Name, grade.Value, grade.Weight, grade.Note, grade.GradedOn, grade.CreatedAt);
         return Ok(dto);
     }

@@ -81,8 +81,8 @@ public class MatrikaExportService(AppDbContext db, ICurrentSchoolContext current
         var students = await db.Students
             .Include(s => s.SchoolClass)
             .Include(s => s.Municipality)
-            .OrderBy(s => s.LastName)
-            .ThenBy(s => s.FirstName)
+            .OrderBy(s => s.Person!.LastName)
+            .ThenBy(s => s.Person!.FirstName)
             .ToListAsync();
 
         var errors = new List<string>();
@@ -90,7 +90,7 @@ public class MatrikaExportService(AppDbContext db, ICurrentSchoolContext current
 
         foreach (var student in students)
         {
-            var who = $"{student.LastName} {student.FirstName} (#{student.Id})";
+            var who = $"{student.Person!.LastName} {student.Person!.FirstName} (#{student.Id})";
 
             if (student.SchoolClass?.Rocnik is null)
             {

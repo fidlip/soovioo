@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Evidence;
 
@@ -40,7 +41,7 @@ public class SchoolClassesControllerTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        db.Students.Add(new Student { FirstName = "A", LastName = "B", SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
+        db.Students.Add(new Student { Person = new Person { FirstName = "A", LastName = "B", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
         var result = await new SchoolClassesController(db, new FakeCurrentSchoolContext(SchoolId))

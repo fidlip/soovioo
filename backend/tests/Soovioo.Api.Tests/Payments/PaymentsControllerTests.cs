@@ -64,10 +64,12 @@ public class PaymentsControllerTests
 
             var studentA = new Student
             {
-                FirstName = "Žák", LastName = "A", SchoolId = SchoolId, SchoolClassId = classA.Id,
-                UserId = studentUserA.Id, DefaultVariableSymbol = "1001",
+                Person = new Person { FirstName = "Žák", LastName = "A", UserId = studentUserA.Id, SchoolId = SchoolId },
+                SchoolId = SchoolId,
+                SchoolClassId = classA.Id,
+                DefaultVariableSymbol = "1001",
             };
-            var studentB = new Student { FirstName = "Žák", LastName = "B", SchoolId = SchoolId, SchoolClassId = classB.Id };
+            var studentB = new Student { Person = new Person { FirstName = "Žák", LastName = "B", SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classB.Id };
             db.Students.AddRange(studentA, studentB);
             await db.SaveChangesAsync();
 

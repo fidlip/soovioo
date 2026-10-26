@@ -8,6 +8,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Demo;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.People;
 using Soovioo.Api.Tests.Auth;
 
 namespace Soovioo.Api.Tests.Demo;
@@ -53,12 +54,12 @@ public class DemoTests
         Assert.True(File.Exists(photos.FullPath(key, Soovioo.Api.People.PhotoSize.Thumb)));
 
         var students = await db.Students.IgnoreQueryFilters().Where(s => s.SchoolId == school.Id).ToListAsync();
-        Assert.All(students.Where(s => s.PhotoKey != null), s => Assert.NotNull(s.PhotoConsentAt));
+        Assert.All(students.Where(s => s.Person!.PhotoKey != null), s => Assert.NotNull(s.PhotoConsentAt));
         Assert.Contains(students, s => s.PhotoConsentAt == null);
-        Assert.Equal(Soovioo.Api.People.PhotoStatus.Approved, students.Single(s => s.UserId == featured.StudentId).PhotoStatus);
+        Assert.Equal(Soovioo.Api.People.PhotoStatus.Approved, students.Single(s => s.Person!.UserId == featured.StudentId).Person!.PhotoStatus);
         var featuredChildren = await db.ParentStudents.IgnoreQueryFilters()
             .Where(ps => ps.ParentProfile!.Person!.UserId == featured.ParentId).Select(ps => ps.StudentId).ToListAsync();
-        Assert.Contains(students, s => featuredChildren.Contains(s.Id) && s.PhotoStatus == Soovioo.Api.People.PhotoStatus.Pending);
+        Assert.Contains(students, s => featuredChildren.Contains(s.Id) && s.Person!.PhotoStatus == Soovioo.Api.People.PhotoStatus.Pending);
     }
 
     private static DemoSchoolService Service(AppDbContext db, FakeEmailSender mail, DateTimeOffset? now = null, MessageAttachmentStorageService? storage = null) =>
@@ -95,7 +96,7 @@ public class DemoTests
         Assert.All(students, s => Assert.Contains(links, l => l.StudentId == s.Id));
         Assert.All(links, l =>
         {
-            var child = students.First(s => s.Id == l.StudentId).LastName;
+            var child = students.First(s => s.Id == l.StudentId).Person!.LastName;
             Assert.True(DemoNames.Surnames.Any(n => (n.Male == child || n.Female == child) && (n.Male == l.LastName || n.Female == l.LastName)),
                 $"{child} vs. {l.LastName}");
         });
@@ -123,7 +124,7 @@ public class DemoTests
         Assert.All(users, u => Assert.Contains(u.Id, personUserIds));
         Assert.Equal(users.Count, users.Select(u => u.Username).Distinct().Count());
         // Not every pupil or parent has an account.
-        Assert.Contains(students, s => s.UserId is null);
+        Assert.Contains(students, s => s.Person!.UserId is null);
     }
 
     [Fact]
@@ -144,7 +145,7 @@ public class DemoTests
             using var db = NewDb();
             var (school, _) = await GenerateAsync(db, seed: seed);
             var students = await db.Students.IgnoreQueryFilters().Where(s => s.SchoolId == school.Id)
-                .OrderBy(s => s.Id).Select(s => s.FirstName + " " + s.LastName).ToListAsync();
+                .OrderBy(s => s.Id).Select(s => s.Person!.FirstName + " " + s.Person!.LastName).ToListAsync();
             var grades = await db.Grades.IgnoreQueryFilters().Where(g => g.SchoolId == school.Id)
                 .OrderBy(g => g.Id).Select(g => g.Value).ToListAsync();
             return [.. students, string.Join("", grades)];
@@ -194,7 +195,7 @@ public class DemoTests
         using var db = NewDb();
         var school = new School { Name = "Ostrá", Slug = "ostra" };
         db.Schools.Add(school);
-        db.Students.Add(new Student { FirstName = "A", LastName = "B", SchoolId = 1 });
+        db.Students.Add(new Student { Person = new Person { FirstName = "A", LastName = "B", SchoolId = 1 }, SchoolId = 1 });
         await db.SaveChangesAsync();
 
         Assert.False(await new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment()))

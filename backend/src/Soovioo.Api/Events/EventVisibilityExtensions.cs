@@ -94,7 +94,7 @@ public static class EventVisibilityExtensions
                 var pickedIds = e.Students.Select(s => s.StudentId).ToList();
                 var students = await db.Students.IgnoreQueryFilters()
                     .Where(s => s.SchoolId == e.SchoolId && (pickedIds.Contains(s.Id) || classIds.Contains(s.SchoolClassId)))
-                    .Select(s => new { s.Id, s.UserId })
+                    .Select(s => new { s.Id, s.Person!.UserId })
                     .ToListAsync();
                 var studentIds = students.Select(s => s.Id).ToList();
                 var parents = await db.ParentStudents
@@ -115,14 +115,14 @@ public static class EventVisibilityExtensions
 
     /// <summary>Student sees: Everyone-audience events, and Selected-audience
     /// events targeted at their own class or at themselves directly — same
-    /// shape as Parent, just resolved via <see cref="Student.UserId"/>
-    /// (direct FK) instead of the <see cref="ParentStudent"/> join table.
+    /// shape as Parent, just resolved via the pupil's own Person
+    /// (<see cref="Person.UserId"/>) instead of the <see cref="ParentStudent"/> join table.
     /// No oversight exception, same as Parent. Empty query, not an error,
     /// for an account not yet linked to any Student row.</summary>
     public static async Task<IQueryable<Event>> VisibleToStudentAsync(this AppDbContext db, int schoolId, int studentUserId)
     {
         var myStudent = await db.Students.IgnoreQueryFilters()
-            .Where(s => s.SchoolId == schoolId && s.UserId == studentUserId)
+            .Where(s => s.SchoolId == schoolId && s.Person!.UserId == studentUserId)
             .Select(s => new { s.Id, s.SchoolClassId })
             .FirstOrDefaultAsync();
         // Nullable locals, not an early return on "not linked yet" — Everyone

@@ -86,10 +86,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // SetNull: a pupil's Person outlives their account; staff and
+        // parents' Persons are deleted with the account by UsersController.
         modelBuilder.Entity<Person>()
             .HasOne(p => p.User).WithOne(u => u.Person)
             .HasForeignKey<Person>(p => p.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Student>()
+            .HasOne(s => s.Person).WithOne(p => p.Student)
+            .HasForeignKey<Student>(s => s.PersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // A pupil's name lives on their Person — loaded wherever they are.
+        modelBuilder.Entity<Student>().Navigation(s => s.Person).AutoInclude();
+        modelBuilder.Entity<Person>().Property(p => p.PhotoStatus).HasConversion<string>();
         modelBuilder.Entity<TeacherProfile>().HasKey(t => t.PersonId);
         modelBuilder.Entity<TeacherProfile>()
             .HasOne(t => t.Person).WithOne(p => p.TeacherProfile)
@@ -163,16 +172,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .WithMany()
             .HasForeignKey(s => s.CountryCode)
             .OnDelete(DeleteBehavior.Restrict);
-        // One-to-one, FK on the Student side (EF Core enforces uniqueness of
-        // Student.UserId automatically for this shape). SetNull: deleting the
-        // login account (e.g. an Admin resetting/removing it directly via
-        // UsersController) must not fail or cascade into deleting the
-        // Student record itself — it just un-links.
-        modelBuilder.Entity<Student>()
-            .HasOne(s => s.User)
-            .WithOne()
-            .HasForeignKey<Student>(s => s.UserId)
-            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<School>().HasIndex(s => s.Slug).IsUnique();
         modelBuilder.Entity<School>().HasIndex(s => s.ExpiresAt).HasFilter("\"IsDemo\"");
@@ -208,7 +207,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Subject>().HasQueryFilter(s =>
             currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Classroom>().Property(c => c.Type).HasConversion<string>();
-        modelBuilder.Entity<Student>().Property(s => s.PhotoStatus).HasConversion<string>();
         modelBuilder.Entity<Classroom>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Student>().HasQueryFilter(s =>
@@ -336,11 +334,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.Property(x => x.Field).HasConversion<string>();
             e.Property(x => x.Audience).HasConversion<string>();
             e.Property(x => x.Scope).HasConversion<string>();
-            e.HasIndex(x => new { x.PersonId, x.Owner, x.Field, x.Audience }).IsUnique().HasFilter("\"PersonId\" IS NOT NULL");
-            e.HasIndex(x => new { x.StudentId, x.Field, x.Audience }).IsUnique().HasFilter("\"StudentId\" IS NOT NULL");
+            e.HasIndex(x => new { x.PersonId, x.Owner, x.Field, x.Audience }).IsUnique();
             e.HasOne(x => x.Person).WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
-            e.ToTable(t => t.HasCheckConstraint("CK_VisibilityChoices_OneSubject", "(\"PersonId\" IS NULL) <> (\"StudentId\" IS NULL)"));
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
 
@@ -370,35 +365,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolClass>().HasData(
             new SchoolClass { Id = 1, Name = "5.A", SchoolId = 1, Rocnik = 5, TeachingLanguage = "čeština" });
 
-        modelBuilder.Entity<Student>().HasData(
-            new Student
-            {
-                Id = 1,
-                FirstName = "Jan",
-                LastName = "Novák",
-                SchoolClassId = 1,
-                SchoolId = 1,
-                DateOfBirth = new DateOnly(2015, 3, 10),
-                Gender = Gender.Male,
-                // RodneCislo intentionally left unset, to exercise the
-                // pseudo-RODC construction path in MatrikaExportService.
-                CitizenshipQualifier = "3", // RAKO: Občan ČR
-                // CountryCode/MunicipalityCode NOT set here on purpose: they're
-                // FKs into Country/Municipality, which are seeded from CSV at
-                // runtime (Program.cs), not via this migration-time HasData —
-                // 6400+ rows of C# object initializers in a migration isn't
-                // reasonable. Setting the FK here would make `dotnet ef
-                // database update` fail (the referenced row doesn't exist yet
-                // at migration time). Program.cs backfills both once the
-                // reference data is in, after Migrate() has run.
-                Street = "Žákovská 12",
-                PostalCode = "110 00",
-                CatchmentArea = true,
-                EnrollmentDate = new DateOnly(2020, 9, 1),
-                ContactPhone = "+420 777 123 456",
-                ContactEmail = "rodic.novak@example.cz",
-            });
-
         modelBuilder.Entity<Subject>().HasData(
             new Subject { Id = 1, Name = "Matematika", SchoolId = 1, Abbreviation = "M" },
             new Subject { Id = 2, Name = "Český jazyk", SchoolId = 1, Abbreviation = "Čj" },
@@ -414,9 +380,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             new TimetableEntry { Id = 3, SchoolId = 1, SchoolClassId = 1, SubjectId = 3, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 1, WeekParity = WeekParity.Odd },
             new TimetableEntry { Id = 4, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, WeekParity = WeekParity.Every });
         // TeacherId NOT set here on purpose: User rows (incl. "ucitel") don't
-        // exist yet at migration time, same reasoning as the Student
-        // Country/MunicipalityCode comment above — Program.cs SeedUsers
-        // backfills it once the demo teacher account exists.
+        // exist yet at migration time — Program.cs SeedUsers backfills it
+        // once the demo teacher account exists.
 
         // Typical ZŠ bell schedule — same times for every class, so this
         // lives once per school rather than being re-entered per entry.

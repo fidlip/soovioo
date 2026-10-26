@@ -92,8 +92,8 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
                 .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
             var students = await db.Students
-                .OrderBy(s => s.LastName)
-                .Select(s => new StudentOptionDto(s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name, s.SchoolClass!.Rocnik))
+                .OrderBy(s => s.Person!.LastName)
+                .Select(s => new StudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name, s.SchoolClass!.Rocnik))
                 .ToListAsync();
             return Ok(new RecipientOptionsDto(classes, teachers, parents, students));
         }
@@ -107,8 +107,8 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             .ToListAsync();
         var myStudents = await db.Students
             .Where(s => myClassIds.Contains(s.SchoolClassId))
-            .OrderBy(s => s.LastName)
-            .Select(s => new StudentOptionDto(s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name, s.SchoolClass!.Rocnik))
+            .OrderBy(s => s.Person!.LastName)
+            .Select(s => new StudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name, s.SchoolClass!.Rocnik))
             .ToListAsync();
         var myStudentIds = myStudents.Select(s => s.Id).ToList();
         var myParents = await db.ParentStudents

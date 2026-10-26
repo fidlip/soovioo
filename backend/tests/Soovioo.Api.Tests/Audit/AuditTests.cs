@@ -10,6 +10,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 using Soovioo.Api.Support;
 
 namespace Soovioo.Api.Tests.Audit;
@@ -113,7 +114,7 @@ public class AuditTests
     public async Task StudentInPayloadGivesTheClassAndTheNameAndErrorsKeepTheirMessage()
     {
         using var db = NewDb();
-        db.Students.Add(new Student { Id = 5, FirstName = "Jan", LastName = "Novák", SchoolClassId = 9, SchoolId = 1 });
+        db.Students.Add(new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = 1 }, Id = 5, SchoolClassId = 9, SchoolId = 1 });
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/grades", """{"studentId":5,"value":1}""",
             Principal(2, "ucitel", "Teacher", 1), "Grades", "AddGrade");

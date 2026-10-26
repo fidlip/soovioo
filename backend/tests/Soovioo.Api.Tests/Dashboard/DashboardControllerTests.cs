@@ -9,8 +9,8 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
-using Soovioo.Api.Timetable;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Dashboard;
 
@@ -52,7 +52,7 @@ public class DashboardControllerTests
         var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
-        db.Students.Add(new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
+        db.Students.Add(new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999, "Admin").GetDashboard();
@@ -78,7 +78,7 @@ public class DashboardControllerTests
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         db.TimetableEntries.AddRange(
             new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1, TeacherId = teacher.Id },
@@ -112,8 +112,8 @@ public class DashboardControllerTests
         var subject = new Subject { Name = "Čeština", SchoolId = SchoolId };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(student, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, student.Id, SchoolId);
@@ -149,8 +149,8 @@ public class DashboardControllerTests
         var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
-        var myStudent = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var myStudent = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);
@@ -191,8 +191,8 @@ public class DashboardControllerTests
         var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
-        var myStudent = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var myStudent = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);

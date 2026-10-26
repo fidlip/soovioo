@@ -62,7 +62,7 @@ public class PhotosTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = classTeacher.Id };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var child = new Student { FirstName = "Jan", LastName = "Rodič", SchoolClassId = schoolClass.Id, SchoolId = SchoolId, UserId = pupil.Id };
+        var child = new Student { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(child);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);
@@ -91,7 +91,7 @@ public class PhotosTests
     /// <summary>Gives <paramref name="parent"/> a child in the fixture's class.</summary>
     private static async Task AddChildInClassAsync(AppDbContext db, Fixture fx, User parent)
     {
-        var child = new Student { FirstName = "Eva", LastName = "Jiná", SchoolClassId = fx.Child.SchoolClassId, SchoolId = SchoolId };
+        var child = new Student { Person = new Person { FirstName = "Eva", LastName = "Jiná", SchoolId = SchoolId }, SchoolClassId = fx.Child.SchoolClassId, SchoolId = SchoolId };
         db.Students.Add(child);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);
@@ -275,16 +275,16 @@ public class PhotosTests
         Assert.Equal("Petra Rodičová", fx.Child.PhotoConsentGivenBy);
 
         await Controller(db, fx.Pupil).UploadStudentPhoto(fx.Child.Id, File(TestJpeg()));
-        var pendingPath = Photos.FullPath(fx.Child.PhotoKey!, PhotoSize.Profile);
+        var pendingPath = Photos.FullPath(fx.Child.Person!.PhotoKey!, PhotoSize.Profile);
         await Controller(db, fx.Parent).RejectStudentPhoto(fx.Child.Id);
-        Assert.Null(fx.Child.PhotoKey);
+        Assert.Null(fx.Child.Person!.PhotoKey);
         Assert.False(System.IO.File.Exists(pendingPath));
 
         var upload = await Controller(db, fx.ClassTeacher).UploadStudentPhoto(fx.Child.Id, File(TestJpeg()));
         Assert.Equal("Approved", Assert.IsType<StudentPhotoStateDto>(Assert.IsType<OkObjectResult>(upload.Result).Value).Status);
-        var approvedPath = Photos.FullPath(fx.Child.PhotoKey!, PhotoSize.Thumb);
+        var approvedPath = Photos.FullPath(fx.Child.Person!.PhotoKey!, PhotoSize.Thumb);
         await Controller(db, fx.Parent).RevokeConsent(fx.Child.Id);
-        Assert.Null(fx.Child.PhotoKey);
+        Assert.Null(fx.Child.Person!.PhotoKey);
         Assert.Null(fx.Child.PhotoConsentAt);
         Assert.False(System.IO.File.Exists(approvedPath));
     }
@@ -350,7 +350,7 @@ public class PhotosTests
         // A parent decides for the child: back to nobody.
         db.VisibilityChoices.Add(new VisibilityChoice
         {
-            SchoolId = SchoolId, StudentId = fx.Child.Id, Owner = VisibilityOwner.Student, Field = VisibilityField.Photo,
+            SchoolId = SchoolId, PersonId = fx.Child.PersonId, Owner = VisibilityOwner.Student, Field = VisibilityField.Photo,
             Audience = VisibilityAudience.Parents, Scope = VisibilityScope.Nobody,
         });
         await db.SaveChangesAsync();

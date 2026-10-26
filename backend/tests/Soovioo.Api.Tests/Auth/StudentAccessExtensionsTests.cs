@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Tests.Auth;
 
@@ -25,11 +26,11 @@ public class StudentAccessExtensionsTests
     {
         using var db = NewDb();
         var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
-        var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = 1, SchoolId = SchoolId };
+        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         db.Students.Add(otherStudent);
         await db.SaveChangesAsync();
-        var ownStudent = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId, UserId = studentUser.Id };
+        var ownStudent = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(ownStudent);
         await db.SaveChangesAsync();
 
@@ -60,8 +61,8 @@ public class StudentAccessExtensionsTests
         var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
-        var ownStudent = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = 1, SchoolId = SchoolId, UserId = studentUser.Id };
-        var otherStudent = new Student { FirstName = "Jiný", LastName = "Žák", SchoolClassId = 1, SchoolId = SchoolId };
+        var ownStudent = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.AddRange(ownStudent, otherStudent);
         await db.SaveChangesAsync();
 

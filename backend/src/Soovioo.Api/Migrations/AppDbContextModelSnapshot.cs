@@ -864,16 +864,8 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text[]");
 
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<int?>("Gender")
                         .HasColumnType("integer");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("LeaveNote")
                         .HasColumnType("text");
@@ -890,16 +882,13 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("MunicipalityCode")
                         .HasColumnType("text");
 
+                    b.Property<int>("PersonId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset?>("PhotoConsentAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PhotoConsentGivenBy")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PhotoKey")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PhotoStatus")
                         .HasColumnType("text");
 
                     b.Property<string>("PostalCode")
@@ -917,43 +906,20 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Street")
                         .HasColumnType("text");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CountryCode");
 
                     b.HasIndex("MunicipalityCode");
 
+                    b.HasIndex("PersonId")
+                        .IsUnique();
+
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
                     b.ToTable("Students");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CatchmentArea = true,
-                            CitizenshipQualifier = "3",
-                            ContactEmail = "rodic.novak@example.cz",
-                            ContactPhone = "+420 777 123 456",
-                            DateOfBirth = new DateOnly(2015, 3, 10),
-                            EnrollmentDate = new DateOnly(2020, 9, 1),
-                            ErasedCategories = new string[0],
-                            FirstName = "Jan",
-                            Gender = 0,
-                            LastName = "Novák",
-                            PostalCode = "110 00",
-                            SchoolClassId = 1,
-                            SchoolId = 1,
-                            Street = "Žákovská 12"
-                        });
                 });
 
             modelBuilder.Entity("Soovioo.Api.Evidence.Subject", b =>
@@ -1657,6 +1623,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("PhotoKey")
                         .HasColumnType("text");
 
+                    b.Property<string>("PhotoStatus")
+                        .HasColumnType("text");
+
                     b.Property<int?>("SchoolId")
                         .HasColumnType("integer");
 
@@ -1709,7 +1678,7 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("PersonId")
+                    b.Property<int>("PersonId")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
@@ -1719,23 +1688,12 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("StudentId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("StudentId", "Field", "Audience")
-                        .IsUnique()
-                        .HasFilter("\"StudentId\" IS NOT NULL");
-
                     b.HasIndex("PersonId", "Owner", "Field", "Audience")
-                        .IsUnique()
-                        .HasFilter("\"PersonId\" IS NOT NULL");
+                        .IsUnique();
 
-                    b.ToTable("VisibilityChoices", t =>
-                        {
-                            t.HasCheckConstraint("CK_VisibilityChoices_OneSubject", "(\"PersonId\" IS NULL) <> (\"StudentId\" IS NULL)");
-                        });
+                    b.ToTable("VisibilityChoices");
                 });
 
             modelBuilder.Entity("Soovioo.Api.People.VisibilityRule", b =>
@@ -2344,6 +2302,12 @@ namespace Soovioo.Api.Migrations
                         .HasForeignKey("MunicipalityCode")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Soovioo.Api.People.Person", "Person")
+                        .WithOne("Student")
+                        .HasForeignKey("Soovioo.Api.Evidence.Student", "PersonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
                         .WithMany("Students")
                         .HasForeignKey("SchoolClassId")
@@ -2356,20 +2320,15 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Auth.User", "User")
-                        .WithOne()
-                        .HasForeignKey("Soovioo.Api.Evidence.Student", "UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Country");
 
                     b.Navigation("Municipality");
 
+                    b.Navigation("Person");
+
                     b.Navigation("School");
 
                     b.Navigation("SchoolClass");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Evidence.Subject", b =>
@@ -2766,7 +2725,7 @@ namespace Soovioo.Api.Migrations
                     b.HasOne("Soovioo.Api.Auth.User", "User")
                         .WithOne("Person")
                         .HasForeignKey("Soovioo.Api.People.Person", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("School");
 
@@ -2789,16 +2748,10 @@ namespace Soovioo.Api.Migrations
                     b.HasOne("Soovioo.Api.People.Person", "Person")
                         .WithMany()
                         .HasForeignKey("PersonId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
-                        .WithMany()
-                        .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Person");
-
-                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Soovioo.Api.People.VisibilityRule", b =>
@@ -2968,6 +2921,8 @@ namespace Soovioo.Api.Migrations
             modelBuilder.Entity("Soovioo.Api.People.Person", b =>
                 {
                     b.Navigation("ParentProfile");
+
+                    b.Navigation("Student");
 
                     b.Navigation("TeacherProfile");
                 });

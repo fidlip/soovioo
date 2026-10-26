@@ -69,7 +69,7 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
 
         var grace = (await RetentionJob.PolicyOfAsync(db, schoolId)).AccountGraceDays;
         var now = clock.GetUtcNow();
-        var subject = StudentTerm.Localize($"Ukončení vzdělávání — {student.FirstName} {student.LastName}", school.Type);
+        var subject = StudentTerm.Localize($"Ukončení vzdělávání — {student.Person!.FullName}", school.Type);
         foreach (var (recipients, reason) in new[] { (withReason, true), (withoutReason, false) })
         {
             if (recipients.Count == 0)
@@ -90,7 +90,7 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
         var schoolId = student.SchoolId;
         var ids = group switch
         {
-            LeaveNoticeGroup.Student => student.UserId is { } own ? [own] : [],
+            LeaveNoticeGroup.Student => student.Person!.UserId is { } own ? [own] : [],
             LeaveNoticeGroup.Parents => await db.ParentStudents.IgnoreQueryFilters()
                 .Where(ps => ps.SchoolId == schoolId && ps.StudentId == student.Id && ps.ParentProfile!.Person!.UserId != null)
                 .Select(ps => ps.ParentProfile!.Person!.UserId!.Value)
@@ -110,7 +110,7 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
 
     public static string Body(Student student, string schoolName, LeaveNoticeKind kind, bool withReason, int graceDays)
     {
-        var name = $"{student.FirstName} {student.LastName}";
+        var name = student.Person!.FullName;
         if (kind == LeaveNoticeKind.Cancelled)
         {
             return $"Ukončení vzdělávání žáka {name} ve škole {schoolName} bylo zrušeno, žák ve škole pokračuje.";

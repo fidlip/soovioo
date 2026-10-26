@@ -8,8 +8,8 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
-using Soovioo.Api.Reference;
 using Soovioo.Api.People;
+using Soovioo.Api.Reference;
 
 namespace Soovioo.Api.Tests.Evidence;
 
@@ -47,7 +47,7 @@ public class StudentsControllerTests
         var classB = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
         db.SchoolClasses.AddRange(classA, classB);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = classA.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
@@ -66,7 +66,7 @@ public class StudentsControllerTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         var subject = new Soovioo.Api.Evidence.Subject { Name = "Matematika", SchoolId = SchoolId };
         var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Students.Add(student);
@@ -99,7 +99,7 @@ public class StudentsControllerTests
         var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         var payment = new Soovioo.Api.Payments.Payment { Title = "Výlet", SchoolId = SchoolId, CreatedByUserId = parent.Id };
@@ -119,6 +119,7 @@ public class StudentsControllerTests
         Assert.Empty(db.PaymentRecipients);
         Assert.Empty(db.ParentStudents);
         Assert.NotNull(await db.Users.FindAsync(parent.Id));
+        Assert.Null(await db.Persons.FindAsync(student.PersonId));
     }
 
     [Fact]
@@ -132,7 +133,9 @@ public class StudentsControllerTests
         await db.SaveChangesAsync();
         var student = new Student
         {
-            FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId, UserId = studentUser.Id,
+            Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId },
+            SchoolClassId = schoolClass.Id,
+            SchoolId = SchoolId,
         };
         db.Students.Add(student);
         await db.SaveChangesAsync();
@@ -153,7 +156,7 @@ public class StudentsControllerTests
         db.Districts.Add(new District { Code = "CZ0100", Name = "Praha" });
         db.Municipalities.Add(new Municipality { Code = "500054", Name = "Praha 1", DistrictCode = "CZ0100" });
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
@@ -212,7 +215,7 @@ public class StudentsControllerTests
         var otherClass = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
         db.SchoolClasses.AddRange(ownClass, otherClass);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = ownClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = ownClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
@@ -233,7 +236,7 @@ public class StudentsControllerTests
         var otherClass = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
         db.SchoolClasses.Add(otherClass);
         await db.SaveChangesAsync();
-        var student = new Student { FirstName = "Jan", LastName = "Novák", SchoolClassId = otherClass.Id, SchoolId = SchoolId };
+        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = otherClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
 

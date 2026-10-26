@@ -90,8 +90,8 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 .Select(u => new PaymentPersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
             var students = await db.Students
-                .OrderBy(s => s.LastName)
-                .Select(s => new PaymentStudentOptionDto(s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name))
+                .OrderBy(s => s.Person!.LastName)
+                .Select(s => new PaymentStudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name))
                 .ToListAsync();
             return Ok(new PaymentRecipientOptionsDto(classes, parents, students));
         }
@@ -105,8 +105,8 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .ToListAsync();
         var myStudents = await db.Students
             .Where(s => myClassIds.Contains(s.SchoolClassId))
-            .OrderBy(s => s.LastName)
-            .Select(s => new PaymentStudentOptionDto(s.Id, s.FirstName, s.LastName, s.SchoolClassId, s.SchoolClass!.Name))
+            .OrderBy(s => s.Person!.LastName)
+            .Select(s => new PaymentStudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name))
             .ToListAsync();
         var myStudentIds = myStudents.Select(s => s.Id).ToList();
         var myParents = await db.ParentStudents
@@ -327,7 +327,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     private static PaymentRecipientDto ToRecipientDto(PaymentRecipient r) => new(
         r.Id,
         r.StudentId,
-        $"{r.Student!.FirstName} {r.Student.LastName}",
+        r.Student!.Person!.FullName,
         r.Amount,
         r.VariableSymbol,
         r.VariableSymbol ?? r.Student.DefaultVariableSymbol ?? "",

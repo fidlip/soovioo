@@ -38,7 +38,7 @@ public class UsersController(
                 User = u,
                 u.Person,
                 u.Person!.TeacherProfile,
-                StudentId = db.Students.Where(s => s.UserId == u.Id).Select(s => (int?)s.Id).FirstOrDefault(),
+                StudentId = db.Students.Where(s => s.Person!.UserId == u.Id).Select(s => (int?)s.Id).FirstOrDefault(),
             })
             .ToListAsync();
 
@@ -99,14 +99,13 @@ public class UsersController(
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        await ApplyPersonAsync(user, roles, request.FirstName, request.LastName, request.Phone, request.Email);
-        await db.SaveChangesAsync();
-
+        // A pupil's account is their Person's (see Person.UserId).
         if (linkedStudent is not null)
         {
-            linkedStudent.UserId = user.Id;
-            await db.SaveChangesAsync();
+            linkedStudent.Person!.UserId = user.Id;
         }
+        await ApplyPersonAsync(user, roles, request.FirstName, request.LastName, request.Phone, request.Email);
+        await db.SaveChangesAsync();
 
         var invite = hasEmail ? await TrySendInviteAsync(user) : (InviteOutcome?)null;
         var dto = ToDto(user, linkedStudent?.Id) with { Invite = invite?.ToString() };
@@ -115,7 +114,8 @@ public class UsersController(
 
     /// <summary>Password is optional — omit it to change only username/role.</summary>
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<UserDto>> UpdateUser(int id, UpdateUserRequest request)
+    public async Task<ActionResult<UserDto>> UpdateUser(
+        int id, UpdateUserRequest request, [FromServices] PhotoStorage? photos = null)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
@@ -151,17 +151,30 @@ public class UsersController(
             return linkError;
         }
 
-        // Clear a stale link from before this update — role changed away
-        // from Student, or the linked student changed — before applying the
-        // (possibly different) one resolved above.
-        var previousLink = await db.Students.FirstOrDefaultAsync(s => s.UserId == id);
-        if (previousLink is not null && previousLink.Id != linkedStudent?.Id)
+        // A pupil's account is their Person's. Moving off a pupil leaves
+        // their Person behind (the account gets its own unless it moves to
+        // another pupil); moving onto a pupil drops the account's own Person
+        // — it was made with the wrong role.
+        string? removedPhotoKey = null;
+        if (user.Person is { } previousPerson && previousPerson.Id != linkedStudent?.PersonId)
         {
-            previousLink.UserId = null;
+            if (await db.Students.AnyAsync(s => s.PersonId == previousPerson.Id))
+            {
+                previousPerson.UserId = null;
+                if (linkedStudent is null)
+                {
+                    db.Persons.Add(new Person { UserId = id, LastName = user.Username, SchoolId = user.SchoolId });
+                }
+            }
+            else if (linkedStudent is not null)
+            {
+                removedPhotoKey = previousPerson.PhotoKey;
+                RemovePerson(previousPerson);
+            }
         }
         if (linkedStudent is not null)
         {
-            linkedStudent.UserId = id;
+            linkedStudent.Person!.UserId = id;
         }
 
         user.Username = request.Username;
@@ -180,6 +193,7 @@ public class UsersController(
         }
 
         await db.SaveChangesAsync();
+        photos?.Delete(removedPhotoKey);
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             // Whoever knew the old password shouldn't stay signed in on it.
@@ -208,12 +222,20 @@ public class UsersController(
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
 
-        // The Person (with its profiles and parent↔child links) goes with
-        // the account — see Person.UserId.
-        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.ParentProfile!.Person!.UserId == id));
+        // The Person goes with the account — unless it's a pupil's, whose
+        // matrika stays (see Person.UserId).
+        var person = user.Person;
+        if (person is not null && await db.Students.AnyAsync(s => s.PersonId == person.Id))
+        {
+            person = null;
+        }
+        if (person is not null)
+        {
+            RemovePerson(person);
+        }
         db.Users.Remove(user);
         await db.SaveChangesAsync();
-        photos?.Delete(user.Person?.PhotoKey);
+        photos?.Delete(person?.PhotoKey);
         return NoContent();
     }
 
@@ -239,7 +261,7 @@ public class UsersController(
         }
         await eraser.DeactivateAsync(user);
         await db.SaveChangesAsync();
-        return Ok(ToDto(user, await db.Students.Where(s => s.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
+        return Ok(ToDto(user, await db.Students.Where(s => s.Person!.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
     }
 
     [HttpPost("{id:int}/activate")]
@@ -253,7 +275,7 @@ public class UsersController(
         }
         eraser.Reactivate(user);
         await db.SaveChangesAsync();
-        return Ok(ToDto(user, await db.Students.Where(s => s.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
+        return Ok(ToDto(user, await db.Students.Where(s => s.Person!.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
     }
 
     /// <summary>Teacher-only data (TeacherProfile) — currently the aprobace.</summary>
@@ -270,7 +292,7 @@ public class UsersController(
         var profile = await db.EnsureTeacherProfileAsync(user);
         profile.Qualification = string.IsNullOrWhiteSpace(request.Qualification) ? null : request.Qualification.Trim();
         await db.SaveChangesAsync();
-        return Ok(ToDto(user, await db.Students.Where(s => s.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
+        return Ok(ToDto(user, await db.Students.Where(s => s.Person!.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
     }
 
     /// <summary>E-mails <paramref name="id"/> a one-time link to set their own
@@ -412,6 +434,14 @@ public class UsersController(
         }
     }
 
+    /// <summary>A member of staff's or parent's Person, with its profiles
+    /// and parent↔child links. Caller saves.</summary>
+    private void RemovePerson(Person person)
+    {
+        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.ParentProfileId == person.Id));
+        db.Persons.Remove(person);
+    }
+
     private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     /// <summary>True if <paramref name="userId"/> is the only Admin left for
@@ -422,7 +452,7 @@ public class UsersController(
 
     /// <summary>Validates and resolves the <see cref="Student"/> a Student-role
     /// account must link to (null/error otherwise). Doesn't write anything —
-    /// callers apply <c>Student.UserId</c> themselves once the rest of the
+    /// callers put the account on the pupil's Person themselves once the rest of the
     /// request has also validated, so a half-applied link never survives
     /// an otherwise-rejected request. <paramref name="currentUserId"/> is the
     /// user being updated (null when creating), so re-saving a Student
@@ -447,7 +477,7 @@ public class UsersController(
             return (null, BadRequest("Neznámý žák."));
         }
 
-        if (student.UserId is not null && student.UserId != currentUserId)
+        if (student.Person!.UserId is not null && student.Person!.UserId != currentUserId)
         {
             return (null, BadRequest("Tento žák už má uživatelský účet."));
         }

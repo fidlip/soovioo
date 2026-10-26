@@ -63,9 +63,9 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
                 u.Person,
                 Qualification = u.Person!.TeacherProfile!.Qualification,
                 ClassOf = db.SchoolClasses.IgnoreQueryFilters().Where(c => c.ClassTeacherId == u.Id).Select(c => c.Name).FirstOrDefault(),
-                OwnClass = db.Students.IgnoreQueryFilters().Where(s => s.UserId == u.Id).Select(s => s.SchoolClass!.Name).FirstOrDefault(),
+                OwnClass = db.Students.IgnoreQueryFilters().Where(s => s.Person!.UserId == u.Id).Select(s => s.SchoolClass!.Name).FirstOrDefault(),
                 Children = u.Person.ParentProfile!.Children
-                    .Select(c => c.Student!.FirstName + " (" + c.Student.SchoolClass!.Name + ")")
+                    .Select(c => c.Student!.Person!.FirstName + " (" + c.Student.SchoolClass!.Name + ")")
                     .ToList(),
             })
             .ToListAsync();
