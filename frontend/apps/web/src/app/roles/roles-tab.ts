@@ -17,8 +17,8 @@ import {
   Role,
   RoleKind,
   RolesApiService,
-  SCOPE_LABELS,
   localizeStudentTerm,
+  scopeLabel,
   scopesFor,
 } from '@soovioo/shared';
 import { FORM_FIELDS } from '../forms';
@@ -121,7 +121,7 @@ export class RolesTab {
   protected scopeOptions(info: PermissionInfo, kind: RoleKind) {
     return scopesFor(info, kind).map((value) => ({
       value,
-      label: SCOPE_LABELS[value],
+      label: scopeLabel(value, kind),
     }));
   }
 

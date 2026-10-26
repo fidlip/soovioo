@@ -67,13 +67,20 @@ export const ROLE_KIND_LABELS: Record<RoleKind, string> = {
   Student: 'Žák',
 };
 
-export const SCOPE_LABELS: Record<PermissionScope, string> = {
+/** Read as "whose": "Vidět známky: Kde učí". */
+const SCOPE_LABELS: Record<PermissionScope, string> = {
   None: '—',
-  Own: 'Vlastní',
-  ClassTeacher: 'Třídnictví',
-  MyClasses: 'Své třídy',
-  School: 'Celá škola',
+  Own: 'Své',
+  ClassTeacher: 'Své třídy',
+  MyClasses: 'Kde učí',
+  School: 'Celé školy',
 };
+
+export function scopeLabel(scope: PermissionScope, kind: RoleKind): string {
+  return scope === 'Own' && kind === 'Parent'
+    ? 'Svých dětí'
+    : SCOPE_LABELS[scope];
+}
 
 export function scopesFor(
   info: PermissionInfo,
