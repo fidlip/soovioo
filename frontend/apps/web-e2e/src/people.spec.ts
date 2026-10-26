@@ -49,6 +49,10 @@ test('an account is a person’s: picked, completed with the missing profile, th
   await userDialog.getByRole('button', { name: 'Upravit osobu' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Upravit osobu' });
   await editDialog.getByRole('checkbox', { name: 'Rodič' }).check();
+  // A child too — deleting her below takes the link along.
+  await editDialog.locator('p-multiselect[name="childIds"]').click();
+  await page.getByRole('option', { name: /^Jan Novák/ }).click();
+  await page.keyboard.press('Escape');
   await editDialog.getByRole('button', { name: 'Uložit' }).click();
   await expect(editDialog).toBeHidden();
   await expect(
