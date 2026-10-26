@@ -103,7 +103,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
         (await VisibleUserPhotosAsync(viewer, [user])).GetValueOrDefault(user.Id);
 
     /// <summary>The photo tokens of <paramref name="students"/> the caller may see.</summary>
-    public async Task<Dictionary<int, string>> VisibleStudentPhotosAsync(ClaimsPrincipal viewer, IEnumerable<Student> students)
+    public async Task<Dictionary<int, string>> VisibleStudentPhotosAsync(ClaimsPrincipal viewer, IEnumerable<StudentProfile> students)
     {
         var withPhoto = students.Where(st => st.Person!.PhotoKey is not null).ToList();
         var result = new Dictionary<int, string>();
@@ -125,12 +125,12 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
         return result;
     }
 
-    public async Task<bool> CanSeeStudentPhotoAsync(ClaimsPrincipal viewer, Student student) =>
+    public async Task<bool> CanSeeStudentPhotoAsync(ClaimsPrincipal viewer, StudentProfile student) =>
         await CanSeeStudentPhotoAsync(
             viewer, student, await db.VisibilityChoices.Where(c => c.PersonId == student.PersonId).ToListAsync());
 
     private async Task<bool> CanSeeStudentPhotoAsync(
-        ClaimsPrincipal viewer, Student student, IEnumerable<VisibilityChoice> choices)
+        ClaimsPrincipal viewer, StudentProfile student, IEnumerable<VisibilityChoice> choices)
     {
         if (student.Person!.PhotoKey is null || student.PhotoConsentAt is null || !(await SchoolAsync()).StudentPhotos)
         {
@@ -150,7 +150,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
     }
 
     /// <summary>Parents of the pupil, their class teacher, admins.</summary>
-    public async Task<bool> CanApproveStudentPhotoAsync(ClaimsPrincipal viewer, Student student)
+    public async Task<bool> CanApproveStudentPhotoAsync(ClaimsPrincipal viewer, StudentProfile student)
     {
         if (viewer.IsInRole(nameof(UserRole.Admin)))
         {
@@ -166,7 +166,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
     }
 
     /// <summary>Admin or the class teacher — the school's side of a pupil's photo.</summary>
-    public async Task<bool> IsSchoolSideAsync(ClaimsPrincipal viewer, Student student) =>
+    public async Task<bool> IsSchoolSideAsync(ClaimsPrincipal viewer, StudentProfile student) =>
         viewer.IsInRole(nameof(UserRole.Admin))
         || (viewer.IsInRole(nameof(UserRole.Teacher)) && await db.IsClassTeacherOfAsync(ViewerId(viewer), student.SchoolClassId));
 
@@ -213,7 +213,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             .Join(db.Students, id => id, st => st.Id, (_, st) => st.SchoolClassId)
             .ToListAsync();
 
-    public static bool IsSelf(ClaimsPrincipal viewer, Student student) =>
+    public static bool IsSelf(ClaimsPrincipal viewer, StudentProfile student) =>
         viewer.IsInRole(nameof(UserRole.Student)) && student.Person!.UserId == ViewerId(viewer);
 
     public static bool IsStaff(User user) =>

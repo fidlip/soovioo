@@ -81,7 +81,7 @@ public class AuditTests
     public async Task EntryNamesWhoAndWhatAndMasksPasswords()
     {
         using var db = NewDb();
-        var admin = new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = 1 };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = 1 };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/users",
@@ -114,7 +114,7 @@ public class AuditTests
     public async Task StudentInPayloadGivesTheClassAndTheNameAndErrorsKeepTheirMessage()
     {
         using var db = NewDb();
-        db.Students.Add(new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = 1 }, Id = 5, SchoolClassId = 9, SchoolId = 1 });
+        db.Students.Add(new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = 1 }, Id = 5, SchoolClassId = 9, SchoolId = 1 });
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/grades", """{"studentId":5,"value":1}""",
             Principal(2, "ucitel", "Teacher", 1), "Grades", "AddGrade");
@@ -156,7 +156,7 @@ public class AuditTests
         using var db = NewDb();
         var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<User>();
         db.Schools.Add(new School { Id = 1, Name = "ZŠ", Slug = "demo" });
-        var user = new User { Username = "rodic", PasswordHash = "", Role = UserRole.Parent, SchoolId = 1 };
+        var user = new User { Username = "rodic", PasswordHash = "", ActiveRole = UserRole.Parent, SchoolId = 1 };
         user.PasswordHash = hasher.HashPassword(user, "spravne");
         db.Users.Add(user);
         await db.SaveChangesAsync();

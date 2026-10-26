@@ -33,7 +33,7 @@ public class NotificationsTests
         {
             User = new ClaimsPrincipal(new ClaimsIdentity([
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
             ], "Test")),
         },
@@ -44,7 +44,7 @@ public class NotificationsTests
     private sealed class World
     {
         public required User Teacher, OtherTeacher, Parent, StudentUser, OtherParent;
-        public required Student Student, OtherStudent;
+        public required StudentProfile Student, OtherStudent;
         public required SchoolClass Class, OtherClass;
         public required Subject Subject;
     }
@@ -52,7 +52,7 @@ public class NotificationsTests
     private static async Task<World> SeedAsync(AppDbContext db)
     {
         User NewUser(string name, UserRole role) =>
-            new() { Username = name, PasswordHash = "x", Role = role, SchoolId = SchoolId };
+            new() { Username = name, PasswordHash = "x", ActiveRole = role, SchoolId = SchoolId };
         var w = new World
         {
             Teacher = NewUser("ucitel", UserRole.Teacher),
@@ -60,8 +60,8 @@ public class NotificationsTests
             Parent = NewUser("rodic", UserRole.Parent),
             StudentUser = NewUser("zak", UserRole.Student),
             OtherParent = NewUser("rodic2", UserRole.Parent),
-            Student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolId = SchoolId },
-            OtherStudent = new Student { Person = new Person { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId }, SchoolId = SchoolId },
+            Student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolId = SchoolId },
+            OtherStudent = new StudentProfile { Person = new Person { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId }, SchoolId = SchoolId },
             Class = new SchoolClass { Name = "5.A", SchoolId = SchoolId },
             OtherClass = new SchoolClass { Name = "5.B", SchoolId = SchoolId },
             Subject = new Subject { Name = "Matematika", SchoolId = SchoolId },

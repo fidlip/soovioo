@@ -25,7 +25,7 @@ public class ConversationsControllerTests
     {
         var identity = new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
         ]);
         return new ConversationsController(
@@ -45,13 +45,13 @@ public class ConversationsControllerTests
     private sealed class World
     {
         public required User Teacher, MathTeacher, Admin, Parent, StudentUser, Stranger;
-        public required Student Student;
+        public required StudentProfile Student;
     }
 
     private static async Task<World> SeedAsync(AppDbContext db)
     {
         User NewUser(string name, UserRole role) =>
-            new() { Username = name, PasswordHash = "x", Role = role, SchoolId = SchoolId };
+            new() { Username = name, PasswordHash = "x", ActiveRole = role, SchoolId = SchoolId };
         var w = new World
         {
             Teacher = NewUser("ucitel", UserRole.Teacher),
@@ -60,7 +60,7 @@ public class ConversationsControllerTests
             Parent = NewUser("rodic", UserRole.Parent),
             StudentUser = NewUser("zak", UserRole.Student),
             Stranger = NewUser("cizi", UserRole.Parent),
-            Student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolId = SchoolId },
+            Student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolId = SchoolId },
         };
         db.Users.AddRange(w.Teacher, w.MathTeacher, w.Admin, w.Parent, w.StudentUser, w.Stranger);
         await db.SaveChangesAsync();
@@ -221,7 +221,7 @@ public class ConversationsControllerTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity([
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.Role.ToString()),
+                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
                         new Claim(ClaimTypes.Name, user.Username),
                     ])),
                 },
@@ -233,10 +233,10 @@ public class ConversationsControllerTests
     {
         using var db = NewDb();
         var w = await SeedAsync(db);
-        var evaUser = new User { Username = "eva", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var evaUser = new User { Username = "eva", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(evaUser);
         await db.SaveChangesAsync();
-        db.Students.Add(new Student
+        db.Students.Add(new StudentProfile
         {
             Person = new Person { FirstName = "Eva", LastName = "Malá", UserId = evaUser.Id, SchoolId = SchoolId },
             SchoolId = SchoolId,

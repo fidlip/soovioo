@@ -16,7 +16,7 @@ public class StudentEraser(
 {
     /// <summary>Categories of <paramref name="student"/> due by
     /// <paramref name="today"/> and not erased yet, in erasing order.</summary>
-    public static IReadOnlyList<RetentionCategory> Due(Student student, RetentionPolicy policy, DateOnly today) =>
+    public static IReadOnlyList<RetentionCategory> Due(StudentProfile student, RetentionPolicy policy, DateOnly today) =>
         student.LeftAt is not { } leftAt
             ? []
             : Enum.GetValues<RetentionCategory>()
@@ -26,7 +26,7 @@ public class StudentEraser(
     /// <summary>Erases <paramref name="categories"/> of the pupil;
     /// <see cref="RetentionCategory.Profile"/> erases everything and deletes
     /// the record. Saves.</summary>
-    public async Task EraseAsync(Student student, IEnumerable<RetentionCategory> categories)
+    public async Task EraseAsync(StudentProfile student, IEnumerable<RetentionCategory> categories)
     {
         var wanted = categories.ToHashSet();
         if (wanted.Contains(RetentionCategory.Profile))
@@ -131,7 +131,7 @@ public class StudentEraser(
 
     /// <summary>The pupil's record goes; their account and the accounts of
     /// parents left with no pupil at the school are erased.</summary>
-    private async Task EraseProfileAsync(Student student)
+    private async Task EraseProfileAsync(StudentProfile student)
     {
         var id = student.Id;
         var schoolId = student.SchoolId;

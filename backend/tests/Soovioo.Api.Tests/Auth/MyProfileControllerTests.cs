@@ -36,7 +36,7 @@ public class MyProfileControllerTests
         {
             Username = "ucitel",
             PasswordHash = Hasher.HashPassword(null!, password),
-            Role = UserRole.Teacher,
+            ActiveRole = UserRole.Teacher,
             SchoolId = SchoolId,
         };
 
@@ -110,7 +110,7 @@ public class MyProfileControllerTests
     {
         using var db = NewDb();
         var user = NewUser("heslo123");
-        user.Role = UserRole.Parent;
+        user.ActiveRole = UserRole.Parent;
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
@@ -120,7 +120,7 @@ public class MyProfileControllerTests
         var token = new JwtSecurityTokenHandler().ReadJwtToken(response.Token);
         Assert.Equal("Teacher", token.Claims.First(c => c.Type == ClaimTypes.Role || c.Type == "role").Value);
         Assert.Equal("Teacher,Parent", token.Claims.First(c => c.Type == "roles").Value);
-        Assert.Equal(UserRole.Teacher, (await db.Users.SingleAsync()).Role);
+        Assert.Equal(UserRole.Teacher, (await db.Users.SingleAsync()).ActiveRole);
     }
 
     [Fact]

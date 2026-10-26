@@ -31,19 +31,19 @@ public class VisibilityTests
     private static ClassDirectoryController Directory(AppDbContext db, User user) =>
         new(db, new FakeCurrentSchoolContext(SchoolId), new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)))
         {
-            ControllerContext = Context(user.Id, user.Role.ToString()),
+            ControllerContext = Context(user.Id, user.ActiveRole.ToString()),
         };
 
     private static MyProfileController Profile(AppDbContext db, User user) =>
-        new(db, AuthTestServices.Sessions(db), AuthTestServices.RefreshTokens(db)) { ControllerContext = Context(user.Id, user.Role.ToString()) };
+        new(db, AuthTestServices.Sessions(db), AuthTestServices.RefreshTokens(db)) { ControllerContext = Context(user.Id, user.ActiveRole.ToString()) };
 
     private static MyChildrenController Children(AppDbContext db, User user) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = Context(user.Id, user.Role.ToString()) };
+        new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = Context(user.Id, user.ActiveRole.ToString()) };
 
     private static MySchoolController MySchool(AppDbContext db) => new(db, new FakeCurrentSchoolContext(SchoolId));
 
     private sealed record Fixture(
-        School School, User Teacher, User Parent, User OtherParent, User Pupil, Student Child, Student Classmate);
+        School School, User Teacher, User Parent, User OtherParent, User Pupil, StudentProfile Child, StudentProfile Classmate);
 
     /// <summary>Class 1.A: teacher (class teacher, with phone/e-mail), the
     /// parent's child (with an own pupil account) and a classmate whose
@@ -57,10 +57,10 @@ public class VisibilityTests
         {
             db.VisibilityRules.AddRange(Visibility.DemoRules(SchoolId));
         }
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-        var otherParent = new User { Username = "rodic2", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-        var pupil = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var otherParent = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var pupil = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.AddRange(teacher, parent, otherParent, pupil);
         await db.SaveChangesAsync();
         db.Persons.AddRange(
@@ -70,8 +70,8 @@ public class VisibilityTests
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var child = new Student { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var classmate = new Student { Person = new Person { FirstName = "Eva", LastName = "Jiná", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var child = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var classmate = new StudentProfile { Person = new Person { FirstName = "Eva", LastName = "Jiná", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(child, classmate);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);

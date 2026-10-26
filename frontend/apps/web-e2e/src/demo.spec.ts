@@ -48,13 +48,18 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   await reloaded;
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
   await page.goto(`/${slug}/admin`);
-  // Tabs render lazily — open the pupils' one.
-  await page.getByRole('tab', { name: /^(Žáci|Studenti)$/ }).click();
-  await expect(page.getByText(/Žádní (žáci|studenti)\./)).toBeVisible();
+  // Tabs render lazily — open Osoby: only the demo admin is left.
+  await page.getByRole('tab', { name: 'Osoby' }).click();
+  await expect(
+    page.getByRole('tabpanel', { name: 'Osoby' }).locator('tbody tr'),
+  ).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Možnosti dema' }).click();
   await page.getByRole('menuitem', { name: 'Smazat celé demo' }).click();
-  await page.getByRole('button', { name: 'Smazat', exact: true }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Smazat', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/demo\?new=1$/);
   await expect(
     page.getByRole('heading', { name: 'Vyzkoušejte Soovioo' }),

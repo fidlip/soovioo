@@ -10,7 +10,7 @@ public class Absence
     public School? School { get; set; }
 
     public int StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     public DateOnly Date { get; set; }
 

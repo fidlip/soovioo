@@ -19,7 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 {
     public DbSet<School> Schools => Set<School>();
     public DbSet<Grade> Grades => Set<Grade>();
-    public DbSet<Student> Students => Set<Student>();
+    public DbSet<StudentProfile> Students => Set<StudentProfile>();
     public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Classroom> Classrooms => Set<Classroom>();
@@ -63,10 +63,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Notifications.PushDevice> PushDevices => Set<Notifications.PushDevice>();
 
     /// <summary>The day the former-pupil filter compares
-    /// <see cref="Student.LeftAt"/> with (read per query).</summary>
+    /// <see cref="StudentProfile.LeftAt"/> with (read per query).</summary>
     public DateOnly Today { get; set; } = Common.SchoolClock.Today(TimeProvider.System);
 
-    /// <summary>Former pupils (<see cref="Student.LeftAt"/> before
+    /// <summary>Former pupils (<see cref="StudentProfile.LeftAt"/> before
     /// <see cref="Today"/>) are left out of every query — the app shows
     /// pupils of the school. Administrace → Archiv a výmaz údajů and the retention job
     /// switch this on to reach them; the tenant filter still applies.</summary>
@@ -86,18 +86,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // SetNull: a pupil's Person outlives their account; staff and
-        // parents' Persons are deleted with the account by UsersController.
+        // SetNull: a Person is a record of its own (Administrace → Osoby)
+        // and outlives its account.
         modelBuilder.Entity<Person>()
             .HasOne(p => p.User).WithOne(u => u.Person)
             .HasForeignKey<Person>(p => p.UserId)
             .OnDelete(DeleteBehavior.SetNull);
-        modelBuilder.Entity<Student>()
+        modelBuilder.Entity<StudentProfile>()
             .HasOne(s => s.Person).WithOne(p => p.Student)
-            .HasForeignKey<Student>(s => s.PersonId)
+            .HasForeignKey<StudentProfile>(s => s.PersonId)
             .OnDelete(DeleteBehavior.Restrict);
         // A pupil's name lives on their Person — loaded wherever they are.
-        modelBuilder.Entity<Student>().Navigation(s => s.Person).AutoInclude();
+        modelBuilder.Entity<StudentProfile>().Navigation(s => s.Person).AutoInclude();
         modelBuilder.Entity<Person>().Property(p => p.PhotoStatus).HasConversion<string>();
         modelBuilder.Entity<TeacherProfile>().HasKey(t => t.PersonId);
         modelBuilder.Entity<TeacherProfile>()
@@ -162,12 +162,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .WithMany()
             .HasForeignKey(m => m.DistrictCode)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Student>()
+        modelBuilder.Entity<StudentProfile>()
             .HasOne(s => s.Municipality)
             .WithMany()
             .HasForeignKey(s => s.MunicipalityCode)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Student>()
+        modelBuilder.Entity<StudentProfile>()
             .HasOne(s => s.Country)
             .WithMany()
             .HasForeignKey(s => s.CountryCode)
@@ -209,7 +209,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Classroom>().Property(c => c.Type).HasConversion<string>();
         modelBuilder.Entity<Classroom>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
-        modelBuilder.Entity<Student>().HasQueryFilter(s =>
+        modelBuilder.Entity<StudentProfile>().HasQueryFilter(s =>
             (currentSchool.IsSuperAdmin || s.SchoolId == currentSchool.SchoolId)
             && (IncludeFormerStudents || s.LeftAt == null || s.LeftAt >= Today));
         modelBuilder.Entity<Grade>().HasQueryFilter(g =>
@@ -263,7 +263,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         // app: every parent check goes through these links.
         modelBuilder.Entity<ParentStudent>().HasQueryFilter(ps =>
             (currentSchool.IsSuperAdmin || ps.SchoolId == currentSchool.SchoolId)
-            && Set<Student>().Any(s => s.Id == ps.StudentId));
+            && Set<StudentProfile>().Any(s => s.Id == ps.StudentId));
         modelBuilder.Entity<Payment>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<PaymentRecipient>().HasQueryFilter(r =>
@@ -280,8 +280,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Demo.DemoContact>().HasIndex(x => x.SchoolId);
         modelBuilder.Entity<Demo.DemoFeedback>().HasIndex(x => x.CreatedAt);
 
-        modelBuilder.Entity<Student>().Property(s => s.LeaveReason).HasConversion<string>();
-        modelBuilder.Entity<Student>().PrimitiveCollection(s => s.ErasedCategories).ElementType().HasConversion<string>();
+        modelBuilder.Entity<StudentProfile>().Property(s => s.LeaveReason).HasConversion<string>();
+        modelBuilder.Entity<StudentProfile>().PrimitiveCollection(s => s.ErasedCategories).ElementType().HasConversion<string>();
         modelBuilder.Entity<User>().HasIndex(u => u.DeactivatedAt).HasFilter("\"DeactivatedAt\" IS NOT NULL");
         modelBuilder.Entity<Retention.RetentionPolicy>(e =>
         {

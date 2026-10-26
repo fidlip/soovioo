@@ -7,19 +7,19 @@ public class User
     public int Id { get; set; }
     public required string Username { get; set; }
     public required string PasswordHash { get; set; }
-    private UserRole role;
+    private UserRole activeRole;
 
     /// <summary>The <em>active</em> role — the one the JWT's role claim
     /// carries, so every <c>[Authorize(Roles = …)]</c>/<c>IsInRole</c> check
     /// works against it unchanged. Always one of <see cref="Roles"/> (setting
     /// it adds it there). Persisted, so the last choice made in the role
     /// switcher survives a new login.</summary>
-    public UserRole Role
+    public UserRole ActiveRole
     {
-        get => role;
+        get => activeRole;
         set
         {
-            role = value;
+            activeRole = value;
             if (!Roles.Contains(value))
             {
                 Roles.Add(value);

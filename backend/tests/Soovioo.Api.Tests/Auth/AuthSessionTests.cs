@@ -29,7 +29,7 @@ public class AuthSessionTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId));
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
-        user = new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = SchoolId };
+        user = new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
         user.PasswordHash = Hasher.HashPassword(user, Password);
         db.Users.Add(user);
         db.SaveChanges();
@@ -258,7 +258,7 @@ public class AuthSessionTests
     public async Task AdminPasswordResetRevokesTheUsersSessions()
     {
         var token = await MobileLoginAsync();
-        var admin = new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = SchoolId };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var users = new UsersController(
@@ -275,7 +275,12 @@ public class AuthSessionTests
             },
         };
 
-        await users.UpdateUser(user.Id, new UpdateUserRequest("ucitel", ["Teacher"], Password: "reset-heslo"));
+        var person = new Soovioo.Api.People.Person { User = user, LastName = "Učitelová", SchoolId = SchoolId };
+        person.TeacherProfile = new Soovioo.Api.People.TeacherProfile { Person = person, SchoolId = SchoolId };
+        db.Persons.Add(person);
+        await db.SaveChangesAsync();
+
+        await users.UpdateUser(user.Id, new UpdateUserRequest("ucitel", ["Teacher"], person.Id, Password: "reset-heslo"));
 
         Assert.IsType<UnauthorizedResult>((await Controller().Refresh(new RefreshRequest(token))).Result);
     }

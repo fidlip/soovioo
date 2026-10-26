@@ -193,6 +193,9 @@ namespace Soovioo.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("ActiveRole")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CalendarToken")
                         .HasColumnType("text");
 
@@ -247,9 +250,6 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<TimeOnly?>("PushQuietTo")
                         .HasColumnType("time without time zone");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("integer");
 
                     b.PrimitiveCollection<int[]>("Roles")
                         .IsRequired()
@@ -828,7 +828,7 @@ namespace Soovioo.Api.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Soovioo.Api.Evidence.Student", b =>
+            modelBuilder.Entity("Soovioo.Api.Evidence.StudentProfile", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -2055,7 +2055,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2088,7 +2088,7 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Behavior.BehaviorClassification", b =>
                 {
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2105,7 +2105,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2195,7 +2195,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2260,7 +2260,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2290,7 +2290,7 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
                 });
 
-            modelBuilder.Entity("Soovioo.Api.Evidence.Student", b =>
+            modelBuilder.Entity("Soovioo.Api.Evidence.StudentProfile", b =>
                 {
                     b.HasOne("Soovioo.Api.Reference.Country", "Country")
                         .WithMany()
@@ -2304,7 +2304,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasOne("Soovioo.Api.People.Person", "Person")
                         .WithOne("Student")
-                        .HasForeignKey("Soovioo.Api.Evidence.Student", "PersonId")
+                        .HasForeignKey("Soovioo.Api.Evidence.StudentProfile", "PersonId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -2356,7 +2356,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2421,7 +2421,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2440,7 +2440,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2469,7 +2469,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade);
@@ -2559,7 +2559,7 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Notifications.Notification", b =>
                 {
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade);
@@ -2638,7 +2638,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2692,7 +2692,7 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Soovioo.Api.Evidence.Student", "Student")
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)

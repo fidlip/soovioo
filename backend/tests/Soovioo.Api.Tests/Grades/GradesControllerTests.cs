@@ -23,9 +23,9 @@ public class GradesControllerTests
         return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
     }
 
-    private static async Task<(Student student, Subject subject)> SeedStudentAndSubject(AppDbContext db)
+    private static async Task<(StudentProfile student, Subject subject)> SeedStudentAndSubject(AppDbContext db)
     {
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.Students.Add(student);
         db.Subjects.Add(subject);
@@ -129,7 +129,7 @@ public class GradesControllerTests
     {
         using var db = NewDb();
         var (novak, subject) = await SeedStudentAndSubject(db);
-        var adamec = new Student { Person = new Person { FirstName = "Petr", LastName = "Adamec", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var adamec = new StudentProfile { Person = new Person { FirstName = "Petr", LastName = "Adamec", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(adamec);
         await db.SaveChangesAsync();
         var older = new DateOnly(2026, 9, 1);

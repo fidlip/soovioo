@@ -28,11 +28,11 @@ public class SchoolsControllerTests
         db.Schools.AddRange(school, otherSchool);
         await db.SaveChangesAsync();
         db.Users.AddRange(
-            new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = school.Id },
-            new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = school.Id });
+            new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = school.Id },
+            new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = school.Id });
         db.Students.AddRange(
-            new Student { Person = new Person { FirstName = "A", LastName = "A", SchoolId = school.Id }, SchoolId = school.Id },
-            new Student { Person = new Person { FirstName = "B", LastName = "B", SchoolId = otherSchool.Id }, SchoolId = otherSchool.Id });
+            new StudentProfile { Person = new Person { FirstName = "A", LastName = "A", SchoolId = school.Id }, SchoolId = school.Id },
+            new StudentProfile { Person = new Person { FirstName = "B", LastName = "B", SchoolId = otherSchool.Id }, SchoolId = otherSchool.Id });
         await db.SaveChangesAsync();
 
         var result = await new SchoolsController(db).GetSchools();
@@ -147,7 +147,7 @@ public class SchoolsControllerTests
         var school = new School { Name = "Demo", Slug = "demo-abc", IsDemo = true };
         db.Schools.Add(school);
         await db.SaveChangesAsync();
-        db.Users.Add(new User { Username = "a", PasswordHash = "", Role = UserRole.Admin, SchoolId = school.Id });
+        db.Users.Add(new User { Username = "a", PasswordHash = "", ActiveRole = UserRole.Admin, SchoolId = school.Id });
         await db.SaveChangesAsync();
         var purger = new Soovioo.Api.Demo.DemoSchoolPurger(db, new Soovioo.Api.Messaging.MessageAttachmentStorageService(new FakeWebHostEnvironment()));
 
@@ -164,7 +164,7 @@ public class SchoolsControllerTests
         var school = new School { Name = "Obsazená škola", Slug = "obsazena" };
         db.Schools.Add(school);
         await db.SaveChangesAsync();
-        db.Users.Add(new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = school.Id });
+        db.Users.Add(new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = school.Id });
         await db.SaveChangesAsync();
 
         var result = await new SchoolsController(db).DeleteSchool(school.Id);

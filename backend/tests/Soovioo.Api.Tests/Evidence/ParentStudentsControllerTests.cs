@@ -35,20 +35,20 @@ public class ParentStudentsControllerTests
         };
 
     private sealed record Fixture(
-        User Teacher, SchoolClass OwnClass, SchoolClass OtherClass, Student OwnStudent, Student OtherStudent, User Parent);
+        User Teacher, SchoolClass OwnClass, SchoolClass OtherClass, StudentProfile OwnStudent, StudentProfile OtherStudent, User Parent);
 
     private static async Task<Fixture> SeedAsync(AppDbContext db)
     {
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.AddRange(teacher, parent);
         await db.SaveChangesAsync();
         var ownClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };
         var otherClass = new SchoolClass { Name = "1.B", SchoolId = SchoolId };
         db.SchoolClasses.AddRange(ownClass, otherClass);
         await db.SaveChangesAsync();
-        var ownStudent = new Student { Person = new Person { FirstName = "Žák", LastName = "Vlastní", SchoolId = SchoolId }, SchoolClassId = ownClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { Person = new Person { FirstName = "Žák", LastName = "Cizí", SchoolId = SchoolId }, SchoolClassId = otherClass.Id, SchoolId = SchoolId };
+        var ownStudent = new StudentProfile { Person = new Person { FirstName = "Žák", LastName = "Vlastní", SchoolId = SchoolId }, SchoolClassId = ownClass.Id, SchoolId = SchoolId };
+        var otherStudent = new StudentProfile { Person = new Person { FirstName = "Žák", LastName = "Cizí", SchoolId = SchoolId }, SchoolClassId = otherClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(ownStudent, otherStudent);
         await db.SaveChangesAsync();
 

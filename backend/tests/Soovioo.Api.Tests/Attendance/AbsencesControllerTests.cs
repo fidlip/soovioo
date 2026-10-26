@@ -41,7 +41,7 @@ public class AbsencesControllerTests
     public async Task UpdateAbsenceChangesDate()
     {
         using var db = NewDb();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 1, 1), SchoolId = SchoolId };
@@ -59,7 +59,7 @@ public class AbsencesControllerTests
     public async Task DeleteAbsenceRemovesIt()
     {
         using var db = NewDb();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 1, 1), SchoolId = SchoolId };
@@ -76,10 +76,10 @@ public class AbsencesControllerTests
     public async Task SubmitExcuseRejectsTheStudentThemselves()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 1, 1), SchoolId = SchoolId };
@@ -97,10 +97,10 @@ public class AbsencesControllerTests
     public async Task SubmitExcuseAllowsTheLinkedParent()
     {
         using var db = NewDb();
-        var parentUser = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
@@ -119,7 +119,7 @@ public class AbsencesControllerTests
     public async Task AddAbsenceStoresSortedDistinctPeriodsAndRejectsOutOfRange()
     {
         using var db = NewDb();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         var controller = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System));

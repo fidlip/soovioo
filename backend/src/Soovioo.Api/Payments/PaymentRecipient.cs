@@ -7,7 +7,7 @@ namespace Soovioo.Api.Payments;
 /// <see cref="PaymentRecipientGenerator"/>) — it never changes afterwards,
 /// even if the Payment's targeting changes later. <see cref="VariableSymbol"/>
 /// is deliberately NOT frozen the same way: null means "use this student's
-/// current <see cref="Student.DefaultVariableSymbol"/>", resolved fresh every
+/// current <see cref="StudentProfile.DefaultVariableSymbol"/>", resolved fresh every
 /// time it's displayed/exported, so fixing a student's default VS later
 /// also fixes it retroactively on already-generated recipients.</summary>
 public class PaymentRecipient
@@ -18,7 +18,7 @@ public class PaymentRecipient
     public Payment? Payment { get; set; }
 
     public int StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     public int SchoolId { get; set; }
     public School? School { get; set; }
@@ -28,7 +28,7 @@ public class PaymentRecipient
     public decimal Amount { get; set; }
 
     /// <summary>Per-payment override. Null = use the student's
-    /// <see cref="Student.DefaultVariableSymbol"/> (resolved on read, see
+    /// <see cref="StudentProfile.DefaultVariableSymbol"/> (resolved on read, see
     /// <see cref="PaymentsController"/>'s DTO mapping).</summary>
     public string? VariableSymbol { get; set; }
 

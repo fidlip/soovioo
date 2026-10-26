@@ -90,7 +90,7 @@ public class MyProfileController(
             return BadRequest("Tuto roli účet nemá.");
         }
 
-        user.Role = role;
+        user.ActiveRole = role;
         await db.SaveChangesAsync();
         return Ok(new SwitchRoleResponse(await sessions.IssueAccessTokenAsync(user)));
     }
@@ -160,7 +160,7 @@ public class MyProfileController(
     }
 
     /// <summary>Staff may always have a photo, parents where the school
-    /// has parents' photos on (pupils' photos are per <see cref="Evidence.Student"/>,
+    /// has parents' photos on (pupils' photos are per <see cref="Evidence.StudentProfile"/>,
     /// see <see cref="PhotosController"/>).</summary>
     private async Task<MyProfileDto> ToDtoAsync(User user)
     {
@@ -170,7 +170,7 @@ public class MyProfileController(
             canUploadPhoto = await db.Schools.AnyAsync(s =>
                 s.Id == schoolId && s.ParentPhotos);
         }
-        return new(user.Id, user.Username, PersonNames.Display(user), user.Role.ToString(), user.Person?.Phone, user.Person?.Email,
+        return new(user.Id, user.Username, PersonNames.Display(user), user.ActiveRole.ToString(), user.Person?.Phone, user.Person?.Email,
             PhotoStorage.Token(user.Person?.PhotoKey), canUploadPhoto);
     }
 }

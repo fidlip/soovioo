@@ -1,16 +1,10 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  AutoComplete,
-  AutoCompleteCompleteEvent,
-} from '@openng/optimus-ui/autocomplete';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
-import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
-import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
@@ -39,12 +33,13 @@ import {
   DateFormatPipe,
   Gender,
   MatrikaApiService,
-  Municipality,
   MySchoolApiService,
   Parent as ParentUser,
   ParentStudentLink,
   ParentStudentsApiService,
   ParentsApiService,
+  PeopleApiService,
+  Person,
   PhotosApiService,
   ROLE_LABELS,
   ReferenceApiService,
@@ -74,10 +69,18 @@ type AccessLevel = 'admin' | 'classTeacher' | 'denied' | 'loading';
 
 const ROLES = ['Admin', 'Teacher', 'Parent', 'Student'];
 
-const GENDER_OPTIONS: { label: string; value: Gender }[] = [
-  { label: 'Chlapec', value: 'Male' },
-  { label: 'Dívka', value: 'Female' },
-];
+/** The person profile a role needs (Admin none), and its name for the
+ * "potřebuje profil …" hint. */
+const ROLE_PROFILES: Record<string, PersonProfile> = {
+  Teacher: 'teacher',
+  Parent: 'parent',
+  Student: 'student',
+};
+const PROFILE_NAMES: Record<string, string> = {
+  Teacher: 'učitele',
+  Parent: 'rodiče',
+  Student: 'žáka',
+};
 
 // Fixed pastel palette (Tailwind 200 shades, not a free picker) — soft
 // enough not to dominate the timetable and keep dark cell text readable.
@@ -94,20 +97,6 @@ const SUBJECT_COLOR_PALETTE = [
   '#e2e8f0', // slate
 ];
 
-/** RAKO kvalifikátor státního občanství — only 8 stable rows, so a hardcoded
- * list (same pattern as GENDER_OPTIONS/ROLE_OPTIONS) rather than a DB table.
- * See Student.CitizenshipQualifier. */
-const CITIZENSHIP_QUALIFIER_OPTIONS = [
-  { label: 'Občan ČR', value: '3' },
-  { label: 'Cizinec s trvalým pobytem v ČR', value: '5' },
-  { label: 'Cizinec bez trvalého pobytu v ČR', value: '6' },
-  { label: 'Azylant nebo žadatel o azyl', value: 'A' },
-  { label: 'Osoba s dočasnou ochranou v ČR', value: 'D' },
-  { label: 'Osoba s doplňkovou ochranou v ČR', value: 'K' },
-  { label: 'Osoba bez státního občanství', value: '0' },
-  { label: 'Občanství neznámé/neudané', value: '9' },
-];
-
 import { InfoHint } from '../info-hint/info-hint';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
@@ -117,7 +106,21 @@ import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
-import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
+import { PeopleTab } from '../people/people-tab';
+import { PersonCard } from '../people/person-card';
+import {
+  PersonDialog,
+  PersonDialogTarget,
+  PersonProfile,
+} from '../people/person-dialog';
+import {
+  GENDER_OPTIONS,
+  StudentFields,
+  StudentForm,
+  emptyStudentForm,
+  matrikaOf,
+  studentFormOf,
+} from '../people/student-fields';
 import { Avatar } from '../avatar/avatar';
 import {
   StudentPhotoDialog,
@@ -132,20 +135,20 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
     SchoolNotifications,
     VisibilitySettings,
     Departures,
-    LeaveDialog,
+    PeopleTab,
+    PersonCard,
+    PersonDialog,
+    StudentFields,
     Avatar,
     StudentPhotoDialog,
     UserPhotoDialog,
     ...FORM_FIELDS,
-    Checkbox,
     InfoHint,
     TermPipe,
     AppIcon,
-    AutoComplete,
     FormsModule,
     Button,
     Card,
-    DatePicker,
     Dialog,
     InputNumber,
     InputText,
@@ -179,6 +182,7 @@ export class AdminPage {
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
   private readonly mySchoolApi = inject(MySchoolApiService);
   private readonly photosApi = inject(PhotosApiService);
+  private readonly peopleApi = inject(PeopleApiService);
   private readonly matrikaApi = inject(MatrikaApiService);
   private readonly referenceApi = inject(ReferenceApiService);
 
@@ -207,7 +211,6 @@ export class AdminPage {
   protected readonly parents = signal<ParentUser[]>([]);
   protected readonly links = signal<ParentStudentLink[]>([]);
   protected readonly countries = signal<Country[]>([]);
-  protected readonly municipalitySuggestions = signal<Municipality[]>([]);
 
   protected readonly activeTab = signal('classes');
 
@@ -234,8 +237,6 @@ export class AdminPage {
   }));
   protected readonly myUserId = this.authApi.getUserId();
   protected readonly genderOptions = GENDER_OPTIONS;
-  protected readonly citizenshipQualifierOptions =
-    CITIZENSHIP_QUALIFIER_OPTIONS;
   protected readonly subjectColorPalette = SUBJECT_COLOR_PALETTE;
 
   /** p-select's optionLabel only takes a property path, not a function. */
@@ -267,26 +268,20 @@ export class AdminPage {
         ),
   );
 
-  /** Students pickable for a new/edited Student-role account — excludes
-   * students that already have one, except the student currently linked to
-   * the account being edited (so re-saving it without changing the link
-   * doesn't disappear its own option from the list). A plain method, not a
-   * computed signal, because it depends on `editingUserId` — a plain field,
-   * not a signal (same reasoning as `filteredAbsences()` elsewhere): a
-   * computed here would go stale the moment editingUserId changes without
-   * `users()`/`studentOptions()` also changing. */
-  protected availableStudentOptions(): { id: number; label: string }[] {
-    const linkedElsewhere = new Set(
-      this.users()
-        .filter(
-          (u) =>
-            u.roles.includes('Student') &&
-            u.studentId !== null &&
-            u.id !== this.editingUserId,
-        )
-        .map((u) => u.studentId),
+  private readonly peopleTab = viewChild<PeopleTab>('peopleTab');
+
+  /** Everyone at the school — the account dialog's choice of person. */
+  protected readonly people = signal<Person[]>([]);
+  /** The person the account being added/edited is. */
+  protected readonly userPerson = signal<Person | null>(null);
+  protected readonly personDialog = signal<PersonDialogTarget | null>(null);
+
+  /** People an account can be made for: without one, or the edited
+   * account's own. A plain method — `editingUserId` is a plain field. */
+  protected availablePeople(): Person[] {
+    return this.people().filter(
+      (p) => !p.account || p.account.userId === this.editingUserId,
     );
-    return this.studentOptions().filter((s) => !linkedElsewhere.has(s.id));
   }
 
   // The "new…" fields below double as the dialog's form state for BOTH
@@ -308,29 +303,13 @@ export class AdminPage {
 
   protected newStudentFirstName = '';
   protected newStudentLastName = '';
-  protected newStudentSchoolClassId: number | null = null;
-  protected newStudentRodneCislo = '';
-  protected newStudentDateOfBirth: Date | null = null;
-  protected newStudentGender: Gender | null = null;
-  protected newStudentCitizenshipQualifier: string | null = null;
-  protected newStudentCountryCode: string | null = null;
-  protected newStudentStreet = '';
-  protected newStudentMunicipality: Municipality | null = null;
-  protected newStudentPostalCode = '';
-  protected newStudentCatchmentArea = false;
-  protected newStudentEnrollmentDate: Date | null = null;
-  protected newStudentContactPhone = '';
-  protected newStudentContactEmail = '';
-  protected newStudentDefaultVariableSymbol = '';
+  /** Matrika of the class teacher's pupil dialog. */
+  protected studentMatrika: StudentForm = emptyStudentForm(null);
 
   protected newUsername = '';
   protected newPassword = '';
   protected newUserRoles: string[] = ['Parent'];
-  protected newUserFirstName = '';
-  protected newUserLastName = '';
-  protected newUserPhone = '';
-  protected newUserEmail = '';
-  protected newUserStudentId: number | null = null;
+  protected newUserPersonId: number | null = null;
 
   protected filterStudentName = '';
   protected filterStudentSchoolClassId: number | null = null;
@@ -446,17 +425,8 @@ export class AdminPage {
       this.reloadClassTeacherData();
     } else {
       this.reloadAll();
+      this.peopleTab()?.reload();
     }
-  }
-
-  /** Local (not UTC) y-m-d — `toISOString().slice(0, 10)` converts through
-   * UTC first, which rolls local midnight back to the previous day in any
-   * timezone ahead of UTC (e.g. CET/CEST). Same helper as absences-page.ts. */
-  private toDateOnlyString(date: Date): string {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
   }
 
   private reloadClassTeacherData(): void {
@@ -466,7 +436,7 @@ export class AdminPage {
           this.ownClassIds.includes(s.schoolClassId),
         );
         this.students.set(scoped);
-        this.newStudentSchoolClassId ??= this.ownClassIds[0] ?? null;
+        this.studentMatrika.schoolClassId ??= this.ownClassIds[0] ?? null;
       },
       error: (err) => console.error('getStudents failed', err),
     });
@@ -483,13 +453,6 @@ export class AdminPage {
   }
 
   /** p-autoComplete's completeMethod — backend ignores queries under 2 chars. */
-  protected searchMunicipalities(event: AutoCompleteCompleteEvent): void {
-    this.referenceApi.searchMunicipalities(event.query).subscribe({
-      next: (results) => this.municipalitySuggestions.set(results),
-      error: (err) => console.error('searchMunicipalities failed', err),
-    });
-  }
-
   protected classTeacherName(classTeacherId: number | null): string {
     if (classTeacherId === null) {
       return '—';
@@ -536,34 +499,6 @@ export class AdminPage {
         (this.filterStudentGender === null ||
           s.gender === this.filterStudentGender),
     );
-  }
-
-  // Aprobace dialog (Učitelé card).
-  protected readonly qualificationDialogVisible = signal(false);
-  protected qualificationTeacher: AppUser | null = null;
-  protected qualification = '';
-
-  protected openQualificationDialog(teacher: AppUser): void {
-    this.qualificationTeacher = teacher;
-    this.qualification = teacher.qualification ?? '';
-    this.notify.clear();
-    this.qualificationDialogVisible.set(true);
-  }
-
-  protected saveQualification(): void {
-    const teacher = this.qualificationTeacher;
-    if (!teacher) {
-      return;
-    }
-    this.usersApi
-      .setTeacherProfile(teacher.id, this.qualification || null)
-      .subscribe({
-        next: () => {
-          this.qualificationDialogVisible.set(false);
-          this.reload();
-        },
-        error: (err) => this.showError('setTeacherProfile failed', err),
-      });
   }
 
   protected teacherClassNames(teacherId: number): string {
@@ -657,14 +592,12 @@ export class AdminPage {
     this.studentsApi.getStudents().subscribe({
       next: (students) => {
         this.students.set(students);
-        this.newStudentSchoolClassId ??= students[0]?.schoolClassId ?? null;
       },
       error: (err) => console.error('getStudents failed', err),
     });
     this.schoolClassesApi.getSchoolClasses().subscribe({
       next: (schoolClasses) => {
         this.schoolClasses.set(schoolClasses);
-        this.newStudentSchoolClassId ??= schoolClasses[0]?.id ?? null;
         this.adminDataArrived();
       },
       error: (err) => {
@@ -873,20 +806,9 @@ export class AdminPage {
     this.editingStudentId = null;
     this.newStudentFirstName = '';
     this.newStudentLastName = '';
-    this.newStudentSchoolClassId = this.schoolClasses()[0]?.id ?? null;
-    this.newStudentRodneCislo = '';
-    this.newStudentDateOfBirth = null;
-    this.newStudentGender = null;
-    this.newStudentCitizenshipQualifier = null;
-    this.newStudentCountryCode = null;
-    this.newStudentStreet = '';
-    this.newStudentMunicipality = null;
-    this.newStudentPostalCode = '';
-    this.newStudentCatchmentArea = false;
-    this.newStudentEnrollmentDate = null;
-    this.newStudentContactPhone = '';
-    this.newStudentContactEmail = '';
-    this.newStudentDefaultVariableSymbol = '';
+    this.studentMatrika = emptyStudentForm(
+      this.ownClassIds[0] ?? this.schoolClasses()[0]?.id ?? null,
+    );
     this.editingStudentParentIds = [];
     this.notify.clear();
     this.newStudentDialogVisible.set(true);
@@ -899,30 +821,7 @@ export class AdminPage {
       .map((l) => l.userId);
     this.newStudentFirstName = student.firstName;
     this.newStudentLastName = student.lastName;
-    this.newStudentSchoolClassId = student.schoolClassId;
-    this.newStudentRodneCislo = student.rodneCislo ?? '';
-    this.newStudentDateOfBirth = student.dateOfBirth
-      ? new Date(student.dateOfBirth)
-      : null;
-    this.newStudentGender = student.gender;
-    this.newStudentCitizenshipQualifier = student.citizenshipQualifier;
-    this.newStudentCountryCode = student.countryCode;
-    this.newStudentStreet = student.street ?? '';
-    this.newStudentMunicipality = student.municipalityCode
-      ? {
-          code: student.municipalityCode,
-          name: student.municipalityName ?? student.municipalityCode,
-          districtCode: '',
-        }
-      : null;
-    this.newStudentPostalCode = student.postalCode ?? '';
-    this.newStudentCatchmentArea = student.catchmentArea ?? false;
-    this.newStudentEnrollmentDate = student.enrollmentDate
-      ? new Date(student.enrollmentDate)
-      : null;
-    this.newStudentContactPhone = student.contactPhone ?? '';
-    this.newStudentContactEmail = student.contactEmail ?? '';
-    this.newStudentDefaultVariableSymbol = student.defaultVariableSymbol ?? '';
+    this.studentMatrika = studentFormOf(student);
     this.notify.clear();
     this.newStudentDialogVisible.set(true);
   }
@@ -931,31 +830,14 @@ export class AdminPage {
     if (
       !this.newStudentFirstName.trim() ||
       !this.newStudentLastName.trim() ||
-      !this.newStudentSchoolClassId
+      !this.studentMatrika.schoolClassId
     ) {
       return;
     }
     const request = {
       firstName: this.newStudentFirstName,
       lastName: this.newStudentLastName,
-      schoolClassId: this.newStudentSchoolClassId,
-      rodneCislo: this.newStudentRodneCislo || undefined,
-      dateOfBirth: this.newStudentDateOfBirth
-        ? this.toDateOnlyString(this.newStudentDateOfBirth)
-        : undefined,
-      gender: this.newStudentGender ?? undefined,
-      citizenshipQualifier: this.newStudentCitizenshipQualifier || undefined,
-      countryCode: this.newStudentCountryCode || undefined,
-      street: this.newStudentStreet || undefined,
-      municipalityCode: this.newStudentMunicipality?.code || undefined,
-      postalCode: this.newStudentPostalCode || undefined,
-      catchmentArea: this.newStudentCatchmentArea || undefined,
-      enrollmentDate: this.newStudentEnrollmentDate
-        ? this.toDateOnlyString(this.newStudentEnrollmentDate)
-        : undefined,
-      contactPhone: this.newStudentContactPhone || undefined,
-      contactEmail: this.newStudentContactEmail || undefined,
-      defaultVariableSymbol: this.newStudentDefaultVariableSymbol || undefined,
+      ...matrikaOf(this.studentMatrika),
     };
     const editingId = this.editingStudentId;
     const result =
@@ -999,21 +881,9 @@ export class AdminPage {
     });
   }
 
-  /** The pupil whose departure is being recorded (Ukončení vzdělávání). */
-  protected readonly leaveStudent = signal<LeaveTarget | null>(null);
-
-  protected openLeave(student: Student): void {
-    this.leaveStudent.set({
-      ...student,
-      reason: student.leaveReason,
-      reasonDetail: student.leaveReasonDetail,
-      note: student.leaveNote,
-    });
-  }
-
   /** Only a pupil without history (one added by mistake) can be deleted;
    * for one with grades, absences… the server answers 409 with what's
-   * there, and an admin is offered Ukončení vzdělávání instead. */
+   * there (an admin ends the pupil's education in Osoby instead). */
   protected deleteStudent(student: Student): void {
     const type = this.authApi.getSchoolType();
     this.confirmation.confirm({
@@ -1032,7 +902,7 @@ export class AdminPage {
           next: () => this.reload(),
           error: (err) => {
             if (err instanceof HttpErrorResponse && err.status === 409) {
-              this.offerLeave(student, String(err.error));
+              this.notify.warn(String(err.error));
             } else {
               this.showError('deleteStudent failed', err);
             }
@@ -1041,48 +911,91 @@ export class AdminPage {
     });
   }
 
-  private offerLeave(student: Student, reason: string): void {
-    if (this.accessLevel() !== 'admin') {
-      this.notify.warn(reason);
-      return;
-    }
-    // After the delete confirmation has gone.
-    setTimeout(() =>
-      this.confirmation.confirm({
-        header: localizeStudentTerm(
-          'Žáka nejde smazat',
-          this.authApi.getSchoolType(),
-        ),
-        message: reason,
-        icon: 'pi pi-info-circle',
-        acceptLabel: 'Ukončit vzdělávání',
-        rejectLabel: 'Zavřít',
-        rejectButtonProps: { severity: 'secondary', outlined: true },
-        accept: () => this.openLeave(student),
-      }),
-    );
-  }
-
   protected openAddUserDialog(): void {
     this.editingUserId = null;
     this.newUsername = '';
     this.newPassword = '';
     this.newUserRoles = ['Parent'];
-    this.newUserFirstName = '';
-    this.newUserLastName = '';
-    this.newUserPhone = '';
-    this.newUserEmail = '';
-    this.newUserStudentId = null;
+    this.newUserPersonId = null;
+    this.userPerson.set(null);
+    this.loadPeople();
     this.notify.clear();
     this.newUserDialogVisible.set(true);
   }
 
-  /** "Vytvořit účet" right from the Students tab: a new Student-role
-   * account for this student, names/contacts prefilled from the matrika. */
-  protected openCreateAccountForStudent(student: Student): void {
+  private loadPeople(): void {
+    this.peopleApi.getPeople().subscribe({
+      next: (people) => this.people.set(people),
+      error: (err) => console.error('getPeople failed', err),
+    });
+  }
+
+  /** "Vytvořit účet" from Osoby: roles after the person's profiles. */
+  protected openCreateAccountFor(person: Person): void {
     this.openAddUserDialog();
-    this.newUserRoles = ['Student'];
-    this.onNewUserStudentChange(student.id);
+    this.newUserRoles = person.student
+      ? ['Student']
+      : [
+          ...(person.teacher ? ['Teacher'] : []),
+          ...(person.parent ? ['Parent'] : []),
+        ];
+    if (this.newUserRoles.length === 0) {
+      this.newUserRoles = ['Parent'];
+    }
+    this.setUserPerson(person);
+  }
+
+  /** Picking the person suggests a username ("jan.novak") for a new
+   * account; `null` clears the choice. */
+  protected setUserPerson(person: Person | number | null): void {
+    const picked =
+      typeof person === 'number'
+        ? (this.people().find((p) => p.id === person) ?? null)
+        : person;
+    this.userPerson.set(picked);
+    this.newUserPersonId = picked?.id ?? null;
+    if (picked && this.editingUserId === null && !this.newUsername.trim()) {
+      this.newUsername = suggestUsername(picked.firstName, picked.lastName);
+    }
+  }
+
+  /** What the chosen person lacks for the chosen roles. */
+  protected userPersonProblems(): string[] {
+    const person = this.userPerson();
+    if (!person) {
+      return ['Vyberte nebo založte osobu.'];
+    }
+    const missing: Record<string, boolean> = {
+      Teacher: !person.teacher,
+      Parent: !person.parent,
+      Student: !person.student,
+    };
+    return this.newUserRoles
+      .filter((role) => missing[role])
+      .map(
+        (role) =>
+          `Role ${this.roleLabel(role)} potřebuje profil ${PROFILE_NAMES[role]} — doplňte ho tužkou.`,
+      );
+  }
+
+  protected openNewPersonForUser(): void {
+    const profiles = this.newUserRoles
+      .map((role) => ROLE_PROFILES[role])
+      .filter((profile): profile is PersonProfile => !!profile);
+    this.personDialog.set({ id: null, profiles });
+  }
+
+  /** The person dialog saved — in the account dialog it's the chosen one. */
+  protected onPersonSaved(person: Person): void {
+    this.personDialog.set(null);
+    this.people.update((all) => [
+      ...all.filter((p) => p.id !== person.id),
+      person,
+    ]);
+    if (this.newUserDialogVisible()) {
+      this.setUserPerson(person);
+    }
+    this.reload();
   }
 
   protected classroomTypeLabel(type: ClassroomType | null): string {
@@ -1093,59 +1006,35 @@ export class AdminPage {
     return this.users().some((u) => u.studentId === studentId);
   }
 
-  /** Picking the student for a Student-role account fills in the person's
-   * name from the matrika (a student's name lives there) and, when still
-   * empty, contacts and a username suggestion ("jan.novak"). */
-  protected onNewUserStudentChange(studentId: number | null): void {
-    this.newUserStudentId = studentId;
-    const student = this.students().find((s) => s.id === studentId);
-    if (!student) {
-      return;
-    }
-    this.newUserFirstName = student.firstName;
-    this.newUserLastName = student.lastName;
-    this.newUserEmail ||= student.contactEmail ?? '';
-    this.newUserPhone ||= student.contactPhone ?? '';
-    if (this.editingUserId === null && !this.newUsername.trim()) {
-      this.newUsername = suggestUsername(student.firstName, student.lastName);
-    }
-  }
-
   protected startEditUser(user: AppUser): void {
     this.editingUserId = user.id;
     this.newUsername = user.username;
     this.newUserRoles = [...user.roles];
     this.newPassword = ''; // left blank = keep the current password
-    this.newUserFirstName = user.firstName;
-    this.newUserLastName = user.lastName;
-    this.newUserPhone = user.phone ?? '';
-    this.newUserEmail = user.email ?? '';
-    this.newUserStudentId = user.studentId;
+    this.newUserPersonId = user.personId;
+    this.userPerson.set(null);
+    this.peopleApi.getPeople().subscribe({
+      next: (people) => {
+        this.people.set(people);
+        this.setUserPerson(user.personId);
+      },
+      error: (err) => console.error('getPeople failed', err),
+    });
     this.notify.clear();
     this.newUserDialogVisible.set(true);
   }
 
   protected saveUser(): void {
-    if (!this.newUsername.trim()) {
+    if (!this.newUsername.trim() || this.userPersonProblems().length > 0) {
       return;
     }
-    const studentId = this.newUserRoles.includes('Student')
-      ? (this.newUserStudentId ?? undefined)
-      : undefined;
 
     if (this.editingUserId === null) {
-      if (!this.newPassword.trim() && !this.newUserEmail.trim()) {
-        return;
-      }
       const request: CreateUserRequest = {
         username: this.newUsername,
         password: this.newPassword || undefined,
-        firstName: this.newUserFirstName,
-        lastName: this.newUserLastName,
         roles: this.newUserRoles,
-        phone: this.newUserPhone || undefined,
-        email: this.newUserEmail || undefined,
-        studentId,
+        personId: this.newUserPersonId,
       };
       this.usersApi.addUser(request).subscribe({
         next: (user) => {
@@ -1160,13 +1049,9 @@ export class AdminPage {
 
     const request: UpdateUserRequest = {
       username: this.newUsername,
-      firstName: this.newUserFirstName,
-      lastName: this.newUserLastName,
       roles: this.newUserRoles,
+      personId: this.newUserPersonId,
       password: this.newPassword || undefined,
-      phone: this.newUserPhone || undefined,
-      email: this.newUserEmail || undefined,
-      studentId,
     };
     this.usersApi.updateUser(this.editingUserId, request).subscribe({
       next: () => {

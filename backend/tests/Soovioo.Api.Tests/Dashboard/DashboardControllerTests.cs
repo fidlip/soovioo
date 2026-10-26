@@ -49,10 +49,10 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
-        db.Students.Add(new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
+        db.Students.Add(new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, 999, "Admin").GetDashboard();
@@ -72,13 +72,13 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var otherTeacher = new User { Username = "ucitel2", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
         db.Users.AddRange(teacher, otherTeacher);
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         db.TimetableEntries.AddRange(
             new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1, TeacherId = teacher.Id },
@@ -107,13 +107,13 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parent);
         var subject = new Subject { Name = "Čeština", SchoolId = SchoolId };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(student, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, student.Id, SchoolId);
@@ -146,15 +146,15 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
-        var myStudent = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var myStudent = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
         var now = DateTimeOffset.UtcNow;
@@ -188,11 +188,11 @@ public class DashboardControllerTests
         using var db = NewDb();
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
-        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parent);
         await db.SaveChangesAsync();
-        var myStudent = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var myStudent = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(myStudent, otherStudent);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, myStudent.Id, SchoolId);
@@ -226,7 +226,7 @@ public class DashboardControllerTests
     public async Task StudentWithNoLinkedStudentGetsEmptyWidgetsNotAnError()
     {
         using var db = NewDb();
-        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
 

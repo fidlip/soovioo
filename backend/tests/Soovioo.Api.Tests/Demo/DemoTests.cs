@@ -114,11 +114,11 @@ public class DemoTests
 
         // Featured users exist with the right roles; nobody has a password.
         var users = await db.Users.IgnoreQueryFilters().Where(u => u.SchoolId == id).ToListAsync();
-        Assert.Equal(UserRole.Admin, users.Single(u => u.Id == featured.AdminId).Role);
-        Assert.Equal(UserRole.Teacher, users.Single(u => u.Id == featured.TeacherId).Role);
-        Assert.Equal(UserRole.Parent, users.Single(u => u.Id == featured.ParentId).Role);
-        Assert.Equal(UserRole.Student, users.Single(u => u.Id == featured.StudentId).Role);
-        Assert.Single(users, u => u.Role == UserRole.Admin);
+        Assert.Equal(UserRole.Admin, users.Single(u => u.Id == featured.AdminId).ActiveRole);
+        Assert.Equal(UserRole.Teacher, users.Single(u => u.Id == featured.TeacherId).ActiveRole);
+        Assert.Equal(UserRole.Parent, users.Single(u => u.Id == featured.ParentId).ActiveRole);
+        Assert.Equal(UserRole.Student, users.Single(u => u.Id == featured.StudentId).ActiveRole);
+        Assert.Single(users, u => u.ActiveRole == UserRole.Admin);
         Assert.All(users, u => Assert.Equal("", u.PasswordHash));
         var personUserIds = await db.Persons.IgnoreQueryFilters().Where(p => p.UserId != null).Select(p => p.UserId!.Value).ToListAsync();
         Assert.All(users, u => Assert.Contains(u.Id, personUserIds));
@@ -195,7 +195,7 @@ public class DemoTests
         using var db = NewDb();
         var school = new School { Name = "Ostrá", Slug = "ostra" };
         db.Schools.Add(school);
-        db.Students.Add(new Student { Person = new Person { FirstName = "A", LastName = "B", SchoolId = 1 }, SchoolId = 1 });
+        db.Students.Add(new StudentProfile { Person = new Person { FirstName = "A", LastName = "B", SchoolId = 1 }, SchoolId = 1 });
         await db.SaveChangesAsync();
 
         Assert.False(await new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment()))
@@ -209,7 +209,7 @@ public class DemoTests
     {
         using var db = NewDb();
         db.Schools.Add(new School { Name = "Ostrá", Slug = "ostra" });
-        db.Users.Add(new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = 1 });
+        db.Users.Add(new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = 1 });
         await db.SaveChangesAsync();
         var controller = Controller(db);
 

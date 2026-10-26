@@ -59,7 +59,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
             {
                 u.Id,
                 u.Username,
-                u.Role,
+                u.ActiveRole,
                 u.Person,
                 Qualification = u.Person!.TeacherProfile!.Qualification,
                 ClassOf = db.SchoolClasses.IgnoreQueryFilters().Where(c => c.ClassTeacherId == u.Id).Select(c => c.Name).FirstOrDefault(),
@@ -74,8 +74,8 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
             .Select(u => new DemoUserDto(
                 u.Id,
                 PersonNames.Display(u.Person, u.Username),
-                u.Role.ToString(),
-                u.Role switch
+                u.ActiveRole.ToString(),
+                u.ActiveRole switch
                 {
                     UserRole.Admin => "vedení školy",
                     UserRole.Teacher => string.Join(" · ", new[] { u.ClassOf is null ? null : $"třídní {u.ClassOf}", u.Qualification }.Where(x => x is not null)),

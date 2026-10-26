@@ -58,23 +58,23 @@ public class UsersController(
             return this.FieldError("username", "Uživatelské jméno už existuje.");
         }
 
-        var hasEmail = !string.IsNullOrWhiteSpace(request.Email);
-        var hasPassword = !string.IsNullOrWhiteSpace(request.Password);
-        if (!hasEmail && !hasPassword)
-        {
-            return this.FieldError("password", "Bez e-mailu je heslo povinné.");
-        }
-
         var (roles, rolesError) = ParseRoles(request.Roles);
         if (rolesError is not null)
         {
             return rolesError;
         }
 
-        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(roles, request.StudentId, currentUserId: null);
-        if (linkError is not null)
+        var (person, personError) = await ResolvePersonAsync(roles, request.PersonId, currentUserId: null);
+        if (personError is not null)
         {
-            return linkError;
+            return personError;
+        }
+
+        var hasEmail = !string.IsNullOrWhiteSpace(person!.Email);
+        var hasPassword = !string.IsNullOrWhiteSpace(request.Password);
+        if (!hasEmail && !hasPassword)
+        {
+            return this.FieldError("password", "Osoba nemá e-mail na pozvánku — heslo je povinné.");
         }
 
         var user = new User
@@ -82,7 +82,7 @@ public class UsersController(
             Username = request.Username,
             PasswordHash = string.Empty,
             Roles = roles,
-            Role = roles[0],
+            ActiveRole = roles[0],
             // Admin only ever manages their own school — never trust a
             // client-supplied SchoolId here.
             SchoolId = currentSchool.SchoolId,
@@ -99,23 +99,17 @@ public class UsersController(
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        // A pupil's account is their Person's (see Person.UserId).
-        if (linkedStudent is not null)
-        {
-            linkedStudent.Person!.UserId = user.Id;
-        }
-        await ApplyPersonAsync(user, roles, request.FirstName, request.LastName, request.Phone, request.Email);
+        person.UserId = user.Id;
         await db.SaveChangesAsync();
 
         var invite = hasEmail ? await TrySendInviteAsync(user) : (InviteOutcome?)null;
-        var dto = ToDto(user, linkedStudent?.Id) with { Invite = invite?.ToString() };
+        var dto = ToDto(user, person.Student?.Id) with { Invite = invite?.ToString() };
         return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, dto);
     }
 
     /// <summary>Password is optional — omit it to change only username/role.</summary>
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<UserDto>> UpdateUser(
-        int id, UpdateUserRequest request, [FromServices] PhotoStorage? photos = null)
+    public async Task<ActionResult<UserDto>> UpdateUser(int id, UpdateUserRequest request)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
@@ -145,45 +139,24 @@ public class UsersController(
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
 
-        var (linkedStudent, linkError) = await ResolveStudentLinkAsync(roles, request.StudentId, currentUserId: id);
-        if (linkError is not null)
+        var (person, personError) = await ResolvePersonAsync(roles, request.PersonId, currentUserId: id);
+        if (personError is not null)
         {
-            return linkError;
+            return personError;
         }
-
-        // A pupil's account is their Person's. Moving off a pupil leaves
-        // their Person behind (the account gets its own unless it moves to
-        // another pupil); moving onto a pupil drops the account's own Person
-        // — it was made with the wrong role.
-        string? removedPhotoKey = null;
-        if (user.Person is { } previousPerson && previousPerson.Id != linkedStudent?.PersonId)
+        // The Person the account was on stays as a record of its own.
+        if (user.Person is { } previous && previous.Id != person!.Id)
         {
-            if (await db.Students.AnyAsync(s => s.PersonId == previousPerson.Id))
-            {
-                previousPerson.UserId = null;
-                if (linkedStudent is null)
-                {
-                    db.Persons.Add(new Person { UserId = id, LastName = user.Username, SchoolId = user.SchoolId });
-                }
-            }
-            else if (linkedStudent is not null)
-            {
-                removedPhotoKey = previousPerson.PhotoKey;
-                RemovePerson(previousPerson);
-            }
+            previous.UserId = null;
         }
-        if (linkedStudent is not null)
-        {
-            linkedStudent.Person!.UserId = id;
-        }
+        person!.UserId = id;
 
         user.Username = request.Username;
         // Keep the active role when it survived the edit, otherwise fall
         // back to the first remaining one (ParseRoles sorts them).
-        var activeRole = roles.Contains(user.Role) ? user.Role : roles[0];
+        var activeRole = roles.Contains(user.ActiveRole) ? user.ActiveRole : roles[0];
         user.Roles = roles;
-        user.Role = activeRole;
-        await ApplyPersonAsync(user, roles, request.FirstName, request.LastName, request.Phone, request.Email);
+        user.ActiveRole = activeRole;
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             user.PasswordHash = Hasher.HashPassword(user, request.Password);
@@ -193,17 +166,16 @@ public class UsersController(
         }
 
         await db.SaveChangesAsync();
-        photos?.Delete(removedPhotoKey);
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             // Whoever knew the old password shouldn't stay signed in on it.
             await refreshTokens.RevokeAllForUserAsync(user.Id);
         }
-        return Ok(ToDto(user, linkedStudent?.Id));
+        return Ok(ToDto(user, person.Student?.Id));
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteUser(int id, [FromServices] PhotoStorage? photos = null)
+    public async Task<IActionResult> DeleteUser(int id)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null)
@@ -222,20 +194,9 @@ public class UsersController(
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
 
-        // The Person goes with the account — unless it's a pupil's, whose
-        // matrika stays (see Person.UserId).
-        var person = user.Person;
-        if (person is not null && await db.Students.AnyAsync(s => s.PersonId == person.Id))
-        {
-            person = null;
-        }
-        if (person is not null)
-        {
-            RemovePerson(person);
-        }
+        // The Person stays, as a record of its own (Osoby).
         db.Users.Remove(user);
         await db.SaveChangesAsync();
-        photos?.Delete(person?.PhotoKey);
         return NoContent();
     }
 
@@ -274,23 +235,6 @@ public class UsersController(
             return NotFound();
         }
         eraser.Reactivate(user);
-        await db.SaveChangesAsync();
-        return Ok(ToDto(user, await db.Students.Where(s => s.Person!.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
-    }
-
-    /// <summary>Teacher-only data (TeacherProfile) — currently the aprobace.</summary>
-    [HttpPut("{id:int}/teacher-profile")]
-    public async Task<ActionResult<UserDto>> SetTeacherProfile(int id, SetTeacherProfileRequest request)
-    {
-        var user = await db.Users.Include(u => u.Person).ThenInclude(p => p!.TeacherProfile)
-            .FirstOrDefaultAsync(u => u.Id == id);
-        if (user is null || !user.Roles.Contains(UserRole.Teacher))
-        {
-            return NotFound();
-        }
-
-        var profile = await db.EnsureTeacherProfileAsync(user);
-        profile.Qualification = string.IsNullOrWhiteSpace(request.Qualification) ? null : request.Qualification.Trim();
         await db.SaveChangesAsync();
         return Ok(ToDto(user, await db.Students.Where(s => s.Person!.UserId == id).Select(s => (int?)s.Id).FirstOrDefaultAsync()));
     }
@@ -409,38 +353,9 @@ public class UsersController(
 
     private static UserDto ToDto(User user, int? studentId) =>
         new(user.Id, user.Username, user.Person?.FirstName ?? "", user.Person?.LastName ?? "",
-            PersonNames.Display(user), user.Role.ToString(), RoleNames(user.Roles),
+            PersonNames.Display(user), user.ActiveRole.ToString(), RoleNames(user.Roles),
             user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification,
-            DeactivatedAt: user.DeactivatedAt);
-
-    /// <summary>Writes name/contacts to the account's Person and creates the
-    /// profile of every role it now has (profiles of removed roles stay, so
-    /// re-adding a role restores e.g. a parent's children).</summary>
-    private async Task ApplyPersonAsync(
-        User user, List<UserRole> roles, string? firstName, string? lastName, string? phone, string? email)
-    {
-        var person = await db.EnsurePersonAsync(user);
-        person.FirstName = firstName?.Trim() ?? "";
-        person.LastName = string.IsNullOrWhiteSpace(lastName) ? person.LastName : lastName.Trim();
-        person.Phone = phone;
-        person.Email = email;
-        if (roles.Contains(UserRole.Teacher))
-        {
-            await db.EnsureTeacherProfileAsync(user);
-        }
-        if (roles.Contains(UserRole.Parent))
-        {
-            await db.EnsureParentProfileAsync(user);
-        }
-    }
-
-    /// <summary>A member of staff's or parent's Person, with its profiles
-    /// and parent↔child links. Caller saves.</summary>
-    private void RemovePerson(Person person)
-    {
-        db.ParentStudents.RemoveRange(db.ParentStudents.Where(ps => ps.ParentProfileId == person.Id));
-        db.Persons.Remove(person);
-    }
+            DeactivatedAt: user.DeactivatedAt, PersonId: user.Person?.Id);
 
     private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
@@ -450,61 +365,63 @@ public class UsersController(
     private async Task<bool> IsLastAdminAsync(int userId) =>
         !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Contains(UserRole.Admin) && u.DeactivatedAt == null);
 
-    /// <summary>Validates and resolves the <see cref="Student"/> a Student-role
-    /// account must link to (null/error otherwise). Doesn't write anything —
-    /// callers put the account on the pupil's Person themselves once the rest of the
-    /// request has also validated, so a half-applied link never survives
-    /// an otherwise-rejected request. <paramref name="currentUserId"/> is the
-    /// user being updated (null when creating), so re-saving a Student
-    /// account with the same already-linked student isn't rejected as
-    /// "already taken".</summary>
-    private async Task<(Student? Student, ActionResult<UserDto>? Error)> ResolveStudentLinkAsync(
-        List<UserRole> roles, int? requestedStudentId, int? currentUserId)
+    /// <summary>The Person the account is to be: in the school, without
+    /// another account, with the profile each role needs — Teacher a
+    /// teacher's, Parent a parent's, Student a pupil's (Admin none). Doesn't
+    /// write anything. <paramref name="currentUserId"/> is the account being
+    /// edited (null when creating).</summary>
+    private async Task<(Person? Person, ActionResult<UserDto>? Error)> ResolvePersonAsync(
+        List<UserRole> roles, int? personId, int? currentUserId)
     {
-        if (!roles.Contains(UserRole.Student))
+        if (personId is not { } id)
         {
-            return (null, null);
+            return (null, this.FieldError("personId", "Vyberte osobu, jejíž je účet."));
         }
-
-        if (requestedStudentId is not { } studentId)
+        var person = await db.Persons
+            .Include(p => p.TeacherProfile)
+            .Include(p => p.ParentProfile)
+            .Include(p => p.Student)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (person is null)
         {
-            return (null, BadRequest("Role Student vyžaduje vybraného žáka."));
+            return (null, this.FieldError("personId", "Neznámá osoba."));
         }
-
-        var student = await db.Students.FindAsync(studentId);
-        if (student is null)
+        if (person.UserId is not null && person.UserId != currentUserId)
         {
-            return (null, BadRequest("Neznámý žák."));
+            return (null, this.FieldError("personId", "Tato osoba už má uživatelský účet."));
         }
-
-        if (student.Person!.UserId is not null && student.Person!.UserId != currentUserId)
+        var missing = new List<string>();
+        if (roles.Contains(UserRole.Teacher) && person.TeacherProfile is null)
         {
-            return (null, BadRequest("Tento žák už má uživatelský účet."));
+            missing.Add("učitele");
         }
-
-        return (student, null);
+        if (roles.Contains(UserRole.Parent) && person.ParentProfile is null)
+        {
+            missing.Add("rodiče");
+        }
+        if (roles.Contains(UserRole.Student) && person.Student is null)
+        {
+            missing.Add("žáka");
+        }
+        if (missing.Count > 0)
+        {
+            return (null, this.FieldError("personId", $"Osoba nemá profil {string.Join(", ", missing)} — doplňte ho."));
+        }
+        return (person, null);
     }
 }
 
-/// <param name="LastName">Empty = keep the current one (a new account
-/// falls back to the username).</param>
-/// <param name="Password">Optional when <paramref name="Email"/> is set —
-/// the account is then usable only through the invite.</param>
-public record CreateUserRequest(
-    string Username, string? Password, IReadOnlyList<string> Roles, string? Phone = null, string? Email = null,
-    int? StudentId = null, string? FirstName = null, string? LastName = null);
+/// <param name="PersonId">Whose account it is (Administrace → Osoby).</param>
+/// <param name="Password">Optional when the person has an e-mail — the
+/// account is then usable only through the invite.</param>
+public record CreateUserRequest(string Username, string? Password, IReadOnlyList<string> Roles, int? PersonId);
 
-public record UpdateUserRequest(
-    string Username, IReadOnlyList<string> Roles, string? Password = null, string? Phone = null, string? Email = null,
-    int? StudentId = null, string? FirstName = null, string? LastName = null);
+public record UpdateUserRequest(string Username, IReadOnlyList<string> Roles, int? PersonId, string? Password = null);
 
 /// <summary><see cref="Role"/> is the active one, <see cref="Roles"/> all
-/// the account may switch between. <see cref="StudentId"/> is set only for
-/// role Student — the one <see cref="Evidence.Student"/> this account logs
-/// in as.</summary>
-public record SetTeacherProfileRequest(string? Qualification);
-
+/// the account may switch between; name and contacts are its Person's.</summary>
 /// <param name="Name">Display name (first + last, or the username).</param>
+/// <param name="StudentId">Only for role Student — the pupil this account logs in as.</param>
 /// <param name="Qualification">Teachers' aprobace (TeacherProfile).</param>
 /// <param name="Invite">Only in <see cref="UsersController.AddUser"/>'s
 /// response, when the new account has an e-mail: an <see cref="InviteOutcome"/>.</param>
@@ -513,7 +430,8 @@ public record UserDto(
     string? Phone, string? Email, int? StudentId = null, string? Qualification = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null,
     string? Photo = null,
-    DateTimeOffset? DeactivatedAt = null);
+    DateTimeOffset? DeactivatedAt = null,
+    int? PersonId = null);
 
 public enum InviteOutcome
 {

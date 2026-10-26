@@ -1,0 +1,159 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="$event || closed.emit()"
+  [header]="!target()?.id ? 'Nová osoba' : 'Upravit osobu'"
+  [modal]="true"
+  styleClass="w-full max-w-2xl"
+>
+  @if (loading()) {
+  <p class="text-surface-500">Načítání…</p>
+  } @else {
+  <form class="flex flex-col gap-4" #personForm="ngForm" (ngSubmit)="save()">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="personFirstName"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Jméno</label
+        >
+        <input
+          pInputText
+          id="personFirstName"
+          name="personFirstName"
+          [(ngModel)]="firstName"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="personLastName"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Příjmení</label
+        >
+        <input
+          pInputText
+          id="personLastName"
+          name="lastName"
+          required
+          [(ngModel)]="lastName"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="personPhone"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >Telefon</label
+        >
+        <input
+          pInputText
+          type="tel"
+          id="personPhone"
+          name="personPhone"
+          [(ngModel)]="phone"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="personEmail"
+          class="text-sm font-medium text-surface-600 dark:text-surface-300"
+          >E-mail</label
+        >
+        <input
+          pInputText
+          type="email"
+          id="personEmail"
+          name="personEmail"
+          [(ngModel)]="email"
+        />
+      </div>
+    </div>
+
+    <fieldset
+      class="flex flex-col gap-2 border-t border-surface-200 pt-2 dark:border-surface-700"
+    >
+      <legend class="pr-2 text-sm font-medium">
+        <label class="flex items-center gap-2">
+          <p-checkbox
+            [binary]="true"
+            [(ngModel)]="isTeacher"
+            name="isTeacher"
+            [disabled]="locked().teacher"
+          />
+          Učitel
+        </label>
+      </legend>
+      @if (isTeacher) {
+      <input
+        pInputText
+        type="text"
+        placeholder="Aprobace (např. M, F)"
+        aria-label="Aprobace"
+        name="qualification"
+        [(ngModel)]="qualification"
+      />
+      }
+    </fieldset>
+
+    <fieldset
+      class="flex flex-col gap-2 border-t border-surface-200 pt-2 dark:border-surface-700"
+    >
+      <legend class="pr-2 text-sm font-medium">
+        <label class="flex items-center gap-2">
+          <p-checkbox
+            [binary]="true"
+            [(ngModel)]="isParent"
+            name="isParent"
+            [disabled]="locked().parent"
+          />
+          Rodič
+        </label>
+      </legend>
+      @if (isParent) {
+      <p-multiSelect
+        [options]="childOptions()"
+        optionLabel="label"
+        optionValue="id"
+        placeholder="Žádné děti přiřazeny"
+        ariaLabel="Děti"
+        display="chip"
+        [filter]="true"
+        [(ngModel)]="childIds"
+        name="childIds"
+        styleClass="w-full"
+        appendTo="body"
+      />
+      }
+    </fieldset>
+
+    <fieldset
+      class="flex flex-col gap-2 border-t border-surface-200 pt-2 dark:border-surface-700"
+    >
+      <legend class="pr-2 text-sm font-medium">
+        <label class="flex items-center gap-2">
+          <p-checkbox
+            [binary]="true"
+            [(ngModel)]="isStudent"
+            name="isStudent"
+            [disabled]="locked().student"
+          />
+          {{ 'Žák' | term }}
+        </label>
+      </legend>
+      @if (isStudent) {
+      <app-student-fields
+        [form]="studentForm"
+        [classes]="classes()"
+        [countries]="countries()"
+      />
+      }
+    </fieldset>
+
+    <div>
+      <app-submit-button
+        [form]="personForm"
+        [label]="!target()?.id ? 'Vytvořit osobu' : 'Uložit'"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>

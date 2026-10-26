@@ -94,8 +94,8 @@ public static class Visibility
 {
     /// <summary>Every setting there is. Staff names aren't one: the
     /// teachers of a class are always shown, as in Zprávy's contacts.
-    /// Pupils have no contacts of their own on record (<see cref="Student.ContactPhone"/>
-    /// is the guardians' emergency contact).</summary>
+    /// Pupils' own contacts are never shown to others
+    /// (<see cref="StudentProfile.ContactPhone"/> is the guardians' emergency contact).</summary>
     public static readonly IReadOnlyList<VisibilityKey> Keys =
     [
         .. Combine(VisibilityOwner.Staff, [VisibilityField.Phone, VisibilityField.Email, VisibilityField.Photo],

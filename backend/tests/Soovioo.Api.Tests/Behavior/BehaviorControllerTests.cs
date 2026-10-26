@@ -34,12 +34,12 @@ public class BehaviorControllerTests
         };
     }
 
-    private static async Task<(SchoolClass Class, Student Student)> SeedClassAndStudentAsync(AppDbContext db, int? classTeacherId = null)
+    private static async Task<(SchoolClass Class, StudentProfile Student)> SeedClassAndStudentAsync(AppDbContext db, int? classTeacherId = null)
     {
         var schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId, ClassTeacherId = classTeacherId };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         await db.SaveChangesAsync();
         return (schoolClass, student);
@@ -162,7 +162,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
 
@@ -183,7 +183,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic2", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
@@ -277,7 +277,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic4", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic4", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
@@ -305,7 +305,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic5", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic5", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         var record = await db.BehaviorRecords.FirstAsync();
@@ -326,7 +326,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, SchoolYearStartYear = 2026, HalfYear = Soovioo.Api.Behavior.SchoolHalfYear.First,
             Value = Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre, SetByName = "admin", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic3", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
 

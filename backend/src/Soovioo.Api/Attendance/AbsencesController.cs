@@ -117,7 +117,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         return NoContent();
     }
 
-    private async Task NotifyFamilyAsync(Absence absence, Student student, NotificationType type, string title)
+    private async Task NotifyFamilyAsync(Absence absence, StudentProfile student, NotificationType type, string title)
     {
         var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
         await notifier.NotifyAsync(
