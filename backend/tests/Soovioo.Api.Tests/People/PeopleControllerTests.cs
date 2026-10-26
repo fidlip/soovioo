@@ -118,7 +118,7 @@ public class PeopleControllerTests
 
         var result = await Controller().UpdatePerson(pupil.Id, new SavePersonRequest("Jan", "Novák"));
 
-        Assert.Contains("1 známku", Assert.IsType<BadRequestObjectResult>(result.Result).Value!.ToString());
+        Assert.Contains("1 známku", Assert.IsType<ConflictObjectResult>(result.Result).Value!.ToString());
         Assert.True(await db.Students.AnyAsync());
     }
 

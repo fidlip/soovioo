@@ -18,7 +18,9 @@ test('an account is a person’s: picked, completed with the missing profile, th
   const personDialog = page.getByRole('dialog', { name: 'Nová osoba' });
   await personDialog.getByRole('textbox', { name: /^Jméno/ }).fill('Eva');
   await personDialog.getByRole('textbox', { name: /^Příjmení/ }).fill(lastName);
-  await personDialog.getByRole('checkbox', { name: 'Učitel' }).check();
+  await personDialog.locator('p-multiselect[name="profiles"]').click();
+  await page.getByRole('option', { name: 'Učitel', exact: true }).click();
+  await page.keyboard.press('Escape');
   await personDialog.getByRole('textbox', { name: 'Aprobace' }).fill('M');
   await personDialog.getByRole('button', { name: 'Vytvořit osobu' }).click();
   await expect(personDialog).toBeHidden();
@@ -48,7 +50,9 @@ test('an account is a person’s: picked, completed with the missing profile, th
 
   await userDialog.getByRole('button', { name: 'Upravit osobu' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Upravit osobu' });
-  await editDialog.getByRole('checkbox', { name: 'Rodič' }).check();
+  await editDialog.locator('p-multiselect[name="profiles"]').click();
+  await page.getByRole('option', { name: 'Rodič', exact: true }).click();
+  await page.keyboard.press('Escape');
   // A child too — deleting her below takes the link along.
   await editDialog.locator('p-multiselect[name="childIds"]').click();
   await page.getByRole('option', { name: /^Jan Novák/ }).click();

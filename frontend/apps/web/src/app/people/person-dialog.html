@@ -9,6 +9,14 @@
   <p class="text-surface-500">Načítání…</p>
   } @else {
   <form class="flex flex-col gap-4" #personForm="ngForm" (ngSubmit)="save()">
+    @if (person(); as p) {
+    <div class="flex items-center gap-3">
+      <app-avatar [name]="p.name" [photoUrl]="photoUrl()" [size]="64" />
+      @if (!p.photo) {
+      <span class="text-sm text-surface-500">Bez fotky</span>
+      }
+    </div>
+    }
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div class="flex flex-col gap-1.5">
         <label
@@ -67,21 +75,35 @@
       </div>
     </div>
 
-    <fieldset
-      class="flex flex-col gap-2 border-t border-surface-200 pt-2 dark:border-surface-700"
-    >
-      <legend class="pr-2 text-sm font-medium">
-        <label class="flex items-center gap-2">
-          <p-checkbox
-            [binary]="true"
-            [(ngModel)]="isTeacher"
-            name="isTeacher"
-            [disabled]="locked().teacher"
-          />
-          Učitel
-        </label>
-      </legend>
-      @if (isTeacher) {
+    <div class="flex flex-col gap-1.5">
+      <label
+        for="personProfiles"
+        class="text-sm font-medium text-surface-600 dark:text-surface-300"
+        >Profily</label
+      >
+      <p-multiSelect
+        inputId="personProfiles"
+        [options]="profileOptions()"
+        optionLabel="label"
+        optionValue="value"
+        optionDisabled="disabled"
+        [ngModel]="profiles"
+        (ngModelChange)="setProfiles($event)"
+        name="profiles"
+        placeholder="Bez profilu"
+        display="chip"
+        [showHeader]="false"
+        styleClass="w-full"
+        appendTo="body"
+      />
+      @for (reason of lockReasons(); track $index) {
+      <small class="text-surface-500">{{ reason }}</small>
+      }
+    </div>
+
+    @if (profiles.includes('teacher')) {
+    <section class="flex flex-col gap-2" aria-label="Učitel">
+      <h3 class="text-sm font-medium">Učitel</h3>
       <input
         pInputText
         type="text"
@@ -90,24 +112,10 @@
         name="qualification"
         [(ngModel)]="qualification"
       />
-      }
-    </fieldset>
-
-    <fieldset
-      class="flex flex-col gap-2 border-t border-surface-200 pt-2 dark:border-surface-700"
-    >
-      <legend class="pr-2 text-sm font-medium">
-        <label class="flex items-center gap-2">
-          <p-checkbox
-            [binary]="true"
-            [(ngModel)]="isParent"
-            name="isParent"
-            [disabled]="locked().parent"
-          />
-          Rodič
-        </label>
-      </legend>
-      @if (isParent) {
+    </section>
+    } @if (profiles.includes('parent')) {
+    <section class="flex flex-col gap-2" aria-label="Rodič">
+      <h3 class="text-sm font-medium">Rodič</h3>
       <p-multiSelect
         [options]="childOptions()"
         optionLabel="label"
@@ -121,31 +129,17 @@
         styleClass="w-full"
         appendTo="body"
       />
-      }
-    </fieldset>
-
-    <fieldset
-      class="flex flex-col gap-2 border-t border-surface-200 pt-2 dark:border-surface-700"
-    >
-      <legend class="pr-2 text-sm font-medium">
-        <label class="flex items-center gap-2">
-          <p-checkbox
-            [binary]="true"
-            [(ngModel)]="isStudent"
-            name="isStudent"
-            [disabled]="locked().student"
-          />
-          {{ 'Žák' | term }}
-        </label>
-      </legend>
-      @if (isStudent) {
+    </section>
+    } @if (profiles.includes('student')) {
+    <section class="flex flex-col gap-2" [attr.aria-label]="'Žák' | term">
+      <h3 class="text-sm font-medium">{{ 'Žák' | term }}</h3>
       <app-student-fields
         [form]="studentForm"
         [classes]="classes()"
         [countries]="countries()"
       />
-      }
-    </fieldset>
+    </section>
+    }
 
     <div>
       <app-submit-button

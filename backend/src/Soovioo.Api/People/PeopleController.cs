@@ -34,7 +34,8 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpPost]
-    public async Task<ActionResult<PersonDto>> AddPerson(SavePersonRequest request)
+    public async Task<ActionResult<PersonDto>> AddPerson(
+        SavePersonRequest request, [FromServices] PhotoAccess? photoAccess = null)
     {
         var person = new Person { SchoolId = currentSchool.SchoolId!.Value };
         db.Persons.Add(person);
@@ -43,12 +44,13 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             return error;
         }
         await db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetPerson), new { id = person.Id }, (await ToDtosAsync([person], null))[0]);
+        return CreatedAtAction(nameof(GetPerson), new { id = person.Id }, (await ToDtosAsync([person], photoAccess))[0]);
     }
 
     [HttpPut("{id:int}")]
     public async Task<ActionResult<PersonDto>> UpdatePerson(
-        int id, SavePersonRequest request, [FromServices] PhotoStorage? photos = null)
+        int id, SavePersonRequest request,
+        [FromServices] PhotoStorage? photos = null, [FromServices] PhotoAccess? photoAccess = null)
     {
         var person = await (await ListedAsync()).FirstOrDefaultAsync(p => p.Id == id);
         if (person is null)
@@ -61,7 +63,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         }
         await db.SaveChangesAsync();
         photos?.Delete(removedPhotoKey);
-        return Ok((await ToDtosAsync([person], null))[0]);
+        return Ok((await ToDtosAsync([person], photoAccess))[0]);
     }
 
     /// <summary>Only someone without an account (delete that first); a pupil
@@ -153,7 +155,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             var history = await StudentRecords.HistoryOfAsync(db, removed);
             if (history.Count > 0)
             {
-                return BadRequest(await StudentRecords.RefusalAsync(db, removed, history, profileOnly: true));
+                return Conflict(await StudentRecords.RefusalAsync(db, removed, history, profileOnly: true));
             }
         }
         if (request.Student is { } matrika && !await db.SchoolClasses.AnyAsync(c => c.Id == matrika.SchoolClassId))
