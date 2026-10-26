@@ -77,7 +77,7 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await DeleteAsync(db.DemoEmails.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.RefreshTokens.IgnoreQueryFilters().Where(x => x.User!.SchoolId == schoolId));
         await DeleteAsync(db.Persons.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && (keepUserId == null || x.UserId != keepUserId)));
-        await DeleteAsync(db.Users.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.Id != keepUserId));
+        await DeleteAsync(db.Users.IgnoreQueryFilters().IgnoreAutoIncludes().Where(x => x.SchoolId == schoolId && x.Id != keepUserId));
         // The kept account's photo goes with the school's files below.
         foreach (var kept in await db.Persons.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.PhotoKey != null).ToListAsync())
         {
@@ -86,6 +86,8 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await db.SaveChangesAsync();
         if (deleteSchool)
         {
+            await DeleteAsync(db.RolePermissions.Where(x => db.Roles.IgnoreQueryFilters().Any(r => r.Id == x.RoleId && r.SchoolId == schoolId)));
+            await DeleteAsync(db.Roles.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
             await ForgetVisitorAsync(schoolId);
             await DeleteAsync(db.Schools.IgnoreQueryFilters().Where(x => x.Id == schoolId));
         }

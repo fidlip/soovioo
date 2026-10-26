@@ -17,6 +17,7 @@ import {
   BehaviorRecord,
   BehaviorRecordType,
   DateFormatPipe,
+  Permission,
   SchoolClass,
   SchoolClassesApiService,
   SchoolHalfYear,
@@ -154,7 +155,11 @@ export class BehaviorPage {
   }
 
   protected canManageBehavior(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return (
+      this.authApi.can('BehaviorPraise') ||
+      this.authApi.can('BehaviorClassTeacher') ||
+      this.authApi.can('BehaviorDirector')
+    );
   }
 
   protected recordTypeLabel(type: BehaviorRecordType): string {
@@ -195,63 +200,50 @@ export class BehaviorPage {
       // that just 403'd on click.
       return [];
     }
-    const base: { value: BehaviorRecordType; label: string }[] = [
-      { value: 'Pochvala', label: RECORD_TYPE_LABELS.Pochvala },
-      { value: 'Poznamka', label: RECORD_TYPE_LABELS.Poznamka },
+    const groups: [Permission, BehaviorRecordType[]][] = [
+      ['BehaviorPraise', ['Pochvala', 'Poznamka']],
+      [
+        'BehaviorClassTeacher',
+        ['NapomenutiTridnihoUcitele', 'DutkaTridnihoUcitele'],
+      ],
+      ['BehaviorDirector', ['NapomenutiReditele', 'DutkaReditele']],
     ];
-    if (this.authApi.isAdmin()) {
-      return [
-        ...base,
-        {
-          value: 'NapomenutiTridnihoUcitele',
-          label: RECORD_TYPE_LABELS.NapomenutiTridnihoUcitele,
-        },
-        {
-          value: 'DutkaTridnihoUcitele',
-          label: RECORD_TYPE_LABELS.DutkaTridnihoUcitele,
-        },
-        {
-          value: 'NapomenutiReditele',
-          label: RECORD_TYPE_LABELS.NapomenutiReditele,
-        },
-        { value: 'DutkaReditele', label: RECORD_TYPE_LABELS.DutkaReditele },
-      ];
+    return groups
+      .filter(([permission]) => this.reaches(permission, studentId))
+      .flatMap(([, types]) => types)
+      .map((value) => ({ value, label: RECORD_TYPE_LABELS[value] }));
+  }
+
+  /** Whether the permission reaches the pupil's class — "own classes" are
+   * checked by the server, which knows the timetable. */
+  private reaches(permission: Permission, studentId: number | null): boolean {
+    const scope = this.authApi.scope(permission);
+    if (scope !== 'ClassTeacher') {
+      return scope !== 'None';
     }
     const student =
       studentId !== null ? this.studentsById().get(studentId) : undefined;
-    if (student && this.myClassTeacherClassIds().has(student.schoolClassId)) {
-      return [
-        ...base,
-        {
-          value: 'NapomenutiTridnihoUcitele',
-          label: RECORD_TYPE_LABELS.NapomenutiTridnihoUcitele,
-        },
-        {
-          value: 'DutkaTridnihoUcitele',
-          label: RECORD_TYPE_LABELS.DutkaTridnihoUcitele,
-        },
-      ];
-    }
-    return base;
+    return (
+      !!student && this.myClassTeacherClassIds().has(student.schoolClassId)
+    );
   }
 
   /** Same idea as availableRecordTypes, for the classification value picker. */
   protected availableClassificationValues(
     studentId: number | null,
   ): { value: BehaviorClassificationValue; label: string }[] {
-    if (this.authApi.isAdmin()) {
-      return [
-        { value: 'VelmiDobre', label: CLASSIFICATION_LABELS.VelmiDobre },
-        { value: 'Uspokojive', label: CLASSIFICATION_LABELS.Uspokojive },
-        { value: 'Neuspokojive', label: CLASSIFICATION_LABELS.Neuspokojive },
-      ];
-    }
-    const student =
-      studentId !== null ? this.studentsById().get(studentId) : undefined;
-    if (student && this.myClassTeacherClassIds().has(student.schoolClassId)) {
-      return [{ value: 'VelmiDobre', label: CLASSIFICATION_LABELS.VelmiDobre }];
-    }
-    return [];
+    const values: BehaviorClassificationValue[] = [
+      ...(this.reaches('BehaviorClassTeacher', studentId)
+        ? (['VelmiDobre'] as const)
+        : []),
+      ...(this.reaches('BehaviorDirector', studentId)
+        ? (['Uspokojive', 'Neuspokojive'] as const)
+        : []),
+    ];
+    return values.map((value) => ({
+      value,
+      label: CLASSIFICATION_LABELS[value],
+    }));
   }
 
   /** Approximates the backend's delete rule the same way — real

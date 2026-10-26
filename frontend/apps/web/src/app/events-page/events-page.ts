@@ -153,10 +153,14 @@ export class EventsPage {
   private readonly calendar = viewChild<FullCalendarComponent>('calendar');
 
   protected readonly viewOptions = VIEW_OPTIONS;
-  protected readonly audienceOptions = AUDIENCE_OPTIONS;
+  /** "Všichni" and other teachers only for whom events reach the whole school. */
+  protected readonly wholeSchool =
+    this.authApi.scope('EventsWrite') === 'School';
+  protected readonly audienceOptions = AUDIENCE_OPTIONS.filter(
+    (o) => this.wholeSchool || o.value !== 'Everyone',
+  );
   protected readonly colorPalette = COLOR_PALETTE;
   protected readonly activeView = signal(readInitialView());
-  protected readonly isAdmin = this.authApi.isAdmin();
 
   protected readonly events = signal<SchoolEvent[]>([]);
   protected readonly feedUrl = signal<string | null>(null);
@@ -264,7 +268,7 @@ export class EventsPage {
   }
 
   protected canManageEvents(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('EventsWrite');
   }
 
   /** p-autoComplete's completeMethod — filters the already-loaded classroom

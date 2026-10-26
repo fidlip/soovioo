@@ -263,14 +263,11 @@ export class AbsencesPage {
   }
 
   protected canManageAbsences(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('AbsencesWrite');
   }
 
-  /** Unlike Parent, a Student may never submit their own excuse — the
-   * backend rejects it too (AbsencesController.SubmitExcuse), this just
-   * keeps the button from appearing in the first place. */
   protected canSubmitExcuse(): boolean {
-    return !this.authApi.isStudent();
+    return this.authApi.can('AbsencesExcuse');
   }
 
   protected statusSeverity(

@@ -132,7 +132,7 @@ export class MessagesPage {
   protected readonly contacts = signal<Contact[]>([]);
   protected readonly error = signal<string | null>(null);
   protected readonly myUserId = this.authApi.getUserId();
-  protected readonly isStaff = this.authApi.isTeacherOrAdmin();
+  protected readonly isStaff = this.authApi.isStaff();
 
   protected readonly readFilterOptions = READ_FILTER_OPTIONS;
   /** Unread first — what usually needs attention; "Vše" one click away. */
@@ -143,10 +143,12 @@ export class MessagesPage {
       : this.conversations(),
   );
 
-  protected readonly modeOptions = MODE_OPTIONS.filter(
-    (o) =>
-      this.authApi.isAdmin() ||
-      (o.value !== 'school' && o.value !== 'schoolStudents'),
+  protected readonly modeOptions = MODE_OPTIONS.filter((o) =>
+    o.value === 'school' || o.value === 'schoolStudents'
+      ? this.authApi.can('MessagesBroadcastSchool')
+      : o.value === 'class' || o.value === 'classStudents'
+        ? this.authApi.can('MessagesBroadcastClass')
+        : true,
   ).map((o) => ({ ...o, label: this.term(o.label) }));
 
   /** Open bulk send (sender's view) — alternative to `selected`. */

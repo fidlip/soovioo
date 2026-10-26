@@ -1,3 +1,4 @@
+import { RoleRef } from '../auth/role.model';
 import { CreateStudentRequest, Student } from '../evidence/student.model';
 
 /** Someone at the school — staff, a parent, a pupil — with the profiles
@@ -22,7 +23,7 @@ export interface Person {
 export interface PersonAccount {
   userId: number;
   username: string;
-  roles: string[];
+  roles: RoleRef[];
   deactivatedAt: string | null;
 }
 

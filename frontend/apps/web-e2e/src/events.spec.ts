@@ -37,21 +37,25 @@ async function createEvent(
 // events behind in a local database.
 const runId = Date.now();
 
-// Two events by the teacher — one for everyone, one private — checked from
-// the parent's side, then removed. Titles are matched with .first(): an
+// Two events — one for everyone (only those whose events reach the whole
+// school make those: the admin), one private by the teacher — checked from
+// the parent's side, then removed by whoever made them. Titles are matched with .first(): an
 // event running past midnight ("now + 1 h" late in the evening) is listed
 // under both days.
 test.describe.serial('school events', () => {
   const publicTitle = `E2E výlet ${runId}`;
   const privateTitle = `E2E poznámka ${runId}`;
 
-  test('teacher creates a public and a private event', async ({ page }) => {
-    await login(page, 'ucitel', 'ucitel123');
-
+  test('admin creates a public event, the teacher a private one', async ({
+    page,
+  }) => {
+    await login(page, 'admin', 'admin123');
     await createEvent(page, publicTitle, 'Všichni');
-    await createEvent(page, privateTitle, 'Pouze já');
-
     await expect(page.getByText(publicTitle).first()).toBeVisible();
+
+    await page.context().clearCookies();
+    await login(page, 'ucitel', 'ucitel123');
+    await createEvent(page, privateTitle, 'Pouze já');
     await expect(page.getByText(privateTitle).first()).toBeVisible();
   });
 
@@ -73,10 +77,13 @@ test.describe.serial('school events', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
-  test('teacher deletes both events', async ({ page }) => {
-    await login(page, 'ucitel', 'ucitel123');
-
-    for (const title of [publicTitle, privateTitle]) {
+  test('each deletes their own event', async ({ page }) => {
+    for (const [user, title] of [
+      ['ucitel', privateTitle],
+      ['admin', publicTitle],
+    ]) {
+      await page.context().clearCookies();
+      await login(page, user, `${user}123`);
       await page.getByText(title).first().click();
       const dialog = page.getByRole('dialog', { name: 'Upravit akci' });
       await dialog.getByRole('button', { name: 'Smazat' }).click();

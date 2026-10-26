@@ -102,8 +102,8 @@
           @if (person.account; as account) {
           <div class="flex flex-wrap items-center gap-1">
             <span>{{ account.username }}</span>
-            @for (role of account.roles; track role) {
-            <p-tag [value]="roleLabel(role)" />
+            @for (role of account.roles; track role.id) {
+            <p-tag [value]="role.name" />
             } @if (account.deactivatedAt) {
             <p-tag value="Neaktivní" severity="secondary" />
             }

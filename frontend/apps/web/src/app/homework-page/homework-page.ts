@@ -82,6 +82,9 @@ export class HomeworkPage {
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly timetableApi = inject(TimetableApiService);
   protected readonly authApi = inject(AuthApiService);
+  /** Any class and subject — otherwise what the timetable says they teach. */
+  protected readonly anyClass =
+    this.authApi.scope('HomeworkWrite') === 'School';
 
   protected readonly homeworkItems = signal<Homework[]>([]);
   protected readonly students = signal<Student[]>([]);
@@ -178,7 +181,7 @@ export class HomeworkPage {
       next: (schoolClasses) => this.schoolClasses.set(schoolClasses),
       error: (err) => console.error('getSchoolClasses failed', err),
     });
-    if (this.authApi.isTeacher()) {
+    if (!this.anyClass) {
       const teacherId = this.authApi.getUserId();
       if (teacherId) {
         this.timetableApi.getTeacherTimetable(teacherId).subscribe({
@@ -190,7 +193,7 @@ export class HomeworkPage {
   }
 
   protected canManageHomework(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('HomeworkWrite');
   }
 
   protected filteredHomework(): Homework[] {
@@ -261,11 +264,9 @@ export class HomeworkPage {
     this.selectedAssignmentKey =
       this.teachingAssignmentOptions()[0]?.key ?? null;
     this.newSchoolClassId.set(
-      this.authApi.isAdmin() ? (this.schoolClasses()[0]?.id ?? null) : null,
+      this.anyClass ? (this.schoolClasses()[0]?.id ?? null) : null,
     );
-    this.newSubjectId = this.authApi.isAdmin()
-      ? (this.subjects()[0]?.id ?? null)
-      : null;
+    this.newSubjectId = this.anyClass ? (this.subjects()[0]?.id ?? null) : null;
     this.onAssignmentChange();
     this.newText = '';
     this.newDueDate = new Date();

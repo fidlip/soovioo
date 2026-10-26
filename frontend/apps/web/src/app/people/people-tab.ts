@@ -14,7 +14,6 @@ import {
   PeopleApiService,
   Person,
   PhotosApiService,
-  ROLE_LABELS,
   Student,
   localizeStudentTerm,
 } from '@soovioo/shared';
@@ -130,13 +129,6 @@ export class PeopleTab {
     });
   }
 
-  protected roleLabel(role: string): string {
-    return localizeStudentTerm(
-      ROLE_LABELS[role] ?? role,
-      this.authApi.getSchoolType(),
-    );
-  }
-
   protected childNames(person: Person): string {
     return (person.parent?.children ?? []).map((c) => c.name).join(', ');
   }
@@ -150,8 +142,7 @@ export class PeopleTab {
   protected canSetPhoto(person: Person): boolean {
     return (
       !!person.student ||
-      (!!person.account &&
-        person.account.roles.some((r) => r === 'Teacher' || r === 'Admin'))
+      (!!person.account && person.account.roles.some((r) => r.kind === 'Staff'))
     );
   }
 

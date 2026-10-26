@@ -1,0 +1,215 @@
+<p-card header="Role">
+  <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+    <p class="m-0 text-sm text-surface-500">
+      Co která role smí v jednotlivých agendách. Změna platí hned pro všechny,
+      kdo roli mají.
+    </p>
+    <p-button
+      label="Nová role"
+      icon="pi pi-plus"
+      size="small"
+      (onClick)="startCreate()"
+    />
+  </div>
+  <p-table [value]="roles()" dataKey="id">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Název</th>
+        <th>Druh</th>
+        <th>Práva</th>
+        <th>Účty</th>
+        <th><span class="sr-only">Akce</span></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-role>
+      <tr>
+        <td>
+          <div class="flex flex-wrap items-center gap-2">
+            {{ role.name }} @if (role.builtIn) {
+            <p-tag value="vestavěná" severity="secondary" />
+            }
+          </div>
+        </td>
+        <td>{{ kindLabel(role.kind) }}</td>
+        <td class="text-surface-500">{{ summary(role) }}</td>
+        <td>{{ role.userCount }}</td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <p-button
+              icon="pi pi-pencil"
+              ariaLabel="Upravit"
+              title="Upravit"
+              size="small"
+              [text]="true"
+              (onClick)="startEdit(role)"
+            />
+            @if (!role.builtIn) {
+            <p-button
+              icon="pi pi-trash"
+              ariaLabel="Smazat"
+              title="Smazat"
+              size="small"
+              severity="danger"
+              [text]="true"
+              (onClick)="startDelete(role)"
+            />
+            }
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-card>
+
+<p-dialog
+  [visible]="creating()"
+  (visibleChange)="!$event && creating.set(false)"
+  header="Nová role"
+  [modal]="true"
+  styleClass="w-full max-w-md"
+>
+  <form class="flex flex-col gap-4" #createForm="ngForm" (ngSubmit)="create()">
+    <div class="flex flex-col gap-1">
+      <label for="role-name">Název</label>
+      <input
+        pInputText
+        id="role-name"
+        name="name"
+        required
+        [(ngModel)]="newName"
+        placeholder="Např. Asistent pedagoga"
+      />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="role-kind">Druh</label>
+      <p-select
+        inputId="role-kind"
+        name="kind"
+        [options]="kindOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="newKind"
+        (ngModelChange)="newCopyFrom = null"
+        appendTo="body"
+      />
+      <small class="text-surface-500"
+        >Podle druhu se řídí viditelnost údajů, adresář a upozornění. Později ho
+        nejde změnit.</small
+      >
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="role-copy">Práva podle role</label>
+      <p-select
+        inputId="role-copy"
+        name="copyFrom"
+        [options]="copyOptions()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="newCopyFrom"
+        [showClear]="true"
+        placeholder="Bez práv"
+        appendTo="body"
+      />
+    </div>
+    <div class="flex justify-end">
+      <app-submit-button [form]="createForm" label="Vytvořit" />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="editing() !== null"
+  (visibleChange)="!$event && editing.set(null)"
+  [header]="'Role ' + (editing()?.name ?? '')"
+  [modal]="true"
+  styleClass="w-full max-w-2xl"
+>
+  @if (editing(); as role) {
+  <form class="flex flex-col gap-4" #editForm="ngForm" (ngSubmit)="saveEdit()">
+    <div class="flex flex-col gap-1">
+      <label for="edit-role-name">Název</label>
+      <input
+        pInputText
+        id="edit-role-name"
+        name="name"
+        required
+        [(ngModel)]="editName"
+      />
+    </div>
+    @if (role.builtIn === 'Admin') {
+    <p class="m-0 text-sm text-surface-500">
+      Správu školy (osoby, účty, role, nastavení školy) má Admin vždy. Ostatní
+      práva mu jde ubrat — třeba když je správcem někdo mimo vedení školy.
+    </p>
+    }
+    <div class="flex flex-col gap-4">
+      @for (group of agendas(); track group.agenda) { @if (agendaApplies(group,
+      role.kind)) {
+      <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+        <legend class="mb-1 text-sm font-semibold">{{ group.agenda }}</legend>
+        @for (info of group.rows; track info.permission) { @if (applies(info,
+        role.kind)) {
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label [for]="'perm-' + info.permission" class="text-sm"
+            >{{ info.label }}</label
+          >
+          <p-select
+            [inputId]="'perm-' + info.permission"
+            [name]="info.permission"
+            [options]="scopeOptions(info, role.kind)"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="editPermissions[info.permission]"
+            styleClass="w-40"
+            appendTo="body"
+          />
+        </div>
+        } }
+      </fieldset>
+      } }
+    </div>
+    <div class="flex justify-end">
+      <app-submit-button [form]="editForm" label="Uložit" />
+    </div>
+  </form>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="deleting() !== null"
+  (visibleChange)="!$event && deleting.set(null)"
+  [header]="'Smazat roli ' + (deleting()?.name ?? '')"
+  [modal]="true"
+  styleClass="w-full max-w-md"
+>
+  @if (deleting(); as role) {
+  <form
+    class="flex flex-col gap-4"
+    #deleteForm="ngForm"
+    (ngSubmit)="confirmDelete()"
+  >
+    @if (role.userCount > 0) {
+    <p class="m-0">
+      Roli má {{ role.userCount }} {{ role.userCount === 1 ? 'účet' :
+      role.userCount < 5 ? 'účty' : 'účtů' }}. Na jakou roli je přeřadit?
+    </p>
+    <p-select
+      inputId="reassign"
+      name="reassign"
+      ariaLabel="Přeřadit na roli"
+      [options]="reassignOptions(role)"
+      optionLabel="name"
+      optionValue="id"
+      [(ngModel)]="reassignTo"
+      required
+      appendTo="body"
+    />
+    } @else {
+    <p class="m-0">Roli nikdo nemá. Opravdu ji smazat?</p>
+    }
+    <div class="flex justify-end">
+      <app-submit-button [form]="deleteForm" label="Smazat" severity="danger" />
+    </div>
+  </form>
+  }
+</p-dialog>

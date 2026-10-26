@@ -9,9 +9,17 @@ import {
   DemoApiService,
   DemoContact,
   DemoFeedback,
-  ROLE_LABELS,
 } from '@soovioo/shared';
 import { NotifyService } from '../notify.service';
+
+/** Values recorded before roles became the school's own (now the role's name). */
+const LEGACY_ROLE_LABELS: Record<string, string> = {
+  SuperAdmin: 'Superadmin',
+  Admin: 'Admin',
+  Teacher: 'Učitel',
+  Parent: 'Rodič',
+  Student: 'Žák',
+};
 
 /** Správa škol → what the "Vyzkoušet" demos brought: contacts (CSV) and
  * feedback. */
@@ -26,7 +34,7 @@ export class DemoAdminPanel {
 
   protected readonly contacts = signal<DemoContact[]>([]);
   protected readonly feedback = signal<DemoFeedback[]>([]);
-  protected readonly roleLabels = ROLE_LABELS;
+  protected readonly roleLabels = LEGACY_ROLE_LABELS;
 
   constructor() {
     this.demoApi.contacts().subscribe({

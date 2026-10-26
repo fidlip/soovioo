@@ -11,7 +11,8 @@ export interface LoginRequest {
 export interface LoginResponse {
   token: string;
   username: string;
-  role: 'SuperAdmin' | 'Admin' | 'Teacher' | 'Parent' | 'Student';
+  /** Kind of the active role, or SuperAdmin. */
+  role: 'SuperAdmin' | 'Staff' | 'Parent' | 'Student';
   schoolName: string | null;
   schoolSlug: string | null;
   /** Mobile only — null when it was set as an httpOnly cookie (web). */

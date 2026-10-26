@@ -118,9 +118,9 @@ export class PersonDialog {
     const p = this.person();
     const roles = p?.account?.roles ?? [];
     return {
-      teacher: !!p?.teacher && roles.includes('Teacher'),
-      parent: !!p?.parent && roles.includes('Parent'),
-      student: !!p?.student && roles.includes('Student'),
+      teacher: !!p?.teacher && roles.some((r) => r.builtIn === 'Teacher'),
+      parent: !!p?.parent && roles.some((r) => r.kind === 'Parent'),
+      student: !!p?.student && roles.some((r) => r.kind === 'Student'),
     };
   });
 

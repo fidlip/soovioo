@@ -40,7 +40,7 @@ export class HomeComponent {
   }
 
   protected canAddGrade(): boolean {
-    return this.authApi.isTeacherOrAdmin();
+    return this.authApi.can('GradesWrite');
   }
 
   protected addDemoGrade(): void {
