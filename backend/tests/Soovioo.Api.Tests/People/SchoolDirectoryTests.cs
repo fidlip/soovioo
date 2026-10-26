@@ -28,7 +28,7 @@ public class SchoolDirectoryTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity([
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.Role.ToString()),
+                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
                     ])),
                 },
             },
@@ -36,7 +36,7 @@ public class SchoolDirectoryTests
 
     private sealed record Fixture(
         User TeacherA, User TeacherB, User Parent, User OtherParent, User Pupil,
-        Student Child, Student Classmate, Student Stranger, SchoolClass ClassA, SchoolClass ClassB);
+        StudentProfile Child, StudentProfile Classmate, StudentProfile Stranger, SchoolClass ClassA, SchoolClass ClassB);
 
     /// <summary>The demo's sharing (names and contacts in "Moje třídy" by
     /// default, at most the whole school). 1.A: teacher A, the parent's child
@@ -46,7 +46,7 @@ public class SchoolDirectoryTests
     {
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
         db.VisibilityRules.AddRange(Visibility.DemoRules(SchoolId));
-        User NewUser(string name, UserRole role) => new() { Username = name, PasswordHash = "x", Role = role, SchoolId = SchoolId };
+        User NewUser(string name, UserRole role) => new() { Username = name, PasswordHash = "x", ActiveRole = role, SchoolId = SchoolId };
         var teacherA = NewUser("ucitelA", UserRole.Teacher);
         var teacherB = NewUser("ucitelB", UserRole.Teacher);
         var parent = NewUser("rodic", UserRole.Parent);
@@ -63,9 +63,9 @@ public class SchoolDirectoryTests
         var classB = new SchoolClass { Name = "2.B", SchoolId = SchoolId, ClassTeacherId = teacherB.Id };
         db.SchoolClasses.AddRange(classA, classB);
         await db.SaveChangesAsync();
-        var child = new Student { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
-        var classmate = new Student { Person = new Person { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
-        var stranger = new Student { Person = new Person { FirstName = "Adam", LastName = "Jiný", SchoolId = SchoolId }, SchoolClassId = classB.Id, SchoolId = SchoolId };
+        var child = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
+        var classmate = new StudentProfile { Person = new Person { FirstName = "Eva", LastName = "Malá", SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
+        var stranger = new StudentProfile { Person = new Person { FirstName = "Adam", LastName = "Jiný", SchoolId = SchoolId }, SchoolClassId = classB.Id, SchoolId = SchoolId };
         db.Students.AddRange(child, classmate, stranger);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);

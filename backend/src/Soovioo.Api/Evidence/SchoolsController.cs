@@ -86,7 +86,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         {
             Username = request.AdminUsername,
             PasswordHash = string.Empty,
-            Role = UserRole.Admin,
+            ActiveRole = UserRole.Admin,
             SchoolId = school.Id,
         };
         admin.PasswordHash = Hasher.HashPassword(admin, request.AdminPassword);

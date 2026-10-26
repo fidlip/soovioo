@@ -253,7 +253,7 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
         {
             Username = Soovioo.Api.Support.SupportController.BuiltInUsername,
             PasswordHash = "",
-            Role = UserRole.SuperAdmin,
+            ActiveRole = UserRole.SuperAdmin,
             SchoolId = null,
             MustChangePassword = true,
         };
@@ -264,11 +264,11 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
     }
     var demoUsers = new[]
     {
-        new User { Username = Soovioo.Api.Support.SupportController.BuiltInUsername, PasswordHash = "", Role = UserRole.SuperAdmin, SchoolId = null },
-        new User { Username = "admin", PasswordHash = "", Role = UserRole.Admin, SchoolId = demoSchoolId },
-        new User { Username = "ucitel", PasswordHash = "", Role = UserRole.Teacher, SchoolId = demoSchoolId },
-        new User { Username = "rodic", PasswordHash = "", Role = UserRole.Parent, SchoolId = demoSchoolId },
-        new User { Username = "zak", PasswordHash = "", Role = UserRole.Student, SchoolId = demoSchoolId },
+        new User { Username = Soovioo.Api.Support.SupportController.BuiltInUsername, PasswordHash = "", ActiveRole = UserRole.SuperAdmin, SchoolId = null },
+        new User { Username = "admin", PasswordHash = "", ActiveRole = UserRole.Admin, SchoolId = demoSchoolId },
+        new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = demoSchoolId },
+        new User { Username = "rodic", PasswordHash = "", ActiveRole = UserRole.Parent, SchoolId = demoSchoolId },
+        new User { Username = "zak", PasswordHash = "", ActiveRole = UserRole.Student, SchoolId = demoSchoolId },
     };
 
     foreach (var user in demoUsers)

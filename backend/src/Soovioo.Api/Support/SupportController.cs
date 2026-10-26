@@ -117,7 +117,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     public async Task<ActionResult<IEnumerable<SuperAdminDto>>> GetSuperAdmins() =>
         Ok((await db.Users
                 .Include(u => u.Person)
-                .Where(u => u.Role == UserRole.SuperAdmin && u.SchoolId == null)
+                .Where(u => u.ActiveRole == UserRole.SuperAdmin && u.SchoolId == null)
                 .ToListAsync())
             .Select(ToDto)
             .OrderBy(d => d.Name));
@@ -144,7 +144,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
         {
             Username = username,
             PasswordHash = "",
-            Role = UserRole.SuperAdmin,
+            ActiveRole = UserRole.SuperAdmin,
             Roles = [UserRole.SuperAdmin],
             SchoolId = null,
             // Picked by someone else — the new SuperAdmin sets their own.
@@ -165,7 +165,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     public async Task<ActionResult<SuperAdminDto>> UpdateSuperAdmin(int id, UpdateSuperAdminRequest request)
     {
         var user = await db.Users.Include(u => u.Person)
-            .FirstOrDefaultAsync(u => u.Id == id && u.Role == UserRole.SuperAdmin && u.SchoolId == null);
+            .FirstOrDefaultAsync(u => u.Id == id && u.ActiveRole == UserRole.SuperAdmin && u.SchoolId == null);
         if (user is null)
         {
             return NotFound();
@@ -211,7 +211,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> DeleteSuperAdmin(int id)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.Role == UserRole.SuperAdmin && u.SchoolId == null);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.ActiveRole == UserRole.SuperAdmin && u.SchoolId == null);
         if (user is null)
         {
             return NotFound();
@@ -224,7 +224,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
         {
             return BadRequest("Vestavěný účet superadmin nelze smazat.");
         }
-        if (await db.Users.CountAsync(u => u.Role == UserRole.SuperAdmin && u.SchoolId == null) <= 1)
+        if (await db.Users.CountAsync(u => u.ActiveRole == UserRole.SuperAdmin && u.SchoolId == null) <= 1)
         {
             return BadRequest("Poslední superadmin — nejdřív přidejte jiného.");
         }

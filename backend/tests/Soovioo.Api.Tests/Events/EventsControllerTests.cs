@@ -168,17 +168,17 @@ public class EventsControllerTests
         public required SchoolClass ClassB { get; init; }
         public required User TeacherA { get; init; }
         public required User OtherTeacher { get; init; }
-        public required Student StudentA { get; init; }
-        public required Student StudentB { get; init; }
+        public required StudentProfile StudentA { get; init; }
+        public required StudentProfile StudentB { get; init; }
         public required User ParentA { get; init; }
         public required User ParentB { get; init; }
         public required User StudentUserA { get; init; }
 
         public static async Task<AudienceFixture> SeedAsync(AppDbContext db)
         {
-            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-            var otherTeacher = new User { Username = "ucitelB", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-            var studentUserA = new User { Username = "zakA", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+            var teacherA = new User { Username = "ucitelA", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+            var otherTeacher = new User { Username = "ucitelB", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+            var studentUserA = new User { Username = "zakA", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
             db.Users.AddRange(teacherA, otherTeacher, studentUserA);
             await db.SaveChangesAsync();
 
@@ -187,13 +187,13 @@ public class EventsControllerTests
             db.SchoolClasses.AddRange(classA, classB);
             await db.SaveChangesAsync();
 
-            var studentA = new Student { Person = new Person { FirstName = "Žák", LastName = "A", UserId = studentUserA.Id, SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classA.Id };
-            var studentB = new Student { Person = new Person { FirstName = "Žák", LastName = "B", SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classB.Id };
+            var studentA = new StudentProfile { Person = new Person { FirstName = "Žák", LastName = "A", UserId = studentUserA.Id, SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classA.Id };
+            var studentB = new StudentProfile { Person = new Person { FirstName = "Žák", LastName = "B", SchoolId = SchoolId }, SchoolId = SchoolId, SchoolClassId = classB.Id };
             db.Students.AddRange(studentA, studentB);
             await db.SaveChangesAsync();
 
-            var parentA = new User { Username = "rodicA", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-            var parentB = new User { Username = "rodicB", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+            var parentA = new User { Username = "rodicA", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+            var parentB = new User { Username = "rodicB", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
             db.Users.AddRange(parentA, parentB);
             await db.SaveChangesAsync();
 
@@ -381,7 +381,7 @@ public class EventsControllerTests
     {
         using var db = NewDb();
         var fx = await AudienceFixture.SeedAsync(db);
-        var unlinkedStudentUser = new User { Username = "zakC", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var unlinkedStudentUser = new User { Username = "zakC", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(unlinkedStudentUser);
         await db.SaveChangesAsync();
         await NewController(db, 999, "Admin").CreateEvent(new CreateEventRequest(

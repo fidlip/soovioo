@@ -20,20 +20,21 @@ async function login(page: Page, username: string) {
 async function openStudents(page: Page) {
   await login(page, 'admin');
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
-  await page.getByRole('tab', { name: 'Žáci' }).click();
+  await page.getByRole('tab', { name: 'Osoby' }).click();
 }
 
-/** Adds a pupil of the test's own through Administrace — the seeded one
- * is used by other tests. Returns the table row. */
+/** Adds a pupil of the test's own through Administrace → Osoby — the seeded
+ * one is used by other tests. Returns the table row. */
 async function addPupil(page: Page, lastName: string) {
-  await page.getByRole('button', { name: 'Nový žák' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Nový žák' });
+  await page.getByRole('button', { name: 'Nová osoba' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nová osoba' });
   await dialog.getByRole('textbox', { name: /^Jméno/ }).fill('Ota');
   await dialog.getByRole('textbox', { name: /^Příjmení/ }).fill(lastName);
-  await dialog.getByRole('button', { name: 'Přidat žáka' }).click();
+  await dialog.getByRole('checkbox', { name: 'Žák' }).check();
+  await dialog.getByRole('button', { name: 'Vytvořit osobu' }).click();
   await expect(dialog).toBeHidden();
   return page
-    .getByRole('tabpanel', { name: 'Žáci' })
+    .getByRole('tabpanel', { name: 'Osoby' })
     .locator('tr', { hasText: lastName });
 }
 

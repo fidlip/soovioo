@@ -24,7 +24,7 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Role, user.Role.ToString()),
+            new(ClaimTypes.Role, user.ActiveRole.ToString()),
             new("mustChangePassword", user.MustChangePassword ? "true" : "false"),
             // Everything the role switcher may offer — deliberately not
             // ClaimTypes.Role, which stays the single active role.

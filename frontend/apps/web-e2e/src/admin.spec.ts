@@ -19,10 +19,8 @@ test('admin sees the full tabbed Administrace page', async ({ page }) => {
   await expect(
     page.getByRole('tab', { name: 'Třídy, předměty a učebny' }),
   ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Žáci' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Osoby' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Uživatelé' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Učitelé' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Rodiče' })).toBeVisible();
   await expect(
     page.getByRole('tab', { name: 'Škola a matrika' }),
   ).toBeVisible();
@@ -33,7 +31,7 @@ test('admin filters users by name and contact', async ({ page }) => {
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
 
-  // Inactive tab panels stay in the DOM (the Žáci one has its own "Hledat
+  // Inactive tab panels stay in the DOM (the Osoby one has its own "Hledat
   // jméno"), so scope everything to the Uživatelé panel.
   const panel = page.getByRole('tabpanel', { name: 'Uživatelé' });
   const rows = panel.locator('table tbody tr');

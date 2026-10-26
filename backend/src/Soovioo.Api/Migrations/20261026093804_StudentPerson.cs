@@ -160,11 +160,21 @@ namespace Soovioo.Api.Migrations
                 principalTable: "Persons",
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
+
+            migrationBuilder.RenameColumn(
+                name: "Role",
+                table: "Users",
+                newName: "ActiveRole");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.RenameColumn(
+                name: "ActiveRole",
+                table: "Users",
+                newName: "Role");
+
             migrationBuilder.DropForeignKey(
                 name: "FK_Persons_Users_UserId",
                 table: "Persons");

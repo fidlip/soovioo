@@ -44,7 +44,7 @@ public class Notification
 
     /// <summary>The pupil it's about — erasing the pupil takes it along.</summary>
     public int? StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     /// <summary>Shown under the bell. False = the user switched the kind
     /// off there and it's only for the daily e-mail.</summary>

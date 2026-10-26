@@ -38,7 +38,7 @@ public class MatrikaExportServiceTests
         return schoolClass;
     }
 
-    private static Student SeedStudent(
+    private static StudentProfile SeedStudent(
         AppDbContext db,
         SchoolClass schoolClass,
         string? rodneCislo = null,
@@ -48,7 +48,7 @@ public class MatrikaExportServiceTests
         string? countryCode = null,
         string? municipalityCode = null)
     {
-        var student = new Student
+        var student = new StudentProfile
         {
             Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId },
             SchoolClassId = schoolClass.Id,

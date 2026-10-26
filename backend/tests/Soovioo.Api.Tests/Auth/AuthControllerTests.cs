@@ -51,7 +51,7 @@ public class AuthControllerTests
         {
             Username = "ucitel",
             PasswordHash = "x",
-            Role = UserRole.Teacher,
+            ActiveRole = UserRole.Teacher,
             SchoolId = SchoolId,
             InvitationToken = "expired-token",
             InvitationTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(-1),
@@ -74,7 +74,7 @@ public class AuthControllerTests
         {
             Username = "ucitel",
             PasswordHash = "x",
-            Role = UserRole.Teacher,
+            ActiveRole = UserRole.Teacher,
             SchoolId = SchoolId,
             MustChangePassword = true,
             InvitationToken = "valid-token",
@@ -105,7 +105,7 @@ public class AuthControllerTests
         {
             Username = "ucitel",
             PasswordHash = "x",
-            Role = UserRole.Teacher,
+            ActiveRole = UserRole.Teacher,
             SchoolId = SchoolId,
             InvitationToken = "valid-token",
             InvitationTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(7),

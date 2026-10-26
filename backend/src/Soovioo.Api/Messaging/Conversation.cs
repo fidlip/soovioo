@@ -20,7 +20,7 @@ public class Conversation
     /// school (the child the parent picked). Drives the "about whom" label;
     /// access is decided by <see cref="Participants"/> only.</summary>
     public int? StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     /// <summary>Set when this conversation is one family's copy of a bulk
     /// send — groups them in the sender's list.</summary>

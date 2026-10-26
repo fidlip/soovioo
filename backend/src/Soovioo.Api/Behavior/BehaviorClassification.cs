@@ -28,7 +28,7 @@ public enum BehaviorClassificationValue
 public class BehaviorClassification
 {
     public int StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     public int SchoolYearStartYear { get; set; }
     public SchoolHalfYear HalfYear { get; set; }

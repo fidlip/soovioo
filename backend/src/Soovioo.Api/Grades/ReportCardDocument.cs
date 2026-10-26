@@ -9,7 +9,7 @@ namespace Soovioo.Api.Grades;
 public static class ReportCardDocument
 {
     public static byte[] Generate(
-        Student student, School? school, IReadOnlyList<(string Subject, double Average)> grades)
+        StudentProfile student, School? school, IReadOnlyList<(string Subject, double Average)> grades)
     {
         return Document.Create(container =>
         {

@@ -49,19 +49,6 @@ public static class ParentLinkQueries
         return profile;
     }
 
-    public static async Task<TeacherProfile> EnsureTeacherProfileAsync(this AppDbContext db, User user)
-    {
-        var person = await db.EnsurePersonAsync(user);
-        var profile = db.TeacherProfiles.Local.FirstOrDefault(p => p.Person == person)
-            ?? (person.Id == 0 ? null : await db.TeacherProfiles.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.PersonId == person.Id));
-        if (profile is null)
-        {
-            profile = new TeacherProfile { Person = person, SchoolId = person.SchoolId!.Value };
-            db.TeacherProfiles.Add(profile);
-        }
-        return profile;
-    }
-
     /// <summary>Links <paramref name="studentId"/> as a child of the account
     /// (creating its Person/ParentProfile if needed). Caller saves.</summary>
     public static async Task LinkChildAsync(this AppDbContext db, int parentUserId, int studentId, int schoolId)

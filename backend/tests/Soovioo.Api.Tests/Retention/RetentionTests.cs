@@ -35,7 +35,7 @@ public class RetentionTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId)) { Today = Today };
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
-        db.Users.Add(new User { Id = AdminId, Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = SchoolId });
+        db.Users.Add(new User { Id = AdminId, Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId });
         schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
@@ -43,9 +43,9 @@ public class RetentionTests
         db.SaveChanges();
     }
 
-    private Student AddStudent(string name, DateOnly? leftAt = null)
+    private StudentProfile AddStudent(string name, DateOnly? leftAt = null)
     {
-        var student = new Student { Person = new Person { FirstName = name, LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId, LeftAt = leftAt };
+        var student = new StudentProfile { Person = new Person { FirstName = name, LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId, LeftAt = leftAt };
         db.Students.Add(student);
         db.SaveChanges();
         return student;
@@ -53,13 +53,13 @@ public class RetentionTests
 
     private User AddUser(string username, params UserRole[] roles)
     {
-        var user = new User { Username = username, PasswordHash = "x", Role = roles[0], Roles = [.. roles], SchoolId = SchoolId };
+        var user = new User { Username = username, PasswordHash = "x", ActiveRole = roles[0], Roles = [.. roles], SchoolId = SchoolId };
         db.Users.Add(user);
         db.SaveChanges();
         return user;
     }
 
-    private async Task<User> AddParentAsync(string username, params Student[] children)
+    private async Task<User> AddParentAsync(string username, params StudentProfile[] children)
     {
         var parent = AddUser(username, UserRole.Parent);
         foreach (var child in children)
@@ -107,7 +107,7 @@ public class RetentionTests
         await db.SaveChangesAsync();
     }
 
-    private async Task<Student?> FindAnyStudentAsync(int id) =>
+    private async Task<StudentProfile?> FindAnyStudentAsync(int id) =>
         await db.Students.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
 
     [Fact]

@@ -30,7 +30,7 @@ public class SupportControllerTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity([
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.Role.ToString()),
+                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
                     ])),
                 },
             },
@@ -38,7 +38,7 @@ public class SupportControllerTests
 
     private static async Task<User> SuperAdminAsync(AppDbContext db, string username = "superadmin")
     {
-        var user = new User { Username = username, PasswordHash = "x", Role = UserRole.SuperAdmin, SchoolId = null };
+        var user = new User { Username = username, PasswordHash = "x", ActiveRole = UserRole.SuperAdmin, SchoolId = null };
         db.Users.Add(user);
         await db.SaveChangesAsync();
         return user;

@@ -62,7 +62,7 @@ public class SubjectsControllerTests
     {
         using var db = NewDb();
         var subject = new Subject { Name = "Matematika", SchoolId = SchoolId };
-        var student = new Student { Person = new Person { FirstName = "A", LastName = "B", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "A", LastName = "B", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
         db.Subjects.Add(subject);
         db.Students.Add(student);
         await db.SaveChangesAsync();

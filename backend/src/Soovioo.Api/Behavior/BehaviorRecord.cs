@@ -23,7 +23,7 @@ public class BehaviorRecord
     public School? School { get; set; }
 
     public int StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     public BehaviorRecordType Type { get; set; }
     public required string Text { get; set; }

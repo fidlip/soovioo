@@ -1,0 +1,289 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
+using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
+
+namespace Soovioo.Api.People;
+
+/// <summary>Administrace → Osoby: the people of the school — staff, parents
+/// and pupils — with their profiles, whether or not they have an account
+/// (accounts are Uživatelé, each one is a Person's). Former pupils are in
+/// Archiv a výmaz údajů, erased accounts nowhere.</summary>
+[Authorize(Roles = "Admin")]
+[ApiController]
+[Route("api/people")]
+public class PeopleController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<PersonDto>>> GetPeople([FromServices] PhotoAccess? photoAccess = null)
+    {
+        var people = await (await ListedAsync())
+            .OrderBy(p => p.LastName).ThenBy(p => p.FirstName)
+            .ToListAsync();
+        return Ok(await ToDtosAsync(people, photoAccess));
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<PersonDto>> GetPerson(int id, [FromServices] PhotoAccess? photoAccess = null)
+    {
+        var person = await (await ListedAsync()).FirstOrDefaultAsync(p => p.Id == id);
+        return person is null ? NotFound() : Ok((await ToDtosAsync([person], photoAccess))[0]);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<PersonDto>> AddPerson(SavePersonRequest request)
+    {
+        var person = new Person { SchoolId = currentSchool.SchoolId!.Value };
+        db.Persons.Add(person);
+        if (await ApplyAsync(person, request) is { } error)
+        {
+            return error;
+        }
+        await db.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetPerson), new { id = person.Id }, (await ToDtosAsync([person], null))[0]);
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<PersonDto>> UpdatePerson(int id, SavePersonRequest request)
+    {
+        var person = await (await ListedAsync()).FirstOrDefaultAsync(p => p.Id == id);
+        if (person is null)
+        {
+            return NotFound();
+        }
+        if (await ApplyAsync(person, request) is { } error)
+        {
+            return error;
+        }
+        await db.SaveChangesAsync();
+        return Ok((await ToDtosAsync([person], null))[0]);
+    }
+
+    /// <summary>Only someone without an account (delete that first); a pupil
+    /// only without history, like in Žáci.</summary>
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeletePerson(int id, [FromServices] PhotoStorage? photos = null)
+    {
+        var person = await (await ListedAsync()).FirstOrDefaultAsync(p => p.Id == id);
+        if (person is null)
+        {
+            return NotFound();
+        }
+        if (person.UserId is not null)
+        {
+            return Conflict("Osoba má uživatelský účet — nejdřív ho smažte v záložce Uživatelé.");
+        }
+        if (person.Student is { } student)
+        {
+            var history = await StudentRecords.HistoryOfAsync(db, student);
+            if (history.Count > 0)
+            {
+                return Conflict(await StudentRecords.RefusalAsync(db, student, history));
+            }
+            await StudentRecords.DeleteAsync(db, student, photos);
+            return NoContent();
+        }
+
+        await db.DeleteAsync(db.ParentStudents.Where(ps => ps.ParentProfileId == person.Id));
+        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id));
+        db.Persons.Remove(person);
+        await db.SaveChangesAsync();
+        photos?.Delete(person.PhotoKey);
+        return NoContent();
+    }
+
+    private async Task<IQueryable<Person>> ListedAsync()
+    {
+        // A former pupil is hidden with their record (query filter on
+        // Students) — their Person goes with it. Asked separately: an
+        // IgnoreQueryFilters() inside the query would switch the filters off
+        // for all of it.
+        var formerPupils = await db.Students.IgnoreQueryFilters()
+            .Where(s => s.SchoolId == currentSchool.SchoolId && s.LeftAt != null && s.LeftAt < db.Today)
+            .Select(s => s.PersonId)
+            .ToListAsync();
+        return db.Persons
+            .Include(p => p.TeacherProfile)
+            .Include(p => p.ParentProfile).ThenInclude(pp => pp!.Children)
+            .Include(p => p.Student).ThenInclude(st => st!.SchoolClass)
+            .Include(p => p.User)
+            .Where(p => p.User == null || p.User.ErasedAt == null)
+            .Where(p => !formerPupils.Contains(p.Id));
+    }
+
+    /// <summary>Name, contacts and the profiles the request has; a profile
+    /// left out is removed — except a pupil's (deleted or ended in Žáci),
+    /// and one that the account's role needs.</summary>
+    private async Task<ActionResult?> ApplyAsync(Person person, SavePersonRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.LastName))
+        {
+            return this.FieldError("lastName", "Příjmení je povinné.");
+        }
+        var roles = person.User?.Roles ?? [];
+        if (request.Teacher is null && person.TeacherProfile is not null && roles.Contains(UserRole.Teacher))
+        {
+            return BadRequest("Účet má roli Učitel — profil učitele jde odebrat až s ní (Uživatelé).");
+        }
+        if (request.Parent is null && person.ParentProfile is not null && roles.Contains(UserRole.Parent))
+        {
+            return BadRequest("Účet má roli Rodič — profil rodiče jde odebrat až s ní (Uživatelé).");
+        }
+        if (request.Student is null && person.Student is not null)
+        {
+            return BadRequest(StudentTerm.Localize(
+                "Profil žáka jde odebrat jen smazáním žáka nebo ukončením jeho vzdělávání.", await SchoolTypeAsync()));
+        }
+        if (request.Student is { } matrika && !await db.SchoolClasses.AnyAsync(c => c.Id == matrika.SchoolClassId))
+        {
+            return this.FieldError("schoolClassId", "Neznámá třída.");
+        }
+        var childIds = request.Parent?.ChildIds.Distinct().ToList() ?? [];
+        if (childIds.Count > 0 && await db.Students.CountAsync(s => childIds.Contains(s.Id)) != childIds.Count)
+        {
+            return this.FieldError("childIds", StudentTerm.Localize("Neznámý žák.", await SchoolTypeAsync()));
+        }
+        if (person.Student is { } own && childIds.Contains(own.Id))
+        {
+            return this.FieldError("childIds", StudentTerm.Localize("Žák nemůže být sám sobě rodičem.", await SchoolTypeAsync()));
+        }
+
+        person.FirstName = request.FirstName?.Trim() ?? "";
+        person.LastName = request.LastName.Trim();
+        person.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        person.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        var schoolId = currentSchool.SchoolId!.Value;
+
+        if (request.Teacher is { } teacher)
+        {
+            person.TeacherProfile ??= new TeacherProfile { Person = person, SchoolId = schoolId };
+            person.TeacherProfile.Qualification = string.IsNullOrWhiteSpace(teacher.Qualification) ? null : teacher.Qualification.Trim();
+        }
+        else if (person.TeacherProfile is not null)
+        {
+            db.TeacherProfiles.Remove(person.TeacherProfile);
+            person.TeacherProfile = null;
+        }
+
+        if (request.Parent is not null)
+        {
+            person.ParentProfile ??= new ParentProfile { Person = person, SchoolId = schoolId };
+            person.ParentProfile.Children.RemoveAll(c => !childIds.Contains(c.StudentId));
+            foreach (var childId in childIds.Where(id => person.ParentProfile.Children.All(c => c.StudentId != id)))
+            {
+                person.ParentProfile.Children.Add(new ParentStudent { StudentId = childId, SchoolId = schoolId });
+            }
+        }
+        else if (person.ParentProfile is not null)
+        {
+            db.ParentStudents.RemoveRange(person.ParentProfile.Children);
+            db.ParentProfiles.Remove(person.ParentProfile);
+            person.ParentProfile = null;
+        }
+
+        if (request.Student is { } studentMatrika)
+        {
+            var student = person.Student;
+            if (student is null)
+            {
+                student = new StudentProfile { Person = person, SchoolId = schoolId };
+                db.Students.Add(student);
+            }
+            if (await StudentRecords.ApplyAsync(db, student, studentMatrika) is { } error)
+            {
+                return this.FieldError("defaultVariableSymbol", error);
+            }
+        }
+        return null;
+    }
+
+    private async Task<SchoolType> SchoolTypeAsync() =>
+        await db.Schools.Where(s => s.Id == currentSchool.SchoolId).Select(s => (SchoolType?)s.Type).FirstOrDefaultAsync()
+            ?? SchoolType.Elementary;
+
+    private async Task<List<PersonDto>> ToDtosAsync(List<Person> people, PhotoAccess? photoAccess)
+    {
+        var userIds = people.Where(p => p.UserId != null).Select(p => p.UserId!.Value).ToList();
+        var classTeacherOf = (await db.SchoolClasses
+                .Where(c => c.ClassTeacherId != null && userIds.Contains(c.ClassTeacherId.Value))
+                .Select(c => new { TeacherId = c.ClassTeacherId!.Value, c.Name })
+                .ToListAsync())
+            .ToLookup(c => c.TeacherId, c => c.Name);
+        var childIds = people.SelectMany(p => p.ParentProfile?.Children.Select(c => c.StudentId) ?? []).Distinct().ToList();
+        var childNames = await db.Students
+            .Where(s => childIds.Contains(s.Id))
+            .Select(s => new { s.Id, Name = s.Person!.FirstName + " " + s.Person.LastName })
+            .ToDictionaryAsync(s => s.Id, s => s.Name);
+
+        Dictionary<int, string> userPhotos = [];
+        Dictionary<int, string> studentPhotos = [];
+        if (photoAccess is not null)
+        {
+            userPhotos = await photoAccess.VisibleUserPhotosAsync(
+                User, people.Where(p => p.User is not null && p.Student is null).Select(p => p.User!));
+            studentPhotos = await photoAccess.VisibleStudentPhotosAsync(
+                User, people.Where(p => p.Student is not null).Select(p => p.Student!));
+        }
+
+        var result = new List<PersonDto>();
+        foreach (var p in people)
+        {
+            result.Add(new PersonDto(
+                p.Id, p.FirstName, p.LastName, p.FullName, p.Phone, p.Email,
+                p.Student is { } st ? studentPhotos.GetValueOrDefault(st.Id) : p.UserId is { } uid ? userPhotos.GetValueOrDefault(uid) : null,
+                p.User is { } u ? new PersonAccountDto(u.Id, u.Username, u.Roles.Order().Select(r => r.ToString()).ToList(), u.DeactivatedAt) : null,
+                p.TeacherProfile is { } t
+                    ? new TeacherProfileDto(t.Qualification, p.UserId is { } teacherId ? classTeacherOf[teacherId].ToList() : [])
+                    : null,
+                p.ParentProfile is { } pp
+                    ? new ParentProfileDto(pp.Children
+                        .Where(c => childNames.ContainsKey(c.StudentId))
+                        .Select(c => new PersonChildDto(c.StudentId, childNames[c.StudentId]))
+                        .OrderBy(c => c.Name)
+                        .ToList())
+                    : null,
+                p.Student is { } s ? await StudentRecords.ToDtoAsync(db, s) : null));
+        }
+        return result;
+    }
+}
+
+public record SavePersonRequest(
+    string? FirstName,
+    string LastName,
+    string? Phone = null,
+    string? Email = null,
+    TeacherProfileRequest? Teacher = null,
+    ParentProfileRequest? Parent = null,
+    StudentMatrika? Student = null);
+
+public record TeacherProfileRequest(string? Qualification = null);
+
+public record ParentProfileRequest(IReadOnlyList<int> ChildIds);
+
+/// <param name="Photo">Token of the pupil's photo for a pupil, of the
+/// account's otherwise.</param>
+public record PersonDto(
+    int Id,
+    string FirstName,
+    string LastName,
+    string Name,
+    string? Phone,
+    string? Email,
+    string? Photo,
+    PersonAccountDto? Account,
+    TeacherProfileDto? Teacher,
+    ParentProfileDto? Parent,
+    StudentDto? Student);
+
+public record PersonAccountDto(int UserId, string Username, IReadOnlyList<string> Roles, DateTimeOffset? DeactivatedAt);
+
+/// <param name="ClassTeacherOf">Classes whose class teacher the person's account is.</param>
+public record TeacherProfileDto(string? Qualification, IReadOnlyList<string> ClassTeacherOf);
+
+public record ParentProfileDto(IReadOnlyList<PersonChildDto> Children);
+
+public record PersonChildDto(int StudentId, string Name);

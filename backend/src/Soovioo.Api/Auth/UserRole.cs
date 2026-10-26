@@ -15,7 +15,7 @@ public enum UserRole
     /// their own grades/absences/timetable/messages (same shape as Parent),
     /// but unlike Parent, never allowed to submit an excuse (see
     /// AbsencesController.SubmitExcuse). The account of exactly one
-    /// <see cref="Evidence.Student"/>'s Person (<see cref="People.Person.UserId"/>),
+    /// <see cref="Evidence.StudentProfile"/>'s Person (<see cref="People.Person.UserId"/>),
     /// not a new join table — a pupil has at most one Student-role
     /// account.</summary>
     Student,

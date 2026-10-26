@@ -247,7 +247,7 @@ public class RetentionController(
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    private async Task<FormerStudentDto> DtoOfAsync(Student student)
+    private async Task<FormerStudentDto> DtoOfAsync(StudentProfile student)
     {
         var policy = await RetentionJob.PolicyOfAsync(db, SchoolId);
         var accountActive = student.Person!.UserId is { } userId
@@ -257,7 +257,7 @@ public class RetentionController(
         return ToDto(student, className, accountActive, policy, Today);
     }
 
-    private static FormerStudentDto ToDto(Student s, string className, bool accountActive, RetentionPolicy policy, DateOnly today)
+    private static FormerStudentDto ToDto(StudentProfile s, string className, bool accountActive, RetentionPolicy policy, DateOnly today)
     {
         var leftAt = s.LeftAt!.Value;
         var pending = Enum.GetValues<RetentionCategory>()

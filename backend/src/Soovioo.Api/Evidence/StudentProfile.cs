@@ -22,7 +22,7 @@ public enum StudentLeaveReason
     Other,
 }
 
-public class Student
+public class StudentProfile
 {
     public int Id { get; set; }
 

@@ -141,7 +141,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
 
     private sealed class StudentInfo
     {
-        public required Student Student { get; init; }
+        public required StudentProfile Student { get; init; }
         public required ClassInfo Class { get; init; }
         public required FamilyInfo Family { get; init; }
         public double Ability { get; init; }
@@ -482,7 +482,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 var born = new DateOnly(calendar.StartYear - ageAtStart - 1, 9, 1).AddDays(rng.Next(365));
                 var enrolledYear = calendar.StartYear - grade + 1;
                 variableSymbolCounters[enrolledYear] = variableSymbolCounters.GetValueOrDefault(enrolledYear) + 1;
-                var student = new Student
+                var student = new StudentProfile
                 {
                     Person = new Person
                     {
@@ -595,14 +595,14 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             username = $"{baseName}{i}";
         }
         // Empty hash never verifies: demo users are picked, not logged in.
-        var user = new User { Username = username, PasswordHash = "", Roles = [.. roles], Role = roles[0], SchoolId = school.Id };
+        var user = new User { Username = username, PasswordHash = "", Roles = [.. roles], ActiveRole = roles[0], SchoolId = school.Id };
         db.Users.Add(user);
         users.Add(user);
         return user;
     }
 
     /// <summary>The pupil's own login, on their Person.</summary>
-    private void StudentAccount(Student student)
+    private void StudentAccount(StudentProfile student)
     {
         var person = student.Person!;
         person.User = NewUser(person.FirstName, person.LastName, [UserRole.Student]);

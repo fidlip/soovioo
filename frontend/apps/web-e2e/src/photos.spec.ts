@@ -27,16 +27,22 @@ test('a teacher uploads and deletes their own profile photo', async ({
     })
   ).json();
   const username = `foto${Date.now()}`;
+  const headers = { Authorization: `Bearer ${token}` };
+  const person = await (
+    await request.post(`${api}/people`, {
+      headers,
+      data: { firstName: 'Fotka', lastName: 'Testovací', teacher: {} },
+    })
+  ).json();
   expect(
     (
       await request.post(`${api}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         data: {
           username,
           password: 'foto12345',
           roles: ['Teacher'],
-          firstName: 'Fotka',
-          lastName: 'Testovací',
+          personId: person.id,
         },
       })
     ).ok(),

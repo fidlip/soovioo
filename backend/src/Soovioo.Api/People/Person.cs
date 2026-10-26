@@ -8,7 +8,7 @@ namespace Soovioo.Api.People;
 /// profiles on top (<see cref="TeacherProfile"/>, <see cref="ParentProfile"/>)
 /// instead of an inheritance tree, which would make that teacher-mother two
 /// records with duplicated data. A pupil is a Person too, with their
-/// matrika data in <see cref="Evidence.Student"/> as the pupil's profile.</summary>
+/// matrika data in <see cref="Evidence.StudentProfile"/> as the pupil's profile.</summary>
 public class Person
 {
     public int Id { get; set; }
@@ -34,15 +34,14 @@ public class Person
     public PhotoStatus? PhotoStatus { get; set; }
 
     /// <summary>The login account — one-to-one, null for someone who
-    /// doesn't use the app (a pupil, a parent). Deleting a staff member's or
-    /// parent's account deletes their Person with its profiles; a pupil's
-    /// stays with their matrika.</summary>
+    /// doesn't use the app. The Person outlives it: deleting the account
+    /// leaves the record (Administrace → Osoby).</summary>
     public int? UserId { get; set; }
     public User? User { get; set; }
 
     public TeacherProfile? TeacherProfile { get; set; }
     public ParentProfile? ParentProfile { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     public string FullName => $"{FirstName} {LastName}".Trim();
 }

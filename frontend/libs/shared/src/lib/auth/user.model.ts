@@ -23,37 +23,31 @@ export interface AppUser {
   photo?: string | null;
   /** Set = the account can't log in (the person left). */
   deactivatedAt?: string | null;
+  /** Whose account it is (Administrace → Osoby); name and contacts are
+   * that person's. */
+  personId: number | null;
 }
 
 export type InviteOutcome = 'Sent' | 'NotConfigured' | 'Failed';
 
 export interface CreateUserRequest {
   username: string;
-  /** Optional when `email` is set — the account is then usable only through
-   * the invitation e-mailed right away. */
+  /** Optional when the person has an e-mail — the account is then usable
+   * only through the invitation e-mailed right away. */
   password?: string;
-  firstName?: string;
-  lastName?: string;
   /** At least one; 'Student' can't be combined with others. */
   roles: string[];
-  phone?: string;
-  email?: string;
-  /** Required when roles include 'Student'. */
-  studentId?: number;
+  /** The person must have the profile each role needs (Teacher, Parent,
+   * Student — see Person). */
+  personId: number | null;
 }
 
 export interface UpdateUserRequest {
   username: string;
-  firstName?: string;
-  /** Empty keeps the current surname. */
-  lastName?: string;
   roles: string[];
+  personId: number | null;
   /** Omit to keep the current password. */
   password?: string;
-  phone?: string;
-  email?: string;
-  /** Required when roles include 'Student'. */
-  studentId?: number;
 }
 
 /** Czech UI names of the roles (the Student one still goes through

@@ -72,7 +72,7 @@ public class AuthSessionService(
         return new LoginResponse(
             tokenFactory.CreateToken(user, school),
             user.Username,
-            user.Role.ToString(),
+            user.ActiveRole.ToString(),
             school?.Name,
             school?.Slug,
             useCookie ? null : refresh.Token);

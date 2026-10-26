@@ -38,31 +38,31 @@ public class PhotosTests
                 HttpContext = new DefaultHttpContext
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity(
-                        [new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Role, user.Role.ToString())])),
+                        [new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Role, user.ActiveRole.ToString())])),
                 },
             },
         };
 
     private sealed record Fixture(
-        School School, User Admin, User ClassTeacher, User OtherTeacher, User Parent, User OtherParent, User Pupil, Student Child);
+        School School, User Admin, User ClassTeacher, User OtherTeacher, User Parent, User OtherParent, User Pupil, StudentProfile Child);
 
     private static async Task<Fixture> SeedAsync(AppDbContext db, bool photosOn = true)
     {
         var school = new School { Id = SchoolId, Name = "Škola", Slug = "skola", StudentPhotos = photosOn, ParentPhotos = photosOn };
         db.Schools.Add(school);
-        var admin = new User { Username = "admin", PasswordHash = "x", Role = UserRole.Admin, SchoolId = SchoolId };
-        var classTeacher = new User { Username = "tridni", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-        var otherTeacher = new User { Username = "ucitel", PasswordHash = "x", Role = UserRole.Teacher, SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-        var otherParent = new User { Username = "rodic2", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-        var pupil = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId };
+        var classTeacher = new User { Username = "tridni", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var otherTeacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var otherParent = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var pupil = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.AddRange(admin, classTeacher, otherTeacher, parent, otherParent, pupil);
         await db.SaveChangesAsync();
         db.Persons.Add(new Person { UserId = parent.Id, SchoolId = SchoolId, FirstName = "Petr", LastName = "Rodič", Email = "petr@example.com" });
         var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = classTeacher.Id };
         db.SchoolClasses.Add(schoolClass);
         await db.SaveChangesAsync();
-        var child = new Student { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var child = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Rodič", UserId = pupil.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(child);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);
@@ -91,7 +91,7 @@ public class PhotosTests
     /// <summary>Gives <paramref name="parent"/> a child in the fixture's class.</summary>
     private static async Task AddChildInClassAsync(AppDbContext db, Fixture fx, User parent)
     {
-        var child = new Student { Person = new Person { FirstName = "Eva", LastName = "Jiná", SchoolId = SchoolId }, SchoolClassId = fx.Child.SchoolClassId, SchoolId = SchoolId };
+        var child = new StudentProfile { Person = new Person { FirstName = "Eva", LastName = "Jiná", SchoolId = SchoolId }, SchoolClassId = fx.Child.SchoolClassId, SchoolId = SchoolId };
         db.Students.Add(child);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parent.Id, child.Id, SchoolId);

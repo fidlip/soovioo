@@ -304,14 +304,14 @@ public class PhotosController(
         return Ok(await StateAsync(student));
     }
 
-    private void RemovePhoto(Student student)
+    private void RemovePhoto(StudentProfile student)
     {
         photos.Delete(student.Person!.PhotoKey);
         student.Person!.PhotoKey = null;
         student.Person!.PhotoStatus = null;
     }
 
-    private async Task<StudentPhotoStateDto> StateAsync(Student student)
+    private async Task<StudentPhotoStateDto> StateAsync(StudentProfile student)
     {
         var school = await access.SchoolAsync();
         var enabled = school.StudentPhotos;
@@ -335,7 +335,7 @@ public class PhotosController(
             ConsentNeedsName: schoolSide && !parent);
     }
 
-    private async Task<bool> IsParentOfAsync(Student student) =>
+    private async Task<bool> IsParentOfAsync(StudentProfile student) =>
         User.IsInRole(nameof(UserRole.Parent))
         && await db.ChildIdsOf(PhotoAccess.ViewerId(User)).AnyAsync(id => id == student.Id);
 
@@ -376,7 +376,7 @@ public class PhotosController(
     /// <summary>A notification and an e-mail to the pupil's parents that a
     /// photo waits for them. A failed send doesn't fail the upload — the
     /// pending photo also shows in Mé děti.</summary>
-    private async Task NotifyParentsAsync(Student student)
+    private async Task NotifyParentsAsync(StudentProfile student)
     {
         var parentIds = await db.ParentStudents.Where(ps => ps.StudentId == student.Id)
             .ParentAccountLinks().Select(l => l.UserId).ToListAsync();

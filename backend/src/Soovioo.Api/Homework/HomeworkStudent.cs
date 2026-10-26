@@ -11,7 +11,7 @@ public class HomeworkStudent
     public Homework? Homework { get; set; }
 
     public int StudentId { get; set; }
-    public Student? Student { get; set; }
+    public StudentProfile? Student { get; set; }
 
     public int SchoolId { get; set; }
 }

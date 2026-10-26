@@ -21,17 +21,6 @@ export class UsersApiService {
     return this.http.put<AppUser>(`${this.baseUrl}/api/users/${id}`, request);
   }
 
-  /** Teacher-only data — the aprobace. */
-  setTeacherProfile(
-    id: number,
-    qualification: string | null,
-  ): Observable<AppUser> {
-    return this.http.put<AppUser>(
-      `${this.baseUrl}/api/users/${id}/teacher-profile`,
-      { qualification },
-    );
-  }
-
   /** Rejected (400) when deleting yourself or the school's last Admin. */
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/api/users/${id}`);

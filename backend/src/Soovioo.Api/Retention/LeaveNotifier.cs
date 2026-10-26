@@ -43,7 +43,7 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
     /// <summary>Adds the conversations and returns them; the caller saves
     /// and then notifies (<see cref="Notifications.Notifier.MessagesAsync"/>).</summary>
     public async Task<List<Conversation>> NotifyAsync(
-        Student student, LeaveNoticeKind kind, IReadOnlyCollection<LeaveNotice> notices, int senderId)
+        StudentProfile student, LeaveNoticeKind kind, IReadOnlyCollection<LeaveNotice> notices, int senderId)
     {
         var added = new List<Conversation>();
         if (notices.Count == 0)
@@ -85,7 +85,7 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
         return added;
     }
 
-    private async Task<List<int>> RecipientsAsync(Student student, LeaveNoticeGroup group)
+    private async Task<List<int>> RecipientsAsync(StudentProfile student, LeaveNoticeGroup group)
     {
         var schoolId = student.SchoolId;
         var ids = group switch
@@ -108,7 +108,7 @@ public class LeaveNotifier(AppDbContext db, TimeProvider clock)
             .ToListAsync();
     }
 
-    public static string Body(Student student, string schoolName, LeaveNoticeKind kind, bool withReason, int graceDays)
+    public static string Body(StudentProfile student, string schoolName, LeaveNoticeKind kind, bool withReason, int graceDays)
     {
         var name = student.Person!.FullName;
         if (kind == LeaveNoticeKind.Cancelled)

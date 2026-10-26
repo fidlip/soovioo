@@ -62,49 +62,20 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         var schoolId = currentSchool.SchoolId!.Value;
-        string variableSymbol;
-        if (string.IsNullOrWhiteSpace(request.DefaultVariableSymbol))
-        {
-            // Another pupil added at the same moment may have just taken it.
-            do
-            {
-                variableSymbol = await VariableSymbols.NextAsync(db, schoolId, DateTime.Today.Year);
-            }
-            while (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: null));
-        }
-        else
-        {
-            variableSymbol = request.DefaultVariableSymbol.Trim();
-            if (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: null))
-            {
-                return this.FieldError("defaultVariableSymbol", "Tento variabilní symbol už má jiný žák.");
-            }
-        }
-
-        var student = new Student
+        var student = new StudentProfile
         {
             Person = new People.Person { FirstName = request.FirstName, LastName = request.LastName, SchoolId = schoolId },
-            SchoolClassId = request.SchoolClassId,
-            SchoolId = currentSchool.SchoolId!.Value,
-            RodneCislo = request.RodneCislo,
-            DateOfBirth = request.DateOfBirth,
-            Gender = request.Gender,
-            CitizenshipQualifier = request.CitizenshipQualifier,
-            CountryCode = request.CountryCode,
-            Street = request.Street,
-            MunicipalityCode = request.MunicipalityCode,
-            PostalCode = request.PostalCode,
-            CatchmentArea = request.CatchmentArea,
-            EnrollmentDate = request.EnrollmentDate,
-            ContactPhone = request.ContactPhone,
-            ContactEmail = request.ContactEmail,
-            DefaultVariableSymbol = variableSymbol,
+            SchoolId = schoolId,
         };
+        if (await StudentRecords.ApplyAsync(db, student, request.Matrika) is { } error)
+        {
+            return this.FieldError("defaultVariableSymbol", error);
+        }
 
         db.Students.Add(student);
         await db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, await ToDtoAsync(student, schoolClass.Name));
+        return CreatedAtAction(nameof(GetStudents), new { id = student.Id }, await StudentRecords.ToDtoAsync(db, student));
     }
 
     [HttpPut("{id:int}")]
@@ -138,31 +109,13 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         student.Person!.FirstName = request.FirstName;
         student.Person.LastName = request.LastName;
-        student.SchoolClassId = request.SchoolClassId;
-        student.RodneCislo = request.RodneCislo;
-        student.DateOfBirth = request.DateOfBirth;
-        student.Gender = request.Gender;
-        student.CitizenshipQualifier = request.CitizenshipQualifier;
-        student.CountryCode = request.CountryCode;
-        student.Street = request.Street;
-        student.MunicipalityCode = request.MunicipalityCode;
-        student.PostalCode = request.PostalCode;
-        student.CatchmentArea = request.CatchmentArea;
-        student.EnrollmentDate = request.EnrollmentDate;
-        student.ContactPhone = request.ContactPhone;
-        student.ContactEmail = request.ContactEmail;
-        var variableSymbol = string.IsNullOrWhiteSpace(request.DefaultVariableSymbol)
-            ? student.DefaultVariableSymbol
-                ?? await VariableSymbols.NextAsync(db, student.SchoolId, DateTime.Today.Year)
-            : request.DefaultVariableSymbol.Trim();
-        if (await IsVariableSymbolTakenAsync(variableSymbol, exceptStudentId: student.Id))
+        if (await StudentRecords.ApplyAsync(db, student, request.Matrika) is { } error)
         {
-            return this.FieldError("defaultVariableSymbol", "Tento variabilní symbol už má jiný žák.");
+            return this.FieldError("defaultVariableSymbol", error);
         }
-        student.DefaultVariableSymbol = variableSymbol;
         await db.SaveChangesAsync();
 
-        return Ok(await ToDtoAsync(student, schoolClass.Name));
+        return Ok(await StudentRecords.ToDtoAsync(db, student));
     }
 
     /// <summary>Only a pupil without any history — one added by mistake.
@@ -187,87 +140,17 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return Forbid();
         }
 
-        var history = await HistoryOfAsync(student);
+        var history = await StudentRecords.HistoryOfAsync(db, student);
         if (history.Count > 0)
         {
-            var type = await db.Schools.Where(s => s.Id == student.SchoolId).Select(s => (SchoolType?)s.Type).FirstOrDefaultAsync()
-                ?? SchoolType.Elementary;
-            return Conflict(StudentTerm.Localize(
-                $"Žáka nejde smazat, už má {string.Join(", ", history)}. Místo smazání ukončete jeho vzdělávání.", type));
+            return Conflict(await StudentRecords.RefusalAsync(db, student, history));
         }
 
-        await db.DeleteAsync(db.PaymentRecipients.Where(r => r.StudentId == id));
-        await db.DeleteAsync(db.PaymentStudents.Where(x => x.StudentId == id));
-        await db.DeleteAsync(db.HomeworkStudents.Where(x => x.StudentId == id));
-        await db.DeleteAsync(db.EventStudents.Where(x => x.StudentId == id));
-        await db.DeleteAsync(db.ParentStudents.Where(ps => ps.StudentId == id));
-        var person = student.Person!;
-        await db.DeleteAsync(db.VisibilityChoices.Where(c => c.PersonId == person.Id));
-        // Their own login (role Student) goes too — it never wrote anything
-        // (see HistoryOfAsync).
-        if (person.UserId is { } linkedUserId && await db.Users.FindAsync(linkedUserId) is { } linkedUser)
-        {
-            db.Users.Remove(linkedUser);
-        }
-        db.Students.Remove(student);
-        db.Persons.Remove(person);
-        await db.SaveChangesAsync();
-        photos?.Delete(person.PhotoKey);
+        await StudentRecords.DeleteAsync(db, student, photos);
         return NoContent();
     }
 
-    /// <summary>What makes the pupil more than a mistaken entry, as
-    /// "12 známek", "3 absence"… (empty = none).</summary>
-    private async Task<List<string>> HistoryOfAsync(Student student)
-    {
-        var id = student.Id;
-        var ownId = student.Person!.UserId;
-        var counts = new (int Count, string One, string Few, string Many)[]
-        {
-            (await db.Grades.CountAsync(g => g.StudentId == id), "známku", "známky", "známek"),
-            (await db.Absences.CountAsync(a => a.StudentId == id), "absenci", "absence", "absencí"),
-            (await db.BehaviorRecords.CountAsync(r => r.StudentId == id)
-                + await db.BehaviorClassifications.CountAsync(c => c.StudentId == id),
-                "záznam chování", "záznamy chování", "záznamů chování"),
-            (await db.HomeworkCompletions.CountAsync(c => c.StudentId == id), "splněný úkol", "splněné úkoly", "splněných úkolů"),
-            (await db.PaymentRecipients.CountAsync(r => r.StudentId == id && r.Paid), "zaplacenou platbu", "zaplacené platby", "zaplacených plateb"),
-            (await db.Conversations.CountAsync(c => c.StudentId == id)
-                + (ownId is null ? 0 : await db.Messages.CountAsync(m => m.SenderUserId == ownId)),
-                "zprávu", "zprávy", "zpráv"),
-        };
-        return counts
-            .Where(c => c.Count > 0)
-            .Select(c => $"{c.Count} {(c.Count == 1 ? c.One : c.Count < 5 ? c.Few : c.Many)}")
-            .ToList();
-    }
-
-    // Country/Municipality names are looked up by code rather than via
-    // navigation properties, since student.Country/student.Municipality
-    // aren't populated after Add/Update without an extra Include — these
-    // two single-row lookups are cheaper than that.
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-    private async Task<StudentDto> ToDtoAsync(Student student, string schoolClassName)
-    {
-        var countryName = student.CountryCode is null
-            ? null
-            : await db.Countries.Where(c => c.Code == student.CountryCode).Select(c => c.Name).FirstOrDefaultAsync();
-        var municipalityName = student.MunicipalityCode is null
-            ? null
-            : await db.Municipalities.Where(m => m.Code == student.MunicipalityCode).Select(m => m.Name).FirstOrDefaultAsync();
-
-        return new StudentDto(
-            student.Id, student.Person!.FirstName, student.Person!.LastName, student.SchoolClassId, schoolClassName,
-            student.RodneCislo, student.DateOfBirth, student.Gender, student.CitizenshipQualifier,
-            student.CountryCode, countryName, student.Street, student.MunicipalityCode, municipalityName,
-            student.PostalCode, student.CatchmentArea, student.EnrollmentDate, student.ContactPhone,
-            student.ContactEmail, student.DefaultVariableSymbol, student.LeftAt, student.LeaveReason, student.LeaveReasonDetail, student.LeaveNote);
-    }
-
-    private Task<bool> IsVariableSymbolTakenAsync(string? variableSymbol, int? exceptStudentId) =>
-        variableSymbol is null
-            ? Task.FromResult(false)
-            : db.Students.AnyAsync(s => s.DefaultVariableSymbol == variableSymbol && s.Id != exceptStudentId);
 }
 
 public record CreateStudentRequest(
@@ -286,7 +169,12 @@ public record CreateStudentRequest(
     DateOnly? EnrollmentDate = null,
     string? ContactPhone = null,
     string? ContactEmail = null,
-    string? DefaultVariableSymbol = null);
+    string? DefaultVariableSymbol = null)
+{
+    public StudentMatrika Matrika => new(
+        SchoolClassId, RodneCislo, DateOfBirth, Gender, CitizenshipQualifier, CountryCode, Street,
+        MunicipalityCode, PostalCode, CatchmentArea, EnrollmentDate, ContactPhone, ContactEmail, DefaultVariableSymbol);
+}
 
 public record StudentDto(
     int Id,

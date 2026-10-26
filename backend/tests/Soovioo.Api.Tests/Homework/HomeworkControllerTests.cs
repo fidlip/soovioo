@@ -118,7 +118,7 @@ public class HomeworkControllerTests
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
         var otherClass = new SchoolClass { Name = "6.B", SchoolId = SchoolId };
         db.SchoolClasses.Add(otherClass);
-        var outsider = new Student { Person = new Person { FirstName = "Cizí", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = 0, SchoolId = SchoolId };
+        var outsider = new StudentProfile { Person = new Person { FirstName = "Cizí", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = 0, SchoolId = SchoolId };
         db.Students.Add(outsider);
         await db.SaveChangesAsync();
         outsider.SchoolClassId = otherClass.Id;
@@ -155,8 +155,8 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var parentUser = new User { Username = "rodic", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         db.Students.Add(student);
         await db.SaveChangesAsync();
@@ -180,7 +180,7 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var parentUser = new User { Username = "rodic2", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         db.Homework.Add(new HomeworkEntity
         {
@@ -201,9 +201,9 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var parentUser = new User { Username = "rodic3", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
-        var myKid = new Student { Person = new Person { FirstName = "Můj", LastName = "Syn", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherKid = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var myKid = new StudentProfile { Person = new Person { FirstName = "Můj", LastName = "Syn", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherKid = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Users.Add(parentUser);
         db.Students.AddRange(myKid, otherKid);
         await db.SaveChangesAsync();
@@ -230,10 +230,10 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         var homework = new HomeworkEntity
         {
@@ -255,10 +255,10 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         var homework = new HomeworkEntity
         {
@@ -281,10 +281,10 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         var homework = new HomeworkEntity
         {
@@ -305,11 +305,11 @@ public class HomeworkControllerTests
     {
         using var db = NewDb();
         var (schoolClass, subject) = await SeedClassAndSubjectAsync(db, teacherId: 7);
-        var studentUser = new User { Username = "zak", PasswordHash = "x", Role = UserRole.Student, SchoolId = SchoolId };
+        var studentUser = new User { Username = "zak", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
         db.Users.Add(studentUser);
         await db.SaveChangesAsync();
-        var student = new Student { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
-        var otherStudent = new Student { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", UserId = studentUser.Id, SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
+        var otherStudent = new StudentProfile { Person = new Person { FirstName = "Jiný", LastName = "Žák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.AddRange(student, otherStudent);
         var homework = new HomeworkEntity
         {
@@ -367,7 +367,7 @@ public class HomeworkControllerTests
         var teacherController = NewController(db, 7, "Teacher");
         var uploadResult = await teacherController.UploadAttachment(homework.Id, FakeFile("zadani.pdf"));
         var attachmentDto = (Soovioo.Api.Homework.HomeworkAttachmentDto)Assert.IsType<OkObjectResult>(uploadResult.Result).Value!;
-        var unrelatedParent = new User { Username = "rodic4", PasswordHash = "x", Role = UserRole.Parent, SchoolId = SchoolId };
+        var unrelatedParent = new User { Username = "rodic4", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
         db.Users.Add(unrelatedParent);
         await db.SaveChangesAsync();
 
