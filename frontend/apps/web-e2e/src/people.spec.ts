@@ -21,6 +21,8 @@ async function pick(page: Page, field: Locator, option: string | RegExp) {
 test('an account is a person’s: picked, completed with the missing profile, then created', async ({
   page,
 }) => {
+  // Four dialogs across two tabs — over 30 s on a busy CI runner.
+  test.slow();
   const lastName = `Osoba${Date.now()}`;
   await page.goto('/skola/login');
   await page.locator('#username').fill('admin');

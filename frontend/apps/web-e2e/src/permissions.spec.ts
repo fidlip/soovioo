@@ -156,6 +156,9 @@ test('the pages offer exactly what the role may do', async ({
   request,
   waitForApiIdle,
 }) => {
+  // Every page twice, without and with the permissions — over 30 s on a busy
+  // CI runner.
+  test.slow();
   const admin = await adminApi(page, request);
   const roleName = `Bez práv ${Date.now()}`;
   const username = `prava${Date.now()}`;
