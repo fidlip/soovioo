@@ -35,14 +35,18 @@ public class CalendarFeedController(AppDbContext db) : ControllerBase
         // subscribed feed must not leak events this user couldn't see in
         // the app itself.
         var schoolId = user.SchoolId.Value;
-        var query = user.ActiveRole switch
-        {
-            UserRole.Admin => db.VisibleToAdmin(schoolId),
-            UserRole.Teacher => await db.VisibleToTeacherAsync(schoolId, user.Id),
-            UserRole.Parent => await db.VisibleToParentAsync(schoolId, user.Id),
-            UserRole.Student => await db.VisibleToStudentAsync(schoolId, user.Id),
-            _ => db.Events.Where(e => false),
-        };
+        var permissions = user.ActiveRoleId is { } roleId
+            ? await PermissionAccess.EffectivePermissionsAsync(db, roleId)
+            : new Dictionary<Permission, PermissionScope>();
+        var query = permissions.GetValueOrDefault(Permission.EventsWrite) == PermissionScope.School
+            ? db.VisibleToAdmin(schoolId)
+            : user.ActiveRole?.Kind switch
+            {
+                RoleKind.Staff => await db.VisibleToTeacherAsync(schoolId, user.Id),
+                RoleKind.Parent => await db.VisibleToParentAsync(schoolId, user.Id),
+                RoleKind.Student => await db.VisibleToStudentAsync(schoolId, user.Id),
+                _ => db.Events.Where(e => false),
+            };
         var events = await query.ToListAsync();
 
         var calendar = new Calendar();

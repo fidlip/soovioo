@@ -12,7 +12,7 @@ namespace Soovioo.Api.People;
 /// audience (parents / pupils) in the class — the teachers' contacts, the
 /// class list and the other parents. What isn't shared never leaves the API
 /// (null section / null contact), the clients only render what they get.</summary>
-[Authorize(Roles = "Parent,Student")]
+[Authorize(Roles = nameof(RoleKind.Parent) + "," + nameof(RoleKind.Student))]
 [ApiController]
 [Route("api/class-directory")]
 public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext currentSchool, PhotoAccess photoAccess) : ControllerBase
@@ -32,7 +32,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
         var visibility = await Visibility.LoadAsync(db, currentSchool.SchoolId!.Value);
         var student = await db.Students.Include(s => s.SchoolClass).FirstAsync(s => s.Id == id);
         var classId = student.SchoolClassId;
-        var isParent = User.IsInRole(nameof(UserRole.Parent));
+        var isParent = User.ActiveKind() == RoleKind.Parent;
         var audience = isParent ? VisibilityAudience.Parents : VisibilityAudience.Students;
 
         var teachers = await TeachersAsync(visibility, audience, classId, student.SchoolClass!.ClassTeacherId);

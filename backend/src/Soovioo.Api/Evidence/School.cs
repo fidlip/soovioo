@@ -81,4 +81,8 @@ public class School
     /// set their own — what comes in it is sent when it ends.</summary>
     public TimeOnly PushQuietFrom { get; set; } = new(21, 0);
     public TimeOnly PushQuietTo { get; set; } = new(7, 0);
+
+    /// <summary>The built-in four (<see cref="Auth.RoleSeeder.AddMissing"/>)
+    /// and the school's own.</summary>
+    public List<Auth.Role> Roles { get; set; } = [];
 }

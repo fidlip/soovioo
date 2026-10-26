@@ -18,7 +18,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Classes)]
     public async Task<ActionResult<SchoolClass>> AddSchoolClass(CreateSchoolClassRequest request)
     {
         var schoolClass = new SchoolClass
@@ -35,7 +35,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Classes)]
     public async Task<ActionResult<SchoolClass>> UpdateSchoolClass(int id, CreateSchoolClassRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(id);
@@ -56,7 +56,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     /// another class first. Timetable entries for the class are removed
     /// along with it (they're just schedule slots, not records).</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Classes)]
     public async Task<IActionResult> DeleteSchoolClass(int id)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(id);

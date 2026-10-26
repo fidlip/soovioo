@@ -14,9 +14,9 @@ namespace Soovioo.Api.Payments;
 [Route("api/payments")]
 public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
-    /// <summary>Unscoped list + <see cref="StudentAccessExtensions.GetAccessibleStudentIdsAsync"/>
-    /// filter, same shape as Homework/Grades. Teacher/Admin see every
-    /// Payment in the school; a Parent/Student only sees a Payment at all if
+    /// <summary>Unscoped list + <see cref="PermissionAccess.StudentIdsAsync"/>
+    /// filter, same shape as Homework/Grades. Staff with the whole school see every
+    /// Payment; others only see a Payment at all if
     /// at least one Recipient row matches one of their accessible students —
     /// and even then, ONLY those matching rows are included. A Payment
     /// targeting a whole class must never leak a classmate's amount/VS/paid
@@ -24,7 +24,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PaymentDto>>> GetPayments()
     {
-        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.PaymentsRead);
 
         var payments = await db.Payments
             .Include(p => p.SchoolClasses)
@@ -73,19 +73,20 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// ids against — same split as <see cref="Events.EventsController"/>,
     /// minus the Teachers list entirely (a Payment never targets teachers).</summary>
     [HttpGet("recipient-options")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.PaymentsWrite)]
     public async Task<ActionResult<PaymentRecipientOptionsDto>> GetRecipientOptions()
     {
         var schoolId = currentSchool.SchoolId!.Value;
 
-        if (User.IsInRole("Admin"))
+        var myClassIds = await User.ClassIdsAsync(db, Permission.PaymentsWrite);
+        if (myClassIds is null)
         {
             var classes = await db.SchoolClasses
                 .OrderBy(c => c.Name)
                 .Select(c => new PaymentSchoolClassOptionDto(c.Id, c.Name, c.Rocnik))
                 .ToListAsync();
             var parents = await db.Users
-                .Where(u => u.Roles.Contains(UserRole.Parent))
+                .Where(u => u.Roles.Any(r => r.Kind == RoleKind.Parent))
                 .OrderBy(u => u.Username)
                 .Select(u => new PaymentPersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
@@ -96,8 +97,6 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return Ok(new PaymentRecipientOptionsDto(classes, parents, students));
         }
 
-        var teacherId = CurrentUserId();
-        var myClassIds = await db.GetTeacherClassIdsAsync(teacherId);
         var myClasses = await db.SchoolClasses
             .Where(c => myClassIds.Contains(c.Id))
             .OrderBy(c => c.Name)
@@ -121,7 +120,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.PaymentsWrite)]
     public async Task<ActionResult<PaymentDto>> CreatePayment(CreatePaymentRequest request)
     {
         var validationError = await ValidatePaymentRequestAsync(request);
@@ -179,7 +178,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// conflict-resolution rules (what happens to already-generated
     /// recipients) that don't exist. Delete + recreate is the only path.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.PaymentsWrite)]
     public async Task<IActionResult> DeletePayment(int id)
     {
         var payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == id);
@@ -187,24 +186,33 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return NotFound();
         }
+        if (payment.CreatedByUserId != CurrentUserId()
+            && await User.ScopeAsync(db, Permission.PaymentsWrite) != PermissionScope.School)
+        {
+            return Forbid();
+        }
 
         db.Payments.Remove(payment);
         await db.SaveChangesAsync();
         return NoContent();
     }
 
-    /// <summary>Teacher/Admin-only, deliberately — a Parent/Student marking
+    /// <summary>Staff only, deliberately — a Parent/Student marking
     /// their own payment as paid would be a self-reported-fraud problem.
     /// There's no bank API integration (see ROADMAP); staff reconcile the
     /// school's bank statement by hand.</summary>
     [HttpPut("recipients/{id:int}/paid")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.PaymentsWrite)]
     public async Task<ActionResult<PaymentRecipientDto>> SetRecipientPaid(int id, SetPaymentRecipientPaidRequest request)
     {
         var recipient = await db.PaymentRecipients.Include(r => r.Student).FirstOrDefaultAsync(r => r.Id == id);
         if (recipient is null)
         {
             return NotFound();
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.PaymentsWrite, recipient.StudentId))
+        {
+            return Forbid();
         }
 
         recipient.Paid = request.Paid;
@@ -215,7 +223,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPut("recipients/{id:int}/variable-symbol")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.PaymentsWrite)]
     public async Task<ActionResult<PaymentRecipientDto>> SetRecipientVariableSymbol(
         int id, SetPaymentRecipientVariableSymbolRequest request)
     {
@@ -223,6 +231,10 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
         if (recipient is null)
         {
             return NotFound();
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.PaymentsWrite, recipient.StudentId))
+        {
+            return Forbid();
         }
 
         recipient.VariableSymbol = request.VariableSymbol;
@@ -246,6 +258,11 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             && request.RecurrenceEndDate is { } end && end < request.DueDate)
         {
             return "RecurrenceEndDate must not be before DueDate.";
+        }
+        if (request.Audience == PaymentAudience.Everyone
+            && await User.ScopeAsync(db, Permission.PaymentsWrite) != PermissionScope.School)
+        {
+            return "Platbu celé škole může založit jen ten, kdo má platby pro celou školu.";
         }
         if (request.Audience != PaymentAudience.Selected)
         {
@@ -272,22 +289,21 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     {
         var schoolId = currentSchool.SchoolId!.Value;
 
-        if (User.IsInRole("Admin"))
+        var myClassIds = await User.ClassIdsAsync(db, Permission.PaymentsWrite);
+        if (myClassIds is null)
         {
             var classIds = await db.SchoolClasses.Where(c => c.SchoolId == schoolId).Select(c => c.Id).ToListAsync();
             var parentIds = await db.Users
-                .Where(u => u.SchoolId == schoolId && u.Roles.Contains(UserRole.Parent)).Select(u => u.Id).ToListAsync();
+                .Where(u => u.SchoolId == schoolId && u.Roles.Any(r => r.Kind == RoleKind.Parent)).Select(u => u.Id).ToListAsync();
             var studentIds = await db.Students.Where(s => s.SchoolId == schoolId).Select(s => s.Id).ToListAsync();
             return new AllowedRecipientIds(classIds.ToHashSet(), parentIds.ToHashSet(), studentIds.ToHashSet());
         }
 
-        var teacherId = CurrentUserId();
-        var myClassIds = await db.GetTeacherClassIdsAsync(teacherId);
         var myStudentIds = await db.Students
             .Where(s => myClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync();
         var myParentIds = await db.ParentStudents
             .Where(ps => myStudentIds.Contains(ps.StudentId)).ParentAccountLinks().Select(l => l.UserId).Distinct().ToListAsync();
-        return new AllowedRecipientIds(myClassIds.ToHashSet(), myParentIds.ToHashSet(), myStudentIds.ToHashSet());
+        return new AllowedRecipientIds(myClassIds, myParentIds.ToHashSet(), myStudentIds.ToHashSet());
     }
 
     private void SetRecipientTargets(Payment payment, CreatePaymentRequest request)

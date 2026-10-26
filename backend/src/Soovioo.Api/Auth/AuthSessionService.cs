@@ -70,9 +70,9 @@ public class AuthSessionService(
 
         var school = await SchoolOfAsync(user);
         return new LoginResponse(
-            tokenFactory.CreateToken(user, school),
+            tokenFactory.CreateToken(user, school, await PermissionsOfAsync(user)),
             user.Username,
-            user.ActiveRole.ToString(),
+            user.IsSuperAdmin || user.ActiveRole is null ? nameof(UserRole.SuperAdmin) : user.ActiveRole.Kind.ToString(),
             school?.Name,
             school?.Slug,
             useCookie ? null : refresh.Token);
@@ -81,7 +81,10 @@ public class AuthSessionService(
     /// <summary>Just a new access token for the current session (refresh
     /// token untouched) — e.g. after switching the active role.</summary>
     public async Task<string> IssueAccessTokenAsync(User user) =>
-        tokenFactory.CreateToken(user, await SchoolOfAsync(user));
+        tokenFactory.CreateToken(user, await SchoolOfAsync(user), await PermissionsOfAsync(user));
+
+    private async Task<IReadOnlyDictionary<Permission, PermissionScope>?> PermissionsOfAsync(User user) =>
+        user.ActiveRoleId is { } roleId ? await PermissionAccess.EffectivePermissionsAsync(db, roleId) : null;
 
     private async Task<Evidence.School?> SchoolOfAsync(User user) =>
         user.SchoolId is { } schoolId

@@ -50,8 +50,8 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
 
         var viewerId = ViewerId(viewer);
         var s = await SchoolAsync();
-        var isAdmin = viewer.IsInRole(nameof(UserRole.Admin));
-        var isStaff = isAdmin || viewer.IsInRole(nameof(UserRole.Teacher));
+        var isAdmin = await viewer.HasPermissionAsync(db, Permission.Administration);
+        var isStaff = viewer.IsStaff();
         HashSet<int>? teacherClassIds = null;
         var personIds = withPhoto.Select(u => u.Person!.Id).ToList();
         var choices = (await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync())
@@ -70,7 +70,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
                 visible = isStaff || await PeerSeesAsync(
                     viewer, VisibilityOwner.Staff, own, () => db.GetTeacherClassIdsAsync(user.Id));
             }
-            else if (user.Roles.Contains(UserRole.Parent) && s.ParentPhotos)
+            else if (user.HasKind(RoleKind.Parent) && s.ParentPhotos)
             {
                 if (isAdmin)
                 {
@@ -137,7 +137,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             return false;
         }
         var approved = student.Person!.PhotoStatus == PhotoStatus.Approved;
-        if (IsSelf(viewer, student) || (approved && viewer.IsInRole(nameof(UserRole.Teacher))))
+        if (IsSelf(viewer, student) || (approved && viewer.IsStaff()))
         {
             return true;
         }
@@ -149,26 +149,21 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             viewer, VisibilityOwner.Student, choices, () => Task.FromResult(new List<int> { student.SchoolClassId }));
     }
 
-    /// <summary>Parents of the pupil, their class teacher, admins.</summary>
+    /// <summary>Parents of the pupil and the school's side.</summary>
     public async Task<bool> CanApproveStudentPhotoAsync(ClaimsPrincipal viewer, StudentProfile student)
     {
-        if (viewer.IsInRole(nameof(UserRole.Admin)))
+        if (viewer.IsStaff())
         {
-            return true;
+            return await IsSchoolSideAsync(viewer, student);
         }
-        var viewerId = ViewerId(viewer);
-        if (viewer.IsInRole(nameof(UserRole.Teacher)))
-        {
-            return await db.IsClassTeacherOfAsync(viewerId, student.SchoolClassId);
-        }
-        return viewer.IsInRole(nameof(UserRole.Parent))
-               && await db.ChildIdsOf(viewerId).AnyAsync(id => id == student.Id);
+        return viewer.ActiveKind() == RoleKind.Parent
+               && await db.ChildIdsOf(ViewerId(viewer)).AnyAsync(id => id == student.Id);
     }
 
-    /// <summary>Admin or the class teacher — the school's side of a pupil's photo.</summary>
+    /// <summary>Staff whose <see cref="Permission.StudentPhotos"/> reaches the
+    /// pupil (by default Admin and the class teacher) — the school's side of a pupil's photo.</summary>
     public async Task<bool> IsSchoolSideAsync(ClaimsPrincipal viewer, StudentProfile student) =>
-        viewer.IsInRole(nameof(UserRole.Admin))
-        || (viewer.IsInRole(nameof(UserRole.Teacher)) && await db.IsClassTeacherOfAsync(ViewerId(viewer), student.SchoolClassId));
+        viewer.IsStaff() && await viewer.ReachesClassAsync(db, Permission.StudentPhotos, student.SchoolClassId);
 
     /// <summary>Whether a parent or pupil viewer sees the photo of someone
     /// with <paramref name="choices"/>, whose classes
@@ -177,11 +172,11 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
         ClaimsPrincipal viewer, VisibilityOwner owner, IEnumerable<VisibilityChoice> choices, Func<Task<List<int>>> ownerClassIds)
     {
         VisibilityAudience audience;
-        if (viewer.IsInRole(nameof(UserRole.Parent)))
+        if (viewer.ActiveKind() == RoleKind.Parent)
         {
             audience = VisibilityAudience.Parents;
         }
-        else if (viewer.IsInRole(nameof(UserRole.Student)))
+        else if (viewer.ActiveKind() == RoleKind.Student)
         {
             audience = VisibilityAudience.Students;
         }
@@ -214,10 +209,9 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             .ToListAsync();
 
     public static bool IsSelf(ClaimsPrincipal viewer, StudentProfile student) =>
-        viewer.IsInRole(nameof(UserRole.Student)) && student.Person!.UserId == ViewerId(viewer);
+        viewer.ActiveKind() == RoleKind.Student && student.Person!.UserId == ViewerId(viewer);
 
-    public static bool IsStaff(User user) =>
-        user.Roles.Contains(UserRole.Teacher) || user.Roles.Contains(UserRole.Admin);
+    public static bool IsStaff(User user) => user.HasKind(RoleKind.Staff);
 
     public static int ViewerId(ClaimsPrincipal viewer) =>
         int.Parse(viewer.FindFirstValue(ClaimTypes.NameIdentifier)!);

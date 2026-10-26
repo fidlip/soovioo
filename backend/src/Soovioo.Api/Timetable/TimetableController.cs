@@ -79,7 +79,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableEntryDto>> AddEntry(int schoolClassId, CreateTimetableEntryRequest request)
     {
         // Both lookups are already scoped to the caller's school by the
@@ -132,7 +132,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableEntryDto>> UpdateEntry(
         int schoolClassId, int id, CreateTimetableEntryRequest request)
     {
@@ -186,7 +186,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         }
 
         return await db.Users.Include(u => u.Person)
-            .FirstOrDefaultAsync(u => u.Id == teacherId && u.Roles.Contains(UserRole.Teacher));
+            .FirstOrDefaultAsync(u => u.Id == teacherId && u.Roles.Any(r => r.BuiltIn == UserRole.Teacher));
     }
 
     private async Task<Classroom?> ResolveClassroomAsync(int? classroomId)
@@ -273,7 +273,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         a == WeekParity.Every || b == WeekParity.Every || a == b;
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Timetable)]
     public async Task<IActionResult> DeleteEntry(int schoolClassId, int id)
     {
         var entry = await db.TimetableEntries.FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);

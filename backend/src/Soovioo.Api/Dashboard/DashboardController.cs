@@ -38,8 +38,9 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         var schoolId = currentSchool.SchoolId.Value;
         var userId = CurrentUserId();
-        var isAdmin = User.IsInRole(nameof(UserRole.Admin));
-        var isTeacher = User.IsInRole(nameof(UserRole.Teacher));
+        var isStaff = User.IsStaff();
+        var isAdmin = await User.HasPermissionAsync(db, Permission.Administration);
+        var isTeacher = isStaff && !isAdmin;
         var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
         var today = DateOnly.FromDateTime(DateTime.Today).DayOfWeek;
 
@@ -55,10 +56,11 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         }
 
         var recentGrades = new List<GradeDto>();
-        if (!isAdmin && !isTeacher)
+        if (!isStaff)
         {
+            var gradeStudentIds = await User.StudentIdsAsync(db, Permission.GradesRead) ?? [];
             recentGrades = await db.Grades
-                .Where(g => allowedStudentIds!.Contains(g.StudentId))
+                .Where(g => gradeStudentIds.Contains(g.StudentId))
                 .OrderByDescending(g => g.GradedOn)
                 .ThenByDescending(g => g.CreatedAt)
                 .Take(5)
@@ -69,15 +71,15 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         }
 
         var absencesQuery = db.Absences.AsQueryable();
-        if (allowedStudentIds is not null)
+        if (await User.StudentIdsAsync(db, Permission.AbsencesRead) is { } absenceStudentIds)
         {
-            absencesQuery = absencesQuery.Where(a => allowedStudentIds.Contains(a.StudentId));
+            absencesQuery = absencesQuery.Where(a => absenceStudentIds.Contains(a.StudentId));
         }
-        // Teacher/Admin: what's awaiting their review. Parent/Student: what's
+        // Staff: what's awaiting their review. Parent/Student: what's
         // still unresolved for them to act on or wait out — the same two
         // meanings "ke schválení"/"nevyřízené" carry on the Absences page
         // itself (see STATUS_LABEL in absences-page.ts).
-        absencesQuery = isAdmin || isTeacher
+        absencesQuery = isStaff
             ? absencesQuery.Where(a => a.Status == AbsenceStatus.PendingExcuse)
             : absencesQuery.Where(a => a.Status == AbsenceStatus.Unexcused || a.Status == AbsenceStatus.PendingExcuse);
         var pendingAbsences = await absencesQuery
@@ -109,9 +111,9 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .ToList();
 
         var behaviorRecordsQuery = db.BehaviorRecords.AsQueryable();
-        if (allowedStudentIds is not null)
+        if (await User.StudentIdsAsync(db, Permission.BehaviorRead) is { } behaviorStudentIds)
         {
-            behaviorRecordsQuery = behaviorRecordsQuery.Where(r => allowedStudentIds.Contains(r.StudentId));
+            behaviorRecordsQuery = behaviorRecordsQuery.Where(r => behaviorStudentIds.Contains(r.StudentId));
         }
         var unreadBehaviorRecords = await behaviorRecordsQuery
             .Where(r => r.ReadAt == null)
@@ -122,13 +124,14 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt, r.ReadAt))
             .ToListAsync();
 
-        var eventsQuery = isAdmin
+        var eventsQuery = await User.ScopeAsync(db, Permission.EventsWrite) == PermissionScope.School
             ? db.VisibleToAdmin(schoolId)
-            : isTeacher
-                ? await db.VisibleToTeacherAsync(schoolId, userId)
-                : User.IsInRole(nameof(UserRole.Student))
-                    ? await db.VisibleToStudentAsync(schoolId, userId)
-                    : await db.VisibleToParentAsync(schoolId, userId);
+            : User.ActiveKind() switch
+            {
+                RoleKind.Staff => await db.VisibleToTeacherAsync(schoolId, userId),
+                RoleKind.Student => await db.VisibleToStudentAsync(schoolId, userId),
+                _ => await db.VisibleToParentAsync(schoolId, userId),
+            };
         var now = DateTimeOffset.UtcNow;
         var upcomingEvents = await eventsQuery
             .Where(e => e.EndAt >= now)
@@ -142,7 +145,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             schoolCounts = new SchoolCountsDto(
                 await db.Students.CountAsync(),
-                await db.Users.CountAsync(u => u.Roles.Contains(UserRole.Teacher)),
+                await db.Users.CountAsync(u => u.Roles.Any(r => r.BuiltIn == UserRole.Teacher)),
                 await db.SchoolClasses.CountAsync());
         }
 

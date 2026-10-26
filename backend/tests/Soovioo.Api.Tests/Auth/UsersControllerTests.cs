@@ -64,10 +64,13 @@ public class UsersControllerTests
         return person;
     }
 
+    private static int[] Ids(AppDbContext db, params UserRole[] roles) =>
+        [.. roles.Select(r => db.Role(r, SchoolId).Id)];
+
     /// <summary>An account with roles, on a person with their profiles.</summary>
     private static User NewUser(AppDbContext db, string username, params UserRole[] roles)
     {
-        var user = new User { Username = username, PasswordHash = "x", Roles = [.. roles], ActiveRole = roles[0], SchoolId = SchoolId };
+        var user = new User { Username = username, PasswordHash = "x", Roles = [.. roles.Select(r => db.Role(r, SchoolId))], ActiveRole = db.Role(roles[0], SchoolId), SchoolId = SchoolId };
         db.Users.Add(user);
         db.SaveChanges();
         NewPerson(db, username, null, roles).UserId = user.Id;
@@ -81,7 +84,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var user = NewUser(db, "ucitel", UserRole.Teacher);
 
-        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", ["Teacher"], user.Person!.Id));
+        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", Ids(db, UserRole.Teacher), user.Person!.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal("ucitelka", dto.Username);
@@ -93,7 +96,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var person = NewPerson(db, "Nová", null, UserRole.Teacher);
 
-        await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", ["Teacher"], person.Id));
+        await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", Ids(db, UserRole.Teacher), person.Id));
 
         var created = await db.Users.SingleAsync(u => u.Username == "novy");
         Assert.True(created.MustChangePassword);
@@ -106,7 +109,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var user = NewUser(db, "ucitel", UserRole.Teacher);
 
-        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitel", ["Teacher"], user.Person!.Id, "nove-heslo"));
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitel", Ids(db, UserRole.Teacher), user.Person!.Id, "nove-heslo"));
 
         Assert.True((await db.Users.FindAsync(user.Id))!.MustChangePassword);
     }
@@ -117,7 +120,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var user = NewUser(db, "ucitel", UserRole.Teacher);
 
-        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", ["Teacher"], user.Person!.Id));
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", Ids(db, UserRole.Teacher), user.Person!.Id));
 
         Assert.False((await db.Users.FindAsync(user.Id))!.MustChangePassword);
     }
@@ -127,7 +130,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", ["Student"], null));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", Ids(db, UserRole.Student), null));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.False(await db.Users.AnyAsync());
@@ -142,7 +145,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var person = NewPerson(db, "Bez profilu", null);
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", [role.ToString()], person.Id));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("novy", "heslo123", Ids(db, role), person.Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Null(person.UserId);
@@ -154,7 +157,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var person = NewPerson(db, "Správcová", null);
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("spravce", "heslo123", ["Admin"], person.Id));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("spravce", "heslo123", Ids(db, UserRole.Admin), person.Id));
 
         Assert.IsType<CreatedAtActionResult>(result.Result);
     }
@@ -165,7 +168,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var pupil = NewPerson(db, "Novák", null, UserRole.Student);
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", ["Student"], pupil.Id));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", Ids(db, UserRole.Student), pupil.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal(pupil.Student!.Id, dto.StudentId);
@@ -179,7 +182,7 @@ public class UsersControllerTests
         var existing = NewUser(db, "zak1", UserRole.Student);
 
         var result = await NewController(db, 999)
-            .AddUser(new CreateUserRequest("zak2", "heslo123", ["Student"], existing.Person!.Id));
+            .AddUser(new CreateUserRequest("zak2", "heslo123", Ids(db, UserRole.Student), existing.Person!.Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -192,7 +195,7 @@ public class UsersControllerTests
         var first = user.Person!;
         var other = NewPerson(db, "Nový", null, UserRole.Student);
 
-        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("zak", ["Student"], other.Id));
+        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("zak", Ids(db, UserRole.Student), other.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(other.Student!.Id, dto.StudentId);
@@ -261,7 +264,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
-        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId, Person = new Person { Email = "a@b.cz", SchoolId = SchoolId } };
+        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId, Person = new Person { Email = "a@b.cz", SchoolId = SchoolId } };
         db.Users.Add(user);
         await db.SaveChangesAsync();
         var emailSender = new FakeEmailSender();
@@ -283,7 +286,7 @@ public class UsersControllerTests
     {
         using var db = NewDb();
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
-        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId, Person = new Person { Email = "a@b.cz", SchoolId = SchoolId } };
+        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId, Person = new Person { Email = "a@b.cz", SchoolId = SchoolId } };
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
@@ -304,7 +307,7 @@ public class UsersControllerTests
         var emailSender = new FakeEmailSender();
 
         var result = await NewController(db, 999, emailSender)
-            .AddUser(new CreateUserRequest("novy", "heslo123", ["Teacher"], person.Id));
+            .AddUser(new CreateUserRequest("novy", "heslo123", Ids(db, UserRole.Teacher), person.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal(nameof(InviteOutcome.Sent), dto.Invite);
@@ -323,7 +326,7 @@ public class UsersControllerTests
         await db.SaveChangesAsync();
         var person = NewPerson(db, "Nová", "a@b.cz", UserRole.Parent);
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("novy", null, ["Parent"], person.Id));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("novy", null, Ids(db, UserRole.Parent), person.Id));
 
         Assert.IsType<CreatedAtActionResult>(result.Result);
         var created = await db.Users.SingleAsync(u => u.Username == "novy");
@@ -340,7 +343,7 @@ public class UsersControllerTests
         var person = NewPerson(db, "Nová", null, UserRole.Teacher);
         var emailSender = new FakeEmailSender();
 
-        var result = await NewController(db, 999, emailSender).AddUser(new CreateUserRequest("novy", " ", ["Teacher"], person.Id));
+        var result = await NewController(db, 999, emailSender).AddUser(new CreateUserRequest("novy", " ", Ids(db, UserRole.Teacher), person.Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.False(await db.Users.AnyAsync());
@@ -354,7 +357,7 @@ public class UsersControllerTests
         var person = NewPerson(db, "Nová", null, UserRole.Teacher);
         var emailSender = new FakeEmailSender();
 
-        var result = await NewController(db, 999, emailSender).AddUser(new CreateUserRequest("novy", "heslo123", ["Teacher"], person.Id));
+        var result = await NewController(db, 999, emailSender).AddUser(new CreateUserRequest("novy", "heslo123", Ids(db, UserRole.Teacher), person.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Null(dto.Invite);
@@ -369,7 +372,7 @@ public class UsersControllerTests
         var emailSender = new FakeEmailSender();
 
         var result = await NewController(db, 999, emailSender, new AppLinkOptions { PathBasedTenant = true })
-            .AddUser(new CreateUserRequest("novy", null, ["Teacher"], person.Id));
+            .AddUser(new CreateUserRequest("novy", null, Ids(db, UserRole.Teacher), person.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal(nameof(InviteOutcome.NotConfigured), dto.Invite);
@@ -386,7 +389,7 @@ public class UsersControllerTests
         var person = NewPerson(db, "Nová", "a@b.cz", UserRole.Teacher);
 
         var result = await NewController(db, 999, new FailingEmailSender())
-            .AddUser(new CreateUserRequest("novy", null, ["Teacher"], person.Id));
+            .AddUser(new CreateUserRequest("novy", null, Ids(db, UserRole.Teacher), person.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Equal(nameof(InviteOutcome.Failed), dto.Invite);
@@ -400,10 +403,10 @@ public class UsersControllerTests
         var admin = NewUser(db, "admin", UserRole.Admin, UserRole.Teacher);
         NewUser(db, "admin2", UserRole.Admin);
 
-        var result = await NewController(db, admin.Id).UpdateUser(admin.Id, new UpdateUserRequest("admin", ["Teacher"], admin.Person!.Id));
+        var result = await NewController(db, admin.Id).UpdateUser(admin.Id, new UpdateUserRequest("admin", Ids(db, UserRole.Teacher), admin.Person!.Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains(UserRole.Admin, (await db.Users.FindAsync(admin.Id))!.Roles);
+        Assert.Contains((await db.Users.FindAsync(admin.Id))!.Roles, r => r.BuiltIn == UserRole.Admin);
     }
 
     [Fact]
@@ -412,11 +415,11 @@ public class UsersControllerTests
         using var db = NewDb();
         var person = NewPerson(db, "Učitelka", null, UserRole.Teacher, UserRole.Parent);
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("ucitelka", "heslo123", ["Parent", "Teacher"], person.Id));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("ucitelka", "heslo123", Ids(db, UserRole.Parent, UserRole.Teacher), person.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
-        Assert.Equal("Teacher", dto.Role);
-        Assert.Equal(["Teacher", "Parent"], dto.Roles);
+        Assert.Equal(db.Role(UserRole.Teacher, SchoolId).Id, dto.ActiveRoleId);
+        Assert.Equal([UserRole.Teacher, UserRole.Parent], dto.Roles.Select(r => r.BuiltIn));
     }
 
     [Fact]
@@ -425,7 +428,7 @@ public class UsersControllerTests
         using var db = NewDb();
         var person = NewPerson(db, "Novák", null, UserRole.Student, UserRole.Parent);
 
-        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", ["Student", "Parent"], person.Id));
+        var result = await NewController(db, 999).AddUser(new CreateUserRequest("zak", "heslo123", Ids(db, UserRole.Student, UserRole.Parent), person.Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -436,11 +439,11 @@ public class UsersControllerTests
         using var db = NewDb();
         var user = NewUser(db, "ucitelka", UserRole.Parent, UserRole.Teacher);
 
-        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", ["Teacher"], user.Person!.Id));
+        var result = await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("ucitelka", Ids(db, UserRole.Teacher), user.Person!.Id));
 
         var dto = Assert.IsType<UserDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal("Teacher", dto.Role);
-        Assert.Equal(["Teacher"], dto.Roles);
+        Assert.Equal(db.Role(UserRole.Teacher, SchoolId).Id, dto.ActiveRoleId);
+        Assert.Equal([UserRole.Teacher], dto.Roles.Select(r => r.BuiltIn));
     }
 
     [Fact]
@@ -451,8 +454,8 @@ public class UsersControllerTests
         await db.LinkChildAsync(user.Id, 1, SchoolId);
         await db.SaveChangesAsync();
 
-        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("mama", ["Teacher"], user.Person!.Id));
-        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("mama", ["Teacher", "Parent"], user.Person.Id));
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("mama", Ids(db, UserRole.Teacher), user.Person!.Id));
+        await NewController(db, 999).UpdateUser(user.Id, new UpdateUserRequest("mama", Ids(db, UserRole.Teacher, UserRole.Parent), user.Person.Id));
 
         Assert.Single(await db.ParentStudents.IgnoreQueryFilters().Where(ps => ps.ParentProfileId == user.Person.Id).ToListAsync());
     }

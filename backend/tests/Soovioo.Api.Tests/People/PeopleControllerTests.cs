@@ -35,10 +35,7 @@ public class PeopleControllerTests
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity([
-                        new Claim(ClaimTypes.NameIdentifier, "999"),
-                        new Claim(ClaimTypes.Role, nameof(UserRole.Admin)),
-                    ])),
+                    User = TestRoles.Principal(db, 999, UserRole.Admin, SchoolId),
                 },
             },
         };
@@ -81,7 +78,7 @@ public class PeopleControllerTests
     [Fact]
     public async Task TheProfileOfTheAccountsRoleStays()
     {
-        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         db.Users.Add(user);
         var person = new Person { User = user, LastName = "Učitelová", SchoolId = SchoolId };
         person.TeacherProfile = new TeacherProfile { Person = person, SchoolId = SchoolId };
@@ -139,7 +136,7 @@ public class PeopleControllerTests
     [Fact]
     public async Task SomeoneWithAnAccountIsNotDeleted()
     {
-        var user = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var user = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(user);
         var person = new Person { User = user, LastName = "Rodič", SchoolId = SchoolId };
         db.Persons.Add(person);

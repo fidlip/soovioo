@@ -61,6 +61,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Retention.RetentionPolicy> RetentionPolicies => Set<Retention.RetentionPolicy>();
     public DbSet<Notifications.Notification> Notifications => Set<Notifications.Notification>();
     public DbSet<Notifications.PushDevice> PushDevices => Set<Notifications.PushDevice>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     /// <summary>The day the former-pupil filter compares
     /// <see cref="StudentProfile.LeftAt"/> with (read per query).</summary>
@@ -83,6 +85,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Country> Countries => Set<Country>();
     public DbSet<District> Districts => Set<District>();
     public DbSet<Municipality> Municipalities => Set<Municipality>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        var rolesChanged = RolesChanged();
+        var result = base.SaveChanges(acceptAllChangesOnSuccess);
+        if (rolesChanged)
+        {
+            RolePermissionCache.Of(this)?.Clear();
+        }
+        return result;
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var rolesChanged = RolesChanged();
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (rolesChanged)
+        {
+            RolePermissionCache.Of(this)?.Clear();
+        }
+        return result;
+    }
+
+    /// <summary>A role, its permissions or who has it — what
+    /// <see cref="RolePermissionCache"/> holds.</summary>
+    private bool RolesChanged() =>
+        ChangeTracker.Entries().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted
+            && (e.Entity is Role or RolePermission || e.Metadata.Name == "UserRoles"
+                || (e.Entity is User && e.State == EntityState.Deleted)));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -290,6 +322,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasOne(x => x.School).WithOne().HasForeignKey<Retention.RetentionPolicy>(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
+
+        modelBuilder.Entity<Role>(e =>
+        {
+            e.Property(r => r.Kind).HasConversion<string>();
+            e.Property(r => r.BuiltIn).HasConversion<string>();
+            e.HasIndex(r => new { r.SchoolId, r.Name }).IsUnique();
+            e.HasIndex(r => new { r.SchoolId, r.BuiltIn }).IsUnique().HasFilter("\"BuiltIn\" IS NOT NULL");
+            e.HasOne(r => r.School).WithMany(s => s.Roles).HasForeignKey(r => r.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(r => currentSchool.IsSuperAdmin || r.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<RolePermission>(e =>
+        {
+            e.HasKey(p => new { p.RoleId, p.Permission });
+            e.Property(p => p.Permission).HasConversion<string>();
+            e.Property(p => p.Scope).HasConversion<string>();
+            e.HasOne<Role>().WithMany(r => r.Permissions).HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<User>().HasMany(u => u.Roles).WithMany(r => r.Users).UsingEntity("UserRoles");
+        // NoAction, not Restrict: deleting a school takes its roles and
+        // accounts in the same statement. A single role is only deleted once
+        // nobody has it.
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.ActiveRole).WithMany().HasForeignKey(u => u.ActiveRoleId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<User>().Navigation(u => u.Roles).AutoInclude();
+        modelBuilder.Entity<User>().Navigation(u => u.ActiveRole).AutoInclude();
 
         modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedNotifications).ElementType().HasConversion<string>();
         modelBuilder.Entity<User>().PrimitiveCollection(u => u.MutedEmailNotifications).ElementType().HasConversion<string>();

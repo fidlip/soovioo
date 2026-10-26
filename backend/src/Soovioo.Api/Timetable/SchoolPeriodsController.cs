@@ -28,7 +28,7 @@ public class SchoolPeriodsController(AppDbContext db, ICurrentSchoolContext curr
     /// <summary>Upsert by period number — there's no separate "create" step
     /// from the UI, just "set period N's bell times".</summary>
     [HttpPut("{periodNumber:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<SchoolPeriodDto>> UpsertPeriod(int periodNumber, UpsertSchoolPeriodRequest request)
     {
         // 0 = "nultá hodina" (before the regular first period).
@@ -57,7 +57,7 @@ public class SchoolPeriodsController(AppDbContext db, ICurrentSchoolContext curr
     }
 
     [HttpDelete("{periodNumber:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Timetable)]
     public async Task<IActionResult> DeletePeriod(int periodNumber)
     {
         var period = await db.SchoolPeriods.FirstOrDefaultAsync(p => p.PeriodNumber == periodNumber);

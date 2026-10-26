@@ -35,13 +35,14 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         }
         var schoolId = currentSchool.SchoolId.Value;
 
-        var query = User.IsInRole("Admin")
+        var query = await User.ScopeAsync(db, Permission.EventsWrite) == PermissionScope.School
             ? db.VisibleToAdmin(schoolId)
-            : User.IsInRole("Teacher")
-                ? await db.VisibleToTeacherAsync(schoolId, CurrentUserId())
-                : User.IsInRole("Student")
-                    ? await db.VisibleToStudentAsync(schoolId, CurrentUserId())
-                    : await db.VisibleToParentAsync(schoolId, CurrentUserId());
+            : User.ActiveKind() switch
+            {
+                RoleKind.Staff => await db.VisibleToTeacherAsync(schoolId, CurrentUserId()),
+                RoleKind.Student => await db.VisibleToStudentAsync(schoolId, CurrentUserId()),
+                _ => await db.VisibleToParentAsync(schoolId, CurrentUserId()),
+            };
 
         if (from is not null)
         {
@@ -70,24 +71,25 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
     /// checks submitted ids against, so the UI can never offer something the
     /// write endpoint would then reject.</summary>
     [HttpGet("recipient-options")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.EventsWrite)]
     public async Task<ActionResult<RecipientOptionsDto>> GetRecipientOptions()
     {
         var schoolId = currentSchool.SchoolId!.Value;
 
-        if (User.IsInRole("Admin"))
+        var myClassIds = await User.ClassIdsAsync(db, Permission.EventsWrite);
+        if (myClassIds is null)
         {
             var classes = await db.SchoolClasses
                 .OrderBy(c => c.Name)
                 .Select(c => new SchoolClassOptionDto(c.Id, c.Name, c.Rocnik))
                 .ToListAsync();
             var teachers = await db.Users
-                .Where(u => u.Roles.Contains(UserRole.Teacher))
+                .Where(u => u.Roles.Any(r => r.BuiltIn == UserRole.Teacher))
                 .OrderBy(u => u.Username)
                 .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
             var parents = await db.Users
-                .Where(u => u.Roles.Contains(UserRole.Parent))
+                .Where(u => u.Roles.Any(r => r.Kind == RoleKind.Parent))
                 .OrderBy(u => u.Username)
                 .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
                 .ToListAsync();
@@ -98,8 +100,6 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             return Ok(new RecipientOptionsDto(classes, teachers, parents, students));
         }
 
-        var teacherId = CurrentUserId();
-        var myClassIds = await db.GetTeacherClassIdsAsync(teacherId);
         var myClasses = await db.SchoolClasses
             .Where(c => myClassIds.Contains(c.Id))
             .OrderBy(c => c.Name)
@@ -126,7 +126,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
     private static partial Regex HexColorPattern();
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.EventsWrite)]
     public async Task<ActionResult<EventDto>> CreateEvent(CreateEventRequest request)
     {
         var validationError = await ValidateEventRequestAsync(request);
@@ -159,7 +159,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.EventsWrite)]
     public async Task<ActionResult<EventDto>> UpdateEvent(int id, CreateEventRequest request)
     {
         var validationError = await ValidateEventRequestAsync(request);
@@ -178,6 +178,10 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         {
             return NotFound();
         }
+        if (!await MayChangeAsync(@event))
+        {
+            return Forbid();
+        }
 
         @event.Title = request.Title;
         @event.Description = request.Description;
@@ -195,13 +199,17 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.EventsWrite)]
     public async Task<IActionResult> DeleteEvent(int id)
     {
         var @event = await db.Events.FirstOrDefaultAsync(e => e.Id == id);
         if (@event is null)
         {
             return NotFound();
+        }
+        if (!await MayChangeAsync(@event))
+        {
+            return Forbid();
         }
 
         db.Events.Remove(@event);
@@ -222,6 +230,11 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
         {
             return "Barva musí být ve formátu #rrggbb.";
+        }
+        if (request.Audience == EventAudience.Everyone
+            && await User.ScopeAsync(db, Permission.EventsWrite) != PermissionScope.School)
+        {
+            return "Akci pro celou školu může vytvořit jen ten, kdo má akce pro celou školu.";
         }
         if (request.Audience != EventAudience.Selected)
         {
@@ -254,27 +267,26 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
     {
         var schoolId = currentSchool.SchoolId!.Value;
 
-        if (User.IsInRole("Admin"))
+        var myClassIds = await User.ClassIdsAsync(db, Permission.EventsWrite);
+        if (myClassIds is null)
         {
             var classIds = await db.SchoolClasses.Where(c => c.SchoolId == schoolId).Select(c => c.Id).ToListAsync();
             var teacherIds = await db.Users
-                .Where(u => u.SchoolId == schoolId && u.Roles.Contains(UserRole.Teacher)).Select(u => u.Id).ToListAsync();
+                .Where(u => u.SchoolId == schoolId && u.Roles.Any(r => r.BuiltIn == UserRole.Teacher)).Select(u => u.Id).ToListAsync();
             var parentIds = await db.Users
-                .Where(u => u.SchoolId == schoolId && u.Roles.Contains(UserRole.Parent)).Select(u => u.Id).ToListAsync();
+                .Where(u => u.SchoolId == schoolId && u.Roles.Any(r => r.Kind == RoleKind.Parent)).Select(u => u.Id).ToListAsync();
             var studentIds = await db.Students.Where(s => s.SchoolId == schoolId).Select(s => s.Id).ToListAsync();
             return new AllowedRecipientIds(
                 classIds.ToHashSet(), teacherIds.ToHashSet(), parentIds.ToHashSet(), studentIds.ToHashSet());
         }
 
-        var teacherId = CurrentUserId();
-        var myClassIds = await db.GetTeacherClassIdsAsync(teacherId);
         var myStudentIds = await db.Students
             .Where(s => myClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync();
         var myParentIds = await db.ParentStudents
             .Where(ps => myStudentIds.Contains(ps.StudentId)).ParentAccountLinks().Select(l => l.UserId).Distinct().ToListAsync();
         // Teacher may never target other teachers — empty set makes any
         // submitted teacherUserIds fail the subset check automatically.
-        return new AllowedRecipientIds(myClassIds.ToHashSet(), [], myParentIds.ToHashSet(), myStudentIds.ToHashSet());
+        return new AllowedRecipientIds(myClassIds, [], myParentIds.ToHashSet(), myStudentIds.ToHashSet());
     }
 
     private void SetRecipients(Event @event, CreateEventRequest request)
@@ -315,6 +327,11 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             $"{what}: {@event.Title}", string.IsNullOrWhiteSpace(@event.Location) ? when : $"{when}, {@event.Location}",
             "events", @event.Id, exceptUserId: CurrentUserId());
     }
+
+    /// <summary>Any event with the whole school in reach, otherwise one's own.</summary>
+    private async Task<bool> MayChangeAsync(Event @event) =>
+        @event.CreatedByUserId == CurrentUserId()
+        || await User.ScopeAsync(db, Permission.EventsWrite) == PermissionScope.School;
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

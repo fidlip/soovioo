@@ -25,7 +25,8 @@ public class ConversationsControllerTests
     {
         var identity = new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
+            new Claim(ClaimTypes.Role, user.ActiveRole?.Kind.ToString() ?? nameof(UserRole.SuperAdmin)),
+            new Claim(PermissionAccess.RoleIdClaim, user.ActiveRole?.Id.ToString() ?? ""),
             new Claim(ClaimTypes.Name, user.Username),
         ]);
         return new ConversationsController(
@@ -51,7 +52,7 @@ public class ConversationsControllerTests
     private static async Task<World> SeedAsync(AppDbContext db)
     {
         User NewUser(string name, UserRole role) =>
-            new() { Username = name, PasswordHash = "x", ActiveRole = role, SchoolId = SchoolId };
+            new() { Username = name, PasswordHash = "x", ActiveRole = db.Role(role, SchoolId), SchoolId = SchoolId };
         var w = new World
         {
             Teacher = NewUser("ucitel", UserRole.Teacher),
@@ -221,7 +222,8 @@ public class ConversationsControllerTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity([
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
+                        new Claim(ClaimTypes.Role, user.ActiveRole?.Kind.ToString() ?? nameof(UserRole.SuperAdmin)),
+            new Claim(PermissionAccess.RoleIdClaim, user.ActiveRole?.Id.ToString() ?? ""),
                         new Claim(ClaimTypes.Name, user.Username),
                     ])),
                 },
@@ -233,7 +235,7 @@ public class ConversationsControllerTests
     {
         using var db = NewDb();
         var w = await SeedAsync(db);
-        var evaUser = new User { Username = "eva", PasswordHash = "x", ActiveRole = UserRole.Student, SchoolId = SchoolId };
+        var evaUser = new User { Username = "eva", PasswordHash = "x", ActiveRole = db.Role(UserRole.Student, SchoolId), SchoolId = SchoolId };
         db.Users.Add(evaUser);
         await db.SaveChangesAsync();
         db.Students.Add(new StudentProfile

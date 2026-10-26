@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +17,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     [HttpGet("behavior-records")]
     public async Task<ActionResult<IEnumerable<BehaviorRecordDto>>> GetBehaviorRecords()
     {
-        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.BehaviorRead);
 
         var query = db.BehaviorRecords.AsQueryable();
         if (allowedStudentIds is not null)
@@ -49,7 +48,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        if (!await User.CanAccessStudentAsync(db, record.StudentId))
+        if (!await User.ReachesStudentAsync(db, Permission.BehaviorRead, record.StudentId))
         {
             return Forbid();
         }
@@ -59,13 +58,11 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         return NoContent();
     }
 
-    /// <summary>Pochvala/Poznámka: any Teacher or Admin. Napomenutí/Důtka
-    /// třídního učitele: only the exact ClassTeacherId of that student's
-    /// class (Admin may too). Napomenutí/Důtka ředitele: Admin only. See
-    /// ROADMAP "Chování" — this split was explicitly confirmed with the
-    /// user, not inferred.</summary>
+    /// <summary>Pochvala/Poznámka, napomenutí/důtka třídního učitele and
+    /// ředitele each have their own permission (by default: any teacher,
+    /// the class teacher, Admin).</summary>
     [HttpPost("behavior-records")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [Authorize(Roles = nameof(RoleKind.Staff))]
     public async Task<ActionResult<BehaviorRecordDto>> CreateBehaviorRecord(CreateBehaviorRecordRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);
@@ -101,7 +98,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     /// record this one" (same convention as MessagesController.DeleteMessage,
     /// which any Teacher/Admin may delete regardless of sender).</summary>
     [HttpDelete("behavior-records/{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [Authorize(Roles = nameof(RoleKind.Staff))]
     public async Task<IActionResult> DeleteBehaviorRecord(int id)
     {
         var record = await db.BehaviorRecords.FindAsync(id);
@@ -124,7 +121,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     [HttpGet("behavior-classifications")]
     public async Task<ActionResult<IEnumerable<BehaviorClassificationDto>>> GetBehaviorClassifications()
     {
-        var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.BehaviorRead);
 
         var query = db.BehaviorClassifications.AsQueryable();
         if (allowedStudentIds is not null)
@@ -143,11 +140,10 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     /// <summary>Upsert — setting it again for the same (student, year, half)
-    /// replaces the value, no history kept. VelmiDobre: class teacher of
-    /// that student's class, or Admin. Uspokojive/Neuspokojive: Admin only
-    /// — it affects the report card.</summary>
+    /// replaces the value, no history kept. VelmiDobre goes with the class
+    /// teacher's measures, Uspokojive/Neuspokojive with the director's.</summary>
     [HttpPut("behavior-classifications")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [Authorize(Roles = nameof(RoleKind.Staff))]
     public async Task<ActionResult<BehaviorClassificationDto>> SetClassification(SetBehaviorClassificationRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);
@@ -156,16 +152,12 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Neznámý žák.");
         }
 
-        if (!User.IsInRole("Admin"))
+        var permission = request.Value == BehaviorClassificationValue.VelmiDobre
+            ? Permission.BehaviorClassTeacher
+            : Permission.BehaviorDirector;
+        if (!await User.ReachesClassAsync(db, permission, student.SchoolClassId))
         {
-            if (request.Value != BehaviorClassificationValue.VelmiDobre)
-            {
-                return Forbid();
-            }
-            if (!await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
-            {
-                return Forbid();
-            }
+            return Forbid();
         }
 
         var existing = await db.BehaviorClassifications.FindAsync(
@@ -199,23 +191,13 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(dto);
     }
 
-    private async Task<bool> CanRecordTypeAsync(BehaviorRecordType type, int schoolClassId)
-    {
-        if (User.IsInRole("Admin"))
+    private async Task<bool> CanRecordTypeAsync(BehaviorRecordType type, int schoolClassId) =>
+        await User.ReachesClassAsync(db, type switch
         {
-            return true;
-        }
-
-        return type switch
-        {
-            BehaviorRecordType.Pochvala or BehaviorRecordType.Poznamka => true,
-            BehaviorRecordType.NapomenutiTridnihoUcitele or BehaviorRecordType.DutkaTridnihoUcitele =>
-                await db.IsClassTeacherOfAsync(CurrentUserId(), schoolClassId),
-            _ => false, // NapomenutiReditele / DutkaReditele — Admin only
-        };
-    }
-
-    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            BehaviorRecordType.Pochvala or BehaviorRecordType.Poznamka => Permission.BehaviorPraise,
+            BehaviorRecordType.NapomenutiTridnihoUcitele or BehaviorRecordType.DutkaTridnihoUcitele => Permission.BehaviorClassTeacher,
+            _ => Permission.BehaviorDirector,
+        }, schoolClassId);
 }
 
 public record CreateBehaviorRecordRequest(int StudentId, BehaviorRecordType Type, string Text, DateOnly Date);

@@ -14,7 +14,8 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Auth;
 
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/users")]
 public class UsersController(
@@ -58,7 +59,7 @@ public class UsersController(
             return this.FieldError("username", "Uživatelské jméno už existuje.");
         }
 
-        var (roles, rolesError) = ParseRoles(request.Roles);
+        var (roles, rolesError) = await ParseRolesAsync(request.RoleIds);
         if (rolesError is not null)
         {
             return rolesError;
@@ -122,19 +123,20 @@ public class UsersController(
             return this.FieldError("username", "Uživatelské jméno už existuje.");
         }
 
-        var (roles, rolesError) = ParseRoles(request.Roles);
+        var (roles, rolesError) = await ParseRolesAsync(request.RoleIds);
         if (rolesError is not null)
         {
             return rolesError;
         }
 
         var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        if (id == currentUserId && user.Roles.Contains(UserRole.Admin) && !roles.Contains(UserRole.Admin))
+        var losesAdmin = user.HasBuiltIn(UserRole.Admin) && roles.All(r => r.BuiltIn != UserRole.Admin);
+        if (id == currentUserId && losesAdmin)
         {
             return BadRequest("Nelze si odebrat roli Admin — vyřízli byste se z administrace.");
         }
 
-        if (user.Roles.Contains(UserRole.Admin) && !roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
+        if (losesAdmin && await IsLastAdminAsync(id))
         {
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
@@ -153,9 +155,10 @@ public class UsersController(
 
         user.Username = request.Username;
         // Keep the active role when it survived the edit, otherwise fall
-        // back to the first remaining one (ParseRoles sorts them).
-        var activeRole = roles.Contains(user.ActiveRole) ? user.ActiveRole : roles[0];
-        user.Roles = roles;
+        // back to the first remaining one (ParseRolesAsync sorts them).
+        var activeRole = roles.FirstOrDefault(r => r.Id == user.ActiveRoleId) ?? roles[0];
+        user.Roles.Clear();
+        user.Roles.AddRange(roles);
         user.ActiveRole = activeRole;
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
@@ -189,7 +192,7 @@ public class UsersController(
             return BadRequest("Nelze smazat vlastní účet.");
         }
 
-        if (user.Roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
+        if (user.HasBuiltIn(UserRole.Admin) && await IsLastAdminAsync(id))
         {
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
@@ -216,7 +219,7 @@ public class UsersController(
         {
             return BadRequest("Nelze deaktivovat vlastní účet.");
         }
-        if (user.Roles.Contains(UserRole.Admin) && await IsLastAdminAsync(id))
+        if (user.HasBuiltIn(UserRole.Admin) && await IsLastAdminAsync(id))
         {
             return BadRequest("Poslední admin školy — nejdřív přidejte jiného.");
         }
@@ -322,38 +325,37 @@ public class UsersController(
         return $"{options.SchoolOrigin(schoolSlug)}/accept-invite?token={Uri.EscapeDataString(token)}";
     }
 
-    /// <summary>Distinct, in enum order (Admin, Teacher, Parent, Student) so
-    /// the first one is a sensible default active role. Student can't be
-    /// combined — a pupil's account is never also staff or a parent.</summary>
-    private (List<UserRole> Roles, ActionResult<UserDto>? Error) ParseRoles(IReadOnlyList<string>? names)
+    /// <summary>The school's roles, built-in ones first (Admin, Teacher,
+    /// Parent, Student) so the first one is a sensible default active role.
+    /// A pupil's role can't be combined — a pupil's account is never also
+    /// staff or a parent.</summary>
+    private async Task<(List<Role> Roles, ActionResult<UserDto>? Error)> ParseRolesAsync(IReadOnlyList<int>? ids)
     {
-        var roles = new List<UserRole>();
-        foreach (var name in names ?? [])
+        var wanted = (ids ?? []).Distinct().ToList();
+        var roles = await db.Roles.Where(r => wanted.Contains(r.Id)).ToListAsync();
+        if (roles.Count != wanted.Count)
         {
-            if (!Enum.TryParse<UserRole>(name, out var parsed) || parsed == UserRole.SuperAdmin)
-            {
-                return ([], BadRequest("Neznámá role."));
-            }
-            roles.Add(parsed);
+            return ([], BadRequest("Neznámá role."));
         }
-        roles = roles.Distinct().Order().ToList();
+        roles = roles.OrderBy(r => r.BuiltIn is null).ThenBy(r => r.BuiltIn).ThenBy(r => r.Name).ToList();
         if (roles.Count == 0)
         {
             return ([], BadRequest("Vyberte aspoň jednu roli."));
         }
-        if (roles.Contains(UserRole.Student) && roles.Count > 1)
+        if (roles.Any(r => r.Kind == RoleKind.Student) && roles.Count > 1)
         {
-            return ([], BadRequest("Roli Student nelze kombinovat s jinou."));
+            return ([], BadRequest(StudentTerm.Localize(
+                "Roli žáka nelze kombinovat s jinou.", await SchoolTypeAsync())));
         }
         return (roles, null);
     }
 
-    private static IReadOnlyList<string> RoleNames(IEnumerable<UserRole> roles) =>
-        roles.Order().Select(r => r.ToString()).ToList();
+    private async Task<SchoolType> SchoolTypeAsync() =>
+        await db.Schools.Where(s => s.Id == currentSchool.SchoolId).Select(s => s.Type).FirstOrDefaultAsync();
 
     private static UserDto ToDto(User user, int? studentId) =>
         new(user.Id, user.Username, user.Person?.FirstName ?? "", user.Person?.LastName ?? "",
-            PersonNames.Display(user), user.ActiveRole.ToString(), RoleNames(user.Roles),
+            PersonNames.Display(user), user.ActiveRoleId, RoleRefDto.ListOf(user.Roles),
             user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification,
             DeactivatedAt: user.DeactivatedAt, PersonId: user.Person?.Id);
 
@@ -363,15 +365,16 @@ public class UsersController(
     /// the current school — deleting/demoting them would leave the school
     /// with no one able to manage it.</summary>
     private async Task<bool> IsLastAdminAsync(int userId) =>
-        !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Contains(UserRole.Admin) && u.DeactivatedAt == null);
+        !await db.Users.AnyAsync(u => u.Id != userId && u.Roles.Any(r => r.BuiltIn == UserRole.Admin) && u.DeactivatedAt == null);
 
     /// <summary>The Person the account is to be: in the school, without
-    /// another account, with the profile each role needs — Teacher a
-    /// teacher's, Parent a parent's, Student a pupil's (Admin none). Doesn't
+    /// another account, with the profile each role needs — the built-in
+    /// Teacher a teacher's, a parent's role a parent's, a pupil's role a
+    /// pupil's (other staff roles none). Doesn't
     /// write anything. <paramref name="currentUserId"/> is the account being
     /// edited (null when creating).</summary>
     private async Task<(Person? Person, ActionResult<UserDto>? Error)> ResolvePersonAsync(
-        List<UserRole> roles, int? personId, int? currentUserId)
+        List<Role> roles, int? personId, int? currentUserId)
     {
         if (personId is not { } id)
         {
@@ -391,15 +394,15 @@ public class UsersController(
             return (null, this.FieldError("personId", "Tato osoba už má uživatelský účet."));
         }
         var missing = new List<string>();
-        if (roles.Contains(UserRole.Teacher) && person.TeacherProfile is null)
+        if (roles.Any(r => r.BuiltIn == UserRole.Teacher) && person.TeacherProfile is null)
         {
             missing.Add("učitele");
         }
-        if (roles.Contains(UserRole.Parent) && person.ParentProfile is null)
+        if (roles.Any(r => r.Kind == RoleKind.Parent) && person.ParentProfile is null)
         {
             missing.Add("rodiče");
         }
-        if (roles.Contains(UserRole.Student) && person.Student is null)
+        if (roles.Any(r => r.Kind == RoleKind.Student) && person.Student is null)
         {
             missing.Add("žáka");
         }
@@ -414,9 +417,9 @@ public class UsersController(
 /// <param name="PersonId">Whose account it is (Administrace → Osoby).</param>
 /// <param name="Password">Optional when the person has an e-mail — the
 /// account is then usable only through the invite.</param>
-public record CreateUserRequest(string Username, string? Password, IReadOnlyList<string> Roles, int? PersonId);
+public record CreateUserRequest(string Username, string? Password, IReadOnlyList<int> RoleIds, int? PersonId);
 
-public record UpdateUserRequest(string Username, IReadOnlyList<string> Roles, int? PersonId, string? Password = null);
+public record UpdateUserRequest(string Username, IReadOnlyList<int> RoleIds, int? PersonId, string? Password = null);
 
 /// <summary><see cref="Role"/> is the active one, <see cref="Roles"/> all
 /// the account may switch between; name and contacts are its Person's.</summary>
@@ -426,7 +429,7 @@ public record UpdateUserRequest(string Username, IReadOnlyList<string> Roles, in
 /// <param name="Invite">Only in <see cref="UsersController.AddUser"/>'s
 /// response, when the new account has an e-mail: an <see cref="InviteOutcome"/>.</param>
 public record UserDto(
-    int Id, string Username, string FirstName, string LastName, string Name, string Role, IReadOnlyList<string> Roles,
+    int Id, string Username, string FirstName, string LastName, string Name, int? ActiveRoleId, IReadOnlyList<RoleRefDto> Roles,
     string? Phone, string? Email, int? StudentId = null, string? Qualification = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null,
     string? Photo = null,

@@ -20,16 +20,12 @@ public class BehaviorControllerTests
 
     private static Soovioo.Api.Behavior.BehaviorController NewController(AppDbContext db, int userId, string role)
     {
-        var identity = new ClaimsIdentity([
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Role, role),
-            new Claim(ClaimTypes.Name, "tester"),
-        ]);
+        var principal = TestRoles.Principal(db, userId, Enum.Parse<UserRole>(role), SchoolId, "tester");
         return new Soovioo.Api.Behavior.BehaviorController(db, new FakeCurrentSchoolContext(SchoolId))
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
+                HttpContext = new DefaultHttpContext { User = principal },
             },
         };
     }
@@ -51,7 +47,8 @@ public class BehaviorControllerTests
     public async Task CreateAllowsAnyTeacherForPochvalaOrPoznamka(Soovioo.Api.Behavior.BehaviorRecordType type)
     {
         using var db = NewDb();
-        var (_, student) = await SeedClassAndStudentAsync(db, classTeacherId: 999);
+        var (schoolClass, student) = await SeedClassAndStudentAsync(db, classTeacherId: 999);
+        db.Teaches(7, schoolClass.Id);
 
         var result = await NewController(db, 7, "Teacher")
             .CreateBehaviorRecord(new Soovioo.Api.Behavior.CreateBehaviorRecordRequest(student.Id, type, "Text", new DateOnly(2026, 10, 17)));
@@ -79,7 +76,8 @@ public class BehaviorControllerTests
     public async Task CreateRejectsNonClassTeacherForTridniUcitelTypes(Soovioo.Api.Behavior.BehaviorRecordType type)
     {
         using var db = NewDb();
-        var (_, student) = await SeedClassAndStudentAsync(db, classTeacherId: 999);
+        var (schoolClass, student) = await SeedClassAndStudentAsync(db, classTeacherId: 999);
+        db.Teaches(7, schoolClass.Id);
 
         var result = await NewController(db, 7, "Teacher")
             .CreateBehaviorRecord(new Soovioo.Api.Behavior.CreateBehaviorRecordRequest(student.Id, type, "Text", new DateOnly(2026, 10, 17)));
@@ -134,10 +132,11 @@ public class BehaviorControllerTests
     }
 
     [Fact]
-    public async Task GetBehaviorRecordsUnfilteredForTeacher()
+    public async Task GetBehaviorRecordsShowsTheTeachersClasses()
     {
         using var db = NewDb();
-        var (_, student) = await SeedClassAndStudentAsync(db);
+        var (schoolClass, student) = await SeedClassAndStudentAsync(db);
+        db.Teaches(7, schoolClass.Id);
         db.BehaviorRecords.Add(new Soovioo.Api.Behavior.BehaviorRecord
         {
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
@@ -162,7 +161,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
 
@@ -183,7 +182,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic2", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
@@ -213,7 +212,8 @@ public class BehaviorControllerTests
     public async Task SetClassificationVelmiDobreRejectedForNonClassTeacher()
     {
         using var db = NewDb();
-        var (_, student) = await SeedClassAndStudentAsync(db, classTeacherId: 999);
+        var (schoolClass, student) = await SeedClassAndStudentAsync(db, classTeacherId: 999);
+        db.Teaches(7, schoolClass.Id);
 
         var result = await NewController(db, 7, "Teacher").SetClassification(
             new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(
@@ -277,7 +277,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic4", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic4", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         await db.LinkChildAsync(parentUser.Id, student.Id, SchoolId);
@@ -305,7 +305,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, Type = Soovioo.Api.Behavior.BehaviorRecordType.Pochvala,
             Text = "Text", Date = new DateOnly(2026, 10, 17), RecordedByName = "ucitel", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic5", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic5", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
         var record = await db.BehaviorRecords.FirstAsync();
@@ -326,7 +326,7 @@ public class BehaviorControllerTests
             StudentId = student.Id, SchoolYearStartYear = 2026, HalfYear = Soovioo.Api.Behavior.SchoolHalfYear.First,
             Value = Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre, SetByName = "admin", SchoolId = SchoolId,
         });
-        var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.Add(parentUser);
         await db.SaveChangesAsync();
 

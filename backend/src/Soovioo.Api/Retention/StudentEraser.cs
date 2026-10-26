@@ -168,7 +168,7 @@ public class StudentEraser(
                 && db.Persons.IgnoreQueryFilters().Any(p => p.UserId == u.Id && parentProfileIds.Contains(p.Id))
                 && !db.ParentStudents.IgnoreQueryFilters().Any(ps => ps.ParentProfile!.Person!.UserId == u.Id))
             .ToListAsync();
-        foreach (var parent in orphaned.Where(u => u.Roles.All(r => r == UserRole.Parent)))
+        foreach (var parent in orphaned.Where(u => u.Roles.All(r => r.Kind == RoleKind.Parent)))
         {
             await accounts.EraseAsync(parent);
         }

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -47,7 +46,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Students)]
     public async Task<ActionResult<StudentDto>> AddStudent(CreateStudentRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
@@ -56,7 +55,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Neznámá třída.");
         }
 
-        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), request.SchoolClassId))
+        if (!await User.ReachesClassAsync(db, Permission.Students, request.SchoolClassId))
         {
             return Forbid();
         }
@@ -79,7 +78,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Students)]
     public async Task<ActionResult<StudentDto>> UpdateStudent(int id, CreateStudentRequest request)
     {
         var student = await db.Students.FindAsync(id);
@@ -94,17 +93,13 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Neznámá třída.");
         }
 
-        if (!User.IsInRole(nameof(UserRole.Admin)))
+        // Both the student's current class and the (possibly different)
+        // target class must be reachable — otherwise either side of the move
+        // could reach outside the caller's classes.
+        if (!await User.ReachesClassAsync(db, Permission.Students, student.SchoolClassId)
+            || !await User.ReachesClassAsync(db, Permission.Students, request.SchoolClassId))
         {
-            var teacherId = CurrentUserId();
-            // Both the student's current class and the (possibly different)
-            // target class must be the teacher's own — otherwise either side
-            // of the move could reach outside their class.
-            if (!await db.IsClassTeacherOfAsync(teacherId, student.SchoolClassId)
-                || !await db.IsClassTeacherOfAsync(teacherId, request.SchoolClassId))
-            {
-                return Forbid();
-            }
+            return Forbid();
         }
 
         student.Person!.FirstName = request.FirstName;
@@ -126,7 +121,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// installments of school-wide payments, a photo — goes with them, and
     /// so does their own account.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Students)]
     public async Task<IActionResult> DeleteStudent(int id, [FromServices] People.PhotoStorage? photos = null)
     {
         var student = await db.Students.FindAsync(id);
@@ -135,7 +130,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        if (!User.IsInRole(nameof(UserRole.Admin)) && !await db.IsClassTeacherOfAsync(CurrentUserId(), student.SchoolClassId))
+        if (!await User.ReachesClassAsync(db, Permission.Students, student.SchoolClassId))
         {
             return Forbid();
         }
@@ -149,8 +144,6 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         await StudentRecords.DeleteAsync(db, student, photos);
         return NoContent();
     }
-
-    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateStudentRequest(

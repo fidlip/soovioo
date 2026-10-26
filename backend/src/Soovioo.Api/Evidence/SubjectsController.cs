@@ -22,7 +22,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Subjects)]
     public async Task<ActionResult<Subject>> AddSubject(CreateSubjectRequest request)
     {
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
@@ -49,7 +49,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Subjects)]
     public async Task<ActionResult<Subject>> UpdateSubject(int id, CreateSubjectRequest request)
     {
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
@@ -80,7 +80,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     /// the subject — a grade is a real academic record, never removed as a
     /// side effect of tidying up the subject list.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Teacher,Admin")]
+    [RequirePermission(Permission.Subjects)]
     public async Task<IActionResult> DeleteSubject(int id)
     {
         var subject = await db.Subjects.FindAsync(id);

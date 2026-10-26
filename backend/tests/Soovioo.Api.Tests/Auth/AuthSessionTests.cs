@@ -29,7 +29,7 @@ public class AuthSessionTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId));
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
-        user = new User { Username = "ucitel", PasswordHash = "", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
+        user = new User { Username = "ucitel", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         user.PasswordHash = Hasher.HashPassword(user, Password);
         db.Users.Add(user);
         db.SaveChanges();
@@ -258,7 +258,7 @@ public class AuthSessionTests
     public async Task AdminPasswordResetRevokesTheUsersSessions()
     {
         var token = await MobileLoginAsync();
-        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = UserRole.Admin, SchoolId = SchoolId };
+        var admin = new User { Username = "admin", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var users = new UsersController(
@@ -280,7 +280,7 @@ public class AuthSessionTests
         db.Persons.Add(person);
         await db.SaveChangesAsync();
 
-        await users.UpdateUser(user.Id, new UpdateUserRequest("ucitel", ["Teacher"], person.Id, Password: "reset-heslo"));
+        await users.UpdateUser(user.Id, new UpdateUserRequest("ucitel", [db.Role(UserRole.Teacher, SchoolId).Id], person.Id, Password: "reset-heslo"));
 
         Assert.IsType<UnauthorizedResult>((await Controller().Refresh(new RefreshRequest(token))).Result);
     }

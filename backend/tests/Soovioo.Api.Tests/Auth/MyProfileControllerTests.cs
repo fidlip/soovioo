@@ -31,12 +31,12 @@ public class MyProfileControllerTests
         };
     }
 
-    private static User NewUser(string password) =>
+    private static User NewUser(AppDbContext db, string password) =>
         new()
         {
             Username = "ucitel",
             PasswordHash = Hasher.HashPassword(null!, password),
-            ActiveRole = UserRole.Teacher,
+            ActiveRole = db.Role(UserRole.Teacher, SchoolId),
             SchoolId = SchoolId,
         };
 
@@ -44,7 +44,7 @@ public class MyProfileControllerTests
     public async Task UpdateProfileChangesPhoneAndEmail()
     {
         using var db = NewDb();
-        var user = NewUser("heslo123");
+        var user = NewUser(db, "heslo123");
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
@@ -59,7 +59,7 @@ public class MyProfileControllerTests
     public async Task ChangePasswordRejectsWrongCurrentPassword()
     {
         using var db = NewDb();
-        var user = NewUser("heslo123");
+        var user = NewUser(db, "heslo123");
         db.Users.Add(user);
         await db.SaveChangesAsync();
         var originalHash = user.PasswordHash;
@@ -74,7 +74,7 @@ public class MyProfileControllerTests
     public async Task ChangePasswordSucceedsWithCorrectCurrentPassword()
     {
         using var db = NewDb();
-        var user = NewUser("heslo123");
+        var user = NewUser(db, "heslo123");
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
@@ -92,7 +92,7 @@ public class MyProfileControllerTests
     public async Task ChangePasswordClearsMustChangePasswordFlagAndReissuesToken()
     {
         using var db = NewDb();
-        var user = NewUser("heslo123");
+        var user = NewUser(db, "heslo123");
         user.MustChangePassword = true;
         db.Users.Add(user);
         await db.SaveChangesAsync();
@@ -109,29 +109,30 @@ public class MyProfileControllerTests
     public async Task SwitchRoleIssuesTokenWithNewActiveRole()
     {
         using var db = NewDb();
-        var user = NewUser("heslo123");
-        user.ActiveRole = UserRole.Parent;
+        var user = NewUser(db, "heslo123");
+        user.ActiveRole = db.Role(UserRole.Parent, SchoolId);
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest("Teacher"));
+        var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest(db.Role(UserRole.Teacher, SchoolId).Id));
 
         var response = Assert.IsType<SwitchRoleResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
         var token = new JwtSecurityTokenHandler().ReadJwtToken(response.Token);
-        Assert.Equal("Teacher", token.Claims.First(c => c.Type == ClaimTypes.Role || c.Type == "role").Value);
-        Assert.Equal("Teacher,Parent", token.Claims.First(c => c.Type == "roles").Value);
-        Assert.Equal(UserRole.Teacher, (await db.Users.SingleAsync()).ActiveRole);
+        Assert.Equal("Staff", token.Claims.First(c => c.Type == ClaimTypes.Role || c.Type == "role").Value);
+        Assert.Equal(db.Role(UserRole.Teacher, SchoolId).Id.ToString(), token.Claims.First(c => c.Type == "roleId").Value);
+        Assert.Contains("Rodič", token.Claims.First(c => c.Type == "roles").Value);
+        Assert.Equal(UserRole.Teacher, (await db.Users.SingleAsync()).ActiveRole!.BuiltIn);
     }
 
     [Fact]
     public async Task SwitchRoleRejectsRoleTheAccountDoesNotHave()
     {
         using var db = NewDb();
-        var user = NewUser("heslo123");
+        var user = NewUser(db, "heslo123");
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest("Admin"));
+        var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest(db.Role(UserRole.Admin, SchoolId).Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }

@@ -12,7 +12,8 @@ namespace Soovioo.Api.People;
 /// and pupils — with their profiles, whether or not they have an account
 /// (accounts are Uživatelé, each one is a Person's). Former pupils are in
 /// Archiv a výmaz údajů, erased accounts nowhere.</summary>
-[Authorize(Roles = "Admin")]
+[Authorize]
+[RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/people")]
 public class PeopleController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
@@ -137,17 +138,17 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             return this.FieldError("lastName", "Příjmení je povinné.");
         }
         var roles = person.User?.Roles ?? [];
-        if (request.Teacher is null && person.TeacherProfile is not null && roles.Contains(UserRole.Teacher))
+        if (request.Teacher is null && person.TeacherProfile is not null && roles.Any(r => r.BuiltIn == UserRole.Teacher))
         {
             return BadRequest("Účet má roli Učitel — profil učitele jde odebrat až s ní (Uživatelé).");
         }
-        if (request.Parent is null && person.ParentProfile is not null && roles.Contains(UserRole.Parent))
+        if (request.Parent is null && person.ParentProfile is not null && roles.Any(r => r.Kind == RoleKind.Parent))
         {
             return BadRequest("Účet má roli Rodič — profil rodiče jde odebrat až s ní (Uživatelé).");
         }
         if (request.Student is null && person.Student is { } removed)
         {
-            if (roles.Contains(UserRole.Student))
+            if (roles.Any(r => r.Kind == RoleKind.Student))
             {
                 return BadRequest(StudentTerm.Localize(
                     "Účet má roli Žák — profil žáka jde odebrat až s ní (Uživatelé).", await SchoolTypeAsync()));
@@ -259,7 +260,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             result.Add(new PersonDto(
                 p.Id, p.FirstName, p.LastName, p.FullName, p.Phone, p.Email,
                 p.Student is { } st ? studentPhotos.GetValueOrDefault(st.Id) : p.UserId is { } uid ? userPhotos.GetValueOrDefault(uid) : null,
-                p.User is { } u ? new PersonAccountDto(u.Id, u.Username, u.Roles.Order().Select(r => r.ToString()).ToList(), u.DeactivatedAt) : null,
+                p.User is { } u ? new PersonAccountDto(u.Id, u.Username, RoleRefDto.ListOf(u.Roles), u.DeactivatedAt) : null,
                 p.TeacherProfile is { } t
                     ? new TeacherProfileDto(t.Qualification, p.UserId is { } teacherId ? classTeacherOf[teacherId].ToList() : [])
                     : null,
@@ -304,7 +305,7 @@ public record PersonDto(
     ParentProfileDto? Parent,
     StudentDto? Student);
 
-public record PersonAccountDto(int UserId, string Username, IReadOnlyList<string> Roles, DateTimeOffset? DeactivatedAt);
+public record PersonAccountDto(int UserId, string Username, IReadOnlyList<RoleRefDto> Roles, DateTimeOffset? DeactivatedAt);
 
 /// <param name="ClassTeacherOf">Classes whose class teacher the person's account is.</param>
 public record TeacherProfileDto(string? Qualification, IReadOnlyList<string> ClassTeacherOf);

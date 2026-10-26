@@ -7,30 +7,39 @@ public class User
     public int Id { get; set; }
     public required string Username { get; set; }
     public required string PasswordHash { get; set; }
-    private UserRole activeRole;
+    /// <summary>Manages schools themselves — no school, no <see cref="Roles"/>.</summary>
+    public bool IsSuperAdmin { get; set; }
 
-    /// <summary>The <em>active</em> role — the one the JWT's role claim
-    /// carries, so every <c>[Authorize(Roles = …)]</c>/<c>IsInRole</c> check
-    /// works against it unchanged. Always one of <see cref="Roles"/> (setting
-    /// it adds it there). Persisted, so the last choice made in the role
-    /// switcher survives a new login.</summary>
-    public UserRole ActiveRole
+    private Role? activeRole;
+
+    /// <summary>The <em>active</em> role — the one the JWT carries
+    /// (<see cref="PermissionAccess"/> checks its permissions). Always one of
+    /// <see cref="Roles"/> (setting it adds it there). Persisted, so the last
+    /// choice made in the role switcher survives a new login. Null only for
+    /// SuperAdmin.</summary>
+    public Role? ActiveRole
     {
         get => activeRole;
         set
         {
             activeRole = value;
-            if (!Roles.Contains(value))
+            if (value is not null && !Roles.Contains(value))
             {
                 Roles.Add(value);
             }
         }
     }
 
+    public int? ActiveRoleId { get; set; }
+
     /// <summary>Every role the account may act as (e.g. a teacher who is also
-    /// a parent at the same school). Query "users with role X" against this,
-    /// never against <see cref="Role"/>.</summary>
-    public List<UserRole> Roles { get; set; } = [];
+    /// a parent at the same school), always loaded with the user. Query
+    /// "users with role X" against this, never against <see cref="ActiveRole"/>.</summary>
+    public List<Role> Roles { get; set; } = [];
+
+    public bool HasKind(RoleKind kind) => Roles.Any(r => r.Kind == kind);
+
+    public bool HasBuiltIn(UserRole builtIn) => Roles.Any(r => r.BuiltIn == builtIn);
 
     /// <summary>Null only for SuperAdmin — every other role belongs to one School.</summary>
     public int? SchoolId { get; set; }

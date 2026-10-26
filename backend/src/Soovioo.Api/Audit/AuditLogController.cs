@@ -13,7 +13,9 @@ namespace Soovioo.Api.Audit;
 /// mode included, flagged.</summary>
 [ApiController]
 [Route("api/audit-logs")]
-[Authorize(Roles = "Admin,SuperAdmin")]
+[Authorize]
+[AllowSuperAdmin]
+[RequirePermission(Permission.AuditLog)]
 public class AuditLogController(AppDbContext db) : ControllerBase
 {
     private const int MaxPageSize = 100;

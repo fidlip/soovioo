@@ -81,7 +81,7 @@ public class RetentionJob(AppDbContext db, AccountEraser accounts, StudentEraser
         {
             var isPupil = pupilAccountIds.Contains(user.Id);
             // Staff keep their account for that.
-            if (isPupil ? user.Roles.All(r => r == UserRole.Student) : user.Roles.All(r => r == UserRole.Parent))
+            if (user.Roles.All(r => r.Kind == (isPupil ? RoleKind.Student : RoleKind.Parent)))
             {
                 await accounts.DeactivateAsync(user);
             }
@@ -105,5 +105,5 @@ public class RetentionJob(AppDbContext db, AccountEraser accounts, StudentEraser
     public static IQueryable<User> DeactivatedStaff(AppDbContext db, int schoolId) =>
         db.Users.IgnoreQueryFilters()
             .Where(u => u.SchoolId == schoolId && u.DeactivatedAt != null && u.ErasedAt == null
-                && (u.Roles.Contains(UserRole.Teacher) || u.Roles.Contains(UserRole.Admin)));
+                && u.Roles.Any(r => r.Kind == RoleKind.Staff));
 }

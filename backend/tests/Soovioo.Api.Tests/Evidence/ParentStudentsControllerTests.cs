@@ -28,8 +28,7 @@ public class ParentStudentsControllerTests
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity(
-                        [new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString()), new Claim(ClaimTypes.Role, role)])),
+                    User = TestRoles.Principal(db, currentUserId, Enum.Parse<UserRole>(role), SchoolId),
                 },
             },
         };
@@ -39,8 +38,8 @@ public class ParentStudentsControllerTests
 
     private static async Task<Fixture> SeedAsync(AppDbContext db)
     {
-        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = UserRole.Teacher, SchoolId = SchoolId };
-        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = UserRole.Parent, SchoolId = SchoolId };
+        var teacher = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        var parent = new User { Username = "rodic", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };
         db.Users.AddRange(teacher, parent);
         await db.SaveChangesAsync();
         var ownClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId, ClassTeacherId = teacher.Id };

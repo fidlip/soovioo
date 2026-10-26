@@ -25,7 +25,7 @@ public enum SchoolPersonKind
 /// (teaching it, in it, having a child in it), otherwise
 /// <see cref="VisibilityScope.School"/>. Like Třída, parents see other
 /// parents, pupils don't.</summary>
-[Authorize(Roles = "Parent,Student")]
+[Authorize(Roles = nameof(RoleKind.Parent) + "," + nameof(RoleKind.Student))]
 [ApiController]
 [Route("api/school-directory")]
 public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext currentSchool, PhotoAccess photoAccess) : ControllerBase
@@ -43,7 +43,7 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
         var visibility = await Visibility.LoadAsync(db, currentSchool.SchoolId!.Value);
-        var isParent = User.IsInRole(nameof(UserRole.Parent));
+        var isParent = User.ActiveKind() == RoleKind.Parent;
         var audience = isParent ? VisibilityAudience.Parents : VisibilityAudience.Students;
         var accessible = await User.GetAccessibleStudentIdsAsync(db) ?? [];
         var myClassIds = (await db.Students.Where(s => accessible.Contains(s.Id)).Select(s => s.SchoolClassId).ToListAsync())
@@ -102,7 +102,7 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
     {
         var staff = await db.Users.Include(u => u.Person)
             .Where(u => u.DeactivatedAt == null && u.ErasedAt == null
-                && (u.Roles.Contains(UserRole.Teacher) || u.Roles.Contains(UserRole.Admin)))
+                && u.Roles.Any(r => r.Kind == RoleKind.Staff))
             .ToListAsync();
         var led = await db.SchoolClasses.Where(c => c.ClassTeacherId != null)
             .Select(c => new { TeacherId = c.ClassTeacherId!.Value, ClassId = c.Id }).ToListAsync();
@@ -123,7 +123,7 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
             var notes = led.Where(l => l.TeacherId == u.Id).Select(l => $"třídní {classNames.GetValueOrDefault(l.ClassId)}")
                 .Concat(taught.Where(t => t.TeacherId == u.Id).Select(t => t.Subject).Distinct().Order())
                 .ToList();
-            if (notes.Count == 0 && u.Roles.Contains(UserRole.Admin))
+            if (notes.Count == 0 && u.Roles.Any(r => r.BuiltIn == UserRole.Admin))
             {
                 notes.Add("vedení školy");
             }

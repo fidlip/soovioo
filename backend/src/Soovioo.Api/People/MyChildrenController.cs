@@ -9,7 +9,7 @@ namespace Soovioo.Api.People;
 
 /// <summary>"Mé děti" for a parent: their children, and who sees the
 /// children's data — a pupil's visibility is the parents' call.</summary>
-[Authorize(Roles = "Parent")]
+[Authorize(Roles = nameof(RoleKind.Parent))]
 [ApiController]
 [Route("api/my-children")]
 public class MyChildrenController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase

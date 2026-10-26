@@ -59,7 +59,8 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
             {
                 u.Id,
                 u.Username,
-                u.ActiveRole,
+                u.ActiveRole!.BuiltIn,
+                u.ActiveRole.Kind,
                 u.Person,
                 Qualification = u.Person!.TeacherProfile!.Qualification,
                 ClassOf = db.SchoolClasses.IgnoreQueryFilters().Where(c => c.ClassTeacherId == u.Id).Select(c => c.Name).FirstOrDefault(),
@@ -71,19 +72,25 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
             .ToListAsync();
 
         return Ok(users
-            .Select(u => new DemoUserDto(
-                u.Id,
-                PersonNames.Display(u.Person, u.Username),
-                u.ActiveRole.ToString(),
-                u.ActiveRole switch
+            .Select(u => new { User = u, Role = u.BuiltIn ?? u.Kind switch
+            {
+                RoleKind.Parent => UserRole.Parent,
+                RoleKind.Student => UserRole.Student,
+                _ => UserRole.Teacher,
+            } })
+            .Select(x => new DemoUserDto(
+                x.User.Id,
+                PersonNames.Display(x.User.Person, x.User.Username),
+                x.Role.ToString(),
+                x.Role switch
                 {
                     UserRole.Admin => "vedení školy",
-                    UserRole.Teacher => string.Join(" · ", new[] { u.ClassOf is null ? null : $"třídní {u.ClassOf}", u.Qualification }.Where(x => x is not null)),
-                    UserRole.Parent => string.Join(", ", u.Children),
-                    UserRole.Student => u.OwnClass ?? "",
+                    UserRole.Teacher => string.Join(" · ", new[] { x.User.ClassOf is null ? null : $"třídní {x.User.ClassOf}", x.User.Qualification }.Where(n => n is not null)),
+                    UserRole.Parent => string.Join(", ", x.User.Children),
+                    UserRole.Student => x.User.OwnClass ?? "",
                     _ => "",
                 },
-                school.DemoFeaturedUserIds?.Contains(u.Id) == true))
+                school.DemoFeaturedUserIds?.Contains(x.User.Id) == true))
             .OrderBy(u => u.Role switch { "Admin" => 0, "Teacher" => 1, "Parent" => 2, _ => 3 })
             .ThenBy(u => u.Name, StringComparer.Create(new System.Globalization.CultureInfo("cs-CZ"), false)));
     }

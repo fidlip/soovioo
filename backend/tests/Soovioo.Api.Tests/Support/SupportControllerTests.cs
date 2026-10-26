@@ -30,7 +30,8 @@ public class SupportControllerTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity([
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.ActiveRole.ToString()),
+                        new Claim(ClaimTypes.Role, user.ActiveRole?.Kind.ToString() ?? nameof(UserRole.SuperAdmin)),
+            new Claim(PermissionAccess.RoleIdClaim, user.ActiveRole?.Id.ToString() ?? ""),
                     ])),
                 },
             },
@@ -38,7 +39,7 @@ public class SupportControllerTests
 
     private static async Task<User> SuperAdminAsync(AppDbContext db, string username = "superadmin")
     {
-        var user = new User { Username = username, PasswordHash = "x", ActiveRole = UserRole.SuperAdmin, SchoolId = null };
+        var user = new User { Username = username, PasswordHash = "x", IsSuperAdmin = true, SchoolId = null };
         db.Users.Add(user);
         await db.SaveChangesAsync();
         return user;
@@ -50,6 +51,7 @@ public class SupportControllerTests
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
         var school = new School { Name = "ZŠ Test", Slug = "test" };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
@@ -72,7 +74,9 @@ public class SupportControllerTests
         Assert.Equal(superAdmin.Id, redeemAudit.UserId);
         Assert.Equal("superadmin", redeemAudit.SupportBy);
         var claims = new JwtSecurityTokenHandler().ReadJwtToken(login!.Token).Claims.ToList();
-        Assert.Contains(claims, c => c.Type == ClaimTypes.Role && c.Value == "Admin");
+        Assert.Contains(claims, c => c.Type == ClaimTypes.Role && c.Value == "Staff");
+        Assert.Contains(claims, c => c.Type == "roleName" && c.Value == "Admin");
+        Assert.Contains(claims, c => c.Type == "perms" && c.Value.Contains("Administration:School"));
         Assert.Contains(claims, c => c.Type == "schoolId" && c.Value == school.Id.ToString());
         Assert.Contains(claims, c => c.Type == SupportClaims.By && c.Value == "superadmin");
         var setCookie = http.Response.Headers.SetCookie.ToString();
@@ -127,6 +131,7 @@ public class SupportControllerTests
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
         var school = new School { Name = "ZŠ Test", Slug = "test" };
+        RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
         var started = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(

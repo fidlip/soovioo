@@ -31,7 +31,7 @@ public class CalendarFeedControllerTests
 
             seedDb.Users.Add(new User
             {
-                Username = "rodic.a", PasswordHash = "x", ActiveRole = UserRole.Parent,
+                Username = "rodic.a", PasswordHash = "x", ActiveRole = seedDb.Role(UserRole.Parent, schoolA.Id),
                 SchoolId = schoolA.Id, CalendarToken = "tok-a",
             });
             seedDb.Events.AddRange(
