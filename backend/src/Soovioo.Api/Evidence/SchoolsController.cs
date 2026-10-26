@@ -91,6 +91,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         };
         admin.PasswordHash = Hasher.HashPassword(admin, request.AdminPassword);
         db.Users.Add(admin);
+        db.Persons.Add(new People.Person { User = admin, LastName = admin.Username, SchoolId = school.Id });
         await db.SaveChangesAsync();
 
         var dto = await ToDtoAsync(db, school);

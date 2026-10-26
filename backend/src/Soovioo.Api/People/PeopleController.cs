@@ -47,7 +47,8 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<PersonDto>> UpdatePerson(int id, SavePersonRequest request)
+    public async Task<ActionResult<PersonDto>> UpdatePerson(
+        int id, SavePersonRequest request, [FromServices] PhotoStorage? photos = null)
     {
         var person = await (await ListedAsync()).FirstOrDefaultAsync(p => p.Id == id);
         if (person is null)
@@ -59,6 +60,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             return error;
         }
         await db.SaveChangesAsync();
+        photos?.Delete(removedPhotoKey);
         return Ok((await ToDtosAsync([person], null))[0]);
     }
 
@@ -114,9 +116,13 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             .Where(p => !formerPupils.Contains(p.Id));
     }
 
+    /// <summary>The photo of a pupil's profile <see cref="ApplyAsync"/>
+    /// removed — deleted once that's saved.</summary>
+    private string? removedPhotoKey;
+
     /// <summary>Name, contacts and the profiles the request has; a profile
-    /// left out is removed — except a pupil's (deleted or ended in Žáci),
-    /// and one that the account's role needs.</summary>
+    /// left out is removed — except one the account's role needs, and a
+    /// pupil's with history (that pupil's education is ended instead).</summary>
     private async Task<ActionResult?> ApplyAsync(Person person, SavePersonRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.LastName))
@@ -132,10 +138,18 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             return BadRequest("Účet má roli Rodič — profil rodiče jde odebrat až s ní (Uživatelé).");
         }
-        if (request.Student is null && person.Student is not null)
+        if (request.Student is null && person.Student is { } removed)
         {
-            return BadRequest(StudentTerm.Localize(
-                "Profil žáka jde odebrat jen smazáním žáka nebo ukončením jeho vzdělávání.", await SchoolTypeAsync()));
+            if (roles.Contains(UserRole.Student))
+            {
+                return BadRequest(StudentTerm.Localize(
+                    "Účet má roli Žák — profil žáka jde odebrat až s ní (Uživatelé).", await SchoolTypeAsync()));
+            }
+            var history = await StudentRecords.HistoryOfAsync(db, removed);
+            if (history.Count > 0)
+            {
+                return BadRequest(await StudentRecords.RefusalAsync(db, removed, history, profileOnly: true));
+            }
         }
         if (request.Student is { } matrika && !await db.SchoolClasses.AnyAsync(c => c.Id == matrika.SchoolClassId))
         {
@@ -184,6 +198,10 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             person.ParentProfile = null;
         }
 
+        if (request.Student is null && person.Student is { } dropped)
+        {
+            removedPhotoKey = await StudentRecords.RemoveProfileAsync(db, dropped);
+        }
         if (request.Student is { } studentMatrika)
         {
             var student = person.Student;
