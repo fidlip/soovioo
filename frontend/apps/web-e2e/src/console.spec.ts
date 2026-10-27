@@ -36,7 +36,8 @@ for (const username of ['admin', 'ucitel', 'rodic', 'zak']) {
 
     for (const path of SCHOOL_PAGES) {
       await page.goto(`/skola/${path}`);
-      await expect(page.locator('main h1')).toBeVisible();
+      // The dev server's first build of a lazy page can take seconds there too.
+      await expect(page.locator('main h1')).toBeVisible({ timeout: 15_000 });
       // Let the page's data requests settle before moving on.
       await waitForApiIdle();
     }

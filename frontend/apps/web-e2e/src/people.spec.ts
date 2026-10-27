@@ -14,8 +14,11 @@ async function pick(page: Page, field: Locator, option: string | RegExp) {
   await list
     .getByRole('option', { name: option, exact: typeof option === 'string' })
     .click();
-  await page.keyboard.press('Escape');
-  await expect(list).toBeHidden();
+  // On a busy runner the first Escape can come before the list listens.
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await expect(list).toBeHidden({ timeout: 1_000 });
+  }).toPass();
 }
 
 test('an account is a person’s: picked, completed with the missing profile, then created', async ({
