@@ -6,6 +6,7 @@ import {
   input,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -158,7 +159,7 @@ export class PersonDialog {
     effect(() => {
       const target = this.target();
       if (target) {
-        this.open(target);
+        untracked(() => this.open(target));
       }
     });
   }
