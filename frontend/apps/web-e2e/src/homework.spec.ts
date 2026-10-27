@@ -71,3 +71,23 @@ test.describe.serial('homework with completion', () => {
     await expect(card(page)).toHaveCount(0);
   });
 });
+
+test('a dialog opened before the teacher’s timetable arrives offers it then', async ({
+  page,
+}) => {
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/teachers/*/timetable', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await login(page, 'ucitel', 'ucitel123');
+  await page.getByRole('button', { name: 'Nový úkol' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nový úkol' });
+  await dialog.getByPlaceholder('Zadání úkolu').fill('Pozdní rozvrh');
+  const submit = dialog.locator('button[type="submit"]');
+  await expect(submit).toBeDisabled();
+
+  release();
+  await expect(submit).toBeEnabled();
+});
