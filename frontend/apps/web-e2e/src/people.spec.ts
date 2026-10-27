@@ -112,3 +112,32 @@ test('an account is a person’s: picked, completed with the missing profile, th
     .click();
   await expect(personRow).toHaveCount(0);
 });
+
+test('what is typed stays when the dialog’s lists arrive late', async ({
+  page,
+  waitForApiIdle,
+}) => {
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/countries', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/skola/login');
+  await page.locator('#username').fill('admin');
+  await page.locator('#password').fill('admin123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+  await expect(page).toHaveURL(/\/skola\/home$/);
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Osoby' }).click();
+  const requested = page.waitForRequest('**/api/countries');
+  await page.getByRole('button', { name: 'Nová osoba' }).click();
+  await requested;
+  const dialog = page.getByRole('dialog', { name: 'Nová osoba' });
+  const lastName = dialog.getByRole('textbox', { name: /^Příjmení/ });
+  await lastName.fill('Pozdní');
+
+  release();
+  await waitForApiIdle();
+  await expect(lastName).toHaveValue('Pozdní');
+});
