@@ -57,6 +57,8 @@ test.describe('deleting a pupil', () => {
     page,
     request,
   }) => {
+    // Two logins, three dialogs and the archive — over 30 s on a busy CI runner.
+    test.slow();
     const lastName = `Znamka${Date.now()}`;
     await openStudents(page);
     const row = await addPupil(page, lastName);
@@ -120,11 +122,12 @@ test.describe('deleting a pupil', () => {
     const formerRow = page
       .getByRole('tabpanel', { name: 'Archiv a výmaz údajů' })
       .locator('tr', { hasText: lastName });
+    await expect(formerRow).toBeVisible();
     await formerRow.getByRole('button', { name: 'Vymazat vše hned' }).click();
-    await page
-      .getByRole('alertdialog')
-      .getByRole('button', { name: 'Vymazat' })
-      .click();
+    const confirm = page.getByRole('alertdialog', { name: 'Vymazat vše' });
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', { name: 'Vymazat' }).click();
+    await expect(confirm).toBeHidden();
     await expect(formerRow).toHaveCount(0);
   });
 });
