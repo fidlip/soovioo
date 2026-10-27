@@ -151,6 +151,18 @@ async function sendModes(page: Page): Promise<string[]> {
   return modes;
 }
 
+/** Opens the "Příjemci" list of a just opened dialog, its name filled first.
+ * The dialog focuses the name once its open animation ends — on a slow runner
+ * after the click, which closed the list again. Left empty, the name's
+ * "Povinné pole" shows up on leaving it and moves the list away mid-click. */
+async function openAudience(page: Page, dialogName: string) {
+  const dialog = page.getByRole('dialog', { name: dialogName });
+  const name = dialog.getByRole('textbox', { name: /^Název/ });
+  await expect(name).toBeFocused();
+  await name.fill('Test');
+  await dialog.locator('p-select[name="audience"]').click();
+}
+
 test('the pages offer exactly what the role may do', async ({
   page,
   request,
@@ -203,16 +215,14 @@ test('the pages offer exactly what the role may do', async ({
 
   await open(page, 'Kalendář', waitForApiIdle);
   await page.getByRole('button', { name: 'Nová akce' }).click();
-  const event = page.getByRole('dialog', { name: 'Nová akce' });
-  await event.locator('p-select[name="audience"]').click();
+  await openAudience(page, 'Nová akce');
   await expect(page.getByRole('option', { name: 'Všichni' })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.reload();
 
   await open(page, 'Platby', waitForApiIdle);
   await page.getByRole('button', { name: 'Nová platba' }).click();
-  const payment = page.getByRole('dialog', { name: 'Nová platba' });
-  await payment.locator('p-select[name="audience"]').click();
+  await openAudience(page, 'Nová platba');
   await expect(
     page.getByRole('option', { name: 'Všichni žáci' }),
   ).toBeVisible();
@@ -437,20 +447,14 @@ test('a parents’ representative may address their children’s classes, not th
   await login(page, username, 'nove-heslo1');
   await open(page, 'Kalendář', waitForApiIdle);
   await page.getByRole('button', { name: 'Nová akce' }).click();
-  await page
-    .getByRole('dialog', { name: 'Nová akce' })
-    .locator('p-select[name="audience"]')
-    .click();
+  await openAudience(page, 'Nová akce');
   await expect(page.getByRole('option', { name: 'Výběr' })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Všichni' })).toHaveCount(0);
   await page.reload();
 
   await open(page, 'Platby', waitForApiIdle);
   await page.getByRole('button', { name: 'Nová platba' }).click();
-  await page
-    .getByRole('dialog', { name: 'Nová platba' })
-    .locator('p-select[name="audience"]')
-    .click();
+  await openAudience(page, 'Nová platba');
   await expect(page.getByRole('option', { name: 'Všichni žáci' })).toHaveCount(
     0,
   );
