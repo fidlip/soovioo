@@ -1,4 +1,4 @@
-import { APIRequestContext, Page } from '@playwright/test';
+import { APIRequestContext, Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 async function login(page: Page, username: string, password: string) {
@@ -27,6 +27,14 @@ async function tokenOf(
   return (await response.json()).token;
 }
 
+/** Picks an option of a select and waits for its list to close — the next
+ * select's list may offer the same name. */
+async function choose(page: Page, select: Locator, option: string) {
+  await select.click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+}
+
 /** Administrace → Role as the admin: a new role as a copy of `copyOf`,
  * with one permission set to `scope` in its matrix. */
 async function createRole(
@@ -46,10 +54,8 @@ async function createRole(
   await panel.getByRole('button', { name: 'Nová role' }).click();
   const create = page.getByRole('dialog', { name: 'Nová role' });
   await create.getByRole('textbox', { name: /^Název/ }).fill(name);
-  await create.locator('p-select[name="kind"]').click();
-  await page.getByRole('option', { name: kind, exact: true }).click();
-  await create.locator('p-select[name="copyFrom"]').click();
-  await page.getByRole('option', { name: copyOf, exact: true }).click();
+  await choose(page, create.locator('p-select[name="kind"]'), kind);
+  await choose(page, create.locator('p-select[name="copyFrom"]'), copyOf);
   await create.getByRole('button', { name: 'Vytvořit' }).click();
 
   // The matrix opens right after creating.
