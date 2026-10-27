@@ -133,6 +133,8 @@ test('a former pupil moves to the archive and can be erased', async ({
   page,
   browser,
 }) => {
+  // Two logins and four dialogs — over 30 s on a busy CI runner.
+  test.slow();
   // A pupil of its own — the seeded one is used by other tests.
   const lastName = `Archiv${Date.now()}`;
 
