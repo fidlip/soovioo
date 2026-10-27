@@ -111,6 +111,9 @@ public class StaffLeavingTests
         Assert.IsType<OkObjectResult>((await Controller().SetStaffLeave(teacher.Id, HandOver(Today.AddDays(3)))).Result);
         Assert.Equal(2, await db.StaffHandovers.CountAsync());
         Assert.Empty(await db.Conversations.ToListAsync());
+        var planned = Assert.Single(Assert.IsType<RetentionOverviewDto>(
+            Assert.IsType<OkObjectResult>((await Controller().GetPeople()).Result).Value).Staff);
+        Assert.Equal((0, 0), (planned.ClassesLed, planned.Lessons));
 
         clock.Now = clock.Now.AddDays(3);
         await Leaving().ApplyDueAsync(SchoolId);

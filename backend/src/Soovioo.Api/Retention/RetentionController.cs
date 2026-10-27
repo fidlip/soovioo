@@ -93,8 +93,10 @@ public class RetentionController(
             .Select(u => new
             {
                 u.Id, u.Username, u.Person, u.DeactivatedAt, u.LeftAt,
-                Classes = db.SchoolClasses.Count(c => c.ClassTeacherId == u.Id),
-                Lessons = db.TimetableEntries.Count(t => t.TeacherId == u.Id),
+                Classes = db.SchoolClasses.Count(c => c.ClassTeacherId == u.Id
+                    && !db.StaffHandovers.Any(h => h.UserId == u.Id && h.Kind == StaffHandoverKind.ClassTeacher && h.TargetId == c.Id)),
+                Lessons = db.TimetableEntries.Count(t => t.TeacherId == u.Id
+                    && !db.StaffHandovers.Any(h => h.UserId == u.Id && h.Kind == StaffHandoverKind.Subject && h.TargetId == t.SubjectId)),
             })
             .ToListAsync();
 
@@ -482,8 +484,8 @@ public record FormerStudentDto(
 /// <param name="DeactivatedAt">Null = the departure is announced, the account still works.</param>
 /// <param name="LeftAt">The last day, when recorded (Ukončení pracovního poměru).</param>
 /// <param name="ErasesOn">Set once deactivated.</param>
-/// <param name="ClassesLed">Třídnictví still theirs — not handed over.</param>
-/// <param name="Lessons">Their lessons in the timetable, not handed over.</param>
+/// <param name="ClassesLed">Třídnictví still theirs with no successor chosen.</param>
+/// <param name="Lessons">Their lessons in the timetable with no substitute chosen.</param>
 public record FormerStaffDto(
     int UserId, string Name, DateTimeOffset? DeactivatedAt, DateOnly? LeftAt, DateOnly? ErasesOn, bool Due,
     int ClassesLed, int Lessons);
