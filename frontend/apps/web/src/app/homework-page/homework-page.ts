@@ -174,18 +174,27 @@ export class HomeworkPage {
       error: (err) => console.error('getStudents failed', err),
     });
     this.subjectsApi.getSubjects().subscribe({
-      next: (subjects) => this.subjects.set(subjects),
+      next: (subjects) => {
+        this.subjects.set(subjects);
+        this.preselectInOpenDialog();
+      },
       error: (err) => console.error('getSubjects failed', err),
     });
     this.schoolClassesApi.getSchoolClasses().subscribe({
-      next: (schoolClasses) => this.schoolClasses.set(schoolClasses),
+      next: (schoolClasses) => {
+        this.schoolClasses.set(schoolClasses);
+        this.preselectInOpenDialog();
+      },
       error: (err) => console.error('getSchoolClasses failed', err),
     });
     if (!this.anyClass) {
       const teacherId = this.authApi.getUserId();
       if (teacherId) {
         this.timetableApi.getTeacherTimetable(teacherId).subscribe({
-          next: (entries) => this.myTeachingAssignments.set(entries),
+          next: (entries) => {
+            this.myTeachingAssignments.set(entries);
+            this.preselectInOpenDialog();
+          },
           error: (err) => console.error('getTeacherTimetable failed', err),
         });
       }
@@ -275,6 +284,24 @@ export class HomeworkPage {
     this.selectedFile = null;
     this.notify.clear();
     this.homeworkDialogVisible.set(true);
+  }
+
+  /** A new homework's dialog opened before its lists arrived gets their
+   * first entry once they do, as if opened later. */
+  private preselectInOpenDialog(): void {
+    if (!this.homeworkDialogVisible() || this.editingHomeworkId() !== null) {
+      return;
+    }
+    if (this.anyClass) {
+      if (this.newSchoolClassId() === null) {
+        this.newSchoolClassId.set(this.schoolClasses()[0]?.id ?? null);
+      }
+      this.newSubjectId ??= this.subjects()[0]?.id ?? null;
+    } else if (this.selectedAssignmentKey === null) {
+      this.selectedAssignmentKey =
+        this.teachingAssignmentOptions()[0]?.key ?? null;
+      this.onAssignmentChange();
+    }
   }
 
   /** Picking a "Třída a předmět" combo (Teacher mode) sets both ids at once. */
