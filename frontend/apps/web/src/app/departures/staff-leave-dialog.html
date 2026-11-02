@@ -53,13 +53,16 @@
     <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
       <legend class="mb-2 text-sm font-medium">
         Předání
-        <span class="font-normal text-surface-500">(den po posledním dni)</span>
+        <span class="font-normal text-surface-500"
+          >(den po posledním dni, nevyplněné se nepředává)</span
+        >
       </legend>
       @for (c of p.ledClasses; track c.classId) {
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <label [for]="'successor-' + c.classId" class="w-56 text-sm"
-          >Třídnictví {{ c.name }}</label
-        >
+      <app-float-field
+        class="w-full sm:w-96"
+        [label]="'Třídnictví ' + c.name"
+        [for]="'successor-' + c.classId"
+      >
         <p-select
           [inputId]="'successor-' + c.classId"
           [ariaLabel]="'Třídnictví ' + c.name"
@@ -70,34 +73,35 @@
           [(ngModel)]="successors[c.classId]"
           [showClear]="true"
           [filter]="true"
-          placeholder="Nepředávat"
-          styleClass="w-64"
+          styleClass="w-full"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
       } @for (s of p.subjects; track s.subjectId) {
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <label [for]="'substitute-' + s.subjectId" class="w-56 text-sm"
-          >{{ s.name }}
-          <span class="text-surface-500"
-            >({{ s.lessons }} h týdně, {{ s.classes.join(', ') }})</span
-          ></label
+        <app-float-field
+          class="w-full sm:w-96"
+          [label]="s.name"
+          [for]="'substitute-' + s.subjectId"
         >
-        <p-select
-          [inputId]="'substitute-' + s.subjectId"
-          [ariaLabel]="'Zástupce — ' + s.name"
-          [name]="'substitute-' + s.subjectId"
-          [options]="staffOptions()"
-          optionLabel="label"
-          optionValue="value"
-          [(ngModel)]="substitutes[s.subjectId]"
-          (ngModelChange)="checkConflicts()"
-          [showClear]="true"
-          [filter]="true"
-          placeholder="Nepředávat"
-          styleClass="w-64"
-          appendTo="body"
-        />
+          <p-select
+            [inputId]="'substitute-' + s.subjectId"
+            [ariaLabel]="'Zástupce — ' + s.name"
+            [name]="'substitute-' + s.subjectId"
+            [options]="staffOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="substitutes[s.subjectId]"
+            (ngModelChange)="checkConflicts()"
+            [showClear]="true"
+            [filter]="true"
+            styleClass="w-full"
+            appendTo="body"
+          />
+        </app-float-field>
+        <small class="text-surface-500"
+          >{{ s.lessons }} h týdně, {{ s.classes.join(', ') }}</small
+        >
       </div>
       } @if (conflicts().length > 0) {
       <p-message severity="warn">

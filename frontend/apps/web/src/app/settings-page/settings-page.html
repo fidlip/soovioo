@@ -55,47 +55,25 @@
         <span><strong>Role:</strong> {{ p.role }}</span>
       </div>
 
-      <div class="flex flex-col gap-1.5">
-        <div class="flex items-center justify-between gap-2">
-          <label
-            for="phone"
-            class="text-sm font-medium text-surface-700 dark:text-surface-200"
-            >Telefon</label
-          >
-          <app-visibility-control
-            [settings]="visibility()"
-            field="Phone"
-            (changed)="setVisibility($event)"
-          />
-        </div>
-        <input
-          pInputText
-          id="phone"
-          name="phone"
-          class="w-full"
-          [(ngModel)]="phone"
+      <div class="flex items-center gap-2">
+        <app-float-field class="min-w-0 flex-1" label="Telefon" for="phone">
+          <input pInputText id="phone" name="phone" [(ngModel)]="phone" />
+        </app-float-field>
+        <app-visibility-control
+          [settings]="visibility()"
+          field="Phone"
+          (changed)="setVisibility($event)"
         />
       </div>
 
-      <div class="flex flex-col gap-1.5">
-        <div class="flex items-center justify-between gap-2">
-          <label
-            for="email"
-            class="text-sm font-medium text-surface-700 dark:text-surface-200"
-            >E-mail</label
-          >
-          <app-visibility-control
-            [settings]="visibility()"
-            field="Email"
-            (changed)="setVisibility($event)"
-          />
-        </div>
-        <input
-          pInputText
-          id="email"
-          name="email"
-          class="w-full"
-          [(ngModel)]="email"
+      <div class="flex items-center gap-2">
+        <app-float-field class="min-w-0 flex-1" label="E-mail" for="email">
+          <input pInputText id="email" name="email" [(ngModel)]="email" />
+        </app-float-field>
+        <app-visibility-control
+          [settings]="visibility()"
+          field="Email"
+          (changed)="setVisibility($event)"
         />
       </div>
 
