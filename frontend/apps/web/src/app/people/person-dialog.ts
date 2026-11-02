@@ -29,7 +29,7 @@ import {
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
 import {
@@ -54,6 +54,7 @@ export interface PersonDialogTarget {
 @Component({
   selector: 'app-person-dialog',
   imports: [
+    FloatField,
     Avatar,
     Dialog,
     FormsModule,

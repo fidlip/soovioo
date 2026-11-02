@@ -111,9 +111,9 @@ test('Lidé → Škola: staff of the whole school by name, searched without diac
 
   await page.getByRole('tab', { name: 'Škola' }).click();
   const list = page.getByRole('list', { name: 'Lidé ve škole' });
-  await page.getByLabel('Hledat jméno').fill('ucitelova');
+  await page.getByLabel('Jméno', { exact: true }).fill('ucitelova');
   await expect(list.getByText('Jana Učitelová')).toBeVisible();
 
-  await page.getByLabel('Hledat jméno').fill('nikdo takovy');
+  await page.getByLabel('Jméno', { exact: true }).fill('nikdo takovy');
   await expect(list.getByText('Nikdo neodpovídá hledání.')).toBeVisible();
 });

@@ -21,7 +21,7 @@ import {
   scopeLabel,
   scopesFor,
 } from '@soovioo/shared';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 
 interface AgendaRows {
@@ -35,6 +35,7 @@ interface AgendaRows {
 @Component({
   selector: 'app-roles-tab',
   imports: [
+    FloatField,
     Button,
     Card,
     Dialog,

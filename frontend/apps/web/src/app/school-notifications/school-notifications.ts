@@ -13,7 +13,7 @@ import {
   SchoolNotificationSettings,
   digestTimeLabel,
 } from '@soovioo/shared';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 
@@ -23,6 +23,7 @@ import { NotifyService } from '../notify.service';
 @Component({
   selector: 'app-school-notifications',
   imports: [
+    FloatField,
     ...FORM_FIELDS,
     FormsModule,
     Button,

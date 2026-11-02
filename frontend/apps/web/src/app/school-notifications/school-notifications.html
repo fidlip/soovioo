@@ -4,13 +4,9 @@
       text="Denní souhrn nových a nepřečtených upozornění e-mailem přijde jen v den, kdy je co poslat. Upozornění na mobil chodí hned, v nočním klidu se pošlou až ráno. Každý si v Nastavení upraví čas, noční klid i druhy, kromě e-mailů, které škola posílá všem."
   /></ng-template>
   <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolDigestTime"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Výchozí čas souhrnu</label
-      >
+    <app-float-field label="Výchozí čas souhrnu" for="schoolDigestTime">
       <p-select
+        ariaLabel="Výchozí čas souhrnu"
         inputId="schoolDigestTime"
         [options]="timeOptions"
         [ngModel]="digestTime()"
@@ -19,14 +15,10 @@
         styleClass="w-40"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="forcedEmail"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Posílat všem (nejde vypnout)</label
-      >
+    </app-float-field>
+    <app-float-field label="Posílat všem (nejde vypnout)" for="forcedEmail">
       <p-multiselect
+        ariaLabel="Posílat všem (nejde vypnout)"
         inputId="forcedEmail"
         [options]="typeOptions"
         optionLabel="label"
@@ -34,20 +26,15 @@
         [ngModel]="forcedEmail()"
         (ngModelChange)="forcedEmail.set($event)"
         name="forcedEmail"
-        placeholder="Nic"
         [showToggleAll]="false"
         [filter]="false"
         styleClass="w-72"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolPushQuietFrom"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Noční klid na mobilu od</label
-      >
+    </app-float-field>
+    <app-float-field label="Noční klid na mobilu od" for="schoolPushQuietFrom">
       <p-select
+        ariaLabel="Noční klid na mobilu od"
         inputId="schoolPushQuietFrom"
         [options]="timeOptions"
         [ngModel]="pushQuietFrom()"
@@ -56,14 +43,10 @@
         styleClass="w-40"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolPushQuietTo"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >do</label
-      >
+    </app-float-field>
+    <app-float-field label="do" for="schoolPushQuietTo">
       <p-select
+        ariaLabel="do"
         inputId="schoolPushQuietTo"
         [options]="timeOptions"
         [ngModel]="pushQuietTo()"
@@ -72,7 +55,7 @@
         styleClass="w-40"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     <div class="flex basis-full items-start gap-3 py-2">
       <p-toggleswitch
         class="shrink-0"

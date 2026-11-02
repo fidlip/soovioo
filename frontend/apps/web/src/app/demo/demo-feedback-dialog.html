@@ -27,12 +27,10 @@
       </button>
       }
     </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="demo-feedback-text"
-        class="text-sm font-medium text-surface-700 dark:text-surface-200"
-        >Co se vám líbí, co chybí, co nefunguje?</label
-      >
+    <app-float-field
+      label="Co se vám líbí, co chybí, co nefunguje?"
+      for="demo-feedback-text"
+    >
       <textarea
         pTextarea
         id="demo-feedback-text"
@@ -42,13 +40,11 @@
         maxlength="4000"
         [(ngModel)]="text"
       ></textarea>
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="demo-feedback-email"
-        class="text-sm font-medium text-surface-700 dark:text-surface-200"
-        >Nechte nám kontakt (nepovinné)</label
-      >
+    </app-float-field>
+    <app-float-field
+      label="Nechte nám kontakt (nepovinné)"
+      for="demo-feedback-email"
+    >
       <input
         pInputText
         id="demo-feedback-email"
@@ -59,7 +55,7 @@
         placeholder="vas@email.cz"
         [(ngModel)]="email"
       />
-    </div>
+    </app-float-field>
     <div class="flex items-start gap-2">
       <p-checkbox
         inputId="demo-feedback-consent"

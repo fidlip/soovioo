@@ -11,55 +11,41 @@
 
 <div class="mb-3 flex flex-wrap items-end gap-3">
   @if (showStudentFilter()) {
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterStudent"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >{{ 'Žák' | term }}</label
-    >
+  <app-float-field [label]="'Žák' | term" for="filterStudent">
     <p-select
+      [ariaLabel]="'Žák' | term"
       inputId="filterStudent"
       [options]="studentOptions()"
       optionLabel="label"
       optionValue="id"
-      [placeholder]="'Všichni žáci' | term"
       [(ngModel)]="filterStudentId"
       [showClear]="true"
       name="filterStudent"
       appendTo="body"
       styleClass="w-52"
     />
-  </div>
+  </app-float-field>
   }
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterSubject"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Předmět</label
-    >
+  <app-float-field label="Předmět" for="filterSubject">
     <p-select
+      ariaLabel="Předmět"
       inputId="filterSubject"
       [options]="subjects()"
       optionLabel="name"
       optionValue="id"
-      placeholder="Všechny předměty"
       [(ngModel)]="filterSubjectId"
       [showClear]="true"
       name="filterSubject"
       appendTo="body"
       styleClass="w-48"
     />
-  </div>
+  </app-float-field>
 
   <div class="flex flex-wrap items-end gap-3 md:ml-auto">
     @if (students().length > 1) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="reportCardStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Vysvědčení pro</label
-      >
+    <app-float-field label="Vysvědčení pro" for="reportCardStudent">
       <p-select
+        ariaLabel="Vysvědčení pro"
         inputId="reportCardStudent"
         [options]="studentOptions()"
         optionLabel="label"
@@ -69,7 +55,7 @@
         appendTo="body"
         styleClass="w-52"
       />
-    </div>
+    </app-float-field>
     }
     <p-button
       label="Stáhnout vysvědčení"
@@ -195,13 +181,9 @@
     #gradeForm="ngForm"
     (ngSubmit)="saveGrade()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="gradeStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
+    <app-float-field [label]="'Žák' | term" for="gradeStudent">
       <p-select
+        [ariaLabel]="'Žák' | term"
         inputId="gradeStudent"
         [options]="studentOptions()"
         optionLabel="label"
@@ -212,15 +194,11 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="gradeSubject"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Předmět</label
-      >
+    <app-float-field label="Předmět" for="gradeSubject">
       <p-select
+        ariaLabel="Předmět"
         inputId="gradeSubject"
         [options]="subjects()"
         optionLabel="name"
@@ -231,14 +209,9 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="gradeGradedOn"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Datum</label
-      >
+    <app-float-field label="Datum" for="gradeGradedOn">
       <p-datePicker
         inputId="gradeGradedOn"
         [(ngModel)]="newGradedOn"
@@ -247,15 +220,10 @@
         [showIcon]="true"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
 
     <div class="flex gap-4">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="gradeValue"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Známka</label
-        >
+      <app-float-field label="Známka" for="gradeValue">
         <p-inputNumber
           inputId="gradeValue"
           [(ngModel)]="newValue"
@@ -267,14 +235,9 @@
           styleClass="w-28"
           inputStyleClass="w-full"
         />
-      </div>
+      </app-float-field>
 
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="gradeWeight"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Váha</label
-        >
+      <app-float-field label="Váha" for="gradeWeight">
         <p-inputNumber
           inputId="gradeWeight"
           [(ngModel)]="newWeight"
@@ -284,15 +247,10 @@
           styleClass="w-24"
           inputStyleClass="w-full"
         />
-      </div>
+      </app-float-field>
     </div>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="gradeNote"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Poznámka</label
-      >
+    <app-float-field label="Poznámka" for="gradeNote">
       <input
         pInputText
         type="text"
@@ -300,7 +258,7 @@
         [(ngModel)]="newNote"
         name="gradeNote"
       />
-    </div>
+    </app-float-field>
 
     <app-submit-button
       [form]="gradeForm"

@@ -12,44 +12,34 @@
 </div>
 
 <div class="mb-3 flex flex-wrap items-end gap-3">
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterStudent"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >{{ 'Žák' | term }}</label
-    >
+  <app-float-field [label]="'Žák' | term" for="filterStudent">
     <p-select
+      [ariaLabel]="'Žák' | term"
       inputId="filterStudent"
       [options]="studentOptions()"
       optionLabel="label"
       optionValue="id"
-      [placeholder]="'Všichni žáci' | term"
       [(ngModel)]="filterStudentId"
       [showClear]="true"
       name="filterStudent"
       appendTo="body"
       styleClass="w-52"
     />
-  </div>
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterStatus"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Stav</label
-    >
+  </app-float-field>
+  <app-float-field label="Stav" for="filterStatus">
     <p-select
+      ariaLabel="Stav"
       inputId="filterStatus"
       [options]="statusFilterOptions"
       optionLabel="label"
       optionValue="value"
-      placeholder="Všechny stavy"
       [(ngModel)]="filterStatus"
       [showClear]="true"
       name="filterStatus"
       appendTo="body"
       styleClass="w-48"
     />
-  </div>
+  </app-float-field>
 </div>
 
 @if (missedSummary(); as summary) { @if (summary.total > 0 || summary.wholeDays
@@ -92,14 +82,19 @@
       <td>
         @if (absence.status === 'Unexcused' && canSubmitExcuse()) {
         <div class="flex items-center gap-2">
-          <input
-            pInputText
-            type="text"
-            placeholder="Důvod omluvenky"
-            class="w-48"
-            [(ngModel)]="excuseDrafts[absence.id]"
-            [ngModelOptions]="{ standalone: true }"
-          />
+          <app-float-field
+            label="Důvod omluvenky"
+            [for]="'excuse-' + absence.id"
+          >
+            <input
+              pInputText
+              type="text"
+              [id]="'excuse-' + absence.id"
+              class="w-48"
+              [(ngModel)]="excuseDrafts[absence.id]"
+              [ngModelOptions]="{ standalone: true }"
+            />
+          </app-float-field>
           <p-button
             label="Omluvit"
             size="small"
@@ -171,13 +166,9 @@
     #absenceForm="ngForm"
     (ngSubmit)="saveAbsence()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="absenceStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
+    <app-float-field [label]="'Žák' | term" for="absenceStudent">
       <p-select
+        [ariaLabel]="'Žák' | term"
         inputId="absenceStudent"
         [options]="studentOptions()"
         optionLabel="label"
@@ -189,14 +180,9 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="absenceDate"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Datum</label
-      >
+    <app-float-field label="Datum" for="absenceDate">
       <p-datePicker
         inputId="absenceDate"
         [(ngModel)]="newDate"
@@ -206,7 +192,7 @@
         [showIcon]="true"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
 
     <div class="flex flex-col gap-1.5">
       <div class="flex items-center justify-between gap-2">

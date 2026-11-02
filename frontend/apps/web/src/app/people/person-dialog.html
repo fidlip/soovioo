@@ -18,25 +18,15 @@
     </div>
     }
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="personFirstName"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Jméno</label
-        >
+      <app-float-field label="Jméno" for="personFirstName">
         <input
           pInputText
           id="personFirstName"
           name="personFirstName"
           [(ngModel)]="firstName"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="personLastName"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Příjmení</label
-        >
+      </app-float-field>
+      <app-float-field label="Příjmení" for="personLastName">
         <input
           pInputText
           id="personLastName"
@@ -44,13 +34,8 @@
           required
           [(ngModel)]="lastName"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="personPhone"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Telefon</label
-        >
+      </app-float-field>
+      <app-float-field label="Telefon" for="personPhone">
         <input
           pInputText
           type="tel"
@@ -58,13 +43,8 @@
           name="personPhone"
           [(ngModel)]="phone"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="personEmail"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >E-mail</label
-        >
+      </app-float-field>
+      <app-float-field label="E-mail" for="personEmail">
         <input
           pInputText
           type="email"
@@ -72,30 +52,27 @@
           name="personEmail"
           [(ngModel)]="email"
         />
-      </div>
+      </app-float-field>
     </div>
 
     <div class="flex flex-col gap-1.5">
-      <label
-        for="personProfiles"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Profily</label
-      >
-      <p-multiSelect
-        inputId="personProfiles"
-        [options]="profileOptions()"
-        optionLabel="label"
-        optionValue="value"
-        optionDisabled="disabled"
-        [ngModel]="profiles"
-        (ngModelChange)="setProfiles($event)"
-        name="profiles"
-        placeholder="Bez profilu"
-        display="chip"
-        [showHeader]="false"
-        styleClass="w-full"
-        appendTo="body"
-      />
+      <app-float-field label="Profily" for="personProfiles">
+        <p-multiSelect
+          inputId="personProfiles"
+          ariaLabel="Profily"
+          [options]="profileOptions()"
+          optionLabel="label"
+          optionValue="value"
+          optionDisabled="disabled"
+          [ngModel]="profiles"
+          (ngModelChange)="setProfiles($event)"
+          name="profiles"
+          display="chip"
+          [showHeader]="false"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </app-float-field>
       @for (reason of lockReasons(); track $index) {
       <small class="text-surface-500">{{ reason }}</small>
       }
@@ -104,31 +81,35 @@
     @if (profiles.includes('teacher')) {
     <section class="flex flex-col gap-2" aria-label="Učitel">
       <h3 class="text-sm font-medium">Učitel</h3>
-      <input
-        pInputText
-        type="text"
-        placeholder="Aprobace (např. M, F)"
-        aria-label="Aprobace"
-        name="qualification"
-        [(ngModel)]="qualification"
-      />
+      <app-float-field label="Aprobace" for="personQualification">
+        <input
+          id="personQualification"
+          pInputText
+          type="text"
+          placeholder="např. M, F"
+          name="qualification"
+          [(ngModel)]="qualification"
+        />
+      </app-float-field>
     </section>
     } @if (profiles.includes('parent')) {
     <section class="flex flex-col gap-2" aria-label="Rodič">
       <h3 class="text-sm font-medium">Rodič</h3>
-      <p-multiSelect
-        [options]="childOptions()"
-        optionLabel="label"
-        optionValue="id"
-        placeholder="Žádné děti přiřazeny"
-        ariaLabel="Děti"
-        display="chip"
-        [filter]="true"
-        [(ngModel)]="childIds"
-        name="childIds"
-        styleClass="w-full"
-        appendTo="body"
-      />
+      <app-float-field label="Děti" for="personChildIds">
+        <p-multiSelect
+          inputId="personChildIds"
+          [options]="childOptions()"
+          optionLabel="label"
+          optionValue="id"
+          ariaLabel="Děti"
+          display="chip"
+          [filter]="true"
+          [(ngModel)]="childIds"
+          name="childIds"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </app-float-field>
     </section>
     } @if (profiles.includes('student')) {
     <section class="flex flex-col gap-2" [attr.aria-label]="'Žák' | term">

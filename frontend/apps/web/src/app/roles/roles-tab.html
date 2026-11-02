@@ -69,8 +69,7 @@
   styleClass="w-full max-w-md"
 >
   <form class="flex flex-col gap-4" #createForm="ngForm" (ngSubmit)="create()">
-    <div class="flex flex-col gap-1">
-      <label for="role-name">Název</label>
+    <app-float-field label="Název" for="role-name">
       <input
         pInputText
         id="role-name"
@@ -79,27 +78,29 @@
         [(ngModel)]="newName"
         placeholder="Např. Asistent pedagoga"
       />
-    </div>
+    </app-float-field>
     <div class="flex flex-col gap-1">
-      <label for="role-kind">Druh</label>
-      <p-select
-        inputId="role-kind"
-        name="kind"
-        [options]="kindOptions"
-        optionLabel="label"
-        optionValue="value"
-        [(ngModel)]="newKind"
-        (ngModelChange)="newCopyFrom = null"
-        appendTo="body"
-      />
+      <app-float-field label="Druh" for="role-kind">
+        <p-select
+          inputId="role-kind"
+          ariaLabel="Druh"
+          name="kind"
+          [options]="kindOptions"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="newKind"
+          (ngModelChange)="newCopyFrom = null"
+          appendTo="body"
+        />
+      </app-float-field>
       <small class="text-surface-500"
         >Podle druhu se řídí viditelnost údajů, adresář a upozornění. Později ho
         nejde změnit.</small
       >
     </div>
-    <div class="flex flex-col gap-1">
-      <label for="role-copy">Práva podle role</label>
+    <app-float-field label="Práva podle role" for="role-copy">
       <p-select
+        ariaLabel="Práva podle role"
         inputId="role-copy"
         name="copyFrom"
         [options]="copyOptions()"
@@ -107,10 +108,9 @@
         optionValue="id"
         [(ngModel)]="newCopyFrom"
         [showClear]="true"
-        placeholder="Bez práv"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     <div class="flex justify-end">
       <app-submit-button [form]="createForm" label="Vytvořit" />
     </div>
@@ -126,8 +126,7 @@
 >
   @if (editing(); as role) {
   <form class="flex flex-col gap-4" #editForm="ngForm" (ngSubmit)="saveEdit()">
-    <div class="flex flex-col gap-1">
-      <label for="edit-role-name">Název</label>
+    <app-float-field label="Název" for="edit-role-name">
       <input
         pInputText
         id="edit-role-name"
@@ -135,7 +134,7 @@
         required
         [(ngModel)]="editName"
       />
-    </div>
+    </app-float-field>
     @if (role.builtIn === 'Admin') {
     <p class="m-0 text-sm text-surface-500">
       Správu školy (osoby, účty, role, nastavení školy) má Admin vždy. Ostatní
@@ -193,17 +192,19 @@
       Roli má {{ role.userCount }} {{ role.userCount === 1 ? 'účet' :
       role.userCount < 5 ? 'účty' : 'účtů' }}. Na jakou roli je přeřadit?
     </p>
-    <p-select
-      inputId="reassign"
-      name="reassign"
-      ariaLabel="Přeřadit na roli"
-      [options]="reassignOptions(role)"
-      optionLabel="name"
-      optionValue="id"
-      [(ngModel)]="reassignTo"
-      required
-      appendTo="body"
-    />
+    <app-float-field label="Přeřadit na roli" for="reassign">
+      <p-select
+        inputId="reassign"
+        name="reassign"
+        ariaLabel="Přeřadit na roli"
+        [options]="reassignOptions(role)"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="reassignTo"
+        required
+        appendTo="body"
+      />
+    </app-float-field>
     } @else {
     <p class="m-0">Roli nikdo nemá. Opravdu ji smazat?</p>
     }

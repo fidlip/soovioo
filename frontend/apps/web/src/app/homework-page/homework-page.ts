@@ -29,7 +29,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
  * for homework attachments too (see ROADMAP "Přílohy u zpráv"). */
@@ -56,6 +56,7 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
 @Component({
   selector: 'app-homework-page',
   imports: [
+    FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
     FilePicker,

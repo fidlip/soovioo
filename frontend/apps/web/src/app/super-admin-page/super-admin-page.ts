@@ -23,7 +23,7 @@ import {
 import { schoolUrl } from '../school-context';
 import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { DemoAdminPanel } from './demo-admin-panel';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -31,6 +31,7 @@ const DEFAULT_PAGE_SIZE = 10;
 @Component({
   selector: 'app-super-admin-page',
   imports: [
+    FloatField,
     ...FORM_FIELDS,
     AppIcon,
     DateFormatPipe,

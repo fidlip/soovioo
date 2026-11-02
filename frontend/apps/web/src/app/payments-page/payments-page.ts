@@ -33,7 +33,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type PaidFilter = 'all' | 'unpaid' | 'paid';
@@ -89,6 +89,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
     Checkbox,

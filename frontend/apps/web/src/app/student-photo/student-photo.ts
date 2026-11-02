@@ -12,6 +12,7 @@ import { Observable } from 'rxjs';
 import { NotifyService } from '../notify.service';
 import { PhotoEditor } from '../photo-editor/photo-editor';
 import { TermPipe } from '../term.pipe';
+import { FloatField } from '../forms';
 
 /** A pupil's photo with the guardian's consent around it — the same block
  * for a parent (Mé děti), the pupil (Nastavení) and the school
@@ -19,6 +20,7 @@ import { TermPipe } from '../term.pipe';
 @Component({
   selector: 'app-student-photo',
   imports: [
+    FloatField,
     DateFormatPipe,
     FormsModule,
     Button,

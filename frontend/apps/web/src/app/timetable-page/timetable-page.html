@@ -14,11 +14,10 @@
 
 <div class="mb-4 flex flex-wrap items-end gap-3">
   @if (authApi.isStaff()) {
-  <div class="flex flex-col gap-1.5">
-    <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Zobrazit</span
-    >
+  <app-float-field label="Zobrazit" for="viewMode">
     <p-select
+      ariaLabel="Zobrazit"
+      inputId="viewMode"
       [options]="viewModeOptions()"
       optionLabel="label"
       optionValue="value"
@@ -28,13 +27,12 @@
       styleClass="w-32"
       appendTo="body"
     />
-  </div>
+  </app-float-field>
   } @if (viewMode() === 'class') {
-  <div class="flex flex-col gap-1.5">
-    <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Třída</span
-    >
+  <app-float-field label="Třída" for="classPicker">
     <p-select
+      ariaLabel="Třída"
+      inputId="classPicker"
       [options]="classOptions()"
       optionLabel="label"
       optionValue="id"
@@ -44,13 +42,12 @@
       styleClass="w-40"
       appendTo="body"
     />
-  </div>
+  </app-float-field>
   } @if (viewMode() === 'teacher') {
-  <div class="flex flex-col gap-1.5">
-    <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Učitel</span
-    >
+  <app-float-field label="Učitel" for="teacherPicker">
     <p-select
+      ariaLabel="Učitel"
+      inputId="teacherPicker"
       [options]="teacherOptions()"
       optionLabel="label"
       optionValue="id"
@@ -60,13 +57,12 @@
       styleClass="w-40"
       appendTo="body"
     />
-  </div>
+  </app-float-field>
   } @if (viewMode() === 'student' && !authApi.isStudent()) {
-  <div class="flex flex-col gap-1.5">
-    <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >{{ 'Žák' | term }}</span
-    >
+  <app-float-field [label]="'Žák' | term" for="studentPicker">
     <p-select
+      [ariaLabel]="'Žák' | term"
+      inputId="studentPicker"
       [options]="studentOptions()"
       optionLabel="label"
       optionValue="id"
@@ -77,7 +73,7 @@
       [filter]="true"
       appendTo="body"
     />
-  </div>
+  </app-float-field>
   }
 
   <div class="flex items-end gap-1">
@@ -291,11 +287,10 @@
     #entryForm="ngForm"
     (ngSubmit)="saveEntry()"
   >
-    <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Předmět</span
-      >
+    <app-float-field label="Předmět" for="formSubjectId">
       <p-select
+        ariaLabel="Předmět"
+        inputId="formSubjectId"
         [options]="subjects()"
         optionLabel="name"
         optionValue="id"
@@ -306,12 +301,11 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Den</span
-      >
+    </app-float-field>
+    <app-float-field label="Den" for="formDayOfWeek">
       <p-select
+        ariaLabel="Den"
+        inputId="formDayOfWeek"
         [options]="dayOptions"
         optionLabel="label"
         optionValue="value"
@@ -321,12 +315,11 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Hodina</span
-      >
+    </app-float-field>
+    <app-float-field label="Hodina" for="formPeriodNumber">
       <p-select
+        ariaLabel="Hodina"
+        inputId="formPeriodNumber"
         [options]="periodOptions()"
         optionLabel="label"
         optionValue="value"
@@ -336,32 +329,28 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Vyučující</span
-      >
+    </app-float-field>
+    <app-float-field label="Vyučující" for="formTeacherId">
       <p-select
+        ariaLabel="Vyučující"
+        inputId="formTeacherId"
         [options]="teacherOptions()"
         optionLabel="label"
         optionValue="id"
-        placeholder="Nepřiřazeno"
         [(ngModel)]="formTeacherId"
         name="formTeacherId"
         [showClear]="true"
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Učebna</span
-      >
+    </app-float-field>
+    <app-float-field label="Učebna" for="formClassroomId">
       <p-select
+        ariaLabel="Učebna"
+        inputId="formClassroomId"
         [options]="classroomOptions()"
         optionLabel="label"
         optionValue="id"
-        placeholder="Nepřiřazeno"
         [ngModel]="formClassroomId"
         (ngModelChange)="formClassroomId = $event; onFormClassroomChange()"
         name="formClassroomId"
@@ -369,12 +358,11 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Týden</span
-      >
+    </app-float-field>
+    <app-float-field label="Týden" for="formWeekParity">
       <p-select
+        ariaLabel="Týden"
+        inputId="formWeekParity"
         [options]="weekParityOptions"
         optionLabel="label"
         optionValue="value"
@@ -384,7 +372,7 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     <div class="mt-2 flex justify-between">
       @if (editingEntryId() !== null) {
       <p-button

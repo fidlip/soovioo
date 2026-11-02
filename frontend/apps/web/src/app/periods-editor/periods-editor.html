@@ -89,34 +89,41 @@
     (ngSubmit)="addPeriod()"
   >
     <!-- Native number input: p-inputNumber cancels paste events. -->
-    <input
-      pInputText
-      type="number"
-      placeholder="Hodina"
-      aria-label="Hodina"
-      [(ngModel)]="newPeriodNumberToConfigure"
-      name="newPeriodNumberToConfigure"
-      required
-      min="0"
-      max="15"
-      class="w-20"
-    />
-    <p-datePicker
-      [(ngModel)]="newPeriodStartTime"
-      name="newPeriodStartTime"
-      required
-      [timeOnly]="true"
-      hourFormat="24"
-      appendTo="body"
-    />
-    <p-datePicker
-      [(ngModel)]="newPeriodEndTime"
-      name="newPeriodEndTime"
-      required
-      [timeOnly]="true"
-      hourFormat="24"
-      appendTo="body"
-    />
+    <app-float-field label="Hodina" for="newPeriodNumber">
+      <input
+        id="newPeriodNumber"
+        pInputText
+        type="number"
+        [(ngModel)]="newPeriodNumberToConfigure"
+        name="newPeriodNumberToConfigure"
+        required
+        min="0"
+        max="15"
+        class="w-20"
+      />
+    </app-float-field>
+    <app-float-field label="Od" for="newPeriodStartTime">
+      <p-datePicker
+        inputId="newPeriodStartTime"
+        [(ngModel)]="newPeriodStartTime"
+        name="newPeriodStartTime"
+        required
+        [timeOnly]="true"
+        hourFormat="24"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Do" for="newPeriodEndTime">
+      <p-datePicker
+        inputId="newPeriodEndTime"
+        [(ngModel)]="newPeriodEndTime"
+        name="newPeriodEndTime"
+        required
+        [timeOnly]="true"
+        hourFormat="24"
+        appendTo="body"
+      />
+    </app-float-field>
     <app-submit-button
       [form]="periodForm"
       label="Uložit čas"

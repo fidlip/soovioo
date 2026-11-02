@@ -39,7 +39,7 @@ test.describe.serial('behavior record', () => {
     await page.getByRole('option', { name: 'Jan Novák' }).click();
     await dialog.locator('#recordType').click();
     await page.getByRole('option', { name: 'Pochvala', exact: true }).click();
-    await dialog.getByPlaceholder('Text').fill(text);
+    await dialog.getByLabel(/^Text/).fill(text);
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();
 

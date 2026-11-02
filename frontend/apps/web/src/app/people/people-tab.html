@@ -1,40 +1,46 @@
 <p-card header="Osoby">
   <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
     <div class="flex flex-wrap items-end gap-2">
-      <input
-        pInputText
-        type="text"
-        placeholder="Hledat jméno"
-        [ngModel]="filterName()"
-        (ngModelChange)="filterName.set($event)"
-        name="filterPeopleName"
-      />
-      <p-select
-        [options]="kindOptions"
-        optionLabel="label"
-        optionValue="value"
-        placeholder="Všichni"
-        ariaLabel="Kdo"
-        [ngModel]="filterKind()"
-        (ngModelChange)="filterKind.set($event)"
-        [showClear]="true"
-        name="filterPeopleKind"
-        styleClass="w-36"
-        appendTo="body"
-      />
-      <p-select
-        [options]="classOptions()"
-        optionLabel="name"
-        optionValue="id"
-        placeholder="Všechny třídy"
-        ariaLabel="Třída"
-        [ngModel]="filterClassId()"
-        (ngModelChange)="filterClassId.set($event)"
-        [showClear]="true"
-        name="filterPeopleClass"
-        styleClass="w-44"
-        appendTo="body"
-      />
+      <app-float-field label="Jméno" for="filterPeopleName">
+        <input
+          pInputText
+          type="text"
+          id="filterPeopleName"
+          [ngModel]="filterName()"
+          (ngModelChange)="filterName.set($event)"
+          name="filterPeopleName"
+        />
+      </app-float-field>
+      <app-float-field label="Kdo" for="filterPeopleKind">
+        <p-select
+          [options]="kindOptions"
+          optionLabel="label"
+          optionValue="value"
+          inputId="filterPeopleKind"
+          ariaLabel="Kdo"
+          [ngModel]="filterKind()"
+          (ngModelChange)="filterKind.set($event)"
+          [showClear]="true"
+          name="filterPeopleKind"
+          styleClass="w-36"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Třída" for="filterPeopleClass">
+        <p-select
+          [options]="classOptions()"
+          optionLabel="name"
+          optionValue="id"
+          inputId="filterPeopleClass"
+          ariaLabel="Třída"
+          [ngModel]="filterClassId()"
+          (ngModelChange)="filterClassId.set($event)"
+          [showClear]="true"
+          name="filterPeopleClass"
+          styleClass="w-44"
+          appendTo="body"
+        />
+      </app-float-field>
     </div>
     <p-button
       label="Nová osoba"

@@ -13,17 +13,20 @@
     [class.md:flex]="selected() !== null || selectedBroadcast() !== null"
     aria-label="Konverzace"
   >
-    <p-select
-      [options]="readFilterOptions"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="readFilter()"
-      (ngModelChange)="readFilter.set($event)"
-      name="readFilter"
-      ariaLabel="Stav"
-      styleClass="w-40"
-      appendTo="body"
-    />
+    <app-float-field label="Stav" for="readFilter">
+      <p-select
+        inputId="readFilter"
+        [options]="readFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="readFilter()"
+        (ngModelChange)="readFilter.set($event)"
+        name="readFilter"
+        ariaLabel="Stav"
+        styleClass="w-40"
+        appendTo="body"
+      />
+    </app-float-field>
     <ul class="m-0 flex list-none flex-col gap-1 p-0">
       @for (c of visibleConversations(); track c.broadcastId ? 'b' +
       c.broadcastId : c.id) {
@@ -322,13 +325,9 @@
 >
   <form class="flex flex-col gap-3" #sendForm="ngForm" (ngSubmit)="send()">
     @if (canBroadcast) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="sendMode"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Komu</label
-      >
+    <app-float-field label="Komu" for="sendMode">
       <p-select
+        ariaLabel="Komu"
         inputId="sendMode"
         [options]="modeOptions"
         optionLabel="label"
@@ -338,15 +337,11 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     } @if (isSingleStudentMode()) { @if (isStaff || students().length > 1) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="newStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
+    <app-float-field [label]="'Žák' | term" for="newStudent">
       <p-select
+        [ariaLabel]="'Žák' | term"
         inputId="newStudent"
         [options]="studentOptions()"
         optionLabel="label"
@@ -359,15 +354,11 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     } } @if (isClassMode()) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="broadcastClass"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Třída</label
-      >
+    <app-float-field label="Třída" for="broadcastClass">
       <p-select
+        ariaLabel="Třída"
         inputId="broadcastClass"
         [options]="broadcastClasses()"
         optionLabel="name"
@@ -378,15 +369,11 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     } @if (!isStaff && isSingleStudentMode()) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="recipients"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Příjemci</label
-      >
+    <app-float-field label="Příjemci" for="recipients">
       <p-multiSelect
+        ariaLabel="Příjemci"
         inputId="recipients"
         [options]="contactOptions()"
         optionLabel="label"
@@ -394,20 +381,14 @@
         [(ngModel)]="recipientIds"
         name="recipients"
         required
-        placeholder="Vyberte učitele nebo vedení"
         display="chip"
         [showHeader]="false"
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     }
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="subject"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Předmět</label
-      >
+    <app-float-field label="Předmět" for="subject">
       <input
         pInputText
         id="subject"
@@ -415,13 +396,8 @@
         required
         [(ngModel)]="subject"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="body"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Text</label
-      >
+    </app-float-field>
+    <app-float-field label="Text" for="body">
       <textarea
         pTextarea
         id="body"
@@ -430,7 +406,7 @@
         required
         [(ngModel)]="body"
       ></textarea>
-    </div>
+    </app-float-field>
     <div class="flex flex-col gap-1.5">
       <label
         for="newFile"

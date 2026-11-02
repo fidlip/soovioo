@@ -56,12 +56,10 @@
   />
   } @else if (s.consentNeedsName) {
   <form class="flex flex-wrap items-end gap-2" (ngSubmit)="giveConsent()">
-    <div class="flex flex-col gap-1.5">
-      <label
-        [for]="'consent-' + s.studentId"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Souhlas dal(a) (zákonný zástupce)</label
-      >
+    <app-float-field
+      label="Souhlas dal(a) (zákonný zástupce)"
+      [for]="'consent-' + s.studentId"
+    >
       <input
         pInputText
         [id]="'consent-' + s.studentId"
@@ -69,7 +67,7 @@
         [(ngModel)]="consentGivenBy"
         required
       />
-    </div>
+    </app-float-field>
     <p-button
       type="submit"
       label="Zaznamenat souhlas"

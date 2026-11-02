@@ -90,14 +90,20 @@
         </div>
         @if (absence.status === 'Unexcused' && canSubmitExcuse()) {
         <div class="flex items-center gap-2">
-          <input
-            pInputText
-            type="text"
-            placeholder="Důvod omluvenky"
-            class="w-full"
-            [(ngModel)]="excuseDrafts[absence.id]"
-            [ngModelOptions]="{ standalone: true }"
-          />
+          <app-float-field
+            class="min-w-0 flex-1"
+            label="Důvod omluvenky"
+            [for]="'excuse-' + absence.id"
+          >
+            <input
+              pInputText
+              type="text"
+              [id]="'excuse-' + absence.id"
+              class="w-full"
+              [(ngModel)]="excuseDrafts[absence.id]"
+              [ngModelOptions]="{ standalone: true }"
+            />
+          </app-float-field>
           <p-button
             label="Omluvit"
             size="small"

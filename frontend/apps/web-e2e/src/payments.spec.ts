@@ -36,13 +36,13 @@ test.describe.serial('payment for one student', () => {
     const dialog = page.getByRole('dialog', { name: 'Nová platba' });
     // The dialog focuses its first field once its open animation ends; on a
     // slow runner that came mid-typing and took the amount's last key.
-    const titleInput = dialog.getByPlaceholder('Název platby');
+    const titleInput = dialog.getByLabel(/^Název/);
     await expect(titleInput).toBeFocused();
     await titleInput.fill(title);
     await dialog.locator('#amount').pressSequentially('150');
     await dialog.locator('p-select[name="audience"]').click();
     await page.getByRole('option', { name: 'Výběr', exact: true }).click();
-    await dialog.getByPlaceholder('Hledat žáka').fill('Novák');
+    await dialog.getByLabel('Hledat žáka').fill('Novák');
     await dialog.getByText('Jan Novák').click();
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();

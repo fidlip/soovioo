@@ -21,6 +21,7 @@ import {
 } from '@soovioo/shared';
 import { foldForSearch } from '../text-search';
 import { DemoActionsService } from './demo-actions.service';
+import { FloatField } from '../forms';
 
 const ROLE_ORDER: DemoRole[] = ['Admin', 'Teacher', 'Parent', 'Student'];
 
@@ -41,7 +42,7 @@ const ROLE_LABELS: Record<DemoRole, string> = {
 /** The demo school's login: pick anyone, no password (DemoController). */
 @Component({
   selector: 'app-demo-user-picker',
-  imports: [FormsModule, Button, InputText, Menu, Message],
+  imports: [FloatField, FormsModule, Button, InputText, Menu, Message],
   templateUrl: './demo-user-picker.html',
 })
 export class DemoUserPicker implements OnInit {

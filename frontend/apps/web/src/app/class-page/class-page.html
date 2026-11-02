@@ -1,11 +1,7 @@
 @if (students().length > 1) {
-<div class="mb-6 flex flex-col gap-1.5">
-  <label
-    for="classStudent"
-    class="text-sm font-medium text-surface-600 dark:text-surface-300"
-    >Dítě</label
-  >
+<app-float-field class="mb-6" label="Dítě" for="classStudent">
   <p-select
+    ariaLabel="Dítě"
     inputId="classStudent"
     [options]="studentOptions()"
     optionLabel="label"
@@ -14,7 +10,7 @@
     (ngModelChange)="select($event)"
     styleClass="w-full sm:w-72"
   />
-</div>
+</app-float-field>
 } @if (directory(); as d) {
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
   <p-card [header]="'Učitelé třídy ' + d.className">

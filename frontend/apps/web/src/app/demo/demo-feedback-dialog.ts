@@ -8,11 +8,20 @@ import { Textarea } from '@openng/optimus-ui/textarea';
 import { AuthApiService, DemoApiService } from '@soovioo/shared';
 import { NotifyService } from '../notify.service';
 import { DemoFeedbackService } from './demo-feedback.service';
+import { FloatField } from '../forms';
 
 /** "Jak se vám Soovioo líbí?" — opened by DemoFeedbackService. */
 @Component({
   selector: 'app-demo-feedback-dialog',
-  imports: [FormsModule, Button, Checkbox, Dialog, InputText, Textarea],
+  imports: [
+    FloatField,
+    FormsModule,
+    Button,
+    Checkbox,
+    Dialog,
+    InputText,
+    Textarea,
+  ],
   templateUrl: './demo-feedback-dialog.html',
 })
 export class DemoFeedbackDialog {

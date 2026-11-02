@@ -1,10 +1,5 @@
 <div class="mb-4 flex flex-wrap items-end gap-2">
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="schoolSearch"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Hledat jméno</label
-    >
+  <app-float-field label="Jméno" for="schoolSearch">
     <input
       pInputText
       id="schoolSearch"
@@ -13,14 +8,10 @@
       [(ngModel)]="search"
       (ngModelChange)="onSearch()"
     />
-  </div>
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="schoolKind"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Kdo</label
-    >
+  </app-float-field>
+  <app-float-field label="Kdo" for="schoolKind">
     <p-select
+      ariaLabel="Kdo"
       inputId="schoolKind"
       [options]="kindOptions()"
       optionLabel="label"
@@ -30,14 +21,10 @@
       styleClass="w-44"
       appendTo="body"
     />
-  </div>
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="schoolClass"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Třída</label
-    >
+  </app-float-field>
+  <app-float-field label="Třída" for="schoolClass">
     <p-select
+      ariaLabel="Třída"
       inputId="schoolClass"
       [options]="classOptions()"
       optionLabel="label"
@@ -48,7 +35,7 @@
       styleClass="w-44"
       appendTo="body"
     />
-  </div>
+  </app-float-field>
 </div>
 
 @if (directory(); as d) {

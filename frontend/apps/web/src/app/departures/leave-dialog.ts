@@ -12,7 +12,7 @@ import {
   RetentionApiService,
   StudentLeaveReason,
 } from '@soovioo/shared';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
 import { LEAVE_REASON_OPTIONS, toDateOnly } from './retention-labels';
@@ -41,6 +41,7 @@ interface NoticeRow {
 @Component({
   selector: 'app-leave-dialog',
   imports: [
+    FloatField,
     FormsModule,
     Button,
     Checkbox,
@@ -66,8 +67,7 @@ interface NoticeRow {
               | term
           }}
         </p>
-        <div class="flex flex-col gap-1">
-          <label for="leave-date">Poslední den ve škole</label>
+        <app-float-field label="Poslední den ve škole" for="leave-date">
           <p-datePicker
             inputId="leave-date"
             name="leaveDate"
@@ -77,10 +77,10 @@ interface NoticeRow {
             [showOnFocus]="false"
             appendTo="body"
           />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label for="leave-reason">Důvod</label>
+        </app-float-field>
+        <app-float-field label="Důvod" for="leave-reason">
           <p-select
+            ariaLabel="Důvod"
             inputId="leave-reason"
             name="leaveReason"
             [options]="reasons"
@@ -88,13 +88,11 @@ interface NoticeRow {
             optionValue="value"
             [(ngModel)]="reason"
             [showClear]="true"
-            placeholder="Neuvedeno"
             appendTo="body"
           />
-        </div>
+        </app-float-field>
         @if (reason === 'Other') {
-          <div class="flex flex-col gap-1">
-            <label for="leave-reason-detail">Odůvodnění</label>
+          <app-float-field label="Odůvodnění" for="leave-reason-detail">
             <input
               pInputText
               id="leave-reason-detail"
@@ -102,10 +100,9 @@ interface NoticeRow {
               required
               [(ngModel)]="reasonDetail"
             />
-          </div>
+          </app-float-field>
         }
-        <div class="flex flex-col gap-1">
-          <label for="leave-note">Poznámka (jen pro školu)</label>
+        <app-float-field label="Poznámka (jen pro školu)" for="leave-note">
           <input
             pInputText
             id="leave-note"
@@ -113,7 +110,7 @@ interface NoticeRow {
             [(ngModel)]="note"
             placeholder="Např. kam přestupuje"
           />
-        </div>
+        </app-float-field>
         <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
           <legend class="mb-2 text-sm font-medium">
             Oznámit zprávou

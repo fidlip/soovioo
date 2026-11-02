@@ -21,13 +21,9 @@
   }
 
   <div class="mb-4 flex flex-wrap items-end gap-3">
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="paidFilter"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Stav</label
-      >
+    <app-float-field label="Stav" for="paidFilter">
       <p-select
+        ariaLabel="Stav"
         inputId="paidFilter"
         [options]="paidFilterOptions"
         optionLabel="label"
@@ -37,40 +33,30 @@
         styleClass="w-40"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     @if (canManagePayments()) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="classFilter"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Třída</label
-      >
+    <app-float-field label="Třída" for="classFilter">
       <p-select
+        ariaLabel="Třída"
         inputId="classFilter"
         [options]="recipientOptions()?.classes ?? []"
         optionLabel="name"
         optionValue="id"
-        placeholder="Všechny třídy"
         [showClear]="true"
         [ngModel]="classFilter()"
         (ngModelChange)="classFilter.set($event ?? null); studentFilter.set(null)"
         styleClass="w-40"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     } @if (studentFilterOptions().length > 1 || studentFilter() !== null) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="studentFilter"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
+    <app-float-field [label]="'Žák' | term" for="studentFilter">
       <p-select
+        [ariaLabel]="'Žák' | term"
         inputId="studentFilter"
         [options]="studentFilterOptions()"
         optionLabel="name"
         optionValue="id"
-        [placeholder]="'Všichni žáci' | term"
         [showClear]="true"
         [filter]="true"
         [ngModel]="studentFilter()"
@@ -78,7 +64,7 @@
         styleClass="w-52"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     }
   </div>
 
@@ -243,29 +229,28 @@
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
   <form class="flex flex-col gap-3" #paymentForm="ngForm" (ngSubmit)="save()">
-    <input
-      pInputText
-      type="text"
-      placeholder="Název platby"
-      name="paymentTitle"
-      required
-      [(ngModel)]="newTitle"
-    />
-    <textarea
-      pTextarea
-      rows="2"
-      placeholder="Popis (nepovinné)"
-      name="paymentDescription"
-      [(ngModel)]="newDescription"
-    ></textarea>
+    <app-float-field label="Název" for="paymentTitle">
+      <input
+        id="paymentTitle"
+        pInputText
+        type="text"
+        name="paymentTitle"
+        required
+        [(ngModel)]="newTitle"
+      />
+    </app-float-field>
+    <app-float-field label="Popis" for="paymentDescription">
+      <textarea
+        id="paymentDescription"
+        pTextarea
+        rows="2"
+        name="paymentDescription"
+        [(ngModel)]="newDescription"
+      ></textarea>
+    </app-float-field>
 
     <div class="flex flex-wrap items-end gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="dueDate"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Termín splatnosti</label
-        >
+      <app-float-field label="Termín splatnosti" for="dueDate">
         <p-datePicker
           inputId="dueDate"
           [(ngModel)]="newDueDate"
@@ -274,14 +259,10 @@
           [showIcon]="true"
           appendTo="body"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="amountType"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Typ částky</label
-        >
+      </app-float-field>
+      <app-float-field label="Typ částky" for="amountType">
         <p-select
+          ariaLabel="Typ částky"
           inputId="amountType"
           [options]="amountTypeOptions"
           optionLabel="label"
@@ -291,15 +272,11 @@
           styleClass="w-56"
           appendTo="body"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="amount"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >
-          {{ newAmountType === 'TotalSplitEvenly' ? 'Celková částka (Kč)' :
-          ('Částka na žáka (Kč)' | term) }}
-        </label>
+      </app-float-field>
+      <app-float-field
+        [label]="newAmountType === 'TotalSplitEvenly' ? 'Celková částka (Kč)' : ('Částka na žáka (Kč)' | term)"
+        for="amount"
+      >
         <p-inputNumber
           inputId="amount"
           [(ngModel)]="newAmount"
@@ -308,20 +285,16 @@
           mode="decimal"
           [minFractionDigits]="2"
           [maxFractionDigits]="2"
-          styleClass="w-36"
+          styleClass="w-48"
           inputStyleClass="w-full"
         />
-      </div>
+      </app-float-field>
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="recurrence"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Opakování</label
-        >
+      <app-float-field label="Opakování" for="recurrence">
         <p-select
+          ariaLabel="Opakování"
           inputId="recurrence"
           [options]="recurrenceOptions"
           optionLabel="label"
@@ -331,34 +304,26 @@
           styleClass="w-56"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
       @if (newRecurrence !== 'None') {
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="recurrenceEndDate"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >
-          Konec opakování (nepovinné, výchozí konec škol. roku)
-        </label>
+      <app-float-field label="Konec opakování" for="recurrenceEndDate">
         <p-datePicker
           inputId="recurrenceEndDate"
           [(ngModel)]="newRecurrenceEndDate"
           name="recurrenceEndDate"
+          placeholder="konec školního roku"
           [showIcon]="true"
           [showClear]="true"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
       }
     </div>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="audience"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Příjemci</label
-      >
+    <app-float-field label="Příjemci" for="audience">
       <p-select
+        ariaLabel="Příjemci"
+        inputId="audience"
         [options]="audienceOptions"
         optionLabel="label"
         optionValue="value"
@@ -367,7 +332,7 @@
         styleClass="w-56"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
 
     @if (newAudience === 'Selected') {
     <div
@@ -377,14 +342,16 @@
         <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >Třídy</span
         >
-        <input
-          pInputText
-          type="text"
-          placeholder="Hledat třídu"
-          name="classFilterName"
-          class="max-w-40"
-          [(ngModel)]="classFilterName"
-        />
+        <app-float-field label="Hledat třídu" for="paymentClassFilterName">
+          <input
+            id="paymentClassFilterName"
+            pInputText
+            type="text"
+            name="classFilterName"
+            class="max-w-40"
+            [(ngModel)]="classFilterName"
+          />
+        </app-float-field>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
         >
@@ -410,14 +377,16 @@
         <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >Rodiče</span
         >
-        <input
-          pInputText
-          type="text"
-          placeholder="Hledat rodiče"
-          name="parentFilterName"
-          class="max-w-40"
-          [(ngModel)]="parentFilterName"
-        />
+        <app-float-field label="Hledat rodiče" for="paymentParentFilterName">
+          <input
+            id="paymentParentFilterName"
+            pInputText
+            type="text"
+            name="parentFilterName"
+            class="max-w-40"
+            [(ngModel)]="parentFilterName"
+          />
+        </app-float-field>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
         >
@@ -443,14 +412,19 @@
         <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >{{ 'Žáci' | term }}</span
         >
-        <input
-          pInputText
-          type="text"
-          [placeholder]="'Hledat žáka' | term"
-          name="studentFilterName"
-          class="max-w-40"
-          [(ngModel)]="studentFilterName"
-        />
+        <app-float-field
+          [label]="'Hledat žáka' | term"
+          for="paymentStudentFilterName"
+        >
+          <input
+            id="paymentStudentFilterName"
+            pInputText
+            type="text"
+            name="studentFilterName"
+            class="max-w-40"
+            [(ngModel)]="studentFilterName"
+          />
+        </app-float-field>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
         >

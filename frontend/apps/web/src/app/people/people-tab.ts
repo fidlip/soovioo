@@ -18,6 +18,7 @@ import {
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
+import { FloatField } from '../forms';
 import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
 import { NotifyService } from '../notify.service';
 import {
@@ -40,6 +41,7 @@ type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
     Button,
     Card,
     DateFormatPipe,
+    FloatField,
     FormsModule,
     InputText,
     LeaveDialog,
