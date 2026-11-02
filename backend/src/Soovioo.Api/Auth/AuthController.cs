@@ -127,39 +127,85 @@ public class AuthController(
             return Ok(support);
         }
 
-        var (token, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken);
-        if (token is null)
+        if (await PresentedTokenAsync(request) is not { } presented)
         {
             return NoContent();
         }
+        if (!presented.ForThisPage)
+        {
+            // Another school's session: this page mustn't continue as its
+            // account, and the cookie stays for the page it belongs to.
+            return Unauthorized();
+        }
 
-        var rotated = await refreshTokens.RotateAsync(token);
+        var rotated = await refreshTokens.RotateAsync(presented.Token);
         if (rotated is null || rotated.User.DeactivatedAt is not null)
         {
-            if (fromCookie)
+            if (presented.Cookie is { } cookie)
             {
-                sessions.ClearCookie(HttpContext);
+                sessions.ClearCookie(HttpContext, cookie);
             }
             return Unauthorized();
         }
 
-        return Ok(await sessions.RespondAsync(HttpContext, rotated.User, rotated.Successor, fromCookie));
+        var response = await sessions.RespondAsync(HttpContext, rotated.User, rotated.Successor, presented.Cookie is not null);
+        // A session from before the per-school cookies moves to its school's.
+        if (presented.Cookie is { } read && read != AuthSessionService.CookieNameFor(rotated.User.SchoolId))
+        {
+            sessions.ClearCookie(HttpContext, read);
+        }
+        return Ok(response);
     }
 
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(RefreshRequest? request)
     {
-        var (token, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken);
-        if (token is not null)
+        if (await PresentedTokenAsync(request) is not { ForThisPage: true } presented)
         {
-            AuditContext.Of(HttpContext).UserId = await refreshTokens.RevokeAsync(token);
+            return NoContent();
         }
-        if (fromCookie || Request.Cookies.ContainsKey(AuthSessionService.CookieName))
+        AuditContext.Of(HttpContext).UserId = await refreshTokens.RevokeAsync(presented.Token);
+        if (presented.Cookie is { } cookie)
         {
-            sessions.ClearCookie(HttpContext);
+            sessions.ClearCookie(HttpContext, cookie);
         }
         return NoContent();
     }
+
+    /// <summary>The refresh token the request presents, null when none. A web
+    /// page sends its school's slug (none in the SuperAdmin area); a cookie
+    /// is <c>ForThisPage</c> only when it's that school's account's or the
+    /// SuperAdmin's.</summary>
+    private async Task<PresentedToken?> PresentedTokenAsync(RefreshRequest? request)
+    {
+        int? schoolId = null;
+        if (!string.IsNullOrEmpty(request?.SchoolSlug))
+        {
+            schoolId = await db.Schools.IgnoreQueryFilters()
+                .Where(s => s.Slug == request.SchoolSlug)
+                .Select(s => (int?)s.Id)
+                .FirstOrDefaultAsync();
+            if (schoolId is null && string.IsNullOrEmpty(request.RefreshToken))
+            {
+                return null;
+            }
+        }
+
+        var (token, cookie) = AuthSessionService.ReadRefreshToken(Request, request?.RefreshToken, schoolId);
+        if (token is null)
+        {
+            return null;
+        }
+        if (cookie is null)
+        {
+            return new PresentedToken(token, null, ForThisPage: true);
+        }
+        var owner = await refreshTokens.FindUserAsync(token);
+        var forThisPage = owner is null || owner.IsSuperAdmin || owner.SchoolId == schoolId;
+        return new PresentedToken(token, cookie, forThisPage);
+    }
+
+    private record PresentedToken(string Token, string? Cookie, bool ForThisPage);
 }
 
 /// <param name="UseCookie">Web app: deliver the refresh token as an httpOnly
@@ -188,6 +234,7 @@ public record AcceptInviteRequest(string Token, string NewPassword, bool UseCook
 
 /// <param name="RefreshToken">Mobile clients only; the web app's travels in
 /// the cookie.</param>
-/// <param name="SchoolSlug">The school whose page asks (web) — lets a
+/// <param name="SchoolSlug">The school whose page asks (web) — picks that
+/// school's refresh cookie, refuses another school's session and lets a
 /// support-mode session continue there, see SupportSessionService.</param>
 public record RefreshRequest(string? RefreshToken = null, string? SchoolSlug = null);

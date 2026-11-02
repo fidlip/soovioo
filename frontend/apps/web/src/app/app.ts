@@ -43,6 +43,7 @@ import {
   isDemoSlug,
   superAdminUrl,
 } from './school-context';
+import { SessionSyncService } from './session-sync.service';
 import { UnreadCountsService } from './unread-counts.service';
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'soovioo-sidebar-collapsed';
@@ -87,6 +88,7 @@ interface NavItem {
 })
 export class App {
   protected readonly authApi = inject(AuthApiService);
+  protected readonly sessionSync = inject(SessionSyncService);
   private readonly supportApi = inject(SupportApiService);
   private readonly router = inject(Router);
   protected readonly schoolContext = inject(SchoolContextService);
@@ -314,6 +316,10 @@ export class App {
       next: backToSuperAdmin,
       error: backToSuperAdmin,
     });
+  }
+
+  protected reload(): void {
+    window.location.reload();
   }
 
   protected logout(): void {

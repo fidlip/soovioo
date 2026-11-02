@@ -73,6 +73,16 @@ public class RefreshTokenService(AppDbContext db, TimeProvider clock)
         return new RotatedRefreshToken(current.User, successor);
     }
 
+    /// <summary>Whose token it is, whatever its state — null when unknown.</summary>
+    public async Task<User?> FindUserAsync(string rawToken)
+    {
+        var hash = Hash(rawToken);
+        return await db.Set<RefreshToken>().IgnoreQueryFilters()
+            .Where(t => t.TokenHash == hash)
+            .Select(t => t.User)
+            .FirstOrDefaultAsync();
+    }
+
     /// <summary>Logout — ends this login only (its whole family). Returns
     /// whose login it was, null for an unknown token.</summary>
     public async Task<int?> RevokeAsync(string rawToken)

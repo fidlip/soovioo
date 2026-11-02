@@ -18,6 +18,13 @@ public class AuthSessionService(
 {
     public const string CookieName = "soovioo_refresh";
 
+    /// <summary>One cookie per school (<c>soovioo_refresh_{schoolId}</c>),
+    /// the bare name for the SuperAdmin: the schools' pages share the API's
+    /// host, so with a single cookie a login in one school's tab replaced the
+    /// session of another school's tab.</summary>
+    public static string CookieNameFor(int? schoolId) =>
+        schoolId is null ? CookieName : $"{CookieName}_{schoolId}";
+
     /// <summary>Every request the web app sends that relies on the refresh
     /// cookie must carry this header. A custom header can't be sent
     /// cross-origin without a CORS preflight, which the allow-list rejects —
@@ -35,27 +42,38 @@ public class AuthSessionService(
         return await RespondAsync(http, user, refresh, useCookie);
     }
 
-    /// <summary>Raw refresh token from the cookie (web) or the request body
-    /// (mobile). A cookie-borne token counts only with the CSRF header.</summary>
-    public static (string? Token, bool FromCookie) ReadRefreshToken(HttpRequest request, string? bodyToken)
+    /// <summary>Raw refresh token from the request body (mobile) or, on the
+    /// web, from the cookie of <paramref name="schoolId"/>'s page — falling
+    /// back to the bare cookie, which a SuperAdmin on a school's page and
+    /// sessions from before the per-school cookies have. A cookie-borne token
+    /// counts only with the CSRF header. <c>Cookie</c> names the cookie it
+    /// came from, null for the body.</summary>
+    public static (string? Token, string? Cookie) ReadRefreshToken(HttpRequest request, string? bodyToken, int? schoolId)
     {
         if (!string.IsNullOrEmpty(bodyToken))
         {
-            return (bodyToken, false);
+            return (bodyToken, null);
         }
-        if (request.Cookies.TryGetValue(CookieName, out var cookie) && !string.IsNullOrEmpty(cookie)
-            && request.Headers.ContainsKey(CsrfHeaderName))
+        if (!request.Headers.ContainsKey(CsrfHeaderName))
         {
-            return (cookie, true);
+            return (null, null);
         }
-        return (null, false);
+        string[] names = schoolId is null ? [CookieName] : [CookieNameFor(schoolId), CookieName];
+        foreach (var name in names)
+        {
+            if (request.Cookies.TryGetValue(name, out var cookie) && !string.IsNullOrEmpty(cookie))
+            {
+                return (cookie, name);
+            }
+        }
+        return (null, null);
     }
 
     public async Task<LoginResponse> RespondAsync(HttpContext http, User user, IssuedRefreshToken refresh, bool useCookie)
     {
         if (useCookie)
         {
-            http.Response.Cookies.Append(CookieName, refresh.Token, new CookieOptions
+            http.Response.Cookies.Append(CookieNameFor(user.SchoolId), refresh.Token, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = cookieOptions.Value.Secure,
@@ -91,8 +109,8 @@ public class AuthSessionService(
             ? await db.Schools.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId)
             : null;
 
-    public void ClearCookie(HttpContext http) =>
-        http.Response.Cookies.Delete(CookieName, new CookieOptions
+    public void ClearCookie(HttpContext http, string name) =>
+        http.Response.Cookies.Delete(name, new CookieOptions
         {
             HttpOnly = true,
             Secure = cookieOptions.Value.Secure,

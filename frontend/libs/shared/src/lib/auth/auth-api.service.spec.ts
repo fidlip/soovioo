@@ -9,7 +9,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../api-base-url.token';
-import { AuthApiService } from './auth-api.service';
+import { AuthApiService, SessionChange } from './auth-api.service';
 import { AUTH_REFRESH_VIA_COOKIE, CSRF_HEADER } from './auth-session.config';
 import { authInterceptor } from './auth.interceptor';
 import { TokenStorage } from './token-storage';
@@ -97,10 +97,33 @@ describe('AuthApiService', () => {
       service.logout();
 
       const req = httpMock.expectOne('http://test/api/auth/logout');
-      expect(req.request.body).toEqual({ refreshToken: 'r1' });
+      expect(req.request.body).toEqual({
+        refreshToken: 'r1',
+        schoolSlug: null,
+      });
       req.flush(null, { status: 204, statusText: 'No Content' });
       expect(service.isLoggedIn()).toBe(false);
       expect(tokenStorage.getRefreshToken()).toBeNull();
+    });
+
+    it('tells who logged in and that they logged out', () => {
+      const changes: SessionChange[] = [];
+      service.sessionChanged$.subscribe((c) => changes.push(c));
+
+      service.login({ username: 'ucitel', password: 'ucitel123' }).subscribe();
+      httpMock.expectOne('http://test/api/auth/login').flush({
+        token: 'abc',
+        refreshToken: 'r1',
+        username: 'ucitel',
+        role: 'Staff',
+      });
+      service.logout();
+      httpMock.expectOne('http://test/api/auth/logout').flush(null);
+
+      expect(changes).toEqual([
+        { kind: 'login', username: 'ucitel' },
+        { kind: 'logout' },
+      ]);
     });
 
     it('skips the refresh call entirely without a refresh token', () => {

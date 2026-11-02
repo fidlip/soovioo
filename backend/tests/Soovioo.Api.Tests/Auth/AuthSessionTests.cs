@@ -16,6 +16,11 @@ namespace Soovioo.Api.Tests.Auth;
 public class AuthSessionTests
 {
     private const int SchoolId = 1;
+    private const int OtherSchoolId = 2;
+    private static readonly string Cookie = AuthSessionService.CookieNameFor(SchoolId);
+
+    /// <summary>What the web app sends from the demo school's page.</summary>
+    private static readonly RefreshRequest Page = new(SchoolSlug: "demo");
     private const string Password = "heslo123";
     private static readonly PasswordHasher<User> Hasher = new();
 
@@ -29,6 +34,7 @@ public class AuthSessionTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId));
         db.Schools.Add(new School { Id = SchoolId, Name = "Demo škola", Slug = "demo" });
+        db.Schools.Add(new School { Id = OtherSchoolId, Name = "Jiná škola", Slug = "jina" });
         user = new User { Username = "ucitel", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
         user.PasswordHash = Hasher.HashPassword(user, Password);
         db.Users.Add(user);
@@ -43,10 +49,10 @@ public class AuthSessionTests
 
     /// <summary>A browser request carrying the refresh cookie (and, unless
     /// told otherwise, the CSRF header the web app always sends).</summary>
-    private static DefaultHttpContext CookieRequest(string token, bool csrfHeader = true)
+    private static DefaultHttpContext CookieRequest(string token, bool csrfHeader = true, string? cookie = null)
     {
         var http = new DefaultHttpContext();
-        http.Request.Headers.Cookie = $"{AuthSessionService.CookieName}={token}";
+        http.Request.Headers.Cookie = $"{cookie ?? Cookie}={token}";
         if (csrfHeader)
         {
             http.Request.Headers[AuthSessionService.CsrfHeaderName] = "1";
@@ -54,11 +60,11 @@ public class AuthSessionTests
         return http;
     }
 
-    private static string? SetCookie(HttpContext http) =>
-        http.Response.Headers.SetCookie.FirstOrDefault(c => c!.StartsWith(AuthSessionService.CookieName + "="));
+    private static string? SetCookie(HttpContext http, string? cookie = null) =>
+        http.Response.Headers.SetCookie.FirstOrDefault(c => c!.StartsWith((cookie ?? Cookie) + "="));
 
-    private static string CookieValue(HttpContext http) =>
-        SetCookie(http)!.Split(';')[0].Split('=', 2)[1];
+    private static string CookieValue(HttpContext http, string? cookie = null) =>
+        SetCookie(http, cookie)!.Split(';')[0].Split('=', 2)[1];
 
     private async Task<string> WebLoginAsync(bool rememberMe = false)
     {
@@ -129,7 +135,7 @@ public class AuthSessionTests
         var token = await WebLoginAsync();
         var http = CookieRequest(token);
 
-        var result = await Controller(http).Refresh(null);
+        var result = await Controller(http).Refresh(Page);
 
         var response = Assert.IsType<LoginResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal("ucitel", response.Username);
@@ -140,7 +146,7 @@ public class AuthSessionTests
     [Fact]
     public async Task RefreshWithoutAnyTokenIsNoContentNotAnError()
     {
-        var result = await Controller().Refresh(null);
+        var result = await Controller().Refresh(Page);
 
         Assert.IsType<NoContentResult>(result.Result);
     }
@@ -150,7 +156,7 @@ public class AuthSessionTests
     {
         var token = await WebLoginAsync();
 
-        var result = await Controller(CookieRequest(token, csrfHeader: false)).Refresh(null);
+        var result = await Controller(CookieRequest(token, csrfHeader: false)).Refresh(Page);
 
         Assert.IsType<NoContentResult>(result.Result);
     }
@@ -174,10 +180,10 @@ public class AuthSessionTests
     public async Task ConcurrentRefreshFromTwoTabsWithinTheGracePeriodSucceeds()
     {
         var token = await WebLoginAsync();
-        await Controller(CookieRequest(token)).Refresh(null);
+        await Controller(CookieRequest(token)).Refresh(Page);
         clock.Now += TimeSpan.FromSeconds(5);
 
-        var second = await Controller(CookieRequest(token)).Refresh(null);
+        var second = await Controller(CookieRequest(token)).Refresh(Page);
 
         Assert.IsType<OkObjectResult>(second.Result);
     }
@@ -188,11 +194,11 @@ public class AuthSessionTests
         var token = await WebLoginAsync();
         clock.Now += TimeSpan.FromHours(7);
         var http = CookieRequest(token);
-        await Controller(http).Refresh(null);
+        await Controller(http).Refresh(Page);
         var successor = CookieValue(http);
         clock.Now += TimeSpan.FromHours(2);
 
-        var result = await Controller(CookieRequest(successor)).Refresh(null);
+        var result = await Controller(CookieRequest(successor)).Refresh(Page);
 
         Assert.IsType<UnauthorizedResult>(result.Result);
     }
@@ -203,10 +209,10 @@ public class AuthSessionTests
         var token = await WebLoginAsync(rememberMe: true);
         clock.Now += TimeSpan.FromDays(20);
         var http = CookieRequest(token);
-        await Controller(http).Refresh(null);
+        await Controller(http).Refresh(Page);
         clock.Now += TimeSpan.FromDays(20);
 
-        var result = await Controller(CookieRequest(CookieValue(http))).Refresh(null);
+        var result = await Controller(CookieRequest(CookieValue(http))).Refresh(Page);
 
         Assert.IsType<OkObjectResult>(result.Result);
     }
@@ -216,19 +222,88 @@ public class AuthSessionTests
     {
         var http = CookieRequest("not-a-real-token");
 
-        var result = await Controller(http).Refresh(null);
+        var result = await Controller(http).Refresh(Page);
 
         Assert.IsType<UnauthorizedResult>(result.Result);
         Assert.Contains("expires=Thu, 01 Jan 1970", SetCookie(http)!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
+    public async Task EachSchoolHasItsOwnCookie()
+    {
+        var other = new User { Username = "ucitel", PasswordHash = "", ActiveRole = db.Role(UserRole.Teacher, OtherSchoolId), SchoolId = OtherSchoolId };
+        other.PasswordHash = Hasher.HashPassword(other, Password);
+        db.Users.Add(other);
+        await db.SaveChangesAsync();
+        var http = new DefaultHttpContext();
+
+        await Controller(http).Login(new LoginRequest("ucitel", Password, "jina", UseCookie: true));
+
+        Assert.NotNull(SetCookie(http, AuthSessionService.CookieNameFor(OtherSchoolId)));
+        Assert.Null(SetCookie(http));
+    }
+
+    [Fact]
+    public async Task AnotherSchoolsSessionIsRefusedOnThisSchoolsPageAndKept()
+    {
+        // A session from before the per-school cookies, in the bare cookie.
+        var token = await WebLoginAsync();
+        var http = CookieRequest(token, cookie: AuthSessionService.CookieName);
+
+        var result = await Controller(http).Refresh(new RefreshRequest(SchoolSlug: "jina"));
+
+        Assert.IsType<UnauthorizedResult>(result.Result);
+        Assert.Equal(0, http.Response.Headers.SetCookie.Count);
+        Assert.Null((await db.RefreshTokens.SingleAsync()).RevokedAt);
+    }
+
+    [Fact]
+    public async Task LogoutOnAnotherSchoolsPageLeavesTheSessionAlone()
+    {
+        var token = await WebLoginAsync();
+
+        await Controller(CookieRequest(token, cookie: AuthSessionService.CookieName)).Logout(new RefreshRequest(SchoolSlug: "jina"));
+
+        Assert.Null((await db.RefreshTokens.SingleAsync()).RevokedAt);
+    }
+
+    [Fact]
+    public async Task ASessionInTheBareCookieMovesToItsSchoolsCookie()
+    {
+        var token = await WebLoginAsync();
+        var http = CookieRequest(token, cookie: AuthSessionService.CookieName);
+
+        var result = await Controller(http).Refresh(Page);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(SetCookie(http));
+        Assert.Contains("expires=Thu, 01 Jan 1970", SetCookie(http, AuthSessionService.CookieName)!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task TheSuperAdminsSessionCarriesOnOnASchoolsPage()
+    {
+        var admin = new User { Username = "superadmin", PasswordHash = "", IsSuperAdmin = true };
+        admin.PasswordHash = Hasher.HashPassword(admin, Password);
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+        var login = new DefaultHttpContext();
+        await Controller(login).Login(new LoginRequest("superadmin", Password, UseCookie: true));
+        var token = CookieValue(login, AuthSessionService.CookieName);
+
+        var result = await Controller(CookieRequest(token, cookie: AuthSessionService.CookieName)).Refresh(Page);
+
+        var response = Assert.IsType<LoginResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("superadmin", response.Username);
+    }
+
+    [Fact]
     public async Task LogoutRevokesTheRefreshToken()
     {
         var token = await WebLoginAsync();
-        await Controller(CookieRequest(token)).Logout(null);
+        await Controller(CookieRequest(token)).Logout(Page);
 
-        var result = await Controller(CookieRequest(token)).Refresh(null);
+        var result = await Controller(CookieRequest(token)).Refresh(Page);
 
         Assert.IsType<UnauthorizedResult>(result.Result);
     }
@@ -250,7 +325,7 @@ public class AuthSessionTests
         var response = Assert.IsType<ChangePasswordResponse>(Assert.IsType<OkObjectResult>(change.Result).Value);
         Assert.Null(response.RefreshToken);
         Assert.IsType<UnauthorizedResult>((await Controller().Refresh(new RefreshRequest(otherDevice))).Result);
-        Assert.IsType<OkObjectResult>((await Controller(CookieRequest(CookieValue(http))).Refresh(null)).Result);
+        Assert.IsType<OkObjectResult>((await Controller(CookieRequest(CookieValue(http))).Refresh(Page)).Result);
         Assert.True((await db.RefreshTokens.SingleAsync(t => t.RevokedAt == null)).Persistent);
     }
 
