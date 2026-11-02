@@ -282,6 +282,9 @@ test.describe('a permission taken away', () => {
     );
     await dialog.locator('button[type="submit"]').click();
     expect((await saved).status()).toBe(403);
+    await expect(
+      page.getByText('Na tuto akci nemáte oprávnění.', { exact: false }),
+    ).toBeVisible();
 
     // The 403 refreshed the session — the next page shows no editing.
     await waitForApiIdle();

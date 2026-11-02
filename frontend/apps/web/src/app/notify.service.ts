@@ -3,6 +3,10 @@ import { Injectable, inject, signal } from '@angular/core';
 import { MessageService } from '@openng/optimus-ui/api';
 
 const SUCCESS_LIFE_MS = 5_000;
+/** A bare 403 — typically a permission the admin took away while the page
+ * was open, so it still offered the action. */
+export const FORBIDDEN_MESSAGE =
+  'Na tuto akci nemáte oprávnění. Pokud ho potřebujete, obraťte se na správce školy.';
 const ERROR_LIFE_MS = 30_000;
 
 /** App-wide toasts (`<p-toast>` in app.html) for the outcome of an action —
@@ -55,14 +59,24 @@ export class NotifyService {
     if (isServerOrNetworkError(err)) {
       return;
     }
-    const fieldErrors = (err as { error?: { errors?: unknown } })?.error?.errors;
-    if (fieldErrors && typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
+    const fieldErrors = (err as { error?: { errors?: unknown } })?.error
+      ?.errors;
+    if (
+      fieldErrors &&
+      typeof fieldErrors === 'object' &&
+      !Array.isArray(fieldErrors)
+    ) {
       this.serverFieldErrors.set({
         errors: fieldErrors as Record<string, string[]>,
         at: Date.now(),
       });
     }
-    this.error(errorMessageOf(err) ?? 'Akci se nepodařilo provést.');
+    this.error(
+      errorMessageOf(err) ??
+        (err instanceof HttpErrorResponse && err.status === 403
+          ? FORBIDDEN_MESSAGE
+          : 'Akci se nepodařilo provést.'),
+    );
   }
 
   /** Drops every toast still on screen — e.g. when a new edit starts, so a
@@ -75,8 +89,7 @@ export class NotifyService {
 
 export function isServerOrNetworkError(err: unknown): boolean {
   return (
-    err instanceof HttpErrorResponse &&
-    [0, 500, 502, 504].includes(err.status)
+    err instanceof HttpErrorResponse && [0, 500, 502, 504].includes(err.status)
   );
 }
 
