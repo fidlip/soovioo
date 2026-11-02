@@ -20,6 +20,7 @@ import { SchoolContextService } from '../school-context';
 import { AppIcon, AppIconName } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';
+import { NotifyService } from '../notify.service';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -108,6 +109,7 @@ export class HomePage {
   private readonly dashboardApi = inject(DashboardApiService);
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly behaviorApi = inject(BehaviorApiService);
+  private readonly notify = inject(NotifyService);
   protected readonly authApi = inject(AuthApiService);
   protected readonly schoolContext = inject(SchoolContextService);
 
@@ -221,7 +223,7 @@ export class HomePage {
         delete this.excuseDrafts[absenceId];
         this.reload();
       },
-      error: (err) => console.error('submitExcuse failed', err),
+      error: (err) => this.notify.actionFailed('submitExcuse failed', err),
     });
   }
 

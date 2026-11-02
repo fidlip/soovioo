@@ -330,14 +330,14 @@ export class AbsencesPage {
     }
     this.absencesApi.submitExcuse(absence.id, reason).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('submitExcuse failed', err),
+      error: (err) => this.notify.actionFailed('submitExcuse failed', err),
     });
   }
 
   protected review(absence: Absence, approve: boolean): void {
     this.absencesApi.reviewAbsence(absence.id, approve).subscribe({
       next: () => this.reload(),
-      error: (err) => console.error('reviewAbsence failed', err),
+      error: (err) => this.notify.actionFailed('reviewAbsence failed', err),
     });
   }
 
