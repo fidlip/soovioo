@@ -53,7 +53,7 @@ export class AuthApiService {
         { ...request, useCookie: this.viaCookie },
         this.cookieOptions(),
       )
-      .pipe(tap((response) => this.startedSession(response)));
+      .pipe(tap((response) => this.startSession(response)));
   }
 
   /** Consumes an invite link's token, sets the account's password, and logs
@@ -66,7 +66,7 @@ export class AuthApiService {
         { token, newPassword, useCookie: this.viaCookie },
         this.cookieOptions(),
       )
-      .pipe(tap((response) => this.startedSession(response)));
+      .pipe(tap((response) => this.startSession(response)));
   }
 
   /** Trades the refresh token for a new access token (rotating the refresh
@@ -250,7 +250,9 @@ export class AuthApiService {
     }
   }
 
-  private startedSession(response: LoginResponse): void {
+  /** Stores a new login's tokens and tells the app who logged in — also
+   * for logins outside this service (the demo's user picker). */
+  startSession(response: LoginResponse): void {
     this.store(response);
     this.sessionChangedSubject.next({
       kind: 'login',
