@@ -1,6 +1,6 @@
 # Smlouva o zpracování osobních údajů
 
-*Šablona — verze 1.0 ze dne 21. 10. 2026. Hranaté závorky `[…]` doplní škola při uzavření
+*Šablona — verze 1.1 ze dne 2. 11. 2026. Hranaté závorky `[…]` doplní škola při uzavření
 smlouvy; ostatní text odpovídá tomu, jak Soovioo skutečně funguje (viz příloha 2), a při
 změně provozu se musí aktualizovat.*
 
@@ -45,10 +45,11 @@ souhlas) a že subjektům údajů poskytla informace podle čl. 13 a 14 GDPR.
 
 2.1 **Účel:** provoz služby pro vedení školní agendy — evidence žáků a tříd, klasifikace,
 docházka a omluvenky, rozvrh, komunikace školy s rodinou (zprávy), domácí úkoly, chování,
-kalendář akcí, předpisy plateb, přístupové účty uživatelů a export údajů do matriky MŠMT.
+kalendář akcí, předpisy plateb, upozornění uživatelům (v aplikaci, e-mailem a do mobilní
+aplikace), přístupové účty uživatelů a export údajů do matriky MŠMT.
 
 2.2 **Povaha zpracování:** shromáždění, uložení, uspořádání, vyhledání, zobrazení oprávněným
-uživatelům, úprava, zpřístupnění přenosem (e-mailové pozvánky, export), zálohování a výmaz —
+uživatelům, úprava, zpřístupnění přenosem (e-mailové pozvánky, upozornění do mobilní aplikace, export), zálohování a výmaz —
 vše automatizovaně v rámci služby.
 
 2.3 **Kategorie subjektů údajů:** žáci a studenti, jejich zákonní zástupci a další osoby
@@ -70,7 +71,9 @@ služby zřízení školou.
 - platební údaje: předpisy plateb, variabilní symboly, informace o úhradě (nikoli čísla
   platebních karet);
 - přístupové a provozní údaje: uživatelské jméno, otisk hesla (nikoli heslo samotné), role,
-  záznamy o akcích uživatelů v auditním logu včetně IP adresy;
+  záznamy o akcích uživatelů v auditním logu včetně IP adresy, identifikátor zařízení pro
+  doručování upozornění do mobilní aplikace (push token) a nastavení upozornění včetně
+  záznamu, kdy uživatel souhlasil s plným textem upozornění;
 - [zvláštní kategorie údajů — pouze pokud je škola do služby vkládá, např. údaje o
   podpůrných opatřeních pro matriku nebo zdravotní důvod nepřítomnosti v omluvence].
 
@@ -119,9 +122,13 @@ námitku; nedohodnou-li se strany, může škola hlavní smlouvu vypovědět bez
 5.3 Zpracovatel uloží každému podzpracovateli smluvně tytéž povinnosti ochrany osobních
 údajů, jaké má sám podle této smlouvy, a za jejich plnění odpovídá škole.
 
-5.4 Osobní údaje se zpracovávají výhradně v Evropském hospodářském prostoru. Předání do
-třetí země je možné jen s předchozím písemným souhlasem školy a při splnění podmínek
-kapitoly V GDPR.
+5.4 Osobní údaje se zpracovávají v Evropském hospodářském prostoru. Výjimkou je doručování
+upozornění do mobilní aplikace (push) přes podzpracovatele Google a Apple podle přílohy 1:
+údaje tam uvedené mohou projít servery ve Spojených státech. Předání se opírá o rozhodnutí
+Evropské komise o odpovídající ochraně pro rámec EU–USA pro ochranu osobních údajů (Data
+Privacy Framework), v němž jsou Google LLC i Apple Inc. certifikovány, u Googlu navíc o
+standardní smluvní doložky v jeho podmínkách zpracování. Jiné předání do třetí země je
+možné jen s předchozím písemným souhlasem školy a při splnění podmínek kapitoly V GDPR.
 
 ## 6. Součinnost se školou
 
@@ -209,6 +216,8 @@ za školu: [jméno, funkce]                       Filip Šalda, zpracovatel
 |---|---|---|---|
 | **INTERNET CZ, a.s.** (Forpsi), IČO 26043319, č.p. 2, 384 03 Ktiš | virtuální server (VPS), na kterém běží aplikace, databáze, uložené přílohy a zálohy | všechny údaje služby | Česká republika |
 | **INTERNET CZ, a.s.** (Forpsi), dtto | odesílání e-mailů (SMTP) — pozvánky uživatelům | jméno školy, e-mailová adresa příjemce, odkaz pozvánky | Česká republika |
+| **Google Ireland Limited**, Gordon House, Barrow Street, Dublin 4, Irsko (Firebase Cloud Messaging; provozuje Google LLC, USA) | doručování upozornění do mobilní aplikace (push) na Android i iOS | identifikátor zařízení (push token); obsah upozornění — výchozí jen druh události („Nová známka — Podrobnosti najdete v aplikaci Soovioo.“), plný text (titulek a text upozornění) jen pokud ho škola povolí a uživatel s ním v Nastavení výslovně souhlasí; interní odkaz na stránku v aplikaci | EHP a USA (článek 5.4) |
+| **Apple Inc.**, One Apple Park Way, Cupertino, CA 95014, USA (Apple Push Notification service) | doručení upozornění na zařízení iOS, kam je předává Firebase Cloud Messaging; jen pro uživatele aplikace na iOS | stejné jako u Googlu, jen pro zařízení iOS | USA (článek 5.4) |
 
 Pro úplnost — **nejsou** podzpracovateli, osobní údaje služby nezpracovávají:
 
@@ -254,12 +263,20 @@ Pro úplnost — **nejsou** podzpracovateli, osobní údaje služby nezpracováv
 
 - Zdrojový kód je verzován; každá změna před nasazením prochází automatickými testy
   (jednotkové i end-to-end). Historie kódu byla prověřena na únik tajných klíčů (gitleaks).
-- Tajné klíče (podpisový klíč tokenů, hesla k databázi a e-mailu) nejsou součástí kódu;
+- Tajné klíče (podpisový klíč tokenů, hesla k databázi a e-mailu, klíč pro odesílání
+  upozornění do mobilní aplikace) nejsou součástí kódu;
   jsou uloženy jen v prostředí serveru.
 
 **Minimalizace**
 
 - Přílohy jsou uloženy mimo veřejně dostupný adresář a stahují se jen přes autorizovaný
   požadavek s kontrolou oprávnění; povoleny jsou jen vybrané typy souborů do 10 MB.
+- Upozornění do mobilní aplikace nesou přes Google a Apple jen druh události bez jmen,
+  hodnot a textů; podrobnosti si aplikace načte přímo ze serveru zpracovatele. Plný text
+  jde jen tehdy, když ho povolí škola a uživatel s ním výslovně souhlasí (souhlas se ukládá
+  s časem); uživatel ho může kdykoli vypnout a škola zakázat i zpětně. Uživatel může push
+  vypnout po druzích událostí i úplně, v aplikaci nebo v telefonu.
+- Zařízení pro push se odregistruje při odhlášení, neplatné identifikátory zařízení server
+  sám maže a zařízení se mažou spolu s výmazem osoby.
 - Testovací a ukázková prostředí používají výhradně smyšlená data; ukázkové školy nikdy
-  neodesílají e-maily.
+  neodesílají e-maily ani upozornění do mobilní aplikace.
