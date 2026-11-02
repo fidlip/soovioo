@@ -20,7 +20,9 @@ async function login(
 }
 
 const refreshCookie = async (page: import('@playwright/test').Page) =>
-  (await page.context().cookies()).find((c) => c.name === 'soovioo_refresh');
+  (await page.context().cookies()).find((c) =>
+    c.name.startsWith('soovioo_refresh_'),
+  );
 
 test('a reload keeps the user signed in without any token in storage', async ({
   page,
@@ -71,4 +73,44 @@ test('after logout a reload stays logged out', async ({ page }) => {
   await page.goto('/skola/home');
 
   await expect(page).toHaveURL(/\/skola\/login$/);
+});
+
+test('a SuperAdmin login in another tab leaves the school’s tab its own session', async ({
+  page,
+}) => {
+  await login(page, false);
+  const other = await page.context().newPage();
+  await other.goto('/superadmin/login');
+  await other.locator('#username').fill('superadmin');
+  await other.locator('#password').fill('superadmin123');
+  await other.getByRole('button', { name: 'Přihlásit se' }).click();
+  await expect(other).toHaveURL(/\/superadmin$/);
+
+  await page.reload();
+
+  await expect(page).toHaveURL(/\/skola\/home$/);
+  await expect(
+    page.getByRole('link', { name: 'Administrace', exact: true }),
+  ).toBeVisible();
+  await other.close();
+});
+
+test('another account’s login in the same school is announced, not switched to silently', async ({
+  page,
+}) => {
+  await login(page, false);
+  const other = await page.context().newPage();
+  await other.goto('/skola/login');
+  await other.locator('#username').fill('ucitel');
+  await other.locator('#password').fill('ucitel123');
+  await other.getByRole('button', { name: 'Přihlásit se' }).click();
+  await expect(other).toHaveURL(/\/skola\/home$/);
+
+  const notice = page.getByRole('alert').filter({ hasText: 'V jiné záložce' });
+  await expect(notice).toContainText(
+    'V jiné záložce jste se přihlásili jako ucitel.',
+  );
+  await notice.getByRole('button', { name: 'Načíst znovu' }).click();
+  await expect(notice).toHaveCount(0);
+  await other.close();
 });

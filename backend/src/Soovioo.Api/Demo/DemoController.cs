@@ -133,7 +133,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         }
         AuditContext.Of(HttpContext).SchoolId = school.Id;
         // Old sessions point at users that are about to disappear.
-        sessions.ClearCookie(HttpContext);
+        sessions.ClearCookie(HttpContext, AuthSessionService.CookieNameFor(school.Id));
         var demo = await demos.ResetAsync(school, request);
         return Ok(ToDto(demo!));
     }
@@ -147,7 +147,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         {
             return NotFound();
         }
-        sessions.ClearCookie(HttpContext);
+        sessions.ClearCookie(HttpContext, AuthSessionService.CookieNameFor(school.Id));
         var adminId = await demos.ClearAsync(school);
         if (adminId is null)
         {
@@ -167,7 +167,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         {
             return NotFound();
         }
-        sessions.ClearCookie(HttpContext);
+        sessions.ClearCookie(HttpContext, AuthSessionService.CookieNameFor(school.Id));
         await purger.PurgeAsync(school.Id, deleteSchool: true);
         return NoContent();
     }

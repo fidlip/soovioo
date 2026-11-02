@@ -22,6 +22,13 @@ import { TokenStorage } from './token-storage';
 import { SchoolType } from '../evidence/student-term';
 import { Permission, PermissionScope, RoleRef } from './role.model';
 
+/** This tab logged in, out or switched the role — what other tabs of the
+ * same school are told (web), since they share its refresh cookie. */
+export type SessionChange =
+  | { kind: 'login'; username: string }
+  | { kind: 'logout' }
+  | { kind: 'role'; roleName: string };
+
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
   private readonly http = inject(HttpClient);
@@ -32,10 +39,12 @@ export class AuthApiService {
 
   private inFlightRefresh: Observable<string | null> | null = null;
   private readonly sessionExpiredSubject = new Subject<void>();
+  private readonly sessionChangedSubject = new Subject<SessionChange>();
 
   /** Fires when a request hit 401 and the session couldn't be refreshed
    * (refresh token expired or revoked) — the app sends the user to login. */
   readonly sessionExpired$ = this.sessionExpiredSubject.asObservable();
+  readonly sessionChanged$ = this.sessionChangedSubject.asObservable();
 
   login(request: LoginRequest): Observable<LoginResponse> {
     return this.http
@@ -44,7 +53,7 @@ export class AuthApiService {
         { ...request, useCookie: this.viaCookie },
         this.cookieOptions(),
       )
-      .pipe(tap((response) => this.store(response)));
+      .pipe(tap((response) => this.startedSession(response)));
   }
 
   /** Consumes an invite link's token, sets the account's password, and logs
@@ -57,7 +66,7 @@ export class AuthApiService {
         { token, newPassword, useCookie: this.viaCookie },
         this.cookieOptions(),
       )
-      .pipe(tap((response) => this.store(response)));
+      .pipe(tap((response) => this.startedSession(response)));
   }
 
   /** Trades the refresh token for a new access token (rotating the refresh
@@ -113,12 +122,13 @@ export class AuthApiService {
   logout(): void {
     const refreshToken = this.tokenStorage.getRefreshToken();
     this.clearTokens();
+    this.sessionChangedSubject.next({ kind: 'logout' });
     // Fire-and-forget: the local session is over either way; this revokes
     // the refresh token server-side and drops the cookie.
     this.http
       .post(
         `${this.baseUrl}/api/auth/logout`,
-        { refreshToken },
+        { refreshToken, schoolSlug: this.currentSchoolSlug() },
         this.cookieOptions(),
       )
       .subscribe({ error: () => undefined });
@@ -178,7 +188,15 @@ export class AuthApiService {
       .post<{ token: string }>(`${this.baseUrl}/api/users/me/active-role`, {
         roleId,
       })
-      .pipe(map((response) => this.store(response)));
+      .pipe(
+        map((response) => {
+          this.store(response);
+          this.sessionChangedSubject.next({
+            kind: 'role',
+            roleName: this.getActiveRole()?.name ?? '',
+          });
+        }),
+      );
   }
 
   /** How far the active role's permission reaches (`perms` claim). The
@@ -230,6 +248,14 @@ export class AuthApiService {
     if (response.refreshToken) {
       this.tokenStorage.setRefreshToken(response.refreshToken);
     }
+  }
+
+  private startedSession(response: LoginResponse): void {
+    this.store(response);
+    this.sessionChangedSubject.next({
+      kind: 'login',
+      username: response.username,
+    });
   }
 
   private clearTokens(): void {

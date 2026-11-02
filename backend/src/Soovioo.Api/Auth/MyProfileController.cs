@@ -68,7 +68,8 @@ public class MyProfileController(
         user.MustChangePassword = false;
         await db.SaveChangesAsync();
 
-        var (presented, fromCookie) = AuthSessionService.ReadRefreshToken(Request, request.RefreshToken);
+        var (presented, cookie) = AuthSessionService.ReadRefreshToken(Request, request.RefreshToken, user.SchoolId);
+        var fromCookie = cookie is not null;
         var persistent = presented is null || !fromCookie
             || (await refreshTokens.FindPersistentAsync(presented) ?? false);
         // Only a web caller already holding the cookie gets a new one; a
