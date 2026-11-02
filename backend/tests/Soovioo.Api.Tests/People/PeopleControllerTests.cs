@@ -19,12 +19,16 @@ public class PeopleControllerTests
         new FakeCurrentSchoolContext(SchoolId));
 
     private readonly SchoolClass schoolClass;
+    private readonly Subject maths, history;
 
     public PeopleControllerTests()
     {
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
         schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
         db.SchoolClasses.Add(schoolClass);
+        maths = new Subject { Name = "Matematika", Abbreviation = "M", SchoolId = SchoolId };
+        history = new Subject { Name = "Dějepis", Abbreviation = "D", SchoolId = SchoolId };
+        db.Subjects.AddRange(maths, history);
         db.SaveChanges();
     }
 
@@ -51,15 +55,35 @@ public class PeopleControllerTests
         var child = Value(await Controller().AddPerson(new SavePersonRequest("Jan", "Novák", Student: Matrika())));
 
         var person = Value(await Controller().AddPerson(new SavePersonRequest(
-            "Jana", "Nováková", "777", "j@n.cz", new TeacherProfileRequest(" M, F "), new ParentProfileRequest([child.Student!.Id]))));
+            "Jana", "Nováková", "777", "j@n.cz", new TeacherProfileRequest(
+                [new(maths.Id), new(history.Id, 6, 9)], " 1. stupeň ", 22, [DayOfWeek.Tuesday, DayOfWeek.Monday]), new ParentProfileRequest([child.Student!.Id]))));
 
         Assert.Equal("Jana Nováková", person.Name);
         Assert.Null(person.Account);
-        Assert.Equal("M, F", person.Teacher!.Qualification);
+        Assert.Equal("D 6.–9., M, 1. stupeň", person.Teacher!.Qualification);
+        Assert.Equal((22m, "1. stupeň"), (person.Teacher.ContractedHours, person.Teacher.QualificationNote));
+        Assert.Equal([DayOfWeek.Monday, DayOfWeek.Tuesday], person.Teacher.TeachingDays);
         Assert.Equal(["Jan Novák"], person.Parent!.Children.Select(c => c.Name));
         Assert.Null(person.Student);
         Assert.Equal("1.A", child.Student.SchoolClassName);
         Assert.NotNull(child.Student.DefaultVariableSymbol);
+    }
+
+    [Fact]
+    public async Task TheAprobaceIsReplacedByTheOneSaved()
+    {
+        var person = Value(await Controller().AddPerson(new SavePersonRequest(
+            "Jana", "Nováková", Teacher: new TeacherProfileRequest([new(maths.Id), new(history.Id)]))));
+
+        var updated = Value(await Controller().UpdatePerson(person.Id, new SavePersonRequest(
+            "Jana", "Nováková", Teacher: new TeacherProfileRequest([new(history.Id, 6)]))));
+
+        Assert.Equal([new QualificationDto(history.Id, 6)], updated.Teacher!.Qualifications);
+        Assert.Equal(TeacherProfile.Weekdays, updated.Teacher.TeachingDays);
+        Assert.Equal(1, await db.TeacherQualifications.CountAsync());
+        var refused = await Controller().UpdatePerson(person.Id, new SavePersonRequest(
+            "Jana", "Nováková", Teacher: new TeacherProfileRequest([new(history.Id, 9, 6)])));
+        Assert.IsType<BadRequestObjectResult>(refused.Result);
     }
 
     [Fact]

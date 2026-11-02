@@ -73,8 +73,13 @@ public class TimetableVersionsControllerTests
     [Fact]
     public async Task ADraftIsACopyEditedAsideUntilPublishedForItsDate()
     {
+        db.CurriculumItems.Add(new CurriculumItem { SchoolId = SchoolId, TimetableVersionId = current.Id, Grade = 5, SubjectId = maths.Id, HoursPerWeek = 4 });
+        db.TeachingAssignments.Add(new TeachingAssignment { SchoolId = SchoolId, TimetableVersionId = current.Id, SchoolClassId = schoolClass.Id, SubjectId = maths.Id, TeacherId = 7 });
+        await db.SaveChangesAsync();
         var draft = await Draft("2. pololetí", new DateOnly(2027, 2, 1), current.Id);
         Assert.Equal((TimetableVersionStatus.Draft, 1), (draft.Status, draft.EntryCount));
+        Assert.Equal(4, (await db.CurriculumItems.SingleAsync(c => c.TimetableVersionId == draft.Id)).HoursPerWeek);
+        Assert.Equal(7, (await db.TeachingAssignments.SingleAsync(a => a.TimetableVersionId == draft.Id)).TeacherId);
         var copied = await db.TimetableEntries.SingleAsync(e => e.TimetableVersionId == draft.Id);
         await Timetable().UpdateEntry(schoolClass.Id, copied.Id, new(czech.Id, DayOfWeek.Monday, 1, WeekParity.Every));
 

@@ -33,8 +33,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             .ToListAsync());
     }
 
-    /// <summary>A new draft, empty or with the lessons of
-    /// <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
+    /// <summary>A new draft, empty or with the lessons, učební plán and
+    /// přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableVersionDto>> CreateVersion(CreateTimetableVersionRequest request)
@@ -45,7 +45,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         }
 
         var source = request.CopyFromVersionId is { } sourceId
-            ? await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == sourceId)
+            ? await db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.Assignments)
+                .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == sourceId)
             : null;
         if (request.CopyFromVersionId is not null && source is null)
         {
@@ -71,6 +72,14 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
                 WeekParity = e.WeekParity,
                 TeacherId = e.TeacherId,
                 ClassroomId = e.ClassroomId,
+            }).ToList() ?? [],
+            Curriculum = source?.Curriculum.Select(c => new CurriculumItem
+            {
+                SchoolId = schoolId, Grade = c.Grade, SubjectId = c.SubjectId, HoursPerWeek = c.HoursPerWeek,
+            }).ToList() ?? [],
+            Assignments = source?.Assignments.Select(a => new TeachingAssignment
+            {
+                SchoolId = schoolId, SchoolClassId = a.SchoolClassId, SubjectId = a.SubjectId, TeacherId = a.TeacherId,
             }).ToList() ?? [],
         };
         db.TimetableVersions.Add(version);

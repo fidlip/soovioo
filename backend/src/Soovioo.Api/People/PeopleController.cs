@@ -116,7 +116,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             .Select(s => s.PersonId)
             .ToListAsync();
         return db.Persons
-            .Include(p => p.TeacherProfile)
+            .Include(p => p.TeacherProfile).ThenInclude(t => t!.Qualifications).ThenInclude(q => q.Subject)
             .Include(p => p.ParentProfile).ThenInclude(pp => pp!.Children)
             .Include(p => p.Student).ThenInclude(st => st!.SchoolClass)
             .Include(p => p.User)
@@ -163,6 +163,10 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             return this.FieldError("schoolClassId", "Neznámá třída.");
         }
+        if (request.Teacher is { } requested && await TeacherErrorAsync(requested) is { } teacherError)
+        {
+            return teacherError;
+        }
         var childIds = request.Parent?.ChildIds.Distinct().ToList() ?? [];
         if (childIds.Count > 0 && await db.Students.CountAsync(s => childIds.Contains(s.Id)) != childIds.Count)
         {
@@ -182,7 +186,22 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         if (request.Teacher is { } teacher)
         {
             person.TeacherProfile ??= new TeacherProfile { Person = person, SchoolId = schoolId };
-            person.TeacherProfile.Qualification = string.IsNullOrWhiteSpace(teacher.Qualification) ? null : teacher.Qualification.Trim();
+            var profile = person.TeacherProfile;
+            profile.QualificationNote = string.IsNullOrWhiteSpace(teacher.QualificationNote) ? null : teacher.QualificationNote.Trim();
+            profile.ContractedHours = teacher.ContractedHours;
+            profile.TeachingDays = teacher.TeachingDays is { } days
+                ? [.. TeacherProfile.Weekdays.Where(days.Contains)]
+                : [.. TeacherProfile.Weekdays];
+            var wanted = teacher.Qualifications ?? [];
+            profile.Qualifications.RemoveAll(q => !wanted.Any(w => Same(w, q)));
+            foreach (var w in wanted.Where(w => !profile.Qualifications.Any(q => Same(w, q))))
+            {
+                profile.Qualifications.Add(new TeacherQualification
+                {
+                    SchoolId = schoolId, SubjectId = w.SubjectId, GradeFrom = w.GradeFrom, GradeTo = w.GradeTo,
+                    Subject = await db.Subjects.FindAsync(w.SubjectId),
+                });
+            }
         }
         else if (person.TeacherProfile is not null)
         {
@@ -226,6 +245,28 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         return null;
     }
 
+    private static bool Same(QualificationDto w, TeacherQualification q) =>
+        w.SubjectId == q.SubjectId && w.GradeFrom == q.GradeFrom && w.GradeTo == q.GradeTo;
+
+    private async Task<ActionResult?> TeacherErrorAsync(TeacherProfileRequest teacher)
+    {
+        if (teacher.ContractedHours is < 0 or > 60)
+        {
+            return this.FieldError("contractedHours", "Nasmlouvané hodiny musí být mezi 0 a 60.");
+        }
+        var qualifications = teacher.Qualifications ?? [];
+        var subjectIds = qualifications.Select(q => q.SubjectId).Distinct().ToList();
+        if (await db.Subjects.CountAsync(s => subjectIds.Contains(s.Id)) != subjectIds.Count)
+        {
+            return this.FieldError("qualifications", "Neznámý předmět.");
+        }
+        if (qualifications.Any(q => q.GradeFrom is < 1 or > 13 || q.GradeTo is < 1 or > 13 || q.GradeFrom > q.GradeTo))
+        {
+            return this.FieldError("qualifications", "Ročníky aprobace musí být od 1 do 13 a „od“ nejvýš „do“.");
+        }
+        return null;
+    }
+
     private async Task<SchoolType> SchoolTypeAsync() =>
         await db.Schools.Where(s => s.Id == currentSchool.SchoolId).Select(s => (SchoolType?)s.Type).FirstOrDefaultAsync()
             ?? SchoolType.Elementary;
@@ -262,7 +303,11 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
                 p.Student is { } st ? studentPhotos.GetValueOrDefault(st.Id) : p.UserId is { } uid ? userPhotos.GetValueOrDefault(uid) : null,
                 p.User is { } u ? new PersonAccountDto(u.Id, u.Username, RoleRefDto.ListOf(u.Roles), u.DeactivatedAt) : null,
                 p.TeacherProfile is { } t
-                    ? new TeacherProfileDto(t.Qualification, p.UserId is { } teacherId ? classTeacherOf[teacherId].ToList() : [])
+                    ? new TeacherProfileDto(
+                        t.Describe(),
+                        t.Qualifications.OrderBy(q => q.Subject?.Name).Select(QualificationDto.Of).ToList(),
+                        t.QualificationNote, t.ContractedHours, t.TeachingDays,
+                        p.UserId is { } teacherId ? classTeacherOf[teacherId].ToList() : [])
                     : null,
                 p.ParentProfile is { } pp
                     ? new ParentProfileDto(pp.Children
@@ -286,7 +331,19 @@ public record SavePersonRequest(
     ParentProfileRequest? Parent = null,
     StudentMatrika? Student = null);
 
-public record TeacherProfileRequest(string? Qualification = null);
+public record TeacherProfileRequest(
+    IReadOnlyList<QualificationDto>? Qualifications = null,
+    string? QualificationNote = null,
+    decimal? ContractedHours = null,
+    /// <summary>Null = every weekday.</summary>
+    IReadOnlyList<DayOfWeek>? TeachingDays = null);
+
+/// <param name="GradeFrom">Ročník od; null = from the first.</param>
+/// <param name="GradeTo">Ročník do; null = to the last.</param>
+public record QualificationDto(int SubjectId, int? GradeFrom = null, int? GradeTo = null)
+{
+    public static QualificationDto Of(TeacherQualification q) => new(q.SubjectId, q.GradeFrom, q.GradeTo);
+}
 
 public record ParentProfileRequest(IReadOnlyList<int> ChildIds);
 
@@ -307,8 +364,15 @@ public record PersonDto(
 
 public record PersonAccountDto(int UserId, string Username, IReadOnlyList<RoleRefDto> Roles, DateTimeOffset? DeactivatedAt);
 
+/// <param name="Qualification">The aprobace as text, e.g. "D 6.–9., Čj".</param>
 /// <param name="ClassTeacherOf">Classes whose class teacher the person's account is.</param>
-public record TeacherProfileDto(string? Qualification, IReadOnlyList<string> ClassTeacherOf);
+public record TeacherProfileDto(
+    string? Qualification,
+    IReadOnlyList<QualificationDto> Qualifications,
+    string? QualificationNote,
+    decimal? ContractedHours,
+    IReadOnlyList<DayOfWeek> TeachingDays,
+    IReadOnlyList<string> ClassTeacherOf);
 
 public record ParentProfileDto(IReadOnlyList<PersonChildDto> Children);
 

@@ -201,11 +201,22 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         var classes = CreateClasses(plan, options.ClassesPerGrade, elementary);
         var teachers = AssignTeachers(classes, elementary);
         CreateFamilies(classes, elementary);
+        // Na prvním stupni aprobace pro předměty své třídy v 1.–5. ročníku;
+        // nasmlouváno mají, co učí.
         db.TeacherProfiles.AddRange(teachers.Select(t => new TeacherProfile
         {
             Person = t.Person,
             SchoolId = school.Id,
-            Qualification = t.FirstStage ? "1. stupeň" + (t.Qualifications.Contains("Aj") ? ", Aj" : "") : string.Join(", ", t.Qualifications),
+            ContractedHours = t.Load,
+            Qualifications = t.FirstStage
+                ? [.. t.ClassOf!.Plan.Keys.Where(k => k is not "Aj" and not "Inf").Select(k => new TeacherQualification
+                {
+                    SchoolId = school.Id, Subject = subjects[k], GradeFrom = 1, GradeTo = 5,
+                })]
+                : [.. t.Qualifications.Where(subjects.ContainsKey).Select(k => new TeacherQualification
+                {
+                    SchoolId = school.Id, Subject = subjects[k],
+                })],
         }));
 
         BuildTimetable(classes, subjects, roomGroups);
@@ -761,6 +772,27 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             PublishedAt = now,
         };
         db.TimetableVersions.Add(version);
+        foreach (var grade in classes.GroupBy(c => c.Grade))
+        {
+            foreach (var (subject, hours) in grade.First().Plan)
+            {
+                db.CurriculumItems.Add(new CurriculumItem
+                {
+                    SchoolId = school.Id, TimetableVersion = version, Grade = grade.Key, Subject = subjects[subject], HoursPerWeek = hours,
+                });
+            }
+        }
+        foreach (var info in classes)
+        {
+            foreach (var (subject, teacher) in info.TeacherBySubject)
+            {
+                db.TeachingAssignments.Add(new TeachingAssignment
+                {
+                    SchoolId = school.Id, TimetableVersion = version, SchoolClass = info.Class, Subject = subjects[subject],
+                    Teacher = teacher.User,
+                });
+            }
+        }
         foreach (var x in placed)
         {
             db.TimetableEntries.Add(new TimetableEntry

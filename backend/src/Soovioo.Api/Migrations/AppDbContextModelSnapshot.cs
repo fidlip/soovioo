@@ -1708,15 +1708,55 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("PersonId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Qualification")
+                    b.Property<decimal?>("ContractedHours")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("QualificationNote")
                         .HasColumnType("text");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.PrimitiveCollection<int[]>("TeachingDays")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
                     b.HasKey("PersonId");
 
                     b.ToTable("TeacherProfiles");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.People.TeacherQualification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("GradeFrom")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("GradeTo")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TeacherProfileId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TeacherProfileId", "SubjectId");
+
+                    b.ToTable("TeacherQualifications");
                 });
 
             modelBuilder.Entity("Soovioo.Api.People.VisibilityChoice", b =>
@@ -1975,6 +2015,40 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("SupportSessions");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.CurriculumItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Grade")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("HoursPerWeek")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TimetableVersionId", "Grade", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("CurriculumItems");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
                 {
                     b.Property<int>("Id")
@@ -2051,6 +2125,43 @@ namespace Soovioo.Api.Migrations
                             SchoolId = 1,
                             StartTime = new TimeOnly(12, 45, 0)
                         });
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TeachingAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("TimetableVersionId", "SchoolClassId", "SubjectId")
+                        .IsUnique();
+
+                    b.ToTable("TeachingAssignments");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableEntry", b =>
@@ -2948,6 +3059,25 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Person");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.People.TeacherQualification", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.People.TeacherProfile", "TeacherProfile")
+                        .WithMany("Qualifications")
+                        .HasForeignKey("TeacherProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("TeacherProfile");
+                });
+
             modelBuilder.Entity("Soovioo.Api.People.VisibilityChoice", b =>
                 {
                     b.HasOne("Soovioo.Api.People.Person", "Person")
@@ -3021,6 +3151,25 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("SuperAdminUser");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.CurriculumItem", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("Curriculum")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("TimetableVersion");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -3030,6 +3179,41 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("School");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TeachingAssignment", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("Assignments")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SchoolClass");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Teacher");
+
+                    b.Navigation("TimetableVersion");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableEntry", b =>
@@ -3187,8 +3371,17 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("TeacherProfile");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.People.TeacherProfile", b =>
+                {
+                    b.Navigation("Qualifications");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
                 {
+                    b.Navigation("Assignments");
+
+                    b.Navigation("Curriculum");
+
                     b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618

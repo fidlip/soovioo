@@ -30,6 +30,8 @@ public class TimetableVersion
     public int? PublishedByUserId { get; set; }
 
     public List<TimetableEntry> Entries { get; set; } = [];
+    public List<CurriculumItem> Curriculum { get; set; } = [];
+    public List<TeachingAssignment> Assignments { get; set; } = [];
 }
 
 public enum TimetableVersionStatus

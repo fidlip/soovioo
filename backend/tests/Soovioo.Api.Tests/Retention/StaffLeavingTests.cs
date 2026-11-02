@@ -106,7 +106,7 @@ public class StaffLeavingTests
     }
 
     [Fact]
-    public async Task HandsOverTheLessonsOfTheCurrentAndLaterVersionsButNotOfPastOnes()
+    public async Task HandsOverTheLessonsAndAssignmentsOfTheCurrentAndLaterVersionsButNotOfPastOnes()
     {
         var past = new TimetableVersion
         {
@@ -117,6 +117,11 @@ public class StaffLeavingTests
         db.TimetableEntries.AddRange(
             new TimetableEntry { TimetableVersion = past, SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Friday, PeriodNumber = 1 },
             new TimetableEntry { TimetableVersion = draft, SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Friday, PeriodNumber = 1 });
+        var history = new Subject { Name = "Dějepis", SchoolId = SchoolId };
+        db.TeachingAssignments.AddRange(
+            new TeachingAssignment { TimetableVersion = past, SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id },
+            new TeachingAssignment { TimetableVersion = draft, SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id },
+            new TeachingAssignment { TimetableVersion = draft, SchoolId = SchoolId, SchoolClassId = classA.Id, Subject = history, TeacherId = teacher.Id });
         await db.SaveChangesAsync();
         await Controller().SetStaffLeave(teacher.Id, HandOver(Today));
 
@@ -127,6 +132,10 @@ public class StaffLeavingTests
         Assert.Equal(colleague.Id, (await db.TimetableEntries.SingleAsync(t => t.TimetableVersionId == draft.Id)).TeacherId);
         Assert.All(await db.TimetableEntriesOn(Today.AddDays(1)).Where(t => t.SubjectId == maths.Id).ToListAsync(),
             t => Assert.Equal(colleague.Id, t.TeacherId));
+        // History isn't handed over: chosen for automatically again.
+        Assert.Equal(
+            [(past.Id, maths.Id, teacher.Id), (draft.Id, maths.Id, colleague.Id)],
+            (await db.TeachingAssignments.ToListAsync()).Select(a => (a.TimetableVersionId, a.SubjectId, a.TeacherId)).Order());
     }
 
     [Fact]

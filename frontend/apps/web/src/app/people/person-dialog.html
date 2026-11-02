@@ -81,16 +81,114 @@
     @if (profiles.includes('teacher')) {
     <section class="flex flex-col gap-2" aria-label="Učitel">
       <h3 class="text-sm font-medium">Učitel</h3>
-      <app-float-field label="Aprobace" for="personQualification">
+      <div class="flex flex-col gap-2" role="group" aria-label="Aprobace">
+        <span class="text-sm text-surface-500">Aprobace</span>
+        @for (q of qualifications; track q; let i = $index) {
+        <div class="flex flex-wrap items-center gap-2">
+          <app-float-field
+            class="min-w-48 flex-1"
+            label="Předmět"
+            [for]="'qualificationSubject' + i"
+          >
+            <p-select
+              [inputId]="'qualificationSubject' + i"
+              [ariaLabel]="'Aprobace ' + (i + 1) + ' — předmět'"
+              [options]="subjects()"
+              optionLabel="name"
+              optionValue="id"
+              [(ngModel)]="q.subjectId"
+              [name]="'qualificationSubject' + i"
+              required
+              [filter]="true"
+              styleClass="w-full"
+              appendTo="body"
+            />
+          </app-float-field>
+          <app-float-field label="Ročník od" [for]="'qualificationFrom' + i">
+            <p-inputNumber
+              [inputId]="'qualificationFrom' + i"
+              [(ngModel)]="q.gradeFrom"
+              [name]="'qualificationFrom' + i"
+              [min]="1"
+              [max]="13"
+              styleClass="w-28"
+              inputStyleClass="w-full"
+            />
+          </app-float-field>
+          <app-float-field label="Ročník do" [for]="'qualificationTo' + i">
+            <p-inputNumber
+              [inputId]="'qualificationTo' + i"
+              [(ngModel)]="q.gradeTo"
+              [name]="'qualificationTo' + i"
+              [min]="1"
+              [max]="13"
+              styleClass="w-28"
+              inputStyleClass="w-full"
+            />
+          </app-float-field>
+          <p-button
+            icon="pi pi-times"
+            [text]="true"
+            severity="secondary"
+            [ariaLabel]="'Odebrat aprobaci ' + (i + 1)"
+            (onClick)="removeQualification(i)"
+          />
+        </div>
+        }
+        <div>
+          <p-button
+            label="Přidat předmět"
+            icon="pi pi-plus"
+            size="small"
+            [outlined]="true"
+            (onClick)="addQualification()"
+          />
+        </div>
+      </div>
+      <app-float-field
+        label="Poznámka k aprobaci"
+        for="personQualificationNote"
+      >
         <input
-          id="personQualification"
+          id="personQualificationNote"
           pInputText
           type="text"
-          placeholder="např. M, F"
-          name="qualification"
-          [(ngModel)]="qualification"
+          placeholder="např. 1. stupeň"
+          name="qualificationNote"
+          [(ngModel)]="qualificationNote"
         />
       </app-float-field>
+      <div class="flex flex-wrap items-center gap-3">
+        <app-float-field
+          label="Nasmlouvané hodiny týdně"
+          for="personContractedHours"
+        >
+          <p-inputNumber
+            inputId="personContractedHours"
+            [(ngModel)]="contractedHours"
+            name="contractedHours"
+            [min]="0"
+            [max]="60"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="1"
+            locale="cs-CZ"
+            styleClass="w-56"
+            inputStyleClass="w-full"
+          />
+        </app-float-field>
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-surface-500">Může učit</span>
+          <p-selectbutton
+            [options]="dayOptions"
+            optionLabel="label"
+            optionValue="value"
+            [multiple]="true"
+            [(ngModel)]="teachingDays"
+            name="teachingDays"
+            ariaLabel="Dny, kdy může učit"
+          />
+        </div>
+      </div>
     </section>
     } @if (profiles.includes('parent')) {
     <section class="flex flex-col gap-2" aria-label="Rodič">

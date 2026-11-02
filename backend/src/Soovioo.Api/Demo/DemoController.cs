@@ -62,14 +62,19 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
                 u.ActiveRole!.BuiltIn,
                 u.ActiveRole.Kind,
                 u.Person,
-                Qualification = u.Person!.TeacherProfile!.Qualification,
                 ClassOf = db.SchoolClasses.IgnoreQueryFilters().Where(c => c.ClassTeacherId == u.Id).Select(c => c.Name).FirstOrDefault(),
                 OwnClass = db.Students.IgnoreQueryFilters().Where(s => s.Person!.UserId == u.Id).Select(s => s.SchoolClass!.Name).FirstOrDefault(),
-                Children = u.Person.ParentProfile!.Children
+                Children = u.Person!.ParentProfile!.Children
                     .Select(c => c.Student!.Person!.FirstName + " (" + c.Student.SchoolClass!.Name + ")")
                     .ToList(),
             })
             .ToListAsync();
+        var qualifications = (await db.TeacherProfiles.IgnoreQueryFilters()
+                .Where(t => t.SchoolId == school.Id && t.Person!.UserId != null)
+                .Include(t => t.Person)
+                .Include(t => t.Qualifications).ThenInclude(q => q.Subject)
+                .ToListAsync())
+            .ToDictionary(t => t.Person!.UserId!.Value, t => t.Describe());
 
         return Ok(users
             .Select(u => new { User = u, Role = u.BuiltIn ?? u.Kind switch
@@ -85,7 +90,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
                 x.Role switch
                 {
                     UserRole.Admin => "vedení školy",
-                    UserRole.Teacher => string.Join(" · ", new[] { x.User.ClassOf is null ? null : $"třídní {x.User.ClassOf}", x.User.Qualification }.Where(n => n is not null)),
+                    UserRole.Teacher => string.Join(" · ", new[] { x.User.ClassOf is null ? null : $"třídní {x.User.ClassOf}", qualifications.GetValueOrDefault(x.User.Id) }.Where(n => n is not null)),
                     UserRole.Parent => string.Join(", ", x.User.Children),
                     UserRole.Student => x.User.OwnClass ?? "",
                     _ => "",
