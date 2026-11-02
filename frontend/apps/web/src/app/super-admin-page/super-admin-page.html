@@ -35,7 +35,7 @@
       (onClick)="openAddSchoolDialog()"
     />
   </div>
-  <p-table [value]="schools()" dataKey="id">
+  <p-table [value]="schools() ?? []" dataKey="id">
     <ng-template pTemplate="header">
       <tr>
         <th>Název</th>
@@ -95,7 +95,10 @@
     <ng-template pTemplate="emptymessage">
       <tr>
         <td colspan="7" class="py-6 text-center text-surface-500">
-          {{ showDemos ? 'Žádná dema.' : 'Zatím žádné školy.' }}
+          @if (schools()) { {{ showDemos ? 'Žádná dema.' : 'Zatím žádné školy.'
+          }} } @else {
+          <app-loading class="justify-center" />
+          }
         </td>
       </tr>
     </ng-template>

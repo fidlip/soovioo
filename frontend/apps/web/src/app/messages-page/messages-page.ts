@@ -41,6 +41,7 @@ import { UnreadCountsService } from '../unread-counts.service';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -102,6 +103,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
     Avatar,
     FilePicker,
     Checkbox,
+    Loading,
     TermPipe,
     AppIcon,
     DateFormatPipe,
@@ -127,6 +129,7 @@ export class MessagesPage {
     localizeStudentTerm(text, this.authApi.getSchoolType());
 
   protected readonly conversations = signal<ConversationSummary[]>([]);
+  protected readonly conversationsLoaded = signal(false);
   protected readonly selected = signal<Conversation | null>(null);
   protected readonly students = signal<Student[]>([]);
   protected readonly broadcastClasses = signal<SchoolClass[]>([]);
@@ -609,12 +612,16 @@ export class MessagesPage {
     this.messagesApi.getConversations().subscribe({
       next: (conversations) => {
         this.conversations.set(conversations);
+        this.conversationsLoaded.set(true);
         const toOpen = conversations.find((c) => c.id === openId);
         if (toOpen) {
           this.open(toOpen);
         }
       },
-      error: (err) => console.error('getConversations failed', err),
+      error: (err) => {
+        console.error('getConversations failed', err);
+        this.conversationsLoaded.set(true);
+      },
     });
     this.unread.refresh();
   }

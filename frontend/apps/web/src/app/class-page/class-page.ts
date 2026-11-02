@@ -15,13 +15,14 @@ import {
 import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 /** Lidé → Třída for parents and pupils: the class's teachers and — as far as
  * everyone's "Viditelnost údajů" shares them — their contacts, the class
  * list and the other parents. Sections the API leaves out aren't shown. */
 @Component({
   selector: 'app-class-page',
-  imports: [FloatField, FormsModule, Card, Select, Avatar, TermPipe],
+  imports: [FloatField, Loading, FormsModule, Card, Select, Avatar, TermPipe],
   templateUrl: './class-page.html',
 })
 export class ClassPage {

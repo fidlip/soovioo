@@ -29,6 +29,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'superadmin',
@@ -53,6 +54,7 @@ const ROLE_LABELS: Record<string, string> = {
     DateFormatPipe,
     FormsModule,
     GroupedTable,
+    Loading,
     NgTemplateOutlet,
     Paginator,
     Select,
@@ -122,7 +124,7 @@ export class LogsPage {
   private entriesRequest: Subscription | undefined;
   protected readonly actionSuggestions = signal<string[]>([]);
 
-  protected readonly supportSessions = signal<SupportSession[]>([]);
+  protected readonly supportSessions = signal<SupportSession[] | null>(null);
 
   constructor() {
     this.loadFilterOptions();
@@ -137,7 +139,10 @@ export class LogsPage {
       });
       this.supportApi.getSupportSessions().subscribe({
         next: (sessions) => this.supportSessions.set(sessions),
-        error: (err) => console.error('getSupportSessions failed', err),
+        error: (err) => {
+          console.error('getSupportSessions failed', err);
+          this.supportSessions.set([]);
+        },
       });
     }
   }

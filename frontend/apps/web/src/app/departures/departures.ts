@@ -32,6 +32,7 @@ import {
   RETENTION_YEAR_FIELDS,
   STAFF_LEAVE_NOTICE_LABELS,
 } from './retention-labels';
+import { Loading } from '../loading/loading';
 
 /** Administrace → Archiv a výmaz údajů: pupils leaving or gone, staff who left, and
  * the school's rules for erasing their data (RetentionController). */
@@ -40,6 +41,7 @@ import {
   imports: [
     DateFormatPipe,
     FormsModule,
+    Loading,
     PrimeTemplate,
     Button,
     Card,

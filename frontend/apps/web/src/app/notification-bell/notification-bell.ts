@@ -8,6 +8,7 @@ import {
   NotificationType,
   NotificationsApiService,
 } from '@soovioo/shared';
+import { Loading } from '../loading/loading';
 import { SchoolContextService } from '../school-context';
 import { UnreadCountsService } from '../unread-counts.service';
 
@@ -26,7 +27,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
  * top bar), they call `toggle`. */
 @Component({
   selector: 'app-notification-bell',
-  imports: [DateFormatPipe, Button, Popover],
+  imports: [DateFormatPipe, Button, Loading, Popover],
   templateUrl: './notification-bell.html',
 })
 export class NotificationBell {

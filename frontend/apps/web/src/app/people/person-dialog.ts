@@ -40,6 +40,7 @@ import {
   studentFormOf,
 } from './student-fields';
 import { personPhotoUrl } from './person-photo';
+import { Loading } from '../loading/loading';
 
 export type PersonProfile = 'teacher' | 'parent' | 'student';
 
@@ -59,6 +60,7 @@ export interface PersonDialogTarget {
     Dialog,
     FormsModule,
     InputText,
+    Loading,
     MultiSelect,
     StudentFields,
     TermPipe,

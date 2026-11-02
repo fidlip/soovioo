@@ -28,6 +28,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',
@@ -76,6 +77,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
+    Loading,
     TermPipe,
     AppIcon,
     Button,
@@ -98,8 +100,10 @@ export class BehaviorPage {
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   protected readonly authApi = inject(AuthApiService);
 
-  protected readonly records = signal<BehaviorRecord[]>([]);
-  protected readonly classifications = signal<BehaviorClassification[]>([]);
+  protected readonly records = signal<BehaviorRecord[] | null>(null);
+  protected readonly classifications = signal<BehaviorClassification[] | null>(
+    null,
+  );
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
 
@@ -385,11 +389,17 @@ export class BehaviorPage {
   private reload(): void {
     this.behaviorApi.getBehaviorRecords().subscribe({
       next: (records) => this.records.set(records),
-      error: (err) => console.error('getBehaviorRecords failed', err),
+      error: (err) => {
+        console.error('getBehaviorRecords failed', err);
+        this.records.set([]);
+      },
     });
     this.behaviorApi.getBehaviorClassifications().subscribe({
       next: (classifications) => this.classifications.set(classifications),
-      error: (err) => console.error('getBehaviorClassifications failed', err),
+      error: (err) => {
+        console.error('getBehaviorClassifications failed', err);
+        this.classifications.set([]);
+      },
     });
   }
 }

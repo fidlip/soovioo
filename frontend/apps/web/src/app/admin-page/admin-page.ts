@@ -135,11 +135,13 @@ import {
   UserPhotoDialog,
 } from '../photo-dialogs/photo-dialogs';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
+import { Loading } from '../loading/loading';
 @Component({
   selector: 'app-admin-page',
   imports: [
     FloatField,
     DateFormatPipe,
+    Loading,
     PeriodsEditor,
     SchoolNotifications,
     VisibilitySettings,
@@ -207,6 +209,7 @@ export class AdminPage {
   private ownClassIds: number[] = [];
 
   protected readonly students = signal<Student[]>([]);
+  protected readonly studentsLoaded = signal(false);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
   protected readonly classroomTypeOptions = Object.entries(
@@ -217,10 +220,12 @@ export class AdminPage {
     this.classrooms().map((c) => ({ id: c.id, label: c.name })),
   );
   protected readonly users = signal<AppUser[]>([]);
+  protected readonly usersLoaded = signal(false);
   /** Photo dialogs (see photo-dialogs.ts) — open while set. */
   protected readonly photoStudentId = signal<number | null>(null);
   protected readonly photoUser = signal<AppUser | null>(null);
   protected readonly parents = signal<ParentUser[]>([]);
+  protected readonly parentsLoaded = signal(false);
   protected readonly links = signal<ParentStudentLink[]>([]);
   protected readonly countries = signal<Country[]>([]);
 
@@ -490,9 +495,13 @@ export class AdminPage {
           this.ownClassIds.includes(s.schoolClassId),
         );
         this.students.set(scoped);
+        this.studentsLoaded.set(true);
         this.studentMatrika.schoolClassId ??= this.ownClassIds[0] ?? null;
       },
-      error: (err) => console.error('getStudents failed', err),
+      error: (err) => {
+        console.error('getStudents failed', err);
+        this.studentsLoaded.set(true);
+      },
     });
     // Already scoped server-side for a Teacher caller — see
     // ParentStudentsController.GetLinks.
@@ -501,8 +510,14 @@ export class AdminPage {
       error: (err) => console.error('getLinks failed', err),
     });
     this.parentsApi.getParents().subscribe({
-      next: (parents) => this.parents.set(parents),
-      error: (err) => console.error('getParents failed', err),
+      next: (parents) => {
+        this.parents.set(parents);
+        this.parentsLoaded.set(true);
+      },
+      error: (err) => {
+        console.error('getParents failed', err);
+        this.parentsLoaded.set(true);
+      },
     });
   }
 
@@ -659,8 +674,12 @@ export class AdminPage {
     this.studentsApi.getStudents().subscribe({
       next: (students) => {
         this.students.set(students);
+        this.studentsLoaded.set(true);
       },
-      error: (err) => console.error('getStudents failed', err),
+      error: (err) => {
+        console.error('getStudents failed', err);
+        this.studentsLoaded.set(true);
+      },
     });
     this.schoolClassesApi.getSchoolClasses().subscribe({
       next: (schoolClasses) => {
@@ -693,16 +712,28 @@ export class AdminPage {
       },
     });
     this.usersApi.getUsers().subscribe({
-      next: (users) => this.users.set(users),
-      error: (err) => console.error('getUsers failed', err),
+      next: (users) => {
+        this.users.set(users);
+        this.usersLoaded.set(true);
+      },
+      error: (err) => {
+        console.error('getUsers failed', err);
+        this.usersLoaded.set(true);
+      },
     });
     this.parentStudentsApi.getLinks().subscribe({
       next: (links) => this.links.set(links),
       error: (err) => console.error('getLinks failed', err),
     });
     this.parentsApi.getParents().subscribe({
-      next: (parents) => this.parents.set(parents),
-      error: (err) => console.error('getParents failed', err),
+      next: (parents) => {
+        this.parents.set(parents);
+        this.parentsLoaded.set(true);
+      },
+      error: (err) => {
+        console.error('getParents failed', err);
+        this.parentsLoaded.set(true);
+      },
     });
   }
 

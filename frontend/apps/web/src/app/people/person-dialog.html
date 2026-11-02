@@ -6,7 +6,7 @@
   styleClass="w-full max-w-2xl"
 >
   @if (loading()) {
-  <p class="text-surface-500">Načítání…</p>
+  <app-loading />
   } @else {
   <form class="flex flex-col gap-4" #personForm="ngForm" (ngSubmit)="save()">
     @if (person(); as p) {

@@ -75,8 +75,10 @@
       </li>
       } @empty {
       <li class="py-4 text-sm text-surface-500">
-        @if (readFilter() === 'unread' && conversations().length > 0) { Žádné
-        nepřečtené zprávy.
+        @if (!conversationsLoaded()) {
+        <app-loading />
+        } @else if (readFilter() === 'unread' && conversations().length > 0) {
+        Žádné nepřečtené zprávy.
         <button
           type="button"
           class="cursor-pointer text-primary underline"

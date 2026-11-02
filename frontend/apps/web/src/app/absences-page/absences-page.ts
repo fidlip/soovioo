@@ -27,6 +27,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -81,6 +82,7 @@ export function formatPeriods(periods: number[]): string {
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
+    Loading,
     TermPipe,
     AppIcon,
     FormsModule,
@@ -103,7 +105,7 @@ export class AbsencesPage {
   private readonly timetableApi = inject(TimetableApiService);
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
 
-  protected readonly absences = signal<Absence[]>([]);
+  protected readonly absences = signal<Absence[] | null>(null);
   protected readonly students = signal<Student[]>([]);
 
   /** p-select's optionLabel only takes a property path, not a function. */
@@ -282,7 +284,7 @@ export class AbsencesPage {
   }
 
   protected filteredAbsences(): Absence[] {
-    return this.absences().filter(
+    return (this.absences() ?? []).filter(
       (a) =>
         (this.filterStudentId === null ||
           a.studentId === this.filterStudentId) &&
@@ -371,7 +373,10 @@ export class AbsencesPage {
   private reload(): void {
     this.absencesApi.getAbsences().subscribe({
       next: (absences) => this.absences.set(absences),
-      error: (err) => console.error('getAbsences failed', err),
+      error: (err) => {
+        console.error('getAbsences failed', err);
+        this.absences.set([]);
+      },
     });
   }
 }

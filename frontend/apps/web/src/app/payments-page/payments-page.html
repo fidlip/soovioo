@@ -209,12 +209,14 @@
       </div>
       }
     </p-card>
-    } @empty {
+    } @empty { @if (paymentsLoaded()) {
     <p class="text-surface-500">
       {{ payments().length > 0 ? 'Filtru neodpovídá žádná platba.' : 'Zatím
       žádné platby.' }}
     </p>
-    }
+    } @else {
+    <app-loading />
+    } }
   </div>
 </div>
 

@@ -11,12 +11,13 @@ import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
+import { Loading } from '../loading/loading';
 
 /** "Mé děti" for parents: their children, their photos, and who sees the
  * children's data — a pupil's "Viditelnost údajů" is the parents' call. */
 @Component({
   selector: 'app-my-children-page',
-  imports: [Card, AppIcon, StudentPhoto, VisibilityControl],
+  imports: [AppIcon, Card, Loading, StudentPhoto, VisibilityControl],
   templateUrl: './my-children-page.html',
 })
 export class MyChildrenPage {

@@ -5,14 +5,14 @@
       icon="pi pi-download"
       size="small"
       [outlined]="true"
-      [disabled]="contacts().length === 0"
+      [disabled]="!contacts()?.length"
       (onClick)="downloadCsv()"
     />
   </div>
   <p-table
-    [value]="contacts()"
+    [value]="contacts() ?? []"
     dataKey="id"
-    [paginator]="contacts().length > 10"
+    [paginator]="(contacts()?.length ?? 0) > 10"
     [rows]="10"
   >
     <ng-template pTemplate="header">
@@ -48,7 +48,9 @@
     <ng-template pTemplate="emptymessage">
       <tr>
         <td colspan="5" class="py-6 text-center text-surface-500">
-          Zatím nikdo nenechal kontakt.
+          @if (contacts()) { Zatím nikdo nenechal kontakt. } @else {
+          <app-loading class="justify-center" />
+          }
         </td>
       </tr>
     </ng-template>
@@ -57,9 +59,9 @@
 
 <p-card header="Dema — zpětná vazba" styleClass="mb-6">
   <p-table
-    [value]="feedback()"
+    [value]="feedback() ?? []"
     dataKey="id"
-    [paginator]="feedback().length > 10"
+    [paginator]="(feedback()?.length ?? 0) > 10"
     [rows]="10"
   >
     <ng-template pTemplate="header">
@@ -92,7 +94,9 @@
     <ng-template pTemplate="emptymessage">
       <tr>
         <td colspan="5" class="py-6 text-center text-surface-500">
-          Zatím žádná zpětná vazba.
+          @if (feedback()) { Zatím žádná zpětná vazba. } @else {
+          <app-loading class="justify-center" />
+          }
         </td>
       </tr>
     </ng-template>

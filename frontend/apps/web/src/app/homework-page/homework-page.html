@@ -137,12 +137,14 @@
     </div>
     }
   </p-card>
-  } @empty {
+  } @empty { @if (homeworkItems()) {
   <p class="text-surface-500">
     {{ filterPeriod === 'archive' ? 'Žádné úkoly s prošlým termínem.' : 'Žádné
     aktuální domácí úkoly.' }}
   </p>
-  }
+  } @else {
+  <app-loading />
+  } }
 </div>
 
 <p-dialog

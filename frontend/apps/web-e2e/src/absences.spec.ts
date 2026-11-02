@@ -109,3 +109,21 @@ test.describe.serial('absence excuse workflow', () => {
     await expect(row(page)).toHaveCount(0);
   });
 });
+
+test('the list says it is loading, not that there is nothing, until the absences arrive', async ({
+  page,
+}) => {
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/absences', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await login(page, 'ucitel', 'ucitel123');
+
+  const table = page.locator('table');
+  await expect(table.getByRole('status')).toHaveText('Načítání…');
+  await expect(table.getByText('Žádné záznamy.')).toHaveCount(0);
+  release();
+  await expect(table.getByRole('status')).toHaveCount(0);
+});

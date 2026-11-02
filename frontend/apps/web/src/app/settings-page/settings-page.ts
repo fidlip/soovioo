@@ -37,6 +37,7 @@ import { FORM_FIELDS, FloatField } from '../forms';
 import { PhotoEditor } from '../photo-editor/photo-editor';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
+import { Loading } from '../loading/loading';
 @Component({
   selector: 'app-settings-page',
   imports: [
@@ -47,6 +48,7 @@ import { VisibilityControl } from '../visibility-control/visibility-control';
     Button,
     Card,
     InputText,
+    Loading,
     Message,
     Password,
     Select,

@@ -34,6 +34,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type PaidFilter = 'all' | 'unpaid' | 'paid';
@@ -93,6 +94,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
     DateFormatPipe,
     ...FORM_FIELDS,
     Checkbox,
+    Loading,
     TermPipe,
     AppIcon,
     Button,
@@ -132,6 +134,7 @@ export class PaymentsPage {
   protected readonly recurrenceOptions = RECURRENCE_OPTIONS;
 
   protected readonly payments = signal<Payment[]>([]);
+  protected readonly paymentsLoaded = signal(false);
   protected readonly recipientOptions = signal<PaymentRecipientOptions | null>(
     null,
   );
@@ -499,8 +502,14 @@ export class PaymentsPage {
 
   private reload(): void {
     this.paymentsApi.getPayments().subscribe({
-      next: (payments) => this.payments.set(payments),
-      error: (err) => console.error('getPayments failed', err),
+      next: (payments) => {
+        this.payments.set(payments);
+        this.paymentsLoaded.set(true);
+      },
+      error: (err) => {
+        console.error('getPayments failed', err);
+        this.paymentsLoaded.set(true);
+      },
     });
   }
 }

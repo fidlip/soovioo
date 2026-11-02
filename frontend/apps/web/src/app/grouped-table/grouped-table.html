@@ -1,4 +1,6 @@
-@if (rows().length === 0) {
+@if (loading()) {
+<app-loading class="justify-center py-6" />
+} @else if (rows().length === 0) {
 <p class="py-6 text-center text-surface-500">{{ emptyMessage() }}</p>
 } @else if (isDesktop()) {
 <table class="w-full border-collapse text-sm">

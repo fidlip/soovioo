@@ -30,6 +30,7 @@ import { AppIcon } from '../app-icon';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
  * for homework attachments too (see ROADMAP "Přílohy u zpráv"). */
@@ -67,6 +68,7 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
     DatePicker,
     Dialog,
     FormsModule,
+    Loading,
     MultiSelect,
     PMessage,
     Select,
@@ -87,7 +89,7 @@ export class HomeworkPage {
   protected readonly anyClass =
     this.authApi.scope('HomeworkWrite') === 'School';
 
-  protected readonly homeworkItems = signal<Homework[]>([]);
+  protected readonly homeworkItems = signal<Homework[] | null>(null);
   protected readonly students = signal<Student[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
@@ -209,7 +211,7 @@ export class HomeworkPage {
   protected filteredHomework(): Homework[] {
     const today = this.toDateOnlyString(new Date());
     const archive = this.filterPeriod === 'archive';
-    return this.homeworkItems()
+    return (this.homeworkItems() ?? [])
       .filter(
         (h) =>
           (this.filterClassId === null ||
@@ -444,7 +446,10 @@ export class HomeworkPage {
   private reload(): void {
     this.homeworkApi.getHomework().subscribe({
       next: (homework) => this.homeworkItems.set(homework),
-      error: (err) => console.error('getHomework failed', err),
+      error: (err) => {
+        console.error('getHomework failed', err);
+        this.homeworkItems.update((items) => items ?? []);
+      },
     });
   }
 }

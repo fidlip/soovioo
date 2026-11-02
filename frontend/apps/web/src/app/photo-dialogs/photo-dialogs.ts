@@ -11,13 +11,14 @@ import { Dialog } from '@openng/optimus-ui/dialog';
 import { PhotosApiService, StudentPhotoState } from '@soovioo/shared';
 import { NotifyService } from '../notify.service';
 import { PhotoEditor } from '../photo-editor/photo-editor';
+import { Loading } from '../loading/loading';
 import { StudentPhoto } from '../student-photo/student-photo';
 
 /** Administrace: a pupil's photo and consent (admin, class teacher).
  * Open while `studentId` is set. */
 @Component({
   selector: 'app-student-photo-dialog',
-  imports: [Dialog, StudentPhoto],
+  imports: [Dialog, Loading, StudentPhoto],
   template: `
     <p-dialog
       [visible]="studentId() !== null"
@@ -29,7 +30,7 @@ import { StudentPhoto } from '../student-photo/student-photo';
       @if (state(); as s) {
         <app-student-photo [state]="s" (changed)="update($event)" />
       } @else {
-        <p class="m-0 text-surface-500">Načítání…</p>
+        <app-loading />
       }
     </p-dialog>
   `,
