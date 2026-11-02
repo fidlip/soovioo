@@ -1129,11 +1129,6 @@
     </app-float-field>
     <div></div>
     <div class="flex flex-col gap-1.5 sm:col-span-2">
-      <label
-        for="userPersonId"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Osoba</label
-      >
       @if (userPerson(); as person) {
       <app-person-card [person]="person">
         <p-button
@@ -1156,23 +1151,28 @@
       </app-person-card>
       } @else {
       <div class="flex items-center gap-2">
-        <p-select
-          inputId="userPersonId"
-          [options]="availablePeople()"
-          optionLabel="name"
-          optionValue="id"
-          placeholder="Vyberte osobu"
-          emptyMessage="Nikdo s profily pro zvolené role — založte novou osobu."
-          emptyFilterMessage="Nikdo takový."
-          [filter]="true"
-          filterBy="name"
-          [ngModel]="newUserPersonId"
-          (ngModelChange)="setUserPerson($event)"
-          name="personId"
-          required
-          styleClass="min-w-0 flex-1"
-          appendTo="body"
-        />
+        <app-float-field
+          class="min-w-0 flex-1"
+          label="Osoba"
+          for="userPersonId"
+        >
+          <p-select
+            inputId="userPersonId"
+            [options]="availablePeople()"
+            optionLabel="name"
+            optionValue="id"
+            emptyMessage="Nikdo s profily pro zvolené role — založte novou osobu."
+            emptyFilterMessage="Nikdo takový."
+            [filter]="true"
+            filterBy="name"
+            [ngModel]="newUserPersonId"
+            (ngModelChange)="setUserPerson($event)"
+            name="personId"
+            required
+            styleClass="w-full"
+            appendTo="body"
+          />
+        </app-float-field>
         <p-button
           label="Nová osoba"
           icon="pi pi-plus"
@@ -1200,13 +1200,7 @@
         @if (passwordShown()) {
         <app-float-field
           class="min-w-0 flex-1"
-          [label]="
-            editingUserId !== null
-              ? 'Nové heslo'
-              : sendsInvite()
-                ? 'Heslo (nepovinné)'
-                : 'Heslo'
-          "
+          [label]="editingUserId !== null ? 'Nové heslo' : 'Heslo'"
           for="password"
         >
           <p-password
