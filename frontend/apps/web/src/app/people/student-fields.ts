@@ -17,6 +17,7 @@ import {
   Student,
   StudentMatrika,
 } from '@soovioo/shared';
+import { FloatField } from '../forms';
 
 export const GENDER_OPTIONS: { label: string; value: Gender }[] = [
   { label: 'Chlapec', value: 'Male' },
@@ -132,95 +133,129 @@ function toDateOnly(date: Date): string {
  * form — used by Žáci (class teacher) and the person dialog. */
 @Component({
   selector: 'app-student-fields',
-  imports: [AutoComplete, Checkbox, DatePicker, FormsModule, InputText, Select],
+  imports: [
+    FloatField,
+    AutoComplete,
+    Checkbox,
+    DatePicker,
+    FormsModule,
+    InputText,
+    Select,
+  ],
   viewProviders: [{ provide: ControlContainer, useExisting: NgForm }],
   host: { class: 'flex flex-wrap items-end gap-2' },
   template: `
     @let f = form();
-    <p-select
-      [options]="classes()"
-      optionLabel="name"
-      optionValue="id"
-      placeholder="Třída"
-      ariaLabel="Třída"
-      [(ngModel)]="f.schoolClassId"
-      name="schoolClassId"
-      required
-      appendTo="body"
-    />
-    <p-datePicker
-      [(ngModel)]="f.dateOfBirth"
-      name="studentDateOfBirth"
-      placeholder="Datum narození"
-      [showIcon]="true"
-      [showClear]="true"
-      appendTo="body"
-    />
-    <p-select
-      [options]="genderOptions"
-      optionLabel="label"
-      optionValue="value"
-      placeholder="Pohlaví"
-      [(ngModel)]="f.gender"
-      name="studentGender"
-      appendTo="body"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Rodné číslo (nepovinné)"
-      name="studentRodneCislo"
-      [(ngModel)]="f.rodneCislo"
-    />
-    <p-select
-      [options]="citizenshipQualifierOptions"
-      optionLabel="label"
-      optionValue="value"
-      placeholder="Kvalifikátor občanství"
-      name="studentCitizenshipQualifier"
-      [(ngModel)]="f.citizenshipQualifier"
-      [filter]="true"
-      styleClass="w-44"
-      appendTo="body"
-    />
-    <p-select
-      [options]="countries()"
-      optionLabel="name"
-      optionValue="code"
-      placeholder="Stát"
-      name="studentCountryCode"
-      [(ngModel)]="f.countryCode"
-      [filter]="true"
-      styleClass="w-36"
-      appendTo="body"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Ulice"
-      name="studentStreet"
-      [(ngModel)]="f.street"
-    />
-    <p-autoComplete
-      [(ngModel)]="f.municipality"
-      name="studentMunicipality"
-      [suggestions]="municipalitySuggestions()"
-      (completeMethod)="searchMunicipalities($event)"
-      optionLabel="name"
-      dataKey="code"
-      placeholder="Obec"
-      styleClass="w-36"
-      inputStyleClass="w-full"
-      appendTo="body"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="PSČ"
-      name="studentPostalCode"
-      [(ngModel)]="f.postalCode"
-      class="w-20"
-    />
+    <app-float-field label="Třída" for="studentSchoolClassId">
+      <p-select
+        inputId="studentSchoolClassId"
+        [options]="classes()"
+        optionLabel="name"
+        optionValue="id"
+        ariaLabel="Třída"
+        [(ngModel)]="f.schoolClassId"
+        name="schoolClassId"
+        required
+        styleClass="w-32"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Datum narození" for="studentDateOfBirth">
+      <p-datePicker
+        inputId="studentDateOfBirth"
+        [(ngModel)]="f.dateOfBirth"
+        name="studentDateOfBirth"
+        [showIcon]="true"
+        [showClear]="true"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Pohlaví" for="studentGender">
+      <p-select
+        ariaLabel="Pohlaví"
+        inputId="studentGender"
+        [options]="genderOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="f.gender"
+        name="studentGender"
+        styleClass="w-36"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Rodné číslo" for="studentRodneCislo">
+      <input
+        id="studentRodneCislo"
+        pInputText
+        type="text"
+        name="studentRodneCislo"
+        [(ngModel)]="f.rodneCislo"
+      />
+    </app-float-field>
+    <app-float-field
+      label="Kvalifikátor občanství"
+      for="studentCitizenshipQualifier"
+    >
+      <p-select
+        ariaLabel="Kvalifikátor občanství"
+        inputId="studentCitizenshipQualifier"
+        [options]="citizenshipQualifierOptions"
+        optionLabel="label"
+        optionValue="value"
+        name="studentCitizenshipQualifier"
+        [(ngModel)]="f.citizenshipQualifier"
+        [filter]="true"
+        styleClass="w-56"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Stát" for="studentCountryCode">
+      <p-select
+        ariaLabel="Stát"
+        inputId="studentCountryCode"
+        [options]="countries()"
+        optionLabel="name"
+        optionValue="code"
+        name="studentCountryCode"
+        [(ngModel)]="f.countryCode"
+        [filter]="true"
+        styleClass="w-36"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Ulice" for="studentStreet">
+      <input
+        id="studentStreet"
+        pInputText
+        type="text"
+        name="studentStreet"
+        [(ngModel)]="f.street"
+      />
+    </app-float-field>
+    <app-float-field label="Obec" for="studentMunicipality">
+      <p-autoComplete
+        inputId="studentMunicipality"
+        [(ngModel)]="f.municipality"
+        name="studentMunicipality"
+        [suggestions]="municipalitySuggestions()"
+        (completeMethod)="searchMunicipalities($event)"
+        optionLabel="name"
+        dataKey="code"
+        styleClass="w-36"
+        inputStyleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="PSČ" for="studentPostalCode">
+      <input
+        id="studentPostalCode"
+        pInputText
+        type="text"
+        name="studentPostalCode"
+        [(ngModel)]="f.postalCode"
+        class="w-20"
+      />
+    </app-float-field>
     <label
       class="flex items-center gap-1.5 text-sm text-surface-600 dark:text-surface-300"
     >
@@ -231,35 +266,47 @@ function toDateOnly(date: Date): string {
       />
       Spádová oblast
     </label>
-    <p-datePicker
-      [(ngModel)]="f.enrollmentDate"
-      name="studentEnrollmentDate"
-      placeholder="Datum nástupu"
-      [showIcon]="true"
-      [showClear]="true"
-      appendTo="body"
-    />
-    <input
-      pInputText
-      type="tel"
-      placeholder="Nouzový kontakt — telefon"
-      name="studentContactPhone"
-      [(ngModel)]="f.contactPhone"
-    />
-    <input
-      pInputText
-      type="email"
-      placeholder="Nouzový kontakt — e-mail"
-      name="studentContactEmail"
-      [(ngModel)]="f.contactEmail"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Variabilní symbol (prázdné = vygenerovat)"
-      name="defaultVariableSymbol"
-      [(ngModel)]="f.defaultVariableSymbol"
-    />
+    <app-float-field label="Datum nástupu" for="studentEnrollmentDate">
+      <p-datePicker
+        inputId="studentEnrollmentDate"
+        [(ngModel)]="f.enrollmentDate"
+        name="studentEnrollmentDate"
+        [showIcon]="true"
+        [showClear]="true"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field
+      label="Nouzový kontakt — telefon"
+      for="studentContactPhone"
+    >
+      <input
+        id="studentContactPhone"
+        pInputText
+        type="tel"
+        name="studentContactPhone"
+        [(ngModel)]="f.contactPhone"
+      />
+    </app-float-field>
+    <app-float-field label="Nouzový kontakt — e-mail" for="studentContactEmail">
+      <input
+        id="studentContactEmail"
+        pInputText
+        type="email"
+        name="studentContactEmail"
+        [(ngModel)]="f.contactEmail"
+      />
+    </app-float-field>
+    <app-float-field label="Variabilní symbol" for="defaultVariableSymbol">
+      <input
+        id="defaultVariableSymbol"
+        pInputText
+        type="text"
+        placeholder="prázdné = vygenerovat"
+        name="defaultVariableSymbol"
+        [(ngModel)]="f.defaultVariableSymbol"
+      />
+    </app-float-field>
   `,
 })
 export class StudentFields {

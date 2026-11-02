@@ -26,7 +26,7 @@ async function createEvent(
 ) {
   await page.getByRole('button', { name: 'Nová akce' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nová akce' });
-  await dialog.getByPlaceholder('Název akce').fill(title);
+  await dialog.getByLabel(/^Název/).fill(title);
   await dialog.locator('#eventAudience').click();
   await page.getByRole('option', { name: audience, exact: true }).click();
   await dialog.locator('button[type="submit"]').click();

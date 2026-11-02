@@ -28,6 +28,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
+import { FloatField } from '../forms';
 
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'superadmin',
@@ -43,6 +44,7 @@ const ROLE_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-logs-page',
   imports: [
+    FloatField,
     AppIcon,
     AutoComplete,
     Button,

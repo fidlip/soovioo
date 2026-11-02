@@ -13,8 +13,7 @@
       údajů.
     </p>
     <div class="flex flex-wrap gap-4">
-      <div class="flex flex-col gap-1">
-        <label for="staff-last-day">Poslední den ve škole</label>
+      <app-float-field label="Poslední den ve škole" for="staff-last-day">
         <p-datePicker
           inputId="staff-last-day"
           name="lastDay"
@@ -25,9 +24,8 @@
           [showOnFocus]="false"
           appendTo="body"
         />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="staff-reason">Důvod</label>
+      </app-float-field>
+      <app-float-field label="Důvod" for="staff-reason">
         <p-select
           inputId="staff-reason"
           ariaLabel="Důvod"
@@ -37,15 +35,15 @@
           optionValue="value"
           [(ngModel)]="reason"
           [showClear]="true"
-          placeholder="Neuvedeno"
           styleClass="w-64"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
     </div>
     <div class="flex flex-col gap-1">
-      <label for="staff-note">Poznámka</label>
-      <input pInputText id="staff-note" name="note" [(ngModel)]="note" />
+      <app-float-field label="Poznámka" for="staff-note">
+        <input pInputText id="staff-note" name="note" [(ngModel)]="note" />
+      </app-float-field>
       <small class="text-surface-500"
         >Důvod a poznámku vidí jen vedení, do oznámení se nedostanou.</small
       >

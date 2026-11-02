@@ -33,13 +33,14 @@ import { SchoolContextService } from '../school-context';
 
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { PhotoEditor } from '../photo-editor/photo-editor';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
 @Component({
   selector: 'app-settings-page',
   imports: [
+    FloatField,
     ...FORM_FIELDS,
     InfoHint,
     FormsModule,

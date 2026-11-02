@@ -21,7 +21,7 @@ import {
   StaffLeavePreview,
   StaffLeaveReason,
 } from '@soovioo/shared';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 import {
   DAY_LABELS,
@@ -42,6 +42,7 @@ export interface StaffLeaveTarget {
 @Component({
   selector: 'app-staff-leave-dialog',
   imports: [
+    FloatField,
     FormsModule,
     Button,
     Checkbox,

@@ -49,15 +49,16 @@
       />
       }
     </div>
-    <input
-      pInputText
-      type="search"
-      class="w-full"
-      placeholder="Hledat jméno, třídu…"
-      aria-label="Hledat uživatele"
-      [ngModel]="search()"
-      (ngModelChange)="search.set($event)"
-    />
+    <app-float-field label="Jméno nebo třída" for="demoUserSearch">
+      <input
+        pInputText
+        id="demoUserSearch"
+        type="search"
+        class="w-full"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
+    </app-float-field>
     <ul
       class="m-0 max-h-96 list-none overflow-y-auto rounded-md border border-surface-200 p-0 dark:border-surface-700"
     >

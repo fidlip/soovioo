@@ -4,15 +4,17 @@
 
 <p-card header="Školy" styleClass="mb-6">
   <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
-    <input
-      pInputText
-      type="text"
-      placeholder="Hledat podle názvu nebo slugu"
-      [(ngModel)]="search"
-      (ngModelChange)="onSearchChange()"
-      name="search"
-      class="w-72 max-w-full"
-    />
+    <app-float-field label="Název nebo slug" for="schoolSearch">
+      <input
+        id="schoolSearch"
+        pInputText
+        type="text"
+        [(ngModel)]="search"
+        (ngModelChange)="onSearchChange()"
+        name="search"
+        class="w-72 max-w-full"
+      />
+    </app-float-field>
     <div class="flex items-center gap-2">
       <p-toggleswitch
         inputId="showDemos"
@@ -175,12 +177,7 @@
     #schoolForm="ngForm"
     (ngSubmit)="saveSchool()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolName"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Název školy</label
-      >
+    <app-float-field label="Název školy" for="schoolName">
       <input
         pInputText
         type="text"
@@ -189,14 +186,9 @@
         required
         [(ngModel)]="newSchoolName"
       />
-    </div>
+    </app-float-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolSlug"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Slug (do URL)</label
-      >
+    <app-float-field label="Slug (do URL)" for="schoolSlug">
       <input
         pInputText
         type="text"
@@ -205,16 +197,10 @@
         required
         [(ngModel)]="newSchoolSlug"
       />
-    </div>
+    </app-float-field>
 
     @if (editingSchoolId === null) {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="adminUsername"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >
-        Uživatelské jméno admina
-      </label>
+    <app-float-field label="Uživatelské jméno admina" for="adminUsername">
       <input
         pInputText
         type="text"
@@ -224,14 +210,9 @@
         autocomplete="off"
         [(ngModel)]="newAdminUsername"
       />
-    </div>
+    </app-float-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="adminPassword"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Heslo admina</label
-      >
+    <app-float-field label="Heslo admina" for="adminPassword">
       <p-password
         inputId="adminPassword"
         name="adminPassword"
@@ -243,15 +224,10 @@
         styleClass="w-full"
         inputStyleClass="w-full"
       />
-    </div>
+    </app-float-field>
 
     }
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolIzo"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >IZO (nepovinné)</label
-      >
+    <app-float-field label="IZO (nepovinné)" for="schoolIzo">
       <input
         pInputText
         type="text"
@@ -259,15 +235,9 @@
         name="schoolIzo"
         [(ngModel)]="newSchoolIzo"
       />
-    </div>
+    </app-float-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="schoolRedIzo"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >
-        RED_IZO (nepovinné)
-      </label>
+    <app-float-field label="RED_IZO (nepovinné)" for="schoolRedIzo">
       <input
         pInputText
         type="text"
@@ -275,7 +245,7 @@
         name="schoolRedIzo"
         [(ngModel)]="newSchoolRedIzo"
       />
-    </div>
+    </app-float-field>
 
     <div class="sm:col-span-2">
       <app-submit-button
@@ -299,12 +269,7 @@
     #superAdminForm="ngForm"
     (ngSubmit)="saveSuperAdmin()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="superAdminFirstName"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Jméno</label
-      >
+    <app-float-field label="Jméno" for="superAdminFirstName">
       <input
         pInputText
         type="text"
@@ -313,13 +278,8 @@
         autocomplete="off"
         [(ngModel)]="superAdminFirstName"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="superAdminLastName"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Příjmení</label
-      >
+    </app-float-field>
+    <app-float-field label="Příjmení" for="superAdminLastName">
       <input
         pInputText
         type="text"
@@ -328,13 +288,8 @@
         autocomplete="off"
         [(ngModel)]="superAdminLastName"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="superAdminUsername"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Uživatelské jméno</label
-      >
+    </app-float-field>
+    <app-float-field label="Uživatelské jméno" for="superAdminUsername">
       <input
         pInputText
         type="text"
@@ -346,14 +301,11 @@
         [title]="editingBuiltIn ? 'Vestavěný účet nelze přejmenovat' : ''"
         [(ngModel)]="superAdminUsername"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="superAdminPassword"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ editingSuperAdminId === null ? 'Počáteční heslo' : 'Nové heslo
-        (nepovinné)' }}</label
-      >
+    </app-float-field>
+    <app-float-field
+      [label]="editingSuperAdminId === null ? 'Počáteční heslo' : 'Nové heslo (nepovinné)'"
+      for="superAdminPassword"
+    >
       <p-password
         inputId="superAdminPassword"
         name="superAdminPassword"
@@ -366,13 +318,8 @@
         styleClass="w-full"
         inputStyleClass="w-full"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="superAdminPhone"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Telefon</label
-      >
+    </app-float-field>
+    <app-float-field label="Telefon" for="superAdminPhone">
       <input
         pInputText
         type="tel"
@@ -381,13 +328,8 @@
         autocomplete="off"
         [(ngModel)]="superAdminPhone"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="superAdminEmail"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >E-mail</label
-      >
+    </app-float-field>
+    <app-float-field label="E-mail" for="superAdminEmail">
       <input
         pInputText
         type="email"
@@ -397,7 +339,7 @@
         email
         [(ngModel)]="superAdminEmail"
       />
-    </div>
+    </app-float-field>
     <div class="sm:col-span-2">
       <app-submit-button
         [form]="superAdminForm"

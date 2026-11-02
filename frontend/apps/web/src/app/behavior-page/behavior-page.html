@@ -127,13 +127,9 @@
     #recordForm="ngForm"
     (ngSubmit)="saveRecord()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="recordStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
+    <app-float-field [label]="'Žák' | term" for="recordStudent">
       <p-select
+        [ariaLabel]="'Žák' | term"
         inputId="recordStudent"
         [options]="studentOptions()"
         optionLabel="label"
@@ -145,14 +141,10 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="recordType"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Typ</label
-      >
+    </app-float-field>
+    <app-float-field label="Typ" for="recordType">
       <p-select
+        ariaLabel="Typ"
         inputId="recordType"
         [options]="availableRecordTypes(newStudentId)"
         optionLabel="label"
@@ -163,21 +155,18 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
-    <textarea
-      pTextarea
-      rows="3"
-      placeholder="Text"
-      name="recordText"
-      required
-      [(ngModel)]="newText"
-    ></textarea>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="recordDate"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Datum</label
-      >
+    </app-float-field>
+    <app-float-field label="Text" for="recordText">
+      <textarea
+        id="recordText"
+        pTextarea
+        rows="3"
+        name="recordText"
+        required
+        [(ngModel)]="newText"
+      ></textarea>
+    </app-float-field>
+    <app-float-field label="Datum" for="recordDate">
       <p-datePicker
         inputId="recordDate"
         [(ngModel)]="newDate"
@@ -186,7 +175,7 @@
         [showIcon]="true"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     <app-submit-button
       [form]="recordForm"
       label="Zapsat"
@@ -211,13 +200,9 @@
     #classificationForm="ngForm"
     (ngSubmit)="saveClassification()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="classStudent"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ 'Žák' | term }}</label
-      >
+    <app-float-field [label]="'Žák' | term" for="classStudent">
       <p-select
+        [ariaLabel]="'Žák' | term"
         inputId="classStudent"
         [options]="studentOptions()"
         optionLabel="label"
@@ -229,14 +214,9 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
     <div class="flex flex-wrap gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="classYear"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Školní rok (začátek)</label
-        >
+      <app-float-field label="Školní rok (začátek)" for="classYear">
         <p-inputNumber
           inputId="classYear"
           [(ngModel)]="classSchoolYearStartYear"
@@ -246,14 +226,10 @@
           styleClass="w-32"
           inputStyleClass="w-full"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="classHalfYear"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Pololetí</label
-        >
+      </app-float-field>
+      <app-float-field label="Pololetí" for="classHalfYear">
         <p-select
+          ariaLabel="Pololetí"
           inputId="classHalfYear"
           [options]="halfYearOptions"
           optionLabel="label"
@@ -264,15 +240,11 @@
           appendTo="body"
           styleClass="w-40"
         />
-      </div>
+      </app-float-field>
     </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="classValue"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Klasifikace</label
-      >
+    <app-float-field label="Klasifikace" for="classValue">
       <p-select
+        ariaLabel="Klasifikace"
         inputId="classValue"
         [options]="availableClassificationValues(classStudentId)"
         optionLabel="label"
@@ -283,7 +255,7 @@
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
     <app-submit-button
       [form]="classificationForm"
       label="Uložit"

@@ -31,17 +31,17 @@ test('admin filters users by name and contact', async ({ page }) => {
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
 
-  // Inactive tab panels stay in the DOM (the Osoby one has its own "Hledat
-  // jméno"), so scope everything to the Uživatelé panel.
+  // Inactive tab panels stay in the DOM (the Osoby one has its own "Jméno"),
+  // so scope everything to the Uživatelé panel.
   const panel = page.getByRole('tabpanel', { name: 'Uživatelé' });
   const rows = panel.locator('table tbody tr');
   // Without diacritics on purpose — the search folds them.
-  await panel.getByPlaceholder('Hledat jméno').fill('ucitelova');
+  await panel.getByLabel('Jméno', { exact: true }).fill('ucitelova');
   await expect(rows.filter({ hasText: 'Jana Učitelová' })).toHaveCount(1);
   await expect(rows.filter({ hasText: 'Petr Novák' })).toHaveCount(0);
 
-  await panel.getByPlaceholder('Hledat jméno').fill('');
-  await panel.getByPlaceholder('Hledat kontakt').fill('neexistuje@nikde');
+  await panel.getByLabel('Jméno', { exact: true }).fill('');
+  await panel.getByLabel('Kontakt', { exact: true }).fill('neexistuje@nikde');
   await expect(rows.first()).toHaveText(/Žádní uživatelé/);
 });
 

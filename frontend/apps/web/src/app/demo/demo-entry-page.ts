@@ -18,6 +18,7 @@ import { catchError, of } from 'rxjs';
 import { SchoolLookupService } from '../school-lookup.service';
 import { isDemoSlug, schoolUrl } from '../school-context';
 import { storeDemoSlug, storedDemoSlug } from './demo-storage';
+import { FloatField } from '../forms';
 
 type Step = 'checking' | 'type' | 'school' | 'contact' | 'role' | 'generating';
 
@@ -45,6 +46,7 @@ const PROGRESS_LABELS = [
 @Component({
   selector: 'app-demo-entry-page',
   imports: [
+    FloatField,
     FormsModule,
     Button,
     Card,

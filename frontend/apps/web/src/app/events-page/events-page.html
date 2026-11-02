@@ -74,34 +74,40 @@
   <p-message severity="error" [text]="error" styleClass="mb-3 w-full" />
   }
   <form class="flex flex-col gap-3" #eventForm="ngForm" (ngSubmit)="save()">
-    <input
-      pInputText
-      type="text"
-      placeholder="Název akce"
-      name="title"
-      required
-      [ngModel]="title()"
-      (ngModelChange)="title.set($event)"
-    />
-    <textarea
-      pTextarea
-      rows="2"
-      placeholder="Popis (nepovinné)"
-      name="description"
-      [ngModel]="description()"
-      (ngModelChange)="description.set($event)"
-    ></textarea>
-    <p-autoComplete
-      [ngModel]="location()"
-      (ngModelChange)="location.set($event)"
-      [suggestions]="locationSuggestions()"
-      (completeMethod)="searchLocations($event)"
-      placeholder="Místo (nepovinné)"
-      name="location"
-      styleClass="w-full"
-      inputStyleClass="w-full"
-      appendTo="body"
-    />
+    <app-float-field label="Název" for="eventTitle">
+      <input
+        id="eventTitle"
+        pInputText
+        type="text"
+        name="title"
+        required
+        [ngModel]="title()"
+        (ngModelChange)="title.set($event)"
+      />
+    </app-float-field>
+    <app-float-field label="Popis" for="eventDescription">
+      <textarea
+        id="eventDescription"
+        pTextarea
+        rows="2"
+        name="description"
+        [ngModel]="description()"
+        (ngModelChange)="description.set($event)"
+      ></textarea>
+    </app-float-field>
+    <app-float-field label="Místo" for="eventLocation">
+      <p-autoComplete
+        inputId="eventLocation"
+        [ngModel]="location()"
+        (ngModelChange)="location.set($event)"
+        [suggestions]="locationSuggestions()"
+        (completeMethod)="searchLocations($event)"
+        name="location"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
 
     <label
       class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300"
@@ -137,12 +143,7 @@
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="eventStartAt"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Od</label
-        >
+      <app-float-field label="Od" for="eventStartAt">
         <p-datePicker
           inputId="eventStartAt"
           [ngModel]="startAt()"
@@ -154,13 +155,8 @@
           [showIcon]="true"
           appendTo="body"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="eventEndAt"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Do</label
-        >
+      </app-float-field>
+      <app-float-field label="Do" for="eventEndAt">
         <p-datePicker
           inputId="eventEndAt"
           [ngModel]="endAt()"
@@ -172,16 +168,12 @@
           [showIcon]="true"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
     </div>
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="eventAudience"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Příjemci</label
-      >
+    <app-float-field label="Příjemci" for="eventAudience">
       <p-select
+        ariaLabel="Příjemci"
         inputId="eventAudience"
         [options]="audienceOptions"
         optionLabel="label"
@@ -192,7 +184,7 @@
         styleClass="w-48"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
 
     @if (audience() === 'OnlyMe') {
     <p-message
@@ -209,23 +201,28 @@
           >Třídy</span
         >
         <div class="flex flex-wrap gap-2">
-          <input
-            pInputText
-            type="text"
-            placeholder="Hledat třídu"
-            name="classFilterName"
-            class="max-w-40"
-            [(ngModel)]="classFilterName"
-          />
-          <p-select
-            [options]="rocnikOptions()"
-            placeholder="Ročník"
-            [showClear]="true"
-            name="classFilterRocnik"
-            styleClass="w-28"
-            appendTo="body"
-            [(ngModel)]="classFilterRocnik"
-          />
+          <app-float-field label="Hledat třídu" for="eventClassFilterName">
+            <input
+              id="eventClassFilterName"
+              pInputText
+              type="text"
+              name="classFilterName"
+              class="max-w-40"
+              [(ngModel)]="classFilterName"
+            />
+          </app-float-field>
+          <app-float-field label="Ročník" for="eventClassFilterRocnik">
+            <p-select
+              ariaLabel="Ročník"
+              inputId="eventClassFilterRocnik"
+              [options]="rocnikOptions()"
+              [showClear]="true"
+              name="classFilterRocnik"
+              styleClass="w-28"
+              appendTo="body"
+              [(ngModel)]="classFilterRocnik"
+            />
+          </app-float-field>
         </div>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
@@ -257,14 +254,16 @@
         <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >Učitelé</span
         >
-        <input
-          pInputText
-          type="text"
-          placeholder="Hledat učitele"
-          name="teacherFilterName"
-          class="max-w-40"
-          [(ngModel)]="teacherFilterName"
-        />
+        <app-float-field label="Hledat učitele" for="eventTeacherFilterName">
+          <input
+            id="eventTeacherFilterName"
+            pInputText
+            type="text"
+            name="teacherFilterName"
+            class="max-w-40"
+            [(ngModel)]="teacherFilterName"
+          />
+        </app-float-field>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
         >
@@ -291,14 +290,16 @@
         <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
           >Rodiče</span
         >
-        <input
-          pInputText
-          type="text"
-          placeholder="Hledat rodiče"
-          name="parentFilterName"
-          class="max-w-40"
-          [(ngModel)]="parentFilterName"
-        />
+        <app-float-field label="Hledat rodiče" for="eventParentFilterName">
+          <input
+            id="eventParentFilterName"
+            pInputText
+            type="text"
+            name="parentFilterName"
+            class="max-w-40"
+            [(ngModel)]="parentFilterName"
+          />
+        </app-float-field>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
         >
@@ -325,23 +326,31 @@
           >{{ 'Žáci' | term }}</span
         >
         <div class="flex flex-wrap gap-2">
-          <input
-            pInputText
-            type="text"
-            [placeholder]="'Hledat žáka' | term"
-            name="studentFilterName"
-            class="max-w-40"
-            [(ngModel)]="studentFilterName"
-          />
-          <p-select
-            [options]="rocnikOptions()"
-            placeholder="Ročník"
-            [showClear]="true"
-            name="studentFilterRocnik"
-            styleClass="w-28"
-            appendTo="body"
-            [(ngModel)]="studentFilterRocnik"
-          />
+          <app-float-field
+            [label]="'Hledat žáka' | term"
+            for="eventStudentFilterName"
+          >
+            <input
+              id="eventStudentFilterName"
+              pInputText
+              type="text"
+              name="studentFilterName"
+              class="max-w-40"
+              [(ngModel)]="studentFilterName"
+            />
+          </app-float-field>
+          <app-float-field label="Ročník" for="eventStudentFilterRocnik">
+            <p-select
+              ariaLabel="Ročník"
+              inputId="eventStudentFilterRocnik"
+              [options]="rocnikOptions()"
+              [showClear]="true"
+              name="studentFilterRocnik"
+              styleClass="w-28"
+              appendTo="body"
+              [(ngModel)]="studentFilterRocnik"
+            />
+          </app-float-field>
         </div>
         <div
           class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"

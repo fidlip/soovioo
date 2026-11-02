@@ -39,7 +39,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
 
 const DAYS: DayOfWeek[] = [
@@ -135,6 +135,7 @@ function formatShortDate(date: Date): string {
 @Component({
   selector: 'app-timetable-page',
   imports: [
+    FloatField,
     ...FORM_FIELDS,
     TermPipe,
     AppIcon,

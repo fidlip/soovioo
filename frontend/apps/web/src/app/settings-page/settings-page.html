@@ -114,13 +114,7 @@
       #passwordForm="ngForm"
       (ngSubmit)="changePassword()"
     >
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="currentPassword"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-        >
-          Současné heslo
-        </label>
+      <app-float-field label="Současné heslo" for="currentPassword">
         <p-password
           inputId="currentPassword"
           name="currentPassword"
@@ -131,14 +125,9 @@
           [toggleMask]="true"
           [feedback]="false"
         />
-      </div>
+      </app-float-field>
 
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="newPassword"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-          >Nové heslo</label
-        >
+      <app-float-field label="Nové heslo" for="newPassword">
         <p-password
           inputId="newPassword"
           name="newPassword"
@@ -149,15 +138,9 @@
           [toggleMask]="true"
           [feedback]="false"
         />
-      </div>
+      </app-float-field>
 
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="confirmNewPassword"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-        >
-          Nové heslo znovu
-        </label>
+      <app-float-field label="Nové heslo znovu" for="confirmNewPassword">
         <p-password
           inputId="confirmNewPassword"
           name="confirmNewPassword"
@@ -168,7 +151,7 @@
           [toggleMask]="true"
           [feedback]="false"
         />
-      </div>
+      </app-float-field>
 
       @if (passwordError(); as err) {
       <p-message severity="error" [text]="err" />
@@ -267,13 +250,13 @@
       </div>
       }
     </div>
-    <div class="mt-4 flex flex-col gap-1.5">
-      <label
-        for="digestTime"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Denní souhrn e-mailem přijde v</label
-      >
+    <app-float-field
+      class="mt-4"
+      label="Denní souhrn e-mailem přijde v"
+      for="digestTime"
+    >
       <p-select
+        ariaLabel="Denní souhrn e-mailem přijde v"
         inputId="digestTime"
         [options]="digestTimeOptions()"
         optionLabel="label"
@@ -284,15 +267,11 @@
         styleClass="w-56"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     <div class="mt-4 flex flex-wrap items-end gap-2">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="pushQuiet"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Noční klid na mobilu</label
-        >
+      <app-float-field label="Noční klid na mobilu" for="pushQuiet">
         <p-select
+          ariaLabel="Noční klid na mobilu"
           inputId="pushQuiet"
           [options]="quietOptions()"
           optionLabel="label"
@@ -302,15 +281,11 @@
           styleClass="w-72 max-w-full"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
       @if (settings.push.quiet === 'Own') {
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="pushQuietFrom"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Od</label
-        >
+      <app-float-field label="Od" for="pushQuietFrom">
         <p-select
+          ariaLabel="Od"
           inputId="pushQuietFrom"
           [options]="quietTimes"
           [ngModel]="label(settings.push.quietFrom ?? '')"
@@ -318,14 +293,10 @@
           styleClass="w-28"
           appendTo="body"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="pushQuietTo"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Do</label
-        >
+      </app-float-field>
+      <app-float-field label="Do" for="pushQuietTo">
         <p-select
+          ariaLabel="Do"
           inputId="pushQuietTo"
           [options]="quietTimes"
           [ngModel]="label(settings.push.quietTo ?? '')"
@@ -333,7 +304,7 @@
           styleClass="w-28"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
       }
     </div>
     <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">

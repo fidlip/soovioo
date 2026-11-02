@@ -19,6 +19,7 @@ import {
 import { SchoolContextService } from '../school-context';
 import { AppIcon, AppIconName } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { FloatField } from '../forms';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -89,6 +90,7 @@ interface Widget {
 @Component({
   selector: 'app-home-page',
   imports: [
+    FloatField,
     DateFormatPipe,
     TermPipe,
     AppIcon,

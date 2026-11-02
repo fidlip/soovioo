@@ -26,7 +26,8 @@ import { labelElementFor } from './field-label';
 @Directive({ selector: '[ngModel][name]' })
 export class FieldErrorDirective {
   private readonly control = inject(NgControl);
-  private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+  private readonly host = inject(ElementRef<HTMLElement>)
+    .nativeElement as HTMLElement;
   private readonly renderer = inject(Renderer2);
   private readonly destroyRef = inject(DestroyRef);
   private readonly notify = inject(NotifyService);
@@ -74,17 +75,21 @@ export class FieldErrorDirective {
    * be bound to a condition (e.g. password only when creating). */
   private markRequired(): void {
     const control = this.control.control;
-    const required =
-      !!control?.validator?.({ value: null } as AbstractControl)?.['required'];
+    const required = !!control?.validator?.({
+      value: null,
+    } as AbstractControl)?.['required'];
     const label = labelElementFor(this.host);
     if (label) {
       label.classList.toggle('field-required', required);
       return;
     }
     const input =
-      this.host instanceof HTMLInputElement || this.host instanceof HTMLTextAreaElement
+      this.host instanceof HTMLInputElement ||
+      this.host instanceof HTMLTextAreaElement
         ? this.host
-        : this.host.querySelector<HTMLInputElement>('input[placeholder], textarea[placeholder]');
+        : this.host.querySelector<HTMLInputElement>(
+            'input[placeholder], textarea[placeholder]',
+          );
     if (!input?.placeholder) {
       return;
     }
@@ -115,8 +120,9 @@ export class FieldErrorDirective {
       this.messageEl = el;
     }
     el.textContent = message;
-    if (el.previousElementSibling !== this.host) {
-      this.host.insertAdjacentElement('afterend', el);
+    const anchor = this.host.closest('.p-floatlabel') ?? this.host;
+    if (el.previousElementSibling !== anchor) {
+      anchor.insertAdjacentElement('afterend', el);
     }
   }
 }

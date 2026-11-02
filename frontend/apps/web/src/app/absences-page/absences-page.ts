@@ -26,7 +26,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -78,6 +78,7 @@ export function formatPeriods(periods: number[]): string {
 @Component({
   selector: 'app-absences-page',
   imports: [
+    FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
     TermPipe,

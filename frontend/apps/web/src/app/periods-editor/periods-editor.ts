@@ -5,7 +5,7 @@ import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { SchoolPeriod, SchoolPeriodsApiService } from '@soovioo/shared';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 
@@ -14,6 +14,7 @@ import { NotifyService } from '../notify.service';
 @Component({
   selector: 'app-periods-editor',
   imports: [
+    FloatField,
     ...FORM_FIELDS,
     FormsModule,
     Button,

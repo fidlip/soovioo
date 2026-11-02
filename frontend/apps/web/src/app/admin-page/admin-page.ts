@@ -104,7 +104,7 @@ import { InfoHint } from '../info-hint/info-hint';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
@@ -138,6 +138,7 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    FloatField,
     DateFormatPipe,
     PeriodsEditor,
     SchoolNotifications,

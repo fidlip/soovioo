@@ -21,24 +21,29 @@
   <p-card [header]="'Studenti' | term">
     <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
       <div class="flex flex-wrap items-end gap-2">
-        <input
-          pInputText
-          type="text"
-          placeholder="Hledat jméno"
-          [(ngModel)]="filterStudentName"
-          name="filterStudentName"
-        />
-        <p-select
-          [options]="genderOptions"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Vše"
-          [(ngModel)]="filterStudentGender"
-          [showClear]="true"
-          name="filterStudentGender"
-          styleClass="w-32"
-          appendTo="body"
-        />
+        <app-float-field label="Jméno" for="filterStudentName">
+          <input
+            id="filterStudentName"
+            pInputText
+            type="text"
+            [(ngModel)]="filterStudentName"
+            name="filterStudentName"
+          />
+        </app-float-field>
+        <app-float-field label="Pohlaví" for="filterStudentGender">
+          <p-select
+            ariaLabel="Pohlaví"
+            inputId="filterStudentGender"
+            [options]="genderOptions"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="filterStudentGender"
+            [showClear]="true"
+            name="filterStudentGender"
+            styleClass="w-32"
+            appendTo="body"
+          />
+        </app-float-field>
       </div>
       <p-button
         [label]="'Nový student' | term"
@@ -437,31 +442,38 @@
           <p-card header="Uživatelé">
             <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div class="flex flex-wrap items-end gap-2">
-                <input
-                  pInputText
-                  type="text"
-                  placeholder="Hledat jméno"
-                  [(ngModel)]="filterUserName"
-                  name="filterUserName"
-                />
-                <input
-                  pInputText
-                  type="text"
-                  placeholder="Hledat kontakt"
-                  [(ngModel)]="filterUserContact"
-                  name="filterUserContact"
-                />
-                <p-select
-                  [options]="roleOptions()"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Všechny role"
-                  [(ngModel)]="filterUserRole"
-                  [showClear]="true"
-                  name="filterUserRole"
-                  styleClass="w-40"
-                  appendTo="body"
-                />
+                <app-float-field label="Jméno" for="filterUserName">
+                  <input
+                    id="filterUserName"
+                    pInputText
+                    type="text"
+                    [(ngModel)]="filterUserName"
+                    name="filterUserName"
+                  />
+                </app-float-field>
+                <app-float-field label="Kontakt" for="filterUserContact">
+                  <input
+                    id="filterUserContact"
+                    pInputText
+                    type="text"
+                    [(ngModel)]="filterUserContact"
+                    name="filterUserContact"
+                  />
+                </app-float-field>
+                <app-float-field label="Role" for="filterUserRole">
+                  <p-select
+                    ariaLabel="Role"
+                    inputId="filterUserRole"
+                    [options]="roleOptions()"
+                    optionLabel="label"
+                    optionValue="value"
+                    [(ngModel)]="filterUserRole"
+                    [showClear]="true"
+                    name="filterUserRole"
+                    styleClass="w-40"
+                    appendTo="body"
+                  />
+                </app-float-field>
               </div>
               <p-button
                 label="Nový uživatel"
@@ -629,13 +641,9 @@
               class="flex flex-wrap items-end gap-2"
               (ngSubmit)="saveSchoolType()"
             >
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolType"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >Typ</label
-                >
+              <app-float-field label="Typ" for="schoolType">
                 <p-select
+                  ariaLabel="Typ"
                   inputId="schoolType"
                   [options]="schoolTypeOptions"
                   optionLabel="label"
@@ -646,7 +654,7 @@
                   styleClass="w-56"
                   appendTo="body"
                 />
-              </div>
+              </app-float-field>
               <p-button
                 type="submit"
                 label="Uložit"
@@ -669,12 +677,7 @@
               class="flex flex-wrap items-end gap-2"
               (ngSubmit)="saveSchoolDetails()"
             >
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolStreet"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >Ulice</label
-                >
+              <app-float-field label="Ulice" for="schoolStreet">
                 <input
                   pInputText
                   id="schoolStreet"
@@ -682,13 +685,8 @@
                   [ngModel]="schoolStreet()"
                   (ngModelChange)="schoolStreet.set($event)"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolCity"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >Obec</label
-                >
+              </app-float-field>
+              <app-float-field label="Obec" for="schoolCity">
                 <input
                   pInputText
                   id="schoolCity"
@@ -696,13 +694,8 @@
                   [ngModel]="schoolCity()"
                   (ngModelChange)="schoolCity.set($event)"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolPostalCode"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >PSČ</label
-                >
+              </app-float-field>
+              <app-float-field label="PSČ" for="schoolPostalCode">
                 <input
                   pInputText
                   id="schoolPostalCode"
@@ -711,14 +704,8 @@
                   (ngModelChange)="schoolPostalCode.set($event)"
                   class="w-24"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolDirectorName"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                >
-                  Ředitel/ka
-                </label>
+              </app-float-field>
+              <app-float-field label="Ředitel/ka" for="schoolDirectorName">
                 <input
                   pInputText
                   id="schoolDirectorName"
@@ -726,13 +713,8 @@
                   [ngModel]="schoolDirectorName()"
                   (ngModelChange)="schoolDirectorName.set($event)"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolEmail"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >E-mail</label
-                >
+              </app-float-field>
+              <app-float-field label="E-mail" for="schoolEmail">
                 <input
                   pInputText
                   type="email"
@@ -741,13 +723,8 @@
                   [ngModel]="schoolEmail()"
                   (ngModelChange)="schoolEmail.set($event)"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolPhone"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >Telefon</label
-                >
+              </app-float-field>
+              <app-float-field label="Telefon" for="schoolPhone">
                 <input
                   pInputText
                   type="tel"
@@ -756,7 +733,7 @@
                   [ngModel]="schoolPhone()"
                   (ngModelChange)="schoolPhone.set($event)"
                 />
-              </div>
+              </app-float-field>
               <p-button
                 type="submit"
                 label="Uložit"
@@ -775,12 +752,10 @@
               class="flex flex-wrap items-end gap-2"
               (ngSubmit)="saveSchoolBankAccount()"
             >
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="schoolBankAccountNumber"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >Číslo bankovního účtu</label
-                >
+              <app-float-field
+                label="Číslo bankovního účtu"
+                for="schoolBankAccountNumber"
+              >
                 <input
                   pInputText
                   id="schoolBankAccountNumber"
@@ -790,7 +765,7 @@
                   [ngModel]="schoolBankAccountNumber()"
                   (ngModelChange)="schoolBankAccountNumber.set($event)"
                 />
-              </div>
+              </app-float-field>
               <p-button
                 type="submit"
                 label="Uložit"
@@ -807,12 +782,7 @@
             /></ng-template>
 
             <div class="mb-6 flex flex-wrap items-end gap-2">
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="matrikaIzo"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >IZO školy</label
-                >
+              <app-float-field label="IZO školy" for="matrikaIzo">
                 <input
                   pInputText
                   id="matrikaIzo"
@@ -820,13 +790,8 @@
                   [ngModel]="matrikaIzo()"
                   (ngModelChange)="matrikaIzo.set($event)"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="matrikaRedIzo"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >RED_IZO</label
-                >
+              </app-float-field>
+              <app-float-field label="RED_IZO" for="matrikaRedIzo">
                 <input
                   pInputText
                   id="matrikaRedIzo"
@@ -834,7 +799,7 @@
                   [ngModel]="matrikaRedIzo()"
                   (ngModelChange)="matrikaRedIzo.set($event)"
                 />
-              </div>
+              </app-float-field>
               <p-button
                 label="Uložit"
                 severity="secondary"
@@ -860,13 +825,7 @@
               class="flex flex-wrap items-end gap-2"
               (ngSubmit)="exportMatrika()"
             >
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="matrikaContactName"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                >
-                  Kontaktní osoba
-                </label>
+              <app-float-field label="Kontaktní osoba" for="matrikaContactName">
                 <input
                   pInputText
                   type="text"
@@ -875,14 +834,8 @@
                   name="matrikaContactName"
                   [(ngModel)]="matrikaContactName"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="matrikaContactPhone"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                >
-                  Telefon
-                </label>
+              </app-float-field>
+              <app-float-field label="Telefon" for="matrikaContactPhone">
                 <input
                   pInputText
                   type="tel"
@@ -891,14 +844,8 @@
                   name="matrikaContactPhone"
                   [(ngModel)]="matrikaContactPhone"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="matrikaContactEmail"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                >
-                  E-mail
-                </label>
+              </app-float-field>
+              <app-float-field label="E-mail" for="matrikaContactEmail">
                 <input
                   pInputText
                   type="email"
@@ -907,13 +854,8 @@
                   name="matrikaContactEmail"
                   [(ngModel)]="matrikaContactEmail"
                 />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  for="matrikaCast"
-                  class="text-sm font-medium text-surface-600 dark:text-surface-300"
-                  >Část (CAST)</label
-                >
+              </app-float-field>
+              <app-float-field label="Část (CAST)" for="matrikaCast">
                 <input
                   pInputText
                   type="text"
@@ -922,7 +864,7 @@
                   [(ngModel)]="matrikaCast"
                   class="w-24"
                 />
-              </div>
+              </app-float-field>
               <p-button
                 type="submit"
                 label="Stáhnout export (XML)"
@@ -965,39 +907,48 @@
     #classForm="ngForm"
     (ngSubmit)="saveSchoolClass()"
   >
-    <input
-      pInputText
-      type="text"
-      placeholder="Název třídy"
-      name="className"
-      required
-      [(ngModel)]="newSchoolClassName"
-    />
-    <p-inputNumber
-      placeholder="Ročník"
-      name="classRocnik"
-      [(ngModel)]="newSchoolClassRocnik"
-      styleClass="w-28"
-      inputStyleClass="w-full"
-    />
-    <p-select
-      [options]="teacherOptions()"
-      optionLabel="name"
-      optionValue="id"
-      placeholder="Třídní učitel"
-      [(ngModel)]="newSchoolClassTeacherId"
-      name="classTeacher"
-      styleClass="w-40"
-      appendTo="body"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Vyučovací jazyk"
-      name="classTeachingLanguage"
-      [(ngModel)]="newSchoolClassTeachingLanguage"
-      class="w-36"
-    />
+    <app-float-field label="Název třídy" for="className">
+      <input
+        id="className"
+        pInputText
+        type="text"
+        name="className"
+        required
+        [(ngModel)]="newSchoolClassName"
+      />
+    </app-float-field>
+    <app-float-field label="Ročník" for="classRocnik">
+      <p-inputNumber
+        inputId="classRocnik"
+        name="classRocnik"
+        [(ngModel)]="newSchoolClassRocnik"
+        styleClass="w-28"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
+    <app-float-field label="Třídní učitel" for="classTeacher">
+      <p-select
+        ariaLabel="Třídní učitel"
+        inputId="classTeacher"
+        [options]="teacherOptions()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="newSchoolClassTeacherId"
+        name="classTeacher"
+        styleClass="w-40"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Vyučovací jazyk" for="classTeachingLanguage">
+      <input
+        id="classTeachingLanguage"
+        pInputText
+        type="text"
+        name="classTeachingLanguage"
+        [(ngModel)]="newSchoolClassTeachingLanguage"
+        class="w-44"
+      />
+    </app-float-field>
     <app-submit-button
       [form]="classForm"
       [label]="editingSchoolClassId === null ? 'Vytvořit' : 'Uložit'"
@@ -1018,23 +969,31 @@
     #subjectForm="ngForm"
     (ngSubmit)="saveSubject()"
   >
-    <input
-      pInputText
-      type="text"
-      class="flex-1"
-      placeholder="Název předmětu"
-      name="subjectName"
-      required
-      [(ngModel)]="newSubjectName"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Zkratka"
-      name="subjectAbbreviation"
-      [(ngModel)]="newSubjectAbbreviation"
-      class="w-20"
-    />
+    <app-float-field
+      class="min-w-40 flex-1"
+      label="Název předmětu"
+      for="subjectName"
+    >
+      <input
+        id="subjectName"
+        pInputText
+        type="text"
+        class="w-full"
+        name="subjectName"
+        required
+        [(ngModel)]="newSubjectName"
+      />
+    </app-float-field>
+    <app-float-field label="Zkratka" for="subjectAbbreviation">
+      <input
+        id="subjectAbbreviation"
+        pInputText
+        type="text"
+        name="subjectAbbreviation"
+        [(ngModel)]="newSubjectAbbreviation"
+        class="w-20"
+      />
+    </app-float-field>
     <div class="flex flex-wrap gap-1">
       @for (swatch of subjectColorPalette; track swatch) {
       <button
@@ -1050,17 +1009,20 @@
       ></button>
       }
     </div>
-    <p-select
-      [options]="classroomOptions()"
-      optionLabel="label"
-      optionValue="id"
-      placeholder="Výchozí učebna"
-      [(ngModel)]="newSubjectDefaultClassroomId"
-      name="subjectDefaultClassroomId"
-      [showClear]="true"
-      styleClass="w-48"
-      appendTo="body"
-    />
+    <app-float-field label="Výchozí učebna" for="subjectDefaultClassroomId">
+      <p-select
+        ariaLabel="Výchozí učebna"
+        inputId="subjectDefaultClassroomId"
+        [options]="classroomOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="newSubjectDefaultClassroomId"
+        name="subjectDefaultClassroomId"
+        [showClear]="true"
+        styleClass="w-48"
+        appendTo="body"
+      />
+    </app-float-field>
     <app-submit-button
       [form]="subjectForm"
       [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"
@@ -1081,22 +1043,26 @@
     #studentForm="ngForm"
     (ngSubmit)="saveStudent()"
   >
-    <input
-      pInputText
-      type="text"
-      placeholder="Jméno"
-      name="firstName"
-      required
-      [(ngModel)]="newStudentFirstName"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Příjmení"
-      name="lastName"
-      required
-      [(ngModel)]="newStudentLastName"
-    />
+    <app-float-field label="Jméno" for="studentFirstName">
+      <input
+        id="studentFirstName"
+        pInputText
+        type="text"
+        name="firstName"
+        required
+        [(ngModel)]="newStudentFirstName"
+      />
+    </app-float-field>
+    <app-float-field label="Příjmení" for="studentLastName">
+      <input
+        id="studentLastName"
+        pInputText
+        type="text"
+        name="lastName"
+        required
+        [(ngModel)]="newStudentLastName"
+      />
+    </app-float-field>
     <app-student-fields
       class="w-full"
       [form]="studentMatrika"
@@ -1104,22 +1070,20 @@
       [countries]="countries()"
     />
     @if (editingStudentId !== null) {
-    <div class="flex w-full flex-col gap-1.5">
-      <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Rodiče</span
-      >
+    <app-float-field class="w-full" label="Rodiče" for="studentParents">
       <p-multiSelect
+        inputId="studentParents"
+        ariaLabel="Rodiče"
         [options]="parents()"
         optionLabel="name"
         optionValue="id"
-        placeholder="Žádní rodiče přiřazeni"
         display="chip"
         [(ngModel)]="editingStudentParentIds"
         name="studentParents"
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     }
     <app-submit-button
       [form]="studentForm"
@@ -1141,13 +1105,9 @@
     #userForm="ngForm"
     (ngSubmit)="saveUser()"
   >
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="roles"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Role</label
-      >
+    <app-float-field label="Role" for="roles">
       <p-multiSelect
+        ariaLabel="Role"
         inputId="roles"
         [options]="
           editingUserId !== null && editingUserId === myUserId
@@ -1166,7 +1126,7 @@
         styleClass="w-full"
         appendTo="body"
       />
-    </div>
+    </app-float-field>
     <div></div>
     <div class="flex flex-col gap-1.5 sm:col-span-2">
       <label
@@ -1225,12 +1185,7 @@
       <small class="text-red-600 dark:text-red-400">{{ problem }}</small>
       }
     </div>
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="username"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Uživatelské jméno</label
-      >
+    <app-float-field label="Uživatelské jméno" for="username">
       <input
         pInputText
         id="username"
@@ -1239,29 +1194,33 @@
         autocomplete="off"
         [(ngModel)]="newUsername"
       />
-    </div>
+    </app-float-field>
     <div class="flex flex-col justify-end gap-1.5">
-      @if (passwordShown()) {
-      <label
-        for="password"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >{{ editingUserId !== null ? 'Nové heslo' : sendsInvite() ? 'Heslo
-        (nepovinné)' : 'Heslo' }}</label
-      >
-      }
       <div class="flex items-center gap-1">
         @if (passwordShown()) {
-        <p-password
-          inputId="password"
-          name="password"
-          [required]="editingUserId === null && !sendsInvite()"
-          autocomplete="new-password"
-          [(ngModel)]="newPassword"
-          [toggleMask]="true"
-          [feedback]="false"
-          styleClass="w-full min-w-0 flex-1"
-          inputStyleClass="w-full"
-        />
+        <app-float-field
+          class="min-w-0 flex-1"
+          [label]="
+            editingUserId !== null
+              ? 'Nové heslo'
+              : sendsInvite()
+                ? 'Heslo (nepovinné)'
+                : 'Heslo'
+          "
+          for="password"
+        >
+          <p-password
+            inputId="password"
+            name="password"
+            [required]="editingUserId === null && !sendsInvite()"
+            autocomplete="new-password"
+            [(ngModel)]="newPassword"
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+          />
+        </app-float-field>
         } @if (editingUserId !== null || sendsInvite()) {
         <p-button
           icon="pi pi-key"
@@ -1330,35 +1289,39 @@
   <form class="flex flex-col gap-3" (ngSubmit)="saveParentChildren()">
     @if (editingParentId === null) {
     <div class="flex items-center gap-1">
-      <p-select
-        [options]="assignableParents()"
-        optionLabel="name"
-        optionValue="id"
-        placeholder="Vyberte rodiče"
-        [filter]="true"
-        [(ngModel)]="addingParentId"
-        name="addingParent"
-        styleClass="w-full"
-        appendTo="body"
-        ariaLabel="Rodič"
-      />
+      <app-float-field label="Rodič" for="addingParent">
+        <p-select
+          inputId="addingParent"
+          [options]="assignableParents()"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          [(ngModel)]="addingParentId"
+          name="addingParent"
+          styleClass="w-full"
+          appendTo="body"
+          ariaLabel="Rodič"
+        />
+      </app-float-field>
       <app-info-hint
         text="Rodič tu není? Účet založí administrátor školy v záložce Uživatelé."
       />
     </div>
     }
-    <p-multiSelect
-      [options]="studentOptions()"
-      optionLabel="label"
-      optionValue="id"
-      placeholder="Žádné děti přiřazeny"
-      display="chip"
-      [(ngModel)]="editingParentChildIds"
-      name="parentChildren"
-      styleClass="w-full"
-      appendTo="body"
-      ariaLabel="Děti"
-    />
+    <app-float-field label="Děti" for="parentChildren">
+      <p-multiSelect
+        inputId="parentChildren"
+        [options]="studentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        display="chip"
+        [(ngModel)]="editingParentChildIds"
+        name="parentChildren"
+        styleClass="w-full"
+        appendTo="body"
+        ariaLabel="Děti"
+      />
+    </app-float-field>
     <p-button
       type="submit"
       label="Uložit"
@@ -1381,42 +1344,52 @@
     #classroomForm="ngForm"
     (ngSubmit)="saveClassroom()"
   >
-    <input
-      pInputText
-      type="text"
-      class="flex-1"
-      placeholder="Název (např. 12, Tělocvična)"
-      name="classroomName"
-      required
-      [(ngModel)]="newClassroomName"
-    />
-    <input
-      pInputText
-      type="text"
-      placeholder="Zkratka"
-      name="classroomShortName"
-      [(ngModel)]="newClassroomShortName"
-      class="w-24"
-    />
-    <p-select
-      [options]="classroomTypeOptions"
-      optionLabel="label"
-      optionValue="value"
-      placeholder="Typ"
-      name="classroomType"
-      [(ngModel)]="newClassroomType"
-      [showClear]="true"
-      appendTo="body"
-      styleClass="w-40"
-    />
-    <p-inputNumber
-      placeholder="Kapacita"
-      name="classroomCapacity"
-      [(ngModel)]="newClassroomCapacity"
-      [min]="1"
-      styleClass="w-28"
-      inputStyleClass="w-full"
-    />
+    <app-float-field class="min-w-40 flex-1" label="Název" for="classroomName">
+      <input
+        id="classroomName"
+        pInputText
+        type="text"
+        class="w-full"
+        placeholder="např. 12, Tělocvična"
+        name="classroomName"
+        required
+        [(ngModel)]="newClassroomName"
+      />
+    </app-float-field>
+    <app-float-field label="Zkratka" for="classroomShortName">
+      <input
+        id="classroomShortName"
+        pInputText
+        type="text"
+        name="classroomShortName"
+        [(ngModel)]="newClassroomShortName"
+        class="w-24"
+      />
+    </app-float-field>
+    <app-float-field label="Typ" for="classroomType">
+      <p-select
+        ariaLabel="Typ"
+        inputId="classroomType"
+        [options]="classroomTypeOptions"
+        optionLabel="label"
+        optionValue="value"
+        name="classroomType"
+        [(ngModel)]="newClassroomType"
+        [showClear]="true"
+        appendTo="body"
+        styleClass="w-40"
+      />
+    </app-float-field>
+    <app-float-field label="Kapacita" for="classroomCapacity">
+      <p-inputNumber
+        inputId="classroomCapacity"
+        name="classroomCapacity"
+        [(ngModel)]="newClassroomCapacity"
+        [min]="1"
+        styleClass="w-28"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
     <app-submit-button
       [form]="classroomForm"
       [label]="editingClassroomId === null ? 'Vytvořit' : 'Uložit'"

@@ -12,13 +12,9 @@
 </div>
 
 <div class="mb-6 flex flex-wrap items-end gap-3">
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterPeriod"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Termín</label
-    >
+  <app-float-field label="Termín" for="filterPeriod">
     <p-select
+      ariaLabel="Termín"
       inputId="filterPeriod"
       [options]="periodOptions"
       optionLabel="label"
@@ -28,47 +24,37 @@
       appendTo="body"
       styleClass="w-36"
     />
-  </div>
+  </app-float-field>
   @if (!authApi.isStudent()) {
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterClass"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Třída</label
-    >
+  <app-float-field label="Třída" for="filterClass">
     <p-select
+      ariaLabel="Třída"
       inputId="filterClass"
       [options]="classOptions()"
       optionLabel="label"
       optionValue="id"
-      placeholder="Všechny třídy"
       [(ngModel)]="filterClassId"
       [showClear]="true"
       name="filterClass"
       appendTo="body"
       styleClass="w-52"
     />
-  </div>
+  </app-float-field>
   }
-  <div class="flex flex-col gap-1.5">
-    <label
-      for="filterSubject"
-      class="text-sm font-medium text-surface-600 dark:text-surface-300"
-      >Předmět</label
-    >
+  <app-float-field label="Předmět" for="filterSubject">
     <p-select
+      ariaLabel="Předmět"
       inputId="filterSubject"
       [options]="subjects()"
       optionLabel="name"
       optionValue="id"
-      placeholder="Všechny předměty"
       [(ngModel)]="filterSubjectId"
       [showClear]="true"
       name="filterSubject"
       appendTo="body"
       styleClass="w-48"
     />
-  </div>
+  </app-float-field>
 </div>
 
 <div class="flex flex-col gap-3">
@@ -176,13 +162,9 @@
   >
     @if (anyClass) {
     <div class="flex flex-wrap gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="newClass"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Třída</label
-        >
+      <app-float-field label="Třída" for="newClass">
         <p-select
+          ariaLabel="Třída"
           inputId="newClass"
           [options]="classOptions()"
           optionLabel="label"
@@ -194,14 +176,10 @@
           appendTo="body"
           styleClass="w-48"
         />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="newSubject"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Předmět</label
-        >
+      </app-float-field>
+      <app-float-field label="Předmět" for="newSubject">
         <p-select
+          ariaLabel="Předmět"
           inputId="newSubject"
           [options]="subjects()"
           optionLabel="name"
@@ -212,16 +190,12 @@
           appendTo="body"
           styleClass="w-48"
         />
-      </div>
+      </app-float-field>
     </div>
     } @else {
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="newAssignment"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Třída a předmět</label
-      >
+    <app-float-field label="Třída a předmět" for="newAssignment">
       <p-select
+        ariaLabel="Třída a předmět"
         inputId="newAssignment"
         [options]="teachingAssignmentOptions()"
         optionLabel="label"
@@ -229,50 +203,45 @@
         [ngModel]="selectedAssignmentKey"
         (ngModelChange)="selectedAssignmentKey = $event; onAssignmentChange()"
         name="newAssignment"
+        emptyMessage="Nevyučujete žádnou třídu"
         required
-        placeholder="Nevyučujete žádnou třídu"
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
     }
 
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="newTargetStudents"
-        class="text-sm font-medium text-surface-600 dark:text-surface-300"
-        >Komu (nepovinné — prázdné = celá třída)</label
-      >
+    <app-float-field
+      label="Komu (prázdné = celá třída)"
+      for="newTargetStudents"
+    >
       <p-multiSelect
+        ariaLabel="Komu (prázdné = celá třída)"
         inputId="newTargetStudents"
         [options]="newClassStudentOptions()"
         optionLabel="label"
         optionValue="id"
-        placeholder="Celá třída"
         display="chip"
         [(ngModel)]="newTargetStudentIds"
         name="newTargetStudents"
         appendTo="body"
         styleClass="w-full"
       />
-    </div>
+    </app-float-field>
 
-    <textarea
-      pTextarea
-      rows="3"
-      placeholder="Zadání úkolu"
-      name="newText"
-      required
-      [(ngModel)]="newText"
-    ></textarea>
+    <app-float-field label="Zadání" for="newText">
+      <textarea
+        id="newText"
+        pTextarea
+        rows="3"
+        name="newText"
+        required
+        [(ngModel)]="newText"
+      ></textarea>
+    </app-float-field>
 
     <div class="flex flex-wrap items-end gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="newDueDate"
-          class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Termín</label
-        >
+      <app-float-field label="Termín" for="newDueDate">
         <p-datePicker
           inputId="newDueDate"
           [(ngModel)]="newDueDate"
@@ -281,7 +250,7 @@
           [showIcon]="true"
           appendTo="body"
         />
-      </div>
+      </app-float-field>
       <label
         class="flex items-center gap-2 pb-2 text-sm text-surface-600 dark:text-surface-300"
       >

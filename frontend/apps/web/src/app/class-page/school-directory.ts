@@ -16,14 +16,22 @@ import {
 } from '@soovioo/shared';
 import { Subject, debounceTime } from 'rxjs';
 import { Avatar } from '../avatar/avatar';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 
 /** Lidé → Škola: everyone at the school as far as their "Viditelnost
  * údajů" reaches the viewer — the API leaves the rest out. Searched,
  * filtered and paged on the server. */
 @Component({
   selector: 'app-school-directory',
-  imports: [...FORM_FIELDS, FormsModule, InputText, Paginator, Select, Avatar],
+  imports: [
+    FloatField,
+    ...FORM_FIELDS,
+    FormsModule,
+    InputText,
+    Paginator,
+    Select,
+    Avatar,
+  ],
   templateUrl: './school-directory.html',
 })
 export class SchoolDirectoryList {

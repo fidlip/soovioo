@@ -15,10 +15,12 @@ import { DemoUserPicker } from '../demo/demo-user-picker';
 import { SchoolContextService, isDemoSlug } from '../school-context';
 import { SchoolLookupService } from '../school-lookup.service';
 import { catchError, of } from 'rxjs';
+import { FloatField } from '../forms';
 
 @Component({
   selector: 'app-login-page',
   imports: [
+    FloatField,
     FormsModule,
     Button,
     Card,

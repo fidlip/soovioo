@@ -12,8 +12,7 @@
     <h1
       class="mt-3 mb-0 text-2xl font-semibold text-surface-900 dark:text-surface-0"
     >
-      @if (school()?.isDemo) { Za koho se chcete podívat? } @else { Přihlášení
-      }
+      @if (school()?.isDemo) { Za koho se chcete podívat? } @else { Přihlášení }
     </h1>
     <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
       {{ schoolSlug ? (schoolName() ?? schoolSlug) : 'SuperAdmin' }}
@@ -37,13 +36,7 @@
   } @else {
   <p-card>
     <form class="flex flex-col gap-4" (ngSubmit)="login()">
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="username"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-        >
-          Uživatelské jméno
-        </label>
+      <app-float-field label="Uživatelské jméno" for="username">
         <input
           pInputText
           id="username"
@@ -51,14 +44,9 @@
           class="w-full"
           [(ngModel)]="username"
         />
-      </div>
+      </app-float-field>
 
-      <div class="flex flex-col gap-1.5">
-        <label
-          for="password"
-          class="text-sm font-medium text-surface-700 dark:text-surface-200"
-          >Heslo</label
-        >
+      <app-float-field label="Heslo" for="password">
         <p-password
           inputId="password"
           name="password"
@@ -68,7 +56,7 @@
           [toggleMask]="true"
           [feedback]="false"
         />
-      </div>
+      </app-float-field>
 
       <div class="flex items-center gap-2">
         <p-checkbox
@@ -91,9 +79,7 @@
       <p-button type="submit" label="Přihlásit se" styleClass="w-full" />
     </form>
   </p-card>
-  }
-
-  @if (showDemoAccounts && !school()?.isDemo) { @if (schoolSlug) {
+  } @if (showDemoAccounts && !school()?.isDemo) { @if (schoolSlug) {
   <p class="text-center text-xs text-surface-500 dark:text-surface-400">
     Demo účty:
     <code

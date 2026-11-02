@@ -32,7 +32,7 @@ test.describe.serial('homework with completion', () => {
     const dialog = page.getByRole('dialog', { name: 'Nový úkol' });
     // The class/subject the teacher teaches is preselected; the due date
     // defaults to today, which still counts as current.
-    await dialog.getByPlaceholder('Zadání úkolu').fill(text);
+    await dialog.getByLabel(/^Zadání/).fill(text);
     await dialog.getByText('Vyžadovat potvrzení splnění').click();
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();
@@ -84,7 +84,7 @@ test('a dialog opened before the teacher’s timetable arrives offers it then', 
   await login(page, 'ucitel', 'ucitel123');
   await page.getByRole('button', { name: 'Nový úkol' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nový úkol' });
-  await dialog.getByPlaceholder('Zadání úkolu').fill('Pozdní rozvrh');
+  await dialog.getByLabel(/^Zadání/).fill('Pozdní rozvrh');
   const submit = dialog.locator('button[type="submit"]');
   await expect(submit).toBeDisabled();
 

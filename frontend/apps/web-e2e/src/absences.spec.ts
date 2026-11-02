@@ -79,7 +79,7 @@ test.describe.serial('absence excuse workflow', () => {
       0,
     );
 
-    await row(page).getByPlaceholder('Důvod omluvenky').fill('Návštěva lékaře');
+    await row(page).getByLabel('Důvod omluvenky').fill('Návštěva lékaře');
     await row(page).getByRole('button', { name: 'Omluvit' }).click();
 
     await expect(row(page)).toContainText('Čeká na schválení');

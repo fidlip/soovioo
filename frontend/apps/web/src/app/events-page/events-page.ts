@@ -49,7 +49,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { CALENDAR_LOCALE } from '../locale';
 
 type ViewOption = { value: string; label: string };
@@ -122,6 +122,7 @@ function startOfDay(d: Date): Date {
 @Component({
   selector: 'app-events-page',
   imports: [
+    FloatField,
     ...FORM_FIELDS,
     Checkbox,
     TermPipe,
