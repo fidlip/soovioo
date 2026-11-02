@@ -429,6 +429,7 @@
         <div class="pt-4">
           <app-people-tab
             #peopleTab
+            [roles]="schoolRoles()"
             (createAccount)="openCreateAccountFor($event)"
             (changed)="reload()"
           />

@@ -26,6 +26,21 @@
           appendTo="body"
         />
       </app-float-field>
+      <app-float-field label="Role" for="filterPeopleRole">
+        <p-select
+          [options]="roles()"
+          optionLabel="name"
+          optionValue="id"
+          inputId="filterPeopleRole"
+          ariaLabel="Role"
+          [ngModel]="filterRoleId()"
+          (ngModelChange)="filterRoleId.set($event)"
+          [showClear]="true"
+          name="filterPeopleRole"
+          styleClass="w-40"
+          appendTo="body"
+        />
+      </app-float-field>
       <app-float-field label="Třída" for="filterPeopleClass">
         <p-select
           [options]="classOptions()"

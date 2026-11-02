@@ -144,3 +144,29 @@ test('what is typed stays when the dialog’s lists arrive late', async ({
   await waitForApiIdle();
   await expect(lastName).toHaveValue('Pozdní');
 });
+
+test('Osoby are filtered by the school’s roles of their accounts', async ({
+  page,
+}) => {
+  await page.goto('/skola/login');
+  await page.locator('#username').fill('admin');
+  await page.locator('#password').fill('admin123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+  await expect(page).toHaveURL(/\/skola\/home$/);
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Osoby' }).click();
+  const people = page.getByRole('tabpanel', { name: 'Osoby' });
+  const parent = people.locator('tr', { hasText: 'Petr Novák' });
+  const teacher = people.locator('tr', { hasText: 'Jana Učitelová' });
+  await expect(teacher).toHaveCount(1);
+
+  await people.getByRole('combobox', { name: 'Role' }).click();
+  await page.getByRole('option', { name: 'Rodič', exact: true }).click();
+  await expect(teacher).toHaveCount(0);
+  await expect(parent).toHaveCount(1);
+
+  // Combined with Kdo: Petr Novák has no teacher's profile.
+  await people.getByRole('combobox', { name: 'Kdo' }).click();
+  await page.getByRole('option', { name: 'Učitelé', exact: true }).click();
+  await expect(parent).toHaveCount(0);
+});
