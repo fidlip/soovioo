@@ -143,6 +143,44 @@ p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
   padding-top: 0.5rem;
 }
 
+/* …and under a heading right above it, which it would crowd. */
+:is(h2, h3, legend) + :has(.p-floatlabel) {
+  margin-top: 0.5rem;
+}
+
+/* A section panel's title sits on its border, like a field's float label.
+ * Its background is the page's above the line and the panel's below. */
+.p-card {
+  --soovioo-page-background: var(--p-content-background);
+  position: relative;
+  border: 1px solid var(--p-content-border-color);
+  box-shadow: none;
+}
+.p-card:has(> .p-card-body > .p-card-title) {
+  margin-top: 0.75rem;
+
+  > .p-card-body {
+    padding-top: 2.25rem;
+  }
+}
+.soovioo-dark .p-card {
+  --soovioo-page-background: var(--p-surface-950);
+}
+.p-card-title {
+  position: absolute;
+  top: 0;
+  left: 0.75rem;
+  transform: translateY(-50%);
+  max-width: calc(100% - 1.5rem);
+  padding: 0 0.5rem;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  background: linear-gradient(
+    var(--soovioo-page-background) 50%,
+    var(--p-card-background) 50%
+  );
+}
+
 /* optimus floats the label only for a non-null value — a select's option
  * for null (e.g. "Podle školy") would sit under the label. */
 .p-floatlabel-on:has(.p-select-label:not(.p-select-label-empty)) label {
