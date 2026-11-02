@@ -1,5 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
@@ -14,6 +21,7 @@ import {
   PeopleApiService,
   Person,
   PhotosApiService,
+  RoleRef,
   Student,
   localizeStudentTerm,
 } from '@soovioo/shared';
@@ -63,6 +71,9 @@ export class PeopleTab {
   private readonly confirmation = inject(ConfirmationService);
   private readonly notify = inject(NotifyService);
 
+  /** The school's roles (Administrace → Role). */
+  readonly roles = input<RoleRef[]>([]);
+
   /** "Vytvořit účet" — the account dialog lives in Uživatelé. */
   readonly createAccount = output<Person>();
   /** Something an account shows (name, contacts) changed. */
@@ -80,6 +91,7 @@ export class PeopleTab {
 
   protected readonly filterName = signal('');
   protected readonly filterKind = signal<Kind | null>(null);
+  protected readonly filterRoleId = signal<number | null>(null);
   protected readonly filterClassId = signal<number | null>(null);
 
   protected readonly kindOptions: { label: string; value: Kind }[] = [
@@ -107,6 +119,7 @@ export class PeopleTab {
   protected readonly filtered = computed(() => {
     const name = foldForSearch(this.filterName().trim());
     const kind = this.filterKind();
+    const roleId = this.filterRoleId();
     const classId = this.filterClassId();
     return this.people().filter(
       (p) =>
@@ -116,6 +129,7 @@ export class PeopleTab {
           (kind === 'parent' && !!p.parent) ||
           (kind === 'student' && !!p.student) ||
           (kind === 'noAccount' && !p.account)) &&
+        (roleId === null || !!p.account?.roles.some((r) => r.id === roleId)) &&
         (classId === null || p.student?.schoolClassId === classId),
     );
   });
