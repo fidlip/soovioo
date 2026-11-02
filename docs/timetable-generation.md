@@ -108,25 +108,46 @@ TimetableEntry
 
 ## Úvazky — návrh modelu (vstup generátoru)
 
+Ve fázi 2 (#160) jsou úvazky rozdělené na vstupy, které škola zadává, a přidělení,
+které z nich vychází:
+
 ```
-TeachingLoad
-  Id, SchoolId, TimetableVersionId
-  SchoolClassId, GroupName? ("sk. 1"), SubjectId, TeacherId
-  HoursPerWeek, BlockLength (1 = jednotlivé hodiny, 2 = dvouhodinovka)
-  RequiredClassroomType?, PreferredClassroomId?
+TeacherProfile (Osoby → učitel)
+  + Qualifications: TeacherQualification (SubjectId, GradeFrom?, GradeTo?)  — aprobace
+  + QualificationNote (dosavadní volný text aprobace)
+  + ContractedHours (nasmlouvané hodiny týdně), TeachingDays (dny, kdy může učit)
+
+CurriculumItem (učební plán, u verze rozvrhu)
+  TimetableVersionId, Grade (ročník), SubjectId, HoursPerWeek
+
+TeachingAssignment (přidělení výuky, u verze rozvrhu)
+  TimetableVersionId, SchoolClassId, SubjectId, TeacherId
+```
+
+- Třída × předmět bez přidělení dostane učitele automaticky (`TeachingPlanner`): z
+  učitelů s aprobací pro předmět a ročník, přednost má ten, kdo to ve třídě učí v
+  rozvrhu, pak kdo se vejde do nasmlouvaných hodin, třídní, kdo už ve třídě učí, kdo
+  má nejvíc volných hodin. Automatické přidělení jde potvrdit nebo změnit.
+- Kontroly: plán vs. rozvrh (hodina jen v lichém/sudém týdnu = 0,5 h), jiný učitel
+  v rozvrhu než přidělený, chybějící aprobace, přidělené vs. nasmlouvané hodiny,
+  hodiny v den, kdy učitel učit nemůže.
+- Pro generátor (fáze 3) je to vstup „kdo, co, kolik“; generátor řeší jen „kdy“.
+
+Ve fázi 4 přibude:
+
+```
+TeachingAssignment + GroupName? ("sk. 1"), BlockLength, RequiredClassroomType?, PreferredClassroomId?
 
 TeacherAvailability
   TeacherId, DayOfWeek, PeriodNumber, Kind: Unavailable | Avoid
 ```
 
-Úvazky mají smysl i bez generátoru: kontrola „rozvrh pokrývá úvazky“ (chybí 1 h Čj
-v 5.A), přehled úvazků učitelů, podklad pro vysvědčení/matriku.
-
 ## Navržené fáze
 
 1. **Verze rozvrhu** (model, migrace, výběr verze podle týdne, koncept + zveřejnění).
    Přínos i bez generátoru: příprava rozvrhu na 2. pololetí dopředu.
-2. **Úvazky** (agenda v administraci, kontrola pokrytí rozvrhu úvazky).
+2. **Učební plán, aprobace a přidělení výuky** (Rozvrh → Přidělení výuky, kontroly
+   pokrytí rozvrhu a nasmlouvaných hodin).
 3. **Generátor CP-SAT** pro koncept verze: tvrdá omezení → první použitelná verze;
    pak měkká omezení a váhy nastavitelné školou; výsledek vždy jen jako koncept.
 4. **Dostupnost učitelů a přání**, dělení na skupiny, bloky.

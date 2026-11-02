@@ -46,7 +46,11 @@ test('an account is a person’s: picked, completed with the missing profile, th
     personDialog.locator('p-multiselect[name="profiles"]'),
     'Učitel',
   );
-  await personDialog.getByRole('textbox', { name: 'Aprobace' }).fill('M');
+  await personDialog.getByRole('button', { name: 'Přidat předmět' }).click();
+  await personDialog
+    .getByRole('combobox', { name: 'Aprobace 1 — předmět' })
+    .click();
+  await page.getByRole('option', { name: 'Matematika', exact: true }).click();
   await personDialog.getByRole('button', { name: 'Vytvořit osobu' }).click();
   await expect(personDialog).toBeHidden();
   const personRow = people.locator('tr', { hasText: lastName });

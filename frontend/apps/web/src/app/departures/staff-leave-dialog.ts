@@ -129,6 +129,19 @@ export class StaffLeaveDialog {
     }));
   }
 
+  /** Who has the aprobace for it first. */
+  protected substituteOptions(
+    qualifiedIds: number[],
+  ): { label: string; value: number }[] {
+    const options = this.staffOptions();
+    return [
+      ...options
+        .filter((o) => qualifiedIds.includes(o.value))
+        .map((o) => ({ ...o, label: `${o.label} (aprobace)` })),
+      ...options.filter((o) => !qualifiedIds.includes(o.value)),
+    ];
+  }
+
   /** Asks again whenever a substitute changes. */
   protected checkConflicts(): void {
     const staff = this.staff();

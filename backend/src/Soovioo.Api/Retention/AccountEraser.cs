@@ -65,7 +65,7 @@ public class AccountEraser(AppDbContext db, RefreshTokenService refreshTokens, P
             person.PhotoKey = null;
             if (person.TeacherProfile is not null)
             {
-                person.TeacherProfile.Qualification = null;
+                person.TeacherProfile.QualificationNote = null;
             }
             await db.DeleteAsync(db.VisibilityChoices.IgnoreQueryFilters().Where(c => c.PersonId == person.Id));
             if (person.ParentProfile is not null)

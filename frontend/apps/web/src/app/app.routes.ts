@@ -64,6 +64,12 @@ const schoolRoutes: Route[] = [
     canActivate: [authGuard],
   },
   {
+    path: 'teaching',
+    loadComponent: () =>
+      import('./teaching-page/teaching-page').then((m) => m.TeachingPage),
+    canActivate: [authGuard],
+  },
+  {
     path: 'events',
     loadComponent: () =>
       import('./events-page/events-page').then((m) => m.EventsPage),

@@ -12,11 +12,16 @@ import { FormsModule } from '@angular/forms';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { MultiSelect } from '@openng/optimus-ui/multiselect';
+import { Button } from '@openng/optimus-ui/button';
+import { InputNumber } from '@openng/optimus-ui/inputnumber';
+import { Select } from '@openng/optimus-ui/select';
+import { SelectButton } from '@openng/optimus-ui/selectbutton';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import {
   AuthApiService,
   Country,
+  DayOfWeek,
   PeopleApiService,
   PhotosApiService,
   Person,
@@ -26,6 +31,8 @@ import {
   SchoolClassesApiService,
   Student,
   StudentsApiService,
+  Subject,
+  SubjectsApiService,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
@@ -44,6 +51,12 @@ import { Loading } from '../loading/loading';
 
 export type PersonProfile = 'teacher' | 'parent' | 'student';
 
+interface QualificationForm {
+  subjectId: number | null;
+  gradeFrom: number | null;
+  gradeTo: number | null;
+}
+
 /** null id = a new person, with `profiles` ticked to start with. */
 export interface PersonDialogTarget {
   id: number | null;
@@ -57,7 +70,11 @@ export interface PersonDialogTarget {
   imports: [
     FloatField,
     Avatar,
+    Button,
     Dialog,
+    InputNumber,
+    Select,
+    SelectButton,
     FormsModule,
     InputText,
     Loading,
@@ -72,6 +89,7 @@ export class PersonDialog {
   private readonly peopleApi = inject(PeopleApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
+  private readonly subjectsApi = inject(SubjectsApiService);
   private readonly referenceApi = inject(ReferenceApiService);
   private readonly notify = inject(NotifyService);
   private readonly photosApi = inject(PhotosApiService);
@@ -97,6 +115,14 @@ export class PersonDialog {
   });
   protected readonly classes = signal<SchoolClass[]>([]);
   protected readonly countries = signal<Country[]>([]);
+  protected readonly subjects = signal<Subject[]>([]);
+  protected readonly dayOptions: { label: string; value: DayOfWeek }[] = [
+    { label: 'Po', value: 'Monday' },
+    { label: 'Út', value: 'Tuesday' },
+    { label: 'St', value: 'Wednesday' },
+    { label: 'Čt', value: 'Thursday' },
+    { label: 'Pá', value: 'Friday' },
+  ];
   private readonly students = signal<Student[]>([]);
   protected readonly childOptions = computed(() =>
     this.students()
@@ -112,7 +138,10 @@ export class PersonDialog {
   protected phone = '';
   protected email = '';
   protected profiles: PersonProfile[] = [];
-  protected qualification = '';
+  protected qualifications: QualificationForm[] = [];
+  protected qualificationNote = '';
+  protected contractedHours: number | null = null;
+  protected teachingDays: DayOfWeek[] = [];
   protected childIds: number[] = [];
   protected studentForm: StudentForm = emptyStudentForm(null);
 
@@ -175,7 +204,10 @@ export class PersonDialog {
     this.phone = '';
     this.email = '';
     this.profiles = [...(target.profiles ?? [])];
-    this.qualification = '';
+    this.qualifications = [];
+    this.qualificationNote = '';
+    this.contractedHours = null;
+    this.teachingDays = this.dayOptions.map((d) => d.value);
     this.childIds = [];
     this.studentForm = emptyStudentForm(null);
     this.loadLists();
@@ -195,7 +227,14 @@ export class PersonDialog {
           ...(person.parent ? ['parent' as const] : []),
           ...(person.student ? ['student' as const] : []),
         ];
-        this.qualification = person.teacher?.qualification ?? '';
+        if (person.teacher) {
+          this.qualifications = person.teacher.qualifications.map((q) => ({
+            ...q,
+          }));
+          this.qualificationNote = person.teacher.qualificationNote ?? '';
+          this.contractedHours = person.teacher.contractedHours;
+          this.teachingDays = [...person.teacher.teachingDays];
+        }
         this.childIds = person.parent?.children.map((c) => c.studentId) ?? [];
         if (person.student) {
           this.studentForm = studentFormOf(person.student);
@@ -217,6 +256,10 @@ export class PersonDialog {
       },
       error: (err) => console.error('getSchoolClasses failed', err),
     });
+    this.subjectsApi.getSubjects().subscribe({
+      next: (subjects) => this.subjects.set(subjects),
+      error: (err) => console.error('getSubjects failed', err),
+    });
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
@@ -236,7 +279,18 @@ export class PersonDialog {
       phone: this.phone.trim() || undefined,
       email: this.email.trim() || undefined,
       teacher: this.profiles.includes('teacher')
-        ? { qualification: this.qualification.trim() || undefined }
+        ? {
+            qualifications: this.qualifications
+              .filter((q) => q.subjectId !== null)
+              .map((q) => ({
+                subjectId: q.subjectId!,
+                gradeFrom: q.gradeFrom,
+                gradeTo: q.gradeTo,
+              })),
+            qualificationNote: this.qualificationNote.trim() || undefined,
+            contractedHours: this.contractedHours,
+            teachingDays: this.teachingDays,
+          }
         : undefined,
       parent: this.profiles.includes('parent')
         ? { childIds: this.childIds }
@@ -265,6 +319,17 @@ export class PersonDialog {
         }
       },
     });
+  }
+
+  protected addQualification(): void {
+    this.qualifications = [
+      ...this.qualifications,
+      { subjectId: null, gradeFrom: null, gradeTo: null },
+    ];
+  }
+
+  protected removeQualification(index: number): void {
+    this.qualifications = this.qualifications.filter((_, i) => i !== index);
   }
 
   /** The pupil's profile has history — their education is ended instead. */

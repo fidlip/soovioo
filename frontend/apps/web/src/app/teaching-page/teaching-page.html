@@ -1,0 +1,284 @@
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+  <h1 class="mb-0 flex items-center gap-3">
+    <app-icon name="timetable" />Přidělení výuky
+  </h1>
+  <p-button
+    label="Rozvrh"
+    icon="pi pi-arrow-left"
+    severity="secondary"
+    [outlined]="true"
+    [routerLink]="schoolContext.link('timetable')"
+  />
+</div>
+
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <app-float-field label="Verze rozvrhu" for="teachingVersion">
+    <p-select
+      ariaLabel="Verze rozvrhu"
+      inputId="teachingVersion"
+      [options]="versionOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="versionId()"
+      (ngModelChange)="selectVersion($event)"
+      name="teachingVersion"
+      styleClass="w-72"
+      appendTo="body"
+    />
+  </app-float-field>
+  @if (overview()?.canEdit) {
+  <p-button
+    label="Načíst z rozvrhu"
+    icon="pi pi-download"
+    severity="secondary"
+    [outlined]="true"
+    [disabled]="busy()"
+    (onClick)="importFromTimetable()"
+  />
+  <p-button
+    [label]="'Potvrdit automatické (' + automaticCount() + ')'"
+    icon="pi pi-check"
+    severity="secondary"
+    [outlined]="true"
+    [disabled]="busy() || automaticCount() === 0"
+    (onClick)="confirmAutomatic()"
+  />
+  }
+</div>
+
+@if (loading()) {
+<app-loading />
+} @else if (overview(); as o) {
+<p class="mb-4 text-sm text-surface-500">
+  Kde škola učitele nepřidělí, vybere ho systém z učitelů s aprobací pro předmět
+  a ročník podle nasmlouvaných hodin. Hodina jen v lichém nebo sudém týdnu se
+  počítá jako 0,5 h.
+</p>
+@if (problemCount() > 0) {
+<p-message severity="warn" styleClass="mb-4">
+  Ke kontrole: {{ problemCount() }}
+</p-message>
+}
+
+<p-tabs [(value)]="activeTab" [scrollable]="true">
+  <p-tablist>
+    <p-tab value="classes">Podle tříd</p-tab>
+    <p-tab value="teachers">Podle učitelů</p-tab>
+    <p-tab value="plan">Učební plán</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <p-tabpanel value="classes">
+      <div class="flex flex-col gap-6 pt-4">
+        @for (c of o.classes; track c.id) {
+        <section [attr.aria-label]="'Třída ' + c.name">
+          <h2 class="mb-2 flex flex-wrap items-center gap-2 text-lg">
+            {{ c.name }} @if (c.grade !== null) {
+            <span class="text-sm font-normal text-surface-500"
+              >{{ c.grade }}. ročník</span
+            >
+            } @if (classProblems(c) > 0) {
+            <p-tag
+              [value]="'Ke kontrole: ' + classProblems(c)"
+              severity="warn"
+            />
+            }
+          </h2>
+          @for (problem of c.problems; track $index) {
+          <p class="mb-2 text-sm text-orange-600 dark:text-orange-400">
+            {{ problem }}
+          </p>
+          }
+          <div class="overflow-x-auto">
+            <p-table [value]="c.rows" dataKey="subjectId">
+              <ng-template #header>
+                <tr>
+                  <th>Předmět</th>
+                  <th>Plán</th>
+                  <th>V rozvrhu</th>
+                  <th>Učitel</th>
+                  <th>Kontrola</th>
+                </tr>
+              </ng-template>
+              <ng-template #body let-row>
+                <tr>
+                  <td>{{ row.subjectName }}</td>
+                  <td>
+                    {{ row.planHours === null ? '—' : formatHours(row.planHours)
+                    }}
+                  </td>
+                  <td>{{ formatHours(row.timetableHours) }}</td>
+                  <td class="min-w-56">
+                    @if (o.canEdit) {
+                    <p-select
+                      [ariaLabel]="'Učitel — ' + c.name + ' ' + row.subjectName"
+                      [options]="teacherOptions(c, row)"
+                      optionLabel="label"
+                      optionValue="value"
+                      [ngModel]="row.automatic ? null : row.teacherId"
+                      (ngModelChange)="assign(c, row, $event)"
+                      [disabled]="busy()"
+                      [filter]="true"
+                      styleClass="w-full"
+                      appendTo="body"
+                    />
+                    } @else { {{ row.teacherName ?? '—' }} } @if (row.automatic
+                    && row.teacherId !== null && !o.canEdit) {
+                    <p-tag value="automaticky" severity="secondary" />
+                    }
+                  </td>
+                  <td>
+                    @for (problem of row.problems; track $index) {
+                    <div class="text-sm text-orange-600 dark:text-orange-400">
+                      {{ problem }}
+                    </div>
+                    } @empty {
+                    <i
+                      class="pi pi-check text-green-600"
+                      aria-label="V pořádku"
+                    ></i>
+                    }
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template #emptymessage>
+                <tr>
+                  <td colspan="5" class="text-surface-500">
+                    Třída nemá v plánu ani v rozvrhu žádný předmět.
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </section>
+        } @empty {
+        <p class="text-surface-500">Žádná výuka k zobrazení.</p>
+        }
+      </div>
+    </p-tabpanel>
+
+    <p-tabpanel value="teachers">
+      <div class="overflow-x-auto pt-4">
+        <p-table [value]="o.teachers" dataKey="id">
+          <ng-template #header>
+            <tr>
+              <th>Učitel</th>
+              <th>Aprobace</th>
+              <th>Nasmlouváno</th>
+              <th>Přiděleno</th>
+              <th>V rozvrhu</th>
+              <th>Dny</th>
+              <th>Učí</th>
+              <th>Kontrola</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-t>
+            <tr>
+              <td>{{ t.name }}</td>
+              <td>{{ t.qualification ?? '—' }}</td>
+              <td>
+                {{ t.contractedHours === null ? '—' :
+                formatHours(t.contractedHours) }}
+              </td>
+              <td>{{ formatHours(t.assignedHours) }}</td>
+              <td>{{ formatHours(t.timetableHours) }}</td>
+              <td>{{ days(t.teachingDays) }}</td>
+              <td class="text-sm">
+                {{ (taughtBy().get(t.id) ?? []).join(', ') || '—' }}
+              </td>
+              <td>
+                @for (problem of t.problems; track $index) {
+                <div class="text-sm text-orange-600 dark:text-orange-400">
+                  {{ problem }}
+                </div>
+                } @empty {
+                <i
+                  class="pi pi-check text-green-600"
+                  aria-label="V pořádku"
+                ></i>
+                }
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr>
+              <td colspan="8" class="text-surface-500">Žádní učitelé.</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </p-tabpanel>
+
+    <p-tabpanel value="plan">
+      <div class="flex flex-col gap-3 pt-4">
+        <p class="text-sm text-surface-500">
+          Hodiny týdně podle ročníků. Ročník třídy se zadává v Administraci →
+          Třídy, předměty a učebny.
+        </p>
+        @if (o.grades.length === 0) {
+        <p class="text-surface-500">Žádná třída nemá zadaný ročník.</p>
+        } @else {
+        <div class="overflow-x-auto">
+          <table class="text-sm" aria-label="Učební plán">
+            <thead>
+              <tr>
+                <th class="p-2 text-left">Předmět</th>
+                @for (g of o.grades; track g) {
+                <th class="p-2 text-center">{{ g }}.</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of subjects(); track s.id) {
+              <tr class="border-t border-surface-200 dark:border-surface-700">
+                <td class="p-2">{{ s.name }}</td>
+                @for (g of o.grades; track g) {
+                <td class="p-1 text-center">
+                  @if (o.canEdit) {
+                  <p-inputNumber
+                    [(ngModel)]="plan[g + '-' + s.id]"
+                    [ariaLabel]="s.name + ' — ' + g + '. ročník'"
+                    [min]="0"
+                    [max]="40"
+                    [minFractionDigits]="0"
+                    [maxFractionDigits]="1"
+                    locale="cs-CZ"
+                    inputStyleClass="w-14 text-center"
+                  />
+                  } @else { {{ plan[g + '-' + s.id] ? formatHours(plan[g + '-' +
+                  s.id]!) : '—' }} }
+                </td>
+                }
+              </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr
+                class="border-t border-surface-300 font-medium dark:border-surface-600"
+              >
+                <td class="p-2">Celkem</td>
+                @for (g of o.grades; track g) {
+                <td class="p-2 text-center">
+                  {{ formatHours(gradeTotal(g)) }}
+                </td>
+                }
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        @if (o.canEdit) {
+        <div>
+          <p-button
+            label="Uložit plán"
+            icon="pi pi-save"
+            [disabled]="busy()"
+            (onClick)="savePlan()"
+          />
+        </div>
+        } }
+      </div>
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>
+} @else {
+<p class="text-surface-500">Škola zatím nemá rozvrh.</p>
+}

@@ -88,7 +88,7 @@
             [inputId]="'substitute-' + s.subjectId"
             [ariaLabel]="'Zástupce — ' + s.name"
             [name]="'substitute-' + s.subjectId"
-            [options]="staffOptions()"
+            [options]="substituteOptions(s.qualifiedIds)"
             optionLabel="label"
             optionValue="value"
             [(ngModel)]="substitutes[s.subjectId]"

@@ -1,4 +1,6 @@
 import { RoleRef } from '../auth/role.model';
+import { Qualification } from '../auth/teacher.model';
+import { DayOfWeek } from '../timetable/timetable-entry.model';
 import { CreateStudentRequest, Student } from '../evidence/student.model';
 
 /** Someone at the school — staff, a parent, a pupil — with the profiles
@@ -28,8 +30,15 @@ export interface PersonAccount {
 }
 
 export interface TeacherProfile {
-  /** Aprobace. */
+  /** The aprobace as text, e.g. "D 6.–9., Čj, 1. stupeň". */
   qualification: string | null;
+  qualifications: Qualification[];
+  /** What the subject list can't say. */
+  qualificationNote: string | null;
+  /** Nasmlouvané hodiny týdně. */
+  contractedHours: number | null;
+  /** Days the teacher can teach. */
+  teachingDays: DayOfWeek[];
   /** Classes whose class teacher the person's account is. */
   classTeacherOf: string[];
 }
@@ -51,7 +60,12 @@ export interface SavePersonRequest {
   lastName: string;
   phone?: string;
   email?: string;
-  teacher?: { qualification?: string };
+  teacher?: {
+    qualifications: Qualification[];
+    qualificationNote?: string;
+    contractedHours?: number | null;
+    teachingDays: DayOfWeek[];
+  };
   parent?: { childIds: number[] };
   student?: StudentMatrika;
 }

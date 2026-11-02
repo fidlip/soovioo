@@ -15,8 +15,6 @@ export interface AppUser {
   email: string | null;
   /** Set only for role Student — the one Student this account logs in as. */
   studentId: number | null;
-  /** Teachers' aprobace (TeacherProfile). */
-  qualification: string | null;
   /** Only in the response to creating an account with an e-mail — what
    * became of the invitation sent along with it. */
   invite?: InviteOutcome;

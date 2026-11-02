@@ -120,6 +120,8 @@ export interface StaffLeavePreview {
     lessons: number;
     classes: string[];
     substituteId: number | null;
+    /** Colleagues whose aprobace covers it in those classes. */
+    qualifiedIds: number[];
   }[];
   /** Colleagues to hand things over to. */
   staff: { userId: number; name: string }[];

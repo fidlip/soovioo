@@ -23,6 +23,8 @@ public enum Permission
     MessagesBroadcastSchool,
     Timetable,
     TimetableVersionsRead,
+    TeachingRead,
+    Teaching,
     Classes,
     Subjects,
     Classrooms,
@@ -43,7 +45,8 @@ public enum PermissionScope
 {
     None,
 
-    /// <summary>A parent's own children, a pupil themselves. For what goes
+    /// <summary>A parent's own children, a pupil themselves; for staff what
+    /// is theirs (přidělení výuky: their own). For what goes
     /// to whole classes (events, payments, class messages) a parent's
     /// children's classes — e.g. the parents' class representative.</summary>
     Own,
@@ -84,6 +87,7 @@ public static class PermissionCatalog
     private static readonly PermissionScope[] NoneOnly = [PermissionScope.None];
     private static readonly PermissionScope[] Own = [PermissionScope.None, PermissionScope.Own];
     private static readonly PermissionScope[] SchoolOnly = [PermissionScope.None, PermissionScope.School];
+    private static readonly PermissionScope[] OwnOrSchool = [PermissionScope.None, PermissionScope.Own, PermissionScope.School];
     private static readonly PermissionScope[] Classes =
         [PermissionScope.None, PermissionScope.ClassTeacher, PermissionScope.MyClasses, PermissionScope.School];
 
@@ -108,6 +112,8 @@ public static class PermissionCatalog
         new(Permission.MessagesBroadcastSchool, "Zprávy", "Hromadná zpráva celé škole", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Timetable, "Rozvrh", "Upravit rozvrh a zvonění", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.TimetableVersionsRead, "Rozvrh", "Vidět koncepty a archivované verze rozvrhu", SchoolOnly, NoneOnly, NoneOnly),
+        new(Permission.TeachingRead, "Rozvrh", "Vidět učební plán a přidělení výuky", OwnOrSchool, NoneOnly, NoneOnly),
+        new(Permission.Teaching, "Rozvrh", "Upravit učební plán a přidělení výuky", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Classes, "Škola", "Upravit třídy", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Subjects, "Škola", "Upravit předměty", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Classrooms, "Škola", "Upravit učebny", SchoolOnly, NoneOnly, NoneOnly),
@@ -151,6 +157,7 @@ public static class PermissionCatalog
             [Permission.MessagesBroadcastClass] = PermissionScope.MyClasses,
             [Permission.Students] = PermissionScope.ClassTeacher,
             [Permission.StudentPhotos] = PermissionScope.ClassTeacher,
+            [Permission.TeachingRead] = PermissionScope.Own,
         },
         UserRole.Parent => new Dictionary<Permission, PermissionScope>
         {

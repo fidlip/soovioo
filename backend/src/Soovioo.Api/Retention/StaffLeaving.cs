@@ -93,9 +93,10 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
         var led = await db.SchoolClasses.Where(c => c.ClassTeacherId == user.Id).OrderBy(c => c.Name)
             .Select(c => new { c.Id, c.Name }).ToListAsync();
         var lessons = await db.TimetableEntriesOn(SchoolClock.Today(clock)).Where(t => t.TeacherId == user.Id)
-            .Select(t => new { t.SubjectId, Subject = t.Subject!.Name, Class = t.SchoolClass!.Name })
+            .Select(t => new { t.SubjectId, Subject = t.Subject!.Name, Class = t.SchoolClass!.Name, Grade = t.SchoolClass.Rocnik })
             .ToListAsync();
-        var staff = await db.Users.Include(u => u.Person)
+        var staff = await db.Users
+            .Include(u => u.Person).ThenInclude(p => p!.TeacherProfile).ThenInclude(t => t!.Qualifications)
             .Where(u => u.Id != user.Id && u.DeactivatedAt == null && u.ErasedAt == null
                 && u.Roles.Any(r => r.Kind == RoleKind.Staff))
             .ToListAsync();
@@ -108,7 +109,10 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
                 .OrderBy(g => g.Key.Subject)
                 .Select(g => new TaughtSubjectDto(
                     g.Key.SubjectId, g.Key.Subject, g.Count(), g.Select(l => l.Class).Distinct().Order().ToList(),
-                    Successor(StaffHandoverKind.Subject, g.Key.SubjectId)))
+                    Successor(StaffHandoverKind.Subject, g.Key.SubjectId),
+                    staff.Where(u => u.Person?.TeacherProfile?.Qualifications is { } qualifications
+                            && g.All(l => qualifications.Any(q => q.Covers(g.Key.SubjectId, l.Grade))))
+                        .Select(u => u.Id).ToList()))
                 .ToList(),
             staff.Select(u => new StaffOptionDto(u.Id, PersonNames.Display(u))).OrderBy(s => s.Name).ToList(),
             user.LeftAt is null ? policy.StaffLeaveNotices : null);
@@ -239,6 +243,23 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
                     entry.TeacherId = substitute;
                 }
             }
+            // A subject nobody takes over is chosen for automatically again.
+            foreach (var assignment in await db.TeachingAssignments.IgnoreQueryFilters()
+                         .Where(a => a.SchoolId == schoolId && a.TeacherId == user.Id
+                             && (a.TimetableVersion!.Status == TimetableVersionStatus.Draft
+                                 || (a.TimetableVersion.Status == TimetableVersionStatus.Published
+                                     && (a.TimetableVersion.ValidTo == null || a.TimetableVersion.ValidTo >= today))))
+                         .ToListAsync())
+            {
+                if (subjects.TryGetValue(assignment.SubjectId, out var substitute))
+                {
+                    assignment.TeacherId = substitute;
+                }
+                else
+                {
+                    db.TeachingAssignments.Remove(assignment);
+                }
+            }
             db.StaffHandovers.RemoveRange(handovers);
             await accounts.DeactivateAsync(user);
         }
@@ -357,7 +378,10 @@ public record HandoverCheckRequest(IReadOnlyList<SubjectSubstituteDto> Substitut
 public record LedClassDto(int ClassId, string Name, int? SuccessorId);
 
 /// <param name="Lessons">Their lessons of the subject in the timetable (a week).</param>
-public record TaughtSubjectDto(int SubjectId, string Name, int Lessons, IReadOnlyList<string> Classes, int? SubstituteId);
+/// <param name="QualifiedIds">Staff whose aprobace covers the subject in
+/// all those classes — offered first.</param>
+public record TaughtSubjectDto(
+    int SubjectId, string Name, int Lessons, IReadOnlyList<string> Classes, int? SubstituteId, IReadOnlyList<int> QualifiedIds);
 
 public record StaffOptionDto(int UserId, string Name);
 

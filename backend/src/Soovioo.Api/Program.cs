@@ -302,7 +302,17 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
     DemoPerson("admin", "Alena", "Správcová");
     var teacherPerson = DemoPerson("ucitel", "Jana", "Učitelová");
     var parentPerson = DemoPerson("rodic", "Petr", "Novák");
-    db.TeacherProfiles.Add(new TeacherProfile { Person = teacherPerson, SchoolId = demoSchoolId, Qualification = "M, Čj" });
+    db.TeacherProfiles.Add(new TeacherProfile
+    {
+        Person = teacherPerson,
+        SchoolId = demoSchoolId,
+        ContractedHours = 22,
+        Qualifications =
+        [
+            new TeacherQualification { SchoolId = demoSchoolId, SubjectId = 1 },
+            new TeacherQualification { SchoolId = demoSchoolId, SubjectId = 2 },
+        ],
+    });
     db.ParentProfiles.Add(new ParentProfile
     {
         Person = parentPerson,

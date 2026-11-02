@@ -2,8 +2,18 @@
   <h1 class="mb-0 flex items-center gap-3">
     <app-icon name="timetable" />Rozvrh
   </h1>
-  @if (canSeeVersions()) {
+  @if (canSeeVersions() || canSeeTeaching()) {
   <div class="flex flex-wrap justify-end gap-2">
+    @if (canSeeTeaching()) {
+    <p-button
+      label="Přidělení výuky"
+      icon="pi pi-users"
+      severity="secondary"
+      [outlined]="true"
+      [routerLink]="schoolContext.link('teaching')"
+      [queryParams]="{ version: shownVersion()?.id }"
+    />
+    } @if (canSeeVersions()) {
     <p-button
       label="Verze rozvrhu"
       icon="pi pi-history"
@@ -11,7 +21,7 @@
       [outlined]="true"
       (onClick)="versionsDialogVisible.set(true)"
     />
-    @if (canEditShownVersion()) {
+    } @if (canEditShownVersion()) {
     <p-button
       [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
       [icon]="editMode() ? 'pi pi-check' : 'pi pi-pencil'"
@@ -386,7 +396,7 @@
       <p-select
         ariaLabel="Vyučující"
         inputId="formTeacherId"
-        [options]="teacherOptions()"
+        [options]="formTeacherOptions()"
         optionLabel="label"
         optionValue="id"
         [(ngModel)]="formTeacherId"

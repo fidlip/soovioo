@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
@@ -28,6 +29,7 @@ import {
   Subject,
   SubjectsApiService,
   Teacher,
+  qualifiedFor,
   TeachersApiService,
   TimetableApiService,
   TimetableVersion,
@@ -39,6 +41,7 @@ import {
   timetableVersionOn,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { SchoolContextService } from '../school-context';
 import { TermPipe } from '../term.pipe';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
@@ -153,6 +156,7 @@ function formatShortDate(date: Date): string {
     Button,
     Dialog,
     Message,
+    RouterLink,
     Select,
     TimetableVersionsDialog,
   ],
@@ -170,6 +174,7 @@ export class TimetablePage {
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
   protected readonly authApi = inject(AuthApiService);
+  protected readonly schoolContext = inject(SchoolContextService);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -470,6 +475,10 @@ export class TimetablePage {
     );
   }
 
+  protected canSeeTeaching(): boolean {
+    return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
+  }
+
   /** An archived version is only to look at. */
   protected canEditShownVersion(): boolean {
     return (
@@ -678,6 +687,25 @@ export class TimetablePage {
     } else if (this.canAddEntries()) {
       this.openAddDialog(day, periodNumber);
     }
+  }
+
+  /** Who has the aprobace for the subject in the class first. */
+  protected formTeacherOptions(): { id: number; label: string }[] {
+    const subjectId = this.formSubjectId;
+    const grade =
+      this.schoolClasses().find(
+        (c) => c.id === this.editingEntrySchoolClassId(),
+      )?.rocnik ?? null;
+    const qualified = (t: Teacher) =>
+      subjectId !== null && qualifiedFor(t.qualifications, subjectId, grade);
+    return [
+      ...this.teachers()
+        .filter(qualified)
+        .map((t) => ({ id: t.id, label: `${t.name} (aprobace)` })),
+      ...this.teachers()
+        .filter((t) => !qualified(t))
+        .map((t) => ({ id: t.id, label: t.name })),
+    ];
   }
 
   private openAddDialog(day: DayOfWeek, periodNumber: number): void {

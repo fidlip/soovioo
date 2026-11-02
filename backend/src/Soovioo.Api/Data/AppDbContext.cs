@@ -26,6 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Absence> Absences => Set<Absence>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<TimetableVersion> TimetableVersions => Set<TimetableVersion>();
+    public DbSet<CurriculumItem> CurriculumItems => Set<CurriculumItem>();
+    public DbSet<TeachingAssignment> TeachingAssignments => Set<TeachingAssignment>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
@@ -43,6 +45,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<ParentStudent> ParentStudents => Set<ParentStudent>();
     public DbSet<Person> Persons => Set<Person>();
     public DbSet<TeacherProfile> TeacherProfiles => Set<TeacherProfile>();
+    public DbSet<TeacherQualification> TeacherQualifications => Set<TeacherQualification>();
     public DbSet<ParentProfile> ParentProfiles => Set<ParentProfile>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Homework.Homework> Homework => Set<Homework.Homework>();
@@ -262,6 +265,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasIndex(x => new { x.SchoolId, x.Status, x.ValidFrom });
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
+        modelBuilder.Entity<CurriculumItem>(e =>
+        {
+            e.Property(x => x.HoursPerWeek).HasPrecision(4, 1);
+            e.HasIndex(x => new { x.TimetableVersionId, x.Grade, x.SubjectId }).IsUnique();
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.Curriculum)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<TeachingAssignment>(e =>
+        {
+            e.HasIndex(x => new { x.TimetableVersionId, x.SchoolClassId, x.SubjectId }).IsUnique();
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.Assignments)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
@@ -301,6 +320,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<TeacherProfile>().HasQueryFilter(t =>
             currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<TeacherProfile>().Property(t => t.ContractedHours).HasPrecision(4, 1);
+        modelBuilder.Entity<TeacherQualification>(e =>
+        {
+            e.HasIndex(x => new { x.TeacherProfileId, x.SubjectId });
+            e.HasOne(x => x.TeacherProfile).WithMany(t => t.Qualifications)
+                .HasForeignKey(x => x.TeacherProfileId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<ParentProfile>().HasQueryFilter(pp =>
             currentSchool.IsSuperAdmin || pp.SchoolId == currentSchool.SchoolId);
         // A former pupil's parents lose access to them with the rest of the

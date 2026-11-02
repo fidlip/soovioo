@@ -32,6 +32,8 @@ export * from './lib/timetable/week';
 export * from './lib/timetable/timetable-api.service';
 export * from './lib/timetable/timetable-version.model';
 export * from './lib/timetable/timetable-versions-api.service';
+export * from './lib/timetable/teaching.model';
+export * from './lib/timetable/teaching-api.service';
 export * from './lib/timetable/school-period.model';
 export * from './lib/timetable/school-periods-api.service';
 export * from './lib/messaging/message.model';

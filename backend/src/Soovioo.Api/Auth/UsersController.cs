@@ -356,7 +356,7 @@ public class UsersController(
     private static UserDto ToDto(User user, int? studentId) =>
         new(user.Id, user.Username, user.Person?.FirstName ?? "", user.Person?.LastName ?? "",
             PersonNames.Display(user), user.ActiveRoleId, RoleRefDto.ListOf(user.Roles),
-            user.Person?.Phone, user.Person?.Email, studentId, user.Person?.TeacherProfile?.Qualification,
+            user.Person?.Phone, user.Person?.Email, studentId,
             DeactivatedAt: user.DeactivatedAt, PersonId: user.Person?.Id, LeftAt: user.LeftAt);
 
     private static string GenerateToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
@@ -425,12 +425,11 @@ public record UpdateUserRequest(string Username, IReadOnlyList<int> RoleIds, int
 /// the account may switch between; name and contacts are its Person's.</summary>
 /// <param name="Name">Display name (first + last, or the username).</param>
 /// <param name="StudentId">Only for role Student — the pupil this account logs in as.</param>
-/// <param name="Qualification">Teachers' aprobace (TeacherProfile).</param>
 /// <param name="Invite">Only in <see cref="UsersController.AddUser"/>'s
 /// response, when the new account has an e-mail: an <see cref="InviteOutcome"/>.</param>
 public record UserDto(
     int Id, string Username, string FirstName, string LastName, string Name, int? ActiveRoleId, IReadOnlyList<RoleRefDto> Roles,
-    string? Phone, string? Email, int? StudentId = null, string? Qualification = null,
+    string? Phone, string? Email, int? StudentId = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Invite = null,
     string? Photo = null,
     DateTimeOffset? DeactivatedAt = null,
