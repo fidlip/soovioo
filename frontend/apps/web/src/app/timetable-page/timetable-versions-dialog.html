@@ -5,10 +5,11 @@
   [modal]="true"
   styleClass="w-full max-w-2xl"
 >
-  @if (form() === null) {
+  @if (form() === null) { @if (canEdit()) {
   <div class="mb-4 flex justify-end">
     <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
   </div>
+  }
   <ul class="m-0 flex list-none flex-col gap-2 p-0">
     @for (version of versions(); track version.id) { @let status =
     statusLabel(version, today);
@@ -33,7 +34,7 @@
           size="small"
           (onClick)="show.emit(version.id)"
         />
-        @if (version.status !== 'Archived') {
+        @if (canEdit()) { @if (version.status !== 'Archived') {
         <p-button
           label="Upravit"
           severity="secondary"
@@ -59,7 +60,7 @@
           size="small"
           (onClick)="restore(version)"
         />
-        }
+        } }
       </div>
     </li>
     } @empty {

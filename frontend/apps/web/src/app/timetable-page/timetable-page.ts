@@ -239,12 +239,12 @@ export class TimetablePage {
     })),
   ]);
   /** Which version is on screen — shown once there's more than one to tell
-   * apart, or always to whoever edits the timetable. */
+   * apart, or always to whoever sees the drafts. */
   protected readonly versionInfo = computed(() => {
     const version = this.shownVersion();
     const several =
       this.versions().filter((v) => v.status === 'Published').length > 1;
-    if (!version || (!several && !this.canManageTimetable())) {
+    if (!version || (!several && !this.canSeeVersions())) {
       return null;
     }
     return {
@@ -461,6 +461,13 @@ export class TimetablePage {
 
   protected canManageTimetable(): boolean {
     return this.authApi.can('Timetable');
+  }
+
+  /** Drafts and archived versions — to edit, or only to look at. */
+  protected canSeeVersions(): boolean {
+    return (
+      this.canManageTimetable() || this.authApi.can('TimetableVersionsRead')
+    );
   }
 
   /** An archived version is only to look at. */

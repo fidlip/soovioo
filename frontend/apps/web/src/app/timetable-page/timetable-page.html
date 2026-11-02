@@ -2,7 +2,7 @@
   <h1 class="mb-0 flex items-center gap-3">
     <app-icon name="timetable" />Rozvrh
   </h1>
-  @if (canManageTimetable()) {
+  @if (canSeeVersions()) {
   <div class="flex flex-wrap justify-end gap-2">
     <p-button
       label="Verze rozvrhu"
@@ -85,7 +85,7 @@
       appendTo="body"
     />
   </app-float-field>
-  } @if (canManageTimetable()) {
+  } @if (canSeeVersions()) {
   <app-float-field label="Verze" for="versionPicker">
     <p-select
       ariaLabel="Verze"
@@ -315,9 +315,10 @@
 </div>
 } @else {
 <app-loading />
-} @if (canManageTimetable()) {
+} @if (canSeeVersions()) {
 <app-timetable-versions-dialog
   [visible]="versionsDialogVisible()"
+  [canEdit]="canManageTimetable()"
   [versions]="versions()"
   [shownVersionId]="shownVersion()?.id ?? null"
   (closed)="versionsDialogVisible.set(false)"
