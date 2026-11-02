@@ -34,6 +34,8 @@ export interface CreateTimetableEntryRequest {
   weekParity: WeekParity;
   teacherId?: number | null;
   classroomId?: number | null;
+  /** Null/missing = the version valid today; ignored on update. */
+  timetableVersionId?: number | null;
 }
 
 /** Same shape as TimetableEntry, plus which class each entry belongs to —

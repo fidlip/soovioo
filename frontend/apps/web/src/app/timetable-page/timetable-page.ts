@@ -30,10 +30,13 @@ import {
   Teacher,
   TeachersApiService,
   TimetableApiService,
+  TimetableVersion,
+  TimetableVersionsApiService,
   WeekParity,
   formatDate,
   isoWeekNumber,
   localizeStudentTerm,
+  timetableVersionOn,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -42,6 +45,11 @@ import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
 import { Loading } from '../loading/loading';
+import {
+  TimetableVersionsDialog,
+  versionStatusLabel,
+  versionValidity,
+} from './timetable-versions-dialog';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -146,6 +154,7 @@ function formatShortDate(date: Date): string {
     Dialog,
     Message,
     Select,
+    TimetableVersionsDialog,
   ],
   templateUrl: './timetable-page.html',
 })
@@ -153,6 +162,7 @@ export class TimetablePage {
   protected readonly notify = inject(NotifyService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly timetableApi = inject(TimetableApiService);
+  private readonly versionsApi = inject(TimetableVersionsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly teachersApi = inject(TeachersApiService);
@@ -201,6 +211,49 @@ export class TimetablePage {
 
   protected readonly weekStart = signal(mondayOf(new Date()));
   protected readonly editMode = signal(false);
+
+  /** Published ones for everyone; drafts and archived ones too for whoever
+   * may edit the timetable. */
+  protected readonly versions = signal<TimetableVersion[]>([]);
+  /** null = the published version valid in the displayed week. */
+  protected readonly selectedVersionId = signal<number | null>(null);
+  protected readonly versionsDialogVisible = signal(false);
+  /** The version the entries were last loaded for — undefined while the
+   * list of versions wasn't in yet. */
+  private loadedVersionId: number | null | undefined;
+
+  private readonly weekVersion = computed(() =>
+    timetableVersionOn(this.versions(), toDateOnly(this.weekStart())),
+  );
+  protected readonly shownVersion = computed(() => {
+    const id = this.selectedVersionId();
+    return id === null
+      ? this.weekVersion()
+      : this.versions().find((v) => v.id === id);
+  });
+  protected readonly versionOptions = computed(() => [
+    { label: 'Podle týdne', value: null as number | null },
+    ...this.versions().map((v) => ({
+      label: `${v.name} (${versionStatusLabel(v, toDateOnly(new Date())).label.toLowerCase()})`,
+      value: v.id as number | null,
+    })),
+  ]);
+  /** Which version is on screen — shown once there's more than one to tell
+   * apart, or always to whoever edits the timetable. */
+  protected readonly versionInfo = computed(() => {
+    const version = this.shownVersion();
+    const several =
+      this.versions().filter((v) => v.status === 'Published').length > 1;
+    if (!version || (!several && !this.canManageTimetable())) {
+      return null;
+    }
+    return {
+      name: version.name,
+      validity: versionValidity(version),
+      status: versionStatusLabel(version, toDateOnly(new Date())),
+      draft: version.status !== 'Published',
+    };
+  });
 
   protected readonly subjectsById = computed(
     () => new Map(this.subjects().map((s) => [s.id, s])),
@@ -324,6 +377,7 @@ export class TimetablePage {
   );
 
   constructor() {
+    this.loadVersions();
     this.schoolPeriodsApi.getPeriods().subscribe({
       next: (periods) => {
         this.periods.set(periods);
@@ -409,6 +463,44 @@ export class TimetablePage {
     return this.authApi.can('Timetable');
   }
 
+  /** An archived version is only to look at. */
+  protected canEditShownVersion(): boolean {
+    return (
+      this.canManageTimetable() && this.shownVersion()?.status !== 'Archived'
+    );
+  }
+
+  private loadVersions(then?: () => void): void {
+    this.versionsApi.getVersions().subscribe({
+      next: (versions) => {
+        this.versions.set(versions);
+        if (!this.canEditShownVersion()) {
+          this.editMode.set(false);
+        }
+        then?.();
+      },
+      error: (err) => console.error('getVersions failed', err),
+    });
+  }
+
+  protected onVersionSelected(id: number | null): void {
+    this.selectedVersionId.set(id);
+    if (!this.canEditShownVersion()) {
+      this.editMode.set(false);
+    }
+    this.reload();
+  }
+
+  protected onShowVersion(id: number): void {
+    this.versionsDialogVisible.set(false);
+    this.onVersionSelected(id);
+  }
+
+  /** Publishing or archiving moves where the other versions end. */
+  protected onVersionsChanged(): void {
+    this.loadVersions(() => this.reload());
+  }
+
   /** Adding a brand new entry only makes sense picking a single class to
    * add it to — teacher/student views span (or resolve to) a class
    * implicitly, but offering "add" there would leave it ambiguous which
@@ -467,17 +559,30 @@ export class TimetablePage {
     const d = new Date(this.weekStart());
     d.setDate(d.getDate() - 7);
     this.weekStart.set(d);
+    this.reloadIfVersionChanged();
   }
 
   protected nextWeek(): void {
     const d = new Date(this.weekStart());
     d.setDate(d.getDate() + 7);
     this.weekStart.set(d);
+    this.reloadIfVersionChanged();
   }
 
   protected thisWeek(): void {
     this.weekStart.set(mondayOf(new Date()));
+    this.reloadIfVersionChanged();
     this.scrollToCurrentPeriodAfterRender();
+  }
+
+  /** Another week may fall into another version of the timetable. */
+  private reloadIfVersionChanged(): void {
+    if (
+      this.selectedVersionId() === null &&
+      this.loadedVersionId !== (this.weekVersion()?.id ?? null)
+    ) {
+      this.reload();
+    }
   }
 
   protected syncHeaderScroll(): void {
@@ -632,6 +737,7 @@ export class TimetablePage {
       weekParity: this.formWeekParity,
       teacherId: this.formTeacherId,
       classroomId: this.formClassroomId,
+      timetableVersionId: this.shownVersion()?.id ?? null,
     };
     const editingId = this.editingEntryId();
     const result =
@@ -641,7 +747,13 @@ export class TimetablePage {
     result.subscribe({
       next: () => {
         this.dialogVisible.set(false);
-        this.reload();
+        // The school's first lesson started its first version.
+        if (this.versions().length === 0) {
+          this.loadVersions(() => this.reload());
+        } else {
+          this.loadVersions();
+          this.reload();
+        }
       },
       error: (err) => this.notify.actionFailed('saveEntry failed', err),
     });
@@ -681,6 +793,16 @@ export class TimetablePage {
   }
 
   private reload(): void {
+    const selected = this.selectedVersionId();
+    const query =
+      selected === null
+        ? { date: toDateOnly(this.weekStart()) }
+        : { versionId: selected };
+    this.loadedVersionId =
+      selected ??
+      (this.versions().length > 0
+        ? (this.weekVersion()?.id ?? null)
+        : undefined);
     const mode = this.viewMode();
     if (mode === 'class') {
       const classId = this.selectedClassId();
@@ -689,7 +811,7 @@ export class TimetablePage {
         this.entriesLoaded.set(true);
         return;
       }
-      this.timetableApi.getTimetable(classId).subscribe({
+      this.timetableApi.getTimetable(classId, query).subscribe({
         next: (entries) =>
           this.setEntries(
             entries.map((e) => ({ ...e, schoolClassName: null })),
@@ -706,7 +828,7 @@ export class TimetablePage {
         this.entriesLoaded.set(true);
         return;
       }
-      this.timetableApi.getTeacherTimetable(teacherId).subscribe({
+      this.timetableApi.getTeacherTimetable(teacherId, query).subscribe({
         next: (entries) => this.setEntries(entries),
         error: (err) => {
           console.error('getTeacherTimetable failed', err);
@@ -722,7 +844,7 @@ export class TimetablePage {
         this.entriesLoaded.set(true);
         return;
       }
-      this.timetableApi.getTimetable(student.schoolClassId).subscribe({
+      this.timetableApi.getTimetable(student.schoolClassId, query).subscribe({
         next: (entries) =>
           this.setEntries(
             entries.map((e) => ({ ...e, schoolClassName: null })),

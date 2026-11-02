@@ -92,7 +92,7 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
 
         var led = await db.SchoolClasses.Where(c => c.ClassTeacherId == user.Id).OrderBy(c => c.Name)
             .Select(c => new { c.Id, c.Name }).ToListAsync();
-        var lessons = await db.TimetableEntries.Where(t => t.TeacherId == user.Id)
+        var lessons = await db.TimetableEntriesOn(SchoolClock.Today(clock)).Where(t => t.TeacherId == user.Id)
             .Select(t => new { t.SubjectId, Subject = t.Subject!.Name, Class = t.SchoolClass!.Name })
             .ToListAsync();
         var staff = await db.Users.Include(u => u.Person)
@@ -124,11 +124,11 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
         }
         var subjectIds = substitutes.Select(s => s.SubjectId).ToList();
         var substituteIds = substitutes.Select(s => s.SubstituteId).Distinct().ToList();
-        var taken = await db.TimetableEntries
+        var taken = await db.TimetableEntriesOn(SchoolClock.Today(clock))
             .Where(t => t.TeacherId == userId && subjectIds.Contains(t.SubjectId))
             .Select(t => new { t.SubjectId, t.DayOfWeek, t.PeriodNumber, t.WeekParity, Class = t.SchoolClass!.Name })
             .ToListAsync();
-        var busy = await db.TimetableEntries
+        var busy = await db.TimetableEntriesOn(SchoolClock.Today(clock))
             .Where(t => t.TeacherId != null && substituteIds.Contains(t.TeacherId.Value))
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.DayOfWeek, t.PeriodNumber, t.WeekParity, Class = t.SchoolClass!.Name })
             .ToListAsync();
@@ -225,8 +225,14 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
                 }
             }
             var subjects = handovers.Where(h => h.Kind == StaffHandoverKind.Subject).ToDictionary(h => h.TargetId, h => h.SuccessorId);
+            // Past versions stay as they were; the one valid now, later ones
+            // and drafts get the substitute.
             foreach (var entry in await db.TimetableEntries.IgnoreQueryFilters()
-                         .Where(t => t.SchoolId == schoolId && t.TeacherId == user.Id).ToListAsync())
+                         .Where(t => t.SchoolId == schoolId && t.TeacherId == user.Id
+                             && (t.TimetableVersion!.Status == TimetableVersionStatus.Draft
+                                 || (t.TimetableVersion.Status == TimetableVersionStatus.Published
+                                     && (t.TimetableVersion.ValidTo == null || t.TimetableVersion.ValidTo >= today))))
+                         .ToListAsync())
             {
                 if (subjects.TryGetValue(entry.SubjectId, out var substitute))
                 {
@@ -271,7 +277,7 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
         if (groups.Contains(StaffLeaveNoticeGroup.TaughtClasses))
         {
             classIds.UnionWith(ledClassIds);
-            classIds.UnionWith(await db.TimetableEntries.Where(t => t.TeacherId == user.Id).Select(t => t.SchoolClassId).ToListAsync());
+            classIds.UnionWith(await db.TimetableEntriesOn(SchoolClock.Today(clock)).Where(t => t.TeacherId == user.Id).Select(t => t.SchoolClassId).ToListAsync());
         }
         var successorNotes = new Dictionary<int, string>();
         if (kind != StaffLeaveNoticeKind.Cancelled)

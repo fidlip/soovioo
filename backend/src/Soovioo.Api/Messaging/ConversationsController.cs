@@ -6,6 +6,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Messaging;
 
@@ -422,7 +423,7 @@ public class ConversationsController(
     {
         var classId = await db.Students.Where(s => s.Id == studentId).Select(s => s.SchoolClassId).FirstAsync();
         var classTeacherId = await db.SchoolClasses.Where(c => c.Id == classId).Select(c => c.ClassTeacherId).FirstOrDefaultAsync();
-        var teaching = await db.TimetableEntries
+        var teaching = await db.TimetableEntriesOn()
             .Where(t => t.SchoolClassId == classId && t.TeacherId != null)
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.Subject!.Name })
             .Distinct()

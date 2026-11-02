@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
@@ -11,13 +12,22 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/school-classes/{schoolClassId}/timetable")]
-public class TimetableController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class TimetableController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
+    /// <summary>The lessons of <paramref name="versionId"/>, or of the version
+    /// valid on <paramref name="date"/> (today by default).</summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TimetableEntryDto>>> GetTimetable(int schoolClassId)
+    public async Task<ActionResult<IEnumerable<TimetableEntryDto>>> GetTimetable(
+        int schoolClassId, [FromQuery] int? versionId = null, [FromQuery] DateOnly? date = null)
     {
+        var version = await ResolveVersionAsync(versionId, date);
+        if (version is null)
+        {
+            return versionId is null ? Ok(Array.Empty<TimetableEntryDto>()) : NotFound();
+        }
+
         var entries = await db.TimetableEntries
-            .Where(e => e.SchoolClassId == schoolClassId)
+            .Where(e => e.TimetableVersionId == version.Id && e.SchoolClassId == schoolClassId)
             .OrderBy(e => e.DayOfWeek)
             .ThenBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
@@ -36,7 +46,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 Array.Empty<string>()))
             .ToListAsync();
 
-        var conflicts = await FindConflictsAsync(entries.Select(e =>
+        var conflicts = await FindConflictsAsync(version.Id, entries.Select(e =>
             new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId)));
         return Ok(entries.Select(e => e with { Conflicts = conflicts.GetValueOrDefault(e.Id, []) }));
     }
@@ -50,10 +60,17 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     /// controller's own `api/school-classes/{schoolClassId}/timetable`
     /// prefix, since it isn't scoped to a class at all.</summary>
     [HttpGet("/api/teachers/{teacherId:int}/timetable")]
-    public async Task<ActionResult<IEnumerable<TeacherTimetableEntryDto>>> GetTeacherTimetable(int teacherId)
+    public async Task<ActionResult<IEnumerable<TeacherTimetableEntryDto>>> GetTeacherTimetable(
+        int teacherId, [FromQuery] int? versionId = null, [FromQuery] DateOnly? date = null)
     {
+        var version = await ResolveVersionAsync(versionId, date);
+        if (version is null)
+        {
+            return versionId is null ? Ok(Array.Empty<TeacherTimetableEntryDto>()) : NotFound();
+        }
+
         var entries = await db.TimetableEntries
-            .Where(e => e.TeacherId == teacherId)
+            .Where(e => e.TimetableVersionId == version.Id && e.TeacherId == teacherId)
             .OrderBy(e => e.DayOfWeek)
             .ThenBy(e => e.PeriodNumber)
             .Select(e => new TeacherTimetableEntryDto(
@@ -73,9 +90,25 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 Array.Empty<string>()))
             .ToListAsync();
 
-        var conflicts = await FindConflictsAsync(entries.Select(e =>
+        var conflicts = await FindConflictsAsync(version.Id, entries.Select(e =>
             new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId)));
         return Ok(entries.Select(e => e with { Conflicts = conflicts.GetValueOrDefault(e.Id, []) }));
+    }
+
+    /// <summary>Drafts and archived versions only for whoever may edit the
+    /// timetable; to everyone else they don't exist.</summary>
+    private async Task<TimetableVersion?> ResolveVersionAsync(int? versionId, DateOnly? date)
+    {
+        if (versionId is null)
+        {
+            return await db.TimetableVersionOnAsync(date ?? SchoolClock.Today(clock));
+        }
+
+        var version = await db.TimetableVersions.FindAsync(versionId);
+        return version is not null
+            && (version.Status == TimetableVersionStatus.Published || await User.HasPermissionAsync(db, Permission.Timetable))
+                ? version
+                : null;
     }
 
     [HttpPost]
@@ -108,8 +141,21 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest("Neznámá učebna.");
         }
 
+        var version = request.TimetableVersionId is { } versionId
+            ? await db.TimetableVersions.FindAsync(versionId)
+            : await db.EnsureTimetableVersionOnAsync(currentSchool.SchoolId!.Value, SchoolClock.Today(clock), clock.GetUtcNow());
+        if (version is null)
+        {
+            return BadRequest("Neznámá verze rozvrhu.");
+        }
+        if (version.Status == TimetableVersionStatus.Archived)
+        {
+            return BadRequest(ArchivedMessage);
+        }
+
         var entry = new TimetableEntry
         {
+            TimetableVersionId = version.Id,
             SchoolClassId = schoolClassId,
             SubjectId = request.SubjectId,
             DayOfWeek = request.DayOfWeek,
@@ -123,7 +169,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         db.TimetableEntries.Add(entry);
         await db.SaveChangesAsync();
 
-        var conflicts = await FindConflictsAsync([ConflictSlot.Of(entry)]);
+        var conflicts = await FindConflictsAsync(entry.TimetableVersionId, [ConflictSlot.Of(entry)]);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
@@ -136,10 +182,15 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     public async Task<ActionResult<TimetableEntryDto>> UpdateEntry(
         int schoolClassId, int id, CreateTimetableEntryRequest request)
     {
-        var entry = await db.TimetableEntries.FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);
+        var entry = await db.TimetableEntries.Include(e => e.TimetableVersion)
+            .FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);
         if (entry is null)
         {
             return NotFound();
+        }
+        if (entry.TimetableVersion!.Status == TimetableVersionStatus.Archived)
+        {
+            return BadRequest(ArchivedMessage);
         }
 
         var subject = await db.Subjects.FindAsync(request.SubjectId);
@@ -168,7 +219,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         entry.ClassroomId = request.ClassroomId;
         await db.SaveChangesAsync();
 
-        var conflicts = await FindConflictsAsync([ConflictSlot.Of(entry)]);
+        var conflicts = await FindConflictsAsync(entry.TimetableVersionId, [ConflictSlot.Of(entry)]);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
@@ -205,8 +256,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     /// schedule quirk (two classes briefly sharing a gym, a data-entry
     /// mistake to be fixed later) can still be saved. Computed on every read
     /// so the grid keeps flagging them until fixed. Only checks other
-    /// TimetableEntry rows, not Events (see ROADMAP).</summary>
-    private async Task<Dictionary<int, string[]>> FindConflictsAsync(IEnumerable<ConflictSlot> slots)
+    /// TimetableEntry rows of the same version, not Events (see ROADMAP).</summary>
+    private async Task<Dictionary<int, string[]>> FindConflictsAsync(int versionId, IEnumerable<ConflictSlot> slots)
     {
         var slotList = slots.ToList();
         var teacherIds = slotList.Where(s => s.TeacherId is not null).Select(s => s.TeacherId!.Value).Distinct().ToList();
@@ -217,6 +268,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         }
 
         var candidates = await db.TimetableEntries
+            .Where(e => e.TimetableVersionId == versionId)
             .Where(e =>
                 (e.TeacherId != null && teacherIds.Contains(e.TeacherId.Value)) ||
                 (e.ClassroomId != null && classroomIds.Contains(e.ClassroomId.Value)))
@@ -269,6 +321,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             new(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId);
     }
 
+    private const string ArchivedMessage = "Archivovanou verzi rozvrhu nejde upravovat.";
+
     private static bool ParityOverlaps(WeekParity a, WeekParity b) =>
         a == WeekParity.Every || b == WeekParity.Every || a == b;
 
@@ -276,10 +330,15 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     [RequirePermission(Permission.Timetable)]
     public async Task<IActionResult> DeleteEntry(int schoolClassId, int id)
     {
-        var entry = await db.TimetableEntries.FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);
+        var entry = await db.TimetableEntries.Include(e => e.TimetableVersion)
+            .FirstOrDefaultAsync(e => e.Id == id && e.SchoolClassId == schoolClassId);
         if (entry is null)
         {
             return NotFound();
+        }
+        if (entry.TimetableVersion!.Status == TimetableVersionStatus.Archived)
+        {
+            return BadRequest(ArchivedMessage);
         }
 
         db.TimetableEntries.Remove(entry);
@@ -294,7 +353,10 @@ public record CreateTimetableEntryRequest(
     int PeriodNumber,
     WeekParity WeekParity,
     int? TeacherId = null,
-    int? ClassroomId = null);
+    int? ClassroomId = null,
+    /// <summary>Null = the version valid today. Ignored on update — a lesson
+    /// stays in its version.</summary>
+    int? TimetableVersionId = null);
 
 public record TimetableEntryDto(
     int Id,

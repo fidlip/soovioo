@@ -751,11 +751,22 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             teacherBusy[(swap.Lesson.Teacher, swap.Day, swap.Period)] = teacherBusy.GetValueOrDefault((swap.Lesson.Teacher, swap.Day, swap.Period)) + 1;
         }
 
+        var version = new TimetableVersion
+        {
+            SchoolId = school.Id,
+            Name = TimetableVersions.SchoolYearName(calendar.Start),
+            ValidFrom = calendar.Start,
+            Status = TimetableVersionStatus.Published,
+            CreatedAt = now,
+            PublishedAt = now,
+        };
+        db.TimetableVersions.Add(version);
         foreach (var x in placed)
         {
             db.TimetableEntries.Add(new TimetableEntry
             {
                 SchoolId = school.Id,
+                TimetableVersion = version,
                 SchoolClass = x.Lesson.Class.Class,
                 Subject = subjects[x.Lesson.Subject],
                 DayOfWeek = Weekdays[x.Day],

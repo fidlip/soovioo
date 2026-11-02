@@ -75,6 +75,7 @@ internal static class TestRoles
     {
         db.TimetableEntries.Add(new global::Soovioo.Api.Timetable.TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(schoolId),
             SchoolId = schoolId, SchoolClassId = schoolClassId, SubjectId = subjectId, TeacherId = teacherId,
             DayOfWeek = DayOfWeek.Monday, PeriodNumber = db.TimetableEntries.Local.Count + 1,
         });

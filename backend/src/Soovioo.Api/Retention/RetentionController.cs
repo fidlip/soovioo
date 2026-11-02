@@ -9,6 +9,7 @@ using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Retention;
 
@@ -87,6 +88,7 @@ public class RetentionController(
             })
             .ToListAsync();
 
+        var lessons = db.TimetableEntriesOn(today);
         var staff = await db.Users
             .Where(u => u.ErasedAt == null && (u.DeactivatedAt != null || u.LeftAt != null)
                 && u.Roles.Any(r => r.Kind == RoleKind.Staff))
@@ -95,7 +97,7 @@ public class RetentionController(
                 u.Id, u.Username, u.Person, u.DeactivatedAt, u.LeftAt,
                 Classes = db.SchoolClasses.Count(c => c.ClassTeacherId == u.Id
                     && !db.StaffHandovers.Any(h => h.UserId == u.Id && h.Kind == StaffHandoverKind.ClassTeacher && h.TargetId == c.Id)),
-                Lessons = db.TimetableEntries.Count(t => t.TeacherId == u.Id
+                Lessons = lessons.Count(t => t.TeacherId == u.Id
                     && !db.StaffHandovers.Any(h => h.UserId == u.Id && h.Kind == StaffHandoverKind.Subject && h.TargetId == t.SubjectId)),
             })
             .ToListAsync();
@@ -329,7 +331,7 @@ public class RetentionController(
         }
         var subjectIds = (request.Substitutes ?? []).Select(s => s.SubjectId).ToList();
         if (subjectIds.Distinct().Count() != subjectIds.Count
-            || await db.TimetableEntries.Where(t => t.TeacherId == userId && subjectIds.Contains(t.SubjectId))
+            || await db.TimetableEntriesOn(Today).Where(t => t.TeacherId == userId && subjectIds.Contains(t.SubjectId))
                 .Select(t => t.SubjectId).Distinct().CountAsync() != subjectIds.Count)
         {
             return BadRequest("Předat jde jen hodiny, které zaměstnanec učí.");

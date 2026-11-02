@@ -77,6 +77,7 @@ public class ConversationsControllerTests
         await db.LinkChildAsync(w.Parent.Id, w.Student.Id, SchoolId);
         db.TimetableEntries.Add(new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = schoolClass.Id, SubjectId = math.Id, TeacherId = w.MathTeacher.Id,
             DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, SchoolId = SchoolId,
         });

@@ -1,0 +1,128 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="!$event && close()"
+  header="Verze rozvrhu"
+  [modal]="true"
+  styleClass="w-full max-w-2xl"
+>
+  @if (form() === null) {
+  <div class="mb-4 flex justify-end">
+    <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
+  </div>
+  <ul class="m-0 flex list-none flex-col gap-2 p-0">
+    @for (version of versions(); track version.id) { @let status =
+    statusLabel(version, today);
+    <li
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-surface-200 p-3 dark:border-surface-700"
+      data-testid="timetable-version"
+    >
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2 font-semibold">
+          {{ version.name }}
+          <p-tag [value]="status.label" [severity]="status.severity" />
+        </div>
+        <div class="text-sm text-surface-500">
+          {{ validity(version) }} · {{ version.entryCount }} h
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-1">
+        <p-button
+          label="Zobrazit"
+          severity="secondary"
+          [text]="true"
+          size="small"
+          (onClick)="show.emit(version.id)"
+        />
+        @if (version.status !== 'Archived') {
+        <p-button
+          label="Upravit"
+          severity="secondary"
+          [text]="true"
+          size="small"
+          (onClick)="startEdit(version)"
+        />
+        } @if (version.status === 'Draft') {
+        <p-button label="Zveřejnit" size="small" (onClick)="publish(version)" />
+        } @if (canArchive(version)) {
+        <p-button
+          label="Archivovat"
+          severity="danger"
+          [outlined]="true"
+          size="small"
+          (onClick)="archive(version)"
+        />
+        } @if (version.status === 'Archived') {
+        <p-button
+          label="Vrátit mezi koncepty"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="restore(version)"
+        />
+        }
+      </div>
+    </li>
+    } @empty {
+    <li class="text-surface-500">Škola zatím nemá žádnou verzi rozvrhu.</li>
+    }
+  </ul>
+  } @else {
+  <form class="flex flex-col gap-3" #versionForm="ngForm" (ngSubmit)="save()">
+    <app-float-field label="Název" for="versionName">
+      <input
+        pInputText
+        id="versionName"
+        name="versionName"
+        required
+        maxlength="100"
+        [(ngModel)]="formName"
+        class="w-full"
+      />
+    </app-float-field>
+    @if (form() === 'new' || canMoveStart(editingVersion()!)) {
+    <app-float-field label="Platí od" for="versionValidFrom">
+      <p-datePicker
+        inputId="versionValidFrom"
+        name="versionValidFrom"
+        required
+        [(ngModel)]="formValidFrom"
+        [showIcon]="true"
+        [showOnFocus]="false"
+        appendTo="body"
+      />
+    </app-float-field>
+    } @if (form() === 'new') {
+    <app-float-field label="Vychází z" for="versionCopyFrom">
+      <p-select
+        ariaLabel="Vychází z"
+        inputId="versionCopyFrom"
+        name="versionCopyFrom"
+        [options]="copyOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="formCopyFrom"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <p class="m-0 text-sm text-surface-500">
+      Koncept uvidí jen ti, kdo smí upravovat rozvrh. Platit začne až po
+      zveřejnění.
+    </p>
+    }
+    <div class="mt-2 flex justify-end gap-2">
+      <p-button
+        type="button"
+        label="Zpět"
+        severity="secondary"
+        [text]="true"
+        (onClick)="cancelForm()"
+      />
+      <app-submit-button
+        [form]="versionForm"
+        [label]="form() === 'new' ? 'Vytvořit koncept' : 'Uložit'"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>

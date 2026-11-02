@@ -50,9 +50,9 @@ public class StaffLeavingTests
         db.Subjects.Add(maths);
         db.SaveChanges();
         db.TimetableEntries.AddRange(
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1 },
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 2 },
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = classB.Id, SubjectId = maths.Id, TeacherId = colleague.Id, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Odd });
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1 },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 2 },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = classB.Id, SubjectId = maths.Id, TeacherId = colleague.Id, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Odd });
         pupil = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = classA.Id, SchoolId = SchoolId };
         db.Students.Add(pupil);
         db.SaveChanges();
@@ -103,6 +103,30 @@ public class StaffLeavingTests
         // Monday 1st: the colleague teaches 6.B there in odd weeks; Tuesday is free.
         var conflict = Assert.Single(conflicts);
         Assert.Equal((DayOfWeek.Monday, 1, "5.A", "6.B"), (conflict.DayOfWeek, conflict.PeriodNumber, conflict.Class, conflict.OtherClass));
+    }
+
+    [Fact]
+    public async Task HandsOverTheLessonsOfTheCurrentAndLaterVersionsButNotOfPastOnes()
+    {
+        var past = new TimetableVersion
+        {
+            SchoolId = SchoolId, Name = "Loni", ValidFrom = new DateOnly(1999, 9, 1), ValidTo = new DateOnly(2000, 8, 31),
+            Status = TimetableVersionStatus.Published,
+        };
+        var draft = new TimetableVersion { SchoolId = SchoolId, Name = "Koncept", ValidFrom = Today.AddMonths(3), Status = TimetableVersionStatus.Draft };
+        db.TimetableEntries.AddRange(
+            new TimetableEntry { TimetableVersion = past, SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Friday, PeriodNumber = 1 },
+            new TimetableEntry { TimetableVersion = draft, SchoolId = SchoolId, SchoolClassId = classA.Id, SubjectId = maths.Id, TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Friday, PeriodNumber = 1 });
+        await db.SaveChangesAsync();
+        await Controller().SetStaffLeave(teacher.Id, HandOver(Today));
+
+        clock.Now = clock.Now.AddDays(1);
+        await Leaving().ApplyDueAsync(SchoolId);
+
+        Assert.Equal(teacher.Id, (await db.TimetableEntries.SingleAsync(t => t.TimetableVersionId == past.Id)).TeacherId);
+        Assert.Equal(colleague.Id, (await db.TimetableEntries.SingleAsync(t => t.TimetableVersionId == draft.Id)).TeacherId);
+        Assert.All(await db.TimetableEntriesOn(Today.AddDays(1)).Where(t => t.SubjectId == maths.Id).ToListAsync(),
+            t => Assert.Equal(colleague.Id, t.TeacherId));
     }
 
     [Fact]

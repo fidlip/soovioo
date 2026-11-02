@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.People;
 
@@ -106,7 +107,7 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
             .ToListAsync();
         var led = await db.SchoolClasses.Where(c => c.ClassTeacherId != null)
             .Select(c => new { TeacherId = c.ClassTeacherId!.Value, ClassId = c.Id }).ToListAsync();
-        var taught = await db.TimetableEntries.Where(t => t.TeacherId != null)
+        var taught = await db.TimetableEntriesOn().Where(t => t.TeacherId != null)
             .Select(t => new { TeacherId = t.TeacherId!.Value, ClassId = t.SchoolClassId, Subject = t.Subject!.Name })
             .Distinct().ToListAsync();
         var choices = await ChoicesOfPersonsAsync(staff.Where(u => u.Person != null).Select(u => u.Person!.Id));
