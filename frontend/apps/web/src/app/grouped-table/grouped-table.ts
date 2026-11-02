@@ -10,6 +10,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { Loading } from '../loading/loading';
 
 /** One grouping level — rows sharing the same `key` (and the same keys on
  * every level above) belong to one group. */
@@ -51,7 +52,7 @@ const DESKTOP_QUERY = '(min-width: 768px)';
  * under a row while `isExpanded(row)`; rows then emit `rowClick`). */
 @Component({
   selector: 'app-grouped-table',
-  imports: [NgTemplateOutlet],
+  imports: [Loading, NgTemplateOutlet],
   templateUrl: './grouped-table.html',
 })
 export class GroupedTable<T> {
@@ -59,6 +60,8 @@ export class GroupedTable<T> {
   readonly groups = input<GroupLevel<T>[]>([]);
   readonly rowKey = input.required<(row: T) => unknown>();
   readonly emptyMessage = input('Žádné záznamy.');
+  /** The rows haven't arrived yet — "Načítání…" instead of `emptyMessage`. */
+  readonly loading = input(false);
   /** With a `#rowDetail` template: which rows show their detail. */
   readonly isExpanded = input<(row: T) => boolean>(() => false);
   readonly rowClick = output<T>();

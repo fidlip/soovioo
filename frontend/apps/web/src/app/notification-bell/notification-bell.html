@@ -57,7 +57,9 @@
       </li>
       } @empty {
       <li class="px-2 py-4 text-sm text-surface-500">
-        {{ loading() ? 'Načítání…' : 'Zatím žádná upozornění.' }}
+        @if (loading()) {
+        <app-loading />
+        } @else { Zatím žádná upozornění. }
       </li>
       }
     </ul>

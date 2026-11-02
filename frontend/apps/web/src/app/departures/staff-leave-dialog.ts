@@ -29,6 +29,7 @@ import {
   STAFF_LEAVE_REASON_OPTIONS,
   toDateOnly,
 } from './retention-labels';
+import { Loading } from '../loading/loading';
 
 /** The member of staff whose departure is edited. */
 export interface StaffLeaveTarget {
@@ -49,6 +50,7 @@ export interface StaffLeaveTarget {
     DatePicker,
     Dialog,
     InputText,
+    Loading,
     Message,
     Select,
     ...FORM_FIELDS,

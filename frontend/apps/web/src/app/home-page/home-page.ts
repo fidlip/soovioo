@@ -21,6 +21,7 @@ import { AppIcon, AppIconName } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
+import { Loading } from '../loading/loading';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -93,6 +94,7 @@ interface Widget {
   imports: [
     FloatField,
     DateFormatPipe,
+    Loading,
     TermPipe,
     AppIcon,
     Button,

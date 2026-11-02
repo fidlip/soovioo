@@ -37,6 +37,7 @@ import { TermPipe } from '../term.pipe';
 import { foldForSearch } from '../text-search';
 import { PersonDialog, PersonDialogTarget } from './person-dialog';
 import { personPhotoUrl } from './person-photo';
+import { Loading } from '../loading/loading';
 
 type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
 
@@ -53,6 +54,7 @@ type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
     FormsModule,
     InputText,
     LeaveDialog,
+    Loading,
     PersonDialog,
     PrimeTemplate,
     Select,
@@ -79,7 +81,7 @@ export class PeopleTab {
   /** Something an account shows (name, contacts) changed. */
   readonly changed = output<void>();
 
-  protected readonly people = signal<Person[]>([]);
+  protected readonly people = signal<Person[] | null>(null);
   protected readonly dialog = signal<PersonDialogTarget | null>(null);
   protected readonly leaveStudent = signal<LeaveTarget | null>(null);
   protected readonly photoStudentId = signal<number | null>(null);
@@ -106,7 +108,7 @@ export class PeopleTab {
 
   protected readonly classOptions = computed(() => {
     const classes = new Map<number, string>();
-    for (const p of this.people()) {
+    for (const p of this.people() ?? []) {
       if (p.student) {
         classes.set(p.student.schoolClassId, p.student.schoolClassName);
       }
@@ -121,7 +123,7 @@ export class PeopleTab {
     const kind = this.filterKind();
     const roleId = this.filterRoleId();
     const classId = this.filterClassId();
-    return this.people().filter(
+    return (this.people() ?? []).filter(
       (p) =>
         (!name || foldForSearch(p.name).includes(name)) &&
         (kind === null ||
@@ -141,7 +143,10 @@ export class PeopleTab {
   reload(): void {
     this.peopleApi.getPeople().subscribe({
       next: (people) => this.people.set(people),
-      error: (err) => this.notify.actionFailed('getPeople failed', err),
+      error: (err) => {
+        this.notify.actionFailed('getPeople failed', err);
+        this.people.update((people) => people ?? []);
+      },
     });
   }
 

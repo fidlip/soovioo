@@ -148,7 +148,9 @@
   <ng-template pTemplate="emptymessage">
     <tr>
       <td colspan="7" class="py-6 text-center text-surface-500">
-        Žádné záznamy.
+        @if (absences()) { Žádné záznamy. } @else {
+        <app-loading class="justify-center" />
+        }
       </td>
     </tr>
   </ng-template>

@@ -11,6 +11,7 @@ import {
   DemoFeedback,
 } from '@soovioo/shared';
 import { NotifyService } from '../notify.service';
+import { Loading } from '../loading/loading';
 
 /** Values recorded before roles became the school's own (now the role's name). */
 const LEGACY_ROLE_LABELS: Record<string, string> = {
@@ -25,25 +26,39 @@ const LEGACY_ROLE_LABELS: Record<string, string> = {
  * feedback. */
 @Component({
   selector: 'app-demo-admin-panel',
-  imports: [DateFormatPipe, Button, Card, PrimeTemplate, TableModule, Tag],
+  imports: [
+    Button,
+    Card,
+    DateFormatPipe,
+    Loading,
+    PrimeTemplate,
+    TableModule,
+    Tag,
+  ],
   templateUrl: './demo-admin-panel.html',
 })
 export class DemoAdminPanel {
   private readonly demoApi = inject(DemoApiService);
   private readonly notify = inject(NotifyService);
 
-  protected readonly contacts = signal<DemoContact[]>([]);
-  protected readonly feedback = signal<DemoFeedback[]>([]);
+  protected readonly contacts = signal<DemoContact[] | null>(null);
+  protected readonly feedback = signal<DemoFeedback[] | null>(null);
   protected readonly roleLabels = LEGACY_ROLE_LABELS;
 
   constructor() {
     this.demoApi.contacts().subscribe({
       next: (c) => this.contacts.set(c),
-      error: (err) => this.notify.actionFailed('demo contacts failed', err),
+      error: (err) => {
+        this.notify.actionFailed('demo contacts failed', err);
+        this.contacts.set([]);
+      },
     });
     this.demoApi.allFeedback().subscribe({
       next: (f) => this.feedback.set(f),
-      error: (err) => this.notify.actionFailed('demo feedback failed', err),
+      error: (err) => {
+        this.notify.actionFailed('demo feedback failed', err);
+        this.feedback.set([]);
+      },
     });
   }
 

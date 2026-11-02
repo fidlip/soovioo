@@ -81,7 +81,7 @@ export class GradesPage {
   private readonly reportCardApi = inject(ReportCardApiService);
   private readonly authApi = inject(AuthApiService);
 
-  protected readonly grades = signal<Grade[]>([]);
+  protected readonly grades = signal<Grade[] | null>(null);
   protected readonly students = signal<Student[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
 
@@ -108,7 +108,7 @@ export class GradesPage {
   protected readonly filteredGrades = computed(() => {
     const studentId = this.filterStudentId();
     const subjectId = this.filterSubjectId();
-    return this.grades().filter(
+    return (this.grades() ?? []).filter(
       (g) =>
         (studentId === null || g.studentId === studentId) &&
         (subjectId === null || g.subjectId === subjectId),
@@ -257,7 +257,10 @@ export class GradesPage {
   private reload(): void {
     this.gradesApi.getGrades().subscribe({
       next: (grades) => this.grades.set(grades),
-      error: (err) => console.error('getGrades failed', err),
+      error: (err) => {
+        console.error('getGrades failed', err);
+        this.grades.set([]);
+      },
     });
   }
 }

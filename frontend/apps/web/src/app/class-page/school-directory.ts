@@ -17,6 +17,7 @@ import {
 import { Subject, debounceTime } from 'rxjs';
 import { Avatar } from '../avatar/avatar';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 
 /** Lidé → Škola: everyone at the school as far as their "Viditelnost
  * údajů" reaches the viewer — the API leaves the rest out. Searched,
@@ -28,6 +29,7 @@ import { FORM_FIELDS, FloatField } from '../forms';
     ...FORM_FIELDS,
     FormsModule,
     InputText,
+    Loading,
     Paginator,
     Select,
     Avatar,

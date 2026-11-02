@@ -3,7 +3,7 @@
 </h1>
 
 @if (accessLevel() === 'loading') {
-<p class="text-surface-500">Načítání…</p>
+<app-loading />
 } @else if (accessLevel() === 'denied') {
 <p class="text-surface-500">
   Tato stránka je dostupná pro roli Admin, nebo pro třídního učitele (jen pro
@@ -123,7 +123,9 @@
       <ng-template pTemplate="emptymessage">
         <tr>
           <td colspan="6" class="py-3 text-surface-500">
-            {{ 'Žádní studenti.' | term }}
+            @if (studentsLoaded()) { {{ 'Žádní studenti.' | term }} } @else {
+            <app-loading />
+            }
           </td>
         </tr>
       </ng-template>
@@ -187,7 +189,11 @@
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="3" class="py-3 text-surface-500">Žádní rodiče.</td>
+          <td colspan="3" class="py-3 text-surface-500">
+            @if (parentsLoaded()) { Žádní rodiče. } @else {
+            <app-loading />
+            }
+          </td>
         </tr>
       </ng-template>
     </p-table>
@@ -612,7 +618,9 @@
               <ng-template pTemplate="emptymessage">
                 <tr>
                   <td colspan="4" class="py-3 text-surface-500">
-                    Žádní uživatelé.
+                    @if (usersLoaded()) { Žádní uživatelé. } @else {
+                    <app-loading />
+                    }
                   </td>
                 </tr>
               </ng-template>

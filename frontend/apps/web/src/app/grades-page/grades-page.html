@@ -71,6 +71,7 @@
   [rows]="filteredGrades()"
   [groups]="groups()"
   [rowKey]="gradeId"
+  [loading]="grades() === null"
   emptyMessage="Zatím žádné známky."
 >
   <ng-template #headerCells>

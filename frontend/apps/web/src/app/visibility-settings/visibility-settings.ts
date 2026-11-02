@@ -23,6 +23,7 @@ import {
   scopeRank,
   scopesBetween,
 } from '../visibility-options';
+import { Loading } from '../loading/loading';
 
 type Bound = 'min' | 'default' | 'max';
 
@@ -36,6 +37,7 @@ type Bound = 'min' | 'default' | 'max';
     FormsModule,
     Button,
     Card,
+    Loading,
     Select,
     ToggleSwitch,
     InfoHint,

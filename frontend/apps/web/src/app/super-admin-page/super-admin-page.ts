@@ -25,6 +25,7 @@ import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { DemoAdminPanel } from './demo-admin-panel';
+import { Loading } from '../loading/loading';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -40,6 +41,7 @@ const DEFAULT_PAGE_SIZE = 10;
     Card,
     Dialog,
     InputText,
+    Loading,
     Paginator,
     Password,
     PrimeTemplate,
@@ -69,7 +71,7 @@ export class SuperAdminPage {
   protected superAdminPhone = '';
   protected superAdminEmail = '';
 
-  protected readonly schools = signal<School[]>([]);
+  protected readonly schools = signal<School[] | null>(null);
   protected readonly totalCount = signal(0);
   protected readonly page = signal(1);
   protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
@@ -227,7 +229,10 @@ export class SuperAdminPage {
             this.demoCount.set(result.totalCount);
           }
         },
-        error: (err) => console.error('getSchools failed', err),
+        error: (err) => {
+          console.error('getSchools failed', err);
+          this.schools.update((schools) => schools ?? []);
+        },
       });
   }
 

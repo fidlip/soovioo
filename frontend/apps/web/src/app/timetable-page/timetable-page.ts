@@ -41,6 +41,7 @@ import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
+import { Loading } from '../loading/loading';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -137,6 +138,7 @@ function formatShortDate(date: Date): string {
   imports: [
     FloatField,
     ...FORM_FIELDS,
+    Loading,
     TermPipe,
     AppIcon,
     FormsModule,

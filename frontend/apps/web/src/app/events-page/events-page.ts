@@ -51,6 +51,7 @@ import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { CALENDAR_LOCALE } from '../locale';
+import { Loading } from '../loading/loading';
 
 type ViewOption = { value: string; label: string };
 
@@ -125,6 +126,7 @@ function startOfDay(d: Date): Date {
     FloatField,
     ...FORM_FIELDS,
     Checkbox,
+    Loading,
     TermPipe,
     AppIcon,
     AutoComplete,
