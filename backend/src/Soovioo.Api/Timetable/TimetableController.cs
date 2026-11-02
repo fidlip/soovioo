@@ -96,7 +96,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     }
 
     /// <summary>Drafts and archived versions only for whoever may edit the
-    /// timetable; to everyone else they don't exist.</summary>
+    /// timetable or see its versions; to everyone else they don't exist.</summary>
     private async Task<TimetableVersion?> ResolveVersionAsync(int? versionId, DateOnly? date)
     {
         if (versionId is null)
@@ -106,7 +106,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
 
         var version = await db.TimetableVersions.FindAsync(versionId);
         return version is not null
-            && (version.Status == TimetableVersionStatus.Published || await User.HasPermissionAsync(db, Permission.Timetable))
+            && (version.Status == TimetableVersionStatus.Published || await User.SeesAllTimetableVersionsAsync(db))
                 ? version
                 : null;
     }

@@ -20,11 +20,11 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     private DateOnly Today => SchoolClock.Today(clock);
 
     /// <summary>Drafts and archived versions only for whoever may edit the
-    /// timetable.</summary>
+    /// timetable or see its versions.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TimetableVersionDto>>> GetVersions()
     {
-        var all = await User.HasPermissionAsync(db, Permission.Timetable);
+        var all = await User.SeesAllTimetableVersionsAsync(db);
         return Ok(await db.TimetableVersions
             .Where(v => all || v.Status == TimetableVersionStatus.Published)
             .OrderByDescending(v => v.ValidFrom).ThenByDescending(v => v.Id)

@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Timetable;
@@ -24,6 +26,12 @@ public static class TimetableVersions
             v.Status == TimetableVersionStatus.Published
             && v.ValidFrom <= day
             && (v.ValidTo == null || v.ValidTo >= day));
+
+    /// <summary>Drafts and archived versions: whoever edits the timetable,
+    /// or may just look at them.</summary>
+    public static async Task<bool> SeesAllTimetableVersionsAsync(this ClaimsPrincipal user, AppDbContext db) =>
+        await user.HasPermissionAsync(db, Permission.Timetable)
+        || await user.HasPermissionAsync(db, Permission.TimetableVersionsRead);
 
     public static DateOnly SchoolYearStart(DateOnly day) => new(day.Month >= 9 ? day.Year : day.Year - 1, 9, 1);
 

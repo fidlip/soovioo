@@ -25,6 +25,7 @@ export type Permission =
   | 'MessagesBroadcastClass'
   | 'MessagesBroadcastSchool'
   | 'Timetable'
+  | 'TimetableVersionsRead'
   | 'Classes'
   | 'Subjects'
   | 'Classrooms'

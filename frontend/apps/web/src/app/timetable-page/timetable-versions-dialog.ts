@@ -80,6 +80,8 @@ export class TimetableVersionsDialog {
   private readonly notify = inject(NotifyService);
 
   readonly visible = input.required<boolean>();
+  /** False = only to look at the versions. */
+  readonly canEdit = input(true);
   readonly versions = input.required<TimetableVersion[]>();
   /** The version the timetable shows now — the default to copy from. */
   readonly shownVersionId = input<number | null>(null);

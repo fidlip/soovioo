@@ -101,6 +101,20 @@ public class TimetableVersionsControllerTests
     }
 
     [Fact]
+    public async Task ARoleMayBeGivenTheVersionsToLookAt()
+    {
+        var draft = await Draft("Koncept", new DateOnly(2027, 2, 1), current.Id);
+        var teacherRole = db.Role(UserRole.Teacher);
+        teacherRole.Permissions.Single(p => p.Permission == Permission.TimetableVersionsRead).Scope = PermissionScope.School;
+        await db.SaveChangesAsync();
+
+        var seen = Assert.IsAssignableFrom<IEnumerable<TimetableVersionDto>>(
+            Assert.IsType<OkObjectResult>((await Versions(UserRole.Teacher).GetVersions()).Result).Value);
+        Assert.Equal([draft.Id, current.Id], seen.Select(v => v.Id));
+        Assert.Equal(["Matematika"], await SubjectsOn(versionId: draft.Id, role: UserRole.Teacher));
+    }
+
+    [Fact]
     public async Task APublishedVersionStartsAfterTheOneThatAppliesAndNotInThePast()
     {
         var past = await Draft("Zpětně", Today.AddDays(-1));

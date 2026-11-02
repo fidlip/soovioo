@@ -135,6 +135,7 @@ const TOOLS: [string, string][] = [
   ['Kalendář', 'Nová akce'],
   ['Platby', 'Nová platba'],
   ['Rozvrh', 'Upravit rozvrh'],
+  ['Rozvrh', 'Verze rozvrhu'],
 ];
 
 /** The "Komu" choices of a new message. */
