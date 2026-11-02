@@ -1,8 +1,10 @@
 # Rozvrh — automatické generování, verzování a plánování změn (analýza)
 
-Stav: **jen analýza, neimplementovat** (ROADMAP, čtvrté kolo, bod 48). Dokument popisuje,
-co by bylo potřeba, jaké jsou možnosti a co doporučuju. Rozhodnutí o implementaci padne
-až po probrání s uživatelem.
+Stav: analýza probraná v [#17](https://github.com/fidlip/soovioo/issues/17) — generátor nad
+CP-SAT, fáze jako sub-issues. Fáze 1 (verze rozvrhu,
+[#159](https://github.com/fidlip/soovioo/issues/159)) je hotová podle návrhu níže; navíc
+stav **Archivovaná** (verze zahozená z platnosti) a `ValidTo` se dopočítává z následující
+zveřejněné verze, ručně se nezadává.
 
 ## Dnešní stav
 

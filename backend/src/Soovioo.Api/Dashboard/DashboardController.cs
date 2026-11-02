@@ -160,7 +160,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
     /// regardless of parity); that belongs to the Rozvrh redesign (see
     /// ROADMAP), not this summary widget.</summary>
     private async Task<List<TimetableEntryDto>> TodayLessonsForTeacherAsync(int teacherId, DayOfWeek today) =>
-        await db.TimetableEntries
+        await db.TimetableEntriesOn()
             .Where(e => e.TeacherId == teacherId && e.DayOfWeek == today)
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
@@ -192,7 +192,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             return ([], null);
         }
 
-        var lessons = await db.TimetableEntries
+        var lessons = await db.TimetableEntriesOn()
             .Where(e => e.SchoolClassId == student.SchoolClassId && e.DayOfWeek == today)
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(

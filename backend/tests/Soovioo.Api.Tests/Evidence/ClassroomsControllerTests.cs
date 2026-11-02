@@ -61,6 +61,7 @@ public class ClassroomsControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = schoolClass.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,

@@ -27,9 +27,22 @@ describe('TimetableApiService', () => {
 
   it('fetches a timetable for a school class', () => {
     service.getTimetable(1).subscribe();
-    const req = httpMock.expectOne('http://test/api/school-classes/1/timetable');
+    const req = httpMock.expectOne(
+      'http://test/api/school-classes/1/timetable',
+    );
     expect(req.request.method).toBe('GET');
     req.flush([]);
+  });
+
+  it('asks for the version valid on a date or for a given one', () => {
+    service.getTimetable(1, { date: '2027-02-01' }).subscribe();
+    httpMock
+      .expectOne('http://test/api/school-classes/1/timetable?date=2027-02-01')
+      .flush([]);
+    service.getTeacherTimetable(2, { versionId: 5 }).subscribe();
+    httpMock
+      .expectOne('http://test/api/teachers/2/timetable?versionId=5')
+      .flush([]);
   });
 
   it('adds a timetable entry', () => {
@@ -41,7 +54,9 @@ describe('TimetableApiService', () => {
         weekParity: 'Every',
       })
       .subscribe();
-    const req = httpMock.expectOne('http://test/api/school-classes/1/timetable');
+    const req = httpMock.expectOne(
+      'http://test/api/school-classes/1/timetable',
+    );
     expect(req.request.method).toBe('POST');
     req.flush({});
   });

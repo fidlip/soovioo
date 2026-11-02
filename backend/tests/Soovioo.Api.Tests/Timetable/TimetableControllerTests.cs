@@ -30,6 +30,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         var entry = new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = schoolClass.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -39,7 +40,7 @@ public class TimetableControllerTests
         db.TimetableEntries.Add(entry);
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .UpdateEntry(
                 schoolClass.Id,
                 entry.Id,
@@ -62,6 +63,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         var entry = new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = schoolClass.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -71,7 +73,7 @@ public class TimetableControllerTests
         db.TimetableEntries.Add(entry);
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .DeleteEntry(schoolClass.Id, entry.Id);
 
         Assert.IsType<NoContentResult>(result);
@@ -90,7 +92,7 @@ public class TimetableControllerTests
         db.Users.Add(teacher);
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .AddEntry(
                 schoolClass.Id,
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, teacher.Id));
@@ -113,7 +115,7 @@ public class TimetableControllerTests
         db.Users.Add(admin);
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .AddEntry(
                 schoolClass.Id,
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, admin.Id));
@@ -135,12 +137,12 @@ public class TimetableControllerTests
         db.Users.AddRange(teacher, otherTeacher);
         await db.SaveChangesAsync();
         db.TimetableEntries.AddRange(
-            new TimetableEntry { SchoolClassId = classA.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, TeacherId = teacher.Id },
-            new TimetableEntry { SchoolClassId = classB.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 2, TeacherId = teacher.Id },
-            new TimetableEntry { SchoolClassId = classA.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, TeacherId = otherTeacher.Id });
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolClassId = classA.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, TeacherId = teacher.Id },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolClassId = classB.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 2, TeacherId = teacher.Id },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolClassId = classA.Id, SubjectId = subject.Id, SchoolId = SchoolId, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, TeacherId = otherTeacher.Id });
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId)).GetTeacherTimetable(teacher.Id);
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System).GetTeacherTimetable(teacher.Id);
 
         var entries = Assert.IsAssignableFrom<IEnumerable<TeacherTimetableEntryDto>>(
             Assert.IsType<OkObjectResult>(result.Result).Value).ToList();
@@ -161,7 +163,7 @@ public class TimetableControllerTests
         db.Classrooms.Add(classroom);
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .AddEntry(
                 schoolClass.Id,
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, ClassroomId: classroom.Id));
@@ -182,7 +184,7 @@ public class TimetableControllerTests
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .AddEntry(
                 schoolClass.Id,
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, ClassroomId: 999));
@@ -207,6 +209,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = classA.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -217,7 +220,7 @@ public class TimetableControllerTests
         });
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .AddEntry(
                 classB.Id,
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Every, ClassroomId: classroom.Id));
@@ -245,6 +248,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = classA.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -255,7 +259,7 @@ public class TimetableControllerTests
         });
         await db.SaveChangesAsync();
 
-        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId))
+        var result = await new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
             .AddEntry(
                 classB.Id,
                 new CreateTimetableEntryRequest(subject.Id, DayOfWeek.Monday, 1, WeekParity.Even, ClassroomId: classroom.Id));
@@ -283,6 +287,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
+            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
             SchoolClassId = classA.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -291,7 +296,7 @@ public class TimetableControllerTests
             TeacherId = teacher.Id,
         });
         await db.SaveChangesAsync();
-        var controller = new TimetableController(db, new FakeCurrentSchoolContext(SchoolId));
+        var controller = new TimetableController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System);
 
         var result = await controller.AddEntry(
             classB.Id,

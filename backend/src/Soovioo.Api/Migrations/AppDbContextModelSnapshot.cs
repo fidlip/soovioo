@@ -2082,6 +2082,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("TeacherId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("WeekParity")
                         .HasColumnType("integer");
 
@@ -2097,6 +2100,8 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("TeacherId");
 
+                    b.HasIndex("TimetableVersionId");
+
                     b.ToTable("TimetableEntries");
 
                     b.HasData(
@@ -2109,6 +2114,7 @@ namespace Soovioo.Api.Migrations
                             SchoolClassId = 1,
                             SchoolId = 1,
                             SubjectId = 1,
+                            TimetableVersionId = 1,
                             WeekParity = 0
                         },
                         new
@@ -2119,6 +2125,7 @@ namespace Soovioo.Api.Migrations
                             SchoolClassId = 1,
                             SchoolId = 1,
                             SubjectId = 2,
+                            TimetableVersionId = 1,
                             WeekParity = 0
                         },
                         new
@@ -2129,6 +2136,7 @@ namespace Soovioo.Api.Migrations
                             SchoolClassId = 1,
                             SchoolId = 1,
                             SubjectId = 3,
+                            TimetableVersionId = 1,
                             WeekParity = 1
                         },
                         new
@@ -2139,7 +2147,66 @@ namespace Soovioo.Api.Migrations
                             SchoolClassId = 1,
                             SchoolId = 1,
                             SubjectId = 1,
+                            TimetableVersionId = 1,
                             WeekParity = 0
+                        });
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("PublishedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidTo")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "Status", "ValidFrom");
+
+                    b.ToTable("TimetableVersions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Rozvrh 2025/26",
+                            PublishedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            SchoolId = 1,
+                            Status = "Published",
+                            ValidFrom = new DateOnly(2025, 9, 1)
                         });
                 });
 
@@ -2993,6 +3060,12 @@ namespace Soovioo.Api.Migrations
                         .WithMany()
                         .HasForeignKey("TeacherId");
 
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("Entries")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Classroom");
 
                     b.Navigation("School");
@@ -3002,6 +3075,19 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Subject");
 
                     b.Navigation("Teacher");
+
+                    b.Navigation("TimetableVersion");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("UserRoles", b =>
@@ -3099,6 +3185,11 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Student");
 
                     b.Navigation("TeacherProfile");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

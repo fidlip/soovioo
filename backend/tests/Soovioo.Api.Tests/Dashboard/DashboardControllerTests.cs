@@ -78,9 +78,9 @@ public class DashboardControllerTests
         var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = schoolClass.Id, SchoolId = SchoolId };
         db.Students.Add(student);
         db.TimetableEntries.AddRange(
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1, TeacherId = teacher.Id },
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = NotToday, PeriodNumber = 2, TeacherId = teacher.Id },
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 3, TeacherId = otherTeacher.Id });
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1, TeacherId = teacher.Id },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = NotToday, PeriodNumber = 2, TeacherId = teacher.Id },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 3, TeacherId = otherTeacher.Id });
         db.Absences.AddRange(
             new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.PendingExcuse },
             new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Unexcused },
@@ -117,8 +117,8 @@ public class DashboardControllerTests
         db.Grades.Add(new Grade { StudentId = student.Id, SubjectId = subject.Id, Value = 1, SchoolId = SchoolId });
         db.Grades.Add(new Grade { StudentId = otherStudent.Id, SubjectId = subject.Id, Value = 5, SchoolId = SchoolId });
         db.TimetableEntries.AddRange(
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1 },
-            new TimetableEntry { SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = NotToday, PeriodNumber = 2 });
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1 },
+            new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = NotToday, PeriodNumber = 2 });
         db.Absences.AddRange(
             new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Unexcused },
             new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Excused },

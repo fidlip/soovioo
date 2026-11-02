@@ -10,6 +10,9 @@ public class TimetableEntry
     public int SchoolId { get; set; }
     public School? School { get; set; }
 
+    public int TimetableVersionId { get; set; }
+    public TimetableVersion? TimetableVersion { get; set; }
+
     public int SchoolClassId { get; set; }
     public SchoolClass? SchoolClass { get; set; }
 

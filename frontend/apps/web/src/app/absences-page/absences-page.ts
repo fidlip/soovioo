@@ -138,8 +138,9 @@ export class AbsencesPage {
   /** Missed periods picked in the dialog (see `dayPeriods`). */
   protected readonly newPeriods = signal<number[]>([]);
   protected readonly schoolPeriods = signal<SchoolPeriod[]>([]);
-  /** Timetable of the dialog's student's class, cached per class id. */
-  private readonly classTimetables = signal<Record<number, TimetableEntry[]>>(
+  /** Timetable of the dialog's student's class on the dialog's date (the
+   * version valid then), cached per class and date. */
+  private readonly classTimetables = signal<Record<string, TimetableEntry[]>>(
     {},
   );
   private readonly dialogStudentId = signal<number | null>(null);
@@ -154,7 +155,9 @@ export class AbsencesPage {
     );
     const date = this.dialogDate();
     const entries = student
-      ? (this.classTimetables()[student.schoolClassId] ?? [])
+      ? (this.classTimetables()[
+          this.timetableKey(student.schoolClassId, date)
+        ] ?? [])
       : [];
     const day = DAYS_BY_INDEX[date.getDay()];
     const parity = weekParityOf(date);
@@ -241,20 +244,26 @@ export class AbsencesPage {
         );
       }
     };
-    if (this.classTimetables()[student.schoolClassId]) {
+    const date = this.dialogDate();
+    const key = this.timetableKey(student.schoolClassId, date);
+    if (this.classTimetables()[key]) {
       select();
       return;
     }
-    this.timetableApi.getTimetable(student.schoolClassId).subscribe({
-      next: (entries) => {
-        this.classTimetables.update((m) => ({
-          ...m,
-          [student.schoolClassId]: entries,
-        }));
-        select();
-      },
-      error: (err) => console.error('getTimetable failed', err),
-    });
+    this.timetableApi
+      .getTimetable(student.schoolClassId, {
+        date: this.toDateOnlyString(date),
+      })
+      .subscribe({
+        next: (entries) => {
+          this.classTimetables.update((m) => ({
+            ...m,
+            [key]: entries,
+          }));
+          select();
+        },
+        error: (err) => console.error('getTimetable failed', err),
+      });
   }
 
   protected selectLessonPeriods(): void {
@@ -358,6 +367,10 @@ export class AbsencesPage {
       next: () => this.reload(),
       error: (err) => this.notify.actionFailed('deleteAbsence failed', err),
     });
+  }
+
+  private timetableKey(schoolClassId: number, date: Date): string {
+    return `${schoolClassId}|${this.toDateOnlyString(date)}`;
   }
 
   /** Local (not UTC) y-m-d — `toISOString().slice(0, 10)` converts through

@@ -146,3 +146,70 @@ test.describe.serial('timetable lesson', () => {
     ).toHaveCount(1);
   });
 });
+
+function inDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = (n: number) => `${n}`.padStart(2, '0');
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+}
+
+// A version goes through its life: the admin prepares a draft as a copy,
+// a parent doesn't see it, the admin publishes it far ahead and archives it
+// again — so the timetable that applies stays as it was.
+test.describe.serial('timetable version', () => {
+  const name = `E2E verze ${Date.now()}`;
+
+  test('admin prepares a draft as a copy of the current timetable', async ({
+    page,
+  }) => {
+    await login(page, 'admin', 'admin123');
+    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
+    await dialog.getByRole('button', { name: 'Nový koncept' }).click();
+    await dialog.getByLabel('Název').fill(name);
+    // Typed key by key — the DatePicker ignores a pasted value.
+    await dialog
+      .getByLabel('Platí od')
+      .pressSequentially(inDays(400 + Math.floor(Math.random() * 300)));
+    await dialog.getByRole('button', { name: 'Vytvořit koncept' }).click();
+
+    // The new draft is what the page shows now.
+    await expect(dialog).toBeHidden();
+    const info = page.getByTestId('timetable-version-info');
+    await expect(info).toContainText(name);
+    await expect(info).toContainText('Koncept');
+  });
+
+  test('a parent does not see the draft', async ({ page }) => {
+    await login(page, 'rodic', 'rodic123');
+    await expect(page.getByText(name)).toHaveCount(0);
+    await expect(page.locator('p-select[name="versionPicker"]')).toHaveCount(0);
+  });
+
+  test('admin publishes it ahead and archives it again', async ({ page }) => {
+    await login(page, 'admin', 'admin123');
+    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
+    const version = dialog
+      .getByTestId('timetable-version')
+      .filter({ hasText: name });
+
+    await version.getByRole('button', { name: 'Zveřejnit' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Zveřejnit verzi rozvrhu' })
+      .getByRole('button', { name: 'Zveřejnit' })
+      .click();
+    await expect(version).toContainText('Naplánovaná');
+
+    await version.getByRole('button', { name: 'Archivovat' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Archivovat verzi rozvrhu' })
+      .getByRole('button', { name: 'Archivovat' })
+      .click();
+    await expect(version).toContainText('Archivovaná');
+    await expect(
+      version.getByRole('button', { name: 'Vrátit mezi koncepty' }),
+    ).toBeVisible();
+  });
+});

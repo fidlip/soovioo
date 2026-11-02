@@ -35,6 +35,7 @@ public static class AuditDescriptions
         ["Support"] = "Podpora",
         ["Teachers"] = "Učitelé",
         ["Timetable"] = "Rozvrh",
+        ["TimetableVersions"] = "Rozvrh",
         ["Users"] = "Uživatelé",
     };
 
@@ -122,6 +123,11 @@ public static class AuditDescriptions
         ["Timetable.AddEntry"] = "Přidána hodina do rozvrhu",
         ["Timetable.UpdateEntry"] = "Upravena hodina rozvrhu",
         ["Timetable.DeleteEntry"] = "Smazána hodina rozvrhu",
+        ["TimetableVersions.CreateVersion"] = "Vytvořen koncept rozvrhu",
+        ["TimetableVersions.UpdateVersion"] = "Upravena verze rozvrhu",
+        ["TimetableVersions.PublishVersion"] = "Zveřejněna verze rozvrhu",
+        ["TimetableVersions.ArchiveVersion"] = "Archivována verze rozvrhu",
+        ["TimetableVersions.RestoreVersion"] = "Verze rozvrhu vrácena mezi koncepty",
         ["Roles.AddRole"] = "Vytvořena role",
         ["Roles.UpdateRole"] = "Upravena role a její práva",
         ["Roles.DeleteRole"] = "Smazána role",

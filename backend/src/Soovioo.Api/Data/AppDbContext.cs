@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Classroom> Classrooms => Set<Classroom>();
     public DbSet<Absence> Absences => Set<Absence>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
+    public DbSet<TimetableVersion> TimetableVersions => Set<TimetableVersion>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
@@ -251,6 +252,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || a.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<TimetableEntry>().HasQueryFilter(t =>
             currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<TimetableEntry>()
+            .HasOne(t => t.TimetableVersion).WithMany(v => v.Entries)
+            .HasForeignKey(t => t.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<TimetableVersion>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasIndex(x => new { x.SchoolId, x.Status, x.ValidFrom });
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
@@ -441,11 +452,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             new Classroom { Id = 1, Name = "12", SchoolId = 1, Type = ClassroomType.Homeroom },
             new Classroom { Id = 2, Name = "Tělocvična", ShortName = "Tv", SchoolId = 1, Type = ClassroomType.Gym, Capacity = 30 });
 
+        // The TimetableVersions migration moves ValidFrom to the start of the
+        // school year it runs in.
+        modelBuilder.Entity<TimetableVersion>().HasData(
+            new TimetableVersion
+            {
+                Id = 1, SchoolId = 1, Name = "Rozvrh 2025/26", ValidFrom = new DateOnly(2025, 9, 1),
+                Status = TimetableVersionStatus.Published,
+                CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                PublishedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            });
+
         modelBuilder.Entity<TimetableEntry>().HasData(
-            new TimetableEntry { Id = 1, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Every, ClassroomId = 1 },
-            new TimetableEntry { Id = 2, SchoolId = 1, SchoolClassId = 1, SubjectId = 2, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 2, WeekParity = WeekParity.Every },
-            new TimetableEntry { Id = 3, SchoolId = 1, SchoolClassId = 1, SubjectId = 3, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 1, WeekParity = WeekParity.Odd },
-            new TimetableEntry { Id = 4, SchoolId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, WeekParity = WeekParity.Every });
+            new TimetableEntry { Id = 1, SchoolId = 1, TimetableVersionId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, WeekParity = WeekParity.Every, ClassroomId = 1 },
+            new TimetableEntry { Id = 2, SchoolId = 1, TimetableVersionId = 1, SchoolClassId = 1, SubjectId = 2, DayOfWeek = DayOfWeek.Monday, PeriodNumber = 2, WeekParity = WeekParity.Every },
+            new TimetableEntry { Id = 3, SchoolId = 1, TimetableVersionId = 1, SchoolClassId = 1, SubjectId = 3, DayOfWeek = DayOfWeek.Tuesday, PeriodNumber = 1, WeekParity = WeekParity.Odd },
+            new TimetableEntry { Id = 4, SchoolId = 1, TimetableVersionId = 1, SchoolClassId = 1, SubjectId = 1, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 3, WeekParity = WeekParity.Every });
         // TeacherId NOT set here on purpose: User rows (incl. "ucitel") don't
         // exist yet at migration time — Program.cs SeedUsers backfills it
         // once the demo teacher account exists.

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.People;
 
@@ -74,7 +75,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
     private async Task<List<DirectoryTeacherDto>> TeachersAsync(
         SchoolVisibility visibility, VisibilityAudience audience, int classId, int? classTeacherId)
     {
-        var teaching = await db.TimetableEntries
+        var teaching = await db.TimetableEntriesOn()
             .Where(t => t.SchoolClassId == classId && t.TeacherId != null)
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.Subject!.Name })
             .Distinct()

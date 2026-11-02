@@ -3,12 +3,23 @@
     <app-icon name="timetable" />Rozvrh
   </h1>
   @if (canManageTimetable()) {
-  <p-button
-    [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
-    [icon]="editMode() ? 'pi pi-check' : 'pi pi-pencil'"
-    [severity]="editMode() ? 'secondary' : 'primary'"
-    (onClick)="editMode.set(!editMode())"
-  />
+  <div class="flex flex-wrap justify-end gap-2">
+    <p-button
+      label="Verze rozvrhu"
+      icon="pi pi-history"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="versionsDialogVisible.set(true)"
+    />
+    @if (canEditShownVersion()) {
+    <p-button
+      [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
+      [icon]="editMode() ? 'pi pi-check' : 'pi pi-pencil'"
+      [severity]="editMode() ? 'secondary' : 'primary'"
+      (onClick)="editMode.set(!editMode())"
+    />
+    }
+  </div>
   }
 </div>
 
@@ -74,6 +85,21 @@
       appendTo="body"
     />
   </app-float-field>
+  } @if (canManageTimetable()) {
+  <app-float-field label="Verze" for="versionPicker">
+    <p-select
+      ariaLabel="Verze"
+      inputId="versionPicker"
+      [options]="versionOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="selectedVersionId()"
+      (ngModelChange)="onVersionSelected($event)"
+      name="versionPicker"
+      styleClass="w-56"
+      appendTo="body"
+    />
+  </app-float-field>
   }
 
   <div class="flex items-end gap-1">
@@ -100,7 +126,23 @@
   </div>
 </div>
 
-@if (gridReady()) { @if (conflictLines().length > 0) {
+@if (versionInfo(); as info) {
+<p
+  class="mb-4 flex flex-wrap items-center gap-2 text-sm text-surface-600 dark:text-surface-300"
+  data-testid="timetable-version-info"
+>
+  <span class="font-semibold">{{ info.name }}</span>
+  <span>{{ info.validity }}</span>
+  <span
+    class="rounded px-2 py-0.5 text-xs font-semibold"
+    [class.bg-yellow-100]="info.draft"
+    [class.text-yellow-800]="info.draft"
+    [class.bg-surface-100]="!info.draft"
+    [class.dark:bg-surface-800]="!info.draft"
+    >{{ info.status.label }}</span
+  >
+</p>
+} @if (gridReady()) { @if (conflictLines().length > 0) {
 <p-message severity="error" styleClass="mb-4 w-full">
   <div class="flex flex-col gap-1">
     <div class="flex items-center gap-2 font-semibold">
@@ -273,6 +315,15 @@
 </div>
 } @else {
 <app-loading />
+} @if (canManageTimetable()) {
+<app-timetable-versions-dialog
+  [visible]="versionsDialogVisible()"
+  [versions]="versions()"
+  [shownVersionId]="shownVersion()?.id ?? null"
+  (closed)="versionsDialogVisible.set(false)"
+  (changed)="onVersionsChanged()"
+  (show)="onShowVersion($event)"
+/>
 }
 
 <p-dialog

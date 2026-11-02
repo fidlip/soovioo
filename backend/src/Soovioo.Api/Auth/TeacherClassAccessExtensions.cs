@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Auth;
 
@@ -11,11 +12,11 @@ public static class TeacherClassAccessExtensions
 {
     public static async Task<bool> TeacherOwnsClassAsync(this AppDbContext db, int teacherId, int schoolClassId) =>
         await db.SchoolClasses.AnyAsync(c => c.Id == schoolClassId && c.ClassTeacherId == teacherId)
-            || await db.TimetableEntries.AnyAsync(t => t.SchoolClassId == schoolClassId && t.TeacherId == teacherId);
+            || await db.TimetableEntriesOn().AnyAsync(t => t.SchoolClassId == schoolClassId && t.TeacherId == teacherId);
 
     public static async Task<List<int>> GetTeacherClassIdsAsync(this AppDbContext db, int teacherId) =>
         await db.SchoolClasses.Where(c => c.ClassTeacherId == teacherId).Select(c => c.Id)
-            .Union(db.TimetableEntries.Where(t => t.TeacherId == teacherId).Select(t => t.SchoolClassId))
+            .Union(db.TimetableEntriesOn().Where(t => t.TeacherId == teacherId).Select(t => t.SchoolClassId))
             .ToListAsync();
 
     /// <summary>Stricter than TeacherOwnsClassAsync above — that one is
@@ -26,6 +27,6 @@ public static class TeacherClassAccessExtensions
     /// they don't teach this particular subject to it.</summary>
     public static async Task<bool> TeachesClassInSubjectAsync(
         this AppDbContext db, int teacherId, int schoolClassId, int subjectId) =>
-        await db.TimetableEntries.AnyAsync(t =>
+        await db.TimetableEntriesOn().AnyAsync(t =>
             t.SchoolClassId == schoolClassId && t.SubjectId == subjectId && t.TeacherId == teacherId);
 }
