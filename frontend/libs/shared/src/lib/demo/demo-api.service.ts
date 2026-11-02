@@ -127,7 +127,7 @@ export class DemoApiService {
         { userId, useCookie: this.viaCookie },
         this.authApi.cookieOptions(),
       )
-      .pipe(tap((response) => this.authApi.store(response)));
+      .pipe(tap((response) => this.authApi.startSession(response)));
   }
 
   /** E-mails the demo "sent" (never actually sent) — newest first. */

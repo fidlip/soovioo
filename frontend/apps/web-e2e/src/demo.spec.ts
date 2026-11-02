@@ -23,6 +23,12 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   });
   await expect(page.getByText('Ukázková škola', { exact: true })).toBeVisible();
   const slug = new URL(page.url()).pathname.split('/')[1];
+  // A second tab of the demo, told about the switch below.
+  const other = await page.context().newPage();
+  await other.goto(`/${slug}/home`);
+  await expect(
+    other.getByText('Ukázková škola', { exact: true }),
+  ).toBeVisible();
 
   // Back to the entry page: a returning visitor goes straight to the demo.
   await page.goto('/demo');
@@ -38,6 +44,10 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
     .click();
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
   await expect(page.getByRole('link', { name: 'Logy' })).toBeVisible();
+  await expect(
+    other.getByRole('alert').filter({ hasText: 'V jiné záložce' }),
+  ).toContainText('V jiné záložce jste se přihlásili jako');
+  await other.close();
 
   // Empty school: everything goes but the admin account (and the log).
   await page.getByRole('button', { name: 'Možnosti dema' }).click();
