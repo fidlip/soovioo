@@ -13,6 +13,7 @@ public static class TimetableGenerator
 {
     private const int MissingWeight = 1000;
     private const int ClassGapWeight = 10;
+    private const int ShortDayWeight = 20;
     private const int EarlyPeriodWeight = 8;
     private const int SubjectTwiceWeight = 6;
     private const int TeacherGapWeight = 2;
@@ -130,6 +131,7 @@ public static class TimetableGenerator
             var keptCount = kept.Count(k => k.ClassId == classId);
             var weekly = units.Where(u => u.Demand.ClassId == classId).Sum(u => u.Count) + keptCount;
             var perDay = (int)Math.Ceiling(weekly / (double)days.Count) + 1;
+            var minPerDay = weekly / days.Count;
             foreach (var day in days)
             {
                 var daySum = LinearExpr.NewBuilder();
@@ -150,6 +152,9 @@ public static class TimetableGenerator
                     previous = occupied;
                 }
                 model.Add(daySum <= perDay);
+                var shortfall = model.NewIntVar(0, minPerDay, $"short{classId}_{day}");
+                model.Add(shortfall >= minPerDay - daySum);
+                objective.AddTerm(shortfall, ShortDayWeight);
             }
 
             // A subject at most once a day (or as evenly as its hours allow).
