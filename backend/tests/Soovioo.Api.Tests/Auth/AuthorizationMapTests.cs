@@ -196,6 +196,7 @@ public class AuthorizationMapTests
         ["Teaching.GetTeaching"] = "authenticated + perm:TeachingRead",
         ["Teaching.ImportFromTimetable"] = "authenticated + perm:Teaching",
         ["Teaching.SaveCurriculum"] = "authenticated + perm:Teaching",
+        ["Teaching.SetClassCurriculum"] = "authenticated + perm:Teaching",
         ["Teaching.SetAssignment"] = "authenticated + perm:Teaching",
         ["Timetable.AddEntry"] = "authenticated + perm:Timetable",
         ["Timetable.DeleteEntry"] = "authenticated + perm:Timetable",

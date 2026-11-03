@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -38,6 +39,7 @@ import { foldForSearch } from '../text-search';
 import { PersonDialog, PersonDialogTarget } from './person-dialog';
 import { personPhotoUrl } from './person-photo';
 import { Loading } from '../loading/loading';
+import { SchoolContextService } from '../school-context';
 
 type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
 
@@ -57,6 +59,7 @@ type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
     Loading,
     PersonDialog,
     PrimeTemplate,
+    RouterLink,
     Select,
     StudentPhotoDialog,
     TableModule,
@@ -72,6 +75,11 @@ export class PeopleTab {
   private readonly authApi = inject(AuthApiService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly notify = inject(NotifyService);
+  protected readonly schoolContext = inject(SchoolContextService);
+
+  protected canSeeTeaching(): boolean {
+    return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
+  }
 
   /** The school's roles (Administrace → Role). */
   readonly roles = input<RoleRef[]>([]);

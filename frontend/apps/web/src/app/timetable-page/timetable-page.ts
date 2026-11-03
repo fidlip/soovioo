@@ -10,7 +10,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
@@ -41,7 +40,6 @@ import {
   timetableVersionOn,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
-import { SchoolContextService } from '../school-context';
 import { TermPipe } from '../term.pipe';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
@@ -156,7 +154,6 @@ function formatShortDate(date: Date): string {
     Button,
     Dialog,
     Message,
-    RouterLink,
     Select,
     TimetableVersionsDialog,
   ],
@@ -174,7 +171,6 @@ export class TimetablePage {
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
   protected readonly authApi = inject(AuthApiService);
-  protected readonly schoolContext = inject(SchoolContextService);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -473,10 +469,6 @@ export class TimetablePage {
     return (
       this.canManageTimetable() || this.authApi.can('TimetableVersionsRead')
     );
-  }
-
-  protected canSeeTeaching(): boolean {
-    return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
   }
 
   /** An archived version is only to look at. */

@@ -59,6 +59,7 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         await DeleteAsync(db.Absences.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.TimetableEntries.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.CurriculumItems.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
+        await DeleteAsync(db.ClassCurriculumItems.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.TeachingAssignments.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.TimetableVersions.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));
         await DeleteAsync(db.SchoolPeriods.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId));

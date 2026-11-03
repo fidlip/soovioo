@@ -267,6 +267,17 @@
                   </td>
                   <td>
                     <div class="flex justify-end gap-1">
+                      @if (canSeeTeaching()) {
+                      <p-button
+                        icon="pi pi-users"
+                        [ariaLabel]="'Přidělení výuky — ' + schoolClass.name"
+                        title="Přidělení výuky"
+                        size="small"
+                        [text]="true"
+                        [routerLink]="schoolContext.link('teaching')"
+                        [queryParams]="{ class: schoolClass.id }"
+                      />
+                      }
                       <p-button
                         icon="pi pi-pencil"
                         ariaLabel="Upravit"

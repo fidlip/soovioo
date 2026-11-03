@@ -1,15 +1,6 @@
-<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-  <h1 class="mb-0 flex items-center gap-3">
-    <app-icon name="timetable" />Přidělení výuky
-  </h1>
-  <p-button
-    label="Rozvrh"
-    icon="pi pi-arrow-left"
-    severity="secondary"
-    [outlined]="true"
-    [routerLink]="schoolContext.link('timetable')"
-  />
-</div>
+<h1 class="mb-6 flex items-center gap-3">
+  <app-icon name="teaching" />Přidělení výuky
+</h1>
 
 <div class="mb-4 flex flex-wrap items-end gap-3">
   <app-float-field label="Verze rozvrhu" for="teachingVersion">
@@ -60,6 +51,79 @@
 </p-message>
 }
 
+<div
+  class="mb-2 flex flex-wrap items-end gap-3"
+  role="search"
+  aria-label="Filtry"
+>
+  <app-float-field label="Třída" for="teachingClassFilter">
+    <p-select
+      ariaLabel="Třída"
+      inputId="teachingClassFilter"
+      [options]="classFilterOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="classFilter()"
+      (ngModelChange)="classFilter.set($event)"
+      [showClear]="true"
+      [filter]="true"
+      name="teachingClassFilter"
+      styleClass="w-36"
+      appendTo="body"
+    />
+  </app-float-field>
+  <app-float-field label="Učitel" for="teachingTeacherFilter">
+    <p-select
+      ariaLabel="Učitel"
+      inputId="teachingTeacherFilter"
+      [options]="teacherFilterOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="teacherFilter()"
+      (ngModelChange)="teacherFilter.set($event)"
+      [showClear]="true"
+      [filter]="true"
+      name="teachingTeacherFilter"
+      styleClass="w-56"
+      appendTo="body"
+    />
+  </app-float-field>
+  <app-float-field label="Předmět" for="teachingSubjectFilter">
+    <p-select
+      ariaLabel="Předmět"
+      inputId="teachingSubjectFilter"
+      [options]="subjects()"
+      optionLabel="name"
+      optionValue="id"
+      [ngModel]="subjectFilter()"
+      (ngModelChange)="subjectFilter.set($event)"
+      [showClear]="true"
+      [filter]="true"
+      name="teachingSubjectFilter"
+      styleClass="w-48"
+      appendTo="body"
+    />
+  </app-float-field>
+  <label class="flex items-center gap-2 pb-2 text-sm">
+    <p-checkbox
+      [binary]="true"
+      [ngModel]="problemsOnly()"
+      (ngModelChange)="problemsOnly.set($event)"
+      [ngModelOptions]="{ standalone: true }"
+    />
+    Jen ke kontrole
+  </label>
+  @if (filtered()) {
+  <p-button
+    label="Zrušit filtry"
+    icon="pi pi-filter-slash"
+    [text]="true"
+    severity="secondary"
+    (onClick)="clearFilters()"
+  />
+  }
+</div>
+
 <p-tabs [(value)]="activeTab" [scrollable]="true">
   <p-tablist>
     <p-tab value="classes">Podle tříd</p-tab>
@@ -69,7 +133,7 @@
   <p-tabpanels>
     <p-tabpanel value="classes">
       <div class="flex flex-col gap-6 pt-4">
-        @for (c of o.classes; track c.id) {
+        @for (c of shownClasses(); track c.id) {
         <section [attr.aria-label]="'Třída ' + c.name">
           <h2 class="mb-2 flex flex-wrap items-center gap-2 text-lg">
             {{ c.name }} @if (c.grade !== null) {
@@ -100,11 +164,43 @@
                 </tr>
               </ng-template>
               <ng-template #body let-row>
-                <tr>
+                <tr [class.text-surface-400]="row.planHours === 0">
                   <td>{{ row.subjectName }}</td>
-                  <td>
-                    {{ row.planHours === null ? '—' : formatHours(row.planHours)
-                    }}
+                  <td class="whitespace-nowrap">
+                    @if (o.canEdit) {
+                    <div class="flex items-center gap-1">
+                      <p-inputNumber
+                        [(ngModel)]="classPlan[c.id + '-' + row.subjectId]"
+                        [ariaLabel]="'Plán — ' + c.name + ' ' + row.subjectName"
+                        [min]="0"
+                        [max]="40"
+                        [minFractionDigits]="0"
+                        [maxFractionDigits]="1"
+                        locale="cs-CZ"
+                        [disabled]="busy()"
+                        (onBlur)="saveClassPlan(c, row)"
+                        (keydown.enter)="$any($event.target).blur()"
+                        inputStyleClass="w-14 text-center"
+                      />
+                      @if (row.classPlan) {
+                      <p-button
+                        icon="pi pi-undo"
+                        [text]="true"
+                        size="small"
+                        severity="secondary"
+                        [ariaLabel]="'Podle ročníku — ' + c.name + ' ' + row.subjectName"
+                        [pTooltip]="'Podle ročníku: ' + (row.gradeHours === null ? 'není v plánu' : formatHours(row.gradeHours))"
+                        (onClick)="setClassPlan(c, row.subjectId, null)"
+                      />
+                      }
+                    </div>
+                    } @else { {{ row.planHours === null ? '—' :
+                    formatHours(row.planHours) }} } @if (row.classPlan) {
+                    <div class="text-xs text-surface-500">
+                      vlastní · ročník {{ row.gradeHours === null ? '—' :
+                      formatHours(row.gradeHours) }}
+                    </div>
+                    }
                   </td>
                   <td>{{ formatHours(row.timetableHours) }}</td>
                   <td class="min-w-56">
@@ -143,22 +239,48 @@
               <ng-template #emptymessage>
                 <tr>
                   <td colspan="5" class="text-surface-500">
-                    Třída nemá v plánu ani v rozvrhu žádný předmět.
+                    {{ filtered() ? 'Filtrům nic neodpovídá.' : 'Třída nemá v
+                    plánu ani v rozvrhu žádný předmět.' }}
                   </td>
                 </tr>
               </ng-template>
             </p-table>
           </div>
+          @if (o.canEdit && !filtered()) {
+          <div class="mt-2 w-full sm:w-72">
+            <app-float-field
+              label="Přidat předmět třídě"
+              [for]="'addSubject' + c.id"
+            >
+              <p-select
+                [inputId]="'addSubject' + c.id"
+                [ariaLabel]="'Přidat předmět — ' + c.name"
+                [options]="addableSubjects(c)"
+                optionLabel="name"
+                optionValue="id"
+                [ngModel]="null"
+                (ngModelChange)="$event !== null && setClassPlan(c, $event, 1)"
+                [filter]="true"
+                [disabled]="busy()"
+                styleClass="w-full"
+                appendTo="body"
+              />
+            </app-float-field>
+          </div>
+          }
         </section>
         } @empty {
-        <p class="text-surface-500">Žádná výuka k zobrazení.</p>
+        <p class="text-surface-500">
+          {{ filtered() ? 'Filtrům nic neodpovídá.' : 'Žádná výuka k zobrazení.'
+          }}
+        </p>
         }
       </div>
     </p-tabpanel>
 
     <p-tabpanel value="teachers">
       <div class="overflow-x-auto pt-4">
-        <p-table [value]="o.teachers" dataKey="id">
+        <p-table [value]="shownTeachers()" dataKey="id">
           <ng-template #header>
             <tr>
               <th>Učitel</th>
@@ -201,7 +323,10 @@
           </ng-template>
           <ng-template #emptymessage>
             <tr>
-              <td colspan="8" class="text-surface-500">Žádní učitelé.</td>
+              <td colspan="8" class="text-surface-500">
+                {{ filtered() ? 'Filtrům nikdo neodpovídá.' : 'Žádní učitelé.'
+                }}
+              </td>
             </tr>
           </ng-template>
         </p-table>
@@ -211,8 +336,10 @@
     <p-tabpanel value="plan">
       <div class="flex flex-col gap-3 pt-4">
         <p class="text-sm text-surface-500">
-          Hodiny týdně podle ročníků. Ročník třídy se zadává v Administraci →
-          Třídy, předměty a učebny.
+          Hodiny týdně podle ročníků — šablona pro jejich třídy. Kde se třída
+          liší (jiný jazyk, předmět navíc), změní se jí plán v záložce Podle
+          tříd. Ročník třídy se zadává v Administraci → Třídy, předměty a
+          učebny.
         </p>
         @if (o.grades.length === 0) {
         <p class="text-surface-500">Žádná třída nemá zadaný ročník.</p>

@@ -120,6 +120,9 @@ TeacherProfile (Osoby → učitel)
 CurriculumItem (učební plán, u verze rozvrhu)
   TimetableVersionId, Grade (ročník), SubjectId, HoursPerWeek
 
+ClassCurriculumItem (odchylka třídy od plánu ročníku, 0 h = třída předmět nemá)
+  TimetableVersionId, SchoolClassId, SubjectId, HoursPerWeek
+
 TeachingAssignment (přidělení výuky, u verze rozvrhu)
   TimetableVersionId, SchoolClassId, SubjectId, TeacherId
 ```
@@ -131,6 +134,7 @@ TeachingAssignment (přidělení výuky, u verze rozvrhu)
 - Kontroly: plán vs. rozvrh (hodina jen v lichém/sudém týdnu = 0,5 h), jiný učitel
   v rozvrhu než přidělený, chybějící aprobace, přidělené vs. nasmlouvané hodiny,
   hodiny v den, kdy učitel učit nemůže.
+- Skupiny žáků (i napříč třídami) řeší #166.
 - Pro generátor (fáze 3) je to vstup „kdo, co, kolik“; generátor řeší jen „kdy“.
 
 Ve fázi 4 přibude:

@@ -167,7 +167,7 @@ public class TeachingControllerTests
     }
 
     [Fact]
-    public async Task AClassWithoutAGradeHasNoPlan()
+    public async Task AClassWithoutAGradeHasOnlyItsOwnPlan()
     {
         var noGrade = Class("Přípravka", null);
         Plan(1, history, 1);
@@ -175,8 +175,62 @@ public class TeachingControllerTests
 
         var schoolClass = (await Overview()).Classes.Single(c => c.Id == noGrade.Id);
 
-        Assert.Equal(["Třída nemá zadaný ročník, učební plán se na ni nevztahuje."], schoolClass.Problems);
+        Assert.Equal(["Třída nemá zadaný ročník — učební plán ročníku se na ni nevztahuje, jen její vlastní."], schoolClass.Problems);
         Assert.Equal([maths.Id], schoolClass.Rows.Select(r => r.SubjectId));
+
+        Assert.Contains("Předmět není v učebním plánu třídy.", schoolClass.Rows.Single().Problems);
+        var own = Value(await Controller().SetClassCurriculum(version.Id, new(noGrade.Id, maths.Id, 1)));
+        Assert.Equal((1m, true), (Row(own, noGrade, maths).PlanHours!.Value, Row(own, noGrade, maths).ClassPlan));
+        Assert.DoesNotContain("Předmět není v učebním plánu třídy.", Row(own, noGrade, maths).Problems);
+    }
+
+    [Fact]
+    public async Task AClassChangesItsGradesPlan()
+    {
+        var a = Class("7.A", 7);
+        var b = Class("7.B", 7);
+        var german = new Subject { Name = "Německý jazyk", Abbreviation = "Nj", SchoolId = SchoolId };
+        db.Subjects.Add(german);
+        db.SaveChanges();
+        Plan(7, history, 2);
+        Plan(7, german, 3);
+
+        Value(await Controller().SetClassCurriculum(version.Id, new(a.Id, german.Id, 0)));
+        var overview = Value(await Controller().SetClassCurriculum(version.Id, new(b.Id, history.Id, 1)));
+
+        var aGerman = Row(overview, a, german);
+        Assert.Equal((0m, 3m, true), (aGerman.PlanHours!.Value, aGerman.GradeHours!.Value, aGerman.ClassPlan));
+        Assert.Empty(aGerman.Problems);
+        Assert.Null(aGerman.TeacherId);
+        Assert.Equal((1m, true), (Row(overview, b, history).PlanHours!.Value, Row(overview, b, history).ClassPlan));
+        Assert.Equal(3m, Row(overview, b, german).PlanHours);
+
+        // The grade's hours again: the class follows its grade.
+        var back = Value(await Controller().SetClassCurriculum(version.Id, new(b.Id, history.Id, 2)));
+        Assert.False(Row(back, b, history).ClassPlan);
+        Assert.Equal(1, await db.ClassCurriculumItems.CountAsync());
+    }
+
+    [Fact]
+    public async Task ClassesOfAGradeWithDifferentLanguagesGetTheirOwnPlanFromTheTimetable()
+    {
+        var a = Class("7.A", 7);
+        var b = Class("7.B", 7);
+        var c = Class("7.C", 7);
+        var german = new Subject { Name = "Německý jazyk", Abbreviation = "Nj", SchoolId = SchoolId };
+        db.Subjects.Add(german);
+        db.SaveChanges();
+        Lesson(a, maths, null);
+        Lesson(b, maths, null);
+        Lesson(c, german, null);
+
+        var overview = Value(await Controller().ImportFromTimetable(version.Id));
+
+        Assert.Equal([new CurriculumItemDto(7, maths.Id, 1)], overview.Curriculum);
+        Assert.Equal((0m, true), (Row(overview, c, maths).PlanHours!.Value, Row(overview, c, maths).ClassPlan));
+        Assert.Equal((1m, true), (Row(overview, c, german).PlanHours!.Value, Row(overview, c, german).ClassPlan));
+        Assert.Throws<InvalidOperationException>(() => Row(overview, a, german));
+        Assert.All(overview.Classes.SelectMany(x => x.Rows), r => Assert.DoesNotContain(r.Problems, p => p.StartsWith("V rozvrhu")));
     }
 
     [Fact]

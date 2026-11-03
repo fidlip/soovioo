@@ -39,9 +39,9 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return BadRequest("Ročník musí být od 1 do 13.");
         }
-        if (items.Any(i => i.HoursPerWeek is < 0 or > 40 || i.HoursPerWeek * 2 != Math.Floor(i.HoursPerWeek * 2)))
+        if (items.Any(i => !ValidHours(i.HoursPerWeek)))
         {
-            return BadRequest("Hodiny týdně musí být od 0,5 do 40, po půlhodinách.");
+            return BadRequest(HoursMessage);
         }
         if (items.GroupBy(i => (i.Grade, i.SubjectId)).Any(g => g.Count() > 1))
         {
@@ -63,6 +63,66 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
         return Ok(await OverviewAsync(version));
     }
+
+    /// <summary>The class's own hours of the subject; null = as its grade
+    /// has (so do the grade's hours themselves), 0 = the class doesn't have it.</summary>
+    [HttpPut("class-curriculum")]
+    [RequirePermission(Permission.Teaching)]
+    public async Task<ActionResult<TeachingOverviewDto>> SetClassCurriculum(int versionId, SetClassCurriculumRequest request)
+    {
+        var (version, error) = await EditableVersionAsync(versionId);
+        if (version is null)
+        {
+            return error!;
+        }
+        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Neznámá třída.");
+        }
+        if (!await db.Subjects.AnyAsync(s => s.Id == request.SubjectId))
+        {
+            return BadRequest("Neznámý předmět.");
+        }
+        if (request.HoursPerWeek is { } wanted && !ValidHours(wanted))
+        {
+            return BadRequest(HoursMessage);
+        }
+
+        var gradeHours = schoolClass.Rocnik is { } grade
+            ? await db.CurriculumItems
+                .Where(c => c.TimetableVersionId == version.Id && c.Grade == grade && c.SubjectId == request.SubjectId)
+                .Select(c => (decimal?)c.HoursPerWeek).FirstOrDefaultAsync()
+            : null;
+        var item = await db.ClassCurriculumItems.FirstOrDefaultAsync(c =>
+            c.TimetableVersionId == version.Id && c.SchoolClassId == schoolClass.Id && c.SubjectId == request.SubjectId);
+        var hours = request.HoursPerWeek == (gradeHours ?? 0) ? null : request.HoursPerWeek;
+        if (hours is null)
+        {
+            if (item is not null)
+            {
+                db.ClassCurriculumItems.Remove(item);
+            }
+        }
+        else if (item is null)
+        {
+            db.ClassCurriculumItems.Add(new ClassCurriculumItem
+            {
+                SchoolId = currentSchool.SchoolId!.Value, TimetableVersionId = version.Id,
+                SchoolClassId = schoolClass.Id, SubjectId = request.SubjectId, HoursPerWeek = hours.Value,
+            });
+        }
+        else
+        {
+            item.HoursPerWeek = hours.Value;
+        }
+        await db.SaveChangesAsync();
+        return Ok(await OverviewAsync(version));
+    }
+
+    private static bool ValidHours(decimal hours) => hours is >= 0 and <= 40 && hours * 2 == Math.Floor(hours * 2);
+
+    private const string HoursMessage = "Hodiny týdně musí být od 0 do 40, po půlhodinách.";
 
     /// <summary>Who teaches the subject in the class; no teacher = chosen
     /// automatically again.</summary>
@@ -134,8 +194,9 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     /// <summary>Učební plán and přidělení from the version's lessons where the
-    /// school has none yet: a grade gets the hours most of its classes have,
-    /// a class and subject the teacher who has most of its lessons.</summary>
+    /// school has none yet: a grade gets the hours most of its classes have
+    /// (a class that differs gets its own), a class without a ročník its own
+    /// plan, a class and subject the teacher who has most of its lessons.</summary>
     [HttpPost("teaching/import")]
     [RequirePermission(Permission.Teaching)]
     public async Task<ActionResult<TeachingOverviewDto>> ImportFromTimetable(int versionId)
@@ -151,17 +212,47 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             .ToListAsync();
         var planned = await db.CurriculumItems.Where(c => c.TimetableVersionId == version.Id)
             .Select(c => new { c.Grade, c.SubjectId }).ToListAsync();
-        var perClass = lessons.Where(l => l.Rocnik is not null)
-            .GroupBy(l => (Grade: l.Rocnik!.Value, l.SubjectId, l.SchoolClassId))
-            .Select(g => (g.Key.Grade, g.Key.SubjectId, Hours: g.Sum(l => l.WeekParity == WeekParity.Every ? 1m : 0.5m)));
-        foreach (var grade in perClass.GroupBy(x => (x.Grade, x.SubjectId))
-                     .Where(g => !planned.Any(p => p.Grade == g.Key.Grade && p.SubjectId == g.Key.SubjectId)))
+        var ownPlanned = await db.ClassCurriculumItems.Where(c => c.TimetableVersionId == version.Id)
+            .Select(c => new { c.SchoolClassId, c.SubjectId }).ToListAsync();
+        var classes = await db.SchoolClasses.Select(c => new { c.Id, c.Rocnik }).ToListAsync();
+        decimal HoursOf(int classId, int subjectId) => lessons
+            .Where(l => l.SchoolClassId == classId && l.SubjectId == subjectId)
+            .Sum(l => l.WeekParity == WeekParity.Every ? 1m : 0.5m);
+        void AddOwn(int classId, int subjectId, decimal hours)
         {
-            db.CurriculumItems.Add(new CurriculumItem
+            if (!ownPlanned.Any(o => o.SchoolClassId == classId && o.SubjectId == subjectId))
             {
-                SchoolId = schoolId, TimetableVersionId = version.Id, Grade = grade.Key.Grade, SubjectId = grade.Key.SubjectId,
-                HoursPerWeek = grade.GroupBy(x => x.Hours).OrderByDescending(h => h.Count()).ThenByDescending(h => h.Key).First().Key,
-            });
+                db.ClassCurriculumItems.Add(new ClassCurriculumItem
+                {
+                    SchoolId = schoolId, TimetableVersionId = version.Id, SchoolClassId = classId, SubjectId = subjectId,
+                    HoursPerWeek = hours,
+                });
+            }
+        }
+
+        foreach (var (grade, subjectId) in lessons.Where(l => l.Rocnik is not null)
+                     .Select(l => (Grade: l.Rocnik!.Value, l.SubjectId)).Distinct()
+                     .Where(g => !planned.Any(p => p.Grade == g.Grade && p.SubjectId == g.SubjectId)))
+        {
+            var inGrade = classes.Where(c => c.Rocnik == grade)
+                .Select(c => (ClassId: c.Id, Hours: HoursOf(c.Id, subjectId))).ToList();
+            var hours = inGrade.GroupBy(x => x.Hours).OrderByDescending(h => h.Count()).ThenByDescending(h => h.Key).First().Key;
+            if (hours > 0)
+            {
+                db.CurriculumItems.Add(new CurriculumItem
+                {
+                    SchoolId = schoolId, TimetableVersionId = version.Id, Grade = grade, SubjectId = subjectId, HoursPerWeek = hours,
+                });
+            }
+            foreach (var (classId, classHours) in inGrade.Where(x => x.Hours != hours))
+            {
+                AddOwn(classId, subjectId, classHours);
+            }
+        }
+        foreach (var (classId, subjectId) in lessons.Where(l => l.Rocnik is null)
+                     .Select(l => (l.SchoolClassId, l.SubjectId)).Distinct())
+        {
+            AddOwn(classId, subjectId, HoursOf(classId, subjectId));
         }
         AddAssignments(version, lessons.Where(l => l.TeacherId is not null)
             .GroupBy(l => (l.SchoolClassId, l.SubjectId))
@@ -219,6 +310,9 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             .OrderBy(c => c.Grade).ThenBy(c => c.SubjectId)
             .Select(c => new CurriculumItemDto(c.Grade, c.SubjectId, c.HoursPerWeek))
             .ToListAsync();
+        var classCurriculum = await db.ClassCurriculumItems.Where(c => c.TimetableVersionId == version.Id)
+            .Select(c => new ClassCurriculumItemDto(c.SchoolClassId, c.SubjectId, c.HoursPerWeek))
+            .ToListAsync();
         var assignments = (await db.TeachingAssignments.Where(a => a.TimetableVersionId == version.Id)
                 .Select(a => new { a.SchoolClassId, a.SubjectId, a.TeacherId })
                 .ToListAsync())
@@ -248,7 +342,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         }).ToList();
 
         var (classDtos, teacherDtos) = TeachingPlanner.Plan(new TeachingPlanner.Input(
-            classes, subjects, teachers, curriculum, assignments, lessons));
+            classes, subjects, teachers, curriculum, classCurriculum, assignments, lessons));
 
         var scope = await User.HasPermissionAsync(db, Permission.Teaching)
             ? PermissionScope.School
@@ -284,6 +378,9 @@ public record TeachingOverviewDto(
     IReadOnlyList<TeachingTeacherDto> Teachers);
 
 public record SaveCurriculumRequest(IReadOnlyList<CurriculumItemDto> Items);
+
+/// <param name="HoursPerWeek">Null = as the class's grade has; 0 = not in the class.</param>
+public record SetClassCurriculumRequest(int SchoolClassId, int SubjectId, decimal? HoursPerWeek);
 
 /// <param name="TeacherId">Null = chosen automatically.</param>
 public record SetAssignmentRequest(int SchoolClassId, int SubjectId, int? TeacherId);

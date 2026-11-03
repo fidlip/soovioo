@@ -30,6 +30,19 @@ export class TeachingApiService {
     );
   }
 
+  /** `hoursPerWeek` null = as the class's grade, 0 = not in the class. */
+  setClassCurriculum(
+    versionId: number,
+    schoolClassId: number,
+    subjectId: number,
+    hoursPerWeek: number | null,
+  ): Observable<TeachingOverview> {
+    return this.http.put<TeachingOverview>(
+      `${this.url(versionId)}/class-curriculum`,
+      { schoolClassId, subjectId, hoursPerWeek },
+    );
+  }
+
   /** `teacherId` null = chosen automatically. */
   setAssignment(
     versionId: number,

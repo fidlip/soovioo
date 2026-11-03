@@ -45,7 +45,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         }
 
         var source = request.CopyFromVersionId is { } sourceId
-            ? await db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.Assignments)
+            ? await db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.ClassCurriculum)
+                .Include(v => v.Assignments)
                 .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == sourceId)
             : null;
         if (request.CopyFromVersionId is not null && source is null)
@@ -76,6 +77,10 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             Curriculum = source?.Curriculum.Select(c => new CurriculumItem
             {
                 SchoolId = schoolId, Grade = c.Grade, SubjectId = c.SubjectId, HoursPerWeek = c.HoursPerWeek,
+            }).ToList() ?? [],
+            ClassCurriculum = source?.ClassCurriculum.Select(c => new ClassCurriculumItem
+            {
+                SchoolId = schoolId, SchoolClassId = c.SchoolClassId, SubjectId = c.SubjectId, HoursPerWeek = c.HoursPerWeek,
             }).ToList() ?? [],
             Assignments = source?.Assignments.Select(a => new TeachingAssignment
             {
