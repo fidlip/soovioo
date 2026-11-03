@@ -1,4 +1,5 @@
 import {
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   ElementRef,
@@ -43,6 +44,7 @@ import {
   isoWeekNumber,
   localizeStudentTerm,
   timetableVersionOn,
+  subjectClassroomIds,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -173,6 +175,7 @@ export class TimetablePage {
   private readonly confirmation = inject(ConfirmationService);
   private readonly timetableApi = inject(TimetableApiService);
   private readonly versionsApi = inject(TimetableVersionsApiService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly teachersApi = inject(TeachersApiService);
@@ -742,10 +745,9 @@ export class TimetablePage {
     this.formWeekParity = 'Every';
     this.formLocked = false;
     this.formTeacherId = null;
-    this.formClassroomId =
-      this.subjectsById().get(this.formSubjectId ?? -1)?.defaultClassroomId ??
-      null;
+    this.formClassroomId = null;
     this.formClassroomTouched = false;
+    this.prefillClassroom();
     this.notify.clear();
     this.dialogVisible.set(true);
   }
@@ -775,12 +777,51 @@ export class TimetablePage {
    * still freely overridable right after, never re-applied once the user
    * has touched the classroom field themselves (see formClassroomTouched). */
   protected onFormSubjectChange(): void {
+    this.prefillClassroom();
+  }
+
+  /** The subject's first classroom free at the form's slot. */
+  protected prefillClassroom(): void {
     if (this.formClassroomTouched) {
       return;
     }
-    this.formClassroomId =
-      this.subjectsById().get(this.formSubjectId ?? -1)?.defaultClassroomId ??
-      null;
+    const rooms = subjectClassroomIds(
+      this.subjectsById().get(this.formSubjectId ?? -1),
+      this.classrooms(),
+    );
+    const versionId = this.shownVersion()?.id;
+    this.formClassroomId = rooms[0] ?? null;
+    if (rooms.length < 2 || versionId === undefined) {
+      return;
+    }
+    const slot = [
+      this.formSubjectId,
+      this.formDayOfWeek,
+      this.formPeriodNumber,
+      this.formWeekParity,
+    ].join();
+    this.versionsApi
+      .getBusyClassrooms(
+        versionId,
+        this.formDayOfWeek,
+        this.formPeriodNumber,
+        this.formWeekParity,
+      )
+      .subscribe({
+        next: (busy) => {
+          const now = [
+            this.formSubjectId,
+            this.formDayOfWeek,
+            this.formPeriodNumber,
+            this.formWeekParity,
+          ].join();
+          if (this.formClassroomTouched || now !== slot) {
+            return;
+          }
+          this.formClassroomId = rooms.find((r) => !busy.includes(r)) ?? null;
+          this.changeDetector.markForCheck();
+        },
+      });
   }
 
   protected onFormClassroomChange(): void {

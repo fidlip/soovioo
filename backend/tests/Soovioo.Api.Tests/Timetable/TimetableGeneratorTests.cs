@@ -1,4 +1,3 @@
-using Soovioo.Api.Evidence;
 using Soovioo.Api.Timetable;
 using static Soovioo.Api.Timetable.TimetableGenerator;
 
@@ -10,9 +9,9 @@ public class TimetableGeneratorTests
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
 
     private static Result Run(
-        IReadOnlyList<Demand> demands, IReadOnlyList<Kept>? kept = null, IReadOnlyList<Room>? rooms = null,
+        IReadOnlyList<Demand> demands, IReadOnlyList<Kept>? kept = null,
         Dictionary<int, IReadOnlyCollection<DayOfWeek>>? teacherDays = null, int periods = 6) =>
-        Generate(new Input(Week, [.. Enumerable.Range(1, periods)], demands, kept ?? [], rooms ?? [],
+        Generate(new Input(Week, [.. Enumerable.Range(1, periods)], demands, kept ?? [],
             teacherDays ?? [], TimeSpan.FromSeconds(5)));
 
     [Fact]
@@ -84,20 +83,50 @@ public class TimetableGeneratorTests
     }
 
     [Fact]
-    public void ASubjectGetsAFreeClassroomOfItsType()
+    public void ASubjectGetsAFreeClassroom()
     {
-        Room[] rooms = [new(1, ClassroomType.Gym), new(2, ClassroomType.Computer)];
         var kept = new Kept(3, 14, null, 1, DayOfWeek.Monday, 1);
 
-        var result = Run(
-            [new Demand(1, 10, 101, 3, 0, ClassroomType: ClassroomType.Gym),
-             new Demand(2, 10, 102, 3, 0, ClassroomType: ClassroomType.Gym)],
-            [kept], rooms);
+        var result = Run([new Demand(1, 10, 101, 3, 0, [1]), new Demand(2, 10, 102, 3, 0, [1])], [kept]);
 
         Assert.Empty(result.Unplaced);
         Assert.All(result.Placements, p => Assert.Equal(1, p.ClassroomId));
         Assert.All(result.Placements.GroupBy(p => (p.Day, p.Period)), g => Assert.Single(g));
         Assert.DoesNotContain(result.Placements, p => p.Day == DayOfWeek.Monday && p.Period == 1);
+    }
+
+    [Fact]
+    public void TheFirstChoiceFirstAndAClassKeepsItsClassroom()
+    {
+        static Demand Pe(int lessons, params int[] rooms) => new(1, 10, 101, lessons, 0, rooms);
+        static void InRoom(Result result, int roomId, int count)
+        {
+            Assert.Empty(result.Unplaced);
+            Assert.Equal(count, result.Placements.Count);
+            Assert.All(result.Placements, p => Assert.Equal(roomId, p.ClassroomId));
+        }
+
+        InRoom(Run([Pe(2, 2, 1)]), 2, 2);
+        // Gym 1 is busy Monday to Wednesday: the class moves to gym 2 for the whole week.
+        InRoom(Run([Pe(5, 1, 2)], [.. from day in Week.Take(3) from period in Enumerable.Range(1, 6)
+                                      select new Kept(99, 50, null, 1, day, period)]), 2, 5);
+        // It already has a lesson in gym 1.
+        InRoom(Run([Pe(2, 2, 1)], [new Kept(1, 10, 101, 1, DayOfWeek.Friday, 6)]), 1, 2);
+    }
+
+    [Fact]
+    public void ALessonNoClassroomIsLeftForGoesInWithoutOne()
+    {
+        // The only gym is free on Monday first period only.
+        List<Kept> kept = [.. from day in Week from period in Enumerable.Range(1, 6)
+                              where (day, period) != (DayOfWeek.Monday, 1)
+                              select new Kept(99, 50, null, 1, day, period)];
+
+        var result = Run([new Demand(1, 10, 101, 1, 0, [1]), new Demand(2, 10, 102, 1, 0, [1])], kept);
+
+        Assert.Empty(result.Unplaced);
+        Assert.Single(result.Placements, p => p.ClassroomId == 1 && p.Day == DayOfWeek.Monday && p.Period == 1);
+        Assert.Single(result.Placements, p => p.ClassroomId is null);
     }
 
     [Fact]

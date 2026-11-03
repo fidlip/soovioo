@@ -994,14 +994,8 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Abbreviation")
                         .HasColumnType("text");
 
-                    b.Property<string>("ClassroomType")
-                        .HasColumnType("text");
-
                     b.Property<string>("Color")
                         .HasColumnType("text");
-
-                    b.Property<int?>("DefaultClassroomId")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1011,8 +1005,6 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DefaultClassroomId");
 
                     b.HasIndex("SchoolId");
 
@@ -2742,17 +2734,50 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Evidence.Subject", b =>
                 {
-                    b.HasOne("Soovioo.Api.Evidence.Classroom", "DefaultClassroom")
-                        .WithMany()
-                        .HasForeignKey("DefaultClassroomId");
-
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("DefaultClassroom");
+                    b.OwnsMany("Soovioo.Api.Evidence.SubjectClassroom", "Classrooms", b1 =>
+                        {
+                            b1.Property<int>("SubjectId")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                            b1.Property<int?>("ClassroomId")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("Position")
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("Type")
+                                .HasColumnType("text");
+
+                            b1.HasKey("SubjectId", "Id");
+
+                            b1.HasIndex("ClassroomId");
+
+                            b1.ToTable("SubjectClassrooms", (string)null);
+
+                            b1.HasOne("Soovioo.Api.Evidence.Classroom", "Classroom")
+                                .WithMany()
+                                .HasForeignKey("ClassroomId")
+                                .OnDelete(DeleteBehavior.Restrict);
+
+                            b1.WithOwner()
+                                .HasForeignKey("SubjectId");
+
+                            b1.Navigation("Classroom");
+                        });
+
+                    b.Navigation("Classrooms");
 
                     b.Navigation("School");
                 });

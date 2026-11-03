@@ -30,9 +30,9 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Barva musí být ve formátu #rrggbb.");
         }
 
-        if (request.DefaultClassroomId is not null && await db.Classrooms.FindAsync(request.DefaultClassroomId) is null)
+        if (await ClassroomErrorAsync(request) is { } error)
         {
-            return BadRequest("Neznámá učebna.");
+            return BadRequest(error);
         }
 
         var subject = new Subject
@@ -40,14 +40,31 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             Name = request.Name,
             Abbreviation = request.Abbreviation,
             Color = request.Color,
-            DefaultClassroomId = request.DefaultClassroomId,
-            ClassroomType = request.ClassroomType,
+            Classrooms = Classrooms(request),
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.Subjects.Add(subject);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetSubjects), new { id = subject.Id }, subject);
     }
+
+    private async Task<string?> ClassroomErrorAsync(CreateSubjectRequest request)
+    {
+        var items = request.Classrooms ?? [];
+        if (items.Any(c => (c.ClassroomId is null) == (c.Type is null)))
+        {
+            return "U předmětu je buď učebna, nebo typ učebny.";
+        }
+        if (items.Distinct().Count() != items.Count)
+        {
+            return "Učebna je u předmětu dvakrát.";
+        }
+        var ids = items.Where(c => c.ClassroomId is not null).Select(c => c.ClassroomId!.Value).ToList();
+        return await db.Classrooms.CountAsync(r => ids.Contains(r.Id)) != ids.Count ? "Neznámá učebna." : null;
+    }
+
+    private static List<SubjectClassroom> Classrooms(CreateSubjectRequest request) =>
+        [.. (request.Classrooms ?? []).Select((c, i) => new SubjectClassroom { Position = i, ClassroomId = c.ClassroomId, Type = c.Type })];
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Subjects)]
@@ -58,9 +75,9 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Barva musí být ve formátu #rrggbb.");
         }
 
-        if (request.DefaultClassroomId is not null && await db.Classrooms.FindAsync(request.DefaultClassroomId) is null)
+        if (await ClassroomErrorAsync(request) is { } error)
         {
-            return BadRequest("Neznámá učebna.");
+            return BadRequest(error);
         }
 
         var subject = await db.Subjects.FindAsync(id);
@@ -72,8 +89,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
         subject.Name = request.Name;
         subject.Abbreviation = request.Abbreviation;
         subject.Color = request.Color;
-        subject.DefaultClassroomId = request.DefaultClassroomId;
-        subject.ClassroomType = request.ClassroomType;
+        subject.Classrooms = Classrooms(request);
         await db.SaveChangesAsync();
         return Ok(subject);
     }
@@ -108,5 +124,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
 }
 
 public record CreateSubjectRequest(
-    string Name, string? Abbreviation = null, string? Color = null, int? DefaultClassroomId = null,
-    ClassroomType? ClassroomType = null);
+    string Name, string? Abbreviation = null, string? Color = null, IReadOnlyList<SubjectClassroomRequest>? Classrooms = null);
+
+/// <summary>A particular classroom or a type, not both.</summary>
+public record SubjectClassroomRequest(int? ClassroomId = null, ClassroomType? Type = null);

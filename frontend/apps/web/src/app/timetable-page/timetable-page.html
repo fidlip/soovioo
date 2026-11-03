@@ -391,6 +391,7 @@
         optionLabel="label"
         optionValue="value"
         [(ngModel)]="formDayOfWeek"
+        (ngModelChange)="prefillClassroom()"
         name="formDayOfWeek"
         required
         styleClass="w-full"
@@ -405,6 +406,7 @@
         optionLabel="label"
         optionValue="value"
         [(ngModel)]="formPeriodNumber"
+        (ngModelChange)="prefillClassroom()"
         name="formPeriodNumber"
         required
         styleClass="w-full"
@@ -448,6 +450,7 @@
         optionLabel="label"
         optionValue="value"
         [(ngModel)]="formWeekParity"
+        (ngModelChange)="prefillClassroom()"
         name="formWeekParity"
         required
         styleClass="w-full"

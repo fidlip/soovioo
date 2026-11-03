@@ -1,4 +1,11 @@
-import { ClassroomType } from './classroom.model';
+import { Classroom, ClassroomType } from './classroom.model';
+
+/** A particular classroom, or any of a type. */
+export interface SubjectClassroom {
+  position: number;
+  classroomId: number | null;
+  type: ClassroomType | null;
+}
 
 export interface Subject {
   id: number;
@@ -7,16 +14,28 @@ export interface Subject {
   abbreviation: string | null;
   /** "#rrggbb" — background color for this subject's cells on the Rozvrh table. */
   color: string | null;
-  /** Pre-fills a new timetable entry's classroom when this subject is picked. */
-  defaultClassroomId: number | null;
-  /** Without a default classroom, the generator picks a free one of this type. */
-  classroomType: ClassroomType | null;
+  /** Where it's taught, first choice first (sort by position). */
+  classrooms: SubjectClassroom[];
 }
 
 export interface CreateSubjectRequest {
   name: string;
   abbreviation?: string;
   color?: string;
-  defaultClassroomId?: number;
-  classroomType?: ClassroomType;
+  classrooms?: { classroomId?: number; type?: ClassroomType }[];
+}
+
+/** The subject's classrooms in order, a type expanded to its classrooms. */
+export function subjectClassroomIds(
+  subject: Subject | undefined,
+  classrooms: Classroom[],
+): number[] {
+  const ids = [...(subject?.classrooms ?? [])]
+    .sort((a, b) => a.position - b.position)
+    .flatMap((c) =>
+      c.classroomId !== null
+        ? [c.classroomId]
+        : classrooms.filter((r) => r.type === c.type).map((r) => r.id),
+    );
+  return [...new Set(ids)];
 }

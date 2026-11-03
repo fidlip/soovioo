@@ -188,8 +188,17 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 Abbreviation = d.Abbr,
                 Color = d.Color,
                 SchoolId = school.Id,
-                DefaultClassroom = d.RoomGroup is { } g ? roomGroups[g][0] : null,
             };
+            // The first room, else any of its kind.
+            if (d.RoomGroup is { } g)
+            {
+                var group = roomGroups[g];
+                subject.Classrooms.Add(new SubjectClassroom { Position = 0, Classroom = group[0] });
+                if (group.Count > 1)
+                {
+                    subject.Classrooms.Add(new SubjectClassroom { Position = 1, Type = group[0].Type });
+                }
+            }
             db.Subjects.Add(subject);
             return subject;
         });

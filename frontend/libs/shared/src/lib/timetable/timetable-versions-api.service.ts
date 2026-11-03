@@ -9,6 +9,7 @@ import {
   TimetableVersion,
   UpdateTimetableVersionRequest,
 } from './timetable-version.model';
+import { DayOfWeek, WeekParity } from './timetable-entry.model';
 
 @Injectable({ providedIn: 'root' })
 export class TimetableVersionsApiService {
@@ -34,6 +35,18 @@ export class TimetableVersionsApiService {
     request: UpdateTimetableVersionRequest,
   ): Observable<TimetableVersion> {
     return this.http.put<TimetableVersion>(`${this.url}/${id}`, request);
+  }
+
+  /** Classrooms taken at a slot of the version. */
+  getBusyClassrooms(
+    id: number,
+    day: DayOfWeek,
+    period: number,
+    weekParity: WeekParity,
+  ): Observable<number[]> {
+    return this.http.get<number[]>(`${this.url}/${id}/busy-classrooms`, {
+      params: { day, period, weekParity },
+    });
   }
 
   /** The latest run; null when there's none. */

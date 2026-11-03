@@ -29,8 +29,8 @@ public class TimetableEntry
     public int? TeacherId { get; set; }
     public User? Teacher { get; set; }
 
-    /// <summary>Defaults from Subject.DefaultClassroomId when the entry is
-    /// created, but overridable per entry (see TimetableController.AddEntry).</summary>
+    /// <summary>Pre-filled from the subject's classrooms (the first free
+    /// one), overridable per entry.</summary>
     public int? ClassroomId { get; set; }
     public Classroom? Classroom { get; set; }
 

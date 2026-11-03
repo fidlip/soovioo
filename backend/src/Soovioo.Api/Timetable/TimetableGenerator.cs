@@ -3,15 +3,17 @@ using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Timetable;
 
-/// <summary>Places lessons into the week with OR-Tools CP-SAT. Hard: a class,
-/// a teacher and a classroom at most once at a time, the teacher's days, a
-/// classroom of the subject's type, at most a balanced number of lessons a
-/// day for a class. Soft (fixed weights): no gaps for classes (a day starts
-/// with the first lesson), a subject at most once a day, few gaps for
-/// teachers, no 0. hodina. What doesn't fit is reported, not forced.</summary>
+/// <summary>Places lessons into the week with OR-Tools CP-SAT. Hard: a class
+/// and a teacher at most once at a time, the teacher's days, at most a
+/// balanced number of lessons a day for a class. Soft (fixed weights): a
+/// free classroom for each lesson, lessons every day, no gaps for classes (a
+/// day starts with the first lesson), a subject at most once a day, few gaps
+/// for teachers, no 0. hodina. What doesn't fit is reported, not forced; a
+/// lesson no classroom is left for goes in without one.</summary>
 public static class TimetableGenerator
 {
     private const int MissingWeight = 1000;
+    private const int NoRoomWeight = 200;
     private const int ClassGapWeight = 10;
     private const int ShortDayWeight = 20;
     private const int EarlyPeriodWeight = 8;
@@ -21,16 +23,16 @@ public static class TimetableGenerator
     /// <param name="Weekly">Lessons every week.</param>
     /// <param name="Biweekly">Lessons every other week (0.5 h); placed in
     /// odd weeks and holding the slot in both.</param>
-    /// <param name="ClassroomId">The subject's own classroom.</param>
-    /// <param name="ClassroomType">Any free classroom of this type.</param>
+    /// <param name="Rooms">Classrooms it can have, first choice first; empty
+    /// = none needed.</param>
     public record Demand(
-        int ClassId, int SubjectId, int? TeacherId, int Weekly, int Biweekly,
-        int? ClassroomId = null, ClassroomType? ClassroomType = null);
+        int ClassId, int SubjectId, int? TeacherId, int Weekly, int Biweekly, IReadOnlyList<int>? Rooms = null)
+    {
+        public IReadOnlyList<int> Rooms { get; init; } = Rooms ?? [];
+    }
 
     /// <summary>A lesson that stays where it is.</summary>
     public record Kept(int ClassId, int SubjectId, int? TeacherId, int? ClassroomId, DayOfWeek Day, int Period);
-
-    public record Room(int Id, ClassroomType? Type);
 
     /// <param name="TeacherDays">Days a teacher can teach; missing = any.</param>
     public record Input(
@@ -38,7 +40,6 @@ public static class TimetableGenerator
         IReadOnlyList<int> Periods,
         IReadOnlyList<Demand> Demands,
         IReadOnlyList<Kept> KeptLessons,
-        IReadOnlyList<Room> Rooms,
         IReadOnlyDictionary<int, IReadOnlyCollection<DayOfWeek>> TeacherDays,
         TimeSpan TimeLimit);
 
@@ -71,7 +72,6 @@ public static class TimetableGenerator
         var classBusy = kept.Select(k => (k.ClassId, k.Day, k.Period)).ToHashSet();
         var teacherBusy = kept.Where(k => k.TeacherId is not null).Select(k => (k.TeacherId!.Value, k.Day, k.Period)).ToHashSet();
         var roomBusy = kept.Where(k => k.ClassroomId is not null).Select(k => (k.ClassroomId!.Value, k.Day, k.Period)).ToHashSet();
-        var roomTypes = input.Rooms.ToDictionary(r => r.Id, r => r.Type);
 
         var model = new CpModel();
         var objective = LinearExpr.NewBuilder();
@@ -86,8 +86,7 @@ public static class TimetableGenerator
             {
                 if ((teacherDays is not null && !teacherDays.Contains(day))
                     || classBusy.Contains((demand.ClassId, day, period))
-                    || (demand.TeacherId is { } teacher && teacherBusy.Contains((teacher, day, period)))
-                    || (demand.ClassroomId is { } room && roomBusy.Contains((room, day, period))))
+                    || (demand.TeacherId is { } teacher && teacherBusy.Contains((teacher, day, period))))
                 {
                     continue;
                 }
@@ -122,8 +121,6 @@ public static class TimetableGenerator
         var byClass = Group(units, u => u.Demand.ClassId);
         var byTeacher = Group(units.Select((u, i) => (u, i)).Where(p => p.u.Demand.TeacherId is not null).Select(p => p.i),
             i => units[i].Demand.TeacherId!.Value);
-        var byRoom = Group(units.Select((u, i) => (u, i)).Where(p => p.u.Demand.ClassroomId is not null).Select(p => p.i),
-            i => units[i].Demand.ClassroomId!.Value);
 
         // A class at most once at a time, gaps and the first lesson.
         foreach (var (classId, unitIndexes) in byClass)
@@ -198,25 +195,31 @@ public static class TimetableGenerator
             }
         }
 
-        // A classroom at most once at a time; a type at most as many times
-        // as it has free classrooms.
-        foreach (var (roomId, unitIndexes) in byRoom)
+        // A free classroom for every lesson: for each set of classrooms, the
+        // lessons that can only use those at most as many as are free.
+        var roomSets = units.Select(u => u.Demand.Rooms).Where(r => r.Count > 0)
+            .Select(r => r.Order().ToArray()).ToList();
+        var pools = roomSets.Concat(Components(roomSets))
+            .DistinctBy(r => string.Join(',', r)).ToList();
+        foreach (var pool in pools)
         {
-            foreach (var (day, period) in slots)
+            var inPool = units.Select((u, i) => (u, i))
+                .Where(p => p.u.Demand.Rooms.Count > 0 && p.u.Demand.Rooms.All(pool.Contains))
+                .Select(p => p.i).ToList();
+            if (inPool.Sum(i => units[i].Count) <= 0)
             {
-                model.Add(Occupied(unitIndexes, day, period, 0) <= 1);
+                continue;
             }
-        }
-        var typed = units.Select((u, i) => (Type: u.Demand.ClassroomId is { } r ? roomTypes.GetValueOrDefault(r) : u.Demand.ClassroomType, i))
-            .Where(p => p.Type is not null)
-            .GroupBy(p => p.Type!.Value, p => p.i);
-        foreach (var group in typed)
-        {
-            var rooms = input.Rooms.Where(r => r.Type == group.Key).Select(r => r.Id).ToList();
             foreach (var (day, period) in slots)
             {
-                var free = rooms.Count(r => !roomBusy.Contains((r, day, period)));
-                model.Add(Occupied(group, day, period, 0) <= free);
+                var free = pool.Count(r => !roomBusy.Contains((r, day, period)));
+                if (free >= inPool.Count(i => x.ContainsKey((i, day, period))))
+                {
+                    continue;
+                }
+                var over = model.NewIntVar(0, inPool.Count, $"noroom{string.Join('_', pool)}_{day}_{period}");
+                model.Add(over >= Occupied(inPool, day, period, -free));
+                objective.AddTerm(over, NoRoomWeight);
             }
         }
 
@@ -250,28 +253,60 @@ public static class TimetableGenerator
                 g.Sum(p => p.u.Parity == WeekParity.Every ? p.Left : p.Left * 0.5m)))
             .ToList();
 
-    /// <summary>The subject's own classroom, else a free one of its type —
-    /// the model already keeps their count within the free ones.</summary>
+    /// <summary>Overlapping classroom sets merged.</summary>
+    private static List<int[]> Components(List<int[]> sets)
+    {
+        var merged = new List<HashSet<int>>();
+        foreach (var set in sets)
+        {
+            var joined = new HashSet<int>(set);
+            foreach (var other in merged.Where(m => m.Overlaps(set)).ToList())
+            {
+                joined.UnionWith(other);
+                merged.Remove(other);
+            }
+            merged.Add(joined);
+        }
+        return [.. merged.Select(m => m.Order().ToArray())];
+    }
+
+    /// <summary>A class keeps one classroom for a subject where it can — the
+    /// one free for most of its lessons, then the one it already has, then
+    /// the first choice — and only the lessons that clash go elsewhere, to
+    /// the first free one; none free = no classroom.</summary>
     private static List<Placement> AssignRooms(
         List<(int Unit, DayOfWeek Day, int Period)> placed, List<Unit> units, Input input,
         HashSet<(int, DayOfWeek, int)> roomBusy)
     {
         var taken = new HashSet<(int, DayOfWeek, int)>(roomBusy);
         var result = new List<Placement>();
-        foreach (var (u, day, period) in placed.OrderBy(p => units[p.Unit].Demand.ClassroomId is null))
+        var groups = placed
+            .GroupBy(p => (units[p.Unit].Demand.ClassId, units[p.Unit].Demand.SubjectId))
+            .OrderBy(g => units[g.First().Unit].Demand.Rooms.Count is var n && n == 0 ? int.MaxValue : n)
+            .ThenByDescending(g => g.Count());
+        foreach (var lessons in groups)
         {
-            var demand = units[u].Demand;
-            var roomId = demand.ClassroomId;
-            if (roomId is null && demand.ClassroomType is { } type)
+            var demand = units[lessons.First().Unit].Demand;
+            var rooms = demand.Rooms;
+            var has = input.KeptLessons.Where(k => k.ClassId == demand.ClassId && k.SubjectId == demand.SubjectId)
+                .Select(k => k.ClassroomId).ToList();
+            int? home = rooms.Count == 0 ? null : rooms
+                .Select((r, i) => (r, i))
+                .OrderByDescending(p => lessons.Count(l => !taken.Contains((p.r, l.Day, l.Period))))
+                .ThenByDescending(p => has.Count(k => k == p.r))
+                .ThenBy(p => p.i)
+                .First().r;
+            foreach (var (u, day, period) in lessons)
             {
-                roomId = input.Rooms.Where(r => r.Type == type && !taken.Contains((r.Id, day, period)))
-                    .Select(r => (int?)r.Id).FirstOrDefault();
+                var roomId = home is { } h && !taken.Contains((h, day, period))
+                    ? h
+                    : rooms.Where(r => !taken.Contains((r, day, period))).Select(r => (int?)r).FirstOrDefault();
+                if (roomId is { } id)
+                {
+                    taken.Add((id, day, period));
+                }
+                result.Add(new Placement(demand.ClassId, demand.SubjectId, demand.TeacherId, day, period, units[u].Parity, roomId));
             }
-            if (roomId is { } id)
-            {
-                taken.Add((id, day, period));
-            }
-            result.Add(new Placement(demand.ClassId, demand.SubjectId, demand.TeacherId, day, period, units[u].Parity, roomId));
         }
         return result;
     }
