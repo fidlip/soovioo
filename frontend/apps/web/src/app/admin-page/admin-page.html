@@ -6,9 +6,11 @@
 <app-loading />
 } @else if (accessLevel() === 'denied') {
 <p class="text-surface-500">
-  Tato stránka je dostupná pro roli Admin, nebo pro třídního učitele (jen pro
-  vlastní třídu).
+  Tato stránka je dostupná pro roli Admin, pro třídního učitele (jen pro vlastní
+  třídu), nebo pro toho, kdo smí vidět přidělení výuky.
 </p>
+} @else if (accessLevel() === 'teaching') {
+<app-teaching-tab />
 } @else { @if (accessLevel() === 'classTeacher') {
 <p class="mb-6 text-sm text-surface-500">
   {{ 'Jste třídní učitel — vidíte a upravujete jen žáky své třídy a jejich vazby
@@ -205,6 +207,9 @@
   <p-tablist>
     <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
     <p-tab value="parents">Rodiče</p-tab>
+    @if (canSeeTeaching()) {
+    <p-tab value="teaching">Přidělení výuky</p-tab>
+    }
   </p-tablist>
   <p-tabpanels>
     <p-tabpanel value="students">
@@ -217,6 +222,13 @@
         <ng-container [ngTemplateOutlet]="parentsCard" />
       </div>
     </p-tabpanel>
+    @if (canSeeTeaching()) {
+    <p-tabpanel value="teaching">
+      <div class="pt-4">
+        <app-teaching-tab />
+      </div>
+    </p-tabpanel>
+    }
   </p-tabpanels>
 </p-tabs>
 } @else {
@@ -225,6 +237,7 @@
 <p-tabs [(value)]="activeTab" [scrollable]="true" [lazy]="true">
   <p-tablist>
     <p-tab value="classes">Třídy, předměty a učebny</p-tab>
+    <p-tab value="teaching">Přidělení výuky</p-tab>
     <p-tab value="people">Osoby</p-tab>
     <p-tab value="users">Uživatelé</p-tab>
     <p-tab value="roles">Role</p-tab>
@@ -267,17 +280,14 @@
                   </td>
                   <td>
                     <div class="flex justify-end gap-1">
-                      @if (canSeeTeaching()) {
                       <p-button
                         icon="pi pi-users"
                         [ariaLabel]="'Přidělení výuky — ' + schoolClass.name"
                         title="Přidělení výuky"
                         size="small"
                         [text]="true"
-                        [routerLink]="schoolContext.link('teaching')"
-                        [queryParams]="{ class: schoolClass.id }"
+                        (onClick)="showTeaching({ classId: schoolClass.id })"
                       />
-                      }
                       <p-button
                         icon="pi pi-pencil"
                         ariaLabel="Upravit"
@@ -449,7 +459,16 @@
             [roles]="schoolRoles()"
             (createAccount)="openCreateAccountFor($event)"
             (changed)="reload()"
+            (showTeaching)="showTeaching({ teacherId: $event })"
           />
+        </div>
+      </ng-template>
+    </p-tabpanel>
+
+    <p-tabpanel value="teaching">
+      <ng-template #content>
+        <div class="pt-4">
+          <app-teaching-tab [focus]="teachingFocus()" />
         </div>
       </ng-template>
     </p-tabpanel>

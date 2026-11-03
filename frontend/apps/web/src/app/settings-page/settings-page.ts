@@ -26,6 +26,11 @@ import {
   PhotosApiService,
   SetVisibilityRequest,
   StudentPhotoState,
+  TeacherTeaching,
+  TeachingApiService,
+  formatHours,
+  taughtSummary,
+  teachingDaysLabel,
   VisibilitySetting,
 } from '@soovioo/shared';
 import { DarkModeService } from '../dark-mode.service';
@@ -62,6 +67,7 @@ import { Loading } from '../loading/loading';
 export class SettingsPage {
   protected readonly notify = inject(NotifyService);
   private readonly profileApi = inject(MyProfileApiService);
+  private readonly teachingApi = inject(TeachingApiService);
   private readonly eventsApi = inject(EventsApiService);
   private readonly photosApi = inject(PhotosApiService);
   private readonly notificationsApi = inject(NotificationsApiService);
@@ -77,6 +83,11 @@ export class SettingsPage {
     this.authApi.mustChangePassword();
 
   protected readonly profile = signal<MyProfile | null>(null);
+  /** A teacher's aprobace, hours and přidělení in the version valid today. */
+  protected readonly teaching = signal<TeacherTeaching | null>(null);
+  protected readonly formatHours = formatHours;
+  protected readonly taughtSummary = taughtSummary;
+  protected readonly teachingDaysLabel = teachingDaysLabel;
   /** The cards render once the profile request is done (either way): the
    * Profil card filling in afterwards pushed the cards below it down. */
   protected readonly profileSettled = signal(false);
@@ -165,6 +176,13 @@ export class SettingsPage {
           this.loadNotificationSettings();
         }
       });
+    const userId = this.authApi.getUserId();
+    if (this.authApi.isStaff() && userId !== null) {
+      this.teachingApi.getTeacherTeaching(userId).subscribe({
+        next: (teaching) => this.teaching.set(teaching),
+        error: (err) => console.error('getTeacherTeaching failed', err),
+      });
+    }
     this.profileApi.getProfile().subscribe({
       next: (profile) => {
         this.profile.set(profile);

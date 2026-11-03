@@ -2,7 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { CurriculumItem, TeachingOverview } from './teaching.model';
+import {
+  CurriculumItem,
+  TeacherTeaching,
+  TeachingOverview,
+} from './teaching.model';
 
 /** Every change answers with the whole overview, checks recomputed. */
 @Injectable({ providedIn: 'root' })
@@ -12,6 +16,17 @@ export class TeachingApiService {
 
   private url(versionId: number): string {
     return `${this.baseUrl}/api/timetable-versions/${versionId}`;
+  }
+
+  /** The version valid today unless `versionId`; null = not a teacher there. */
+  getTeacherTeaching(
+    teacherId: number,
+    versionId?: number | null,
+  ): Observable<TeacherTeaching | null> {
+    return this.http.get<TeacherTeaching | null>(
+      `${this.baseUrl}/api/teaching/teachers/${teacherId}`,
+      { params: versionId ? { versionId } : {} },
+    );
   }
 
   getTeaching(versionId: number): Observable<TeachingOverview> {

@@ -63,8 +63,6 @@ interface NavItem {
   familyOnly?: boolean;
   /** Mé děti — parents only. */
   parentOnly?: boolean;
-  /** Přidělení výuky — whoever may see it (a teacher their own). */
-  teachingOnly?: boolean;
 }
 
 @Component({
@@ -282,12 +280,6 @@ export class App {
       { label: 'Známky', icon: 'grades', link: link('grades') },
       { label: 'Docházka', icon: 'absences', link: link('absences') },
       { label: 'Rozvrh', icon: 'timetable', link: link('timetable') },
-      {
-        label: 'Přidělení výuky',
-        icon: 'teaching',
-        link: link('teaching'),
-        teachingOnly: true,
-      },
       { label: 'Kalendář', icon: 'events', link: link('events') },
       { label: 'Zprávy', icon: 'messages', link: link('messages') },
       { label: 'Domácí úkoly', icon: 'homework', link: link('homework') },
@@ -357,11 +349,12 @@ export class App {
     if (item.familyOnly) {
       return this.authApi.isParent() || this.authApi.isStudent();
     }
-    if (item.teachingOnly) {
-      return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
-    }
     return (
-      !item.staffOnly || this.authApi.isAdmin() || this.authApi.can('Students')
+      !item.staffOnly ||
+      this.authApi.isAdmin() ||
+      this.authApi.can('Students') ||
+      this.authApi.can('TeachingRead') ||
+      this.authApi.can('Teaching')
     );
   }
 

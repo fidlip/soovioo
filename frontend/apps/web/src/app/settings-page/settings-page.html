@@ -82,6 +82,32 @@
         (onClick)="saveProfile()"
         styleClass="self-start"
       />
+
+      @if (teaching(); as t) {
+      <section
+        class="mt-2 flex flex-col gap-1 border-t border-surface-200 pt-4 text-sm dark:border-surface-700"
+        aria-label="Výuka"
+      >
+        <h3 class="m-0 text-base font-semibold">Výuka</h3>
+        <div>
+          <strong>Aprobace:</strong> {{ t.teacher.qualification || '—' }}
+        </div>
+        <div>
+          <strong>Nasmlouvané hodiny:</strong>
+          {{ t.teacher.contractedHours === null ? '—' :
+          formatHours(t.teacher.contractedHours) + ' týdně' }}
+        </div>
+        <div>
+          <strong>Může učit:</strong> {{
+          teachingDaysLabel(t.teacher.teachingDays) }}
+        </div>
+        <div>
+          <strong>Přiděleno ({{ t.versionName }}):</strong>
+          {{ formatHours(t.teacher.assignedHours) }}@if (t.teacher.taught.length
+          > 0) { — {{ taughtSummary(t.teacher.taught) }} }
+        </div>
+      </section>
+      }
     </div>
     }
   </p-card>

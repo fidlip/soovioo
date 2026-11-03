@@ -28,13 +28,17 @@ import {
   Subject,
   SubjectsApiService,
   Teacher,
-  qualifiedFor,
+  TeacherTeaching,
   TeachersApiService,
+  TeachingApiService,
   TimetableApiService,
   TimetableVersion,
   TimetableVersionsApiService,
   WeekParity,
   formatDate,
+  formatHours,
+  qualifiedFor,
+  taughtSummary,
   isoWeekNumber,
   localizeStudentTerm,
   timetableVersionOn,
@@ -167,6 +171,7 @@ export class TimetablePage {
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly teachersApi = inject(TeachersApiService);
+  private readonly teachingApi = inject(TeachingApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
@@ -254,6 +259,22 @@ export class TimetablePage {
       status: versionStatusLabel(version, toDateOnly(new Date())),
       draft: version.status !== 'Published',
     };
+  });
+
+  /** The shown teacher's přidělení výuky — for themselves, or for whoever
+   * sees the whole school's. */
+  protected readonly teaching = signal<TeacherTeaching | null>(null);
+  protected readonly teachingSummary = computed(() => {
+    const teacher = this.teaching()?.teacher;
+    if (!teacher) {
+      return null;
+    }
+    const hours =
+      teacher.contractedHours === null
+        ? `Přiděleno ${formatHours(teacher.assignedHours)}`
+        : `Přiděleno ${formatHours(teacher.assignedHours)} z ${formatHours(teacher.contractedHours)} nasmlouvaných`;
+    const taught = taughtSummary(teacher.taught);
+    return taught ? `${hours}: ${taught}` : hours;
   });
 
   protected readonly subjectsById = computed(
@@ -819,6 +840,26 @@ export class TimetablePage {
     });
   }
 
+  private loadTeaching(teacherId: number): void {
+    this.teaching.set(null);
+    const schoolWide =
+      this.authApi.can('Teaching') ||
+      this.authApi.scope('TeachingRead') === 'School';
+    if (!schoolWide && teacherId !== this.authApi.getUserId()) {
+      return;
+    }
+    this.teachingApi
+      .getTeacherTeaching(teacherId, this.loadedVersionId)
+      .subscribe({
+        next: (teaching) => {
+          if (this.selectedTeacherId() === teacherId) {
+            this.teaching.set(teaching);
+          }
+        },
+        error: (err) => console.error('getTeacherTeaching failed', err),
+      });
+  }
+
   private reload(): void {
     const selected = this.selectedVersionId();
     const query =
@@ -855,6 +896,7 @@ export class TimetablePage {
         this.entriesLoaded.set(true);
         return;
       }
+      this.loadTeaching(teacherId);
       this.timetableApi.getTeacherTimetable(teacherId, query).subscribe({
         next: (entries) => this.setEntries(entries),
         error: (err) => {

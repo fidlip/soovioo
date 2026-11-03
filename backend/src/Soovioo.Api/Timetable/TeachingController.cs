@@ -14,14 +14,42 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions/{versionId:int}")]
-public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
+    /// <summary>For whoever may see it or edit it.</summary>
     [HttpGet("teaching")]
-    [RequirePermission(Permission.TeachingRead)]
     public async Task<ActionResult<TeachingOverviewDto>> GetTeaching(int versionId)
     {
+        if (await ScopeAsync() == PermissionScope.None)
+        {
+            return Forbid();
+        }
         var version = await VisibleVersionAsync(versionId);
         return version is null ? NotFound() : Ok(await OverviewAsync(version));
+    }
+
+    /// <summary>One teacher's přidělení in <paramref name="versionId"/> (the
+    /// version valid today by default) — for the teacher themselves in Rozvrh
+    /// and Nastavení, for others to whoever sees the whole school's. No
+    /// content when they don't teach there (or there's no version).</summary>
+    [HttpGet("/api/teaching/teachers/{teacherId:int}")]
+    public async Task<ActionResult<TeacherTeachingDto>> GetTeacherTeaching(int teacherId, [FromQuery] int? versionId = null)
+    {
+        if (teacherId != User.UserId() && await ScopeAsync() != PermissionScope.School)
+        {
+            return Forbid();
+        }
+        var version = versionId is { } id
+            ? await VisibleVersionAsync(id)
+            : await db.TimetableVersionOnAsync(SchoolClock.Today(clock));
+        if (version is null)
+        {
+            return NoContent();
+        }
+        var (_, teachers, _, _) = await PlanAsync(version);
+        return teachers.FirstOrDefault(t => t.Id == teacherId) is { } teacher
+            ? Ok(new TeacherTeachingDto(version.Id, version.Name, teacher))
+            : NoContent();
     }
 
     /// <summary>Replaces the version's whole učební plán.</summary>
@@ -298,7 +326,31 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             : (version, null);
     }
 
+    private async Task<PermissionScope> ScopeAsync() =>
+        await User.HasPermissionAsync(db, Permission.Teaching)
+            ? PermissionScope.School
+            : await User.ScopeAsync(db, Permission.TeachingRead);
+
     private async Task<TeachingOverviewDto> OverviewAsync(TimetableVersion version)
+    {
+        var (classDtos, teacherDtos, grades, curriculum) = await PlanAsync(version);
+        if (await ScopeAsync() != PermissionScope.School)
+        {
+            var me = User.UserId();
+            classDtos = classDtos
+                .Select(c => c with { Problems = [], Rows = c.Rows.Where(r => r.TeacherId == me).ToList() })
+                .Where(c => c.Rows.Count > 0)
+                .ToList();
+            teacherDtos = teacherDtos.Where(t => t.Id == me).ToList();
+        }
+        return new TeachingOverviewDto(
+            version.Id,
+            version.Status != TimetableVersionStatus.Archived && await User.HasPermissionAsync(db, Permission.Teaching),
+            grades, curriculum, classDtos, teacherDtos);
+    }
+
+    private async Task<(List<TeachingClassDto> Classes, List<TeachingTeacherDto> Teachers, List<int> Grades, List<CurriculumItemDto> Curriculum)>
+        PlanAsync(TimetableVersion version)
     {
         var classes = await db.SchoolClasses.OrderBy(c => c.Name)
             .Select(c => new TeachingPlanner.ClassInput(c.Id, c.Name, c.Rocnik, c.ClassTeacherId))
@@ -344,25 +396,9 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         var (classDtos, teacherDtos) = TeachingPlanner.Plan(new TeachingPlanner.Input(
             classes, subjects, teachers, curriculum, classCurriculum, assignments, lessons));
 
-        var scope = await User.HasPermissionAsync(db, Permission.Teaching)
-            ? PermissionScope.School
-            : await User.ScopeAsync(db, Permission.TeachingRead);
-        if (scope != PermissionScope.School)
-        {
-            var me = User.UserId();
-            classDtos = classDtos
-                .Select(c => c with { Problems = [], Rows = c.Rows.Where(r => r.TeacherId == me).ToList() })
-                .Where(c => c.Rows.Count > 0)
-                .ToList();
-            teacherDtos = teacherDtos.Where(t => t.Id == me).ToList();
-        }
-
         var grades = classes.Where(c => c.Grade is not null).Select(c => c.Grade!.Value)
             .Concat(curriculum.Select(c => c.Grade)).Distinct().Order().ToList();
-        return new TeachingOverviewDto(
-            version.Id,
-            version.Status != TimetableVersionStatus.Archived && await User.HasPermissionAsync(db, Permission.Teaching),
-            grades, curriculum, classDtos, teacherDtos);
+        return (classDtos, teacherDtos, grades, curriculum);
     }
 }
 
@@ -376,6 +412,8 @@ public record TeachingOverviewDto(
     IReadOnlyList<CurriculumItemDto> Curriculum,
     IReadOnlyList<TeachingClassDto> Classes,
     IReadOnlyList<TeachingTeacherDto> Teachers);
+
+public record TeacherTeachingDto(int VersionId, string VersionName, TeachingTeacherDto Teacher);
 
 public record SaveCurriculumRequest(IReadOnlyList<CurriculumItemDto> Items);
 
