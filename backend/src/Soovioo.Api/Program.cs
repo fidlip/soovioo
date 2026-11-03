@@ -96,6 +96,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
 builder.Services.AddHangfireServer();
+builder.Services.AddHangfireServer(o =>
+{
+    o.ServerName = "timetable";
+    o.Queues = [Soovioo.Api.Timetable.TimetableGenerationJob.Queue];
+    o.WorkerCount = 1;
+});
 
 // SigningKey is deliberately NOT in appsettings.json — a real secret must
 // never ship in source control. For local dev it's set once via

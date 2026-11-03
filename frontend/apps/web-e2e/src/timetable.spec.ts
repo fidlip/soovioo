@@ -163,6 +163,8 @@ test.describe.serial('timetable version', () => {
   test('admin prepares a draft as a copy of the current timetable', async ({
     page,
   }) => {
+    // The generator runs until the timetable meets the requirements.
+    test.setTimeout(240_000);
     await login(page, 'admin', 'admin123');
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
@@ -185,10 +187,13 @@ test.describe.serial('timetable version', () => {
     const generate = page.getByRole('dialog', { name: 'Generovat rozvrh' });
     await generate.getByText('Přegenerovat vše').click();
     await generate.getByRole('button', { name: /Generovat$/ }).click();
-    await expect(generate.getByTestId('generation-result')).toContainText(
-      'Poslední generování: přidáno',
-      { timeout: 90_000 },
+    const result = page.getByRole('dialog', { name: 'Výsledek generování' });
+    await expect(result.getByTestId('generation-result')).toContainText(
+      'Přidáno',
+      { timeout: 180_000 },
     );
+    await result.getByRole('button', { name: 'Zavřít' }).click();
+    await expect(result).toBeHidden();
   });
 
   test('a parent does not see the draft', async ({ page }) => {

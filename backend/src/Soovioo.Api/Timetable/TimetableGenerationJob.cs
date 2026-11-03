@@ -10,8 +10,15 @@ namespace Soovioo.Api.Timetable;
 /// <see cref="TimetableGenerator"/>, the result into the version.</summary>
 public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILogger<TimetableGenerationJob> logger)
 {
-    public static readonly TimeSpan TimeLimit = TimeSpan.FromSeconds(60);
+    /// <summary>Normally the requirements hold well before; running out of
+    /// it is an error.</summary>
+    public static readonly TimeSpan TimeLimit = TimeSpan.FromMinutes(5);
 
+    public const string Queue = "timetable";
+
+    /// <summary>One at a time (<see cref="Queue"/> has a single worker): a
+    /// run takes all the cores it gets and a few hundred MB.</summary>
+    [Hangfire.Queue(Queue)]
     public async Task RunAsync(int generationId, int schoolId)
     {
         await using var db = new AppDbContext(options, new FixedSchoolContext(schoolId));
@@ -23,6 +30,7 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
             return;
         }
         generation.Status = TimetableGenerationStatus.Running;
+        generation.StartedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         try
         {
@@ -60,7 +68,9 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
             periods = [.. Enumerable.Range(1, 8)];
         }
         var subjects = await db.Subjects.ToDictionaryAsync(s => s.Id);
-        var rooms = await db.Classrooms.OrderBy(r => r.Id).Select(r => new { r.Id, r.Type }).ToListAsync();
+        var rooms = await db.Classrooms.OrderBy(r => r.Id).Select(r => new { r.Id, r.Name, r.Type, r.Capacity }).ToListAsync();
+        var classSizes = await db.Students.GroupBy(s => s.SchoolClassId)
+            .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count);
         var messages = new List<string>();
 
         var demands = new List<TimetableGenerator.Demand>();
@@ -76,12 +86,19 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
                     continue;
                 }
                 var subject = subjects[row.SubjectId];
-                var subjectRooms = subject.Classrooms.OrderBy(c => c.Position)
-                    .SelectMany(c => c.ClassroomId is { } id ? [id] : rooms.Where(r => r.Type == c.Type).Select(r => r.Id))
-                    .Distinct().ToList();
-                if (subject.Classrooms.Count > 0 && subjectRooms.Count == 0)
+                var listed = subject.Classrooms.OrderBy(c => c.Position)
+                    .SelectMany(c => c.ClassroomId is { } id ? rooms.Where(r => r.Id == id) : rooms.Where(r => r.Type == c.Type))
+                    .DistinctBy(r => r.Id).ToList();
+                // Only classrooms the whole class fits in.
+                var size = classSizes.GetValueOrDefault(schoolClass.Id);
+                var subjectRooms = listed.Where(r => r.Capacity is null || r.Capacity >= size).Select(r => r.Id).ToList();
+                if (subject.Classrooms.Count > 0 && listed.Count == 0)
                 {
                     messages.Add($"{subject.Name}: škola nemá učebnu potřebného typu, hodiny jsou bez učebny.");
+                }
+                else if (listed.Count > 0 && subjectRooms.Count == 0)
+                {
+                    messages.Add($"{schoolClass.Name} {subject.Abbreviation ?? subject.Name}: počet žáků {size} je větší než kapacita učeben předmětu ({string.Join(", ", listed.Select(r => $"{r.Name} {r.Capacity}"))}), hodiny jsou bez učebny.");
                 }
                 var weekly = (int)Math.Floor(hours);
                 demands.Add(new TimetableGenerator.Demand(
@@ -94,8 +111,13 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
             [.. TeacherProfile.Weekdays], periods, demands,
             [.. kept.Select(e => new TimetableGenerator.Kept(e.SchoolClassId, e.SubjectId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber))],
             teacherDays, timeLimit));
-        logger?.LogInformation("Timetable generation {Id}: penalty {Objective}, bound {Bound}",
-            generation.Id, result.Objective, result.Bound);
+        logger?.LogInformation("Timetable generation {Id}: penalty {Penalty}, bound {Bound}",
+            generation.Id, result.Penalty, result.Bound);
+        if (result.TimedOut)
+        {
+            logger?.LogError("Timetable generation {Id} of version {VersionId} ran out of {Limit} (penalty {Penalty}, bound {Bound})",
+                generation.Id, version.Id, timeLimit, result.Penalty, result.Bound);
+        }
         if (!result.Solved)
         {
             generation.Messages = [.. messages.Distinct(), "Rozvrh se nepodařilo sestavit v časovém limitu, verze zůstala beze změny."];
@@ -131,7 +153,53 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         {
             messages.Add("Některé předměty nemají učitele, jsou v rozvrhu bez něj.");
         }
+        if (result.TimedOut)
+        {
+            messages.Add("Generátor nestihl rozvrh doladit v časovém limitu, uložil nejlepší nalezený.");
+        }
         generation.Placed = result.Placements.Count;
         generation.Messages = [.. messages.Distinct()];
+        var lessons = kept.Select(e => (e.SchoolClassId, e.TeacherId, e.DayOfWeek, e.PeriodNumber))
+            .Concat(result.Placements.Select(p => (p.ClassId, p.TeacherId, p.Day, p.Period)))
+            .ToList();
+        generation.Notes = Notes(lessons, classNames, periods.Where(p => p >= 1).DefaultIfEmpty(periods.Min()).Min());
     }
+
+    /// <summary>"Okna tříd: 1 (6.B út)" — gaps and late starts of classes,
+    /// gaps of teachers.</summary>
+    private static List<string> Notes(
+        List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons, Dictionary<int, string> classNames, int first)
+    {
+        static int Holes(IEnumerable<int> periods)
+        {
+            var taken = periods.Distinct().Order().ToList();
+            return taken.Count == 0 ? 0 : taken[^1] - taken[0] + 1 - taken.Count;
+        }
+        string Where(IEnumerable<(int ClassId, DayOfWeek Day)> days) => string.Join(", ", days
+            .OrderBy(d => classNames.GetValueOrDefault(d.ClassId)).ThenBy(d => d.Day)
+            .Select(d => $"{classNames.GetValueOrDefault(d.ClassId)} {Short(d.Day)}"));
+
+        var classDays = lessons.GroupBy(l => (l.ClassId, l.Day)).ToList();
+        var gaps = classDays.Where(d => Holes(d.Select(l => l.Period)) > 0).Select(d => d.Key).ToList();
+        var late = classDays.Where(d => d.Min(l => l.Period) > first).Select(d => d.Key).ToList();
+        var teacherGaps = lessons.Where(l => l.TeacherId is not null).GroupBy(l => (l.TeacherId, l.Day))
+            .Sum(d => Holes(d.Select(l => l.Period)));
+        return
+        [
+            gaps.Count == 0 ? "Třídy nemají okna." : $"Okna tříd: {gaps.Count} ({Where(gaps)}).",
+            late.Count == 0 ? "Všechny třídy začínají první hodinou." : $"Později než první hodinou začíná: {Where(late)}.",
+            $"Okna učitelů: {teacherGaps} h týdně.",
+        ];
+    }
+
+    private static string Short(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => "po",
+        DayOfWeek.Tuesday => "út",
+        DayOfWeek.Wednesday => "st",
+        DayOfWeek.Thursday => "čt",
+        DayOfWeek.Friday => "pá",
+        DayOfWeek.Saturday => "so",
+        _ => "ne",
+    };
 }

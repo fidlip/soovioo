@@ -76,9 +76,11 @@ namespace Soovioo.Api.Migrations
                     Status = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "integer", nullable: true),
+                    StartedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     FinishedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     Placed = table.Column<int>(type: "integer", nullable: false),
-                    Messages = table.Column<List<string>>(type: "text[]", nullable: false)
+                    Messages = table.Column<List<string>>(type: "text[]", nullable: false),
+                    Notes = table.Column<List<string>>(type: "text[]", nullable: false)
                 },
                 constraints: table =>
                 {

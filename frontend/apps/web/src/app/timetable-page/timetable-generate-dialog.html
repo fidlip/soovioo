@@ -9,7 +9,7 @@
   <app-loading />
   } @else if (running()) {
   <app-loading
-    text="Generuji rozvrh… Trvá to nejvýš minutu, okno můžete zavřít."
+    text="Generuji rozvrh… Obvykle to trvá 1–2 minuty, okno můžete zavřít. Výsledek se zobrazí, až bude hotovo."
   />
   } @else {
   <p class="mt-0 text-sm text-surface-600 dark:text-surface-300">
@@ -31,30 +31,6 @@
     rozmístí znovu. }
   </p>
 
-  @if (generation(); as g) { @if (g.status === 'Done') {
-  <p-message
-    [severity]="g.messages.length > 0 ? 'warn' : 'success'"
-    styleClass="mt-4 w-full"
-  >
-    <div class="flex flex-col gap-1" data-testid="generation-result">
-      <div class="font-semibold">
-        Poslední generování: přidáno {{ g.placed }} h.
-      </div>
-      @if (g.messages.length > 0) {
-      <ul class="m-0 list-disc pl-5 text-sm">
-        @for (message of g.messages; track $index) {
-        <li>{{ message }}</li>
-        }
-      </ul>
-      }
-    </div>
-  </p-message>
-  } @else if (g.status === 'Failed') {
-  <p-message severity="error" styleClass="mt-4 w-full">
-    {{ g.messages[0] ?? 'Generování selhalo.' }}
-  </p-message>
-  } }
-
   <div class="mt-4 flex justify-end gap-2">
     <p-button
       label="Zavřít"
@@ -63,6 +39,55 @@
       (onClick)="close()"
     />
     <p-button label="Generovat" icon="pi pi-cog" (onClick)="start()" />
+  </div>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="result() !== null"
+  (visibleChange)="!$event && result.set(null)"
+  header="Výsledek generování"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (result(); as g) {
+  <div class="flex flex-col gap-3" data-testid="generation-result">
+    @if (g.status === 'Failed') {
+    <p-message severity="error" styleClass="w-full">
+      {{ g.messages[0] ?? 'Generování selhalo.' }}
+    </p-message>
+    } @else if (g.messages.length === 0) {
+    <p-message severity="success" styleClass="w-full">
+      Rozvrh je vygenerovaný a splňuje všechny požadavky.
+    </p-message>
+    } @else {
+    <p-message severity="warn" styleClass="w-full">
+      <div class="flex flex-col gap-1">
+        <div class="font-semibold">
+          Některé požadavky se nepodařilo splnit. Upravte je v Administraci a
+          generujte znovu.
+        </div>
+        <ul class="m-0 list-disc pl-5 text-sm">
+          @for (message of g.messages; track $index) {
+          <li>{{ message }}</li>
+          }
+        </ul>
+      </div>
+    </p-message>
+    } @if (g.status === 'Done') {
+    <ul class="m-0 list-disc pl-5 text-sm">
+      <li>
+        Přidáno {{ g.placed }} h ({{ g.mode === 'All' ? 'přegenerováno vše' :
+        'doplněno chybějící' }}), trvalo {{ duration(g) }}.
+      </li>
+      @for (note of g.notes; track $index) {
+      <li>{{ note }}</li>
+      }
+    </ul>
+    }
+  </div>
+  <div class="mt-4 flex justify-end">
+    <p-button label="Zavřít" (onClick)="result.set(null)" />
   </div>
   }
 </p-dialog>

@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261103192635_TimetableGenerator")]
+    [Migration("20261103212151_TimetableGenerator")]
     partial class TimetableGenerator
     {
         /// <inheritdoc />
@@ -2330,11 +2330,18 @@ namespace Soovioo.Api.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.PrimitiveCollection<List<string>>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<int>("Placed")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()

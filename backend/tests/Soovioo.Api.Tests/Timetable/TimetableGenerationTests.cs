@@ -99,6 +99,23 @@ public class TimetableGenerationTests
     }
 
     [Fact]
+    public async Task AClassBiggerThanTheClassroomGetsNone()
+    {
+        gym.Capacity = 1;
+        db.Students.AddRange(
+            new StudentProfile { SchoolId = SchoolId, SchoolClassId = fifth.Id, Person = new Person { SchoolId = SchoolId, FirstName = "Eva", LastName = "Malá" } },
+            new StudentProfile { SchoolId = SchoolId, SchoolClassId = fifth.Id, Person = new Person { SchoolId = SchoolId, FirstName = "Ota", LastName = "Malý" } });
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.Equal("5.A Tv: počet žáků 2 je větší než kapacita učeben předmětu (Tělocvična 1), hodiny jsou bez učebny.",
+            Assert.Single(generation.Messages));
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == pe.Id), e => Assert.Null(e.ClassroomId));
+        Assert.Contains("Třídy nemají okna.", generation.Notes);
+    }
+
+    [Fact]
     public async Task RegeneratingKeepsOnlyTheLockedLessons()
     {
         var locked = Lesson(maths, DayOfWeek.Friday, 3, locked: true);
@@ -136,7 +153,8 @@ public class TimetableGenerationTests
         db.TimetableGenerations.Add(new TimetableGeneration
         {
             SchoolId = SchoolId, TimetableVersionId = draft.Id, Mode = TimetableGenerationMode.All,
-            Status = TimetableGenerationStatus.Running, CreatedAt = new DateTimeOffset(2026, 11, 3, 10, 50, 0, TimeSpan.Zero),
+            Status = TimetableGenerationStatus.Running, CreatedAt = new DateTimeOffset(2026, 11, 3, 10, 40, 0, TimeSpan.Zero),
+            StartedAt = new DateTimeOffset(2026, 11, 3, 10, 40, 0, TimeSpan.Zero),
         });
         await db.SaveChangesAsync();
 

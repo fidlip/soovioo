@@ -16,13 +16,18 @@ public class TimetableGeneration
 
     public DateTimeOffset CreatedAt { get; set; }
     public int? CreatedByUserId { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
 
     /// <summary>Lessons added to the version.</summary>
     public int Placed { get; set; }
 
-    /// <summary>What didn't fit or couldn't be done, "5.A M: 1 h".</summary>
+    /// <summary>What didn't fit or couldn't be done, "5.A M: 1 h" — to fix
+    /// before generating again.</summary>
     public List<string> Messages { get; set; } = [];
+
+    /// <summary>How the result looks: class gaps, teachers' gaps…</summary>
+    public List<string> Notes { get; set; } = [];
 }
 
 public enum TimetableGenerationMode
