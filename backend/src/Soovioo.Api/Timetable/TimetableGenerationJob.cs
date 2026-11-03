@@ -17,7 +17,8 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         await using var db = new AppDbContext(options, new FixedSchoolContext(schoolId));
         var generation = await db.TimetableGenerations.Include(g => g.TimetableVersion)
             .FirstOrDefaultAsync(g => g.Id == generationId);
-        if (generation is null || generation.Status != TimetableGenerationStatus.Queued)
+        // Running = the server stopped during it and Hangfire runs it again.
+        if (generation is null || generation.Status is TimetableGenerationStatus.Done or TimetableGenerationStatus.Failed)
         {
             return;
         }

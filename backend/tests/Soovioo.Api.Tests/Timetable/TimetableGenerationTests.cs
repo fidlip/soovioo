@@ -130,6 +130,23 @@ public class TimetableGenerationTests
         Assert.IsType<BadRequestObjectResult>((await Controller().Generate(draft.Id, new(TimetableGenerationMode.Fill))).Result);
     }
 
+    [Fact]
+    public async Task ARunCutOffByARestartFailsAndANewOneCanStart()
+    {
+        db.TimetableGenerations.Add(new TimetableGeneration
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, Mode = TimetableGenerationMode.All,
+            Status = TimetableGenerationStatus.Running, CreatedAt = new DateTimeOffset(2026, 11, 3, 10, 50, 0, TimeSpan.Zero),
+        });
+        await db.SaveChangesAsync();
+
+        var latest = Assert.IsType<TimetableGenerationDto>(
+            Assert.IsType<OkObjectResult>((await Controller().GetGeneration(draft.Id)).Result).Value);
+
+        Assert.Equal(TimetableGenerationStatus.Failed, latest.Status);
+        Assert.IsType<AcceptedResult>((await Controller().Generate(draft.Id, new(TimetableGenerationMode.All))).Result);
+    }
+
     private class FakeJobs : IBackgroundJobClient
     {
         public List<Job> Created { get; } = [];
