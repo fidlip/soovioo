@@ -202,7 +202,9 @@ test.describe.serial('timetable version', () => {
     await expect(page.locator('p-select[name="versionPicker"]')).toHaveCount(0);
   });
 
-  test('admin publishes it ahead and archives it again', async ({ page }) => {
+  test('admin publishes it ahead, unpublishes, publishes and archives it', async ({
+    page,
+  }) => {
     await login(page, 'admin', 'admin123');
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
@@ -210,6 +212,20 @@ test.describe.serial('timetable version', () => {
       .getByTestId('timetable-version')
       .filter({ hasText: name });
 
+    await version.getByRole('button', { name: 'Zveřejnit' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Zveřejnit verzi rozvrhu' })
+      .getByRole('button', { name: 'Zveřejnit' })
+      .click();
+    await expect(version).toContainText('Naplánovaná');
+
+    // Unpublished it's a draft again, and published once more.
+    await version.getByRole('button', { name: 'Zrušit zveřejnění' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Zrušit zveřejnění verze rozvrhu' })
+      .getByRole('button', { name: 'Zrušit zveřejnění' })
+      .click();
+    await expect(version).toContainText('Koncept');
     await version.getByRole('button', { name: 'Zveřejnit' }).click();
     await page
       .getByRole('alertdialog', { name: 'Zveřejnit verzi rozvrhu' })

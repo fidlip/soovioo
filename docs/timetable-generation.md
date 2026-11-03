@@ -4,7 +4,9 @@ Stav: analýza probraná v [#17](https://github.com/fidlip/soovioo/issues/17) �
 CP-SAT, fáze jako sub-issues. Fáze 1 (verze rozvrhu,
 [#159](https://github.com/fidlip/soovioo/issues/159)) je hotová podle návrhu níže; navíc
 stav **Archivovaná** (verze zahozená z platnosti) a `ValidTo` se dopočítává z následující
-zveřejněné verze, ručně se nezadává.
+zveřejněné verze, ručně se nezadává. Zveřejněnou verzi, která ještě neplatí, jde archivovat
+nebo vrátit mezi koncepty (zrušit zveřejnění); verze, která platí nebo platila, zůstává —
+odkazuje na ni minulá docházka.
 
 ## Dnešní stav
 

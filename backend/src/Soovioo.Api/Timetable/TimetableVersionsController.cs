@@ -172,6 +172,35 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         return Ok(ToDto(version));
     }
 
+    /// <summary>A published version back among drafts — only while it doesn't
+    /// apply yet, like archiving.</summary>
+    [HttpPost("{id:int}/unpublish")]
+    [RequirePermission(Permission.Timetable)]
+    public async Task<ActionResult<TimetableVersionDto>> UnpublishVersion(int id)
+    {
+        var version = await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == id);
+        if (version is null)
+        {
+            return NotFound();
+        }
+        if (version.Status != TimetableVersionStatus.Published)
+        {
+            return BadRequest("Zrušit zveřejnění jde jen u zveřejněné verze.");
+        }
+        if (version.ValidFrom <= Today)
+        {
+            return BadRequest("Verzi, která už platí nebo platila, nejde vrátit mezi koncepty.");
+        }
+
+        version.Status = TimetableVersionStatus.Draft;
+        version.PublishedAt = null;
+        version.PublishedByUserId = null;
+        await db.SaveChangesAsync();
+        await db.RecomputeTimetableValidityAsync();
+        await db.SaveChangesAsync();
+        return Ok(ToDto(version));
+    }
+
     /// <summary>Throws the version away — a draft, or a published one that
     /// doesn't apply yet. One that applies or applied stays: past attendance
     /// refers to it.</summary>

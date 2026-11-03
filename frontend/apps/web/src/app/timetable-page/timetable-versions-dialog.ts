@@ -106,6 +106,11 @@ export class TimetableVersionsDialog {
       .map((v) => ({ label: v.name, value: v.id as number | null })),
   ]);
 
+  /** Published, but doesn't apply yet. */
+  protected canUnpublish(version: TimetableVersion): boolean {
+    return version.status === 'Published' && version.validFrom > this.today;
+  }
+
   protected canArchive(version: TimetableVersion): boolean {
     return (
       version.status === 'Draft' ||
@@ -196,6 +201,23 @@ export class TimetableVersionsDialog {
           this.versionsApi.publishVersion(version.id),
           'publish',
           'Verze rozvrhu je zveřejněná.',
+        ),
+    });
+  }
+
+  protected unpublish(version: TimetableVersion): void {
+    this.confirmation.confirm({
+      header: 'Zrušit zveřejnění verze rozvrhu',
+      message: `Vrátit „${version.name}“ mezi koncepty? Od ${formatDate(version.validFrom, 'date')} platit nebude a uvidí ji jen ti, kdo připravují rozvrh.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Zrušit zveřejnění',
+      rejectLabel: 'Ponechat',
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () =>
+        this.run(
+          this.versionsApi.unpublishVersion(version.id),
+          'unpublish',
+          'Verze rozvrhu je zpět mezi koncepty.',
         ),
     });
   }
