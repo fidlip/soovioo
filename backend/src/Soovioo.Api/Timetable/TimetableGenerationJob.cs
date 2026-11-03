@@ -25,7 +25,7 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         await db.SaveChangesAsync();
         try
         {
-            await GenerateAsync(db, generation, TimeLimit);
+            await GenerateAsync(db, generation, TimeLimit, logger);
             generation.Status = TimetableGenerationStatus.Done;
         }
         catch (Exception e)
@@ -40,7 +40,8 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         await db.SaveChangesAsync();
     }
 
-    public static async Task GenerateAsync(AppDbContext db, TimetableGeneration generation, TimeSpan timeLimit)
+    public static async Task GenerateAsync(
+        AppDbContext db, TimetableGeneration generation, TimeSpan timeLimit, ILogger? logger = null)
     {
         var version = generation.TimetableVersion ?? await db.TimetableVersions.FirstAsync(v => v.Id == generation.TimetableVersionId);
         if (version.Status != TimetableVersionStatus.Draft)
@@ -92,6 +93,8 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
             [.. TeacherProfile.Weekdays], periods, demands,
             [.. kept.Select(e => new TimetableGenerator.Kept(e.SchoolClassId, e.SubjectId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber))],
             teacherDays, timeLimit));
+        logger?.LogInformation("Timetable generation {Id}: penalty {Objective}, bound {Bound}",
+            generation.Id, result.Objective, result.Bound);
         if (!result.Solved)
         {
             generation.Messages = [.. messages.Distinct(), "Rozvrh se nepodařilo sestavit v časovém limitu, verze zůstala beze změny."];
