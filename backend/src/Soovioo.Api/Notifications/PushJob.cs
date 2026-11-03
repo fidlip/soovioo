@@ -23,6 +23,7 @@ public class PushJob(AppDbContext db, IPushSender sender, TimeProvider clock)
         NotificationType.Homework => "Nový domácí úkol",
         NotificationType.Event => "Akce v kalendáři",
         NotificationType.Photo => "Fotka ke schválení",
+        NotificationType.Timetable => "Rozvrh je vygenerovaný",
         _ => "Nové upozornění",
     };
 

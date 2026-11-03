@@ -256,10 +256,16 @@ public class NotificationsTests
 
         var teacher = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, w.Teacher).GetSettings()).Result).Value);
         Assert.Equal([NotificationType.Message, NotificationType.Event], teacher.Types.Select(t => t.Type));
+        var admin = new User { Username = "reditel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+        var adminSettings = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, admin).GetSettings()).Result).Value);
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
 
         var result = await Bell(db, w.Parent).SetSettings(new NotificationSettingsRequest([NotificationType.Event, NotificationType.Event]));
         var parent = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal(Enum.GetValues<NotificationType>().Length, parent.Types.Count);
+        Assert.Equal(Enum.GetValues<NotificationType>().Length - 1, parent.Types.Count);
+        Assert.DoesNotContain(parent.Types, t => t.Type == NotificationType.Timetable);
         Assert.False(parent.Types.Single(t => t.Type == NotificationType.Event).Enabled);
         Assert.True(parent.Types.Single(t => t.Type == NotificationType.Grade).Enabled);
         Assert.Equal([NotificationType.Event], (await db.Users.FindAsync(w.Parent.Id))!.MutedNotifications);

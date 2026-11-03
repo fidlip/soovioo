@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Microsoft.Extensions.Logging.Abstractions;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
@@ -16,9 +18,10 @@ public class TimetableGenerationTests
 {
     private const int SchoolId = 1;
 
-    private readonly AppDbContext db = new(
-        new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
-        new FakeCurrentSchoolContext(SchoolId));
+    private readonly DbContextOptions<AppDbContext> options =
+        new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+
+    private readonly AppDbContext db;
 
     private readonly TimetableVersion draft;
     private readonly Subject maths, pe;
@@ -29,6 +32,7 @@ public class TimetableGenerationTests
 
     public TimetableGenerationTests()
     {
+        db = new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
         gym = new Classroom { Name = "Tělocvična", Type = ClassroomType.Gym, SchoolId = SchoolId };
         maths = new Subject { Name = "Matematika", Abbreviation = "M", SchoolId = SchoolId };
         pe = new Subject { Name = "Tělesná výchova", Abbreviation = "Tv", Classrooms = [new() { Type = ClassroomType.Gym }], SchoolId = SchoolId };
@@ -163,6 +167,28 @@ public class TimetableGenerationTests
 
         Assert.Equal(TimetableGenerationStatus.Failed, latest.Status);
         Assert.IsType<AcceptedResult>((await Controller().Generate(draft.Id, new(TimetableGenerationMode.All))).Result);
+    }
+
+    [Fact]
+    public async Task WhoStartedItHearsHowItEnded()
+    {
+        var generation = new TimetableGeneration
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, Mode = TimetableGenerationMode.All,
+            Status = TimetableGenerationStatus.Queued, CreatedByUserId = teacher.Id,
+        };
+        db.TimetableGenerations.Add(generation);
+        await db.SaveChangesAsync();
+
+        await new TimetableGenerationJob(options, NullLogger<TimetableGenerationJob>.Instance, TimeProvider.System)
+            .RunAsync(generation.Id, SchoolId);
+
+        db.ChangeTracker.Clear();
+        Assert.Equal(TimetableGenerationStatus.Done, db.TimetableGenerations.Single().Status);
+        var notification = db.Notifications.Single();
+        Assert.Equal((teacher.Id, NotificationType.Timetable, "timetable", draft.Id),
+            (notification.UserId, notification.Type, notification.Page, notification.TargetId));
+        Assert.Equal("Rozvrh „Od února“ je vygenerovaný", notification.Title);
     }
 
     private class FakeJobs : IBackgroundJobClient

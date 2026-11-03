@@ -56,6 +56,11 @@ export class TimetableVersionsApiService {
     );
   }
 
+  /** The user saw how the latest run ended — its notification is read. */
+  generationSeen(id: number): Observable<void> {
+    return this.http.post<void>(`${this.url}/${id}/generation/seen`, {});
+  }
+
   generate(
     id: number,
     mode: TimetableGenerationMode,

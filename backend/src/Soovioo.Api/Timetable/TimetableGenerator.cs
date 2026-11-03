@@ -49,7 +49,28 @@ public static class TimetableGenerator
         /// long, or after <see cref="PolishLimit"/>.</summary>
         public TimeSpan PolishStall { get; init; } = TimeSpan.FromSeconds(10);
         public TimeSpan PolishLimit { get; init; } = TimeSpan.FromSeconds(60);
+
+        /// <summary>Gets the latest solution's figures as the search goes —
+        /// from the solver's threads, at most about once a second.</summary>
+        public Action<Progress>? OnProgress { get; init; }
     }
+
+    public enum Phase
+    {
+        /// <summary>Looking for a timetable that meets the requirements.</summary>
+        Requirements,
+
+        /// <summary>Cutting teachers' gaps.</summary>
+        Polish,
+    }
+
+    /// <summary>The best timetable so far. <paramref name="Lessons"/> out of
+    /// <paramref name="Total"/> placed (the kept ones included).</summary>
+    /// <param name="PolishShare">0–1 of the second search's time — it ends
+    /// at its limit, or earlier when it stalls.</param>
+    public record Progress(
+        Phase Phase, int Lessons, int Total, int WithoutRoom, int ClassGaps, int LateStarts, int TeacherGaps,
+        double PolishShare = 0);
 
     public record Placement(
         int ClassId, int SubjectId, int? TeacherId, DayOfWeek Day, int Period, WeekParity Parity, int? ClassroomId);
@@ -88,6 +109,7 @@ public static class TimetableGenerator
         var roomBusy = kept.Where(k => k.ClassroomId is not null).Select(k => (k.ClassroomId!.Value, k.Day, k.Period)).ToHashSet();
 
         var model = new CpModel();
+        var overs = new List<IntVar>();
         var objective = LinearExpr.NewBuilder();
         var teacherGaps = LinearExpr.NewBuilder();
         var x = new Dictionary<(int Unit, DayOfWeek Day, int Period), BoolVar>();
@@ -237,15 +259,32 @@ public static class TimetableGenerator
                     continue;
                 }
                 var over = model.NewIntVar(0, inPool.Count, $"noroom{string.Join('_', pool)}_{day}_{period}");
+                overs.Add(over);
                 model.Add(over >= Occupied(inPool, day, period, -free));
                 objective.AddTerm(over, NoRoomWeight);
             }
         }
 
+        var total = units.Sum(u => u.Count) + kept.Count;
+        var first = periods.Where(p => p >= 1).DefaultIfEmpty(periods[0]).Min();
+        Progress Measure(CpSolverSolutionCallback at, Phase phase)
+        {
+            var lessons = x.Where(p => at.BooleanValue(p.Value))
+                .Select(p => (units[p.Key.Unit].Demand.ClassId, units[p.Key.Unit].Demand.TeacherId, p.Key.Day, p.Key.Period))
+                .Concat(kept.Select(k => (k.ClassId, k.TeacherId, k.Day, k.Period)))
+                .ToList();
+            var classDays = lessons.GroupBy(l => (l.ClassId, l.Day)).ToList();
+            return new Progress(
+                phase, lessons.Count, total, (int)overs.Sum(at.Value),
+                classDays.Sum(d => Holes(d.Select(l => l.Period))),
+                classDays.Count(d => d.Min(l => l.Period) > first),
+                lessons.Where(l => l.TeacherId is not null).GroupBy(l => (l.TeacherId, l.Day)).Sum(d => Holes(d.Select(l => l.Period))));
+        }
+
         // The requirements: until they hold, or can't get any better.
         model.Minimize(objective);
         var solver = new CpSolver { StringParameters = Parameters(input.TimeLimit) };
-        var status = solver.Solve(model, new StopAtZero());
+        var status = solver.Solve(model, new Requirements(at => Measure(at, Phase.Requirements), input.OnProgress));
         if (status is not (CpSolverStatus.Optimal or CpSolverStatus.Feasible))
         {
             return new Result(false, [], Missing(units, _ => 0), TimedOut: status == CpSolverStatus.Unknown);
@@ -263,7 +302,7 @@ public static class TimetableGenerator
         }
         model.Minimize(teacherGaps);
         var polish = new CpSolver { StringParameters = Parameters(input.PolishLimit) };
-        using (var stall = new StopWhenStalled(polish, input.PolishStall))
+        using (var stall = new Polish(polish, input, at => Measure(at, Phase.Polish)))
         {
             if (polish.Solve(model, stall) is CpSolverStatus.Optimal or CpSolverStatus.Feasible)
             {
@@ -278,39 +317,86 @@ public static class TimetableGenerator
             penalty > 0 && penalty > bound, penalty, bound);
     }
 
+    /// <summary>Free periods between a day's first and last lesson.</summary>
+    public static int Holes(IEnumerable<int> periods)
+    {
+        var taken = periods.Distinct().Order().ToList();
+        return taken.Count == 0 ? 0 : taken[^1] - taken[0] + 1 - taken.Count;
+    }
+
     private static string Parameters(TimeSpan limit) =>
         $"max_time_in_seconds:{limit.TotalSeconds:0.#} num_workers:{Workers}";
 
+    /// <summary>Reports a solution at most once a second.</summary>
+    private abstract class Reporting(Func<CpSolverSolutionCallback, Progress> measure, Action<Progress>? report)
+        : CpSolverSolutionCallback
+    {
+        private long reportedAt;
+        protected Progress? Last { get; private set; }
+
+        protected void Report(bool force = false)
+        {
+            if (report is null || (!force && Environment.TickCount64 - reportedAt < 1000))
+            {
+                return;
+            }
+            reportedAt = Environment.TickCount64;
+            Last = measure(this);
+            report(Last);
+        }
+    }
+
     /// <summary>Nothing better than no breach at all.</summary>
-    private sealed class StopAtZero : CpSolverSolutionCallback
+    private sealed class Requirements(Func<CpSolverSolutionCallback, Progress> measure, Action<Progress>? report)
+        : Reporting(measure, report)
     {
         public override void OnSolutionCallback()
         {
-            if (ObjectiveValue() <= 0)
+            var done = ObjectiveValue() <= 0;
+            Report(force: done);
+            if (done)
             {
                 StopSearch();
             }
         }
     }
 
-    /// <summary>Stops the search once it hasn't found anything better for a while.</summary>
-    private sealed class StopWhenStalled : CpSolverSolutionCallback, IDisposable
+    /// <summary>Stops once it hasn't found anything better for a while;
+    /// reports the share of its time used every second.</summary>
+    private sealed class Polish : Reporting, IDisposable
     {
         private readonly Timer timer;
+        private readonly long startedAt = Environment.TickCount64;
         private long improvedAt = Environment.TickCount64;
 
-        public StopWhenStalled(CpSolver solver, TimeSpan stall)
+        public Polish(CpSolver solver, Input input, Func<CpSolverSolutionCallback, Progress> measure)
+            : base(measure, input.OnProgress)
         {
             timer = new Timer(_ =>
             {
-                if (Environment.TickCount64 - Interlocked.Read(ref improvedAt) > stall.TotalMilliseconds)
+                var now = Environment.TickCount64;
+                var stalled = now - Interlocked.Read(ref improvedAt);
+                if (Last is { } last)
+                {
+                    input.OnProgress?.Invoke(last with
+                    {
+                        PolishShare = Math.Min(1, Math.Max(
+                            (now - startedAt) / input.PolishLimit.TotalMilliseconds,
+                            stalled / input.PolishStall.TotalMilliseconds)),
+                    });
+                }
+                if (stalled > input.PolishStall.TotalMilliseconds)
                 {
                     solver.StopSearch();
                 }
             }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
 
-        public override void OnSolutionCallback() => Interlocked.Exchange(ref improvedAt, Environment.TickCount64);
+        public override void OnSolutionCallback()
+        {
+            Interlocked.Exchange(ref improvedAt, Environment.TickCount64);
+            Report(force: true);
+        }
 
         public new void Dispose()
         {

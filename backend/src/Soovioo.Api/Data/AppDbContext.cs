@@ -297,6 +297,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
             e.Property(x => x.Mode).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Progress).HasColumnType("jsonb").HasConversion(
+                p => System.Text.Json.JsonSerializer.Serialize(p, (System.Text.Json.JsonSerializerOptions?)null),
+                s => System.Text.Json.JsonSerializer.Deserialize<TimetableGenerator.Progress>(s, (System.Text.Json.JsonSerializerOptions?)null));
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<Subject>().OwnsMany(s => s.Classrooms, c =>

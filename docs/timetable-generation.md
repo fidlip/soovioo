@@ -175,8 +175,15 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   která je volná pro nejvíc jejích hodin, pak tu, kterou už má, pak dřív v seznamu);
   jen kolidující hodiny jdou do první volné dle pořadí. Když není volná žádná, hodina
   zůstane bez učebny a výsledek hlásí „nedostatek učeben … doplňte ji ručně“.
-- Po doběhnutí se otevře dialog **Výsledek generování**: co je potřeba upravit (nevešlo se,
-  bez učebny, kapacita…) a jak rozvrh vypadá (okna tříd, pozdní začátky, okna učitelů).
+- Dialog průběhu (stav se zjišťuje jen, dokud je otevřený): ve frontě — počet běhů před námi
+  (všech škol) a odhad čekání z průměru posledních běhů, údaj chybí, když fronta není; krok 1
+  (hledání, neurčitý bar) a krok 2 (doladění oken učitelů, bar podle času) s průběžnými
+  čísly nejlepšího dosud nalezeného rozvrhu (umístěné hodiny, bez učebny, okna tříd, pozdní
+  začátky, okna učitelů; `TimetableGeneration.Progress`, job je zapisuje každé 2 s). Po
+  doběhnutí ukáže v tomtéž dialogu výsledek: co upravit a jak rozvrh vypadá.
+- Kdo generování spustil, dostane notifikaci (druh „Dokončená generování rozvrhu“, jen pro
+  role s oprávněním Rozvrh); klik otevře Rozvrh se správnou verzí a výsledek. Když výsledek
+  viděl v dialogu, notifikace je rovnou přečtená. Celkový progressbar: #170.
 - Běh přerušený restartem serveru Hangfire spustí znovu; nedokončený dlouho po limitu se
   ukáže jako neúspěšný.
 - Ruční přidání hodiny předvyplní první učebnu ze seznamu předmětu volnou v daném čase.

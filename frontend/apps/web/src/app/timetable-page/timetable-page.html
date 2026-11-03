@@ -351,7 +351,8 @@
 <app-timetable-generate-dialog
   [visible]="generateDialogVisible()"
   [versionId]="shownVersion()!.id"
-  (closed)="generateDialogVisible.set(false)"
+  [showResult]="generateShowResult()"
+  (closed)="generateDialogVisible.set(false); generateShowResult.set(false)"
   (generated)="onVersionsChanged()"
 />
 }

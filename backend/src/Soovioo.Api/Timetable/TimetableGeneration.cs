@@ -28,6 +28,9 @@ public class TimetableGeneration
 
     /// <summary>How the result looks: class gaps, teachers' gaps…</summary>
     public List<string> Notes { get; set; } = [];
+
+    /// <summary>The best timetable so far while it runs.</summary>
+    public TimetableGenerator.Progress? Progress { get; set; }
 }
 
 public enum TimetableGenerationMode
