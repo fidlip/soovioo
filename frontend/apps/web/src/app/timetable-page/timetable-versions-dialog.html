@@ -44,6 +44,14 @@
         />
         } @if (version.status === 'Draft') {
         <p-button label="Zveřejnit" size="small" (onClick)="publish(version)" />
+        } @if (canUnpublish(version)) {
+        <p-button
+          label="Zrušit zveřejnění"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="unpublish(version)"
+        />
         } @if (canArchive(version)) {
         <p-button
           label="Archivovat"

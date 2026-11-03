@@ -154,6 +154,22 @@ public class TimetableVersionsControllerTests
     }
 
     [Fact]
+    public async Task UnpublishingAFutureVersionMakesItADraftAgain()
+    {
+        var spring = await Draft("2. pololetí", new DateOnly(2027, 2, 1), current.Id);
+        await Versions().PublishVersion(spring.Id);
+
+        Assert.IsType<BadRequestObjectResult>((await Versions().UnpublishVersion(current.Id)).Result);
+        var draft = Assert.IsType<TimetableVersionDto>(Assert.IsType<OkObjectResult>(
+            (await Versions().UnpublishVersion(spring.Id)).Result).Value);
+        Assert.Equal(TimetableVersionStatus.Draft, draft.Status);
+        Assert.Null(draft.PublishedAt);
+        Assert.Null(current.ValidTo);
+        Assert.Equal(["Matematika"], await SubjectsOn(new DateOnly(2027, 3, 1)));
+        Assert.IsType<BadRequestObjectResult>((await Versions().UnpublishVersion(spring.Id)).Result);
+    }
+
+    [Fact]
     public async Task ConflictsAreFoundOnlyWithinTheVersion()
     {
         var teacher = TestRoles.Principal(db, 7, UserRole.Teacher).UserId();

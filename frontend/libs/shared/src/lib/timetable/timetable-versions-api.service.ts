@@ -74,6 +74,11 @@ export class TimetableVersionsApiService {
     return this.http.post<TimetableVersion>(`${this.url}/${id}/publish`, {});
   }
 
+  /** A published version that doesn't apply yet back among drafts. */
+  unpublishVersion(id: number): Observable<TimetableVersion> {
+    return this.http.post<TimetableVersion>(`${this.url}/${id}/unpublish`, {});
+  }
+
   archiveVersion(id: number): Observable<TimetableVersion> {
     return this.http.post<TimetableVersion>(`${this.url}/${id}/archive`, {});
   }

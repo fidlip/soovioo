@@ -213,6 +213,7 @@ public class AuthorizationMapTests
         ["TimetableVersions.GetVersions"] = "authenticated",
         ["TimetableVersions.PublishVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.RestoreVersion"] = "authenticated + perm:Timetable",
+        ["TimetableVersions.UnpublishVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.UpdateVersion"] = "authenticated + perm:Timetable",
         ["Users.Activate"] = "authenticated + perm:Administration",
         ["Users.AddUser"] = "authenticated + perm:Administration",
