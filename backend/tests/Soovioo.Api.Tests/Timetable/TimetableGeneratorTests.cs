@@ -46,6 +46,20 @@ public class TimetableGeneratorTests
     }
 
     [Fact]
+    public void AClassHasLessonsEveryDay()
+    {
+        // A first grade, 20 h, mostly its class teacher's — four days of
+        // five lessons would save the teachers blocks.
+        var result = Run([
+            new Demand(1, 10, 100, 8, 0), new Demand(1, 11, 100, 4, 0), new Demand(1, 12, 100, 2, 0),
+            new Demand(1, 13, 100, 1, 0), new Demand(1, 14, 200, 2, 0), new Demand(1, 15, 200, 1, 0),
+            new Demand(1, 16, 200, 1, 0), new Demand(1, 17, 300, 1, 0)]);
+
+        Assert.Empty(result.Unplaced);
+        Assert.All(Week, day => Assert.Equal(4, result.Placements.Count(p => p.Day == day)));
+    }
+
+    [Fact]
     public void ATeacherOnlyOnTheirDaysAndWhatDoesNotFitIsReported()
     {
         var result = Run([new Demand(1, 10, 100, 5, 0)],
