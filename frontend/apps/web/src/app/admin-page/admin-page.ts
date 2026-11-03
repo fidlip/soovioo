@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -109,6 +110,7 @@ import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
+import { SchoolContextService } from '../school-context';
 import { PeopleTab } from '../people/people-tab';
 import { RolesTab } from '../roles/roles-tab';
 import { PersonCard } from '../people/person-card';
@@ -169,6 +171,7 @@ import { Loading } from '../loading/loading';
     NgTemplateOutlet,
     Password,
     PrimeTemplate,
+    RouterLink,
     Select,
     Tab,
     TableModule,
@@ -186,6 +189,7 @@ export class AdminPage {
   private readonly demoEmails = inject(DemoEmailPreviewService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly authApi = inject(AuthApiService);
+  protected readonly schoolContext = inject(SchoolContextService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
@@ -419,6 +423,10 @@ export class AdminPage {
   protected matrikaContactEmail = '';
   protected matrikaCast = '01';
   protected readonly matrikaExportErrors = signal<string[]>([]);
+
+  protected canSeeTeaching(): boolean {
+    return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
+  }
 
   /** A signal, not a plain field — this app has no zone.js polyfill, so a
    * plain-field write inside an RxJS subscribe callback doesn't reliably

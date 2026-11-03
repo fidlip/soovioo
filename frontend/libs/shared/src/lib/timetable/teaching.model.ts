@@ -13,8 +13,12 @@ export interface TeachingRow {
   subjectId: number;
   subjectName: string;
   subjectAbbreviation: string | null;
-  /** Null = not in the plan. */
+  /** By the class's plan; null = not in it, 0 = the class doesn't have it. */
   planHours: number | null;
+  /** What the grade's plan says. */
+  gradeHours: number | null;
+  /** The class has its own hours, not its grade's. */
+  classPlan: boolean;
   timetableHours: number;
   teacherId: number | null;
   teacherName: string | null;

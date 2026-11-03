@@ -1,12 +1,14 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
+import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
   Tab,
   TabList,
@@ -37,7 +39,6 @@ import { toDateOnly } from '../departures/retention-labels';
 import { FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
-import { SchoolContextService } from '../school-context';
 import { versionStatusLabel } from '../timetable-page/timetable-versions-dialog';
 
 const DAY_SHORT: Record<DayOfWeek, string> = {
@@ -50,21 +51,22 @@ const DAY_SHORT: Record<DayOfWeek, string> = {
   Sunday: 'Ne',
 };
 
-/** Rozvrh → Přidělení výuky: the učební plán of a timetable version, who
- * teaches what in each class (the system picks where the school didn't)
- * and what doesn't add up. A teacher who may see only their own gets
- * their rows. */
+/** Přidělení výuky: the učební plán of a timetable version (the grade's,
+ * changed for a class where it differs), who teaches what in each class
+ * (the system picks where the school didn't) and what doesn't add up. A
+ * teacher who may see only their own gets their rows. `?class=` and
+ * `?teacher=` open it filtered. */
 @Component({
   selector: 'app-teaching-page',
   imports: [
     AppIcon,
     Button,
+    Checkbox,
     FloatField,
     FormsModule,
     InputNumber,
     Loading,
     Message,
-    RouterLink,
     Select,
     TableModule,
     Tab,
@@ -73,6 +75,7 @@ const DAY_SHORT: Record<DayOfWeek, string> = {
     TabPanels,
     Tabs,
     Tag,
+    Tooltip,
   ],
   templateUrl: './teaching-page.html',
 })
@@ -84,7 +87,6 @@ export class TeachingPage {
   private readonly notify = inject(NotifyService);
   private readonly route = inject(ActivatedRoute);
   protected readonly authApi = inject(AuthApiService);
-  protected readonly schoolContext = inject(SchoolContextService);
 
   protected readonly formatHours = formatHours;
 
@@ -99,6 +101,86 @@ export class TeachingPage {
 
   /** Hours being edited in Učební plán, by `grade-subjectId`. */
   protected plan: Record<string, number | null> = {};
+  /** A class's hours being edited, by `classId-subjectId`. */
+  protected classPlan: Record<string, number | null> = {};
+
+  protected readonly classFilter = signal<number | null>(null);
+  protected readonly teacherFilter = signal<number | null>(null);
+  protected readonly subjectFilter = signal<number | null>(null);
+  protected readonly problemsOnly = signal(false);
+
+  protected readonly classFilterOptions = computed(() =>
+    (this.overview()?.classes ?? []).map((c) => ({
+      label: c.name,
+      value: c.id,
+    })),
+  );
+  protected readonly teacherFilterOptions = computed(() =>
+    (this.overview()?.teachers ?? []).map((t) => ({
+      label: t.name,
+      value: t.id,
+    })),
+  );
+
+  /** Classes and their rows the filters let through; a class keeps its
+   * own problems only while no row filter is on. */
+  protected readonly shownClasses = computed(() => {
+    const classId = this.classFilter();
+    const teacherId = this.teacherFilter();
+    const subjectId = this.subjectFilter();
+    const problemsOnly = this.problemsOnly();
+    const rowFilter = teacherId !== null || subjectId !== null;
+    return (this.overview()?.classes ?? [])
+      .filter((c) => classId === null || c.id === classId)
+      .map((c) => ({
+        ...c,
+        problems: rowFilter ? [] : c.problems,
+        rows: c.rows.filter(
+          (r) =>
+            (teacherId === null || r.teacherId === teacherId) &&
+            (subjectId === null || r.subjectId === subjectId) &&
+            (!problemsOnly || r.problems.length > 0),
+        ),
+      }))
+      .filter(
+        (c) =>
+          c.rows.length > 0 ||
+          (!rowFilter && (!problemsOnly || c.problems.length > 0)) ||
+          c.id === classId,
+      );
+  });
+
+  protected readonly shownTeachers = computed(() => {
+    const classId = this.classFilter();
+    const teacherId = this.teacherFilter();
+    const subjectId = this.subjectFilter();
+    const problemsOnly = this.problemsOnly();
+    const classes = this.overview()?.classes ?? [];
+    const teaches = (id: number) =>
+      classes.some(
+        (c) =>
+          (classId === null || c.id === classId) &&
+          c.rows.some(
+            (r) =>
+              r.teacherId === id &&
+              (subjectId === null || r.subjectId === subjectId),
+          ),
+      );
+    return (this.overview()?.teachers ?? []).filter(
+      (t) =>
+        (teacherId === null || t.id === teacherId) &&
+        ((classId === null && subjectId === null) || teaches(t.id)) &&
+        (!problemsOnly || t.problems.length > 0),
+    );
+  });
+
+  protected readonly filtered = computed(
+    () =>
+      this.classFilter() !== null ||
+      this.teacherFilter() !== null ||
+      this.subjectFilter() !== null ||
+      this.problemsOnly(),
+  );
 
   protected readonly versionOptions = computed(() =>
     this.versions().map((v) => ({
@@ -137,8 +219,8 @@ export class TeachingPage {
     const taught = new Map<number, string[]>();
     for (const c of this.overview()?.classes ?? []) {
       for (const r of c.rows) {
-        if (r.teacherId !== null) {
-          const hours = r.planHours ?? r.timetableHours;
+        const hours = r.planHours ?? r.timetableHours;
+        if (r.teacherId !== null && hours > 0) {
           taught.set(r.teacherId, [
             ...(taught.get(r.teacherId) ?? []),
             `${c.name} ${r.subjectAbbreviation ?? r.subjectName} ${formatHours(hours)}`,
@@ -150,6 +232,9 @@ export class TeachingPage {
   });
 
   constructor() {
+    const params = this.route.snapshot.queryParamMap;
+    this.classFilter.set(Number(params.get('class')) || null);
+    this.teacherFilter.set(Number(params.get('teacher')) || null);
     this.teachersApi.getTeachers().subscribe({
       next: (teachers) => this.teachers.set(teachers),
       error: (err) => console.error('getTeachers failed', err),
@@ -198,6 +283,11 @@ export class TeachingPage {
         `${c.grade}-${c.subjectId}`,
         c.hoursPerWeek,
       ]),
+    );
+    this.classPlan = Object.fromEntries(
+      overview.classes.flatMap((c) =>
+        c.rows.map((r) => [`${c.id}-${r.subjectId}`, r.planHours]),
+      ),
     );
     this.loading.set(false);
   }
@@ -259,6 +349,43 @@ export class TeachingPage {
         ),
       );
     }
+  }
+
+  /** Saves the class's hours of the subject once the field is left with a
+   * different value; the grade's hours again = as the grade. */
+  protected saveClassPlan(c: TeachingClass, row: TeachingRow): void {
+    const hours = this.classPlan[`${c.id}-${row.subjectId}`] ?? null;
+    if (this.busy() || hours === row.planHours) {
+      return;
+    }
+    this.setClassPlan(c, row.subjectId, hours ?? 0);
+  }
+
+  protected setClassPlan(
+    c: TeachingClass,
+    subjectId: number,
+    hours: number | null,
+  ): void {
+    const versionId = this.versionId();
+    if (versionId !== null) {
+      this.run(
+        this.teachingApi.setClassCurriculum(versionId, c.id, subjectId, hours),
+      );
+    }
+  }
+
+  /** Subjects the class has nothing of yet. */
+  protected addableSubjects(c: TeachingClass): Subject[] {
+    return this.subjects().filter(
+      (s) => !c.rows.some((r) => r.subjectId === s.id),
+    );
+  }
+
+  protected clearFilters(): void {
+    this.classFilter.set(null);
+    this.teacherFilter.set(null);
+    this.subjectFilter.set(null);
+    this.problemsOnly.set(false);
   }
 
   protected confirmAutomatic(): void {

@@ -4,8 +4,8 @@ using Soovioo.Api.People;
 namespace Soovioo.Api.Timetable;
 
 /// <summary>Who teaches what in a timetable version and what doesn't add up.
-/// A class's subjects are those of its grade's učební plán, of its lessons
-/// and of its assignments. Where the school assigned nobody, a teacher is
+/// A class's učební plán is its grade's with the class's own changes; its
+/// subjects are those of the plan, of its lessons and of its assignments. Where the school assigned nobody, a teacher is
 /// chosen here — the same inputs give the same choice, so it only changes
 /// when the school changes something.</summary>
 public static class TeachingPlanner
@@ -41,6 +41,7 @@ public static class TeachingPlanner
         IReadOnlyList<SubjectInput> Subjects,
         IReadOnlyList<TeacherInput> Teachers,
         IReadOnlyList<CurriculumItemDto> Curriculum,
+        IReadOnlyList<ClassCurriculumItemDto> ClassCurriculum,
         IReadOnlyList<(int SchoolClassId, int SubjectId, int TeacherId)> Assignments,
         IReadOnlyList<LessonInput> Lessons);
 
@@ -49,6 +50,8 @@ public static class TeachingPlanner
         public required ClassInput Class { get; init; }
         public required SubjectInput Subject { get; init; }
         public decimal? PlanHours { get; init; }
+        public decimal? GradeHours { get; init; }
+        public bool ClassPlan { get; init; }
         public decimal TimetableHours { get; init; }
         public int? TeacherId { get; set; }
         public bool Automatic { get; set; }
@@ -63,6 +66,7 @@ public static class TeachingPlanner
         var subjects = input.Subjects.ToDictionary(s => s.Id);
         var teachers = input.Teachers.ToDictionary(t => t.Id);
         var plan = input.Curriculum.ToDictionary(c => (c.Grade, c.SubjectId), c => c.HoursPerWeek);
+        var classPlan = input.ClassCurriculum.ToDictionary(c => (c.SchoolClassId, c.SubjectId), c => c.HoursPerWeek);
         var assigned = input.Assignments.ToDictionary(a => (a.SchoolClassId, a.SubjectId), a => a.TeacherId);
         var lessons = input.Lessons.ToLookup(l => (l.SchoolClassId, l.SubjectId));
 
@@ -70,17 +74,22 @@ public static class TeachingPlanner
         foreach (var c in input.Classes)
         {
             var subjectIds = input.Curriculum.Where(p => p.Grade == c.Grade).Select(p => p.SubjectId)
+                .Concat(input.ClassCurriculum.Where(p => p.SchoolClassId == c.Id).Select(p => p.SubjectId))
                 .Concat(input.Lessons.Where(l => l.SchoolClassId == c.Id).Select(l => l.SubjectId))
                 .Concat(input.Assignments.Where(a => a.SchoolClassId == c.Id).Select(a => a.SubjectId))
                 .Distinct()
                 .Where(subjects.ContainsKey);
             foreach (var subjectId in subjectIds)
             {
+                decimal? gradeHours = c.Grade is { } grade && plan.TryGetValue((grade, subjectId), out var hours) ? hours : null;
+                var own = classPlan.TryGetValue((c.Id, subjectId), out var ownHours);
                 rows.Add(new Row
                 {
                     Class = c,
                     Subject = subjects[subjectId],
-                    PlanHours = c.Grade is { } grade && plan.TryGetValue((grade, subjectId), out var hours) ? hours : null,
+                    PlanHours = own ? ownHours : gradeHours,
+                    GradeHours = gradeHours,
+                    ClassPlan = own,
                     TimetableHours = lessons[(c.Id, subjectId)].Sum(l => l.Hours),
                     TeacherId = assigned.TryGetValue((c.Id, subjectId), out var teacherId) ? teacherId : null,
                 });
@@ -132,9 +141,9 @@ public static class TeachingPlanner
                 {
                     problems.Add($"V rozvrhu je o {FormatHours(r.TimetableHours - plannedLess)} víc než v plánu.");
                 }
-                else if (r.PlanHours is null && c.Grade is not null)
+                else if (r.PlanHours is null)
                 {
-                    problems.Add("Předmět není v učebním plánu ročníku.");
+                    problems.Add("Předmět není v učebním plánu třídy.");
                 }
                 if (r.TeacherId is null && r.Hours > 0)
                 {
@@ -160,11 +169,11 @@ public static class TeachingPlanner
                     problems.Add($"{FormatHours(untaught)} v rozvrhu bez učitele.");
                 }
                 return new TeachingRowDto(
-                    r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.PlanHours, r.TimetableHours,
+                    r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.PlanHours, r.GradeHours, r.ClassPlan, r.TimetableHours,
                     r.TeacherId, r.TeacherId is null ? null : NameOf(r.TeacherId), r.Automatic, problems);
             }).ToList();
             IReadOnlyList<string> classProblems = c.Grade is null
-                ? ["Třída nemá zadaný ročník, učební plán se na ni nevztahuje."]
+                ? ["Třída nemá zadaný ročník — učební plán ročníku se na ni nevztahuje, jen její vlastní."]
                 : [];
             return new TeachingClassDto(c.Id, c.Name, c.Grade, classProblems, classRows);
         }).ToList();
@@ -224,11 +233,16 @@ public static class TeachingPlanner
 
 public record CurriculumItemDto(int Grade, int SubjectId, decimal HoursPerWeek);
 
+/// <param name="HoursPerWeek">0 = the class doesn't have the subject.</param>
+public record ClassCurriculumItemDto(int SchoolClassId, int SubjectId, decimal HoursPerWeek);
+
 /// <param name="Grade">Ročník; null = the class has none, the plan doesn't apply.</param>
 public record TeachingClassDto(
     int Id, string Name, int? Grade, IReadOnlyList<string> Problems, IReadOnlyList<TeachingRowDto> Rows);
 
-/// <param name="PlanHours">Hours a week by the učební plán; null = not in it.</param>
+/// <param name="PlanHours">Hours a week by the class's učební plán; null = not in it.</param>
+/// <param name="GradeHours">What the grade's plan says; null = nothing.</param>
+/// <param name="ClassPlan">The class has its own hours for the subject, not the grade's.</param>
 /// <param name="TimetableHours">Hours a week the version's timetable has.</param>
 /// <param name="Automatic">Chosen by the system, not by the school.</param>
 public record TeachingRowDto(
@@ -236,6 +250,8 @@ public record TeachingRowDto(
     string SubjectName,
     string? SubjectAbbreviation,
     decimal? PlanHours,
+    decimal? GradeHours,
+    bool ClassPlan,
     decimal TimetableHours,
     int? TeacherId,
     string? TeacherName,

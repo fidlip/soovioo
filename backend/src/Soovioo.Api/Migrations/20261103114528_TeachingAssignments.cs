@@ -32,6 +32,41 @@ namespace Soovioo.Api.Migrations
                 defaultValue: new[] { 1, 2, 3, 4, 5 });
 
             migrationBuilder.CreateTable(
+                name: "ClassCurriculumItems",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    SchoolId = table.Column<int>(type: "integer", nullable: false),
+                    TimetableVersionId = table.Column<int>(type: "integer", nullable: false),
+                    SchoolClassId = table.Column<int>(type: "integer", nullable: false),
+                    SubjectId = table.Column<int>(type: "integer", nullable: false),
+                    HoursPerWeek = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ClassCurriculumItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ClassCurriculumItems_SchoolClasses_SchoolClassId",
+                        column: x => x.SchoolClassId,
+                        principalTable: "SchoolClasses",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ClassCurriculumItems_Subjects_SubjectId",
+                        column: x => x.SubjectId,
+                        principalTable: "Subjects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ClassCurriculumItems_TimetableVersions_TimetableVersionId",
+                        column: x => x.TimetableVersionId,
+                        principalTable: "TimetableVersions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "CurriculumItems",
                 columns: table => new
                 {
@@ -131,6 +166,22 @@ namespace Soovioo.Api.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_ClassCurriculumItems_SchoolClassId",
+                table: "ClassCurriculumItems",
+                column: "SchoolClassId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ClassCurriculumItems_SubjectId",
+                table: "ClassCurriculumItems",
+                column: "SubjectId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ClassCurriculumItems_TimetableVersionId_SchoolClassId_Subje~",
+                table: "ClassCurriculumItems",
+                columns: new[] { "TimetableVersionId", "SchoolClassId", "SubjectId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CurriculumItems_SubjectId",
                 table: "CurriculumItems",
                 column: "SubjectId");
@@ -201,6 +252,9 @@ namespace Soovioo.Api.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "ClassCurriculumItems");
+
             migrationBuilder.DropTable(
                 name: "CurriculumItems");
 

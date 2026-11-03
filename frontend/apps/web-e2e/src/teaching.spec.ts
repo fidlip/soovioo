@@ -9,9 +9,8 @@ async function openTeaching(page: Page, username: string, password: string) {
   await expect(page).toHaveURL(/\/skola\/home$/);
   await page
     .getByRole('navigation', { name: 'Hlavní navigace' })
-    .getByRole('link', { name: 'Rozvrh', exact: true })
+    .getByRole('link', { name: 'Přidělení výuky', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Přidělení výuky' }).click();
   await expect(
     page.getByRole('heading', { name: 'Přidělení výuky' }),
   ).toBeVisible();
@@ -33,7 +32,9 @@ test.describe.serial('teaching', () => {
       .getByRole('region', { name: 'Třída 5.A' })
       .getByRole('row')
       .filter({ hasText: 'Matematika' });
-    await expect(maths.getByRole('cell').nth(1)).not.toHaveText('—');
+    await expect(
+      maths.getByRole('spinbutton', { name: 'Plán — 5.A Matematika' }),
+    ).not.toHaveValue('');
     await expect(
       maths.getByRole('combobox', { name: 'Učitel — 5.A Matematika' }),
     ).toContainText('Jana Učitelová');
@@ -49,6 +50,33 @@ test.describe.serial('teaching', () => {
     await page.getByRole('button', { name: 'Uložit plán' }).click();
     await expect(page.getByText('Učební plán je uložený.')).toBeVisible();
     await expect(english).toHaveValue('3');
+  });
+
+  test('a class opened from Administrace gets its own plan and back', async ({
+    page,
+  }) => {
+    await openTeaching(page, 'admin', 'admin123');
+    await page.goto('/skola/admin');
+    await page.getByRole('button', { name: 'Přidělení výuky — 5.A' }).click();
+    await expect(page).toHaveURL(/\/skola\/teaching\?class=\d+$/);
+    await expect(page.getByRole('region', { name: /^Třída / })).toHaveCount(1);
+
+    const english = page
+      .getByRole('region', { name: 'Třída 5.A' })
+      .getByRole('row')
+      .filter({ hasText: 'Anglický jazyk' });
+    const hours = english.getByRole('spinbutton', {
+      name: 'Plán — 5.A Anglický jazyk',
+    });
+    await hours.fill('2');
+    await hours.press('Enter');
+    await expect(english.getByText('vlastní · ročník 3 h')).toBeVisible();
+
+    await english
+      .getByRole('button', { name: 'Podle ročníku — 5.A Anglický jazyk' })
+      .click();
+    await expect(english.getByText(/vlastní/)).toHaveCount(0);
+    await expect(hours).toHaveValue('3');
   });
 
   test('a teacher sees only their own, without editing', async ({ page }) => {

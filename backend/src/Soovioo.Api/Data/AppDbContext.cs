@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<TimetableVersion> TimetableVersions => Set<TimetableVersion>();
     public DbSet<CurriculumItem> CurriculumItems => Set<CurriculumItem>();
+    public DbSet<ClassCurriculumItem> ClassCurriculumItems => Set<ClassCurriculumItem>();
     public DbSet<TeachingAssignment> TeachingAssignments => Set<TeachingAssignment>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -270,6 +271,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.Property(x => x.HoursPerWeek).HasPrecision(4, 1);
             e.HasIndex(x => new { x.TimetableVersionId, x.Grade, x.SubjectId }).IsUnique();
             e.HasOne(x => x.TimetableVersion).WithMany(v => v.Curriculum)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<ClassCurriculumItem>(e =>
+        {
+            e.Property(x => x.HoursPerWeek).HasPrecision(4, 1);
+            e.HasIndex(x => new { x.TimetableVersionId, x.SchoolClassId, x.SubjectId }).IsUnique();
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.ClassCurriculum)
                 .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
