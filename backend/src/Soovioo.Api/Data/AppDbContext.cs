@@ -299,7 +299,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
-        modelBuilder.Entity<Subject>().Property(s => s.ClassroomType).HasConversion<string>();
+        modelBuilder.Entity<Subject>().OwnsMany(s => s.Classrooms, c =>
+        {
+            c.ToTable("SubjectClassrooms");
+            c.Property(x => x.Type).HasConversion<string>();
+            c.HasOne(x => x.Classroom).WithMany().HasForeignKey(x => x.ClassroomId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();

@@ -31,7 +31,7 @@ public class TimetableGenerationTests
     {
         gym = new Classroom { Name = "Tělocvična", Type = ClassroomType.Gym, SchoolId = SchoolId };
         maths = new Subject { Name = "Matematika", Abbreviation = "M", SchoolId = SchoolId };
-        pe = new Subject { Name = "Tělesná výchova", Abbreviation = "Tv", ClassroomType = ClassroomType.Gym, SchoolId = SchoolId };
+        pe = new Subject { Name = "Tělesná výchova", Abbreviation = "Tv", Classrooms = [new() { Type = ClassroomType.Gym }], SchoolId = SchoolId };
         fifth = new SchoolClass { Name = "5.A", Rocnik = 5, SchoolId = SchoolId };
         draft = new TimetableVersion
         {

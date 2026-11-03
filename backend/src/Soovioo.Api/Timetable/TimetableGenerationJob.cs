@@ -58,7 +58,7 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
             periods = [.. Enumerable.Range(1, 8)];
         }
         var subjects = await db.Subjects.ToDictionaryAsync(s => s.Id);
-        var rooms = await db.Classrooms.Select(r => new TimetableGenerator.Room(r.Id, r.Type)).ToListAsync();
+        var rooms = await db.Classrooms.OrderBy(r => r.Id).Select(r => new { r.Id, r.Type }).ToListAsync();
         var messages = new List<string>();
 
         var demands = new List<TimetableGenerator.Demand>();
@@ -74,16 +74,16 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
                     continue;
                 }
                 var subject = subjects[row.SubjectId];
-                var type = subject.DefaultClassroomId is null && subject.ClassroomType is { } t
-                    && rooms.Any(r => r.Type == t) ? t : (Evidence.ClassroomType?)null;
-                if (subject.DefaultClassroomId is null && subject.ClassroomType is not null && type is null)
+                var subjectRooms = subject.Classrooms.OrderBy(c => c.Position)
+                    .SelectMany(c => c.ClassroomId is { } id ? [id] : rooms.Where(r => r.Type == c.Type).Select(r => r.Id))
+                    .Distinct().ToList();
+                if (subject.Classrooms.Count > 0 && subjectRooms.Count == 0)
                 {
                     messages.Add($"{subject.Name}: škola nemá učebnu potřebného typu, hodiny jsou bez učebny.");
                 }
                 var weekly = (int)Math.Floor(hours);
                 demands.Add(new TimetableGenerator.Demand(
-                    schoolClass.Id, row.SubjectId, row.TeacherId, weekly, hours - weekly >= 0.5m ? 1 : 0,
-                    subject.DefaultClassroomId, type));
+                    schoolClass.Id, row.SubjectId, row.TeacherId, weekly, hours - weekly >= 0.5m ? 1 : 0, subjectRooms));
             }
         }
 
@@ -91,7 +91,7 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         var result = TimetableGenerator.Generate(new TimetableGenerator.Input(
             [.. TeacherProfile.Weekdays], periods, demands,
             [.. kept.Select(e => new TimetableGenerator.Kept(e.SchoolClassId, e.SubjectId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber))],
-            rooms, teacherDays, timeLimit));
+            teacherDays, timeLimit));
         if (!result.Solved)
         {
             generation.Messages = [.. messages.Distinct(), "Rozvrh se nepodařilo sestavit v časovém limitu, verze zůstala beze změny."];
@@ -118,6 +118,11 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         var classNames = plan.Classes.ToDictionary(c => c.Id, c => c.Name);
         messages.AddRange(result.Unplaced.Select(u =>
             $"{classNames[u.ClassId]} {subjects[u.SubjectId].Abbreviation ?? subjects[u.SubjectId].Name}: nevešlo se {TeachingPlanner.FormatHours(u.Hours)}."));
+        var needsRoom = demands.Where(d => d.Rooms.Count > 0).Select(d => (d.ClassId, d.SubjectId)).ToHashSet();
+        messages.AddRange(result.Placements
+            .Where(p => p.ClassroomId is null && needsRoom.Contains((p.ClassId, p.SubjectId)))
+            .GroupBy(p => p.SubjectId)
+            .Select(g => $"{subjects[g.Key].Abbreviation ?? subjects[g.Key].Name}: nedostatek učeben, {TeachingPlanner.FormatHours(g.Sum(p => p.Parity == WeekParity.Every ? 1m : 0.5m))} bez učebny ({string.Join(", ", g.Select(p => classNames[p.ClassId]).Distinct().Order())}) — doplňte ji ručně."));
         if (demands.Any(d => d.TeacherId is null))
         {
             messages.Add("Některé předměty nemají učitele, jsou v rozvrhu bez něj.");

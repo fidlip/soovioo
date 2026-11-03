@@ -332,7 +332,7 @@
                   <th>Název</th>
                   <th>Zkratka</th>
                   <th>Barva</th>
-                  <th>Výchozí učebna</th>
+                  <th>Učebny</th>
                   <th><span class="sr-only">Akce</span></th>
                 </tr>
               </ng-template>
@@ -355,9 +355,7 @@
                     }
                   </td>
                   <td class="text-surface-500">
-                    @if (!subject.defaultClassroomId && subject.classroomType) {
-                    {{ classroomTypeLabel(subject.classroomType) }} (jakákoli) }
-                    @else { {{ classroomName(subject.defaultClassroomId) }} }
+                    {{ subjectClassroomsLabel(subject) }}
                   </td>
                   <td>
                     <div class="flex justify-end gap-1">
@@ -1050,36 +1048,49 @@
       ></button>
       }
     </div>
-    <app-float-field label="Výchozí učebna" for="subjectDefaultClassroomId">
-      <p-select
-        ariaLabel="Výchozí učebna"
-        inputId="subjectDefaultClassroomId"
-        [options]="classroomOptions()"
-        optionLabel="label"
-        optionValue="id"
-        [(ngModel)]="newSubjectDefaultClassroomId"
-        name="subjectDefaultClassroomId"
-        [showClear]="true"
-        styleClass="w-48"
-        appendTo="body"
+    <fieldset class="flex basis-full flex-col items-start gap-2">
+      <legend class="mb-1 text-sm text-surface-500 dark:text-surface-400">
+        Učebny — v tomto pořadí, první volná
+      </legend>
+      @for (choice of newSubjectClassrooms(); track $index; let i = $index) {
+      <div class="flex items-center gap-1" data-testid="subject-classroom">
+        <p-select
+          [ariaLabel]="'Učebna ' + (i + 1)"
+          [options]="subjectClassroomChoices()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="choice"
+          (ngModelChange)="setSubjectClassroom(i, $event)"
+          [name]="'subjectClassroom' + i"
+          styleClass="w-56"
+          appendTo="body"
+        />
+        <p-button
+          icon="pi pi-arrow-up"
+          ariaLabel="Posunout výš"
+          size="small"
+          [text]="true"
+          [disabled]="i === 0"
+          (onClick)="raiseSubjectClassroom(i)"
+        />
+        <p-button
+          icon="pi pi-times"
+          ariaLabel="Odebrat učebnu"
+          size="small"
+          severity="danger"
+          [text]="true"
+          (onClick)="removeSubjectClassroom(i)"
+        />
+      </div>
+      }
+      <p-button
+        label="Přidat učebnu"
+        icon="pi pi-plus"
+        size="small"
+        [text]="true"
+        (onClick)="addSubjectClassroom()"
       />
-    </app-float-field>
-    @if (!newSubjectDefaultClassroomId) {
-    <app-float-field label="Typ učebny" for="subjectClassroomType">
-      <p-select
-        ariaLabel="Typ učebny"
-        inputId="subjectClassroomType"
-        [options]="classroomTypeOptions"
-        optionLabel="label"
-        optionValue="value"
-        [(ngModel)]="newSubjectClassroomType"
-        name="subjectClassroomType"
-        [showClear]="true"
-        styleClass="w-48"
-        appendTo="body"
-      />
-    </app-float-field>
-    }
+    </fieldset>
     <app-submit-button
       [form]="subjectForm"
       [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"

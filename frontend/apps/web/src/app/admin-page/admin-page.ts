@@ -221,6 +221,15 @@ export class AdminPage {
   protected readonly classroomOptions = computed(() =>
     this.classrooms().map((c) => ({ id: c.id, label: c.name })),
   );
+  /** A subject's classroom in its dialog: "room:<id>" or "type:<type>". */
+  protected readonly subjectClassroomChoices = computed(() => [
+    ...this.classroomTypeOptions.map((t) => ({
+      value: `type:${t.value}`,
+      label: `Jakákoli: ${t.label}`,
+    })),
+    ...this.classrooms().map((c) => ({ value: `room:${c.id}`, label: c.name })),
+  ]);
+  protected readonly newSubjectClassrooms = signal<(string | null)[]>([]);
   protected readonly users = signal<AppUser[]>([]);
   protected readonly usersLoaded = signal(false);
   /** Photo dialogs (see photo-dialogs.ts) — open while set. */
@@ -355,8 +364,6 @@ export class AdminPage {
   protected newSubjectName = '';
   protected newSubjectAbbreviation = '';
   protected newSubjectColor: string | null = null;
-  protected newSubjectDefaultClassroomId: number | null = null;
-  protected newSubjectClassroomType: ClassroomType | null = null;
   protected newClassroomName = '';
   protected newClassroomShortName = '';
   protected newClassroomType: ClassroomType | null = null;
@@ -820,8 +827,7 @@ export class AdminPage {
     this.newSubjectName = '';
     this.newSubjectAbbreviation = '';
     this.newSubjectColor = null;
-    this.newSubjectDefaultClassroomId = null;
-    this.newSubjectClassroomType = null;
+    this.newSubjectClassrooms.set([]);
     this.notify.clear();
     this.newSubjectDialogVisible.set(true);
   }
@@ -831,8 +837,13 @@ export class AdminPage {
     this.newSubjectName = subject.name;
     this.newSubjectAbbreviation = subject.abbreviation ?? '';
     this.newSubjectColor = subject.color;
-    this.newSubjectDefaultClassroomId = subject.defaultClassroomId;
-    this.newSubjectClassroomType = subject.classroomType;
+    this.newSubjectClassrooms.set(
+      [...subject.classrooms]
+        .sort((a, b) => a.position - b.position)
+        .map((c) =>
+          c.classroomId !== null ? `room:${c.classroomId}` : `type:${c.type}`,
+        ),
+    );
     this.notify.clear();
     this.newSubjectDialogVisible.set(true);
   }
@@ -845,8 +856,13 @@ export class AdminPage {
       name: this.newSubjectName,
       abbreviation: this.newSubjectAbbreviation || undefined,
       color: this.newSubjectColor || undefined,
-      defaultClassroomId: this.newSubjectDefaultClassroomId ?? undefined,
-      classroomType: this.newSubjectClassroomType ?? undefined,
+      classrooms: [...new Set(this.newSubjectClassrooms())]
+        .filter((c) => c !== null)
+        .map((c) =>
+          c.startsWith('room:')
+            ? { classroomId: Number(c.slice(5)) }
+            : { type: c.slice(5) as ClassroomType },
+        ),
     };
     const result =
       this.editingSubjectId === null
@@ -860,6 +876,46 @@ export class AdminPage {
       },
       error: (err) => this.showError('saveSubject failed', err),
     });
+  }
+
+  protected setSubjectClassroom(index: number, value: string | null): void {
+    this.newSubjectClassrooms.update((list) =>
+      list.map((c, i) => (i === index ? value : c)),
+    );
+  }
+
+  protected addSubjectClassroom(): void {
+    this.newSubjectClassrooms.update((list) => [...list, null]);
+  }
+
+  protected removeSubjectClassroom(index: number): void {
+    this.newSubjectClassrooms.update((list) =>
+      list.filter((_, i) => i !== index),
+    );
+  }
+
+  /** Moves it one place up, to be tried earlier. */
+  protected raiseSubjectClassroom(index: number): void {
+    this.newSubjectClassrooms.update((list) => {
+      const next = [...list];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  }
+
+  /** "Tělocvična, jakákoli tělocvična" — the subject's classrooms in order. */
+  protected subjectClassroomsLabel(subject: Subject): string {
+    if (subject.classrooms.length === 0) {
+      return '—';
+    }
+    return [...subject.classrooms]
+      .sort((a, b) => a.position - b.position)
+      .map((c) =>
+        c.classroomId !== null
+          ? this.classroomName(c.classroomId)
+          : `jakákoli: ${this.classroomTypeLabel(c.type).toLowerCase()}`,
+      )
+      .join(', ');
   }
 
   protected deleteSubject(subject: Subject): void {

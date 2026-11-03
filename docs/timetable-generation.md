@@ -32,7 +32,7 @@ zveřejněné verze, ručně se nezadává.
 | Dělení tříd na skupiny | Aj ve 2 skupinách, Tv chlapci/dívky | ne |
 | Dvouhodinovky / bloky | Pracovní činnosti 2 h v kuse | ne |
 | Učebny a jejich typ | Tělocvična, počítačová | ano (`Classroom`, `ClassroomType`) |
-| Předmět → požadovaný typ učebny | Tv jen v tělocvičně | částečně (`Subject.DefaultClassroomId`) |
+| Předmět → učebny / typ učebny | Tv v tělocvičně, jinak jakékoli tělocvičně | ano (`Subject.Classrooms`) |
 | Dostupnost učitelů | Novák nemůže v pátek | ne |
 | Časy hodin | 0.–8. hodina | ano (`SchoolPeriod`) |
 
@@ -152,16 +152,22 @@ Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP
 Hangfire job `TimetableGenerationJob`, limit 60 s, uloží nejlepší nalezené řešení):
 
 - Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dny, kdy
-  učitel může učit, časy hodin, učebny a typ učebny předmětu (`Subject.ClassroomType`;
-  výchozí učebna předmětu má přednost).
+  učitel může učit, časy hodin a učebny předmětu (`Subject.Classrooms`: seznam v pořadí
+  priority, každá položka konkrétní učebna nebo „jakákoli“ daného typu).
 - Režimy: **Doplnit chybějící** (hodiny v konceptu zůstanou, přibude, co podle plánu
   chybí) a **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`).
-- Tvrdá omezení: třída, učitel i učebna nejvýš jednou v čase, dny učitele, učebna
-  potřebného typu (počet souběžných hodin ≤ volné učebny typu), třída nejvýš
+- Tvrdá omezení: třída a učitel nejvýš jednou v čase, dny učitele, třída nejvýš
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
-- Měkká omezení (pevné váhy): každý den aspoň ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken a od první hodiny (10), 0. hodina (8),
-  předmět nejvýš jednou denně (6), okna učitelů (2). Co se nevejde, generátor nehlásí
-  jako chybu modelu, ale jako „nevešlo se X h“ (penalizace 1000 za hodinu).
+- Měkká omezení (pevné váhy): volná učebna ze seznamu předmětu (200 za hodinu bez ní;
+  souběžné hodiny ≤ volné učebny každé skupiny učeben), každý den aspoň
+  ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken a od první hodiny (10),
+  0. hodina (8), předmět nejvýš jednou denně (6), okna učitelů (2). Co se nevejde,
+  generátor nehlásí jako chybu modelu, ale jako „nevešlo se X h“ (penalizace 1000 za hodinu).
+- Učebny po vyřešení: třída má pro předmět pokud možno celý týden stejnou učebnu (tu,
+  která je volná pro nejvíc jejích hodin, pak tu, kterou už má, pak dřív v seznamu);
+  jen kolidující hodiny jdou do první volné dle pořadí. Když není volná žádná, hodina
+  zůstane bez učebny a výsledek hlásí „nedostatek učeben … doplňte ji ručně“.
+- Ruční přidání hodiny předvyplní první učebnu ze seznamu předmětu volnou v daném čase.
 - 0,5 h = hodina v lichém týdnu, slot drží v obou týdnech (dvojice lichý/sudý zatím ne).
 - Zatím ne: náročné předměty dopoledne (chybí údaj u předmětu), limity hodin denně podle
   vyhlášky, nastavitelné váhy, skupiny (#166), bloky a přání učitelů (#162).

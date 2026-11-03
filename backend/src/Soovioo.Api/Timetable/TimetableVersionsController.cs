@@ -33,6 +33,18 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             .ToListAsync());
     }
 
+    /// <summary>Classrooms taken at a slot — for a new lesson's first free
+    /// one; a lesson only in the other week doesn't count.</summary>
+    [HttpGet("{id:int}/busy-classrooms")]
+    [RequirePermission(Permission.Timetable)]
+    public async Task<ActionResult<IEnumerable<int>>> GetBusyClassrooms(
+        int id, DayOfWeek day, int period, WeekParity weekParity = WeekParity.Every) =>
+        Ok(await db.TimetableEntries
+            .Where(e => e.TimetableVersionId == id && e.DayOfWeek == day && e.PeriodNumber == period
+                && e.ClassroomId != null
+                && (weekParity == WeekParity.Every || e.WeekParity == WeekParity.Every || e.WeekParity == weekParity))
+            .Select(e => e.ClassroomId!.Value).Distinct().ToListAsync());
+
     /// <summary>A new draft, empty or with the lessons, učební plán and
     /// přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
     [HttpPost]

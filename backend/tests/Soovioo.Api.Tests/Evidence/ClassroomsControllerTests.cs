@@ -84,7 +84,7 @@ public class ClassroomsControllerTests
         var classroom = new Classroom { Name = "Tělocvična", SchoolId = SchoolId };
         db.Classrooms.Add(classroom);
         await db.SaveChangesAsync();
-        db.Subjects.Add(new Subject { Name = "Tělocvik", SchoolId = SchoolId, DefaultClassroomId = classroom.Id });
+        db.Subjects.Add(new Subject { Name = "Tělocvik", SchoolId = SchoolId, Classrooms = [new() { ClassroomId = classroom.Id }] });
         await db.SaveChangesAsync();
 
         var result = await new ClassroomsController(db, new FakeCurrentSchoolContext(SchoolId))

@@ -89,7 +89,7 @@ public class SubjectsControllerTests
     }
 
     [Fact]
-    public async Task AddSubjectAcceptsDefaultClassroom()
+    public async Task AddSubjectAcceptsAClassroom()
     {
         using var db = NewDb();
         var classroom = new Classroom { Name = "Tělocvična", SchoolId = SchoolId };
@@ -97,20 +97,33 @@ public class SubjectsControllerTests
         await db.SaveChangesAsync();
 
         var result = await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId))
-            .AddSubject(new CreateSubjectRequest("Tělocvik", DefaultClassroomId: classroom.Id));
+            .AddSubject(new CreateSubjectRequest("Tělocvik", Classrooms: [new(classroom.Id)]));
 
         var dto = Assert.IsType<Subject>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
-        Assert.Equal(classroom.Id, dto.DefaultClassroomId);
+        Assert.Equal(classroom.Id, Assert.Single(dto.Classrooms).ClassroomId);
     }
 
     [Fact]
-    public async Task AddSubjectRejectsUnknownDefaultClassroom()
+    public async Task AddSubjectRejectsUnknownClassroom()
     {
         using var db = NewDb();
 
         var result = await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId))
-            .AddSubject(new CreateSubjectRequest("Tělocvik", DefaultClassroomId: 999));
+            .AddSubject(new CreateSubjectRequest("Tělocvik", Classrooms: [new(999)]));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task ASubjectsClassroomIsAClassroomOrAType()
+    {
+        using var db = NewDb();
+        var controller = new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId));
+
+        var both = await controller.AddSubject(new CreateSubjectRequest("Tělocvik", Classrooms: [new(1, ClassroomType.Gym)]));
+        var twice = await controller.AddSubject(new CreateSubjectRequest("Tělocvik", Classrooms: [new(Type: ClassroomType.Gym), new(Type: ClassroomType.Gym)]));
+
+        Assert.IsType<BadRequestObjectResult>(both.Result);
+        Assert.IsType<BadRequestObjectResult>(twice.Result);
     }
 }

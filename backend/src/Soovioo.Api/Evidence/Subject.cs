@@ -13,16 +13,10 @@ public class Subject
     /// Rozvrh table. Same preset-palette pattern as Event.Color.</summary>
     public string? Color { get; set; }
 
-    /// <summary>Pre-fills a new timetable entry's classroom when this
-    /// subject is picked — for subjects only ever taught in one specialized
-    /// room (fyzika, tělocvik...). Still overridable per entry, see
-    /// TimetableEntry.ClassroomId.</summary>
-    public int? DefaultClassroomId { get; set; }
-    public Classroom? DefaultClassroom { get; set; }
-
-    /// <summary>The generator puts the subject in a free classroom of this
-    /// type (when it has no <see cref="DefaultClassroomId"/>).</summary>
-    public ClassroomType? ClassroomType { get; set; }
+    /// <summary>Where the subject is taught, first choice first: the
+    /// generator and a new timetable entry take the first free one. Empty =
+    /// no particular classroom.</summary>
+    public List<SubjectClassroom> Classrooms { get; set; } = [];
 
     public int SchoolId { get; set; }
     public School? School { get; set; }

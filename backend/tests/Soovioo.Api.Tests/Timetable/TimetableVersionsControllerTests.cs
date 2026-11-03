@@ -180,4 +180,26 @@ public class TimetableVersionsControllerTests
         Assert.Equal(("Rozvrh 2026/27", new DateOnly(2026, 9, 1), TimetableVersionStatus.Published),
             (version.Name, version.ValidFrom, version.Status));
     }
+
+    [Fact]
+    public async Task BusyClassroomsAtASlot()
+    {
+        var gym = new Classroom { Name = "Tělocvična", SchoolId = SchoolId };
+        var lab = new Classroom { Name = "Laboratoř", SchoolId = SchoolId };
+        db.AddRange(gym, lab);
+        await db.SaveChangesAsync();
+        var every = Lesson(current, czech);
+        every.ClassroomId = gym.Id;
+        var odd = Lesson(current, czech);
+        odd.ClassroomId = lab.Id;
+        odd.WeekParity = WeekParity.Odd;
+        db.TimetableEntries.AddRange(every, odd);
+        await db.SaveChangesAsync();
+
+        async Task<IEnumerable<int>> Busy(WeekParity parity) => Assert.IsAssignableFrom<IEnumerable<int>>(Assert.IsType<OkObjectResult>(
+            (await Versions().GetBusyClassrooms(current.Id, DayOfWeek.Monday, 1, parity)).Result).Value);
+
+        Assert.Equal([gym.Id, lab.Id], (await Busy(WeekParity.Every)).Order());
+        Assert.Equal([gym.Id], await Busy(WeekParity.Even));
+    }
 }

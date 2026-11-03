@@ -70,9 +70,9 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
             return BadRequest("Učebna je použitá v rozvrhu — nelze smazat.");
         }
 
-        if (await db.Subjects.AnyAsync(s => s.DefaultClassroomId == id))
+        if (await db.Subjects.AnyAsync(s => s.Classrooms.Any(c => c.ClassroomId == id)))
         {
-            return BadRequest("Učebna je výchozí pro předmět — nelze smazat.");
+            return BadRequest("Učebna je u předmětu — nelze smazat.");
         }
 
         db.Classrooms.Remove(classroom);
