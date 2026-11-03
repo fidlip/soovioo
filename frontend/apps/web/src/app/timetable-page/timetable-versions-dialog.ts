@@ -91,6 +91,8 @@ export class TimetableVersionsDialog {
   readonly shownVersionId = input<number | null>(null);
   readonly closed = output<void>();
   readonly changed = output<void>();
+  /** Emitted before `changed`. */
+  readonly published = output<void>();
   readonly show = output<number>();
 
   protected readonly today = toDateOnly(new Date());
@@ -219,6 +221,7 @@ export class TimetableVersionsDialog {
       this.versionsApi.publishVersion(version.id),
       'publish',
       'Verze rozvrhu je zveřejněná.',
+      () => this.published.emit(),
     );
   }
 
@@ -269,10 +272,12 @@ export class TimetableVersionsDialog {
     action: Observable<TimetableVersion>,
     name: string,
     done: string,
+    then?: () => void,
   ): void {
     action.subscribe({
       next: () => {
         this.notify.success(done);
+        then?.();
         this.changed.emit();
       },
       error: (err) => this.notify.actionFailed(`${name}Version failed`, err),
