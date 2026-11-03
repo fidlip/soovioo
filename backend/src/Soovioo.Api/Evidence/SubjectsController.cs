@@ -41,6 +41,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             Abbreviation = request.Abbreviation,
             Color = request.Color,
             DefaultClassroomId = request.DefaultClassroomId,
+            ClassroomType = request.ClassroomType,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.Subjects.Add(subject);
@@ -72,6 +73,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
         subject.Abbreviation = request.Abbreviation;
         subject.Color = request.Color;
         subject.DefaultClassroomId = request.DefaultClassroomId;
+        subject.ClassroomType = request.ClassroomType;
         await db.SaveChangesAsync();
         return Ok(subject);
     }
@@ -106,4 +108,5 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
 }
 
 public record CreateSubjectRequest(
-    string Name, string? Abbreviation = null, string? Color = null, int? DefaultClassroomId = null);
+    string Name, string? Abbreviation = null, string? Color = null, int? DefaultClassroomId = null,
+    ClassroomType? ClassroomType = null);

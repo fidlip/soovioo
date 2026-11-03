@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import {
   CreateTimetableVersionRequest,
+  TimetableGeneration,
+  TimetableGenerationMode,
   TimetableVersion,
   UpdateTimetableVersionRequest,
 } from './timetable-version.model';
@@ -32,6 +34,22 @@ export class TimetableVersionsApiService {
     request: UpdateTimetableVersionRequest,
   ): Observable<TimetableVersion> {
     return this.http.put<TimetableVersion>(`${this.url}/${id}`, request);
+  }
+
+  /** The latest run; null when there's none. */
+  getGeneration(id: number): Observable<TimetableGeneration | null> {
+    return this.http.get<TimetableGeneration | null>(
+      `${this.url}/${id}/generation`,
+    );
+  }
+
+  generate(
+    id: number,
+    mode: TimetableGenerationMode,
+  ): Observable<TimetableGeneration> {
+    return this.http.post<TimetableGeneration>(`${this.url}/${id}/generation`, {
+      mode,
+    });
   }
 
   publishVersion(id: number): Observable<TimetableVersion> {

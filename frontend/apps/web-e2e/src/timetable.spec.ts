@@ -179,6 +179,16 @@ test.describe.serial('timetable version', () => {
     const info = page.getByTestId('timetable-version-info');
     await expect(info).toContainText(name);
     await expect(info).toContainText('Koncept');
+
+    // The generator places the lessons again from the plan.
+    await page.getByRole('button', { name: 'Generovat' }).click();
+    const generate = page.getByRole('dialog', { name: 'Generovat rozvrh' });
+    await generate.getByText('Přegenerovat vše').click();
+    await generate.getByRole('button', { name: /Generovat$/ }).click();
+    await expect(generate.getByTestId('generation-result')).toContainText(
+      'Poslední generování: přidáno',
+      { timeout: 90_000 },
+    );
   });
 
   test('a parent does not see the draft', async ({ page }) => {

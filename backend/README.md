@@ -13,7 +13,7 @@ Kód je rozdělený podle agend, každá složka obsahuje entity i controllery:
 | `Evidence/`            | školy, třídy, žáci, předměty, učebny, vazba rodič↔žák            |
 | `Grades/`              | známky, vysvědčení (PDF přes QuestPDF)                           |
 | `Attendance/`          | absence                                                          |
-| `Timetable/`           | rozvrh, zvonění                                                  |
+| `Timetable/`           | rozvrh, verze, přidělení výuky, generátor (OR-Tools)             |
 | `Messaging/`           | zprávy a přílohy                                                 |
 | `Events/`              | kalendář akcí, ICS odběr                                         |
 | `Homework/`, `Behavior/`, `Payments/` | domácí úkoly, chování, platby                     |
@@ -80,7 +80,8 @@ xUnit, EF Core InMemory provider; testy volají controllery přímo s falešným
 ## Plánované úlohy (Hangfire)
 
 Hangfire používá stejnou PostgreSQL databázi. Úlohy se registrují při startu v
-`Program.cs` (např. generování splátek opakovaných plateb, úklid refresh tokenů — denně).
+`Program.cs` (např. generování splátek opakovaných plateb, úklid refresh tokenů — denně);
+jednorázově běží generátor rozvrhu (`TimetableGenerationJob`).
 Dashboard: <http://localhost:5080/hangfire> (výchozí nastavení Hangfire ho pouští jen z
 localhostu).
 

@@ -1,0 +1,68 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="!$event && close()"
+  header="Generovat rozvrh"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (!loaded()) {
+  <app-loading />
+  } @else if (running()) {
+  <app-loading
+    text="Generuji rozvrh… Trvá to nejvýš minutu, okno můžete zavřít."
+  />
+  } @else {
+  <p class="mt-0 text-sm text-surface-600 dark:text-surface-300">
+    Generátor rozmístí hodiny podle učebního plánu a přidělení výuky této verze:
+    třída, učitel ani učebna nejsou dvakrát najednou, učitel učí jen ve dny, kdy
+    může, třídy mají co nejméně oken.
+  </p>
+  <p-selectbutton
+    [options]="modeOptions"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="mode"
+    [allowEmpty]="false"
+    ariaLabel="Co s hodinami v rozvrhu"
+  />
+  <p class="mb-0 mt-2 text-sm text-surface-500">
+    @if (mode === 'Fill') { Hodiny, které už v rozvrhu jsou, zůstanou; přibude,
+    co podle plánu chybí. } @else { Zůstanou jen zamčené hodiny, ostatní se
+    rozmístí znovu. }
+  </p>
+
+  @if (generation(); as g) { @if (g.status === 'Done') {
+  <p-message
+    [severity]="g.messages.length > 0 ? 'warn' : 'success'"
+    styleClass="mt-4 w-full"
+  >
+    <div class="flex flex-col gap-1" data-testid="generation-result">
+      <div class="font-semibold">
+        Poslední generování: přidáno {{ g.placed }} h.
+      </div>
+      @if (g.messages.length > 0) {
+      <ul class="m-0 list-disc pl-5 text-sm">
+        @for (message of g.messages; track $index) {
+        <li>{{ message }}</li>
+        }
+      </ul>
+      }
+    </div>
+  </p-message>
+  } @else if (g.status === 'Failed') {
+  <p-message severity="error" styleClass="mt-4 w-full">
+    {{ g.messages[0] ?? 'Generování selhalo.' }}
+  </p-message>
+  } }
+
+  <div class="mt-4 flex justify-end gap-2">
+    <p-button
+      label="Zavřít"
+      severity="secondary"
+      [text]="true"
+      (onClick)="close()"
+    />
+    <p-button label="Generovat" icon="pi pi-cog" (onClick)="start()" />
+  </div>
+  }
+</p-dialog>

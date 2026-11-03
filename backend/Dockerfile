@@ -2,10 +2,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 # Restore first, in its own layer — re-runs only when the project file changes.
+# For linux-x64 only: OR-Tools brings native libraries for five platforms.
 COPY src/Soovioo.Api/Soovioo.Api.csproj src/Soovioo.Api/
-RUN dotnet restore src/Soovioo.Api/Soovioo.Api.csproj
+RUN dotnet restore src/Soovioo.Api/Soovioo.Api.csproj -r linux-x64
 COPY src/ src/
-RUN dotnet publish src/Soovioo.Api/Soovioo.Api.csproj -c Release -o /app --no-restore
+RUN dotnet publish src/Soovioo.Api/Soovioo.Api.csproj -c Release -r linux-x64 --self-contained false -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

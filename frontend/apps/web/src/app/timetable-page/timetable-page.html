@@ -11,7 +11,15 @@
       [outlined]="true"
       (onClick)="versionsDialogVisible.set(true)"
     />
-    @if (canEditShownVersion()) {
+    @if (canGenerate()) {
+    <p-button
+      label="Generovat"
+      icon="pi pi-cog"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="generateDialogVisible.set(true)"
+    />
+    } @if (canEditShownVersion()) {
     <p-button
       [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
       [icon]="editMode() ? 'pi pi-check' : 'pi pi-pencil'"
@@ -254,6 +262,13 @@
                 role="img"
                 aria-label="Kolize"
               ></i>
+              } @else if (entry.locked && canManageTimetable()) {
+              <i
+                class="pi pi-lock absolute right-1 top-1 text-xs text-surface-700"
+                role="img"
+                aria-label="Zamčená"
+                title="Zamčená — generátor ji nepřesune"
+              ></i>
               }
               <div class="font-semibold text-surface-900">
                 {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
@@ -331,6 +346,13 @@
   (closed)="versionsDialogVisible.set(false)"
   (changed)="onVersionsChanged()"
   (show)="onShowVersion($event)"
+/>
+} @if (canGenerate()) {
+<app-timetable-generate-dialog
+  [visible]="generateDialogVisible()"
+  [versionId]="shownVersion()!.id"
+  (closed)="generateDialogVisible.set(false)"
+  (generated)="onVersionsChanged()"
 />
 }
 
@@ -432,6 +454,10 @@
         appendTo="body"
       />
     </app-float-field>
+    <label class="flex items-center gap-2 text-sm">
+      <p-checkbox [binary]="true" [(ngModel)]="formLocked" name="formLocked" />
+      Zamčená — generátor ji nepřesune
+    </label>
     <div class="mt-2 flex justify-between">
       @if (editingEntryId() !== null) {
       <p-button

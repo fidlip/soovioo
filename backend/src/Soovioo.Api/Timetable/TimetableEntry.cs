@@ -33,4 +33,7 @@ public class TimetableEntry
     /// created, but overridable per entry (see TimetableController.AddEntry).</summary>
     public int? ClassroomId { get; set; }
     public Classroom? Classroom { get; set; }
+
+    /// <summary>The generator leaves it where it is.</summary>
+    public bool Locked { get; set; }
 }

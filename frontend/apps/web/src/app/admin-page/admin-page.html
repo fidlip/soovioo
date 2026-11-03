@@ -355,7 +355,9 @@
                     }
                   </td>
                   <td class="text-surface-500">
-                    {{ classroomName(subject.defaultClassroomId) }}
+                    @if (!subject.defaultClassroomId && subject.classroomType) {
+                    {{ classroomTypeLabel(subject.classroomType) }} (jakákoli) }
+                    @else { {{ classroomName(subject.defaultClassroomId) }} }
                   </td>
                   <td>
                     <div class="flex justify-end gap-1">
@@ -1062,6 +1064,22 @@
         appendTo="body"
       />
     </app-float-field>
+    @if (!newSubjectDefaultClassroomId) {
+    <app-float-field label="Typ učebny" for="subjectClassroomType">
+      <p-select
+        ariaLabel="Typ učebny"
+        inputId="subjectClassroomType"
+        [options]="classroomTypeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="newSubjectClassroomType"
+        name="subjectClassroomType"
+        [showClear]="true"
+        styleClass="w-48"
+        appendTo="body"
+      />
+    </app-float-field>
+    }
     <app-submit-button
       [form]="subjectForm"
       [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"

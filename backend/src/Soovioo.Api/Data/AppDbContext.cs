@@ -29,6 +29,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<CurriculumItem> CurriculumItems => Set<CurriculumItem>();
     public DbSet<ClassCurriculumItem> ClassCurriculumItems => Set<ClassCurriculumItem>();
     public DbSet<TeachingAssignment> TeachingAssignments => Set<TeachingAssignment>();
+    public DbSet<TimetableGeneration> TimetableGenerations => Set<TimetableGeneration>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
@@ -290,6 +291,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
+        modelBuilder.Entity<TimetableGeneration>(e =>
+        {
+            e.HasOne(x => x.TimetableVersion).WithMany()
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.Mode).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<Subject>().Property(s => s.ClassroomType).HasConversion<string>();
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();

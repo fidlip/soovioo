@@ -20,6 +20,10 @@ public class Subject
     public int? DefaultClassroomId { get; set; }
     public Classroom? DefaultClassroom { get; set; }
 
+    /// <summary>The generator puts the subject in a free classroom of this
+    /// type (when it has no <see cref="DefaultClassroomId"/>).</summary>
+    public ClassroomType? ClassroomType { get; set; }
+
     public int SchoolId { get; set; }
     public School? School { get; set; }
 }

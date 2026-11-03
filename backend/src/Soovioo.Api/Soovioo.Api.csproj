@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" Version="3.7.0" />
+    <PackageReference Include="Google.OrTools" Version="9.15.6755" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageReference Include="Ical.Net" Version="5.2.3" />
