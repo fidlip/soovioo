@@ -60,4 +60,25 @@ export interface TimetableGeneration {
   messages: string[];
   /** How the result looks: class gaps, teachers' gaps… */
   notes: string[];
+  /** The best timetable so far while it runs. */
+  progress: TimetableGenerationProgress | null;
+  /** While queued: runs (of every school) before this one… */
+  queueAhead: number;
+  /** …and the estimated wait for them. */
+  waitSeconds: number;
+}
+
+export interface TimetableGenerationProgress {
+  /** Requirements = looking for a timetable that meets them, Polish =
+   * cutting teachers' gaps. */
+  phase: 'Requirements' | 'Polish';
+  /** Lessons placed out of `total`. */
+  lessons: number;
+  total: number;
+  withoutRoom: number;
+  classGaps: number;
+  lateStarts: number;
+  teacherGaps: number;
+  /** 0–1 of the polish's time (it ends at its limit or when it stalls). */
+  polishShare: number;
 }

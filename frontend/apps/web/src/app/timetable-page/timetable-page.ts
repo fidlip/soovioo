@@ -10,7 +10,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -409,6 +411,21 @@ export class TimetablePage {
 
   constructor() {
     this.loadVersions();
+    const router = inject(Router);
+    inject(ActivatedRoute)
+      .queryParamMap.pipe(takeUntilDestroyed())
+      .subscribe((params) => {
+        const version = Number(params.get('version'));
+        if (!version || params.get('generation') !== 'result') {
+          return;
+        }
+        router.navigate([], { queryParams: {}, replaceUrl: true });
+        this.loadVersions(() => {
+          this.onVersionSelected(version);
+          this.generateShowResult.set(true);
+          this.generateDialogVisible.set(true);
+        });
+      });
     this.schoolPeriodsApi.getPeriods().subscribe({
       next: (periods) => {
         this.periods.set(periods);
@@ -502,6 +519,8 @@ export class TimetablePage {
   }
 
   protected readonly generateDialogVisible = signal(false);
+  /** Opened from the "generated" notification: straight on the result. */
+  protected readonly generateShowResult = signal(false);
 
   protected canGenerate(): boolean {
     return this.canManageTimetable() && this.shownVersion()?.status === 'Draft';

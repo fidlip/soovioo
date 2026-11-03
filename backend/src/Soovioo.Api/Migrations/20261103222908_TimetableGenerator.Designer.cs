@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261103212151_TimetableGenerator")]
+    [Migration("20261103222908_TimetableGenerator")]
     partial class TimetableGenerator
     {
         /// <inheritdoc />
@@ -2336,6 +2336,9 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<int>("Placed")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Progress")
+                        .HasColumnType("jsonb");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");

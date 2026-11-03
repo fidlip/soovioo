@@ -80,7 +80,8 @@ namespace Soovioo.Api.Migrations
                     FinishedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     Placed = table.Column<int>(type: "integer", nullable: false),
                     Messages = table.Column<List<string>>(type: "text[]", nullable: false),
-                    Notes = table.Column<List<string>>(type: "text[]", nullable: false)
+                    Notes = table.Column<List<string>>(type: "text[]", nullable: false),
+                    Progress = table.Column<string>(type: "jsonb", nullable: true)
                 },
                 constraints: table =>
                 {

@@ -183,7 +183,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     {
         var user = string.IsNullOrEmpty(request.Token)
             ? null
-            : await db.Users.IgnoreQueryFilters().Include(u => u.School)
+            : await db.Users.IgnoreQueryFilters().Include(u => u.School).Include(u => u.Roles).ThenInclude(r => r.Permissions)
                 .FirstOrDefaultAsync(u => u.EmailUnsubscribeToken == request.Token && u.ErasedAt == null);
         if (user?.School is null)
         {
@@ -196,19 +196,23 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     }
 
     /// <summary>The kinds that can reach this account — staff alone hear
-    /// only about messages and events, pupils' and parents' agendas are
-    /// theirs.</summary>
+    /// only about messages and events (and generated timetables when they
+    /// may edit the timetable), pupils' and parents' agendas are theirs.
+    /// Needs the roles' permissions loaded.</summary>
     public static IReadOnlyList<NotificationType> TypesFor(IReadOnlyCollection<Role> roles)
     {
+        var timetable = roles.Any(r => r.Permissions.Any(p => p.Permission == Permission.Timetable && p.Scope != PermissionScope.None))
+            ? new[] { NotificationType.Timetable }
+            : [];
         if (roles.Any(r => r.Kind == RoleKind.Parent))
         {
-            return Enum.GetValues<NotificationType>();
+            return [.. Enum.GetValues<NotificationType>().Where(t => t != NotificationType.Timetable), .. timetable];
         }
         if (roles.Any(r => r.Kind == RoleKind.Student))
         {
-            return Enum.GetValues<NotificationType>().Where(t => t != NotificationType.Photo).ToList();
+            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Timetable))];
         }
-        return [NotificationType.Message, NotificationType.Event];
+        return [NotificationType.Message, NotificationType.Event, .. timetable];
     }
 
     private NotificationSettingsDto SettingsOf(User user)
@@ -233,7 +237,8 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     private Task<User?> MeAsync()
     {
         var me = CurrentUserId();
-        return db.Users.Include(u => u.School).Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == me);
+        return db.Users.Include(u => u.School).Include(u => u.Person).Include(u => u.Roles).ThenInclude(r => r.Permissions)
+            .FirstOrDefaultAsync(u => u.Id == me);
     }
 
     private IQueryable<Notification> Mine()

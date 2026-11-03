@@ -1,56 +1,13 @@
 <p-dialog
   [visible]="visible()"
   (visibleChange)="!$event && close()"
-  header="Generovat rozvrh"
+  [header]="header()"
   [modal]="true"
   styleClass="w-full max-w-xl"
 >
   @if (!loaded()) {
   <app-loading />
-  } @else if (running()) {
-  <app-loading
-    text="Generuji rozvrh… Obvykle to trvá 1–2 minuty, okno můžete zavřít. Výsledek se zobrazí, až bude hotovo."
-  />
-  } @else {
-  <p class="mt-0 text-sm text-surface-600 dark:text-surface-300">
-    Generátor rozmístí hodiny podle učebního plánu a přidělení výuky této verze:
-    třída, učitel ani učebna nejsou dvakrát najednou, učitel učí jen ve dny, kdy
-    může, třídy mají co nejméně oken.
-  </p>
-  <p-selectbutton
-    [options]="modeOptions"
-    optionLabel="label"
-    optionValue="value"
-    [(ngModel)]="mode"
-    [allowEmpty]="false"
-    ariaLabel="Co s hodinami v rozvrhu"
-  />
-  <p class="mb-0 mt-2 text-sm text-surface-500">
-    @if (mode === 'Fill') { Hodiny, které už v rozvrhu jsou, zůstanou; přibude,
-    co podle plánu chybí. } @else { Zůstanou jen zamčené hodiny, ostatní se
-    rozmístí znovu. }
-  </p>
-
-  <div class="mt-4 flex justify-end gap-2">
-    <p-button
-      label="Zavřít"
-      severity="secondary"
-      [text]="true"
-      (onClick)="close()"
-    />
-    <p-button label="Generovat" icon="pi pi-cog" (onClick)="start()" />
-  </div>
-  }
-</p-dialog>
-
-<p-dialog
-  [visible]="result() !== null"
-  (visibleChange)="!$event && result.set(null)"
-  header="Výsledek generování"
-  [modal]="true"
-  styleClass="w-full max-w-xl"
->
-  @if (result(); as g) {
+  } @else if (result(); as g) {
   <div class="flex flex-col gap-3" data-testid="generation-result">
     @if (g.status === 'Failed') {
     <p-message severity="error" styleClass="w-full">
@@ -87,7 +44,75 @@
     }
   </div>
   <div class="mt-4 flex justify-end">
-    <p-button label="Zavřít" (onClick)="result.set(null)" />
+    <p-button label="Zavřít" (onClick)="close()" />
+  </div>
+  } @else if (running()) { @let g = generation()!;
+  <div class="flex flex-col gap-3" data-testid="generation-progress">
+    @if (g.status === 'Queued' && g.queueAhead > 0) {
+    <div class="font-semibold">Ve frontě</div>
+    <p class="m-0 text-sm">
+      Generuje se jeden rozvrh najednou pro všechny školy. Před vámi: {{
+      g.queueAhead }}, na řadu přijdete asi za {{ span(g.waitSeconds) }}.
+    </p>
+    <p-progressbar mode="indeterminate" styleClass="h-2" />
+    } @else if (g.progress; as p) {
+    <div class="font-semibold">
+      @if (p.phase === 'Requirements') { Krok 1 ze 2: hledám rozvrh, který
+      splňuje požadavky } @else { Krok 2 ze 2: dolaďuji okna učitelů }
+    </div>
+    @if (p.phase === 'Requirements') {
+    <p-progressbar mode="indeterminate" styleClass="h-2" />
+    } @else {
+    <p-progressbar
+      [value]="p.polishShare * 100"
+      [showValue]="false"
+      styleClass="h-2"
+    />
+    }
+    <ul class="m-0 list-disc pl-5 text-sm">
+      <li>Umístěno {{ p.lessons }} z {{ p.total }} hodin</li>
+      <li>Bez učebny: {{ p.withoutRoom }}</li>
+      <li>Okna tříd: {{ p.classGaps }}</li>
+      <li>Později než první hodinou začíná: {{ p.lateStarts }}</li>
+      <li>Okna učitelů: {{ p.teacherGaps }} h týdně</li>
+    </ul>
+    <div class="text-sm text-surface-500">Běží {{ elapsed(g) }}.</div>
+    } @else {
+    <div class="font-semibold">Spouštím generování…</div>
+    <p-progressbar mode="indeterminate" styleClass="h-2" />
+    }
+    <p class="m-0 text-sm text-surface-500">
+      Okno můžete zavřít, o dokončení vám přijde upozornění.
+    </p>
+  </div>
+  } @else {
+  <p class="mt-0 text-sm text-surface-600 dark:text-surface-300">
+    Generátor rozmístí hodiny podle učebního plánu a přidělení výuky této verze:
+    třída, učitel ani učebna nejsou dvakrát najednou, učitel učí jen ve dny, kdy
+    může, třídy mají co nejméně oken.
+  </p>
+  <p-selectbutton
+    [options]="modeOptions"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="mode"
+    [allowEmpty]="false"
+    ariaLabel="Co s hodinami v rozvrhu"
+  />
+  <p class="mb-0 mt-2 text-sm text-surface-500">
+    @if (mode === 'Fill') { Hodiny, které už v rozvrhu jsou, zůstanou; přibude,
+    co podle plánu chybí. } @else { Zůstanou jen zamčené hodiny, ostatní se
+    rozmístí znovu. }
+  </p>
+
+  <div class="mt-4 flex justify-end gap-2">
+    <p-button
+      label="Zavřít"
+      severity="secondary"
+      [text]="true"
+      (onClick)="close()"
+    />
+    <p-button label="Generovat" icon="pi pi-cog" (onClick)="start()" />
   </div>
   }
 </p-dialog>

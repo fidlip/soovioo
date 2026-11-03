@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
 namespace Soovioo.Api.Timetable;
@@ -8,7 +9,8 @@ namespace Soovioo.Api.Timetable;
 /// <summary>Runs a <see cref="TimetableGeneration"/> (a Hangfire job): what
 /// the version's plan and přidělení want and its timetable lacks goes to
 /// <see cref="TimetableGenerator"/>, the result into the version.</summary>
-public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILogger<TimetableGenerationJob> logger)
+public class TimetableGenerationJob(
+    DbContextOptions<AppDbContext> options, ILogger<TimetableGenerationJob> logger, TimeProvider clock)
 {
     /// <summary>Normally the requirements hold well before; running out of
     /// it is an error.</summary>
@@ -46,7 +48,27 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
             generation.Messages = ["Generování selhalo, zkuste to znovu."];
         }
         generation.FinishedAt = DateTimeOffset.UtcNow;
+        await NotifyAsync(db, generation);
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>To whoever started it, opening the result — read already
+    /// when they watched it end (see TimetableGenerationController.Seen).</summary>
+    private async Task NotifyAsync(AppDbContext db, TimetableGeneration generation)
+    {
+        if (generation.CreatedByUserId is not { } userId)
+        {
+            return;
+        }
+        var name = generation.TimetableVersion?.Name
+            ?? await db.TimetableVersions.Where(v => v.Id == generation.TimetableVersionId).Select(v => v.Name).FirstAsync();
+        var (title, body) = generation.Status == TimetableGenerationStatus.Failed
+            ? ($"Generování rozvrhu „{name}“ selhalo", generation.Messages.FirstOrDefault())
+            : generation.Messages.Count == 0
+                ? ($"Rozvrh „{name}“ je vygenerovaný", "Splňuje všechny požadavky.")
+                : ($"Rozvrh „{name}“ je vygenerovaný, něco je potřeba upravit", generation.Messages[0]);
+        await new Notifier(db, clock).NotifyAsync(
+            generation.SchoolId, [userId], NotificationType.Timetable, title, body, "timetable", generation.TimetableVersionId);
     }
 
     public static async Task GenerateAsync(
@@ -107,10 +129,28 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
         }
 
         var teacherDays = plan.Teachers.ToDictionary(t => t.Id, t => (IReadOnlyCollection<DayOfWeek>)t.TeachingDays);
-        var result = TimetableGenerator.Generate(new TimetableGenerator.Input(
+        TimetableGenerator.Progress? latest = null;
+        var solving = Task.Run(() => TimetableGenerator.Generate(new TimetableGenerator.Input(
             [.. TeacherProfile.Weekdays], periods, demands,
             [.. kept.Select(e => new TimetableGenerator.Kept(e.SchoolClassId, e.SubjectId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber))],
-            teacherDays, timeLimit));
+            teacherDays, timeLimit)
+        {
+            OnProgress = p => Volatile.Write(ref latest, p),
+        }));
+        // The best timetable so far, for the progress dialog.
+        TimetableGenerator.Progress? written = null;
+        while (await Task.WhenAny(solving, Task.Delay(TimeSpan.FromSeconds(2))) != solving)
+        {
+            var progress = Volatile.Read(ref latest);
+            if (progress is not null && progress != written && db.Database.IsRelational())
+            {
+                await db.TimetableGenerations.Where(g => g.Id == generation.Id)
+                    .ExecuteUpdateAsync(u => u.SetProperty(g => g.Progress, progress));
+                written = progress;
+            }
+        }
+        var result = await solving;
+        generation.Progress = Volatile.Read(ref latest);
         logger?.LogInformation("Timetable generation {Id}: penalty {Penalty}, bound {Bound}",
             generation.Id, result.Penalty, result.Bound);
         if (result.TimedOut)
@@ -170,20 +210,15 @@ public class TimetableGenerationJob(DbContextOptions<AppDbContext> options, ILog
     private static List<string> Notes(
         List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons, Dictionary<int, string> classNames, int first)
     {
-        static int Holes(IEnumerable<int> periods)
-        {
-            var taken = periods.Distinct().Order().ToList();
-            return taken.Count == 0 ? 0 : taken[^1] - taken[0] + 1 - taken.Count;
-        }
         string Where(IEnumerable<(int ClassId, DayOfWeek Day)> days) => string.Join(", ", days
             .OrderBy(d => classNames.GetValueOrDefault(d.ClassId)).ThenBy(d => d.Day)
             .Select(d => $"{classNames.GetValueOrDefault(d.ClassId)} {Short(d.Day)}"));
 
         var classDays = lessons.GroupBy(l => (l.ClassId, l.Day)).ToList();
-        var gaps = classDays.Where(d => Holes(d.Select(l => l.Period)) > 0).Select(d => d.Key).ToList();
+        var gaps = classDays.Where(d => TimetableGenerator.Holes(d.Select(l => l.Period)) > 0).Select(d => d.Key).ToList();
         var late = classDays.Where(d => d.Min(l => l.Period) > first).Select(d => d.Key).ToList();
         var teacherGaps = lessons.Where(l => l.TeacherId is not null).GroupBy(l => (l.TeacherId, l.Day))
-            .Sum(d => Holes(d.Select(l => l.Period)));
+            .Sum(d => TimetableGenerator.Holes(d.Select(l => l.Period)));
         return
         [
             gaps.Count == 0 ? "Třídy nemají okna." : $"Okna tříd: {gaps.Count} ({Where(gaps)}).",

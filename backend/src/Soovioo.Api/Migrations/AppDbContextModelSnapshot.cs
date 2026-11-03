@@ -2334,6 +2334,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("Placed")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Progress")
+                        .HasColumnType("jsonb");
+
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 

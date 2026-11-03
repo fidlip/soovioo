@@ -16,6 +16,9 @@ public enum NotificationType
 
     /// <summary>A pupil's photo waits for a parent's approval.</summary>
     Photo,
+
+    /// <summary>A timetable the user started generating is done.</summary>
+    Timetable,
 }
 
 /// <summary>One item under the bell — something new for one user, with a

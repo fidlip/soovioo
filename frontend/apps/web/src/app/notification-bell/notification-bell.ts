@@ -20,6 +20,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   Homework: 'pi-book',
   Event: 'pi-calendar',
   Photo: 'pi-image',
+  Timetable: 'pi-cog',
 };
 
 /** The bell's popover with the notifications — a click opens the thing
@@ -82,10 +83,13 @@ export class NotificationBell {
     }
     this.popover().hide();
     this.router.navigate(this.schoolContext.link(notification.page), {
-      queryParams:
-        notification.page === 'messages' && notification.targetId
+      queryParams: !notification.targetId
+        ? {}
+        : notification.page === 'messages'
           ? { conversation: notification.targetId }
-          : {},
+          : notification.page === 'timetable'
+            ? { version: notification.targetId, generation: 'result' }
+            : {},
     });
   }
 

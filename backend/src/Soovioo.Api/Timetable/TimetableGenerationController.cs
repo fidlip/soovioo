@@ -46,7 +46,41 @@ public class TimetableGenerationController(
             generation.Messages = ["Generování se nedokončilo, spusťte ho znovu."];
             await db.SaveChangesAsync();
         }
-        return Ok(TimetableGenerationDto.Of(generation));
+        var dto = TimetableGenerationDto.Of(generation);
+        return Ok(generation.Status == TimetableGenerationStatus.Queued ? await WithQueueAsync(dto) : dto);
+    }
+
+    /// <summary>The user saw how it ended: its notification is read.</summary>
+    [HttpPost("seen")]
+    [RequirePermission(Permission.Timetable)]
+    public async Task<IActionResult> Seen(int versionId)
+    {
+        var me = User.UserId();
+        await db.Notifications
+            .Where(n => n.UserId == me && n.Type == Notifications.NotificationType.Timetable
+                && n.TargetId == versionId && n.ReadAt == null)
+            .ExecuteUpdateAsync(u => u.SetProperty(n => n.ReadAt, clock.GetUtcNow()));
+        return NoContent();
+    }
+
+    /// <summary>Runs of every school ahead of this one (one runs at a time),
+    /// and how long they'll take judging by the recent ones.</summary>
+    private async Task<TimetableGenerationDto> WithQueueAsync(TimetableGenerationDto dto)
+    {
+        var all = db.TimetableGenerations.IgnoreQueryFilters();
+        var running = await all.Where(g => g.Status == TimetableGenerationStatus.Running)
+            .Select(g => g.StartedAt ?? g.CreatedAt).ToListAsync();
+        var queued = await all.CountAsync(g => g.Status == TimetableGenerationStatus.Queued && g.Id < dto.Id);
+        var recent = await all.Where(g => g.Status == TimetableGenerationStatus.Done && g.StartedAt != null)
+            .OrderByDescending(g => g.Id).Take(20)
+            .Select(g => new { g.StartedAt, g.FinishedAt }).ToListAsync();
+        var typical = recent.Count == 0
+            ? TimeSpan.FromSeconds(90)
+            : TimeSpan.FromSeconds(recent.Average(g => (g.FinishedAt!.Value - g.StartedAt!.Value).TotalSeconds));
+        var now = clock.GetUtcNow();
+        var wait = typical * queued + running.Aggregate(TimeSpan.Zero,
+            (sum, started) => sum + (typical - (now - started) is var left && left > TimeSpan.Zero ? left : TimeSpan.Zero));
+        return dto with { QueueAhead = queued + running.Count, WaitSeconds = (int)wait.TotalSeconds };
     }
 
     [HttpPost]
@@ -99,8 +133,13 @@ public record TimetableGenerationDto(
     DateTimeOffset? FinishedAt,
     int Placed,
     IReadOnlyList<string> Messages,
-    IReadOnlyList<string> Notes)
+    IReadOnlyList<string> Notes,
+    TimetableGenerator.Progress? Progress)
 {
+    /// <summary>While queued: runs before this one, and the estimated wait.</summary>
+    public int QueueAhead { get; init; }
+    public int WaitSeconds { get; init; }
+
     public static TimetableGenerationDto Of(TimetableGeneration g) =>
-        new(g.Id, g.Mode, g.Status, g.CreatedAt, g.StartedAt, g.FinishedAt, g.Placed, g.Messages, g.Notes);
+        new(g.Id, g.Mode, g.Status, g.CreatedAt, g.StartedAt, g.FinishedAt, g.Placed, g.Messages, g.Notes, g.Progress);
 }
