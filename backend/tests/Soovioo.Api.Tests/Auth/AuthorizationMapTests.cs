@@ -210,6 +210,7 @@ public class AuthorizationMapTests
         ["TimetableVersions.ArchiveVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.CreateVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.GetBusyClassrooms"] = "authenticated + perm:Timetable",
+        ["TimetableVersions.GetProblems"] = "authenticated + perm:Timetable",
         ["TimetableVersions.GetVersions"] = "authenticated",
         ["TimetableVersions.PublishVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.RestoreVersion"] = "authenticated + perm:Timetable",

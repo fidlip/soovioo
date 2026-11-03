@@ -221,7 +221,8 @@ public static class TeachingPlanner
         return (classes, teacherDtos);
     }
 
-    private static string OnDay(DayOfWeek day) => day switch
+    /// <summary>"v pondělí".</summary>
+    public static string OnDay(DayOfWeek day) => day switch
     {
         DayOfWeek.Monday => "v pondělí",
         DayOfWeek.Tuesday => "v úterý",

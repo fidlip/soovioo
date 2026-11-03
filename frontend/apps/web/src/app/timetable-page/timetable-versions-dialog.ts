@@ -12,6 +12,7 @@ import { ConfirmationService } from '@openng/optimus-ui/api';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
+import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
@@ -23,6 +24,7 @@ import {
 import { Observable } from 'rxjs';
 import { toDateOnly } from '../departures/retention-labels';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 
 type Severity = 'success' | 'info' | 'warn' | 'secondary';
@@ -62,13 +64,15 @@ export function versionValidity(version: TimetableVersion): string {
 @Component({
   selector: 'app-timetable-versions-dialog',
   imports: [
-    FloatField,
     ...FORM_FIELDS,
-    FormsModule,
     Button,
     DatePicker,
     Dialog,
+    FloatField,
+    FormsModule,
     InputText,
+    Loading,
+    Message,
     Select,
     Tag,
   ],
@@ -187,22 +191,35 @@ export class TimetableVersionsDialog {
     });
   }
 
+  /** The version about to be published, with what's wrong with it (null
+   * while that loads). */
+  protected readonly publishing = signal<TimetableVersion | null>(null);
+  protected readonly publishProblems = signal<string[] | null>(null);
+
   protected publish(version: TimetableVersion): void {
-    const replaced = timetableVersionOn(this.versions(), version.validFrom);
-    this.confirmation.confirm({
-      header: 'Zveřejnit verzi rozvrhu',
-      message: `Zveřejnit „${version.name}“? Od ${formatDate(version.validFrom, 'date')} ji uvidí všichni${replaced ? ` a nahradí verzi „${replaced.name}“` : ''}.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Zveřejnit',
-      rejectLabel: 'Zrušit',
-      rejectButtonProps: { severity: 'secondary', outlined: true },
-      accept: () =>
-        this.run(
-          this.versionsApi.publishVersion(version.id),
-          'publish',
-          'Verze rozvrhu je zveřejněná.',
-        ),
+    this.publishing.set(version);
+    this.publishProblems.set(null);
+    this.versionsApi.getProblems(version.id).subscribe({
+      next: (problems) => this.publishProblems.set(problems),
+      error: (err) => {
+        console.error('getProblems failed', err);
+        this.publishProblems.set([]);
+      },
     });
+  }
+
+  protected publishMessage(version: TimetableVersion): string {
+    const replaced = timetableVersionOn(this.versions(), version.validFrom);
+    return `Zveřejnit „${version.name}“? Od ${formatDate(version.validFrom, 'date')} ji uvidí všichni${replaced ? ` a nahradí verzi „${replaced.name}“` : ''}.`;
+  }
+
+  protected confirmPublish(version: TimetableVersion): void {
+    this.publishing.set(null);
+    this.run(
+      this.versionsApi.publishVersion(version.id),
+      'publish',
+      'Verze rozvrhu je zveřejněná.',
+    );
   }
 
   protected unpublish(version: TimetableVersion): void {
