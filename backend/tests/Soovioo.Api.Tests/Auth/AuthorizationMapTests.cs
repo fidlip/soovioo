@@ -204,6 +204,8 @@ public class AuthorizationMapTests
         ["Timetable.GetTeacherTimetable"] = "authenticated",
         ["Timetable.GetTimetable"] = "authenticated",
         ["Timetable.UpdateEntry"] = "authenticated + perm:Timetable",
+        ["TimetableGeneration.Generate"] = "authenticated + perm:Timetable",
+        ["TimetableGeneration.GetGeneration"] = "authenticated + perm:Timetable",
         ["TimetableVersions.ArchiveVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.CreateVersion"] = "authenticated + perm:Timetable",
         ["TimetableVersions.GetVersions"] = "authenticated",

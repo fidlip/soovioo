@@ -994,6 +994,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Abbreviation")
                         .HasColumnType("text");
 
+                    b.Property<string>("ClassroomType")
+                        .HasColumnType("text");
+
                     b.Property<string>("Color")
                         .HasColumnType("text");
 
@@ -2214,6 +2217,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Locked")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("PeriodNumber")
                         .HasColumnType("integer");
 
@@ -2257,6 +2263,7 @@ namespace Soovioo.Api.Migrations
                             Id = 1,
                             ClassroomId = 1,
                             DayOfWeek = 1,
+                            Locked = false,
                             PeriodNumber = 1,
                             SchoolClassId = 1,
                             SchoolId = 1,
@@ -2268,6 +2275,7 @@ namespace Soovioo.Api.Migrations
                         {
                             Id = 2,
                             DayOfWeek = 1,
+                            Locked = false,
                             PeriodNumber = 2,
                             SchoolClassId = 1,
                             SchoolId = 1,
@@ -2279,6 +2287,7 @@ namespace Soovioo.Api.Migrations
                         {
                             Id = 3,
                             DayOfWeek = 2,
+                            Locked = false,
                             PeriodNumber = 1,
                             SchoolClassId = 1,
                             SchoolId = 1,
@@ -2290,6 +2299,7 @@ namespace Soovioo.Api.Migrations
                         {
                             Id = 4,
                             DayOfWeek = 3,
+                            Locked = false,
                             PeriodNumber = 3,
                             SchoolClassId = 1,
                             SchoolId = 1,
@@ -2297,6 +2307,53 @@ namespace Soovioo.Api.Migrations
                             TimetableVersionId = 1,
                             WeekParity = 0
                         });
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableGeneration", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<List<string>>("Messages")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Placed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimetableVersionId");
+
+                    b.ToTable("TimetableGenerations");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
@@ -3322,6 +3379,17 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Subject");
 
                     b.Navigation("Teacher");
+
+                    b.Navigation("TimetableVersion");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableGeneration", b =>
+                {
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany()
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("TimetableVersion");
                 });

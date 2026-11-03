@@ -39,3 +39,22 @@ export function timetableVersionOn(
       (v.validTo === null || v.validTo >= date),
   );
 }
+
+/** Fill: keep the lessons, add what the plan misses. All: keep only the
+ * locked lessons. */
+export type TimetableGenerationMode = 'Fill' | 'All';
+
+export type TimetableGenerationStatus =
+  'Queued' | 'Running' | 'Done' | 'Failed';
+
+export interface TimetableGeneration {
+  id: number;
+  mode: TimetableGenerationMode;
+  status: TimetableGenerationStatus;
+  createdAt: string;
+  finishedAt: string | null;
+  /** Lessons added. */
+  placed: number;
+  /** What didn't fit or couldn't be done. */
+  messages: string[];
+}

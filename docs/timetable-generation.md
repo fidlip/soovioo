@@ -146,6 +146,26 @@ TeacherAvailability
   TeacherId, DayOfWeek, PeriodNumber, Kind: Unavailable | Avoid
 ```
 
+## Generátor (fáze 3, #161)
+
+Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP-SAT, běží jako
+Hangfire job `TimetableGenerationJob`, limit 60 s, uloží nejlepší nalezené řešení):
+
+- Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dny, kdy
+  učitel může učit, časy hodin, učebny a typ učebny předmětu (`Subject.ClassroomType`;
+  výchozí učebna předmětu má přednost).
+- Režimy: **Doplnit chybějící** (hodiny v konceptu zůstanou, přibude, co podle plánu
+  chybí) a **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`).
+- Tvrdá omezení: třída, učitel i učebna nejvýš jednou v čase, dny učitele, učebna
+  potřebného typu (počet souběžných hodin ≤ volné učebny typu), třída nejvýš
+  ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
+- Měkká omezení (pevné váhy): třída bez oken a od první hodiny (10), 0. hodina (8),
+  předmět nejvýš jednou denně (6), okna učitelů (2). Co se nevejde, generátor nehlásí
+  jako chybu modelu, ale jako „nevešlo se X h“ (penalizace 1000 za hodinu).
+- 0,5 h = hodina v lichém týdnu, slot drží v obou týdnech (dvojice lichý/sudý zatím ne).
+- Zatím ne: náročné předměty dopoledne (chybí údaj u předmětu), limity hodin denně podle
+  vyhlášky, nastavitelné váhy, skupiny (#166), bloky a přání učitelů (#162).
+
 ## Navržené fáze
 
 1. **Verze rozvrhu** (model, migrace, výběr verze podle týdne, koncept + zveřejnění).

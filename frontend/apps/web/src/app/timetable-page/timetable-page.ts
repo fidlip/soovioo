@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
@@ -50,6 +51,7 @@ import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
 import { Loading } from '../loading/loading';
+import { TimetableGenerateDialog } from './timetable-generate-dialog';
 import {
   TimetableVersionsDialog,
   versionStatusLabel,
@@ -117,6 +119,7 @@ interface GridEntry {
   classroomId: number | null;
   classroomName: string | null;
   conflicts: string[];
+  locked: boolean;
 }
 
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
@@ -156,9 +159,11 @@ function formatShortDate(date: Date): string {
     AppIcon,
     FormsModule,
     Button,
+    Checkbox,
     Dialog,
     Message,
     Select,
+    TimetableGenerateDialog,
     TimetableVersionsDialog,
   ],
   templateUrl: './timetable-page.html',
@@ -380,6 +385,7 @@ export class TimetablePage {
   protected formDayOfWeek: DayOfWeek = 'Monday';
   protected formPeriodNumber = 1;
   protected formWeekParity: WeekParity = 'Every';
+  protected formLocked = false;
   protected formTeacherId: number | null = null;
   protected formClassroomId: number | null = null;
   /** True once the user has picked a classroom by hand in the currently
@@ -490,6 +496,12 @@ export class TimetablePage {
     return (
       this.canManageTimetable() || this.authApi.can('TimetableVersionsRead')
     );
+  }
+
+  protected readonly generateDialogVisible = signal(false);
+
+  protected canGenerate(): boolean {
+    return this.canManageTimetable() && this.shownVersion()?.status === 'Draft';
   }
 
   /** An archived version is only to look at. */
@@ -728,6 +740,7 @@ export class TimetablePage {
     this.formDayOfWeek = day;
     this.formPeriodNumber = periodNumber;
     this.formWeekParity = 'Every';
+    this.formLocked = false;
     this.formTeacherId = null;
     this.formClassroomId =
       this.subjectsById().get(this.formSubjectId ?? -1)?.defaultClassroomId ??
@@ -744,6 +757,7 @@ export class TimetablePage {
     this.formDayOfWeek = entry.dayOfWeek;
     this.formPeriodNumber = entry.periodNumber;
     this.formWeekParity = entry.weekParity;
+    this.formLocked = entry.locked;
     this.formTeacherId = entry.teacherId;
     this.formClassroomId = entry.classroomId;
     // Editing already has a real classroom (or an intentional "none") —
@@ -786,6 +800,7 @@ export class TimetablePage {
       teacherId: this.formTeacherId,
       classroomId: this.formClassroomId,
       timetableVersionId: this.shownVersion()?.id ?? null,
+      locked: this.formLocked,
     };
     const editingId = this.editingEntryId();
     const result =

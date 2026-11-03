@@ -25,6 +25,8 @@ export interface TimetableEntry {
   classroomName: string | null;
   /** Same teacher/classroom at the same time elsewhere — empty when none. */
   conflicts: string[];
+  /** The generator leaves it where it is. */
+  locked: boolean;
 }
 
 export interface CreateTimetableEntryRequest {
@@ -36,6 +38,7 @@ export interface CreateTimetableEntryRequest {
   classroomId?: number | null;
   /** Null/missing = the version valid today; ignored on update. */
   timetableVersionId?: number | null;
+  locked?: boolean;
 }
 
 /** Same shape as TimetableEntry, plus which class each entry belongs to —
@@ -57,4 +60,6 @@ export interface TeacherTimetableEntry {
   classroomName: string | null;
   /** Same teacher/classroom at the same time elsewhere — empty when none. */
   conflicts: string[];
+  /** The generator leaves it where it is. */
+  locked: boolean;
 }

@@ -356,6 +356,7 @@ export class AdminPage {
   protected newSubjectAbbreviation = '';
   protected newSubjectColor: string | null = null;
   protected newSubjectDefaultClassroomId: number | null = null;
+  protected newSubjectClassroomType: ClassroomType | null = null;
   protected newClassroomName = '';
   protected newClassroomShortName = '';
   protected newClassroomType: ClassroomType | null = null;
@@ -820,6 +821,7 @@ export class AdminPage {
     this.newSubjectAbbreviation = '';
     this.newSubjectColor = null;
     this.newSubjectDefaultClassroomId = null;
+    this.newSubjectClassroomType = null;
     this.notify.clear();
     this.newSubjectDialogVisible.set(true);
   }
@@ -830,6 +832,7 @@ export class AdminPage {
     this.newSubjectAbbreviation = subject.abbreviation ?? '';
     this.newSubjectColor = subject.color;
     this.newSubjectDefaultClassroomId = subject.defaultClassroomId;
+    this.newSubjectClassroomType = subject.classroomType;
     this.notify.clear();
     this.newSubjectDialogVisible.set(true);
   }
@@ -843,6 +846,7 @@ export class AdminPage {
       abbreviation: this.newSubjectAbbreviation || undefined,
       color: this.newSubjectColor || undefined,
       defaultClassroomId: this.newSubjectDefaultClassroomId ?? undefined,
+      classroomType: this.newSubjectClassroomType ?? undefined,
     };
     const result =
       this.editingSubjectId === null

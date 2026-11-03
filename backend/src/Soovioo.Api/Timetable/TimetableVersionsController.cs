@@ -73,6 +73,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
                 WeekParity = e.WeekParity,
                 TeacherId = e.TeacherId,
                 ClassroomId = e.ClassroomId,
+                Locked = e.Locked,
             }).ToList() ?? [],
             Curriculum = source?.Curriculum.Select(c => new CurriculumItem
             {

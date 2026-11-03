@@ -1,3 +1,5 @@
+import { ClassroomType } from './classroom.model';
+
 export interface Subject {
   id: number;
   name: string;
@@ -7,6 +9,8 @@ export interface Subject {
   color: string | null;
   /** Pre-fills a new timetable entry's classroom when this subject is picked. */
   defaultClassroomId: number | null;
+  /** Without a default classroom, the generator picks a free one of this type. */
+  classroomType: ClassroomType | null;
 }
 
 export interface CreateSubjectRequest {
@@ -14,4 +18,5 @@ export interface CreateSubjectRequest {
   abbreviation?: string;
   color?: string;
   defaultClassroomId?: number;
+  classroomType?: ClassroomType;
 }

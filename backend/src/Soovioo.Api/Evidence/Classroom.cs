@@ -9,7 +9,8 @@ public class Classroom
     /// "Tělocvična"); falls back to <see cref="Name"/> when empty.</summary>
     public string? ShortName { get; set; }
 
-    /// <summary>Preset kind, informational only (never filtered on).</summary>
+    /// <summary>Preset kind; the generator picks classrooms by it (see
+    /// <see cref="Subject.ClassroomType"/>).</summary>
     public ClassroomType? Type { get; set; }
 
     public int? Capacity { get; set; }

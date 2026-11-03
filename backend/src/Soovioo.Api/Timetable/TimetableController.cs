@@ -43,7 +43,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
-                Array.Empty<string>()))
+                Array.Empty<string>(),
+                e.Locked))
             .ToListAsync();
 
         var conflicts = await FindConflictsAsync(version.Id, entries.Select(e =>
@@ -87,7 +88,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
-                Array.Empty<string>()))
+                Array.Empty<string>(),
+                e.Locked))
             .ToListAsync();
 
         var conflicts = await FindConflictsAsync(version.Id, entries.Select(e =>
@@ -163,6 +165,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             WeekParity = request.WeekParity,
             TeacherId = request.TeacherId,
             ClassroomId = request.ClassroomId,
+            Locked = request.Locked,
             SchoolId = currentSchool.SchoolId!.Value,
         };
 
@@ -173,7 +176,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
+            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []), entry.Locked);
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
 
@@ -217,13 +220,14 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         entry.WeekParity = request.WeekParity;
         entry.TeacherId = request.TeacherId;
         entry.ClassroomId = request.ClassroomId;
+        entry.Locked = request.Locked;
         await db.SaveChangesAsync();
 
         var conflicts = await FindConflictsAsync(entry.TimetableVersionId, [ConflictSlot.Of(entry)]);
         var dto = new TimetableEntryDto(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []));
+            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []), entry.Locked);
         return Ok(dto);
     }
 
@@ -356,7 +360,9 @@ public record CreateTimetableEntryRequest(
     int? ClassroomId = null,
     /// <summary>Null = the version valid today. Ignored on update — a lesson
     /// stays in its version.</summary>
-    int? TimetableVersionId = null);
+    int? TimetableVersionId = null,
+    /// <summary>The generator leaves it where it is.</summary>
+    bool Locked = false);
 
 public record TimetableEntryDto(
     int Id,
@@ -373,7 +379,8 @@ public record TimetableEntryDto(
     string? ClassroomName,
     /// <summary>Teacher/classroom collisions with other entries (empty when
     /// none) — see FindConflictsAsync's doc comment.</summary>
-    IReadOnlyList<string> Conflicts);
+    IReadOnlyList<string> Conflicts,
+    bool Locked = false);
 
 /// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
 /// each entry belongs to — needed here (unlike the class-scoped DTO above)
@@ -392,4 +399,5 @@ public record TeacherTimetableEntryDto(
     string? TeacherName,
     int? ClassroomId,
     string? ClassroomName,
-    IReadOnlyList<string> Conflicts);
+    IReadOnlyList<string> Conflicts,
+    bool Locked = false);
