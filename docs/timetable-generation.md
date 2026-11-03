@@ -149,7 +149,7 @@ TeacherAvailability
 ## Generátor (fáze 3, #161)
 
 Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP-SAT, běží jako
-Hangfire job `TimetableGenerationJob`, limit 60 s, paralelně na všech jádrech kromě jednoho,
+Hangfire job `TimetableGenerationJob`, limit 60 s, paralelně 8–16 vláken (na méně jádrech se střídají),
 uloží nejlepší nalezené řešení):
 
 - Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dny, kdy

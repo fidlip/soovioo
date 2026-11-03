@@ -250,8 +250,9 @@ public static class TimetableGenerator
     }
 
     /// <summary>CP-SAT runs differently set up searches side by side, one per
-    /// core; one core is left to the API.</summary>
-    private static int Workers => Math.Max(1, Environment.ProcessorCount - 1);
+    /// core. At least 8 even on fewer cores (they take turns): a single one
+    /// finds no timetable within the limit at all.</summary>
+    private static int Workers => Math.Clamp(Environment.ProcessorCount, 8, 16);
 
     private static Dictionary<int, List<int>> Group(IEnumerable<Unit> units, Func<Unit, int> key) =>
         units.Select((u, i) => (Key: key(u), i)).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.Select(p => p.i).ToList());

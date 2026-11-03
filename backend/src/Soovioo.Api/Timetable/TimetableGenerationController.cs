@@ -15,9 +15,9 @@ namespace Soovioo.Api.Timetable;
 public class TimetableGenerationController(
     AppDbContext db, ICurrentSchoolContext currentSchool, IBackgroundJobClient jobs, TimeProvider clock) : ControllerBase
 {
-    /// <summary>A run that never finished (the server restarted) stops
-    /// blocking a new one after this.</summary>
-    private static readonly TimeSpan Stale = TimeSpan.FromMinutes(10);
+    /// <summary>A run takes about a minute; one unfinished after this was cut
+    /// off (the server stopped) and failed.</summary>
+    private static readonly TimeSpan Stale = TimeSpan.FromMinutes(5);
 
     /// <summary>The latest run; no content when there's none.</summary>
     [HttpGet]
@@ -26,7 +26,19 @@ public class TimetableGenerationController(
     {
         var generation = await db.TimetableGenerations.Where(g => g.TimetableVersionId == versionId)
             .OrderByDescending(g => g.Id).FirstOrDefaultAsync();
-        return generation is null ? NoContent() : Ok(TimetableGenerationDto.Of(generation));
+        if (generation is null)
+        {
+            return NoContent();
+        }
+        if (generation.Status is TimetableGenerationStatus.Queued or TimetableGenerationStatus.Running
+            && generation.CreatedAt < clock.GetUtcNow() - Stale)
+        {
+            generation.Status = TimetableGenerationStatus.Failed;
+            generation.FinishedAt = clock.GetUtcNow();
+            generation.Messages = ["Generování se nedokončilo, spusťte ho znovu."];
+            await db.SaveChangesAsync();
+        }
+        return Ok(TimetableGenerationDto.Of(generation));
     }
 
     [HttpPost]
