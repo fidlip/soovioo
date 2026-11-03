@@ -214,8 +214,8 @@ test.describe.serial('timetable version', () => {
 
     await version.getByRole('button', { name: 'Zveřejnit' }).click();
     await page
-      .getByRole('alertdialog', { name: 'Zveřejnit verzi rozvrhu' })
-      .getByRole('button', { name: 'Zveřejnit' })
+      .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
+      .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
       .click();
     await expect(version).toContainText('Naplánovaná');
 
@@ -228,8 +228,8 @@ test.describe.serial('timetable version', () => {
     await expect(version).toContainText('Koncept');
     await version.getByRole('button', { name: 'Zveřejnit' }).click();
     await page
-      .getByRole('alertdialog', { name: 'Zveřejnit verzi rozvrhu' })
-      .getByRole('button', { name: 'Zveřejnit' })
+      .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
+      .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
       .click();
     await expect(version).toContainText('Naplánovaná');
 

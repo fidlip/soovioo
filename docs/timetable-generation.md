@@ -6,7 +6,9 @@ CP-SAT, fáze jako sub-issues. Fáze 1 (verze rozvrhu,
 stav **Archivovaná** (verze zahozená z platnosti) a `ValidTo` se dopočítává z následující
 zveřejněné verze, ručně se nezadává. Zveřejněnou verzi, která ještě neplatí, jde archivovat
 nebo vrátit mezi koncepty (zrušit zveřejnění); verze, která platí nebo platila, zůstává —
-odkazuje na ni minulá docházka.
+odkazuje na ni minulá docházka. Před zveřejněním dialog ukáže problémy rozvrhu
+(`TimetableCheck`: kolize třídy, učitele a učebny, hodiny proti učebnímu plánu a přidělení,
+výuka ve dny, kdy učitel nemůže, hodiny bez učebny); zveřejnit jde i tak.
 
 ## Dnešní stav
 

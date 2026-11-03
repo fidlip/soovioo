@@ -170,6 +170,23 @@ public class TimetableVersionsControllerTests
     }
 
     [Fact]
+    public async Task ProblemsBeforePublishing()
+    {
+        var empty = await Draft("Prázdný", new DateOnly(2027, 2, 1));
+        var copy = await Draft("Kopie", new DateOnly(2027, 3, 1), current.Id);
+        db.TimetableEntries.Add(Lesson(await db.TimetableVersions.FindAsync(copy.Id) ?? throw new InvalidOperationException(), czech));
+        await db.SaveChangesAsync();
+
+        async Task<List<string>> Problems(int id) => Assert.IsAssignableFrom<IEnumerable<string>>(
+            Assert.IsType<OkObjectResult>((await Versions().GetProblems(id)).Result).Value).ToList();
+
+        Assert.Equal(["Verze nemá žádné hodiny."], await Problems(empty.Id));
+        var problems = await Problems(copy.Id);
+        Assert.Contains("Třída 5.A má dvě hodiny najednou, po 1. hod.: 5.A Matematika, 5.A Český jazyk.", problems);
+        Assert.Contains("5.A Matematika: Předmět není v učebním plánu třídy.", problems);
+    }
+
+    [Fact]
     public async Task ConflictsAreFoundOnlyWithinTheVersion()
     {
         var teacher = TestRoles.Principal(db, 7, UserRole.Teacher).UserId();

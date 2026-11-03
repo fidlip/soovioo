@@ -45,6 +45,15 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
                 && (weekParity == WeekParity.Every || e.WeekParity == WeekParity.Every || e.WeekParity == weekParity))
             .Select(e => e.ClassroomId!.Value).Distinct().ToListAsync());
 
+    /// <summary>What's wrong with the timetable — before publishing it.</summary>
+    [HttpGet("{id:int}/problems")]
+    [RequirePermission(Permission.Timetable)]
+    public async Task<ActionResult<IEnumerable<string>>> GetProblems(int id)
+    {
+        var version = await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == id);
+        return version is null ? NotFound() : Ok(await TimetableCheck.ProblemsAsync(db, version));
+    }
+
     /// <summary>A new draft, empty or with the lessons, učební plán and
     /// přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
     [HttpPost]

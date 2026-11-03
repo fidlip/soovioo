@@ -74,6 +74,11 @@ export class TimetableVersionsApiService {
     return this.http.post<TimetableVersion>(`${this.url}/${id}/publish`, {});
   }
 
+  /** What's wrong with the timetable — shown before publishing it. */
+  getProblems(id: number): Observable<string[]> {
+    return this.http.get<string[]>(`${this.url}/${id}/problems`);
+  }
+
   /** A published version that doesn't apply yet back among drafts. */
   unpublishVersion(id: number): Observable<TimetableVersion> {
     return this.http.post<TimetableVersion>(`${this.url}/${id}/unpublish`, {});
