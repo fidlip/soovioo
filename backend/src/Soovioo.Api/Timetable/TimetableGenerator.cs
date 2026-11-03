@@ -14,6 +14,7 @@ public static class TimetableGenerator
 {
     private const int MissingWeight = 1000;
     private const int NoRoomWeight = 200;
+    private const int LateStartWeight = 30;
     private const int ClassGapWeight = 10;
     private const int ShortDayWeight = 20;
     private const int EarlyPeriodWeight = 8;
@@ -50,7 +51,11 @@ public static class TimetableGenerator
     public record Unplaced(int ClassId, int SubjectId, int? TeacherId, decimal Hours);
 
     /// <param name="Solved">False when the solver found nothing in time.</param>
-    public record Result(bool Solved, IReadOnlyList<Placement> Placements, IReadOnlyList<Unplaced> Unplaced);
+    /// <param name="Objective">The solution's penalty, <paramref name="Bound"/>
+    /// the least one possible as far as the solver got (equal = optimal).</param>
+    public record Result(
+        bool Solved, IReadOnlyList<Placement> Placements, IReadOnlyList<Unplaced> Unplaced,
+        double Objective = 0, double Bound = 0);
 
     private record Unit(Demand Demand, WeekParity Parity, int Count);
 
@@ -132,7 +137,7 @@ public static class TimetableGenerator
             foreach (var day in days)
             {
                 var daySum = LinearExpr.NewBuilder();
-                LinearExpr? previous = null;
+                var earlier = new List<LinearExpr>();
                 foreach (var period in periods)
                 {
                     var busy = classBusy.Contains((classId, day, period)) ? 1 : 0;
@@ -143,10 +148,14 @@ public static class TimetableGenerator
                     {
                         // A lesson starting a new block after a free period.
                         var start = model.NewBoolVar($"cs{classId}_{day}_{period}");
-                        model.Add(start >= occupied - (previous ?? LinearExpr.Constant(0)));
+                        model.Add(start >= occupied - earlier[^1]);
                         objective.AddTerm(start, ClassGapWeight);
+                        // ...or the day's first lesson, later than the first period.
+                        var late = model.NewBoolVar($"late{classId}_{day}_{period}");
+                        model.Add(late >= occupied - LinearExpr.Sum(earlier));
+                        objective.AddTerm(late, LateStartWeight);
                     }
-                    previous = occupied;
+                    earlier.Add(occupied);
                 }
                 model.Add(daySum <= perDay);
                 var shortfall = model.NewIntVar(0, minPerDay, $"short{classId}_{day}");
@@ -226,7 +235,7 @@ public static class TimetableGenerator
         model.Minimize(objective);
         var solver = new CpSolver
         {
-            StringParameters = $"max_time_in_seconds:{input.TimeLimit.TotalSeconds:0.#} num_workers:4",
+            StringParameters = $"max_time_in_seconds:{input.TimeLimit.TotalSeconds:0.#} num_workers:{Workers}",
         };
         var status = solver.Solve(model);
         if (status is not (CpSolverStatus.Optimal or CpSolverStatus.Feasible))
@@ -236,8 +245,13 @@ public static class TimetableGenerator
 
         var placed = x.Where(p => solver.BooleanValue(p.Value)).Select(p => p.Key).ToList();
         return new Result(true, AssignRooms(placed, units, input, roomBusy),
-            Missing(units, u => units[u].Count - (int)solver.Value(missing[u])));
+            Missing(units, u => units[u].Count - (int)solver.Value(missing[u])),
+            solver.ObjectiveValue, solver.BestObjectiveBound);
     }
+
+    /// <summary>CP-SAT runs differently set up searches side by side, one per
+    /// core; one core is left to the API.</summary>
+    private static int Workers => Math.Max(1, Environment.ProcessorCount - 1);
 
     private static Dictionary<int, List<int>> Group(IEnumerable<Unit> units, Func<Unit, int> key) =>
         units.Select((u, i) => (Key: key(u), i)).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.Select(p => p.i).ToList());

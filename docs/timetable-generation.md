@@ -149,7 +149,8 @@ TeacherAvailability
 ## Generátor (fáze 3, #161)
 
 Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP-SAT, běží jako
-Hangfire job `TimetableGenerationJob`, limit 60 s, uloží nejlepší nalezené řešení):
+Hangfire job `TimetableGenerationJob`, limit 60 s, paralelně na všech jádrech kromě jednoho,
+uloží nejlepší nalezené řešení):
 
 - Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dny, kdy
   učitel může učit, časy hodin a učebny předmětu (`Subject.Classrooms`: seznam v pořadí
@@ -160,7 +161,8 @@ Hangfire job `TimetableGenerationJob`, limit 60 s, uloží nejlepší nalezené 
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
 - Měkká omezení (pevné váhy): volná učebna ze seznamu předmětu (200 za hodinu bez ní;
   souběžné hodiny ≤ volné učebny každé skupiny učeben), každý den aspoň
-  ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken a od první hodiny (10),
+  ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), den třídy začíná první hodinou (30),
+  třída bez oken (10),
   0. hodina (8), předmět nejvýš jednou denně (6), okna učitelů (2). Co se nevejde,
   generátor nehlásí jako chybu modelu, ale jako „nevešlo se X h“ (penalizace 1000 za hodinu).
 - Učebny po vyřešení: třída má pro předmět pokud možno celý týden stejnou učebnu (tu,
