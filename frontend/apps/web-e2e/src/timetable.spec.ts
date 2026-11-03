@@ -211,13 +211,19 @@ test.describe.serial('timetable version', () => {
     const version = dialog
       .getByTestId('timetable-version')
       .filter({ hasText: name });
+    const picker = page.locator('p-select[name="versionPicker"]');
 
+    // Shown on its own while a draft, by week once published.
+    await version.getByRole('button', { name: 'Zobrazit' }).click();
+    await expect(picker).toContainText(name);
+    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     await version.getByRole('button', { name: 'Zveřejnit' }).click();
     await page
       .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
       .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
       .click();
     await expect(version).toContainText('Naplánovaná');
+    await expect(picker).toContainText('Podle týdne');
 
     // Unpublished it's a draft again, and published once more.
     await version.getByRole('button', { name: 'Zrušit zveřejnění' }).click();

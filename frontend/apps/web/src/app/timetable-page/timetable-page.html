@@ -345,6 +345,7 @@
   [shownVersionId]="shownVersion()?.id ?? null"
   (closed)="versionsDialogVisible.set(false)"
   (changed)="onVersionsChanged()"
+  (published)="selectedVersionId.set(null)"
   (show)="onShowVersion($event)"
 />
 } @if (canGenerate()) {
