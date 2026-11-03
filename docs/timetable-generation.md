@@ -159,7 +159,7 @@ Hangfire job `TimetableGenerationJob`, limit 60 s, uloží nejlepší nalezené 
 - Tvrdá omezení: třída, učitel i učebna nejvýš jednou v čase, dny učitele, učebna
   potřebného typu (počet souběžných hodin ≤ volné učebny typu), třída nejvýš
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
-- Měkká omezení (pevné váhy): třída bez oken a od první hodiny (10), 0. hodina (8),
+- Měkká omezení (pevné váhy): každý den aspoň ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken a od první hodiny (10), 0. hodina (8),
   předmět nejvýš jednou denně (6), okna učitelů (2). Co se nevejde, generátor nehlásí
   jako chybu modelu, ale jako „nevešlo se X h“ (penalizace 1000 za hodinu).
 - 0,5 h = hodina v lichém týdnu, slot drží v obou týdnech (dvojice lichý/sudý zatím ne).
