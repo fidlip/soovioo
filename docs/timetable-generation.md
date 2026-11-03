@@ -149,26 +149,36 @@ TeacherAvailability
 ## Generátor (fáze 3, #161)
 
 Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP-SAT, běží jako
-Hangfire job `TimetableGenerationJob`, limit 60 s, paralelně 8–16 vláken (na méně jádrech se střídají),
-uloží nejlepší nalezené řešení):
+Hangfire job `TimetableGenerationJob` ve frontě `timetable` s jedním workerem — generuje se
+vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně jádrech se střídají):
 
 - Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dny, kdy
   učitel může učit, časy hodin a učebny předmětu (`Subject.Classrooms`: seznam v pořadí
-  priority, každá položka konkrétní učebna nebo „jakákoli“ daného typu).
+  priority, každá položka konkrétní učebna nebo „jakákoli“ daného typu). Učebna s kapacitou
+  menší než počet žáků třídy se pro třídu nepoužije; když se nevejde do žádné, výsledek to hlásí.
 - Režimy: **Doplnit chybějící** (hodiny v konceptu zůstanou, přibude, co podle plánu
   chybí) a **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`).
 - Tvrdá omezení: třída a učitel nejvýš jednou v čase, dny učitele, třída nejvýš
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
-- Měkká omezení (pevné váhy): volná učebna ze seznamu předmětu (200 za hodinu bez ní;
-  souběžné hodiny ≤ volné učebny každé skupiny učeben), každý den aspoň
-  ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), den třídy začíná první hodinou (30),
-  třída bez oken (10),
-  0. hodina (8), předmět nejvýš jednou denně (6), okna učitelů (2). Co se nevejde,
-  generátor nehlásí jako chybu modelu, ale jako „nevešlo se X h“ (penalizace 1000 za hodinu).
+- Požadavky (váhy, porušení se hlásí místo nesplnitelného modelu): každá hodina umístěná
+  (1000 za hodinu), volná učebna ze seznamu předmětu (200; souběžné hodiny ≤ volné učebny
+  každé skupiny učeben), den třídy začíná první hodinou (30), každý den aspoň
+  ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken (10), 0. hodina (8),
+  předmět nejvýš jednou denně (6).
+- Konec podle stavu, ne času: 1. hledání skončí, jakmile jsou splněné všechny požadavky
+  (penalizace 0), nebo když solver dokáže, že líp to nejde (nesplnitelná data, např. málo
+  tělocvičen). 2. hledání pak se zachováním požadavků snižuje okna učitelů (2 za blok);
+  skončí, když se 10 s nezlepší, nejpozději po 60 s. Limit 5 min je jen pojistka: jeho
+  vypršení se loguje jako chyba a výsledek to hlásí. Na 2 jádrech trvá demo škola (18 tříd)
+  zhruba 70–80 s.
 - Učebny po vyřešení: třída má pro předmět pokud možno celý týden stejnou učebnu (tu,
   která je volná pro nejvíc jejích hodin, pak tu, kterou už má, pak dřív v seznamu);
   jen kolidující hodiny jdou do první volné dle pořadí. Když není volná žádná, hodina
   zůstane bez učebny a výsledek hlásí „nedostatek učeben … doplňte ji ručně“.
+- Po doběhnutí se otevře dialog **Výsledek generování**: co je potřeba upravit (nevešlo se,
+  bez učebny, kapacita…) a jak rozvrh vypadá (okna tříd, pozdní začátky, okna učitelů).
+- Běh přerušený restartem serveru Hangfire spustí znovu; nedokončený dlouho po limitu se
+  ukáže jako neúspěšný.
 - Ruční přidání hodiny předvyplní první učebnu ze seznamu předmětu volnou v daném čase.
 - 0,5 h = hodina v lichém týdnu, slot drží v obou týdnech (dvojice lichý/sudý zatím ne).
 - Zatím ne: náročné předměty dopoledne (chybí údaj u předmětu), limity hodin denně podle

@@ -52,9 +52,12 @@ export interface TimetableGeneration {
   mode: TimetableGenerationMode;
   status: TimetableGenerationStatus;
   createdAt: string;
+  startedAt: string | null;
   finishedAt: string | null;
   /** Lessons added. */
   placed: number;
-  /** What didn't fit or couldn't be done. */
+  /** What didn't fit or couldn't be done — to fix before generating again. */
   messages: string[];
+  /** How the result looks: class gaps, teachers' gaps… */
+  notes: string[];
 }

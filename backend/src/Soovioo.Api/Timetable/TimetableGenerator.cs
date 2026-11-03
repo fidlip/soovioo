@@ -5,11 +5,12 @@ namespace Soovioo.Api.Timetable;
 
 /// <summary>Places lessons into the week with OR-Tools CP-SAT. Hard: a class
 /// and a teacher at most once at a time, the teacher's days, at most a
-/// balanced number of lessons a day for a class. Soft (fixed weights): a
-/// free classroom for each lesson, lessons every day, no gaps for classes (a
-/// day starts with the first lesson), a subject at most once a day, few gaps
-/// for teachers, no 0. hodina. What doesn't fit is reported, not forced; a
-/// lesson no classroom is left for goes in without one.</summary>
+/// balanced number of lessons a day for a class. Required, but reported
+/// rather than forced when impossible (weighted): every lesson placed, a free
+/// classroom for each, lessons every day, no gaps for classes (a day starts
+/// with the first lesson), a subject at most once a day, no 0. hodina. The
+/// search stops once those all hold (or can't get better), then a short
+/// second one cuts teachers' gaps without giving any of them up.</summary>
 public static class TimetableGenerator
 {
     private const int MissingWeight = 1000;
@@ -42,7 +43,13 @@ public static class TimetableGenerator
         IReadOnlyList<Demand> Demands,
         IReadOnlyList<Kept> KeptLessons,
         IReadOnlyDictionary<int, IReadOnlyCollection<DayOfWeek>> TeacherDays,
-        TimeSpan TimeLimit);
+        TimeSpan TimeLimit)
+    {
+        /// <summary>The second search stops when it hasn't improved for this
+        /// long, or after <see cref="PolishLimit"/>.</summary>
+        public TimeSpan PolishStall { get; init; } = TimeSpan.FromSeconds(10);
+        public TimeSpan PolishLimit { get; init; } = TimeSpan.FromSeconds(60);
+    }
 
     public record Placement(
         int ClassId, int SubjectId, int? TeacherId, DayOfWeek Day, int Period, WeekParity Parity, int? ClassroomId);
@@ -51,11 +58,13 @@ public static class TimetableGenerator
     public record Unplaced(int ClassId, int SubjectId, int? TeacherId, decimal Hours);
 
     /// <param name="Solved">False when the solver found nothing in time.</param>
-    /// <param name="Objective">The solution's penalty, <paramref name="Bound"/>
-    /// the least one possible as far as the solver got (equal = optimal).</param>
+    /// <param name="TimedOut">The time limit ran out before the requirements
+    /// held or were shown impossible to meet better.</param>
+    /// <param name="Penalty">What the requirements' breaches weigh,
+    /// <paramref name="Bound"/> the least possible as far as the solver got.</param>
     public record Result(
         bool Solved, IReadOnlyList<Placement> Placements, IReadOnlyList<Unplaced> Unplaced,
-        double Objective = 0, double Bound = 0);
+        bool TimedOut = false, double Penalty = 0, double Bound = 0);
 
     private record Unit(Demand Demand, WeekParity Parity, int Count);
 
@@ -80,6 +89,7 @@ public static class TimetableGenerator
 
         var model = new CpModel();
         var objective = LinearExpr.NewBuilder();
+        var teacherGaps = LinearExpr.NewBuilder();
         var x = new Dictionary<(int Unit, DayOfWeek Day, int Period), BoolVar>();
         var missing = new IntVar[units.Count];
         for (var u = 0; u < units.Count; u++)
@@ -198,7 +208,7 @@ public static class TimetableGenerator
                     model.Add(occupied <= 1);
                     var start = model.NewBoolVar($"ts{teacherId}_{day}_{period}");
                     model.Add(start >= occupied - (previous ?? LinearExpr.Constant(0)));
-                    objective.AddTerm(start, TeacherGapWeight);
+                    teacherGaps.AddTerm(start, TeacherGapWeight);
                     previous = occupied;
                 }
             }
@@ -232,21 +242,81 @@ public static class TimetableGenerator
             }
         }
 
+        // The requirements: until they hold, or can't get any better.
         model.Minimize(objective);
-        var solver = new CpSolver
-        {
-            StringParameters = $"max_time_in_seconds:{input.TimeLimit.TotalSeconds:0.#} num_workers:{Workers}",
-        };
-        var status = solver.Solve(model);
+        var solver = new CpSolver { StringParameters = Parameters(input.TimeLimit) };
+        var status = solver.Solve(model, new StopAtZero());
         if (status is not (CpSolverStatus.Optimal or CpSolverStatus.Feasible))
         {
-            return new Result(false, [], Missing(units, _ => 0));
+            return new Result(false, [], Missing(units, _ => 0), TimedOut: status == CpSolverStatus.Unknown);
+        }
+        var penalty = solver.ObjectiveValue;
+        var bound = solver.BestObjectiveBound;
+        var x1 = x.ToDictionary(p => p.Key, p => solver.BooleanValue(p.Value));
+        var missing1 = missing.Select(m => solver.Value(m)).ToArray();
+
+        // Then teachers' gaps, keeping the requirements as they are.
+        model.Add(objective <= (long)penalty);
+        foreach (var (key, v) in x)
+        {
+            model.AddHint(v, x1[key]);
+        }
+        model.Minimize(teacherGaps);
+        var polish = new CpSolver { StringParameters = Parameters(input.PolishLimit) };
+        using (var stall = new StopWhenStalled(polish, input.PolishStall))
+        {
+            if (polish.Solve(model, stall) is CpSolverStatus.Optimal or CpSolverStatus.Feasible)
+            {
+                x1 = x.ToDictionary(p => p.Key, p => polish.BooleanValue(p.Value));
+                missing1 = missing.Select(m => polish.Value(m)).ToArray();
+            }
         }
 
-        var placed = x.Where(p => solver.BooleanValue(p.Value)).Select(p => p.Key).ToList();
+        var placed = x1.Where(p => p.Value).Select(p => p.Key).ToList();
         return new Result(true, AssignRooms(placed, units, input, roomBusy),
-            Missing(units, u => units[u].Count - (int)solver.Value(missing[u])),
-            solver.ObjectiveValue, solver.BestObjectiveBound);
+            Missing(units, u => units[u].Count - (int)missing1[u]),
+            penalty > 0 && penalty > bound, penalty, bound);
+    }
+
+    private static string Parameters(TimeSpan limit) =>
+        $"max_time_in_seconds:{limit.TotalSeconds:0.#} num_workers:{Workers}";
+
+    /// <summary>Nothing better than no breach at all.</summary>
+    private sealed class StopAtZero : CpSolverSolutionCallback
+    {
+        public override void OnSolutionCallback()
+        {
+            if (ObjectiveValue() <= 0)
+            {
+                StopSearch();
+            }
+        }
+    }
+
+    /// <summary>Stops the search once it hasn't found anything better for a while.</summary>
+    private sealed class StopWhenStalled : CpSolverSolutionCallback, IDisposable
+    {
+        private readonly Timer timer;
+        private long improvedAt = Environment.TickCount64;
+
+        public StopWhenStalled(CpSolver solver, TimeSpan stall)
+        {
+            timer = new Timer(_ =>
+            {
+                if (Environment.TickCount64 - Interlocked.Read(ref improvedAt) > stall.TotalMilliseconds)
+                {
+                    solver.StopSearch();
+                }
+            }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+
+        public override void OnSolutionCallback() => Interlocked.Exchange(ref improvedAt, Environment.TickCount64);
+
+        public new void Dispose()
+        {
+            timer.Dispose();
+            base.Dispose();
+        }
     }
 
     /// <summary>CP-SAT runs differently set up searches side by side, one per

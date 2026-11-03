@@ -26,7 +26,8 @@ import { NotifyService } from '../notify.service';
 const RUNNING = ['Queued', 'Running'];
 
 /** Generating a draft version's lessons from its učební plán and
- * přidělení výuky; shows the last run's result. */
+ * přidělení výuky; once a run ends (even with this dialog closed), its
+ * result in a dialog of its own. */
 @Component({
   selector: 'app-timetable-generate-dialog',
   imports: [Button, Dialog, FormsModule, Loading, Message, SelectButton],
@@ -60,6 +61,9 @@ export class TimetableGenerateDialog {
       }
     });
   }
+
+  /** The run that just ended, while its result dialog is open. */
+  protected readonly result = signal<TimetableGeneration | null>(null);
 
   protected running(): boolean {
     return RUNNING.includes(this.generation()?.status ?? '');
@@ -105,9 +109,14 @@ export class TimetableGenerateDialog {
       .subscribe({
         next: (generation) => {
           this.generation.set(generation);
-          if (generation?.status === 'Done' && generation.placed > 0) {
+          if (generation === null || RUNNING.includes(generation.status)) {
+            return;
+          }
+          if (generation.status === 'Done' && generation.placed > 0) {
             this.generated.emit();
           }
+          this.close();
+          this.result.set(generation);
         },
         error: (err) => console.error('getGeneration failed', err),
       });
@@ -115,5 +124,18 @@ export class TimetableGenerateDialog {
 
   protected close(): void {
     this.closed.emit();
+  }
+
+  /** "1 min 20 s" from start to end. */
+  protected duration(g: TimetableGeneration): string {
+    if (!g.finishedAt) {
+      return '';
+    }
+    const seconds = Math.round(
+      (Date.parse(g.finishedAt) - Date.parse(g.startedAt ?? g.createdAt)) /
+        1000,
+    );
+    const minutes = Math.floor(seconds / 60);
+    return minutes > 0 ? `${minutes} min ${seconds % 60} s` : `${seconds} s`;
   }
 }

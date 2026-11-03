@@ -2327,11 +2327,18 @@ namespace Soovioo.Api.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.PrimitiveCollection<List<string>>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<int>("Placed")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()

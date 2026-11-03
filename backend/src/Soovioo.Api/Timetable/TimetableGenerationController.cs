@@ -15,9 +15,18 @@ namespace Soovioo.Api.Timetable;
 public class TimetableGenerationController(
     AppDbContext db, ICurrentSchoolContext currentSchool, IBackgroundJobClient jobs, TimeProvider clock) : ControllerBase
 {
-    /// <summary>A run takes about a minute; one unfinished after this was cut
-    /// off (the server stopped) and failed.</summary>
-    private static readonly TimeSpan Stale = TimeSpan.FromMinutes(5);
+    /// <summary>A run unfinished long after its limit, or never started, was
+    /// cut off (the server stopped) and failed.</summary>
+    private bool IsStale(TimetableGeneration g)
+    {
+        var now = clock.GetUtcNow();
+        return g.Status switch
+        {
+            TimetableGenerationStatus.Running => (g.StartedAt ?? g.CreatedAt) < now - TimetableGenerationJob.TimeLimit - TimeSpan.FromMinutes(5),
+            TimetableGenerationStatus.Queued => g.CreatedAt < now - TimeSpan.FromHours(1),
+            _ => false,
+        };
+    }
 
     /// <summary>The latest run; no content when there's none.</summary>
     [HttpGet]
@@ -30,8 +39,7 @@ public class TimetableGenerationController(
         {
             return NoContent();
         }
-        if (generation.Status is TimetableGenerationStatus.Queued or TimetableGenerationStatus.Running
-            && generation.CreatedAt < clock.GetUtcNow() - Stale)
+        if (IsStale(generation))
         {
             generation.Status = TimetableGenerationStatus.Failed;
             generation.FinishedAt = clock.GetUtcNow();
@@ -54,10 +62,10 @@ public class TimetableGenerationController(
         {
             return BadRequest("Generovat jde jen do konceptu.");
         }
-        var since = clock.GetUtcNow() - Stale;
-        if (await db.TimetableGenerations.AnyAsync(g => g.TimetableVersionId == versionId
-                && (g.Status == TimetableGenerationStatus.Queued || g.Status == TimetableGenerationStatus.Running)
-                && g.CreatedAt > since))
+        var unfinished = await db.TimetableGenerations.Where(g => g.TimetableVersionId == versionId
+                && (g.Status == TimetableGenerationStatus.Queued || g.Status == TimetableGenerationStatus.Running))
+            .ToListAsync();
+        if (unfinished.Any(g => !IsStale(g)))
         {
             return Conflict("Generování této verze už běží.");
         }
@@ -87,10 +95,12 @@ public record TimetableGenerationDto(
     TimetableGenerationMode Mode,
     TimetableGenerationStatus Status,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     int Placed,
-    IReadOnlyList<string> Messages)
+    IReadOnlyList<string> Messages,
+    IReadOnlyList<string> Notes)
 {
     public static TimetableGenerationDto Of(TimetableGeneration g) =>
-        new(g.Id, g.Mode, g.Status, g.CreatedAt, g.FinishedAt, g.Placed, g.Messages);
+        new(g.Id, g.Mode, g.Status, g.CreatedAt, g.StartedAt, g.FinishedAt, g.Placed, g.Messages, g.Notes);
 }
