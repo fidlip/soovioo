@@ -45,7 +45,36 @@ export interface TeachingTeacher {
   assignedHours: number;
   timetableHours: number;
   teachingDays: DayOfWeek[];
+  /** What the teacher is given, class by class. */
+  taught: TeachingTaught[];
   problems: string[];
+}
+
+export interface TeachingTaught {
+  schoolClassId: number;
+  schoolClassName: string;
+  subjectId: number;
+  subjectName: string;
+  subjectAbbreviation: string | null;
+  hours: number;
+  automatic: boolean;
+}
+
+/** One teacher's přidělení in a version. */
+export interface TeacherTeaching {
+  versionId: number;
+  versionName: string;
+  teacher: TeachingTeacher;
+}
+
+/** "6.A M 4 h, 6.B M 4 h". */
+export function taughtSummary(taught: TeachingTaught[]): string {
+  return taught
+    .map(
+      (t) =>
+        `${t.schoolClassName} ${t.subjectAbbreviation ?? t.subjectName} ${formatHours(t.hours)}`,
+    )
+    .join(', ');
 }
 
 /** Učební plán and přidělení výuky of one timetable version. */
@@ -62,4 +91,34 @@ export interface TeachingOverview {
 /** "1 h", "1,5 h". */
 export function formatHours(hours: number): string {
   return `${formatNumberWithoutIntl(hours)} h`;
+}
+
+const DAY_SHORT: Record<DayOfWeek, string> = {
+  Monday: 'Po',
+  Tuesday: 'Út',
+  Wednesday: 'St',
+  Thursday: 'Čt',
+  Friday: 'Pá',
+  Saturday: 'So',
+  Sunday: 'Ne',
+};
+const WEEKDAYS: DayOfWeek[] = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+];
+
+/** "Po–Pá", "Po, St, Pá". */
+export function teachingDaysLabel(days: DayOfWeek[]): string {
+  if (days.length === 5 && WEEKDAYS.every((d) => days.includes(d))) {
+    return 'Po–Pá';
+  }
+  return (
+    (Object.keys(DAY_SHORT) as DayOfWeek[])
+      .filter((d) => days.includes(d))
+      .map((d) => DAY_SHORT[d])
+      .join(', ') || '—'
+  );
 }

@@ -4,6 +4,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
+using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Timetable;
@@ -77,7 +78,7 @@ public class TeachingControllerTests
     }
 
     private TeachingController Controller(UserRole role = UserRole.Admin, int userId = 900) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId))
+        new(db, new FakeCurrentSchoolContext(SchoolId), new FakeClock(new DateTimeOffset(2026, 11, 3, 11, 0, 0, TimeSpan.Zero)))
         {
             ControllerContext = TestRoles.Context(TestRoles.Principal(db, userId, role)),
         };
@@ -290,15 +291,26 @@ public class TeachingControllerTests
     }
 
     [Fact]
-    public async Task ATeacherSeesOnlyWhatTheyTeach()
+    public async Task ATeacherSeesTheirOwnInRozvrhAndProfileButThePageOnlyIfTheSchoolLetsThem()
     {
         var sixth = Class("6.A", 6);
         var me = Teacher("Adámek", 2, Of(history));
-        Teacher("Bártová", 4, Of(maths));
+        var other = Teacher("Bártová", 4, Of(maths));
         Plan(6, history, 2);
         Plan(6, maths, 4);
 
-        var overview = await Overview(UserRole.Teacher, me.Id);
+        var mine = Assert.IsType<TeacherTeachingDto>(Assert.IsType<OkObjectResult>(
+            (await Controller(UserRole.Teacher, me.Id).GetTeacherTeaching(me.Id)).Result).Value);
+        Assert.Equal(version.Id, mine.VersionId);
+        Assert.Equal([("6.A", history.Id, 2m, true)], mine.Teacher.Taught.Select(t => (t.SchoolClassName, t.SubjectId, t.Hours, t.Automatic)));
+        Assert.IsType<ForbidResult>((await Controller(UserRole.Teacher, me.Id).GetTeacherTeaching(other.Id)).Result);
+        Assert.IsType<OkObjectResult>((await Controller().GetTeacherTeaching(other.Id)).Result);
+        Assert.IsType<NoContentResult>((await Controller().GetTeacherTeaching(sixth.Id + 1000)).Result);
+        Assert.IsType<ForbidResult>((await Controller(UserRole.Teacher, me.Id).GetTeaching(version.Id)).Result);
+
+        db.Role(UserRole.Teacher).Permissions.Single(p => p.Permission == Permission.TeachingRead).Scope = PermissionScope.Own;
+        db.SaveChanges();
+        var overview = Value(await Controller(UserRole.Teacher, me.Id).GetTeaching(version.Id));
 
         Assert.False(overview.CanEdit);
         Assert.Equal([history.Id], overview.Classes.Single().Rows.Select(r => r.SubjectId));
@@ -306,12 +318,14 @@ public class TeachingControllerTests
     }
 
     [Fact]
-    public async Task AnotherSchoolsDraftIsNotFound()
+    public async Task ADraftIsOnlyForWhoeverSeesTheTimetableVersions()
     {
         var draft = new TimetableVersion { SchoolId = SchoolId, Name = "Koncept", Status = TimetableVersionStatus.Draft };
         db.TimetableVersions.Add(draft);
         db.SaveChanges();
         var teacher = Teacher("Adámek", 22);
+        db.Role(UserRole.Teacher).Permissions.Single(p => p.Permission == Permission.TeachingRead).Scope = PermissionScope.Own;
+        db.SaveChanges();
 
         Assert.IsType<NotFoundResult>((await Controller(UserRole.Teacher, teacher.Id).GetTeaching(draft.Id)).Result);
         Assert.IsType<OkObjectResult>((await Controller().GetTeaching(draft.Id)).Result);

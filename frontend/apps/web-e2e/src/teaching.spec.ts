@@ -1,18 +1,27 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-async function openTeaching(page: Page, username: string, password: string) {
+async function login(page: Page, username: string, password: string) {
   await page.goto('/skola/login');
   await page.locator('#username').fill(username);
   await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/skola\/home$/);
-  await page
+}
+
+function openNav(page: Page, name: string) {
+  return page
     .getByRole('navigation', { name: 'Hlavní navigace' })
-    .getByRole('link', { name: 'Přidělení výuky', exact: true })
+    .getByRole('link', { name, exact: true })
     .click();
+}
+
+async function openTeaching(page: Page) {
+  await login(page, 'admin', 'admin123');
+  await openNav(page, 'Administrace');
+  await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Přidělení výuky' }),
+    page.getByRole('button', { name: 'Načíst z rozvrhu' }),
   ).toBeVisible();
 }
 
@@ -22,7 +31,7 @@ test.describe.serial('teaching', () => {
   test('admin reads the plan and assignments from the timetable', async ({
     page,
   }) => {
-    await openTeaching(page, 'admin', 'admin123');
+    await openTeaching(page);
     await page.getByRole('button', { name: 'Načíst z rozvrhu' }).click();
     await expect(
       page.getByText('Plán a přidělení jsou doplněné z rozvrhu.'),
@@ -41,7 +50,7 @@ test.describe.serial('teaching', () => {
   });
 
   test('admin saves the učební plán', async ({ page }) => {
-    await openTeaching(page, 'admin', 'admin123');
+    await openTeaching(page);
     await page.getByRole('tab', { name: 'Učební plán' }).click();
     const english = page.getByRole('spinbutton', {
       name: 'Anglický jazyk — 5. ročník',
@@ -55,10 +64,12 @@ test.describe.serial('teaching', () => {
   test('a class opened from Administrace gets its own plan and back', async ({
     page,
   }) => {
-    await openTeaching(page, 'admin', 'admin123');
-    await page.goto('/skola/admin');
+    await login(page, 'admin', 'admin123');
+    await openNav(page, 'Administrace');
     await page.getByRole('button', { name: 'Přidělení výuky — 5.A' }).click();
-    await expect(page).toHaveURL(/\/skola\/teaching\?class=\d+$/);
+    await expect(
+      page.getByRole('tab', { name: 'Přidělení výuky' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('region', { name: /^Třída / })).toHaveCount(1);
 
     const english = page
@@ -79,15 +90,25 @@ test.describe.serial('teaching', () => {
     await expect(hours).toHaveValue('3');
   });
 
-  test('a teacher sees only their own, without editing', async ({ page }) => {
-    await openTeaching(page, 'ucitel', 'ucitel123');
+  test('a teacher sees their own in Rozvrh and Profil, not the agenda', async ({
+    page,
+  }) => {
+    await login(page, 'ucitel', 'ucitel123');
+    await openNav(page, 'Rozvrh');
+    await expect(page.getByTestId('teacher-teaching')).toContainText(
+      /Přiděleno .+ z 22 h nasmlouvaných: .*5\.A M/,
+    );
+
+    await page.goto('/skola/settings');
+    const teaching = page.getByRole('region', { name: 'Výuka' });
+    await expect(teaching).toContainText(/Aprobace: .*M/);
+    await expect(teaching).toContainText('Nasmlouvané hodiny: 22 h týdně');
+    await expect(teaching).toContainText('5.A M');
+
+    await openNav(page, 'Administrace');
+    await expect(page.getByRole('tab', { name: 'Rodiče' })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Načíst z rozvrhu' }),
+      page.getByRole('tab', { name: 'Přidělení výuky' }),
     ).toHaveCount(0);
-    await page.getByRole('tab', { name: 'Podle učitelů' }).click();
-    const rows = page.getByRole('tabpanel').getByRole('row');
-    // The header and the teacher's own row.
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(1)).toContainText('Jana Učitelová');
   });
 });

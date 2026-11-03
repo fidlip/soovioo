@@ -150,7 +150,7 @@ TeacherAvailability
 
 1. **Verze rozvrhu** (model, migrace, výběr verze podle týdne, koncept + zveřejnění).
    Přínos i bez generátoru: příprava rozvrhu na 2. pololetí dopředu.
-2. **Učební plán, aprobace a přidělení výuky** (Rozvrh → Přidělení výuky, kontroly
+2. **Učební plán, aprobace a přidělení výuky** (Administrace → Přidělení výuky, kontroly
    pokrytí rozvrhu a nasmlouvaných hodin).
 3. **Generátor CP-SAT** pro koncept verze: tvrdá omezení → první použitelná verze;
    pak měkká omezení a váhy nastavitelné školou; výsledek vždy jen jako koncept.

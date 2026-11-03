@@ -183,9 +183,6 @@ test('the pages offer exactly what the role may do', async ({
     nav(page).getByRole('link', { name: 'Logy', exact: true }),
   ).toHaveCount(0);
   await expect(
-    nav(page).getByRole('link', { name: 'Přidělení výuky', exact: true }),
-  ).toHaveCount(0);
-  await expect(
     nav(page).getByRole('link', { name: 'Administrace', exact: true }),
   ).toHaveCount(0);
   for (const [link, tool] of TOOLS) {
@@ -205,9 +202,6 @@ test('the pages offer exactly what the role may do', async ({
   await page.reload();
   await expect(
     nav(page).getByRole('link', { name: 'Logy', exact: true }),
-  ).toBeVisible();
-  await expect(
-    nav(page).getByRole('link', { name: 'Přidělení výuky', exact: true }),
   ).toBeVisible();
   await expect(
     nav(page).getByRole('link', { name: 'Administrace', exact: true }),
@@ -250,7 +244,9 @@ test('the pages offer exactly what the role may do', async ({
   await open(page, 'Administrace', waitForApiIdle);
   await expect(page.getByRole('tab', { name: 'Role' })).toHaveCount(0);
   await expect(
-    page.getByText('Jste třídní učitel').or(page.getByText(/dostupná/)),
+    page
+      .getByText('Jste třídní učitel')
+      .or(page.getByRole('button', { name: 'Načíst z rozvrhu' })),
   ).toBeVisible();
 });
 

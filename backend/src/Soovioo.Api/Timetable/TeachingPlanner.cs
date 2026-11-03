@@ -208,8 +208,14 @@ public static class TeachingPlanner
             {
                 problems.Add($"V rozvrhu učí {OnDay(day)}, kdy učit nemůže.");
             }
+            var taught = rows.Where(r => r.TeacherId == t.Id && r.Hours > 0)
+                .OrderBy(r => r.Class.Name).ThenBy(r => r.Subject.Name)
+                .Select(r => new TeachingTaughtDto(
+                    r.Class.Id, r.Class.Name, r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.Hours, r.Automatic))
+                .ToList();
             return new TeachingTeacherDto(
-                t.Id, t.Name, t.Qualification, t.ContractedHours, assignedHours, own.Sum(l => l.Hours), t.TeachingDays, problems);
+                t.Id, t.Name, t.Qualification, t.ContractedHours, assignedHours, own.Sum(l => l.Hours), t.TeachingDays,
+                taught, problems);
         }).ToList();
 
         return (classes, teacherDtos);
@@ -268,4 +274,15 @@ public record TeachingTeacherDto(
     decimal AssignedHours,
     decimal TimetableHours,
     IReadOnlyList<DayOfWeek> TeachingDays,
+    IReadOnlyList<TeachingTaughtDto> Taught,
     IReadOnlyList<string> Problems);
+
+/// <summary>A class and subject a teacher is given (or chosen for automatically).</summary>
+public record TeachingTaughtDto(
+    int SchoolClassId,
+    string SchoolClassName,
+    int SubjectId,
+    string SubjectName,
+    string? SubjectAbbreviation,
+    decimal Hours,
+    bool Automatic);

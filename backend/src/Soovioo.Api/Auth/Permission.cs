@@ -157,7 +157,6 @@ public static class PermissionCatalog
             [Permission.MessagesBroadcastClass] = PermissionScope.MyClasses,
             [Permission.Students] = PermissionScope.ClassTeacher,
             [Permission.StudentPhotos] = PermissionScope.ClassTeacher,
-            [Permission.TeachingRead] = PermissionScope.Own,
         },
         UserRole.Parent => new Dictionary<Permission, PermissionScope>
         {

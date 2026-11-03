@@ -147,15 +147,14 @@
               title="Vytvořit účet"
               (onClick)="createAccount.emit(person)"
             />
-            } @if (person.teacher && person.account && canSeeTeaching()) {
+            } @if (person.teacher && person.account) {
             <p-button
               icon="pi pi-users"
               [ariaLabel]="'Přidělení výuky — ' + person.name"
               title="Přidělení výuky"
               size="small"
               [text]="true"
-              [routerLink]="schoolContext.link('teaching')"
-              [queryParams]="{ teacher: person.account.userId }"
+              (onClick)="showTeaching.emit(person.account.userId)"
             />
             } @if (canSetPhoto(person)) {
             <p-button

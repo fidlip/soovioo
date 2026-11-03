@@ -2,7 +2,6 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -67,7 +66,7 @@ import { foldForSearch, matchesContact } from '../text-search';
  * ROADMAP "Administrace — redesign"). Denied: anyone else who reaches this
  * route (a Teacher who isn't a class teacher of anything, or a non-Teacher
  * non-Admin navigating here directly). */
-type AccessLevel = 'admin' | 'classTeacher' | 'denied' | 'loading';
+type AccessLevel = 'admin' | 'classTeacher' | 'teaching' | 'denied' | 'loading';
 
 /** The person profile a role needs — the built-in Teacher a teacher's, a
  * parent's or pupil's role theirs, other staff roles none. */
@@ -110,7 +109,7 @@ import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
-import { SchoolContextService } from '../school-context';
+import { TeachingTab } from '../teaching/teaching-tab';
 import { PeopleTab } from '../people/people-tab';
 import { RolesTab } from '../roles/roles-tab';
 import { PersonCard } from '../people/person-card';
@@ -149,6 +148,7 @@ import { Loading } from '../loading/loading';
     VisibilitySettings,
     Departures,
     PeopleTab,
+    TeachingTab,
     RolesTab,
     PersonCard,
     PersonDialog,
@@ -171,7 +171,6 @@ import { Loading } from '../loading/loading';
     NgTemplateOutlet,
     Password,
     PrimeTemplate,
-    RouterLink,
     Select,
     Tab,
     TableModule,
@@ -189,7 +188,6 @@ export class AdminPage {
   private readonly demoEmails = inject(DemoEmailPreviewService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly authApi = inject(AuthApiService);
-  protected readonly schoolContext = inject(SchoolContextService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
@@ -428,6 +426,16 @@ export class AdminPage {
     return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
   }
 
+  protected readonly teachingFocus = signal<{
+    classId?: number;
+    teacherId?: number;
+  } | null>(null);
+
+  protected showTeaching(focus: { classId?: number; teacherId?: number }) {
+    this.teachingFocus.set(focus);
+    this.activeTab.set('teaching');
+  }
+
   /** A signal, not a plain field — this app has no zone.js polyfill, so a
    * plain-field write inside an RxJS subscribe callback doesn't reliably
    * schedule change detection on its own (it only "works" by coincidence
@@ -448,7 +456,7 @@ export class AdminPage {
     } else if (this.authApi.can('Students')) {
       this.resolveClassTeacherAccess();
     } else {
-      this.accessLevel.set('denied');
+      this.denyOrTeaching();
     }
   }
 
@@ -466,7 +474,7 @@ export class AdminPage {
           .filter((c) => c.classTeacherId === myId)
           .map((c) => c.id);
         if (this.ownClassIds.length === 0) {
-          this.accessLevel.set('denied');
+          this.denyOrTeaching();
           return;
         }
         this.accessLevel.set('classTeacher');
@@ -478,9 +486,16 @@ export class AdminPage {
       },
       error: (err) => {
         console.error('getSchoolClasses failed', err);
-        this.accessLevel.set('denied');
+        this.denyOrTeaching();
       },
     });
+  }
+
+  /** Without a class of their own, a teacher may still see Přidělení
+   * výuky. */
+  private denyOrTeaching(): void {
+    this.accessLevel.set(this.canSeeTeaching() ? 'teaching' : 'denied');
+    this.activeTab.set('teaching');
   }
 
   /** Dispatches to whichever reload matches the resolved access level —

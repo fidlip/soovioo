@@ -5,7 +5,6 @@ export type AppIconName =
   | 'grades'
   | 'absences'
   | 'timetable'
-  | 'teaching'
   | 'events'
   | 'messages'
   | 'homework'

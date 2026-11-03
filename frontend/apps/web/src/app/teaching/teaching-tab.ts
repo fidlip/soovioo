@@ -1,6 +1,13 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
@@ -18,7 +25,6 @@ import {
 } from '@openng/optimus-ui/tabs';
 import {
   AuthApiService,
-  DayOfWeek,
   Subject,
   SubjectsApiService,
   Teacher,
@@ -31,35 +37,25 @@ import {
   TimetableVersionsApiService,
   formatHours,
   qualifiedFor,
+  taughtSummary,
+  teachingDaysLabel,
   timetableVersionOn,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
-import { AppIcon } from '../app-icon';
 import { toDateOnly } from '../departures/retention-labels';
 import { FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { versionStatusLabel } from '../timetable-page/timetable-versions-dialog';
 
-const DAY_SHORT: Record<DayOfWeek, string> = {
-  Monday: 'Po',
-  Tuesday: 'Út',
-  Wednesday: 'St',
-  Thursday: 'Čt',
-  Friday: 'Pá',
-  Saturday: 'So',
-  Sunday: 'Ne',
-};
-
-/** Přidělení výuky: the učební plán of a timetable version (the grade's,
- * changed for a class where it differs), who teaches what in each class
+/** Administrace → Přidělení výuky: the učební plán of a timetable version
+ * (the grade's, changed for a class where it differs), who teaches what in
+ * each class
  * (the system picks where the school didn't) and what doesn't add up. A
- * teacher who may see only their own gets their rows. `?class=` and
- * `?teacher=` open it filtered. */
+ * teacher who may see only their own gets their rows. */
 @Component({
-  selector: 'app-teaching-page',
+  selector: 'app-teaching-tab',
   imports: [
-    AppIcon,
     Button,
     Checkbox,
     FloatField,
@@ -77,18 +73,22 @@ const DAY_SHORT: Record<DayOfWeek, string> = {
     Tag,
     Tooltip,
   ],
-  templateUrl: './teaching-page.html',
+  templateUrl: './teaching-tab.html',
 })
-export class TeachingPage {
+export class TeachingTab {
   private readonly teachingApi = inject(TeachingApiService);
   private readonly versionsApi = inject(TimetableVersionsApiService);
   private readonly teachersApi = inject(TeachersApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly notify = inject(NotifyService);
-  private readonly route = inject(ActivatedRoute);
   protected readonly authApi = inject(AuthApiService);
 
   protected readonly formatHours = formatHours;
+  protected readonly taughtSummary = taughtSummary;
+  protected readonly days = teachingDaysLabel;
+
+  /** Opens filtered to the class or teacher (from Třídy, Osoby). */
+  readonly focus = input<{ classId?: number; teacherId?: number } | null>(null);
 
   protected readonly versions = signal<TimetableVersion[]>([]);
   protected readonly versionId = signal<number | null>(null);
@@ -214,27 +214,18 @@ export class TeachingPage {
       ) ?? 0,
   );
 
-  /** What each teacher is given, "5.A D 2 h". */
-  protected readonly taughtBy = computed(() => {
-    const taught = new Map<number, string[]>();
-    for (const c of this.overview()?.classes ?? []) {
-      for (const r of c.rows) {
-        const hours = r.planHours ?? r.timetableHours;
-        if (r.teacherId !== null && hours > 0) {
-          taught.set(r.teacherId, [
-            ...(taught.get(r.teacherId) ?? []),
-            `${c.name} ${r.subjectAbbreviation ?? r.subjectName} ${formatHours(hours)}`,
-          ]);
-        }
-      }
-    }
-    return taught;
-  });
-
   constructor() {
-    const params = this.route.snapshot.queryParamMap;
-    this.classFilter.set(Number(params.get('class')) || null);
-    this.teacherFilter.set(Number(params.get('teacher')) || null);
+    effect(() => {
+      const focus = this.focus();
+      if (focus) {
+        untracked(() => {
+          this.clearFilters();
+          this.classFilter.set(focus.classId ?? null);
+          this.teacherFilter.set(focus.teacherId ?? null);
+          this.activeTab = 'classes';
+        });
+      }
+    });
     this.teachersApi.getTeachers().subscribe({
       next: (teachers) => this.teachers.set(teachers),
       error: (err) => console.error('getTeachers failed', err),
@@ -246,11 +237,8 @@ export class TeachingPage {
     this.versionsApi.getVersions().subscribe({
       next: (versions) => {
         this.versions.set(versions);
-        const asked = Number(this.route.snapshot.queryParamMap.get('version'));
         const version =
-          versions.find((v) => v.id === asked) ??
-          timetableVersionOn(versions, toDateOnly(new Date())) ??
-          versions[0];
+          timetableVersionOn(versions, toDateOnly(new Date())) ?? versions[0];
         if (version) {
           this.selectVersion(version.id);
         } else {
@@ -430,12 +418,6 @@ export class TeachingPage {
     return Object.entries(this.plan)
       .filter(([key]) => key.startsWith(`${grade}-`))
       .reduce((sum, [, hours]) => sum + (hours ?? 0), 0);
-  }
-
-  protected days(days: DayOfWeek[]): string {
-    return days.length === 5
-      ? 'Po–Pá'
-      : days.map((d) => DAY_SHORT[d]).join(', ') || '—';
   }
 
   protected classProblems(c: TeachingClass): number {
