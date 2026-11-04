@@ -33,6 +33,8 @@ public class TimetableVersion
     public List<CurriculumItem> Curriculum { get; set; } = [];
     public List<ClassCurriculumItem> ClassCurriculum { get; set; } = [];
     public List<TeachingAssignment> Assignments { get; set; } = [];
+    public List<StudentGroup> Groups { get; set; } = [];
+    public List<GroupDivision> Divisions { get; set; } = [];
 }
 
 public enum TimetableVersionStatus

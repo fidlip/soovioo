@@ -124,6 +124,7 @@
   <p-tablist>
     <p-tab value="classes">Podle tříd</p-tab>
     <p-tab value="teachers">Podle učitelů</p-tab>
+    <p-tab value="groups">Skupiny</p-tab>
     <p-tab value="plan">Učební plán</p-tab>
   </p-tablist>
   <p-tabpanels>
@@ -214,7 +215,11 @@
                     } @else { {{ row.doubleLessons ? 'ano' : '—' }} }
                   </td>
                   <td class="min-w-56">
-                    @if (o.canEdit) {
+                    @if (row.groups.length > 0) {
+                    <span class="text-sm text-surface-500"
+                      >Ve skupinách: {{ row.groups.join(', ') }}</span
+                    >
+                    } @else if (o.canEdit) {
                     <p-select
                       [ariaLabel]="'Učitel — ' + c.name + ' ' + row.subjectName"
                       [options]="teacherOptions(c, row)"
@@ -339,6 +344,21 @@
           </ng-template>
         </p-table>
       </div>
+    </p-tabpanel>
+
+    <p-tabpanel value="groups">
+      <app-student-groups
+        [versionId]="o.versionId"
+        [canEdit]="o.canEdit"
+        [rows]="o.groups"
+        [subjects]="subjects()"
+        [teachers]="teachers()"
+        [classFilter]="classFilter()"
+        [teacherFilter]="teacherFilter()"
+        [subjectFilter]="subjectFilter()"
+        [problemsOnly]="problemsOnly()"
+        (changed)="reloadOverview()"
+      />
     </p-tabpanel>
 
     <p-tabpanel value="plan">

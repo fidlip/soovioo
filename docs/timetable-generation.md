@@ -33,7 +33,7 @@ výuka ve dny, kdy učitel nemůže, hodiny bez učebny); zveřejnit jde i tak.
 | Vstup | Příklad | Dnes v datech? |
 |---|---|---|
 | Úvazky: třída × předmět × hodin týdně × učitel | 5.A, Matematika, 5 h, Novák | ne (jen ručně v rozvrhu) |
-| Dělení tříd na skupiny | Aj ve 2 skupinách, Tv chlapci/dívky | ne |
+| Dělení tříd na skupiny | Aj ve 2 skupinách, Tv chlapci/dívky | ano (`StudentGroup`, `GroupDivision`, #166) |
 | Dvouhodinovky / bloky | Pracovní činnosti 2 h v kuse | ano (`Subject.DoubleLessons`, přepis v učebním plánu) |
 | Učebny a jejich typ | Tělocvična, počítačová | ano (`Classroom`, `ClassroomType`) |
 | Předmět → učebny / typ učebny | Tv v tělocvičně, jinak jakékoli tělocvičně | ano (`Subject.Classrooms`) |
@@ -142,13 +142,38 @@ TeachingAssignment (přidělení výuky, u verze rozvrhu)
 - Kontroly: plán vs. rozvrh (hodina jen v lichém/sudém týdnu = 0,5 h), jiný učitel
   v rozvrhu než přidělený, chybějící aprobace, přidělené vs. nasmlouvané hodiny,
   hodiny v den, kdy učitel učit nemůže.
-- Skupiny žáků (i napříč třídami) řeší #166.
+- Skupiny žáků (i napříč třídami), viz níže „Skupiny žáků“.
 - Pro generátor (fáze 3) je to vstup „kdo, co, kolik“; generátor řeší jen „kdy“.
 
 Ve fázi 4 (#162) přibyla dostupnost a přání učitelů (viz výše) a dvouhodinovky:
 `Subject.DoubleLessons`, přepis `CurriculumItem.DoubleLessons` (ročník) a
 `ClassCurriculumItem.DoubleLessons` (třída; řádek třídy má teď hodiny i bloky volitelné,
-zmizí, když neříká nic vlastního). Skupiny žáků řeší #166.
+zmizí, když neříká nic vlastního).
+
+## Skupiny žáků (#166)
+
+Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a kopíruje se s ní
+(skupiny, dělení, členství i vazba hodin na skupinu):
+
+- `StudentGroup`: název, předmět, hodiny týdně a dvouhodinovky, učitel (prázdný = vybere ho
+  systém jako u třídy), učebna (prázdná = podle předmětu; kmenová jen u skupiny jedné třídy),
+  třídy a žáci z nich. Třída, jejíž je skupina předmětu, ten předmět jako celá třída nemá
+  (řádek třídy ukazuje „Ve skupinách: …“, celotřídní hodiny předmětu hlásí jako problém).
+- `GroupDivision` (dělení): skupiny stejných tříd se stejnými hodinami, vždy ve stejný čas
+  (Tv 2.A+2.B dívky/chlapci v různých tělocvičnách, Nj | Fj). Žák je v dělení nejvýš
+  v jedné skupině — přidání do jiné ho přesune; kdo není v žádné, má volno (kontrola před
+  zveřejněním ho vypíše).
+- Hodina skupiny je `TimetableEntry` se `StudentGroupId`, jedna za každou třídu skupiny
+  (úprava a smazání platí pro všechny); rozvrh třídy ukáže v políčku hodiny všech jejích
+  skupin, žák a rodič jen skupiny žáka, učitel hodinu jednou („Nj (7.A, 7.B)“).
+- Generátor: samostatná skupina = jedna poptávka, která blokuje všechny své třídy; dělení =
+  jedna poptávka s částí za každou skupinu (každá svůj učitel, předmět a učebna, počítá se
+  kapacita učebny na počet žáků skupiny). Generátor tedy nedá do stejné doby dvě samostatné
+  skupiny stejné třídy ani bez společných žáků — takové patří do dělení.
+- Změnu členství, po které by žák měl ve stejnou dobu jinou hodinu (celé třídy nebo jiné své
+  skupiny mimo dělení) nebo by se skupina nevešla do učebny některé své hodiny, API odmítne;
+  kontroluje se jen přidávaný žák.
+- Známky, docházka a úkoly pro hodinu skupiny zatím nabízejí celou třídu (druhá část #166).
 
 ## Generátor (fáze 3, #161)
 
@@ -204,7 +229,7 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
 - Ruční přidání hodiny předvyplní první učebnu ze seznamu předmětu volnou v daném čase.
 - 0,5 h = hodina v lichém týdnu, slot drží v obou týdnech (dvojice lichý/sudý zatím ne).
 - Zatím ne: náročné předměty dopoledne (chybí údaj u předmětu), limity hodin denně podle
-  vyhlášky, nastavitelné váhy, skupiny (#166).
+  vyhlášky, nastavitelné váhy.
 
 ## Navržené fáze
 

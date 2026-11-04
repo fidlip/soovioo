@@ -235,7 +235,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     /// <summary>Every automatic choice becomes the school's own, so it stays
-    /// whatever changes later.</summary>
+    /// whatever changes later — a group's too.</summary>
     [HttpPost("assignments/confirm")]
     [RequirePermission(Permission.Teaching)]
     public async Task<ActionResult<TeachingOverviewDto>> ConfirmAssignments(int versionId)
@@ -249,6 +249,12 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         AddAssignments(version, overview.Classes.SelectMany(c => c.Rows
             .Where(r => r.Automatic && r.TeacherId is not null)
             .Select(r => (c.Id, r.SubjectId, r.TeacherId!.Value))));
+        var chosen = overview.Groups.Where(g => g.Automatic && g.TeacherId is not null).ToDictionary(g => g.Id, g => g.TeacherId);
+        var ids = chosen.Keys.ToList();
+        foreach (var group in await db.StudentGroups.Where(g => ids.Contains(g.Id)).ToListAsync())
+        {
+            group.TeacherId = chosen[group.Id];
+        }
         await db.SaveChangesAsync();
         return Ok(await OverviewAsync(version));
     }
@@ -267,7 +273,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             return error!;
         }
         var schoolId = currentSchool.SchoolId!.Value;
-        var lessons = await db.TimetableEntries.Where(e => e.TimetableVersionId == version.Id)
+        var lessons = await db.TimetableEntries.Where(e => e.TimetableVersionId == version.Id && e.StudentGroupId == null)
             .Select(e => new { e.SchoolClassId, e.SchoolClass!.Rocnik, e.SubjectId, e.TeacherId, e.WeekParity })
             .ToListAsync();
         var planned = await db.CurriculumItems.Where(c => c.TimetableVersionId == version.Id)
@@ -368,10 +374,13 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
 
     private async Task<TeachingOverviewDto> OverviewAsync(TimetableVersion version)
     {
-        var (classDtos, teacherDtos, grades, curriculum) = await PlanAsync(version);
+        var plan = await PlanAsync(version);
+        var (classDtos, teacherDtos, grades, curriculum) = plan;
+        var groups = plan.Groups;
         if (await ScopeAsync() != PermissionScope.School)
         {
             var me = User.UserId();
+            groups = [.. groups.Where(g => g.TeacherId == me).Select(g => g with { Problems = [] })];
             classDtos = classDtos
                 .Select(c => c with { Problems = [], Rows = c.Rows.Where(r => r.TeacherId == me).ToList() })
                 .Where(c => c.Rows.Count > 0)
@@ -381,7 +390,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         return new TeachingOverviewDto(
             version.Id,
             version.Status != TimetableVersionStatus.Archived && await User.HasPermissionAsync(db, Permission.Teaching),
-            grades, curriculum, classDtos, teacherDtos);
+            grades, curriculum, classDtos, teacherDtos, groups);
     }
 
     private Task<TeachingPlan> PlanAsync(TimetableVersion version) => TeachingPlan.LoadAsync(db, version);
@@ -396,7 +405,8 @@ public record TeachingOverviewDto(
     IReadOnlyList<int> Grades,
     IReadOnlyList<CurriculumItemDto> Curriculum,
     IReadOnlyList<TeachingClassDto> Classes,
-    IReadOnlyList<TeachingTeacherDto> Teachers);
+    IReadOnlyList<TeachingTeacherDto> Teachers,
+    IReadOnlyList<TeachingGroupDto> Groups);
 
 public record TeacherTeachingDto(int VersionId, string VersionName, TeachingTeacherDto Teacher);
 

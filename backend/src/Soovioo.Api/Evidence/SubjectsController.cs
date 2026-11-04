@@ -119,6 +119,11 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Předmět je v rozvrhu — nelze smazat.");
         }
 
+        if (await db.StudentGroups.AnyAsync(g => g.SubjectId == id))
+        {
+            return BadRequest("Předmět má skupina žáků — nelze smazat.");
+        }
+
         db.Subjects.Remove(subject);
         await db.SaveChangesAsync();
         return NoContent();

@@ -1,0 +1,376 @@
+<div class="flex flex-col gap-6 pt-4">
+  <p class="text-sm text-surface-500">
+    Skupina má vlastní předmět, hodiny a učitele; třída, jejíž žáci jsou ve
+    skupině předmětu, už ho nemá jako celá třída. Skupiny jednoho dělení jsou v
+    rozvrhu vždy ve stejnou dobu (Tv dívky a chlapci, Nj | Fj), žák je v dělení
+    nejvýš v jedné skupině a kdo není v žádné, má volno. Samostatná skupina
+    (seminář, volitelný předmět) má hodiny kdykoli, jen ne v době jiných hodin
+    svých žáků.
+  </p>
+  @if (canEdit()) {
+  <div class="flex flex-wrap gap-2">
+    <p-button
+      label="Nové dělení"
+      icon="pi pi-plus"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="newDivision()"
+    />
+    <p-button
+      label="Nová skupina"
+      icon="pi pi-plus"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="newGroup(null)"
+    />
+  </div>
+  } @for (d of divisions(); track d.division.id) {
+  <section [attr.aria-label]="'Dělení ' + d.division.name">
+    <h2 class="mb-2 flex flex-wrap items-center gap-2 text-lg">
+      {{ d.division.name }}
+      <span class="text-sm font-normal text-surface-500"
+        >dělení · {{ classNames(d.division.classIds) }} · {{
+        formatHours(d.division.hoursPerWeek) }} @if (d.division.doubleLessons) {
+        · dvouhodinovky }</span
+      >
+      @if (canEdit()) {
+      <p-button
+        icon="pi pi-pencil"
+        [text]="true"
+        size="small"
+        severity="secondary"
+        [ariaLabel]="'Upravit dělení ' + d.division.name"
+        (onClick)="editDivision(d.division)"
+      />
+      <p-button
+        icon="pi pi-trash"
+        [text]="true"
+        size="small"
+        severity="danger"
+        [ariaLabel]="'Smazat dělení ' + d.division.name"
+        (onClick)="deleteDivision(d.division)"
+      />
+      }
+    </h2>
+    <ng-container
+      *ngTemplateOutlet="groupTable; context: { $implicit: d.groups, division: d.division }"
+    />
+    @if (canEdit() && !filtered()) {
+    <p-button
+      label="Přidat skupinu do dělení"
+      icon="pi pi-plus"
+      [text]="true"
+      size="small"
+      [disabled]="busy()"
+      (onClick)="newGroup(d.division)"
+    />
+    }
+  </section>
+  } @if (freeGroups().length > 0 || !filtered()) {
+  <section aria-label="Samostatné skupiny">
+    <h2 class="mb-2 text-lg">Samostatné skupiny</h2>
+    <ng-container
+      *ngTemplateOutlet="groupTable; context: { $implicit: freeGroups(), division: null }"
+    />
+  </section>
+  }
+</div>
+
+<ng-template #groupTable let-groups let-division="division">
+  <div class="overflow-x-auto">
+    <p-table [value]="groups" dataKey="id">
+      <ng-template #header>
+        <tr>
+          <th>Skupina</th>
+          <th>Předmět</th>
+          @if (!division) {
+          <th>Třídy</th>
+          <th>Hodiny</th>
+          }
+          <th>Žáci</th>
+          <th>Učitel</th>
+          <th>Učebna</th>
+          <th>Kontrola</th>
+          @if (canEdit()) {
+          <th></th>
+          }
+        </tr>
+      </ng-template>
+      <ng-template #body let-g>
+        <tr>
+          <td>{{ g.name }}</td>
+          <td>{{ subjectName(g.subjectId) }}</td>
+          @if (!division) {
+          <td>{{ classNames(g.classIds) }}</td>
+          <td class="whitespace-nowrap">
+            {{ formatHours(g.hoursPerWeek) }} · v rozvrhu {{
+            formatHours(row(g)?.timetableHours ?? 0) }}
+          </td>
+          }
+          <td>{{ g.studentIds.length }}</td>
+          <td>
+            {{ row(g)?.teacherName ?? '—' }} @if (row(g)?.automatic &&
+            row(g)?.teacherId !== null) {
+            <p-tag value="automaticky" severity="secondary" />
+            }
+          </td>
+          <td>{{ classroomName(g.classroomId) }}</td>
+          <td>
+            @for (problem of row(g)?.problems ?? []; track $index) {
+            <div class="text-sm text-orange-600 dark:text-orange-400">
+              {{ problem }}
+            </div>
+            } @empty {
+            <i class="pi pi-check text-green-600" aria-label="V pořádku"></i>
+            }
+          </td>
+          @if (canEdit()) {
+          <td class="whitespace-nowrap">
+            <p-button
+              icon="pi pi-pencil"
+              [text]="true"
+              size="small"
+              severity="secondary"
+              [ariaLabel]="'Upravit skupinu ' + g.name"
+              (onClick)="editGroup(g)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              [text]="true"
+              size="small"
+              severity="danger"
+              [ariaLabel]="'Smazat skupinu ' + g.name"
+              (onClick)="deleteGroup(g)"
+            />
+          </td>
+          }
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="9" class="text-surface-500">
+            {{ division ? 'Dělení zatím nemá skupiny.' : filtered() ? 'Filtrům
+            nic neodpovídá.' : 'Žádné samostatné skupiny.' }}
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</ng-template>
+
+<p-dialog
+  [visible]="divisionForm() !== null"
+  (visibleChange)="!$event && divisionForm.set(null)"
+  [header]="divisionForm()?.id === null ? 'Nové dělení' : 'Upravit dělení'"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (divisionForm(); as form) {
+  <form class="flex flex-col gap-4 pt-2" (ngSubmit)="saveDivision(form)">
+    <app-float-field label="Název" for="divisionName">
+      <input
+        pInputText
+        id="divisionName"
+        name="divisionName"
+        [(ngModel)]="form.name"
+        class="w-full"
+        required
+      />
+    </app-float-field>
+    <app-float-field label="Třídy" for="divisionClasses">
+      <p-multiselect
+        ariaLabel="Třídy"
+        inputId="divisionClasses"
+        name="divisionClasses"
+        [options]="classOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.classIds"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <div class="flex flex-wrap items-center gap-4">
+      <app-float-field label="Hodiny týdně" for="divisionHours">
+        <p-inputNumber
+          inputId="divisionHours"
+          name="divisionHours"
+          [(ngModel)]="form.hoursPerWeek"
+          [min]="0"
+          [max]="40"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="1"
+          locale="cs-CZ"
+          inputStyleClass="w-24"
+        />
+      </app-float-field>
+      <label class="flex items-center gap-2 text-sm">
+        <p-checkbox
+          [binary]="true"
+          name="divisionBlocks"
+          [(ngModel)]="form.doubleLessons"
+        />
+        Dvouhodinovky
+      </label>
+    </div>
+    <p class="m-0 text-sm text-surface-500">
+      Skupiny dělení převezmou jeho třídy, hodiny i dvouhodinovky.
+    </p>
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zrušit"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="divisionForm.set(null)"
+      />
+      <p-button type="submit" label="Uložit" [disabled]="busy()" />
+    </div>
+  </form>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="groupForm() !== null"
+  (visibleChange)="!$event && groupForm.set(null)"
+  [header]="groupForm()?.id === null ? 'Nová skupina' : 'Upravit skupinu'"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (groupForm(); as form) {
+  <form class="flex flex-col gap-4 pt-2" (ngSubmit)="saveGroup(form)">
+    <app-float-field label="Název" for="groupName">
+      <input
+        pInputText
+        id="groupName"
+        name="groupName"
+        [(ngModel)]="form.name"
+        class="w-full"
+        required
+      />
+    </app-float-field>
+    <app-float-field label="Předmět" for="groupSubject">
+      <p-select
+        ariaLabel="Předmět"
+        inputId="groupSubject"
+        name="groupSubject"
+        [options]="subjects()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="form.subjectId"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    @if (form.divisionId === null) {
+    <app-float-field label="Třídy" for="groupClasses">
+      <p-multiselect
+        ariaLabel="Třídy"
+        inputId="groupClasses"
+        name="groupClasses"
+        [options]="classOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.classIds"
+        (ngModelChange)="onFormClassesChange(form)"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <div class="flex flex-wrap items-center gap-4">
+      <app-float-field label="Hodiny týdně" for="groupHours">
+        <p-inputNumber
+          inputId="groupHours"
+          name="groupHours"
+          [(ngModel)]="form.hoursPerWeek"
+          [min]="0"
+          [max]="40"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="1"
+          locale="cs-CZ"
+          inputStyleClass="w-24"
+        />
+      </app-float-field>
+      <label class="flex items-center gap-2 text-sm">
+        <p-checkbox
+          [binary]="true"
+          name="groupBlocks"
+          [(ngModel)]="form.doubleLessons"
+        />
+        Dvouhodinovky
+      </label>
+    </div>
+    } @else {
+    <p class="m-0 text-sm text-surface-500">
+      Třídy {{ classNames(formClassIds(form)) }} a {{
+      formatHours(form.hoursPerWeek) }} týdně podle dělení.
+    </p>
+    }
+    <app-float-field label="Učitel" for="groupTeacher">
+      <p-select
+        ariaLabel="Učitel"
+        inputId="groupTeacher"
+        name="groupTeacher"
+        [options]="teacherOptions(form)"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.teacherId"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Učebna" for="groupClassroom">
+      <p-select
+        ariaLabel="Učebna"
+        inputId="groupClassroom"
+        name="groupClassroom"
+        [options]="classroomOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.classroomId"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Žáci" for="groupStudents">
+      <p-multiselect
+        ariaLabel="Žáci"
+        inputId="groupStudents"
+        name="groupStudents"
+        [options]="studentOptions(form)"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.studentIds"
+        [filter]="true"
+        display="chip"
+        [placeholder]="formClassIds(form).length === 0 ? 'Nejdřív vyberte třídy' : 'Nikdo'"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <p class="m-0 text-sm text-surface-500">
+      Vybráno {{ form.studentIds.length }}. Žák, který by měl v době hodiny
+      skupiny jinou hodinu, nebo by se skupina nevešla do učebny, nejde přidat.
+    </p>
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zrušit"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="groupForm.set(null)"
+      />
+      <p-button
+        type="submit"
+        label="Uložit"
+        [disabled]="busy() || form.subjectId === null"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>

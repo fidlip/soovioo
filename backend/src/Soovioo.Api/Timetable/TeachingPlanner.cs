@@ -32,8 +32,10 @@ public static class TeachingPlanner
         public bool Covers(int subjectId, int? grade) => Qualifications.Any(q => q.Covers(subjectId, grade));
     }
 
+    /// <param name="GroupId">A lesson of a group: once, not once per class.</param>
     public record LessonInput(
-        int SchoolClassId, int SubjectId, int? TeacherId, DayOfWeek DayOfWeek, WeekParity WeekParity, int Period = 1)
+        int SchoolClassId, int SubjectId, int? TeacherId, DayOfWeek DayOfWeek, WeekParity WeekParity, int Period = 1,
+        int? GroupId = null)
     {
         /// <summary>A lesson every other week is half an hour a week.</summary>
         public decimal Hours => WeekParity == WeekParity.Every ? 1m : 0.5m;
@@ -46,11 +48,26 @@ public static class TeachingPlanner
         IReadOnlyList<CurriculumItemDto> Curriculum,
         IReadOnlyList<ClassCurriculumItemDto> ClassCurriculum,
         IReadOnlyList<(int SchoolClassId, int SubjectId, int TeacherId)> Assignments,
-        IReadOnlyList<LessonInput> Lessons);
+        IReadOnlyList<LessonInput> Lessons,
+        IReadOnlyList<GroupInput>? Groups = null);
+
+    /// <param name="DoubleLessons">Its own, its division's or the subject's.</param>
+    /// <param name="Members">How many pupils it has.</param>
+    public record GroupInput(
+        int Id, string Name, int SubjectId, IReadOnlyList<int> ClassIds, decimal HoursPerWeek, bool DoubleLessons,
+        int? TeacherId, int? DivisionId = null, string? DivisionName = null, int Members = 0);
 
     private sealed class Row
     {
+        /// <summary>Of a group: its first class.</summary>
         public required ClassInput Class { get; init; }
+        public GroupInput? Group { get; init; }
+
+        /// <summary>The class has the subject in groups.</summary>
+        public IReadOnlyList<GroupInput> InGroups { get; init; } = [];
+
+        /// <summary>The grade the group's classes share, otherwise none.</summary>
+        public int? Grade { get; init; }
         public required SubjectInput Subject { get; init; }
         public decimal? PlanHours { get; init; }
         public decimal? GradeHours { get; init; }
@@ -63,24 +80,34 @@ public static class TeachingPlanner
 
         /// <summary>What the teacher is given for it: the plan's hours, or
         /// the timetable's where the plan has none.</summary>
-        public decimal Hours => PlanHours ?? TimetableHours;
+        public decimal Hours => InGroups.Count > 0 ? TimetableHours : PlanHours ?? TimetableHours;
     }
 
     public static (List<TeachingClassDto> Classes, List<TeachingTeacherDto> Teachers) Plan(Input input)
+    {
+        var (classes, teachers, _) = PlanWithGroups(input);
+        return (classes, teachers);
+    }
+
+    public static (List<TeachingClassDto> Classes, List<TeachingTeacherDto> Teachers, List<TeachingGroupDto> Groups)
+        PlanWithGroups(Input input)
     {
         var subjects = input.Subjects.ToDictionary(s => s.Id);
         var teachers = input.Teachers.ToDictionary(t => t.Id);
         var plan = input.Curriculum.ToDictionary(c => (c.Grade, c.SubjectId));
         var classPlan = input.ClassCurriculum.ToDictionary(c => (c.SchoolClassId, c.SubjectId));
         var assigned = input.Assignments.ToDictionary(a => (a.SchoolClassId, a.SubjectId), a => a.TeacherId);
-        var lessons = input.Lessons.ToLookup(l => (l.SchoolClassId, l.SubjectId));
+        var lessons = input.Lessons.Where(l => l.GroupId is null).ToLookup(l => (l.SchoolClassId, l.SubjectId));
+        var groupLessons = input.Lessons.Where(l => l.GroupId is not null).ToLookup(l => l.GroupId!.Value);
+        var groups = (input.Groups ?? []).Where(g => subjects.ContainsKey(g.SubjectId)).ToList();
+        var classesById = input.Classes.ToDictionary(c => c.Id);
 
         var rows = new List<Row>();
         foreach (var c in input.Classes)
         {
             var subjectIds = input.Curriculum.Where(p => p.Grade == c.Grade).Select(p => p.SubjectId)
                 .Concat(input.ClassCurriculum.Where(p => p.SchoolClassId == c.Id).Select(p => p.SubjectId))
-                .Concat(input.Lessons.Where(l => l.SchoolClassId == c.Id).Select(l => l.SubjectId))
+                .Concat(input.Lessons.Where(l => l.SchoolClassId == c.Id && l.GroupId is null).Select(l => l.SubjectId))
                 .Concat(input.Assignments.Where(a => a.SchoolClassId == c.Id).Select(a => a.SubjectId))
                 .Distinct()
                 .Where(subjects.ContainsKey);
@@ -94,6 +121,8 @@ public static class TeachingPlanner
                 rows.Add(new Row
                 {
                     Class = c,
+                    Grade = c.Grade,
+                    InGroups = groups.Where(g => g.SubjectId == subjectId && g.ClassIds.Contains(c.Id)).ToList(),
                     Subject = subjects[subjectId],
                     PlanHours = own ? classItem!.HoursPerWeek : gradeHours,
                     DoubleLessons = classItem?.DoubleLessons ?? gradeBlocks,
@@ -106,20 +135,43 @@ public static class TeachingPlanner
             }
         }
 
+        foreach (var g in groups)
+        {
+            var groupClasses = g.ClassIds.Where(classesById.ContainsKey).Select(id => classesById[id]).ToList();
+            if (groupClasses.Count == 0)
+            {
+                continue;
+            }
+            var grades = groupClasses.Select(c => c.Grade).Distinct().ToList();
+            rows.Add(new Row
+            {
+                Class = groupClasses[0],
+                Group = g,
+                Grade = grades.Count == 1 ? grades[0] : null,
+                Subject = subjects[g.SubjectId],
+                PlanHours = g.HoursPerWeek,
+                DoubleLessons = g.DoubleLessons,
+                TimetableHours = groupLessons[g.Id].Sum(l => l.Hours),
+                TeacherId = g.TeacherId,
+            });
+        }
+        IEnumerable<LessonInput> LessonsOf(Row r) => r.Group is { } group ? groupLessons[group.Id] : lessons[(r.Class.Id, r.Subject.Id)];
+
         var load = rows.Where(r => r.TeacherId is not null).GroupBy(r => r.TeacherId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(r => r.Hours));
         List<TeacherInput> Candidates(Row r) => input.Teachers
-            .Where(t => t.Active && t.TeachingDays.Count > 0 && t.Covers(r.Subject.Id, r.Class.Grade))
+            .Where(t => t.Active && t.TeachingDays.Count > 0 && t.Covers(r.Subject.Id, r.Grade))
             .ToList();
         var open = rows.Where(r => r.TeacherId is null && r.Hours > 0)
             .Select(r => (Row: r, Candidates: Candidates(r)))
             .OrderBy(x => x.Candidates.Count).ThenByDescending(x => x.Row.Hours)
-            .ThenBy(x => x.Row.Class.Name).ThenBy(x => x.Row.Subject.Name)
+            .ThenBy(x => x.Row.Group is not null).ThenBy(x => x.Row.Class.Name).ThenBy(x => x.Row.Subject.Name)
+            .ThenBy(x => x.Row.Group?.Name)
             .ToList();
         foreach (var (row, candidates) in open)
         {
             var teacher = candidates
-                .OrderByDescending(t => lessons[(row.Class.Id, row.Subject.Id)].Where(l => l.TeacherId == t.Id).Sum(l => l.Hours))
+                .OrderByDescending(t => LessonsOf(row).Where(l => l.TeacherId == t.Id).Sum(l => l.Hours))
                 .ThenByDescending(t => t.ContractedHours is not { } contracted || load.GetValueOrDefault(t.Id) + row.Hours <= contracted)
                 .ThenByDescending(t => row.Class.ClassTeacherId == t.Id)
                 .ThenByDescending(t => rows.Any(o => o.Class == row.Class && o.TeacherId == t.Id))
@@ -139,11 +191,19 @@ public static class TeachingPlanner
 
         var classes = input.Classes.Select(c =>
         {
-            var classRows = rows.Where(r => r.Class == c).OrderBy(r => r.Subject.Name).Select(r =>
+            var classRows = rows.Where(r => r.Class == c && r.Group is null).OrderBy(r => r.Subject.Name).Select(r =>
             {
                 var problems = new List<string>();
                 var inGrade = c.Grade is { } g ? $" v {g}. ročníku" : "";
-                if (r.PlanHours is { } planned && r.TimetableHours < planned)
+                var groupNames = r.InGroups.Select(x => x.Name).Order(StringComparer.Ordinal).ToList();
+                if (r.InGroups.Count > 0)
+                {
+                    if (r.TimetableHours > 0)
+                    {
+                        problems.Add($"Učí se ve skupinách ({string.Join(", ", groupNames)}), v rozvrhu má i {FormatHours(r.TimetableHours)} celé třídy.");
+                    }
+                }
+                else if (r.PlanHours is { } planned && r.TimetableHours < planned)
                 {
                     problems.Add($"V rozvrhu chybí {FormatHours(planned - r.TimetableHours)}.");
                 }
@@ -181,7 +241,7 @@ public static class TeachingPlanner
                 return new TeachingRowDto(
                     r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.PlanHours, r.GradeHours, r.ClassPlan, r.TimetableHours,
                     r.TeacherId, r.TeacherId is null ? null : NameOf(r.TeacherId), r.Automatic, problems,
-                    r.DoubleLessons, r.GradeDoubleLessons);
+                    r.DoubleLessons, r.GradeDoubleLessons, groupNames);
             }).ToList();
             IReadOnlyList<string> classProblems = c.Grade is null
                 ? ["Třída nemá zadaný ročník — učební plán ročníku se na ni nevztahuje, jen její vlastní."]
@@ -218,16 +278,67 @@ public static class TeachingPlanner
             problems.AddRange(Unavailable(t.Availability, own.Select(l => (l.DayOfWeek, l.Period)))
                 .Select(when => $"V rozvrhu učí {when}, kdy učit nemůže."));
             var taught = rows.Where(r => r.TeacherId == t.Id && r.Hours > 0)
-                .OrderBy(r => r.Class.Name).ThenBy(r => r.Subject.Name)
+                .OrderBy(r => r.Group is not null).ThenBy(r => r.Group?.Name ?? r.Class.Name).ThenBy(r => r.Subject.Name)
                 .Select(r => new TeachingTaughtDto(
-                    r.Class.Id, r.Class.Name, r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.Hours, r.Automatic))
+                    r.Class.Id, r.Group?.Name ?? r.Class.Name, r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.Hours, r.Automatic,
+                    r.Group?.Id))
                 .ToList();
             return new TeachingTeacherDto(
                 t.Id, t.Name, t.Qualification, t.ContractedHours, assignedHours, own.Sum(l => l.Hours), t.TeachingDays,
                 taught, problems, t.Availability);
         }).ToList();
 
-        return (classes, teacherDtos);
+        var groupDtos = rows.Where(r => r.Group is not null)
+            .OrderBy(r => r.Group!.DivisionName ?? r.Group.Name, StringComparer.Ordinal).ThenBy(r => r.Group!.Name, StringComparer.Ordinal)
+            .Select(r =>
+            {
+                var g = r.Group!;
+                var problems = new List<string>();
+                var inGrade = r.Grade is { } grade ? $" v {grade}. ročníku" : "";
+                if (r.TimetableHours < r.Hours)
+                {
+                    problems.Add($"V rozvrhu chybí {FormatHours(r.Hours - r.TimetableHours)}.");
+                }
+                else if (r.TimetableHours > r.Hours)
+                {
+                    problems.Add($"V rozvrhu je o {FormatHours(r.TimetableHours - r.Hours)} víc než v plánu.");
+                }
+                if (g.Members == 0)
+                {
+                    problems.Add("Skupina nemá žádné žáky.");
+                }
+                if (r.TeacherId is null && r.Hours > 0)
+                {
+                    problems.Add($"Nikdo nemá aprobaci pro {r.Subject.Short}{inGrade}.");
+                }
+                if (r.TeacherId is { } teacherId)
+                {
+                    if (!r.Automatic && teachers.TryGetValue(teacherId, out var teacher) && !teacher.Covers(r.Subject.Id, r.Grade))
+                    {
+                        problems.Add($"{teacher.Name} nemá aprobaci pro {r.Subject.Short}{inGrade}.");
+                    }
+                    var others = groupLessons[g.Id]
+                        .Where(l => l.TeacherId is not null && l.TeacherId != teacherId)
+                        .Select(l => NameOf(l.TeacherId)).Distinct().Order().ToList();
+                    if (others.Count > 0)
+                    {
+                        problems.Add($"V rozvrhu učí {string.Join(", ", others)}.");
+                    }
+                }
+                var untaught = groupLessons[g.Id].Where(l => l.TeacherId is null).Sum(l => l.Hours);
+                if (untaught > 0)
+                {
+                    problems.Add($"{FormatHours(untaught)} v rozvrhu bez učitele.");
+                }
+                var classNames = g.ClassIds.Where(classesById.ContainsKey).Select(id => classesById[id].Name)
+                    .Order(StringComparer.Ordinal).ToList();
+                return new TeachingGroupDto(
+                    g.Id, g.Name, g.DivisionId, g.DivisionName, r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation,
+                    g.ClassIds, string.Join(", ", classNames), r.Grade, r.Hours, r.TimetableHours, r.TeacherId,
+                    r.TeacherId is null ? null : NameOf(r.TeacherId), r.Automatic, r.DoubleLessons, g.Members, problems);
+            }).ToList();
+
+        return (classes, teacherDtos, groupDtos);
     }
 
     /// <summary>"v pondělí", "v úterý 1., 2. hod." — when lessons are where
@@ -292,7 +403,35 @@ public record TeachingRowDto(
     bool Automatic,
     IReadOnlyList<string> Problems,
     bool DoubleLessons = false,
-    bool GradeDoubleLessons = false);
+    bool GradeDoubleLessons = false,
+    IReadOnlyList<string>? Groups = null)
+{
+    /// <summary>The class has the subject in these groups, not as a whole class.</summary>
+    public IReadOnlyList<string> Groups { get; init; } = Groups ?? [];
+}
+
+/// <summary>A group's učební plán and přidělení.</summary>
+/// <param name="Grade">The ročník its classes share; null = none or several.</param>
+/// <param name="ClassNames">"7.A, 7.B".</param>
+public record TeachingGroupDto(
+    int Id,
+    string Name,
+    int? DivisionId,
+    string? DivisionName,
+    int SubjectId,
+    string SubjectName,
+    string? SubjectAbbreviation,
+    IReadOnlyList<int> ClassIds,
+    string ClassNames,
+    int? Grade,
+    decimal PlanHours,
+    decimal TimetableHours,
+    int? TeacherId,
+    string? TeacherName,
+    bool Automatic,
+    bool DoubleLessons,
+    int MemberCount,
+    IReadOnlyList<string> Problems);
 
 /// <param name="AssignedHours">Hours of what the teacher is assigned (or
 /// chosen for automatically).</param>
@@ -312,7 +451,8 @@ public record TeachingTeacherDto(
     public IReadOnlyList<AvailabilitySlot> Availability { get; init; } = Availability ?? [];
 }
 
-/// <summary>A class and subject a teacher is given (or chosen for automatically).</summary>
+/// <summary>A class and subject a teacher is given (or chosen for automatically);
+/// of a group <paramref name="SchoolClassName"/> is the group's name.</summary>
 public record TeachingTaughtDto(
     int SchoolClassId,
     string SchoolClassName,
@@ -320,4 +460,5 @@ public record TeachingTaughtDto(
     string SubjectName,
     string? SubjectAbbreviation,
     decimal Hours,
-    bool Automatic);
+    bool Automatic,
+    int? StudentGroupId = null);

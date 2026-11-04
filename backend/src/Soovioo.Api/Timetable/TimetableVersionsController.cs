@@ -54,8 +54,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         return version is null ? NotFound() : Ok(await TimetableCheck.ProblemsAsync(db, version));
     }
 
-    /// <summary>A new draft, empty or with the lessons, učební plán and
-    /// přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
+    /// <summary>A new draft, empty or with the lessons, učební plán, groups
+    /// and přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableVersionDto>> CreateVersion(CreateTimetableVersionRequest request)
@@ -67,7 +67,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
 
         var source = request.CopyFromVersionId is { } sourceId
             ? await db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.ClassCurriculum)
-                .Include(v => v.Assignments)
+                .Include(v => v.Assignments).Include(v => v.Divisions)
+                .Include(v => v.Groups).ThenInclude(g => g.Classes).Include(v => v.Groups).ThenInclude(g => g.Members)
                 .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == sourceId)
             : null;
         if (request.CopyFromVersionId is not null && source is null)
@@ -76,6 +77,18 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         }
 
         var schoolId = currentSchool.SchoolId!.Value;
+        var divisions = (source?.Divisions ?? []).ToDictionary(d => d.Id, d => new GroupDivision
+        {
+            SchoolId = schoolId, Name = d.Name, HoursPerWeek = d.HoursPerWeek, DoubleLessons = d.DoubleLessons, ClassIds = [.. d.ClassIds],
+        });
+        var groups = (source?.Groups ?? []).ToDictionary(g => g.Id, g => new StudentGroup
+        {
+            SchoolId = schoolId, Name = g.Name, SubjectId = g.SubjectId, HoursPerWeek = g.HoursPerWeek, DoubleLessons = g.DoubleLessons,
+            TeacherId = g.TeacherId, ClassroomId = g.ClassroomId,
+            GroupDivision = g.GroupDivisionId is { } d ? divisions[d] : null,
+            Classes = [.. g.Classes.Select(c => new StudentGroupClass { SchoolId = schoolId, SchoolClassId = c.SchoolClassId })],
+            Members = [.. g.Members.Select(m => new StudentGroupMember { SchoolId = schoolId, StudentId = m.StudentId })],
+        });
         var version = new TimetableVersion
         {
             SchoolId = schoolId,
@@ -88,6 +101,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             {
                 SchoolId = schoolId,
                 SchoolClassId = e.SchoolClassId,
+                StudentGroup = e.StudentGroupId is { } g ? groups[g] : null,
                 SubjectId = e.SubjectId,
                 DayOfWeek = e.DayOfWeek,
                 PeriodNumber = e.PeriodNumber,
@@ -99,15 +113,19 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             Curriculum = source?.Curriculum.Select(c => new CurriculumItem
             {
                 SchoolId = schoolId, Grade = c.Grade, SubjectId = c.SubjectId, HoursPerWeek = c.HoursPerWeek,
+                DoubleLessons = c.DoubleLessons,
             }).ToList() ?? [],
             ClassCurriculum = source?.ClassCurriculum.Select(c => new ClassCurriculumItem
             {
                 SchoolId = schoolId, SchoolClassId = c.SchoolClassId, SubjectId = c.SubjectId, HoursPerWeek = c.HoursPerWeek,
+                DoubleLessons = c.DoubleLessons,
             }).ToList() ?? [],
             Assignments = source?.Assignments.Select(a => new TeachingAssignment
             {
                 SchoolId = schoolId, SchoolClassId = a.SchoolClassId, SubjectId = a.SubjectId, TeacherId = a.TeacherId,
             }).ToList() ?? [],
+            Divisions = [.. divisions.Values],
+            Groups = [.. groups.Values],
         };
         db.TimetableVersions.Add(version);
         await db.SaveChangesAsync();

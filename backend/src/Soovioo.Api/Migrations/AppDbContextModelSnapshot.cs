@@ -2118,6 +2118,43 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("CurriculumItems");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.PrimitiveCollection<List<int>>("ClassIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<bool?>("DoubleLessons")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("HoursPerWeek")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimetableVersionId");
+
+                    b.ToTable("GroupDivisions");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
                 {
                     b.Property<int>("Id")
@@ -2196,6 +2233,95 @@ namespace Soovioo.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ClassroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("DoubleLessons")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("GroupDivisionId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("HoursPerWeek")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TeacherId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassroomId");
+
+                    b.HasIndex("GroupDivisionId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("TimetableVersionId");
+
+                    b.ToTable("StudentGroups");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroupClass", b =>
+                {
+                    b.Property<int>("StudentGroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("StudentGroupId", "SchoolClassId");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.ToTable("StudentGroupClasses");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroupMember", b =>
+                {
+                    b.Property<int>("StudentGroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("StudentGroupId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("StudentGroupMembers");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.TeachingAssignment", b =>
                 {
                     b.Property<int>("Id")
@@ -2259,6 +2385,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("StudentGroupId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
 
@@ -2278,6 +2407,8 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
+
+                    b.HasIndex("StudentGroupId");
 
                     b.HasIndex("SubjectId");
 
@@ -3370,6 +3501,17 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("TimetableVersion");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>
+                {
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("Divisions")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TimetableVersion");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -3379,6 +3521,84 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("School");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroup", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.Classroom", "Classroom")
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Soovioo.Api.Timetable.GroupDivision", "GroupDivision")
+                        .WithMany("Groups")
+                        .HasForeignKey("GroupDivisionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("Groups")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Classroom");
+
+                    b.Navigation("GroupDivision");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Teacher");
+
+                    b.Navigation("TimetableVersion");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroupClass", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Timetable.StudentGroup", "StudentGroup")
+                        .WithMany("Classes")
+                        .HasForeignKey("StudentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SchoolClass");
+
+                    b.Navigation("StudentGroup");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroupMember", b =>
+                {
+                    b.HasOne("Soovioo.Api.Timetable.StudentGroup", "StudentGroup")
+                        .WithMany("Members")
+                        .HasForeignKey("StudentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+
+                    b.Navigation("StudentGroup");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.TeachingAssignment", b =>
@@ -3434,6 +3654,11 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Soovioo.Api.Timetable.StudentGroup", "StudentGroup")
+                        .WithMany()
+                        .HasForeignKey("StudentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
                         .WithMany()
                         .HasForeignKey("SubjectId")
@@ -3455,6 +3680,8 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("SchoolClass");
+
+                    b.Navigation("StudentGroup");
 
                     b.Navigation("Subject");
 
@@ -3587,6 +3814,18 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Qualifications");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>
+                {
+                    b.Navigation("Groups");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.StudentGroup", b =>
+                {
+                    b.Navigation("Classes");
+
+                    b.Navigation("Members");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
                 {
                     b.Navigation("Assignments");
@@ -3595,7 +3834,11 @@ namespace Soovioo.Api.Migrations
 
                     b.Navigation("Curriculum");
 
+                    b.Navigation("Divisions");
+
                     b.Navigation("Entries");
+
+                    b.Navigation("Groups");
                 });
 #pragma warning restore 612, 618
         }

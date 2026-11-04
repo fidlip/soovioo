@@ -47,6 +47,7 @@ import { FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { versionStatusLabel } from '../timetable-page/timetable-versions-dialog';
+import { StudentGroupsPanel } from './student-groups';
 
 /** Administrace → Přidělení výuky: the učební plán of a timetable version
  * (the grade's, changed for a class where it differs), who teaches what in
@@ -64,6 +65,7 @@ import { versionStatusLabel } from '../timetable-page/timetable-versions-dialog'
     Loading,
     Message,
     Select,
+    StudentGroupsPanel,
     TableModule,
     Tab,
     TabList,
@@ -95,7 +97,7 @@ export class TeachingTab {
   protected readonly overview = signal<TeachingOverview | null>(null);
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
-  private readonly teachers = signal<Teacher[]>([]);
+  protected readonly teachers = signal<Teacher[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
   protected activeTab = 'classes';
 
@@ -204,17 +206,22 @@ export class TeachingTab {
           c.problems.length +
           c.rows.filter((r) => r.problems.length).length,
         0,
-      ) + o.teachers.filter((t) => t.problems.length).length
+      ) +
+      o.teachers.filter((t) => t.problems.length).length +
+      o.groups.filter((g) => g.problems.length).length
     );
   });
 
   protected readonly automaticCount = computed(
     () =>
-      this.overview()?.classes.reduce(
+      (this.overview()?.classes.reduce(
         (n, c) =>
           n + c.rows.filter((r) => r.automatic && r.teacherId !== null).length,
         0,
-      ) ?? 0,
+      ) ?? 0) +
+      (this.overview()?.groups.filter(
+        (g) => g.automatic && g.teacherId !== null,
+      ).length ?? 0),
   );
 
   constructor() {
@@ -265,6 +272,17 @@ export class TeachingTab {
         this.notify.actionFailed('getTeaching failed', err);
       },
     });
+  }
+
+  /** Groups changed: their plan and the checks again. */
+  protected reloadOverview(): void {
+    const versionId = this.versionId();
+    if (versionId !== null) {
+      this.teachingApi.getTeaching(versionId).subscribe({
+        next: (overview) => this.show(overview),
+        error: (err) => this.notify.actionFailed('getTeaching failed', err),
+      });
+    }
   }
 
   private show(overview: TeachingOverview): void {

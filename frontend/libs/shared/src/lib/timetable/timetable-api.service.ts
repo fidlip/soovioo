@@ -15,6 +15,12 @@ export interface TimetableVersionQuery {
   date?: string | null;
 }
 
+/** A class's timetable; with `studentId` only the pupil's groups' lessons
+ * besides the whole class's. */
+export interface ClassTimetableQuery extends TimetableVersionQuery {
+  studentId?: number | null;
+}
+
 function versionParams(query: TimetableVersionQuery): HttpParams {
   let params = new HttpParams();
   if (query.versionId != null) {
@@ -33,11 +39,15 @@ export class TimetableApiService {
 
   getTimetable(
     schoolClassId: number,
-    query: TimetableVersionQuery = {},
+    query: ClassTimetableQuery = {},
   ): Observable<TimetableEntry[]> {
+    let params = versionParams(query);
+    if (query.studentId != null) {
+      params = params.set('studentId', query.studentId);
+    }
     return this.http.get<TimetableEntry[]>(
       `${this.baseUrl}/api/school-classes/${schoolClassId}/timetable`,
-      { params: versionParams(query) },
+      { params },
     );
   }
 
