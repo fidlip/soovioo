@@ -16,6 +16,8 @@ export interface Subject {
   color: string | null;
   /** Where it's taught, first choice first (sort by position). */
   classrooms: SubjectClassroom[];
+  /** In blocks of two lessons in a row; the učební plán can say otherwise. */
+  doubleLessons: boolean;
 }
 
 export interface CreateSubjectRequest {
@@ -23,6 +25,7 @@ export interface CreateSubjectRequest {
   abbreviation?: string;
   color?: string;
   classrooms?: { classroomId?: number; type?: ClassroomType }[];
+  doubleLessons?: boolean;
 }
 
 /** The subject's classrooms in order, a type expanded to its classrooms. */

@@ -15,13 +15,12 @@ import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Button } from '@openng/optimus-ui/button';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { Select } from '@openng/optimus-ui/select';
-import { SelectButton } from '@openng/optimus-ui/selectbutton';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import {
   AuthApiService,
+  AvailabilitySlot,
   Country,
-  DayOfWeek,
   PeopleApiService,
   PhotosApiService,
   Person,
@@ -29,10 +28,13 @@ import {
   SavePersonRequest,
   SchoolClass,
   SchoolClassesApiService,
+  SchoolPeriodsApiService,
   Student,
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  TeacherWishes,
+  TeacherWishesApiService,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
@@ -48,6 +50,8 @@ import {
 } from './student-fields';
 import { personPhotoUrl } from './person-photo';
 import { Loading } from '../loading/loading';
+import { InfoHint } from '../info-hint/info-hint';
+import { TeacherAvailability } from './teacher-availability';
 
 export type PersonProfile = 'teacher' | 'parent' | 'student';
 
@@ -74,8 +78,9 @@ export interface PersonDialogTarget {
     Dialog,
     InputNumber,
     Select,
-    SelectButton,
     FormsModule,
+    InfoHint,
+    TeacherAvailability,
     InputText,
     Loading,
     MultiSelect,
@@ -95,6 +100,8 @@ export class PersonDialog {
   private readonly photosApi = inject(PhotosApiService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly authApi = inject(AuthApiService);
+  private readonly periodsApi = inject(SchoolPeriodsApiService);
+  private readonly wishesApi = inject(TeacherWishesApiService);
 
   readonly target = input<PersonDialogTarget | null>(null);
   /** Offer Ukončení vzdělávání when a pupil's profile with history can't
@@ -116,13 +123,9 @@ export class PersonDialog {
   protected readonly classes = signal<SchoolClass[]>([]);
   protected readonly countries = signal<Country[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
-  protected readonly dayOptions: { label: string; value: DayOfWeek }[] = [
-    { label: 'Po', value: 'Monday' },
-    { label: 'Út', value: 'Tuesday' },
-    { label: 'St', value: 'Wednesday' },
-    { label: 'Čt', value: 'Thursday' },
-    { label: 'Pá', value: 'Friday' },
-  ];
+  /** The school's periods; 1.–8. until it sets its bell schedule. */
+  protected readonly periods = signal<number[]>([1, 2, 3, 4, 5, 6, 7, 8]);
+  protected readonly schoolWishes = signal<TeacherWishes | null>(null);
   private readonly students = signal<Student[]>([]);
   protected readonly childOptions = computed(() =>
     this.students()
@@ -141,7 +144,11 @@ export class PersonDialog {
   protected qualifications: QualificationForm[] = [];
   protected qualificationNote = '';
   protected contractedHours: number | null = null;
-  protected teachingDays: DayOfWeek[] = [];
+  protected availability: AvailabilitySlot[] = [];
+  protected freeDays: number | null = null;
+  protected minLessonsPerDay: number | null = null;
+  protected maxLessonsPerDay: number | null = null;
+  protected maxGapsPerDay: number | null = null;
   protected childIds: number[] = [];
   protected studentForm: StudentForm = emptyStudentForm(null);
 
@@ -207,7 +214,11 @@ export class PersonDialog {
     this.qualifications = [];
     this.qualificationNote = '';
     this.contractedHours = null;
-    this.teachingDays = this.dayOptions.map((d) => d.value);
+    this.availability = [];
+    this.freeDays = null;
+    this.minLessonsPerDay = null;
+    this.maxLessonsPerDay = null;
+    this.maxGapsPerDay = null;
     this.childIds = [];
     this.studentForm = emptyStudentForm(null);
     this.loadLists();
@@ -233,7 +244,11 @@ export class PersonDialog {
           }));
           this.qualificationNote = person.teacher.qualificationNote ?? '';
           this.contractedHours = person.teacher.contractedHours;
-          this.teachingDays = [...person.teacher.teachingDays];
+          this.availability = [...person.teacher.availability];
+          this.freeDays = person.teacher.freeDays;
+          this.minLessonsPerDay = person.teacher.minLessonsPerDay;
+          this.maxLessonsPerDay = person.teacher.maxLessonsPerDay;
+          this.maxGapsPerDay = person.teacher.maxGapsPerDay;
         }
         this.childIds = person.parent?.children.map((c) => c.studentId) ?? [];
         if (person.student) {
@@ -246,6 +261,11 @@ export class PersonDialog {
         this.notify.actionFailed('getPerson failed', err);
       },
     });
+  }
+
+  /** "škola: 6", "škola: –" (no wish). */
+  protected schoolWish(value: number | null | undefined): string {
+    return `škola: ${value ?? '–'}`;
   }
 
   private loadLists(): void {
@@ -263,6 +283,16 @@ export class PersonDialog {
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
+    });
+    this.periodsApi.getPeriods().subscribe({
+      next: (periods) =>
+        periods.length > 0 &&
+        this.periods.set(periods.map((p) => p.periodNumber)),
+      error: (err) => console.error('getPeriods failed', err),
+    });
+    this.wishesApi.get().subscribe({
+      next: (wishes) => this.schoolWishes.set(wishes),
+      error: (err) => console.error('get teacher wishes failed', err),
     });
     if (this.countries().length === 0) {
       this.referenceApi.getCountries().subscribe({
@@ -289,7 +319,11 @@ export class PersonDialog {
               })),
             qualificationNote: this.qualificationNote.trim() || undefined,
             contractedHours: this.contractedHours,
-            teachingDays: this.teachingDays,
+            availability: this.availability,
+            freeDays: this.freeDays,
+            minLessonsPerDay: this.minLessonsPerDay,
+            maxLessonsPerDay: this.maxLessonsPerDay,
+            maxGapsPerDay: this.maxGapsPerDay,
           }
         : undefined,
       parent: this.profiles.includes('parent')

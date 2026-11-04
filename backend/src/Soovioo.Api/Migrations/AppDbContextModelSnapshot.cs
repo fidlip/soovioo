@@ -806,6 +806,15 @@ namespace Soovioo.Api.Migrations
                     b.Property<bool>("StudentPhotos")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("TeacherMaxGapsPerDay")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TeacherMaxLessonsPerDay")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TeacherMinLessonsPerDay")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
@@ -997,6 +1006,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Color")
                         .HasColumnType("text");
 
+                    b.Property<bool>("DoubleLessons")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1015,6 +1027,7 @@ namespace Soovioo.Api.Migrations
                         {
                             Id = 1,
                             Abbreviation = "M",
+                            DoubleLessons = false,
                             Name = "Matematika",
                             SchoolId = 1
                         },
@@ -1022,6 +1035,7 @@ namespace Soovioo.Api.Migrations
                         {
                             Id = 2,
                             Abbreviation = "Čj",
+                            DoubleLessons = false,
                             Name = "Český jazyk",
                             SchoolId = 1
                         },
@@ -1029,6 +1043,7 @@ namespace Soovioo.Api.Migrations
                         {
                             Id = 3,
                             Abbreviation = "Aj",
+                            DoubleLessons = false,
                             Name = "Anglický jazyk",
                             SchoolId = 1
                         });
@@ -1703,19 +1718,31 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("PersonId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Availability")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
                     b.Property<decimal?>("ContractedHours")
                         .HasPrecision(4, 1)
                         .HasColumnType("numeric(4,1)");
+
+                    b.Property<int?>("FreeDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxGapsPerDay")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxLessonsPerDay")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MinLessonsPerDay")
+                        .HasColumnType("integer");
 
                     b.Property<string>("QualificationNote")
                         .HasColumnType("text");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
-
-                    b.PrimitiveCollection<int[]>("TeachingDays")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
 
                     b.HasKey("PersonId");
 
@@ -2018,7 +2045,10 @@ namespace Soovioo.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<decimal>("HoursPerWeek")
+                    b.Property<bool?>("DoubleLessons")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("HoursPerWeek")
                         .HasPrecision(4, 1)
                         .HasColumnType("numeric(4,1)");
 
@@ -2053,6 +2083,9 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool?>("DoubleLessons")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Grade")
                         .HasColumnType("integer");

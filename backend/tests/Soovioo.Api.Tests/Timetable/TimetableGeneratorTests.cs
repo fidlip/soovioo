@@ -1,3 +1,4 @@
+using Soovioo.Api.People;
 using Soovioo.Api.Timetable;
 using static Soovioo.Api.Timetable.TimetableGenerator;
 
@@ -10,9 +11,12 @@ public class TimetableGeneratorTests
 
     private static Result Run(
         IReadOnlyList<Demand> demands, IReadOnlyList<Kept>? kept = null,
-        Dictionary<int, IReadOnlyCollection<DayOfWeek>>? teacherDays = null, int periods = 6) =>
+        Dictionary<int, Teacher>? teachers = null, int periods = 6) =>
         Generate(new Input(Week, [.. Enumerable.Range(1, periods)], demands, kept ?? [],
-            teacherDays ?? [], TimeSpan.FromSeconds(5)));
+            teachers ?? [], TimeSpan.FromSeconds(5)));
+
+    private static Teacher DaysOff(params DayOfWeek[] days) =>
+        new([.. days.Select(d => new AvailabilitySlot(d, null, AvailabilityKind.Unavailable))]);
 
     [Fact]
     public void EveryLessonFindsAPlaceWithoutClashesOrGaps()
@@ -62,7 +66,7 @@ public class TimetableGeneratorTests
     public void ATeacherOnlyOnTheirDaysAndWhatDoesNotFitIsReported()
     {
         var result = Run([new Demand(1, 10, 100, 5, 0)],
-            teacherDays: new() { [100] = [DayOfWeek.Monday] });
+            teachers: new() { [100] = DaysOff([.. Week.Skip(1)]) });
 
         Assert.True(result.Solved);
         Assert.All(result.Placements, p => Assert.Equal(DayOfWeek.Monday, p.Day));
@@ -135,5 +139,53 @@ public class TimetableGeneratorTests
         var result = Run([new Demand(1, 10, 100, 1, 1)]);
 
         Assert.Equal([WeekParity.Every, WeekParity.Odd], result.Placements.Select(p => p.Parity).Order());
+    }
+
+    [Fact]
+    public void NeverWhenTheTeacherCannotAndRatherNotOnlyWhenItMust()
+    {
+        // Can't the first two periods, would rather not the third.
+        Teacher teacher = new([.. from day in Week from period in new[] { 1, 2, 3 }
+                               select new AvailabilitySlot(day, period, period == 3 ? AvailabilityKind.Avoid : AvailabilityKind.Unavailable)]);
+
+        var result = Run([new Demand(1, 10, 100, 5, 0)], teachers: new() { [100] = teacher });
+
+        Assert.Empty(result.Unplaced);
+        Assert.All(result.Placements, p => Assert.True(p.Period > 3));
+    }
+
+    [Fact]
+    public void ABlockIsTwoLessonsInARowInOneClassroom()
+    {
+        var result = Run([new Demand(1, 10, 100, 5, 0, [1, 2], DoubleLessons: true), new Demand(1, 11, 101, 10, 0)]);
+
+        Assert.Empty(result.Unplaced);
+        var days = result.Placements.Where(p => p.SubjectId == 10).GroupBy(p => p.Day).ToList();
+        Assert.Equal([1, 2, 2], days.Select(d => d.Count()).Order());
+        Assert.All(days.Where(d => d.Count() == 2), d =>
+        {
+            Assert.Equal(1, Math.Abs(d.First().Period - d.Last().Period));
+            Assert.Single(d.Select(p => p.ClassroomId).Distinct());
+        });
+    }
+
+    [Fact]
+    public void TheTeachersWishes()
+    {
+        // 6 lessons in two classes: two free days and 2–3 a day want three
+        // days of two; without gaps.
+        Dictionary<int, Teacher> teachers = new()
+        {
+            [100] = new([], FreeDays: 2, new TeacherWishes(MinLessonsPerDay: 2, MaxLessonsPerDay: 3, MaxGapsPerDay: 0)),
+        };
+
+        var result = Run([new Demand(1, 10, 100, 3, 0), new Demand(1, 11, 101, 12, 0),
+            new Demand(2, 10, 100, 3, 0), new Demand(2, 11, 102, 12, 0)], teachers: teachers);
+
+        Assert.Empty(result.Unplaced);
+        var days = result.Placements.Where(p => p.TeacherId == 100).GroupBy(p => p.Day).ToList();
+        Assert.Equal(3, days.Count);
+        Assert.All(days, d => Assert.Equal(2, d.Count()));
+        Assert.All(days, d => Assert.Equal(0, Holes(d.Select(p => p.Period))));
     }
 }

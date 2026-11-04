@@ -101,6 +101,9 @@ export class TeachingTab {
 
   /** Hours being edited in Učební plán, by `grade-subjectId`. */
   protected plan: Record<string, number | null> = {};
+  /** Blocks of two in Učební plán where the grade differs from the
+   * subject, by `grade-subjectId`. */
+  protected planBlocks: Record<string, boolean | null> = {};
   /** A class's hours being edited, by `classId-subjectId`. */
   protected classPlan: Record<string, number | null> = {};
 
@@ -272,6 +275,12 @@ export class TeachingTab {
         c.hoursPerWeek,
       ]),
     );
+    this.planBlocks = Object.fromEntries(
+      overview.curriculum.map((c) => [
+        `${c.grade}-${c.subjectId}`,
+        c.doubleLessons ?? null,
+      ]),
+    );
     this.classPlan = Object.fromEntries(
       overview.classes.flatMap((c) =>
         c.rows.map((r) => [`${c.id}-${r.subjectId}`, r.planHours]),
@@ -362,6 +371,36 @@ export class TeachingTab {
     }
   }
 
+  /** In blocks of two or not; the grade's (or subject's) again = as the grade. */
+  protected setClassBlocks(
+    c: TeachingClass,
+    row: TeachingRow,
+    blocks: boolean,
+  ): void {
+    const versionId = this.versionId();
+    if (versionId !== null) {
+      this.run(
+        this.teachingApi.setClassDoubleLessons(
+          versionId,
+          c.id,
+          row.subjectId,
+          blocks === row.gradeDoubleLessons ? null : blocks,
+        ),
+      );
+    }
+  }
+
+  /** The grade's blocks of two: its own, otherwise the subject's. */
+  protected gradeBlocks(grade: number, subject: Subject): boolean {
+    return this.planBlocks[`${grade}-${subject.id}`] ?? subject.doubleLessons;
+  }
+
+  protected toggleGradeBlocks(grade: number, subject: Subject): void {
+    const blocks = !this.gradeBlocks(grade, subject);
+    this.planBlocks[`${grade}-${subject.id}`] =
+      blocks === subject.doubleLessons ? null : blocks;
+  }
+
   /** Subjects the class has nothing of yet. */
   protected addableSubjects(c: TeachingClass): Subject[] {
     return this.subjects().filter(
@@ -405,7 +444,12 @@ export class TeachingTab {
       .filter(([, hours]) => hours !== null && hours > 0)
       .map(([key, hours]) => {
         const [grade, subjectId] = key.split('-').map(Number);
-        return { grade, subjectId, hoursPerWeek: hours! };
+        return {
+          grade,
+          subjectId,
+          hoursPerWeek: hours!,
+          doubleLessons: this.planBlocks[key] ?? null,
+        };
       });
     this.run(
       this.teachingApi.saveCurriculum(versionId, items),

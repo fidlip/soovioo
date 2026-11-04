@@ -23,8 +23,20 @@ public class TeacherProfile
     /// <summary>Nasmlouvané hodiny přímé výuky týdně; null = not entered.</summary>
     public decimal? ContractedHours { get; set; }
 
-    /// <summary>Days the teacher can teach.</summary>
-    public List<DayOfWeek> TeachingDays { get; set; } = [.. Weekdays];
+    /// <summary>When the teacher can't or would rather not teach; a slot
+    /// not listed is free.</summary>
+    public List<AvailabilitySlot> Availability { get; set; } = [];
+
+    /// <summary>Wishes the generator tries to meet: days a week without
+    /// lessons (any of them), lessons a day on a day with lessons, free
+    /// periods between lessons a day. Null = no wish.</summary>
+    public int? FreeDays { get; set; }
+    public int? MinLessonsPerDay { get; set; }
+    public int? MaxLessonsPerDay { get; set; }
+    public int? MaxGapsPerDay { get; set; }
+
+    /// <summary>Days not off as a whole.</summary>
+    public List<DayOfWeek> TeachingDays => AvailabilitySlot.TeachingDays(Availability);
 
     /// <summary>"D 6.–9., Čj, 1. stupeň" — with the subjects loaded.</summary>
     public string? Describe()
@@ -39,6 +51,37 @@ public class TeacherProfile
 
     public static readonly DayOfWeek[] Weekdays =
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
+}
+
+public enum AvailabilityKind
+{
+    /// <summary>Nemůže — the generator never places a lesson there.</summary>
+    Unavailable,
+
+    /// <summary>Raději ne — only when it has to.</summary>
+    Avoid,
+}
+
+/// <param name="Period">Null = the whole day.</param>
+public record AvailabilitySlot(DayOfWeek Day, int? Period, AvailabilityKind Kind)
+{
+    public static List<DayOfWeek> TeachingDays(IEnumerable<AvailabilitySlot> slots) =>
+        [.. TeacherProfile.Weekdays.Where(d => !slots.Any(s => s.Day == d && s.Period is null && s.Kind == AvailabilityKind.Unavailable))];
+
+    /// <summary>One entry a slot; a day off as a whole drops its periods.</summary>
+    public static List<AvailabilitySlot> Normalize(IEnumerable<AvailabilitySlot> slots)
+    {
+        var list = slots.DistinctBy(s => (s.Day, s.Period)).ToList();
+        var daysOff = list.Where(s => s.Period is null && s.Kind == AvailabilityKind.Unavailable).Select(s => s.Day).ToHashSet();
+        return [.. list.Where(s => s.Period is null || !daysOff.Contains(s.Day)).OrderBy(s => s.Day).ThenBy(s => s.Period ?? -1)];
+    }
+
+    /// <summary>The slot's kind, the whole day's first; null = free.</summary>
+    public static AvailabilityKind? At(IEnumerable<AvailabilitySlot> slots, DayOfWeek day, int period)
+    {
+        var kinds = slots.Where(s => s.Day == day && (s.Period is null || s.Period == period)).Select(s => s.Kind).ToList();
+        return kinds.Count == 0 ? null : kinds.Min();
+    }
 }
 
 /// <summary>One subject of a teacher's aprobace, for every grade or only

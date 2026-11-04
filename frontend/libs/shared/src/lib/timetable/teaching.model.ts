@@ -6,6 +6,8 @@ export interface CurriculumItem {
   grade: number;
   subjectId: number;
   hoursPerWeek: number;
+  /** In blocks of two; null = as the subject. */
+  doubleLessons?: boolean | null;
 }
 
 /** A subject in a class: the plan, the timetable and who teaches it. */
@@ -25,6 +27,10 @@ export interface TeachingRow {
   /** Chosen by the system, not by the school. */
   automatic: boolean;
   problems: string[];
+  /** In blocks of two: the class's, its grade's or the subject's. */
+  doubleLessons: boolean;
+  /** What the grade (or the subject) says. */
+  gradeDoubleLessons: boolean;
 }
 
 export interface TeachingClass {

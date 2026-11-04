@@ -189,9 +189,11 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
             var profile = person.TeacherProfile;
             profile.QualificationNote = string.IsNullOrWhiteSpace(teacher.QualificationNote) ? null : teacher.QualificationNote.Trim();
             profile.ContractedHours = teacher.ContractedHours;
-            profile.TeachingDays = teacher.TeachingDays is { } days
-                ? [.. TeacherProfile.Weekdays.Where(days.Contains)]
-                : [.. TeacherProfile.Weekdays];
+            profile.Availability = AvailabilitySlot.Normalize(teacher.Availability ?? []);
+            profile.FreeDays = teacher.FreeDays is 0 ? null : teacher.FreeDays;
+            profile.MinLessonsPerDay = teacher.MinLessonsPerDay;
+            profile.MaxLessonsPerDay = teacher.MaxLessonsPerDay;
+            profile.MaxGapsPerDay = teacher.MaxGapsPerDay;
             var wanted = teacher.Qualifications ?? [];
             profile.Qualifications.RemoveAll(q => !wanted.Any(w => Same(w, q)));
             foreach (var w in wanted.Where(w => !profile.Qualifications.Any(q => Same(w, q))))
@@ -254,6 +256,18 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             return this.FieldError("contractedHours", "Nasmlouvané hodiny musí být mezi 0 a 60.");
         }
+        if (teacher.Availability?.Any(a => !TeacherProfile.Weekdays.Contains(a.Day) || a.Period is < 0 or > 15 || !Enum.IsDefined(a.Kind)) == true)
+        {
+            return this.FieldError("availability", "Neplatná dostupnost.");
+        }
+        if (teacher.FreeDays is < 0 or > 4)
+        {
+            return this.FieldError("freeDays", "Volných dnů může být 0 až 4.");
+        }
+        if (TeacherWishes.Error(teacher.MinLessonsPerDay, teacher.MaxLessonsPerDay, teacher.MaxGapsPerDay) is var (field, message))
+        {
+            return this.FieldError(field, message);
+        }
         var qualifications = teacher.Qualifications ?? [];
         var subjectIds = qualifications.Select(q => q.SubjectId).Distinct().ToList();
         if (await db.Subjects.CountAsync(s => subjectIds.Contains(s.Id)) != subjectIds.Count)
@@ -306,7 +320,8 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
                     ? new TeacherProfileDto(
                         t.Describe(),
                         t.Qualifications.OrderBy(q => q.Subject?.Name).Select(QualificationDto.Of).ToList(),
-                        t.QualificationNote, t.ContractedHours, t.TeachingDays,
+                        t.QualificationNote, t.ContractedHours, t.TeachingDays, t.Availability,
+                        t.FreeDays, t.MinLessonsPerDay, t.MaxLessonsPerDay, t.MaxGapsPerDay,
                         p.UserId is { } teacherId ? classTeacherOf[teacherId].ToList() : [])
                     : null,
                 p.ParentProfile is { } pp
@@ -335,8 +350,13 @@ public record TeacherProfileRequest(
     IReadOnlyList<QualificationDto>? Qualifications = null,
     string? QualificationNote = null,
     decimal? ContractedHours = null,
-    /// <summary>Null = every weekday.</summary>
-    IReadOnlyList<DayOfWeek>? TeachingDays = null);
+    /// <summary>Null = free any time.</summary>
+    IReadOnlyList<AvailabilitySlot>? Availability = null,
+    int? FreeDays = null,
+    /// <summary>Null = the school's, see <see cref="TeacherWishes"/>.</summary>
+    int? MinLessonsPerDay = null,
+    int? MaxLessonsPerDay = null,
+    int? MaxGapsPerDay = null);
 
 /// <param name="GradeFrom">Ročník od; null = from the first.</param>
 /// <param name="GradeTo">Ročník do; null = to the last.</param>
@@ -372,6 +392,11 @@ public record TeacherProfileDto(
     string? QualificationNote,
     decimal? ContractedHours,
     IReadOnlyList<DayOfWeek> TeachingDays,
+    IReadOnlyList<AvailabilitySlot> Availability,
+    int? FreeDays,
+    int? MinLessonsPerDay,
+    int? MaxLessonsPerDay,
+    int? MaxGapsPerDay,
     IReadOnlyList<string> ClassTeacherOf);
 
 public record ParentProfileDto(IReadOnlyList<PersonChildDto> Children);

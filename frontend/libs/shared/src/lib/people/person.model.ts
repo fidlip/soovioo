@@ -37,10 +37,34 @@ export interface TeacherProfile {
   qualificationNote: string | null;
   /** Nasmlouvané hodiny týdně. */
   contractedHours: number | null;
-  /** Days the teacher can teach. */
+  /** Days not off as a whole. */
   teachingDays: DayOfWeek[];
+  availability: AvailabilitySlot[];
+  freeDays: number | null;
+  /** Null = the school's, see TeacherWishes. */
+  minLessonsPerDay: number | null;
+  maxLessonsPerDay: number | null;
+  maxGapsPerDay: number | null;
   /** Classes whose class teacher the person's account is. */
   classTeacherOf: string[];
+}
+
+/** Nemůže / raději ne; a slot not listed is free. */
+export type AvailabilityKind = 'Unavailable' | 'Avoid';
+
+/** period null = the whole day. */
+export interface AvailabilitySlot {
+  day: DayOfWeek;
+  period: number | null;
+  kind: AvailabilityKind;
+}
+
+/** What the generator tries to give a teacher on a day with lessons;
+ * null = no wish. The school's apply where a teacher has none. */
+export interface TeacherWishes {
+  minLessonsPerDay: number | null;
+  maxLessonsPerDay: number | null;
+  maxGapsPerDay: number | null;
 }
 
 export interface ParentProfile {
@@ -64,7 +88,11 @@ export interface SavePersonRequest {
     qualifications: Qualification[];
     qualificationNote?: string;
     contractedHours?: number | null;
-    teachingDays: DayOfWeek[];
+    availability: AvailabilitySlot[];
+    freeDays?: number | null;
+    minLessonsPerDay?: number | null;
+    maxLessonsPerDay?: number | null;
+    maxGapsPerDay?: number | null;
   };
   parent?: { childIds: number[] };
   student?: StudentMatrika;

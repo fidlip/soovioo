@@ -141,7 +141,13 @@ public class TeachingControllerTests
         var eighth = Class("8.A", 8);
         var assigned = Teacher("Adámek", 1, Of(maths));
         var other = Teacher("Bártová", null, Of(maths));
-        other.Person!.TeacherProfile!.TeachingDays = [DayOfWeek.Tuesday];
+        other.Person!.TeacherProfile!.Availability =
+        [
+            new(DayOfWeek.Monday, null, AvailabilityKind.Unavailable),
+            new(DayOfWeek.Wednesday, null, AvailabilityKind.Unavailable),
+            new(DayOfWeek.Thursday, null, AvailabilityKind.Unavailable),
+            new(DayOfWeek.Friday, null, AvailabilityKind.Unavailable),
+        ];
         Plan(8, history, 1);
         Plan(8, maths, 2);
         db.TeachingAssignments.Add(new TeachingAssignment
@@ -329,5 +335,37 @@ public class TeachingControllerTests
 
         Assert.IsType<NotFoundResult>((await Controller(UserRole.Teacher, teacher.Id).GetTeaching(draft.Id)).Result);
         Assert.IsType<OkObjectResult>((await Controller().GetTeaching(draft.Id)).Result);
+    }
+
+    [Fact]
+    public async Task BlocksComeFromTheSubjectTheGradeOrTheClass()
+    {
+        var sixthA = Class("6.A", 6);
+        var sixthB = Class("6.B", 6);
+        maths.DoubleLessons = true;
+        db.CurriculumItems.Add(new CurriculumItem
+        {
+            SchoolId = SchoolId, TimetableVersionId = version.Id, Grade = 6, SubjectId = history.Id, HoursPerWeek = 2,
+            DoubleLessons = true,
+        });
+        Plan(6, maths, 4);
+
+        var overview = await Overview();
+        Assert.True(Row(overview, sixthA, maths).DoubleLessons);
+        Assert.True(Row(overview, sixthA, history).DoubleLessons);
+
+        // 6.A without blocks in maths, with its own hours too.
+        Value(await Controller().SetClassDoubleLessons(version.Id, new(sixthA.Id, maths.Id, false)));
+        overview = Value(await Controller().SetClassCurriculum(version.Id, new(sixthA.Id, maths.Id, 5)));
+        Assert.Equal((false, true, 5m), (Row(overview, sixthA, maths).DoubleLessons, Row(overview, sixthA, maths).GradeDoubleLessons,
+            Row(overview, sixthA, maths).PlanHours));
+        Assert.True(Row(overview, sixthB, maths).DoubleLessons);
+
+        // Back to the grade's hours: its own blocks stay; then as the grade, nothing of its own is left.
+        overview = Value(await Controller().SetClassCurriculum(version.Id, new(sixthA.Id, maths.Id, null)));
+        Assert.Equal((false, 4m, false), (Row(overview, sixthA, maths).DoubleLessons, Row(overview, sixthA, maths).PlanHours,
+            Row(overview, sixthA, maths).ClassPlan));
+        Value(await Controller().SetClassDoubleLessons(version.Id, new(sixthA.Id, maths.Id, true)));
+        Assert.Empty(db.ClassCurriculumItems);
     }
 }

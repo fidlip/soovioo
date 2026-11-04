@@ -12,7 +12,7 @@ public static class TeachingPlanner
 {
     public record ClassInput(int Id, string Name, int? Grade, int? ClassTeacherId);
 
-    public record SubjectInput(int Id, string Name, string? Abbreviation)
+    public record SubjectInput(int Id, string Name, string? Abbreviation, bool DoubleLessons = false)
     {
         public string Short => Abbreviation ?? Name;
     }
@@ -24,13 +24,16 @@ public static class TeachingPlanner
         IReadOnlyList<TeacherQualification> Qualifications,
         string? Qualification,
         decimal? ContractedHours,
-        IReadOnlyList<DayOfWeek> TeachingDays,
+        IReadOnlyList<AvailabilitySlot> Availability,
         bool HasProfile)
     {
+        public IReadOnlyList<DayOfWeek> TeachingDays { get; } = AvailabilitySlot.TeachingDays(Availability);
+
         public bool Covers(int subjectId, int? grade) => Qualifications.Any(q => q.Covers(subjectId, grade));
     }
 
-    public record LessonInput(int SchoolClassId, int SubjectId, int? TeacherId, DayOfWeek DayOfWeek, WeekParity WeekParity)
+    public record LessonInput(
+        int SchoolClassId, int SubjectId, int? TeacherId, DayOfWeek DayOfWeek, WeekParity WeekParity, int Period = 1)
     {
         /// <summary>A lesson every other week is half an hour a week.</summary>
         public decimal Hours => WeekParity == WeekParity.Every ? 1m : 0.5m;
@@ -55,6 +58,8 @@ public static class TeachingPlanner
         public decimal TimetableHours { get; init; }
         public int? TeacherId { get; set; }
         public bool Automatic { get; set; }
+        public bool DoubleLessons { get; init; }
+        public bool GradeDoubleLessons { get; init; }
 
         /// <summary>What the teacher is given for it: the plan's hours, or
         /// the timetable's where the plan has none.</summary>
@@ -65,8 +70,8 @@ public static class TeachingPlanner
     {
         var subjects = input.Subjects.ToDictionary(s => s.Id);
         var teachers = input.Teachers.ToDictionary(t => t.Id);
-        var plan = input.Curriculum.ToDictionary(c => (c.Grade, c.SubjectId), c => c.HoursPerWeek);
-        var classPlan = input.ClassCurriculum.ToDictionary(c => (c.SchoolClassId, c.SubjectId), c => c.HoursPerWeek);
+        var plan = input.Curriculum.ToDictionary(c => (c.Grade, c.SubjectId));
+        var classPlan = input.ClassCurriculum.ToDictionary(c => (c.SchoolClassId, c.SubjectId));
         var assigned = input.Assignments.ToDictionary(a => (a.SchoolClassId, a.SubjectId), a => a.TeacherId);
         var lessons = input.Lessons.ToLookup(l => (l.SchoolClassId, l.SubjectId));
 
@@ -81,13 +86,18 @@ public static class TeachingPlanner
                 .Where(subjects.ContainsKey);
             foreach (var subjectId in subjectIds)
             {
-                decimal? gradeHours = c.Grade is { } grade && plan.TryGetValue((grade, subjectId), out var hours) ? hours : null;
-                var own = classPlan.TryGetValue((c.Id, subjectId), out var ownHours);
+                var gradeItem = c.Grade is { } grade ? plan.GetValueOrDefault((grade, subjectId)) : null;
+                var classItem = classPlan.GetValueOrDefault((c.Id, subjectId));
+                var gradeHours = gradeItem?.HoursPerWeek;
+                var own = classItem?.HoursPerWeek is not null;
+                var gradeBlocks = gradeItem?.DoubleLessons ?? subjects[subjectId].DoubleLessons;
                 rows.Add(new Row
                 {
                     Class = c,
                     Subject = subjects[subjectId],
-                    PlanHours = own ? ownHours : gradeHours,
+                    PlanHours = own ? classItem!.HoursPerWeek : gradeHours,
+                    DoubleLessons = classItem?.DoubleLessons ?? gradeBlocks,
+                    GradeDoubleLessons = gradeBlocks,
                     GradeHours = gradeHours,
                     ClassPlan = own,
                     TimetableHours = lessons[(c.Id, subjectId)].Sum(l => l.Hours),
@@ -170,7 +180,8 @@ public static class TeachingPlanner
                 }
                 return new TeachingRowDto(
                     r.Subject.Id, r.Subject.Name, r.Subject.Abbreviation, r.PlanHours, r.GradeHours, r.ClassPlan, r.TimetableHours,
-                    r.TeacherId, r.TeacherId is null ? null : NameOf(r.TeacherId), r.Automatic, problems);
+                    r.TeacherId, r.TeacherId is null ? null : NameOf(r.TeacherId), r.Automatic, problems,
+                    r.DoubleLessons, r.GradeDoubleLessons);
             }).ToList();
             IReadOnlyList<string> classProblems = c.Grade is null
                 ? ["Třída nemá zadaný ročník — učební plán ročníku se na ni nevztahuje, jen její vlastní."]
@@ -204,10 +215,8 @@ public static class TeachingPlanner
             {
                 problems.Add("Nemá zadané nasmlouvané hodiny.");
             }
-            foreach (var day in own.Select(l => l.DayOfWeek).Distinct().Where(d => !t.TeachingDays.Contains(d)).Order())
-            {
-                problems.Add($"V rozvrhu učí {OnDay(day)}, kdy učit nemůže.");
-            }
+            problems.AddRange(Unavailable(t.Availability, own.Select(l => (l.DayOfWeek, l.Period)))
+                .Select(when => $"V rozvrhu učí {when}, kdy učit nemůže."));
             var taught = rows.Where(r => r.TeacherId == t.Id && r.Hours > 0)
                 .OrderBy(r => r.Class.Name).ThenBy(r => r.Subject.Name)
                 .Select(r => new TeachingTaughtDto(
@@ -215,10 +224,24 @@ public static class TeachingPlanner
                 .ToList();
             return new TeachingTeacherDto(
                 t.Id, t.Name, t.Qualification, t.ContractedHours, assignedHours, own.Sum(l => l.Hours), t.TeachingDays,
-                taught, problems);
+                taught, problems, t.Availability);
         }).ToList();
 
         return (classes, teacherDtos);
+    }
+
+    /// <summary>"v pondělí", "v úterý 1., 2. hod." — when lessons are where
+    /// the teacher can't teach.</summary>
+    public static IEnumerable<string> Unavailable(
+        IReadOnlyList<AvailabilitySlot> availability, IEnumerable<(DayOfWeek Day, int Period)> lessons)
+    {
+        var days = AvailabilitySlot.TeachingDays(availability);
+        return lessons.Distinct()
+            .Where(l => AvailabilitySlot.At(availability, l.Day, l.Period) == AvailabilityKind.Unavailable)
+            .GroupBy(l => l.Day).OrderBy(g => g.Key)
+            .Select(g => days.Contains(g.Key)
+                ? $"{OnDay(g.Key)} {string.Join(", ", g.Select(l => l.Period).Order().Select(p => $"{p}."))} hod."
+                : OnDay(g.Key));
     }
 
     /// <summary>"v pondělí".</summary>
@@ -238,10 +261,12 @@ public static class TeachingPlanner
         $"{hours.ToString("0.#", SchoolFormat.Culture)} h";
 }
 
-public record CurriculumItemDto(int Grade, int SubjectId, decimal HoursPerWeek);
+/// <param name="DoubleLessons">Null = as the subject.</param>
+public record CurriculumItemDto(int Grade, int SubjectId, decimal HoursPerWeek, bool? DoubleLessons = null);
 
-/// <param name="HoursPerWeek">0 = the class doesn't have the subject.</param>
-public record ClassCurriculumItemDto(int SchoolClassId, int SubjectId, decimal HoursPerWeek);
+/// <param name="HoursPerWeek">0 = the class doesn't have the subject; null = as its grade.</param>
+/// <param name="DoubleLessons">Null = as its grade.</param>
+public record ClassCurriculumItemDto(int SchoolClassId, int SubjectId, decimal? HoursPerWeek, bool? DoubleLessons = null);
 
 /// <param name="Grade">Ročník; null = the class has none, the plan doesn't apply.</param>
 public record TeachingClassDto(
@@ -252,6 +277,8 @@ public record TeachingClassDto(
 /// <param name="ClassPlan">The class has its own hours for the subject, not the grade's.</param>
 /// <param name="TimetableHours">Hours a week the version's timetable has.</param>
 /// <param name="Automatic">Chosen by the system, not by the school.</param>
+/// <param name="DoubleLessons">In blocks of two: the class's, its grade's or the subject's.</param>
+/// <param name="GradeDoubleLessons">What the grade (or the subject) says.</param>
 public record TeachingRowDto(
     int SubjectId,
     string SubjectName,
@@ -263,7 +290,9 @@ public record TeachingRowDto(
     int? TeacherId,
     string? TeacherName,
     bool Automatic,
-    IReadOnlyList<string> Problems);
+    IReadOnlyList<string> Problems,
+    bool DoubleLessons = false,
+    bool GradeDoubleLessons = false);
 
 /// <param name="AssignedHours">Hours of what the teacher is assigned (or
 /// chosen for automatically).</param>
@@ -276,7 +305,12 @@ public record TeachingTeacherDto(
     decimal TimetableHours,
     IReadOnlyList<DayOfWeek> TeachingDays,
     IReadOnlyList<TeachingTaughtDto> Taught,
-    IReadOnlyList<string> Problems);
+    IReadOnlyList<string> Problems,
+    IReadOnlyList<AvailabilitySlot>? Availability = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<AvailabilitySlot> Availability { get; init; } = Availability ?? [];
+}
 
 /// <summary>A class and subject a teacher is given (or chosen for automatically).</summary>
 public record TeachingTaughtDto(

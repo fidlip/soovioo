@@ -176,18 +176,69 @@
             inputStyleClass="w-full"
           />
         </app-float-field>
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-surface-500">Může učit</span>
-          <p-selectbutton
-            [options]="dayOptions"
-            optionLabel="label"
-            optionValue="value"
-            [multiple]="true"
-            [(ngModel)]="teachingDays"
-            name="teachingDays"
-            ariaLabel="Dny, kdy může učit"
+      </div>
+      <h4 class="mt-2 text-xs font-medium text-surface-500">
+        Kdy může učit<app-info-hint
+          text="Generátor rozvrhu do „nemůže“ nikdy nedá hodinu, do „raději ne“ jen když jinak nejde."
+        />
+      </h4>
+      <app-teacher-availability
+        [periods]="periods()"
+        [(value)]="availability"
+      />
+      <h4 class="mt-2 text-xs font-medium text-surface-500">
+        Přání<app-info-hint
+          text="Generátor rozvrhu se je snaží splnit. Prázdné pole = podle školy (Administrace → Škola a matrika), „škola: –“ = bez omezení."
+        />
+      </h4>
+      <div class="flex flex-wrap items-center gap-3">
+        <app-float-field label="Volné dny v týdnu" for="personFreeDays">
+          <p-inputNumber
+            inputId="personFreeDays"
+            [(ngModel)]="freeDays"
+            name="freeDays"
+            [min]="0"
+            [max]="4"
+            styleClass="w-48"
+            inputStyleClass="w-full"
           />
-        </div>
+        </app-float-field>
+        <app-float-field label="Nejméně hodin denně" for="personMinLessons">
+          <p-inputNumber
+            inputId="personMinLessons"
+            [(ngModel)]="minLessonsPerDay"
+            name="minLessonsPerDay"
+            [min]="1"
+            [max]="12"
+            [placeholder]="schoolWish(schoolWishes()?.minLessonsPerDay)"
+            styleClass="w-48"
+            inputStyleClass="w-full"
+          />
+        </app-float-field>
+        <app-float-field label="Nejvýš hodin denně" for="personMaxLessons">
+          <p-inputNumber
+            inputId="personMaxLessons"
+            [(ngModel)]="maxLessonsPerDay"
+            name="maxLessonsPerDay"
+            [min]="1"
+            [max]="12"
+            [placeholder]="schoolWish(schoolWishes()?.maxLessonsPerDay)"
+            styleClass="w-48"
+            inputStyleClass="w-full"
+          />
+        </app-float-field>
+        <app-float-field label="Nejvýš oken denně" for="personMaxGaps">
+          <p-inputNumber
+            inputId="personMaxGaps"
+            [(ngModel)]="maxGapsPerDay"
+            name="maxGapsPerDay"
+            [min]="0"
+            [max]="10"
+            [placeholder]="schoolWish(schoolWishes()?.maxGapsPerDay)"
+            styleClass="w-48"
+            inputStyleClass="w-full"
+          />
+        </app-float-field>
       </div>
     </section>
     } @if (profiles.includes('parent')) {

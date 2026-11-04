@@ -82,6 +82,12 @@ public class School
     public TimeOnly PushQuietFrom { get; set; } = new(21, 0);
     public TimeOnly PushQuietTo { get; set; } = new(7, 0);
 
+    /// <summary>Teachers' wishes for those who didn't set their own, see
+    /// <see cref="People.TeacherProfile.MinLessonsPerDay"/>. Null = none.</summary>
+    public int? TeacherMinLessonsPerDay { get; set; }
+    public int? TeacherMaxLessonsPerDay { get; set; }
+    public int? TeacherMaxGapsPerDay { get; set; }
+
     /// <summary>The built-in four (<see cref="Auth.RoleSeeder.AddMissing"/>)
     /// and the school's own.</summary>
     public List<Auth.Role> Roles { get; set; } = [];

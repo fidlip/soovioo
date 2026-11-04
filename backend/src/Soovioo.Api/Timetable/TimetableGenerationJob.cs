@@ -124,16 +124,17 @@ public class TimetableGenerationJob(
                 }
                 var weekly = (int)Math.Floor(hours);
                 demands.Add(new TimetableGenerator.Demand(
-                    schoolClass.Id, row.SubjectId, row.TeacherId, weekly, hours - weekly >= 0.5m ? 1 : 0, subjectRooms));
+                    schoolClass.Id, row.SubjectId, row.TeacherId, weekly, hours - weekly >= 0.5m ? 1 : 0, subjectRooms,
+                    row.DoubleLessons));
             }
         }
 
-        var teacherDays = plan.Teachers.ToDictionary(t => t.Id, t => (IReadOnlyCollection<DayOfWeek>)t.TeachingDays);
+        var teachers = await TeachersAsync(db, version.SchoolId, plan.Teachers.Select(t => t.Id).ToList());
         TimetableGenerator.Progress? latest = null;
         var solving = Task.Run(() => TimetableGenerator.Generate(new TimetableGenerator.Input(
             [.. TeacherProfile.Weekdays], periods, demands,
             [.. kept.Select(e => new TimetableGenerator.Kept(e.SchoolClassId, e.SubjectId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber))],
-            teacherDays, timeLimit)
+            teachers, timeLimit)
         {
             OnProgress = p => Volatile.Write(ref latest, p),
         }));
@@ -203,6 +204,65 @@ public class TimetableGenerationJob(
             .Concat(result.Placements.Select(p => (p.ClassId, p.TeacherId, p.Day, p.Period)))
             .ToList();
         generation.Notes = Notes(lessons, classNames, periods.Where(p => p >= 1).DefaultIfEmpty(periods.Min()).Min());
+        if (Unmet(lessons, teachers, plan.Teachers.ToDictionary(t => t.Id, t => t.Name)) is { } unmet)
+        {
+            generation.Notes.Add(unmet);
+        }
+    }
+
+    /// <summary>Availability and wishes of the teachers, the school's where
+    /// a teacher has none of their own.</summary>
+    public static async Task<Dictionary<int, TimetableGenerator.Teacher>> TeachersAsync(
+        AppDbContext db, int schoolId, List<int> teacherIds)
+    {
+        var school = await TeacherWishesController.SchoolAsync(db, schoolId);
+        var profiles = await db.Users.Where(u => teacherIds.Contains(u.Id) && u.Person!.TeacherProfile != null)
+            .Select(u => new { u.Id, Profile = u.Person!.TeacherProfile! })
+            .ToListAsync();
+        var own = profiles.ToDictionary(p => p.Id, p => p.Profile);
+        return teacherIds.ToDictionary(id => id, id => own.GetValueOrDefault(id) is { } t
+            ? new TimetableGenerator.Teacher(t.Availability, t.FreeDays,
+                new TeacherWishes(t.MinLessonsPerDay, t.MaxLessonsPerDay, t.MaxGapsPerDay).Or(school))
+            : new TimetableGenerator.Teacher([], null, school));
+    }
+
+    /// <summary>"Nesplněná přání učitelů: Novák (volné dny, nejvýš 6 h denně)."</summary>
+    private static string? Unmet(
+        List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons,
+        Dictionary<int, TimetableGenerator.Teacher> teachers, Dictionary<int, string> names)
+    {
+        var unmet = new List<string>();
+        foreach (var (id, teacher) in teachers.OrderBy(t => names.GetValueOrDefault(t.Key)))
+        {
+            var byDay = lessons.Where(l => l.TeacherId == id).GroupBy(l => l.Day).ToList();
+            var wishes = teacher.Wishes ?? new TeacherWishes();
+            var missed = new List<string>();
+            if (byDay.Any(d => d.Any(l => AvailabilitySlot.At(teacher.Availability, d.Key, l.Period) == AvailabilityKind.Avoid)))
+            {
+                missed.Add("učí, kdy raději ne");
+            }
+            if (teacher.FreeDays is { } free && TeacherProfile.Weekdays.Length - byDay.Count < free)
+            {
+                missed.Add($"volné dny {free}");
+            }
+            if (wishes.MinLessonsPerDay is { } min && byDay.Any(d => d.Count() < min))
+            {
+                missed.Add($"nejméně {min} h denně");
+            }
+            if (wishes.MaxLessonsPerDay is { } max && byDay.Any(d => d.Count() > max))
+            {
+                missed.Add($"nejvýš {max} h denně");
+            }
+            if (wishes.MaxGapsPerDay is { } gaps && byDay.Any(d => TimetableGenerator.Holes(d.Select(l => l.Period)) > gaps))
+            {
+                missed.Add($"nejvýš {gaps} {(gaps is >= 2 and <= 4 ? "okna" : gaps == 1 ? "okno" : "oken")} denně");
+            }
+            if (missed.Count > 0)
+            {
+                unmet.Add($"{names.GetValueOrDefault(id)} ({string.Join(", ", missed)})");
+            }
+        }
+        return unmet.Count == 0 ? null : $"Nesplněná přání učitelů: {string.Join("; ", unmet)}.";
     }
 
     /// <summary>"Okna tříd: 1 (6.B út)" — gaps and late starts of classes,

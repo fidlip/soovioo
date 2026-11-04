@@ -1,0 +1,47 @@
+<p-card>
+  <ng-template #title
+    >Přání učitelů k rozvrhu<app-info-hint
+      text="Výchozí pro všechny učitele, generátor rozvrhu se je snaží splnit. Učitel může mít v Osobách vlastní. Prázdné = bez omezení."
+  /></ng-template>
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
+    <app-float-field label="Nejméně hodin denně" for="schoolMinLessons">
+      <p-inputNumber
+        inputId="schoolMinLessons"
+        [(ngModel)]="minLessonsPerDay"
+        name="minLessonsPerDay"
+        [min]="1"
+        [max]="12"
+        styleClass="w-48"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
+    <app-float-field label="Nejvýš hodin denně" for="schoolMaxLessons">
+      <p-inputNumber
+        inputId="schoolMaxLessons"
+        [(ngModel)]="maxLessonsPerDay"
+        name="maxLessonsPerDay"
+        [min]="1"
+        [max]="12"
+        styleClass="w-48"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
+    <app-float-field label="Nejvýš oken denně" for="schoolMaxGaps">
+      <p-inputNumber
+        inputId="schoolMaxGaps"
+        [(ngModel)]="maxGapsPerDay"
+        name="maxGapsPerDay"
+        [min]="0"
+        [max]="10"
+        styleClass="w-48"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
+    <p-button
+      type="submit"
+      label="Uložit"
+      severity="secondary"
+      [outlined]="true"
+    />
+  </form>
+</p-card>
