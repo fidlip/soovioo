@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
 
@@ -234,5 +235,32 @@ public class TimetableVersionsControllerTests
 
         Assert.Equal([gym.Id, lab.Id], (await Busy(WeekParity.Every)).Order());
         Assert.Equal([gym.Id], await Busy(WeekParity.Even));
+    }
+
+    [Fact]
+    public async Task ALessonWhenTheTeacherCannotIsAProblemBeforePublishing()
+    {
+        var teacher = new User { Username = "novak", PasswordHash = "x", SchoolId = SchoolId, Roles = [db.Role(UserRole.Teacher)] };
+        db.Persons.Add(new Person
+        {
+            SchoolId = SchoolId, FirstName = "Jan", LastName = "Novák", User = teacher,
+            TeacherProfile = new TeacherProfile
+            {
+                SchoolId = SchoolId,
+                Availability = [new(DayOfWeek.Monday, 1, AvailabilityKind.Unavailable), new(DayOfWeek.Friday, null, AvailabilityKind.Unavailable)],
+            },
+        });
+        db.SaveChanges();
+        var draft = await Draft("Koncept", new DateOnly(2027, 2, 1), current.Id);
+        foreach (var lesson in db.TimetableEntries.Where(e => e.TimetableVersionId == draft.Id))
+        {
+            lesson.TeacherId = teacher.Id;
+        }
+        await db.SaveChangesAsync();
+
+        var problems = Assert.IsAssignableFrom<IEnumerable<string>>(
+            Assert.IsType<OkObjectResult>((await Versions().GetProblems(draft.Id)).Result).Value).ToList();
+
+        Assert.Contains("Jan Novák učí v pondělí 1. hod., kdy učit nemůže.", problems);
     }
 }

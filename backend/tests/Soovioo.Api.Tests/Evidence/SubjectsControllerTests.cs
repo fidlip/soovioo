@@ -126,4 +126,19 @@ public class SubjectsControllerTests
         Assert.IsType<BadRequestObjectResult>(both.Result);
         Assert.IsType<BadRequestObjectResult>(twice.Result);
     }
+
+    [Fact]
+    public async Task DoubleLessonsAreSavedWithTheSubject()
+    {
+        using var db = NewDb();
+        var controller = new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId));
+
+        var created = Assert.IsType<Subject>(Assert.IsType<CreatedAtActionResult>(
+            (await controller.AddSubject(new CreateSubjectRequest("Pracovní činnosti", DoubleLessons: true))).Result).Value);
+        Assert.True(created.DoubleLessons);
+
+        var updated = Assert.IsType<Subject>(Assert.IsType<OkObjectResult>(
+            (await controller.UpdateSubject(created.Id, new CreateSubjectRequest("Pracovní činnosti"))).Result).Value);
+        Assert.False(updated.DoubleLessons);
+    }
 }

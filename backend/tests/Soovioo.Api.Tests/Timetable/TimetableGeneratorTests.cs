@@ -210,4 +210,61 @@ public class TimetableGeneratorTests
         Assert.True(Environment.TickCount64 - started < 60_000);
         Assert.All(result.Placements.GroupBy(p => p.Day), d => Assert.True(d.Min(p => p.Period) <= 2));
     }
+
+    /// <summary>Teacher 100 has 2 lessons in each of classes 1–3, whose other
+    /// lessons (14 a week) are another teacher's.</summary>
+    private static Result ThreeClasses(Teacher teacher) =>
+        Run([.. new[] { 1, 2, 3 }.SelectMany(c => new[] { new Demand(c, 10, 100, 2, 0), new Demand(c, 11, 100 + c, 14, 0) })],
+            teachers: new() { [100] = teacher });
+
+    private static List<IGrouping<DayOfWeek, Placement>> DaysOf100(Result result) =>
+        [.. result.Placements.Where(p => p.TeacherId == 100).GroupBy(p => p.Day)];
+
+    [Fact]
+    public void FreeDaysAlone()
+    {
+        var result = ThreeClasses(new([], FreeDays: 3));
+
+        Assert.Empty(result.Unplaced);
+        Assert.Equal(2, DaysOf100(result).Count);
+    }
+
+    [Fact]
+    public void AtLeastLessonsADayAlone()
+    {
+        var result = ThreeClasses(new([], Wishes: new TeacherWishes(MinLessonsPerDay: 3)));
+
+        Assert.Empty(result.Unplaced);
+        Assert.All(DaysOf100(result), d => Assert.True(d.Count() >= 3));
+    }
+
+    [Fact]
+    public void AtMostLessonsADayAlone()
+    {
+        // Rather not Wednesday to Friday: without the wish 3 + 3 on Monday and Tuesday.
+        Teacher teacher = new([.. from day in Week.Skip(2) from period in Enumerable.Range(1, 6)
+                               select new AvailabilitySlot(day, period, AvailabilityKind.Avoid)],
+            Wishes: new TeacherWishes(MaxLessonsPerDay: 2));
+
+        var result = ThreeClasses(teacher);
+
+        Assert.Empty(result.Unplaced);
+        Assert.All(DaysOf100(result), d => Assert.True(d.Count() <= 2));
+    }
+
+    [Fact]
+    public void AtMostGapsADayAlone()
+    {
+        // Two lessons a day, only in periods 1–3 and rather not the second:
+        // without the wish 1st and 3rd with a gap between.
+        List<AvailabilitySlot> slots = [.. from day in Week from period in Enumerable.Range(2, 5)
+                                           select new AvailabilitySlot(day, period, period == 2 ? AvailabilityKind.Avoid : AvailabilityKind.Unavailable)];
+        slots.RemoveAll(a => a.Period == 3);
+
+        var result = Run([new Demand(1, 10, 100, 5, 0), new Demand(1, 11, 100, 5, 0), new Demand(1, 12, 101, 10, 0)],
+            teachers: new() { [100] = new(slots, Wishes: new TeacherWishes(MaxGapsPerDay: 0)) });
+
+        Assert.Empty(result.Unplaced);
+        Assert.All(DaysOf100(result), d => Assert.Equal(0, Holes(d.Select(p => p.Period))));
+    }
 }

@@ -217,4 +217,42 @@ public class TimetableGenerationTests
             Assert.Single(generation.Messages, m => m.StartsWith("5.A")));
         Assert.DoesNotContain(db.TimetableEntries, e => e.PeriodNumber == 1);
     }
+
+    [Fact]
+    public async Task TheSchoolsWishesApplyAndWhatIsNotMetIsNoted()
+    {
+        // 6 lessons of one teacher in a week of 5 days: at most 1 a day can't hold.
+        db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola", TeacherMaxLessonsPerDay = 1 });
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.Contains("Nesplněná přání učitelů: Jan Novák (nejvýš 1 h denně).", generation.Notes);
+    }
+
+    [Fact]
+    public async Task ATeachersOwnWishReplacesTheSchools()
+    {
+        db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola", TeacherMaxLessonsPerDay = 1 });
+        db.TeacherProfiles.Single().MaxLessonsPerDay = 2;
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.DoesNotContain(generation.Notes, n => n.StartsWith("Nesplněná přání"));
+        Assert.All(db.TimetableEntries.AsEnumerable().GroupBy(e => e.DayOfWeek).ToList(), d => Assert.InRange(d.Count(), 1, 2));
+    }
+
+    [Fact]
+    public async Task ASubjectInBlocksGetsTwoLessonsInARow()
+    {
+        maths.DoubleLessons = true;
+        db.SaveChanges();
+
+        await Generate(TimetableGenerationMode.All);
+
+        var days = db.TimetableEntries.Where(e => e.SubjectId == maths.Id).AsEnumerable().GroupBy(e => e.DayOfWeek).ToList();
+        Assert.Equal(2, days.Count);
+        Assert.All(days, d => Assert.Equal(1, Math.Abs(d.First().PeriodNumber - d.Last().PeriodNumber)));
+    }
 }
