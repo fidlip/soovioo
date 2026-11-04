@@ -203,4 +203,18 @@ public class TimetableGenerationTests
 
         public bool ChangeState(string jobId, IState state, string expectedState) => true;
     }
+
+    [Fact]
+    public async Task AClassStartingLateBecauseItsTeacherCannotTeachTheFirstPeriodIsExplained()
+    {
+        var profile = db.TeacherProfiles.Single();
+        profile.Availability = [.. TeacherProfile.Weekdays.Select(d => new AvailabilitySlot(d, 1, AvailabilityKind.Unavailable))];
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.StartsWith("5.A: první hodinu nemůže mít ani jeden den v týdnu, Jan Novák (6 h z 6 h) ji učit nemůže; začíná proto později ",
+            Assert.Single(generation.Messages, m => m.StartsWith("5.A")));
+        Assert.DoesNotContain(db.TimetableEntries, e => e.PeriodNumber == 1);
+    }
 }

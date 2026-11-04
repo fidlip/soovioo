@@ -144,14 +144,14 @@ public class TimetableGeneratorTests
     [Fact]
     public void NeverWhenTheTeacherCannotAndRatherNotOnlyWhenItMust()
     {
-        // Can't the first two periods, would rather not the third.
-        Teacher teacher = new([.. from day in Week from period in new[] { 1, 2, 3 }
-                               select new AvailabilitySlot(day, period, period == 3 ? AvailabilityKind.Avoid : AvailabilityKind.Unavailable)]);
+        // Can't the first two periods, would rather not the last one.
+        Teacher teacher = new([.. from day in Week from period in new[] { 1, 2, 6 }
+                               select new AvailabilitySlot(day, period, period == 6 ? AvailabilityKind.Avoid : AvailabilityKind.Unavailable)]);
 
-        var result = Run([new Demand(1, 10, 100, 5, 0)], teachers: new() { [100] = teacher });
+        var result = Run([new Demand(1, 10, 100, 5, 0), new Demand(1, 11, 101, 15, 0)], teachers: new() { [100] = teacher });
 
         Assert.Empty(result.Unplaced);
-        Assert.All(result.Placements, p => Assert.True(p.Period > 3));
+        Assert.All(result.Placements.Where(p => p.TeacherId == 100), p => Assert.InRange(p.Period, 3, 5));
     }
 
     [Fact]
@@ -187,5 +187,27 @@ public class TimetableGeneratorTests
         Assert.Equal(3, days.Count);
         Assert.All(days, d => Assert.Equal(2, d.Count()));
         Assert.All(days, d => Assert.Equal(0, Holes(d.Select(p => p.Period))));
+    }
+
+    [Fact]
+    public void AClassWhoseTeacherCannotTheFirstPeriodStartsWithTheSecondAndTheSearchDoesNotRunToTheLimit()
+    {
+        // The class teacher has 19 of 20 lessons and can't teach the first
+        // period: four days start late, one lost period each, not two.
+        Teacher teacher = new([.. Week.Select(d => new AvailabilitySlot(d, 1, AvailabilityKind.Unavailable))]);
+        var started = Environment.TickCount64;
+
+        var result = Generate(new Input(Week, [.. Enumerable.Range(1, 6)],
+            [new Demand(1, 10, 100, 10, 0), new Demand(1, 11, 100, 9, 0), new Demand(1, 12, 101, 1, 0)], [],
+            new Dictionary<int, Teacher> { [100] = teacher }, TimeSpan.FromMinutes(2))
+        {
+            RequirementsStall = TimeSpan.FromSeconds(3),
+            PolishStall = TimeSpan.FromSeconds(1),
+        });
+
+        Assert.Empty(result.Unplaced);
+        Assert.False(result.TimedOut);
+        Assert.True(Environment.TickCount64 - started < 60_000);
+        Assert.All(result.Placements.GroupBy(p => p.Day), d => Assert.True(d.Min(p => p.Period) <= 2));
     }
 }

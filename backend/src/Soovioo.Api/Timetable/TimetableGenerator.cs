@@ -59,6 +59,11 @@ public static class TimetableGenerator
         IReadOnlyDictionary<int, Teacher> Teachers,
         TimeSpan TimeLimit)
     {
+        /// <summary>The first search stops when it hasn't improved for this
+        /// long — when the requirements can't all hold, proving it can't get
+        /// better can take far longer than the limit.</summary>
+        public TimeSpan RequirementsStall { get; init; } = TimeSpan.FromSeconds(30);
+
         /// <summary>The second search stops when it hasn't improved for this
         /// long, or after <see cref="PolishLimit"/>.</summary>
         public TimeSpan PolishStall { get; init; } = TimeSpan.FromSeconds(10);
@@ -94,7 +99,7 @@ public static class TimetableGenerator
 
     /// <param name="Solved">False when the solver found nothing in time.</param>
     /// <param name="TimedOut">The time limit ran out before the requirements
-    /// held or were shown impossible to meet better.</param>
+    /// held, were shown impossible to meet better or stopped improving.</param>
     /// <param name="Penalty">What the requirements' breaches weigh,
     /// <paramref name="Bound"/> the least possible as far as the solver got.</param>
     public record Result(
@@ -220,10 +225,11 @@ public static class TimetableGenerator
                         var start = model.NewBoolVar($"cs{classId}_{day}_{period}");
                         model.Add(start >= occupied - earlier[^1]);
                         objective.AddTerm(start, ClassGapWeight);
-                        // ...or the day's first lesson, later than the first period.
+                        // ...or the day's first lesson, later than the first
+                        // period: the more periods lost, the worse.
                         var late = model.NewBoolVar($"late{classId}_{day}_{period}");
                         model.Add(late >= occupied - LinearExpr.Sum(earlier));
-                        objective.AddTerm(late, LateStartWeight);
+                        objective.AddTerm(late, LateStartWeight * periods.Count(p => p >= 1 && p < period));
                     }
                     earlier.Add(occupied);
                 }
@@ -397,7 +403,12 @@ public static class TimetableGenerator
         // The requirements: until they hold, or can't get any better.
         model.Minimize(objective);
         var solver = new CpSolver { StringParameters = Parameters(input.TimeLimit) };
-        var status = solver.Solve(model, new Requirements(at => Measure(at, Phase.Requirements), input.OnProgress));
+        CpSolverStatus status;
+        using (var requirements = new Requirements(solver, input, at => Measure(at, Phase.Requirements)))
+        {
+            status = solver.Solve(model, requirements);
+        }
+        var timedOut = solver.WallTime() >= input.TimeLimit.TotalSeconds - 1;
         if (status is not (CpSolverStatus.Optimal or CpSolverStatus.Feasible))
         {
             return new Result(false, [], Missing(units, _ => 0), TimedOut: status == CpSolverStatus.Unknown);
@@ -427,7 +438,7 @@ public static class TimetableGenerator
         var placed = x1.Where(p => p.Value).Select(p => (p.Key.Unit, p.Key.Day, Covered(units[p.Key.Unit], p.Key.Period))).ToList();
         return new Result(true, AssignRooms(placed, units, input, roomBusy),
             Missing(units, u => units[u].Count - (int)missing1[u]),
-            penalty > 0 && penalty > bound, penalty, bound);
+            timedOut && penalty > 0 && penalty > bound, penalty, bound);
     }
 
     /// <summary>Free periods between a day's first and last lesson.</summary>
@@ -459,18 +470,41 @@ public static class TimetableGenerator
         }
     }
 
-    /// <summary>Nothing better than no breach at all.</summary>
-    private sealed class Requirements(Func<CpSolverSolutionCallback, Progress> measure, Action<Progress>? report)
-        : Reporting(measure, report)
+    /// <summary>Nothing better than no breach at all; stops too once it
+    /// hasn't found anything better for <see cref="Input.RequirementsStall"/>.</summary>
+    private sealed class Requirements : Reporting, IDisposable
     {
+        private readonly Timer timer;
+        private long improvedAt;
+
+        public Requirements(CpSolver solver, Input input, Func<CpSolverSolutionCallback, Progress> measure)
+            : base(measure, input.OnProgress)
+        {
+            timer = new Timer(_ =>
+            {
+                var at = Interlocked.Read(ref improvedAt);
+                if (at > 0 && Environment.TickCount64 - at > input.RequirementsStall.TotalMilliseconds)
+                {
+                    solver.StopSearch();
+                }
+            }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+
         public override void OnSolutionCallback()
         {
+            Interlocked.Exchange(ref improvedAt, Environment.TickCount64);
             var done = ObjectiveValue() <= 0;
             Report(force: done);
             if (done)
             {
                 StopSearch();
             }
+        }
+
+        public new void Dispose()
+        {
+            timer.Dispose();
+            base.Dispose();
         }
     }
 
