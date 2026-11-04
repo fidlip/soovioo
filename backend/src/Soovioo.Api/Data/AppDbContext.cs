@@ -308,6 +308,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             c.Property(x => x.Type).HasConversion<string>();
             c.HasOne(x => x.Classroom).WithMany().HasForeignKey(x => x.ClassroomId).OnDelete(DeleteBehavior.Restrict);
         });
+        modelBuilder.Entity<SchoolClass>().HasOne(c => c.Homeroom).WithMany()
+            .HasForeignKey(c => c.HomeroomId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();

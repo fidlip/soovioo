@@ -799,7 +799,8 @@ export class TimetablePage {
     this.prefillClassroom();
   }
 
-  /** The subject's first classroom free at the form's slot. */
+  /** The first free classroom at the form's slot: the subject's, or the
+   * class's homeroom for a subject without a list. */
   protected prefillClassroom(): void {
     if (this.formClassroomTouched) {
       return;
@@ -807,10 +808,13 @@ export class TimetablePage {
     const rooms = subjectClassroomIds(
       this.subjectsById().get(this.formSubjectId ?? -1),
       this.classrooms(),
+      this.schoolClasses().find(
+        (c) => c.id === this.editingEntrySchoolClassId(),
+      )?.homeroomId ?? null,
     );
     const versionId = this.shownVersion()?.id;
     this.formClassroomId = rooms[0] ?? null;
-    if (rooms.length < 2 || versionId === undefined) {
+    if (rooms.length === 0 || versionId === undefined) {
       return;
     }
     const slot = [

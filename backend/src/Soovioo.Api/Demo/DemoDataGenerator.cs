@@ -198,6 +198,10 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 {
                     subject.Classrooms.Add(new SubjectClassroom { Position = 1, Type = group[0].Type });
                 }
+                if (g is "art" or "music" or "workshop")
+                {
+                    subject.Classrooms.Add(new SubjectClassroom { Position = subject.Classrooms.Count, Type = ClassroomType.Homeroom });
+                }
             }
             db.Subjects.Add(subject);
             return subject;
@@ -384,6 +388,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                     Capacity = 30,
                     SchoolId = school.Id,
                 };
+                schoolClass.Homeroom = homeroom;
                 db.SchoolClasses.Add(schoolClass);
                 db.Classrooms.Add(homeroom);
                 classes.Add(new ClassInfo

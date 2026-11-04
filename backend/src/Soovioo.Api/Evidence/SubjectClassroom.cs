@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Soovioo.Api.Evidence;
 
 /// <summary>One of a <see cref="Subject"/>'s classrooms: a particular one,
-/// or any of a type.</summary>
+/// or any of a type — the homeroom type means the class's own homeroom.</summary>
 public class SubjectClassroom
 {
     public int Position { get; set; }

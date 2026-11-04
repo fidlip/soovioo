@@ -225,6 +225,11 @@ export class AdminPage {
   protected readonly classroomOptions = computed(() =>
     this.classrooms().map((c) => ({ id: c.id, label: c.name })),
   );
+  protected readonly homeroomOptions = computed(() =>
+    this.classrooms()
+      .filter((c) => c.type === 'Homeroom')
+      .map((c) => ({ id: c.id, label: c.name })),
+  );
   /** A subject's classroom in its dialog: "room:<id>" or "type:<type>". */
   protected readonly subjectClassroomChoices = computed(() => [
     ...this.classroomTypeOptions.map((t) => ({
@@ -365,6 +370,7 @@ export class AdminPage {
   protected newSchoolClassRocnik: number | null = null;
   protected newSchoolClassTeacherId: number | null = null;
   protected newSchoolClassTeachingLanguage = '';
+  protected newSchoolClassHomeroomId: number | null = null;
   protected newSubjectName = '';
   protected newSubjectAbbreviation = '';
   protected newSubjectColor: string | null = null;
@@ -779,6 +785,7 @@ export class AdminPage {
     this.newSchoolClassRocnik = null;
     this.newSchoolClassTeacherId = null;
     this.newSchoolClassTeachingLanguage = '';
+    this.newSchoolClassHomeroomId = null;
     this.notify.clear();
     this.newClassDialogVisible.set(true);
   }
@@ -789,6 +796,7 @@ export class AdminPage {
     this.newSchoolClassRocnik = schoolClass.rocnik;
     this.newSchoolClassTeacherId = schoolClass.classTeacherId;
     this.newSchoolClassTeachingLanguage = schoolClass.teachingLanguage ?? '';
+    this.newSchoolClassHomeroomId = schoolClass.homeroomId;
     this.notify.clear();
     this.newClassDialogVisible.set(true);
   }
@@ -802,6 +810,7 @@ export class AdminPage {
       rocnik: this.newSchoolClassRocnik ?? undefined,
       classTeacherId: this.newSchoolClassTeacherId ?? undefined,
       teachingLanguage: this.newSchoolClassTeachingLanguage || undefined,
+      homeroomId: this.newSchoolClassHomeroomId ?? undefined,
     };
     const result =
       this.editingSchoolClassId === null

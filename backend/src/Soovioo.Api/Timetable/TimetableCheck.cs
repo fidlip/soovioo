@@ -17,7 +17,7 @@ public static class TimetableCheck
         var entries = await db.TimetableEntries.Where(e => e.TimetableVersionId == version.Id)
             .Select(e => new Lesson(
                 e.SchoolClassId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber, e.WeekParity,
-                e.SchoolClass!.Name, e.Subject!.Abbreviation ?? e.Subject.Name, e.Subject.Classrooms.Any(),
+                e.SchoolClass!.Name, e.Subject!.Abbreviation ?? e.Subject.Name, e.Subject.Classrooms.Any() || e.SchoolClass.HomeroomId != null,
                 e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name))
             .ToListAsync();

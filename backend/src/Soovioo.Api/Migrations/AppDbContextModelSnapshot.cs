@@ -866,6 +866,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("ClassTeacherId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("HomeroomId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -882,6 +885,8 @@ namespace Soovioo.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClassTeacherId");
+
+                    b.HasIndex("HomeroomId");
 
                     b.HasIndex("SchoolId");
 
@@ -2723,6 +2728,11 @@ namespace Soovioo.Api.Migrations
                         .WithMany()
                         .HasForeignKey("ClassTeacherId");
 
+                    b.HasOne("Soovioo.Api.Evidence.Classroom", "Homeroom")
+                        .WithMany()
+                        .HasForeignKey("HomeroomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
@@ -2730,6 +2740,8 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("ClassTeacher");
+
+                    b.Navigation("Homeroom");
 
                     b.Navigation("School");
                 });
