@@ -198,13 +198,16 @@ public class TimetableGenerationJob(
         {
             messages.Add("Generátor nestihl rozvrh doladit v časovém limitu, uložil nejlepší nalezený.");
         }
-        generation.Placed = result.Placements.Count;
-        generation.Messages = [.. messages.Distinct()];
         var lessons = kept.Select(e => (e.SchoolClassId, e.TeacherId, e.DayOfWeek, e.PeriodNumber))
             .Concat(result.Placements.Select(p => (p.ClassId, p.TeacherId, p.Day, p.Period)))
             .ToList();
-        generation.Notes = Notes(lessons, classNames, periods.Where(p => p >= 1).DefaultIfEmpty(periods.Min()).Min());
-        if (Unmet(lessons, teachers, plan.Teachers.ToDictionary(t => t.Id, t => t.Name)) is { } unmet)
+        var first = periods.Where(p => p >= 1).DefaultIfEmpty(periods.Min()).Min();
+        var teacherNames = plan.Teachers.ToDictionary(t => t.Id, t => t.Name);
+        messages.AddRange(LateBecauseOfTeachers(lessons, kept, demands, teachers, classNames, teacherNames, first));
+        generation.Placed = result.Placements.Count;
+        generation.Messages = [.. messages.Distinct()];
+        generation.Notes = Notes(lessons, classNames, first);
+        if (Unmet(lessons, teachers, teacherNames) is { } unmet)
         {
             generation.Notes.Add(unmet);
         }
@@ -225,6 +228,52 @@ public class TimetableGenerationJob(
                 new TeacherWishes(t.MinLessonsPerDay, t.MaxLessonsPerDay, t.MaxGapsPerDay).Or(school))
             : new TimetableGenerator.Teacher([], null, school));
     }
+
+    /// <summary>"1.A: první hodinu může mít jen 1 den v týdnu, Ivana Blažková
+    /// (19 h z 20 h) ji učit nemůže; začíná proto později 4 dny." — a class
+    /// starting late because its teachers can't teach the first period.</summary>
+    private static IEnumerable<string> LateBecauseOfTeachers(
+        List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons, List<TimetableEntry> kept,
+        List<TimetableGenerator.Demand> demands, Dictionary<int, TimetableGenerator.Teacher> teachers,
+        Dictionary<int, string> classNames, Dictionary<int, string> teacherNames, int first)
+    {
+        var days = TeacherProfile.Weekdays;
+        bool CanFirst(int? teacherId, DayOfWeek day) =>
+            teacherId is not { } id || !teachers.TryGetValue(id, out var t)
+            || AvailabilitySlot.At(t.Availability, day, first) != AvailabilityKind.Unavailable;
+        foreach (var byClass in lessons.GroupBy(l => l.ClassId).OrderBy(g => classNames.GetValueOrDefault(g.Key)))
+        {
+            var late = byClass.GroupBy(l => l.Day).Count(d => d.Min(l => l.Period) > first);
+            var own = demands.Where(d => d.ClassId == byClass.Key).ToList();
+            if (late == 0 || own.Count == 0)
+            {
+                continue;
+            }
+            // Each day needs one lesson in the first period of someone who can then.
+            var startsKept = kept.Where(e => e.SchoolClassId == byClass.Key && e.PeriodNumber == first)
+                .Select(e => e.DayOfWeek).Distinct().Count();
+            var possible = Math.Min(days.Length, startsKept + own.Sum(d => Math.Min(d.Weekly, days.Count(day => CanFirst(d.TeacherId, day)))));
+            var blocking = own.Where(d => days.Any(day => !CanFirst(d.TeacherId, day)))
+                .GroupBy(d => d.TeacherId!.Value)
+                .Select(g => $"{teacherNames.GetValueOrDefault(g.Key)} ({g.Sum(d => d.Weekly)} h z {own.Sum(d => d.Weekly)} h)")
+                .ToList();
+            if (possible >= days.Length || blocking.Count == 0)
+            {
+                continue;
+            }
+            yield return $"{classNames.GetValueOrDefault(byClass.Key)}: první hodinu "
+                + (possible == 0 ? "nemůže mít ani jeden den" : $"může mít jen {DayCount(possible)}")
+                + $" v týdnu, {string.Join(", ", blocking)} ji učit {(blocking.Count == 1 ? "nemůže" : "nemohou")}; začíná proto později {DayCount(late)}.";
+        }
+    }
+
+    /// <summary>"1 den", "3 dny", "5 dní".</summary>
+    private static string DayCount(int n) => n switch
+    {
+        1 => "1 den",
+        >= 2 and <= 4 => $"{n} dny",
+        _ => $"{n} dní",
+    };
 
     /// <summary>"Nesplněná přání učitelů: Novák (volné dny, nejvýš 6 h denně)."</summary>
     private static string? Unmet(

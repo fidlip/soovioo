@@ -167,7 +167,7 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
 - Požadavky (váhy, porušení se hlásí místo nesplnitelného modelu): každá hodina umístěná
   (1000 za hodinu), volná učebna ze seznamu předmětu (200; souběžné hodiny ≤ volné učebny
-  každé skupiny učeben), den třídy začíná první hodinou (30), každý den aspoň
+  každé skupiny učeben), den třídy začíná první hodinou (30 za každou ztracenou hodinu), každý den aspoň
   ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken (10), 0. hodina (8),
   předmět nejvýš jednou denně (6, dvouhodinovka se počítá jednou).
 - Přání učitelů (#162, ve stejném hledání, slabší než požadavky tříd): volné dny
@@ -175,8 +175,11 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   učí (4 za chybějící), nejvýš oken denně (4 za okno navíc), „raději ne“ (3 za hodinu).
   Nesplněná přání vypíše výsledek („Nesplněná přání učitelů: …“).
 - Konec podle stavu, ne času: 1. hledání skončí, jakmile jsou splněné všechny požadavky
-  (penalizace 0), nebo když solver dokáže, že líp to nejde (nesplnitelná data, např. málo
-  tělocvičen). 2. hledání pak se zachováním požadavků snižuje okna učitelů (2 za blok);
+  (penalizace 0), když solver dokáže, že líp to nejde, nebo když se 30 s nezlepší
+  (nesplnitelná data, např. málo tělocvičen nebo třídní učitelka, která nemůže 1. hodinu —
+  dokázat, že líp to nejde, trvá déle než limit). Třídu, která kvůli dostupnosti učitelů
+  nemůže začínat první hodinou, výsledek vysvětlí („1.A: první hodinu může mít jen 1 den
+  v týdnu, … ji učit nemůže“). 2. hledání pak se zachováním požadavků snižuje okna učitelů (2 za blok);
   skončí, když se 10 s nezlepší, nejpozději po 60 s. Limit 5 min je jen pojistka: jeho
   vypršení se loguje jako chyba a výsledek to hlásí. Na 2 jádrech trvá demo škola (18 tříd)
   zhruba 70–80 s.
