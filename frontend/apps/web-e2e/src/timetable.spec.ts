@@ -98,8 +98,34 @@ test.describe.serial('timetable lesson', () => {
     await addButton.click();
 
     const dialog = page.getByRole('dialog', { name: 'Nová hodina' });
-    await dialog.locator('p-select[name="formSubjectId"]').click();
-    await page.getByRole('option').first().click();
+    // Jana Učitelová has the aprobace for M (and Čj), not for Aj.
+    const openList = async (name: string) => {
+      const combobox = dialog.getByRole('combobox', { name });
+      await combobox.click();
+      const list = page.locator(
+        `#${await combobox.getAttribute('aria-controls')}`,
+      );
+      await expect(list.getByRole('option').first()).toBeVisible();
+      return { combobox, list };
+    };
+    const teacherOptions = async () => {
+      const { combobox, list } = await openList('Vyučující');
+      const labels = await list.getByRole('option').allInnerTexts();
+      await combobox.press('Escape');
+      await expect(list).toBeHidden();
+      return labels.map((l) => l.trim());
+    };
+    const pickSubject = async (name: string) => {
+      const { list } = await openList('Předmět');
+      await list.getByRole('option', { name, exact: true }).click();
+      await expect(list).toBeHidden();
+    };
+    await pickSubject('Anglický jazyk');
+    expect((await teacherOptions()).join()).not.toContain(
+      'Učitelová (aprobace)',
+    );
+    await pickSubject('Matematika');
+    expect((await teacherOptions())[0]).toBe('Jana Učitelová (aprobace)');
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();
 
