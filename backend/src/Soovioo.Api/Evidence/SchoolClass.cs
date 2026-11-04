@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Soovioo.Api.Auth;
 
 namespace Soovioo.Api.Evidence;
@@ -26,4 +27,10 @@ public class SchoolClass
     /// (e.g. "čeština") rather than a matrika language code, since we don't
     /// have that číselník yet; null defaults to Czech in practice.</summary>
     public string? TeachingLanguage { get; set; }
+
+    /// <summary>Kmenová učebna — where the class has subjects without their own
+    /// classrooms and what "any homeroom" on a subject means for it.</summary>
+    public int? HomeroomId { get; set; }
+    [JsonIgnore]
+    public Classroom? Homeroom { get; set; }
 }

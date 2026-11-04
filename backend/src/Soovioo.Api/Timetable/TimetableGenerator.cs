@@ -365,6 +365,8 @@ public static class TimetableGenerator
             var inPool = units.Select((u, i) => (u, i))
                 .Where(p => p.u.Demand.Rooms.Count > 0 && p.u.Demand.Rooms.All(pool.Contains))
                 .Select(p => p.i).ToList();
+            // A class has one lesson at a time, so its own homeroom never runs out.
+            var classes = inPool.Select(i => units[i].Demand.ClassId).Distinct().Count();
             if (inPool.Sum(i => units[i].Count) <= 0)
             {
                 continue;
@@ -372,7 +374,7 @@ public static class TimetableGenerator
             foreach (var (day, period) in slots)
             {
                 var free = pool.Count(r => !roomBusy.Contains((r, day, period)));
-                if (free >= inPool.Sum(i => cover.TryGetValue((i, day, period), out var vs) ? vs.Count : 0))
+                if (free >= Math.Min(classes, inPool.Sum(i => cover.TryGetValue((i, day, period), out var vs) ? vs.Count : 0)))
                 {
                     continue;
                 }

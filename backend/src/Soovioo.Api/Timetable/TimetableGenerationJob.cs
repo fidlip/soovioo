@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
@@ -91,6 +92,8 @@ public class TimetableGenerationJob(
         }
         var subjects = await db.Subjects.ToDictionaryAsync(s => s.Id);
         var rooms = await db.Classrooms.OrderBy(r => r.Id).Select(r => new { r.Id, r.Name, r.Type, r.Capacity }).ToListAsync();
+        var homerooms = await db.SchoolClasses.Where(c => c.HomeroomId != null)
+            .ToDictionaryAsync(c => c.Id, c => c.HomeroomId!.Value);
         var classSizes = await db.Students.GroupBy(s => s.SchoolClassId)
             .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count);
         var messages = new List<string>();
@@ -108,15 +111,23 @@ public class TimetableGenerationJob(
                     continue;
                 }
                 var subject = subjects[row.SubjectId];
-                var listed = subject.Classrooms.OrderBy(c => c.Position)
-                    .SelectMany(c => c.ClassroomId is { } id ? rooms.Where(r => r.Id == id) : rooms.Where(r => r.Type == c.Type))
+                int? homeroom = homerooms.TryGetValue(schoolClass.Id, out var ownRoom) ? ownRoom : null;
+                var wanted = subject.Classrooms.Count > 0
+                    ? subject.Classrooms.OrderBy(c => c.Position).ToList()
+                    : [new SubjectClassroom { Type = ClassroomType.Homeroom }];
+                var listed = wanted
+                    .SelectMany(c => c.ClassroomId is { } id ? rooms.Where(r => r.Id == id)
+                        : c.Type == ClassroomType.Homeroom ? rooms.Where(r => r.Id == homeroom)
+                        : rooms.Where(r => r.Type == c.Type))
                     .DistinctBy(r => r.Id).ToList();
                 // Only classrooms the whole class fits in.
                 var size = classSizes.GetValueOrDefault(schoolClass.Id);
                 var subjectRooms = listed.Where(r => r.Capacity is null || r.Capacity >= size).Select(r => r.Id).ToList();
                 if (subject.Classrooms.Count > 0 && listed.Count == 0)
                 {
-                    messages.Add($"{subject.Name}: škola nemá učebnu potřebného typu, hodiny jsou bez učebny.");
+                    messages.Add(subject.Classrooms.Any(c => c.Type == ClassroomType.Homeroom)
+                        ? $"{schoolClass.Name} {subject.Abbreviation ?? subject.Name}: třída nemá kmenovou učebnu, hodiny jsou bez učebny."
+                        : $"{subject.Name}: škola nemá učebnu potřebného typu, hodiny jsou bez učebny.");
                 }
                 else if (listed.Count > 0 && subjectRooms.Count == 0)
                 {

@@ -52,8 +52,8 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
         return Ok(classroom);
     }
 
-    /// <summary>Rejected while any timetable slot or subject default still
-    /// references the classroom — same "unlink first" rule as Subjects'
+    /// <summary>Rejected while any timetable slot, subject default or class
+    /// still references the classroom — same "unlink first" rule as Subjects'
     /// own delete, see SubjectsController.DeleteSubject.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Classrooms)]
@@ -73,6 +73,11 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
         if (await db.Subjects.AnyAsync(s => s.Classrooms.Any(c => c.ClassroomId == id)))
         {
             return BadRequest("Učebna je u předmětu — nelze smazat.");
+        }
+
+        if (await db.SchoolClasses.AnyAsync(c => c.HomeroomId == id))
+        {
+            return BadRequest("Učebna je kmenová učebna třídy — nelze smazat.");
         }
 
         db.Classrooms.Remove(classroom);

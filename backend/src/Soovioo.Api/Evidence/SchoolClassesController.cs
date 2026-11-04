@@ -21,12 +21,18 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     [RequirePermission(Permission.Classes)]
     public async Task<ActionResult<SchoolClass>> AddSchoolClass(CreateSchoolClassRequest request)
     {
+        if (!await HomeroomExistsAsync(request.HomeroomId))
+        {
+            return BadRequest("Učebna neexistuje.");
+        }
+
         var schoolClass = new SchoolClass
         {
             Name = request.Name,
             Rocnik = request.Rocnik,
             ClassTeacherId = request.ClassTeacherId,
             TeachingLanguage = request.TeachingLanguage,
+            HomeroomId = request.HomeroomId,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.SchoolClasses.Add(schoolClass);
@@ -44,10 +50,16 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
             return NotFound();
         }
 
+        if (!await HomeroomExistsAsync(request.HomeroomId))
+        {
+            return BadRequest("Učebna neexistuje.");
+        }
+
         schoolClass.Name = request.Name;
         schoolClass.Rocnik = request.Rocnik;
         schoolClass.ClassTeacherId = request.ClassTeacherId;
         schoolClass.TeachingLanguage = request.TeachingLanguage;
+        schoolClass.HomeroomId = request.HomeroomId;
         await db.SaveChangesAsync();
         return Ok(schoolClass);
     }
@@ -75,7 +87,10 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    private async Task<bool> HomeroomExistsAsync(int? id) =>
+        id is null || await db.Classrooms.AnyAsync(c => c.Id == id);
 }
 
 public record CreateSchoolClassRequest(
-    string Name, int? Rocnik = null, int? ClassTeacherId = null, string? TeachingLanguage = null);
+    string Name, int? Rocnik = null, int? ClassTeacherId = null, string? TeachingLanguage = null, int? HomeroomId = null);

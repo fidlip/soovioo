@@ -28,17 +28,29 @@ export interface CreateSubjectRequest {
   doubleLessons?: boolean;
 }
 
-/** The subject's classrooms in order, a type expanded to its classrooms. */
+/** The subject's classrooms for a class in order, a type expanded to its
+ * classrooms; the homeroom type and a subject without a list mean the class's
+ * own homeroom. */
 export function subjectClassroomIds(
   subject: Subject | undefined,
   classrooms: Classroom[],
+  homeroomId: number | null,
 ): number[] {
-  const ids = [...(subject?.classrooms ?? [])]
+  const homeroom = homeroomId === null ? [] : [homeroomId];
+  if (!subject) {
+    return [];
+  }
+  if (subject.classrooms.length === 0) {
+    return homeroom;
+  }
+  const ids = [...subject.classrooms]
     .sort((a, b) => a.position - b.position)
     .flatMap((c) =>
       c.classroomId !== null
         ? [c.classroomId]
-        : classrooms.filter((r) => r.type === c.type).map((r) => r.id),
+        : c.type === 'Homeroom'
+          ? homeroom
+          : classrooms.filter((r) => r.type === c.type).map((r) => r.id),
     );
   return [...new Set(ids)];
 }

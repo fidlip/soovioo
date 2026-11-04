@@ -37,6 +37,7 @@ výuka ve dny, kdy učitel nemůže, hodiny bez učebny); zveřejnit jde i tak.
 | Dvouhodinovky / bloky | Pracovní činnosti 2 h v kuse | ano (`Subject.DoubleLessons`, přepis v učebním plánu) |
 | Učebny a jejich typ | Tělocvična, počítačová | ano (`Classroom`, `ClassroomType`) |
 | Předmět → učebny / typ učebny | Tv v tělocvičně, jinak jakékoli tělocvičně | ano (`Subject.Classrooms`) |
+| Třída → kmenová učebna | 5.A v učebně 101 | ano (`SchoolClass.HomeroomId`) |
 | Dostupnost učitelů | Novák nemůže v pátek | ano (`TeacherProfile.Availability`, přání) |
 | Časy hodin | 0.–8. hodina | ano (`SchoolPeriod`) |
 
@@ -157,7 +158,9 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
 
 - Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dostupnost
   a přání učitelů, dvouhodinovky, časy hodin a učebny předmětu (`Subject.Classrooms`: seznam v pořadí
-  priority, každá položka konkrétní učebna nebo „jakákoli“ daného typu). Učebna s kapacitou
+  priority, každá položka konkrétní učebna nebo „jakákoli“ daného typu; „jakákoli kmenová“ je
+  kmenová učebna dané třídy a předmět bez seznamu ji má taky, třída bez ní nechá takový předmět
+  bez učebny). Učebna s kapacitou
   menší než počet žáků třídy se pro třídu nepoužije; když se nevejde do žádné, výsledek to hlásí.
 - Režimy: **Doplnit chybějící** (hodiny v konceptu zůstanou, přibude, co podle plánu
   chybí) a **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`).

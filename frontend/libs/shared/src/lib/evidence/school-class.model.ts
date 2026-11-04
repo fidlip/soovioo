@@ -7,6 +7,8 @@ export interface SchoolClass {
   classTeacherId: number | null;
   /** JAZYK_O for matrika — free text (e.g. "čeština"); null defaults to Czech in practice. */
   teachingLanguage: string | null;
+  /** Kmenová učebna — classroom id. */
+  homeroomId: number | null;
 }
 
 export interface CreateSchoolClassRequest {
@@ -14,4 +16,5 @@ export interface CreateSchoolClassRequest {
   rocnik?: number;
   classTeacherId?: number;
   teachingLanguage?: string;
+  homeroomId?: number;
 }

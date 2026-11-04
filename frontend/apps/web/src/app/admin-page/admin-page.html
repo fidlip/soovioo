@@ -265,6 +265,7 @@
                   <th>Ročník</th>
                   <th>Třídní učitel</th>
                   <th>Vyuč. jazyk</th>
+                  <th>Kmenová učebna</th>
                   <th><span class="sr-only">Akce</span></th>
                 </tr>
               </ng-template>
@@ -277,6 +278,9 @@
                   </td>
                   <td class="text-surface-500">
                     {{ schoolClass.teachingLanguage ?? '—' }}
+                  </td>
+                  <td class="text-surface-500">
+                    {{ classroomName(schoolClass.homeroomId) }}
                   </td>
                   <td>
                     <div class="flex justify-end gap-1">
@@ -309,7 +313,7 @@
               </ng-template>
               <ng-template pTemplate="emptymessage">
                 <tr>
-                  <td colspan="5" class="py-3 text-surface-500">
+                  <td colspan="6" class="py-3 text-surface-500">
                     Žádné třídy.
                   </td>
                 </tr>
@@ -992,6 +996,20 @@
         name="classTeachingLanguage"
         [(ngModel)]="newSchoolClassTeachingLanguage"
         class="w-44"
+      />
+    </app-float-field>
+    <app-float-field label="Kmenová učebna" for="classHomeroom">
+      <p-select
+        ariaLabel="Kmenová učebna"
+        inputId="classHomeroom"
+        [options]="homeroomOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [showClear]="true"
+        [(ngModel)]="newSchoolClassHomeroomId"
+        name="classHomeroom"
+        styleClass="w-48"
+        appendTo="body"
       />
     </app-float-field>
     <app-submit-button
