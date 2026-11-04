@@ -35,6 +35,38 @@ public class SchoolClassesControllerTests
     }
 
     [Fact]
+    public async Task HomeroomIsSavedAndCleared()
+    {
+        using var db = NewDb();
+        var room = new Classroom { Name = "101", Type = ClassroomType.Homeroom, SchoolId = SchoolId };
+        db.Classrooms.Add(room);
+        await db.SaveChangesAsync();
+        var controller = new SchoolClassesController(db, new FakeCurrentSchoolContext(SchoolId));
+
+        var created = Assert.IsType<SchoolClass>(Assert.IsType<CreatedAtActionResult>(
+            (await controller.AddSchoolClass(new CreateSchoolClassRequest("1.A", HomeroomId: room.Id))).Result).Value);
+        Assert.Equal(room.Id, created.HomeroomId);
+
+        await controller.UpdateSchoolClass(created.Id, new CreateSchoolClassRequest("1.A"));
+        Assert.Null(created.HomeroomId);
+    }
+
+    [Fact]
+    public async Task HomeroomOfAnotherSchoolIsRejected()
+    {
+        using var db = NewDb();
+        var foreign = new Classroom { Name = "101", SchoolId = SchoolId + 1 };
+        var schoolClass = new SchoolClass { Name = "1.A", SchoolId = SchoolId };
+        db.AddRange(foreign, schoolClass);
+        await db.SaveChangesAsync();
+        var controller = new SchoolClassesController(db, new FakeCurrentSchoolContext(SchoolId));
+        var request = new CreateSchoolClassRequest("1.A", HomeroomId: foreign.Id);
+
+        Assert.IsType<BadRequestObjectResult>((await controller.AddSchoolClass(request)).Result);
+        Assert.IsType<BadRequestObjectResult>((await controller.UpdateSchoolClass(schoolClass.Id, request)).Result);
+    }
+
+    [Fact]
     public async Task DeleteSchoolClassRejectsWhenItHasStudents()
     {
         using var db = NewDb();

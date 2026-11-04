@@ -263,4 +263,24 @@ public class TimetableVersionsControllerTests
 
         Assert.Contains("Jan Novák učí v pondělí 1. hod., kdy učit nemůže.", problems);
     }
+
+    [Fact]
+    public async Task ALessonOfAClassWithAHomeroomWithoutAClassroomIsAProblem()
+    {
+        var draft = await Draft("Koncept", new DateOnly(2027, 2, 1), current.Id);
+        foreach (var lesson in db.TimetableEntries.Where(e => e.TimetableVersionId == draft.Id))
+        {
+            lesson.ClassroomId = null;
+        }
+        await db.SaveChangesAsync();
+        async Task<List<string>> Problems() => Assert.IsAssignableFrom<IEnumerable<string>>(
+            Assert.IsType<OkObjectResult>((await Versions().GetProblems(draft.Id)).Result).Value).ToList();
+        Assert.DoesNotContain(await Problems(), p => p.Contains("bez učebny"));
+
+        var schoolClass = db.TimetableEntries.Where(e => e.TimetableVersionId == draft.Id).Select(e => e.SchoolClass!).First();
+        schoolClass.Homeroom = new Classroom { Name = "101", SchoolId = schoolClass.SchoolId };
+        await db.SaveChangesAsync();
+
+        Assert.Contains(await Problems(), p => p.Contains("bez učebny"));
+    }
 }
