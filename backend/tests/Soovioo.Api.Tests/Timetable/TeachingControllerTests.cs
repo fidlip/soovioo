@@ -368,4 +368,31 @@ public class TeachingControllerTests
         Value(await Controller().SetClassDoubleLessons(version.Id, new(sixthA.Id, maths.Id, true)));
         Assert.Empty(db.ClassCurriculumItems);
     }
+
+    [Fact]
+    public async Task ALessonInAPeriodTheTeacherCannotIsReported()
+    {
+        var fifth = Class("5.A", 5);
+        var teacher = Teacher("Adámek", null, Of(maths));
+        teacher.Person!.TeacherProfile!.Availability =
+            [new(DayOfWeek.Monday, 1, AvailabilityKind.Unavailable), new(DayOfWeek.Monday, 2, AvailabilityKind.Avoid)];
+        db.SaveChanges();
+        Lesson(fifth, maths, teacher);
+        Lesson(fifth, maths, teacher);
+
+        var overview = await Overview();
+
+        Assert.Contains("V rozvrhu učí v pondělí 1. hod., kdy učit nemůže.", overview.Teachers.Single(t => t.Id == teacher.Id).Problems);
+    }
+
+    [Fact]
+    public async Task TheGradesBlocksAreSavedWithThePlan()
+    {
+        Class("6.A", 6);
+
+        var saved = Value(await Controller().SaveCurriculum(version.Id, new([new(6, maths.Id, 4, true), new(6, history.Id, 2)])));
+
+        Assert.Equal([new CurriculumItemDto(6, history.Id, 2), new CurriculumItemDto(6, maths.Id, 4, true)],
+            saved.Curriculum.OrderBy(c => c.SubjectId == maths.Id));
+    }
 }
