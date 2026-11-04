@@ -45,6 +45,15 @@ describe('TimetableApiService', () => {
       .flush([]);
   });
 
+  it('asks for a pupil’s lessons: their groups’ and the whole class’s', () => {
+    service.getTimetable(1, { date: '2027-02-01', studentId: 7 }).subscribe();
+    httpMock
+      .expectOne(
+        'http://test/api/school-classes/1/timetable?date=2027-02-01&studentId=7',
+      )
+      .flush([]);
+  });
+
   it('adds a timetable entry', () => {
     service
       .addEntry(1, {
