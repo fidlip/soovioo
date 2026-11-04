@@ -103,6 +103,11 @@ public class DemoTests
                 $"{child} vs. {l.LastName}");
         });
 
+        // Every class has its own homeroom, shown in the timetable.
+        var homerooms = await db.SchoolClasses.IgnoreQueryFilters().Where(c => c.SchoolId == id).Select(c => c.HomeroomId).ToListAsync();
+        Assert.DoesNotContain(null, homerooms);
+        Assert.Equal(homerooms.Count, homerooms.Distinct().Count());
+
         // Agendas aren't empty.
         Assert.True(await db.TimetableEntries.IgnoreQueryFilters().CountAsync(t => t.SchoolId == id) > 18 * 19);
         Assert.True(await db.Grades.IgnoreQueryFilters().CountAsync(g => g.SchoolId == id) > 1000);

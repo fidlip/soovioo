@@ -119,6 +119,85 @@ public class TimetableGenerationTests
         Assert.Contains("Třídy nemají okna.", generation.Notes);
     }
 
+    private Classroom Homeroom(string name, SchoolClass? of = null)
+    {
+        var room = new Classroom { Name = name, Type = ClassroomType.Homeroom, SchoolId = SchoolId };
+        db.Classrooms.Add(room);
+        if (of is not null)
+        {
+            of.Homeroom = room;
+        }
+        db.SaveChanges();
+        return room;
+    }
+
+    [Fact]
+    public async Task ASubjectWithoutAListHasTheClassesHomeroom()
+    {
+        Homeroom("100");
+        var own = Homeroom("101", fifth);
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.Empty(generation.Messages);
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == maths.Id), e => Assert.Equal(own.Id, e.ClassroomId));
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == pe.Id), e => Assert.Equal(gym.Id, e.ClassroomId));
+    }
+
+    [Fact]
+    public async Task ATakenHomeroomLeavesTheLessonWithoutAClassroomAndSaysSo()
+    {
+        var own = Homeroom("101", fifth);
+        var other = new SchoolClass { Name = "6.A", Rocnik = 6, SchoolId = SchoolId };
+        db.SchoolClasses.Add(other);
+        db.SchoolPeriods.Add(new SchoolPeriod { SchoolId = SchoolId, PeriodNumber = 1, StartTime = new TimeOnly(8, 0), EndTime = new TimeOnly(8, 45) });
+        db.CurriculumItems.RemoveRange(db.CurriculumItems.Where(c => c.SubjectId == pe.Id));
+        db.SaveChanges();
+        // Four lessons of maths and only three free days in the classroom.
+        foreach (var day in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday })
+        {
+            db.TimetableEntries.Add(new TimetableEntry
+            {
+                SchoolId = SchoolId, TimetableVersionId = draft.Id, SchoolClassId = other.Id, SubjectId = pe.Id,
+                DayOfWeek = day, PeriodNumber = 1, ClassroomId = own.Id, Locked = true,
+            });
+        }
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        var lessons = db.TimetableEntries.Where(e => e.SchoolClassId == fifth.Id).ToList();
+        Assert.Equal(4, lessons.Count);
+        Assert.Equal(1, lessons.Count(e => e.ClassroomId is null));
+        Assert.Contains("M: nedostatek učeben, 1 h bez učebny (5.A) — doplňte ji ručně.", generation.Messages);
+    }
+
+    [Fact]
+    public async Task AnyHomeroomOnASubjectMeansTheClassesOwn()
+    {
+        Homeroom("100");
+        var own = Homeroom("101", fifth);
+        maths.Classrooms = [new() { Type = ClassroomType.Homeroom }];
+        db.SaveChanges();
+
+        await Generate(TimetableGenerationMode.All);
+
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == maths.Id), e => Assert.Equal(own.Id, e.ClassroomId));
+    }
+
+    [Fact]
+    public async Task AnyHomeroomOnASubjectInAClassWithoutOneIsReported()
+    {
+        Homeroom("100");
+        maths.Classrooms = [new() { Type = ClassroomType.Homeroom }];
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.Equal("5.A M: třída nemá kmenovou učebnu, hodiny jsou bez učebny.", Assert.Single(generation.Messages));
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == maths.Id), e => Assert.Null(e.ClassroomId));
+    }
+
     [Fact]
     public async Task RegeneratingKeepsOnlyTheLockedLessons()
     {

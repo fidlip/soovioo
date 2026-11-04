@@ -94,6 +94,20 @@ public class ClassroomsControllerTests
     }
 
     [Fact]
+    public async Task DeleteClassroomRejectsWhenAClassesHomeroom()
+    {
+        using var db = NewDb();
+        var classroom = new Classroom { Name = "101", SchoolId = SchoolId };
+        db.SchoolClasses.Add(new SchoolClass { Name = "1.A", SchoolId = SchoolId, Homeroom = classroom });
+        await db.SaveChangesAsync();
+
+        var result = await new ClassroomsController(db, new FakeCurrentSchoolContext(SchoolId))
+            .DeleteClassroom(classroom.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
     public async Task DeleteClassroomSucceedsWhenUnused()
     {
         using var db = NewDb();
