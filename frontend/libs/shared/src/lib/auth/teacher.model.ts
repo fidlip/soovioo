@@ -32,3 +32,16 @@ export function qualifiedFor(
           (q.gradeTo === null || q.gradeTo >= grade))),
   );
 }
+
+/** Picker options with the qualified ones first, marked "(aprobace)". */
+export function qualifiedFirst<T extends { label: string }>(
+  options: T[],
+  isQualified: (option: T) => boolean,
+): T[] {
+  return [
+    ...options
+      .filter(isQualified)
+      .map((o) => ({ ...o, label: `${o.label} (aprobace)` })),
+    ...options.filter((o) => !isQualified(o)),
+  ];
+}

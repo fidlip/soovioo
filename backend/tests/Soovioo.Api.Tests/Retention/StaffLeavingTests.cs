@@ -105,6 +105,33 @@ public class StaffLeavingTests
         Assert.Equal((DayOfWeek.Monday, 1, "5.A", "6.B"), (conflict.DayOfWeek, conflict.PeriodNumber, conflict.Class, conflict.OtherClass));
     }
 
+    [Theory]
+    [InlineData(null, null, true)]
+    [InlineData(5, 9, true)]
+    [InlineData(6, 9, false)]
+    [InlineData(1, 4, false)]
+    public async Task PreviewOffersStaffWhoseAprobaceCoversTheSubjectInTheGrade(int? from, int? to, bool qualified)
+    {
+        classA.Rocnik = 5;
+        var history = new Subject { Name = "Dějepis", SchoolId = SchoolId };
+        db.TeacherProfiles.Add(new TeacherProfile
+        {
+            Person = await db.Persons.SingleAsync(p => p.UserId == colleague.Id),
+            SchoolId = SchoolId,
+            Qualifications =
+            [
+                new TeacherQualification { SchoolId = SchoolId, SubjectId = maths.Id, GradeFrom = from, GradeTo = to },
+                new TeacherQualification { SchoolId = SchoolId, Subject = history },
+            ],
+        });
+        await db.SaveChangesAsync();
+
+        var preview = Assert.IsType<StaffLeavePreviewDto>(Assert.IsType<OkObjectResult>(
+            (await Controller().GetStaffLeave(teacher.Id)).Result).Value);
+
+        Assert.Equal(qualified ? [colleague.Id] : [], Assert.Single(preview.Subjects).QualifiedIds);
+    }
+
     [Fact]
     public async Task HandsOverTheLessonsAndAssignmentsOfTheCurrentAndLaterVersionsButNotOfPastOnes()
     {

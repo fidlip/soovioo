@@ -41,6 +41,7 @@ import {
   WeekParity,
   formatDate,
   formatHours,
+  qualifiedFirst,
   qualifiedFor,
   taughtSummary,
   isoWeekNumber,
@@ -743,16 +744,15 @@ export class TimetablePage {
       this.schoolClasses().find(
         (c) => c.id === this.editingEntrySchoolClassId(),
       )?.rocnik ?? null;
-    const qualified = (t: Teacher) =>
-      subjectId !== null && qualifiedFor(t.qualifications, subjectId, grade);
-    return [
-      ...this.teachers()
-        .filter(qualified)
-        .map((t) => ({ id: t.id, label: `${t.name} (aprobace)` })),
-      ...this.teachers()
-        .filter((t) => !qualified(t))
-        .map((t) => ({ id: t.id, label: t.name })),
-    ];
+    return qualifiedFirst(
+      this.teachers().map((t) => ({
+        id: t.id,
+        label: t.name,
+        qualifications: t.qualifications,
+      })),
+      (o) =>
+        subjectId !== null && qualifiedFor(o.qualifications, subjectId, grade),
+    );
   }
 
   private openAddDialog(day: DayOfWeek, periodNumber: number): void {

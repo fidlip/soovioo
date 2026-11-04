@@ -20,6 +20,7 @@ import {
   StaffLeaveNoticeGroup,
   StaffLeavePreview,
   StaffLeaveReason,
+  qualifiedFirst,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
@@ -133,13 +134,9 @@ export class StaffLeaveDialog {
   protected substituteOptions(
     qualifiedIds: number[],
   ): { label: string; value: number }[] {
-    const options = this.staffOptions();
-    return [
-      ...options
-        .filter((o) => qualifiedIds.includes(o.value))
-        .map((o) => ({ ...o, label: `${o.label} (aprobace)` })),
-      ...options.filter((o) => !qualifiedIds.includes(o.value)),
-    ];
+    return qualifiedFirst(this.staffOptions(), (o) =>
+      qualifiedIds.includes(o.value),
+    );
   }
 
   /** Asks again whenever a substitute changes. */
