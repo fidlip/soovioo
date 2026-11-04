@@ -31,6 +31,32 @@ export interface TeachingRow {
   doubleLessons: boolean;
   /** What the grade (or the subject) says. */
   gradeDoubleLessons: boolean;
+  /** The class has the subject in these groups, not as a whole class. */
+  groups: string[];
+}
+
+/** A group's plan, the timetable and who teaches it. */
+export interface TeachingGroup {
+  id: number;
+  name: string;
+  divisionId: number | null;
+  divisionName: string | null;
+  subjectId: number;
+  subjectName: string;
+  subjectAbbreviation: string | null;
+  classIds: number[];
+  /** "7.A, 7.B". */
+  classNames: string;
+  /** The ročník its classes share; null = none or several. */
+  grade: number | null;
+  planHours: number;
+  timetableHours: number;
+  teacherId: number | null;
+  teacherName: string | null;
+  automatic: boolean;
+  doubleLessons: boolean;
+  memberCount: number;
+  problems: string[];
 }
 
 export interface TeachingClass {
@@ -64,6 +90,8 @@ export interface TeachingTaught {
   subjectAbbreviation: string | null;
   hours: number;
   automatic: boolean;
+  /** Of a group: `schoolClassName` is the group's name. */
+  studentGroupId?: number | null;
 }
 
 /** One teacher's přidělení in a version. */
@@ -92,7 +120,44 @@ export interface TeachingOverview {
   curriculum: CurriculumItem[];
   classes: TeachingClass[];
   teachers: TeachingTeacher[];
+  groups: TeachingGroup[];
 }
+
+/** Dělení: groups of the same classes at the same time. */
+export interface GroupDivision {
+  id: number;
+  name: string;
+  hoursPerWeek: number;
+  doubleLessons: boolean | null;
+  classIds: number[];
+}
+
+/** Pupils taught a subject apart from the rest of their class. */
+export interface StudentGroup {
+  id: number;
+  name: string;
+  divisionId: number | null;
+  subjectId: number;
+  /** In a division the division's. */
+  hoursPerWeek: number;
+  doubleLessons: boolean | null;
+  /** null = chosen automatically. */
+  teacherId: number | null;
+  /** null = from the subject's classrooms. */
+  classroomId: number | null;
+  /** In a division the division's. */
+  classIds: number[];
+  studentIds: number[];
+}
+
+export interface StudentGroups {
+  divisions: GroupDivision[];
+  groups: StudentGroup[];
+}
+
+export type SaveGroupDivisionRequest = Omit<GroupDivision, 'id'>;
+
+export type SaveStudentGroupRequest = Omit<StudentGroup, 'id'>;
 
 /** "1 h", "1,5 h". */
 export function formatHours(hours: number): string {

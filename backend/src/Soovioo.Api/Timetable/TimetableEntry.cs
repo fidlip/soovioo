@@ -16,6 +16,11 @@ public class TimetableEntry
     public int SchoolClassId { get; set; }
     public SchoolClass? SchoolClass { get; set; }
 
+    /// <summary>A lesson of a group: one entry per class of the group, alike
+    /// but for the class; null = the whole class.</summary>
+    public int? StudentGroupId { get; set; }
+    public StudentGroup? StudentGroup { get; set; }
+
     public int SubjectId { get; set; }
     public Subject? Subject { get; set; }
 

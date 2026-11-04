@@ -27,6 +27,9 @@ export interface TimetableEntry {
   conflicts: string[];
   /** The generator leaves it where it is. */
   locked: boolean;
+  /** A lesson of a group; null = the whole class. */
+  studentGroupId?: number | null;
+  studentGroupName?: string | null;
 }
 
 export interface CreateTimetableEntryRequest {
@@ -39,6 +42,8 @@ export interface CreateTimetableEntryRequest {
   /** Null/missing = the version valid today; ignored on update. */
   timetableVersionId?: number | null;
   locked?: boolean;
+  /** A lesson of the group, for all its classes; ignored on update. */
+  studentGroupId?: number | null;
 }
 
 /** Same shape as TimetableEntry, plus which class each entry belongs to —
@@ -62,4 +67,7 @@ export interface TeacherTimetableEntry {
   conflicts: string[];
   /** The generator leaves it where it is. */
   locked: boolean;
+  /** A lesson of a group (once, `schoolClassName` names it); null = the whole class. */
+  studentGroupId?: number | null;
+  studentGroupName?: string | null;
 }

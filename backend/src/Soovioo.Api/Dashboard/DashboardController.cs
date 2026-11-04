@@ -160,14 +160,17 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
     /// regardless of parity); that belongs to the Rozvrh redesign (see
     /// ROADMAP), not this summary widget.</summary>
     private async Task<List<TimetableEntryDto>> TodayLessonsForTeacherAsync(int teacherId, DayOfWeek today) =>
-        await db.TimetableEntriesOn()
+        // A group's lesson once, not once per class of the group.
+        [.. (await db.TimetableEntriesOn()
             .Where(e => e.TeacherId == teacherId && e.DayOfWeek == today)
-            .OrderBy(e => e.PeriodNumber)
+            .OrderBy(e => e.PeriodNumber).ThenBy(e => e.Id)
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
                 e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
-                e.ClassroomId, e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name, Array.Empty<string>()))
-            .ToListAsync();
+                e.ClassroomId, e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name, Array.Empty<string>(), false,
+                e.StudentGroupId, e.StudentGroup == null ? null : e.StudentGroup.Name))
+            .ToListAsync())
+            .DistinctBy(e => e.StudentGroupId is { } g ? (g, e.PeriodNumber, e.WeekParity, 0) : (0, e.PeriodNumber, e.WeekParity, e.Id))];
 
     /// <summary>Parent/Student: the first accessible student's own class
     /// schedule for today. "First" (lowest id) rather than a picker — a real
@@ -194,11 +197,13 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         var lessons = await db.TimetableEntriesOn()
             .Where(e => e.SchoolClassId == student.SchoolClassId && e.DayOfWeek == today)
+            .Where(e => e.StudentGroupId == null || e.StudentGroup!.Members.Any(m => m.StudentId == student.Id))
             .OrderBy(e => e.PeriodNumber)
             .Select(e => new TimetableEntryDto(
                 e.Id, e.SchoolClassId, e.SubjectId, e.Subject!.Name, e.Subject!.Abbreviation,
                 e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
-                e.ClassroomId, e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name, Array.Empty<string>()))
+                e.ClassroomId, e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name, Array.Empty<string>(), false,
+                e.StudentGroupId, e.StudentGroup == null ? null : e.StudentGroup.Name))
             .ToListAsync();
 
         return (lessons, $"{student.FirstName} {student.LastName} ({student.SchoolClassName})");

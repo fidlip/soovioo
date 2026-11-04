@@ -28,6 +28,7 @@ import {
   SchoolPeriod,
   SchoolPeriodsApiService,
   Student,
+  StudentGroup,
   StudentsApiService,
   Subject,
   SubjectsApiService,
@@ -125,6 +126,8 @@ interface GridEntry {
   classroomName: string | null;
   conflicts: string[];
   locked: boolean;
+  studentGroupId?: number | null;
+  studentGroupName?: string | null;
 }
 
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
@@ -371,16 +374,36 @@ export class TimetablePage {
       `${DAY_COLUMN_WIDTH_REM + this.displayedPeriods().length * PERIOD_COLUMN_MIN_WIDTH_REM}rem`,
   );
 
+  /** Lessons of a slot — several where a class is in groups. */
   protected readonly entryGrid = computed(() => {
-    const grid = new Map<DayOfWeek, Map<number, GridEntry>>();
+    const grid = new Map<DayOfWeek, Map<number, GridEntry[]>>();
     for (const day of this.days) {
       grid.set(day, new Map());
     }
     for (const entry of this.visibleEntries()) {
-      grid.get(entry.dayOfWeek)?.set(entry.periodNumber, entry);
+      const slots = grid.get(entry.dayOfWeek);
+      const cell = slots?.get(entry.periodNumber);
+      if (cell) {
+        cell.push(entry);
+      } else {
+        slots?.set(entry.periodNumber, [entry]);
+      }
     }
     return grid;
   });
+
+  /** The shown version's groups — for a group's lesson added by hand. */
+  private readonly groups = signal<StudentGroup[]>([]);
+  protected readonly formGroupOptions = computed(() => {
+    const classId = this.editingEntrySchoolClassId();
+    return [
+      { id: null as number | null, label: 'Celá třída' },
+      ...this.groups()
+        .filter((g) => classId !== null && g.classIds.includes(classId))
+        .map((g) => ({ id: g.id as number | null, label: g.name })),
+    ];
+  });
+  protected formGroupId: number | null = null;
 
   // Dialog state — add (no editingEntryId) or edit (editingEntryId set) a
   // single TimetableEntry, triggered by clicking a grid cell.
@@ -392,6 +415,8 @@ export class TimetablePage {
   protected formPeriodNumber = 1;
   protected formWeekParity: WeekParity = 'Every';
   protected formLocked = false;
+  /** Of the lesson being edited — a group's lesson stays the group's. */
+  protected editingGroupName: string | null = null;
   protected formTeacherId: number | null = null;
   protected formClassroomId: number | null = null;
   /** True once the user has picked a classroom by hand in the currently
@@ -717,7 +742,9 @@ export class TimetablePage {
           : ' (sudý týden)';
     const className = entry.schoolClassName
       ? ` — ${entry.schoolClassName}`
-      : '';
+      : entry.studentGroupName
+        ? ` — ${entry.studentGroupName}`
+        : '';
     const classroom = entry.classroomName ? ` — ${entry.classroomName}` : '';
     const conflicts = this.canManageTimetable()
       ? entry.conflicts.map((c) => `\n⚠ ${c}`).join('')
@@ -725,16 +752,68 @@ export class TimetablePage {
     return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}${conflicts}`;
   }
 
+  /** An empty slot: a new lesson; one lesson: that one. */
   protected onCellClick(day: DayOfWeek, periodNumber: number): void {
     if (!this.editMode() || !this.canManageTimetable()) {
       return;
     }
-    const entry = this.entryGrid().get(day)?.get(periodNumber);
-    if (entry) {
-      this.openEditDialog(entry);
-    } else if (this.canAddEntries()) {
+    const entries = this.entryGrid().get(day)?.get(periodNumber) ?? [];
+    if (entries.length === 1) {
+      this.openEditDialog(entries[0]);
+    } else if (entries.length === 0 && this.canAddEntries()) {
       this.openAddDialog(day, periodNumber);
     }
+  }
+
+  protected onEntryClick(entry: GridEntry): void {
+    if (this.editMode() && this.canManageTimetable()) {
+      this.openEditDialog(entry);
+    }
+  }
+
+  /** Another group's lesson where the class has a group's already. */
+  protected canAddGroupLesson(entries: GridEntry[]): boolean {
+    return (
+      this.canAddEntries() &&
+      entries.length > 0 &&
+      entries.every((e) => e.studentGroupId) &&
+      this.formGroupOptions().length > 1
+    );
+  }
+
+  protected addToCell(day: DayOfWeek, periodNumber: number): void {
+    this.openAddDialog(day, periodNumber);
+  }
+
+  /** A group's lesson has its subject. */
+  protected onFormGroupChange(): void {
+    const group = this.groups().find((g) => g.id === this.formGroupId);
+    if (!group) {
+      return;
+    }
+    this.formSubjectId = group.subjectId;
+    this.formTeacherId = group.teacherId ?? this.formTeacherId;
+    if (group.classroomId !== null) {
+      this.formClassroomId = group.classroomId;
+      this.formClassroomTouched = true;
+    } else {
+      this.prefillClassroom();
+    }
+  }
+
+  private loadGroups(): void {
+    const versionId = this.shownVersion()?.id;
+    const allowed =
+      this.authApi.can('Teaching') ||
+      this.authApi.scope('TeachingRead') === 'School';
+    if (versionId === undefined || !allowed || !this.canManageTimetable()) {
+      this.groups.set([]);
+      return;
+    }
+    this.teachingApi.getGroups(versionId).subscribe({
+      next: (data) => this.groups.set(data.groups),
+      error: (err) => console.error('getGroups failed', err),
+    });
   }
 
   /** Who has the aprobace for the subject in the class first. */
@@ -757,6 +836,9 @@ export class TimetablePage {
 
   private openAddDialog(day: DayOfWeek, periodNumber: number): void {
     this.editingEntryId.set(null);
+    this.formGroupId = null;
+    this.editingGroupName = null;
+    this.loadGroups();
     this.editingEntrySchoolClassId.set(this.selectedClassId());
     this.formSubjectId = this.subjects()[0]?.id ?? null;
     this.formDayOfWeek = day;
@@ -773,6 +855,8 @@ export class TimetablePage {
 
   private openEditDialog(entry: GridEntry): void {
     this.editingEntryId.set(entry.id);
+    this.formGroupId = entry.studentGroupId ?? null;
+    this.editingGroupName = entry.studentGroupName ?? null;
     this.editingEntrySchoolClassId.set(entry.schoolClassId);
     this.formSubjectId = entry.subjectId;
     this.formDayOfWeek = entry.dayOfWeek;
@@ -865,6 +949,7 @@ export class TimetablePage {
       classroomId: this.formClassroomId,
       timetableVersionId: this.shownVersion()?.id ?? null,
       locked: this.formLocked,
+      studentGroupId: this.formGroupId,
     };
     const editingId = this.editingEntryId();
     const result =
@@ -890,7 +975,7 @@ export class TimetablePage {
   protected confirmDeleteEntry(entry: GridEntry): void {
     this.confirmation.confirm({
       header: 'Smazat hodinu',
-      message: `Smazat ${entry.subjectName} (${DAY_LABELS[entry.dayOfWeek]}, ${entry.periodNumber}. hodina)${entry.schoolClassName ? ` — ${entry.schoolClassName}` : ''}?`,
+      message: `Smazat ${entry.subjectName} (${DAY_LABELS[entry.dayOfWeek]}, ${entry.periodNumber}. hodina)${entry.schoolClassName ? ` — ${entry.schoolClassName}` : entry.studentGroupName ? ` — ${entry.studentGroupName}` : ''}?`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Smazat',
       rejectLabel: 'Zrušit',
@@ -992,16 +1077,21 @@ export class TimetablePage {
         this.entriesLoaded.set(true);
         return;
       }
-      this.timetableApi.getTimetable(student.schoolClassId, query).subscribe({
-        next: (entries) =>
-          this.setEntries(
-            entries.map((e) => ({ ...e, schoolClassName: null })),
-          ),
-        error: (err) => {
-          console.error('getTimetable failed', err);
-          this.entriesLoaded.set(true);
-        },
-      });
+      this.timetableApi
+        .getTimetable(student.schoolClassId, {
+          ...query,
+          studentId: student.id,
+        })
+        .subscribe({
+          next: (entries) =>
+            this.setEntries(
+              entries.map((e) => ({ ...e, schoolClassName: null })),
+            ),
+          error: (err) => {
+            console.error('getTimetable failed', err);
+            this.entriesLoaded.set(true);
+          },
+        });
     }
   }
 

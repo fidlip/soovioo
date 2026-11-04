@@ -29,6 +29,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<CurriculumItem> CurriculumItems => Set<CurriculumItem>();
     public DbSet<ClassCurriculumItem> ClassCurriculumItems => Set<ClassCurriculumItem>();
     public DbSet<TeachingAssignment> TeachingAssignments => Set<TeachingAssignment>();
+    public DbSet<StudentGroup> StudentGroups => Set<StudentGroup>();
+    public DbSet<GroupDivision> GroupDivisions => Set<GroupDivision>();
+    public DbSet<StudentGroupClass> StudentGroupClasses => Set<StudentGroupClass>();
+    public DbSet<StudentGroupMember> StudentGroupMembers => Set<StudentGroupMember>();
     public DbSet<TimetableGeneration> TimetableGenerations => Set<TimetableGeneration>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -291,6 +295,48 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
+        modelBuilder.Entity<StudentGroup>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.HoursPerWeek).HasPrecision(4, 1);
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.Groups)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.GroupDivision).WithMany(d => d.Groups)
+                .HasForeignKey(x => x.GroupDivisionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Classroom).WithMany().HasForeignKey(x => x.ClassroomId).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<GroupDivision>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.HoursPerWeek).HasPrecision(4, 1);
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.Divisions)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<StudentGroupClass>(e =>
+        {
+            e.HasKey(x => new { x.StudentGroupId, x.SchoolClassId });
+            e.HasOne(x => x.StudentGroup).WithMany(g => g.Classes)
+                .HasForeignKey(x => x.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.SchoolClass).WithMany()
+                .HasForeignKey(x => x.SchoolClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<StudentGroupMember>(e =>
+        {
+            e.HasKey(x => new { x.StudentGroupId, x.StudentId });
+            e.HasOne(x => x.StudentGroup).WithMany(g => g.Members)
+                .HasForeignKey(x => x.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany()
+                .HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<TimetableEntry>()
+            .HasOne(t => t.StudentGroup).WithMany()
+            .HasForeignKey(t => t.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<TimetableGeneration>(e =>
         {
             e.HasOne(x => x.TimetableVersion).WithMany()

@@ -235,8 +235,8 @@
             {{ dayShortLabels[day] }}
           </th>
           @for (period of displayedPeriods(); track period.periodNumber) { @let
-          entry = entryGrid().get(day)?.get(period.periodNumber); @let editable
-          = editMode() && canManageTimetable();
+          entries = entryGrid().get(day)?.get(period.periodNumber) ?? []; @let
+          editable = editMode() && canManageTimetable();
           <td
             class="group relative border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
             [class.h-14]="editable"
@@ -244,72 +244,90 @@
             [class.cursor-pointer]="editMode() && canManageTimetable()"
             [class.hover:bg-surface-100]="editMode() && canManageTimetable()"
             [class.dark:hover:bg-surface-800]="editMode() && canManageTimetable()"
-            [title]="entry ? cellTitle(entry) : ''"
+            [title]="entries.length === 1 ? cellTitle(entries[0]) : ''"
             (click)="onCellClick(day, period.periodNumber)"
           >
-            @if (entry) { @let hasConflict = canManageTimetable() &&
-            entry.conflicts.length > 0;
-            <div
-              class="relative rounded px-2 py-1 text-xs"
-              [class.ring-2]="hasConflict"
-              [class.ring-red-600]="hasConflict"
-              [class.ring-offset-2]="hasConflict"
-              [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
-            >
-              @if (hasConflict) {
-              <i
-                class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
-                role="img"
-                aria-label="Kolize"
-              ></i>
-              } @else if (entry.locked && canManageTimetable()) {
-              <i
-                class="pi pi-lock absolute right-1 top-1 text-xs text-surface-700"
-                role="img"
-                aria-label="Zamčená"
-                title="Zamčená — generátor ji nepřesune"
-              ></i>
-              }
-              <div class="font-semibold text-surface-900">
-                {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
-                (entry.schoolClassName) {
-                <span class="font-normal">({{ entry.schoolClassName }})</span>
+            <div class="flex flex-col gap-1">
+              @for (entry of entries; track entry.id) { @let hasConflict =
+              canManageTimetable() && entry.conflicts.length > 0;
+              <div
+                class="relative rounded px-2 py-1 text-xs"
+                [class.ring-2]="hasConflict"
+                [class.ring-red-600]="hasConflict"
+                [class.ring-offset-2]="hasConflict"
+                [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
+                [title]="cellTitle(entry)"
+              >
+                @if (hasConflict) {
+                <i
+                  class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
+                  role="img"
+                  aria-label="Kolize"
+                ></i>
+                } @else if (entry.locked && canManageTimetable()) {
+                <i
+                  class="pi pi-lock absolute right-1 top-1 text-xs text-surface-700"
+                  role="img"
+                  aria-label="Zamčená"
+                  title="Zamčená — generátor ji nepřesune"
+                ></i>
+                }
+                <div class="font-semibold text-surface-900">
+                  {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
+                  (entry.schoolClassName) {
+                  <span class="font-normal">({{ entry.schoolClassName }})</span>
+                  } @else if (entry.studentGroupName) {
+                  <span class="font-normal"
+                    >({{ entry.studentGroupName }})</span
+                  >
+                  }
+                </div>
+                @if (entry.teacherName) {
+                <div class="text-surface-700">{{ entry.teacherName }}</div>
+                } @if (entry.classroomName) {
+                <div class="text-surface-600">{{ entry.classroomName }}</div>
+                } @if (entry.weekParity !== 'Every') {
+                <div class="text-surface-600">
+                  {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
+                </div>
+                } @if (editable) {
+                <div
+                  class="absolute bottom-1 right-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                >
+                  <button
+                    type="button"
+                    class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-surface-700 shadow hover:text-primary"
+                    aria-label="Upravit hodinu"
+                    title="Upravit"
+                    (click)="$event.stopPropagation(); onEntryClick(entry)"
+                  >
+                    <i class="pi pi-pencil text-xs"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow hover:bg-red-50"
+                    aria-label="Smazat hodinu"
+                    title="Smazat"
+                    (click)="$event.stopPropagation(); confirmDeleteEntry(entry)"
+                  >
+                    <i class="pi pi-times text-xs"></i>
+                  </button>
+                </div>
                 }
               </div>
-              @if (entry.teacherName) {
-              <div class="text-surface-700">{{ entry.teacherName }}</div>
-              } @if (entry.classroomName) {
-              <div class="text-surface-600">{{ entry.classroomName }}</div>
-              } @if (entry.weekParity !== 'Every') {
-              <div class="text-surface-600">
-                {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
-              </div>
-              } @if (editable) {
-              <div
-                class="absolute bottom-1 right-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+              } @if (editable && canAddGroupLesson(entries)) {
+              <button
+                type="button"
+                class="self-center rounded-full border border-dashed border-surface-400 px-2 text-xs text-surface-500 hover:border-primary hover:text-primary"
+                aria-label="Hodina jiné skupiny"
+                title="Přidat hodinu jiné skupiny"
+                (click)="$event.stopPropagation(); addToCell(day, period.periodNumber)"
               >
-                <button
-                  type="button"
-                  class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-surface-700 shadow hover:text-primary"
-                  aria-label="Upravit hodinu"
-                  title="Upravit"
-                  (click)="$event.stopPropagation(); onCellClick(day, period.periodNumber)"
-                >
-                  <i class="pi pi-pencil text-xs"></i>
-                </button>
-                <button
-                  type="button"
-                  class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow hover:bg-red-50"
-                  aria-label="Smazat hodinu"
-                  title="Smazat"
-                  (click)="$event.stopPropagation(); confirmDeleteEntry(entry)"
-                >
-                  <i class="pi pi-times text-xs"></i>
-                </button>
-              </div>
+                <i class="pi pi-plus text-xs"></i>
+              </button>
               }
             </div>
-            } @else if (editable && canAddEntries()) {
+            @if (entries.length === 0 && editable && canAddEntries()) {
             <button
               type="button"
               class="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-400 text-surface-500 opacity-0 transition-opacity hover:border-primary hover:text-primary focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
@@ -370,6 +388,27 @@
     #entryForm="ngForm"
     (ngSubmit)="saveEntry()"
   >
+    @if (editingEntryId() === null) { @if (formGroupOptions().length > 1) {
+    <app-float-field label="Pro" for="formGroupId">
+      <p-select
+        ariaLabel="Pro"
+        inputId="formGroupId"
+        [options]="formGroupOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="formGroupId"
+        (ngModelChange)="onFormGroupChange()"
+        name="formGroupId"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    } } @else if (editingGroupName) {
+    <p class="m-0 text-sm text-surface-500">
+      Hodina skupiny {{ editingGroupName }} — změna platí pro všechny její
+      třídy.
+    </p>
+    }
     <app-float-field label="Předmět" for="formSubjectId">
       <p-select
         ariaLabel="Předmět"
@@ -380,6 +419,7 @@
         [ngModel]="formSubjectId"
         (ngModelChange)="formSubjectId = $event; onFormSubjectChange()"
         name="formSubjectId"
+        [disabled]="formGroupId !== null"
         required
         styleClass="w-full"
         appendTo="body"

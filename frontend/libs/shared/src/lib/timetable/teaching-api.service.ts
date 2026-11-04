@@ -4,6 +4,11 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import {
   CurriculumItem,
+  GroupDivision,
+  SaveGroupDivisionRequest,
+  SaveStudentGroupRequest,
+  StudentGroup,
+  StudentGroups,
   TeacherTeaching,
   TeachingOverview,
 } from './teaching.model';
@@ -89,6 +94,63 @@ export class TeachingApiService {
       `${this.url(versionId)}/assignments/confirm`,
       {},
     );
+  }
+
+  getGroups(versionId: number): Observable<StudentGroups> {
+    return this.http.get<StudentGroups>(`${this.url(versionId)}/groups`);
+  }
+
+  createDivision(
+    versionId: number,
+    request: SaveGroupDivisionRequest,
+  ): Observable<GroupDivision> {
+    return this.http.post<GroupDivision>(
+      `${this.url(versionId)}/divisions`,
+      request,
+    );
+  }
+
+  /** Its groups follow (hours, blocks, classes). */
+  updateDivision(
+    versionId: number,
+    id: number,
+    request: SaveGroupDivisionRequest,
+  ): Observable<GroupDivision> {
+    return this.http.put<GroupDivision>(
+      `${this.url(versionId)}/divisions/${id}`,
+      request,
+    );
+  }
+
+  /** With its groups and their lessons. */
+  deleteDivision(versionId: number, id: number): Observable<void> {
+    return this.http.delete<void>(`${this.url(versionId)}/divisions/${id}`);
+  }
+
+  createGroup(
+    versionId: number,
+    request: SaveStudentGroupRequest,
+  ): Observable<StudentGroup> {
+    return this.http.post<StudentGroup>(
+      `${this.url(versionId)}/groups`,
+      request,
+    );
+  }
+
+  updateGroup(
+    versionId: number,
+    id: number,
+    request: SaveStudentGroupRequest,
+  ): Observable<StudentGroup> {
+    return this.http.put<StudentGroup>(
+      `${this.url(versionId)}/groups/${id}`,
+      request,
+    );
+  }
+
+  /** With its lessons. */
+  deleteGroup(versionId: number, id: number): Observable<void> {
+    return this.http.delete<void>(`${this.url(versionId)}/groups/${id}`);
   }
 
   importFromTimetable(versionId: number): Observable<TeachingOverview> {

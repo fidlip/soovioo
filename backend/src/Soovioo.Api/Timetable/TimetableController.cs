@@ -15,10 +15,13 @@ namespace Soovioo.Api.Timetable;
 public class TimetableController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
     /// <summary>The lessons of <paramref name="versionId"/>, or of the version
-    /// valid on <paramref name="date"/> (today by default).</summary>
+    /// valid on <paramref name="date"/> (today by default). With
+    /// <paramref name="studentId"/> only the lessons of the pupil's groups
+    /// besides the whole class's.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TimetableEntryDto>>> GetTimetable(
-        int schoolClassId, [FromQuery] int? versionId = null, [FromQuery] DateOnly? date = null)
+        int schoolClassId, [FromQuery] int? versionId = null, [FromQuery] DateOnly? date = null,
+        [FromQuery] int? studentId = null)
     {
         var version = await ResolveVersionAsync(versionId, date);
         if (version is null)
@@ -28,8 +31,10 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
 
         var entries = await db.TimetableEntries
             .Where(e => e.TimetableVersionId == version.Id && e.SchoolClassId == schoolClassId)
+            .Where(e => studentId == null || e.StudentGroupId == null || e.StudentGroup!.Members.Any(m => m.StudentId == studentId))
             .OrderBy(e => e.DayOfWeek)
             .ThenBy(e => e.PeriodNumber)
+            .ThenBy(e => e.StudentGroup == null ? "" : e.StudentGroup.Name)
             .Select(e => new TimetableEntryDto(
                 e.Id,
                 e.SchoolClassId,
@@ -44,11 +49,13 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
                 Array.Empty<string>(),
-                e.Locked))
+                e.Locked,
+                e.StudentGroupId,
+                e.StudentGroup == null ? null : e.StudentGroup.Name))
             .ToListAsync();
 
         var conflicts = await FindConflictsAsync(version.Id, entries.Select(e =>
-            new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId)));
+            new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId, e.StudentGroupId)));
         return Ok(entries.Select(e => e with { Conflicts = conflicts.GetValueOrDefault(e.Id, []) }));
     }
 
@@ -89,13 +96,26 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.ClassroomId,
                 e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
                 Array.Empty<string>(),
-                e.Locked))
+                e.Locked,
+                e.StudentGroupId,
+                e.StudentGroup == null ? null : e.StudentGroup.Name))
             .ToListAsync();
+        // A group's lesson once, named after the group and its classes.
+        var groupClasses = await GroupClassNamesAsync(version.Id);
+        entries = [.. entries.DistinctBy(e => e.StudentGroupId is { } g ? (g, e.DayOfWeek, e.PeriodNumber, e.WeekParity, 0) : (0, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.Id))
+            .Select(e => e.StudentGroupId is { } g ? e with { SchoolClassName = $"{e.StudentGroupName} ({groupClasses.GetValueOrDefault(g)})" } : e)];
 
         var conflicts = await FindConflictsAsync(version.Id, entries.Select(e =>
-            new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId)));
+            new ConflictSlot(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId, e.StudentGroupId)));
         return Ok(entries.Select(e => e with { Conflicts = conflicts.GetValueOrDefault(e.Id, []) }));
     }
+
+    /// <summary>"7.A, 7.B" per group of the version.</summary>
+    private async Task<Dictionary<int, string>> GroupClassNamesAsync(int versionId) =>
+        (await db.StudentGroupClasses.Where(c => c.StudentGroup!.TimetableVersionId == versionId)
+            .Select(c => new { c.StudentGroupId, c.SchoolClass!.Name }).ToListAsync())
+        .GroupBy(c => c.StudentGroupId)
+        .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(c => c.Name).Order(StringComparer.Ordinal)));
 
     /// <summary>Drafts and archived versions only for whoever may edit the
     /// timetable or see its versions; to everyone else they don't exist.</summary>
@@ -155,10 +175,23 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest(ArchivedMessage);
         }
 
-        var entry = new TimetableEntry
+        List<int> classIds = [schoolClassId];
+        if (request.StudentGroupId is { } groupId)
+        {
+            var group = await db.StudentGroups.Include(g => g.Classes)
+                .FirstOrDefaultAsync(g => g.Id == groupId && g.TimetableVersionId == version.Id);
+            if (GroupError(group, schoolClassId, request.SubjectId) is { } groupError)
+            {
+                return BadRequest(groupError);
+            }
+            classIds = [schoolClassId, .. group!.Classes.Select(c => c.SchoolClassId).Where(id => id != schoolClassId)];
+        }
+
+        var added = classIds.Select(classId => new TimetableEntry
         {
             TimetableVersionId = version.Id,
-            SchoolClassId = schoolClassId,
+            SchoolClassId = classId,
+            StudentGroupId = request.StudentGroupId,
             SubjectId = request.SubjectId,
             DayOfWeek = request.DayOfWeek,
             PeriodNumber = request.PeriodNumber,
@@ -167,16 +200,14 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             ClassroomId = request.ClassroomId,
             Locked = request.Locked,
             SchoolId = currentSchool.SchoolId!.Value,
-        };
+        }).ToList();
 
-        db.TimetableEntries.Add(entry);
+        db.TimetableEntries.AddRange(added);
         await db.SaveChangesAsync();
+        var entry = added[0];
 
         var conflicts = await FindConflictsAsync(entry.TimetableVersionId, [ConflictSlot.Of(entry)]);
-        var dto = new TimetableEntryDto(
-            entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
-            entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []), entry.Locked);
+        var dto = await ToDtoAsync(entry, subject, teacher, classroom, conflicts);
         return CreatedAtAction(nameof(GetTimetable), new { schoolClassId }, dto);
     }
 
@@ -194,6 +225,12 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         if (entry.TimetableVersion!.Status == TimetableVersionStatus.Archived)
         {
             return BadRequest(ArchivedMessage);
+        }
+        if (entry.StudentGroupId is { } groupId
+            && GroupError(await db.StudentGroups.Include(g => g.Classes).FirstOrDefaultAsync(g => g.Id == groupId), schoolClassId, request.SubjectId)
+                is { } groupError)
+        {
+            return BadRequest(groupError);
         }
 
         var subject = await db.Subjects.FindAsync(request.SubjectId);
@@ -214,22 +251,44 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest("Neznámá učebna.");
         }
 
-        entry.SubjectId = request.SubjectId;
-        entry.DayOfWeek = request.DayOfWeek;
-        entry.PeriodNumber = request.PeriodNumber;
-        entry.WeekParity = request.WeekParity;
-        entry.TeacherId = request.TeacherId;
-        entry.ClassroomId = request.ClassroomId;
-        entry.Locked = request.Locked;
+        foreach (var lesson in await SameLessonAsync(entry))
+        {
+            lesson.SubjectId = request.SubjectId;
+            lesson.DayOfWeek = request.DayOfWeek;
+            lesson.PeriodNumber = request.PeriodNumber;
+            lesson.WeekParity = request.WeekParity;
+            lesson.TeacherId = request.TeacherId;
+            lesson.ClassroomId = request.ClassroomId;
+            lesson.Locked = request.Locked;
+        }
         await db.SaveChangesAsync();
 
         var conflicts = await FindConflictsAsync(entry.TimetableVersionId, [ConflictSlot.Of(entry)]);
-        var dto = new TimetableEntryDto(
+        return Ok(await ToDtoAsync(entry, subject, teacher, classroom, conflicts));
+    }
+
+    /// <summary>The entry and, of a group's lesson, those of its other classes.</summary>
+    private async Task<List<TimetableEntry>> SameLessonAsync(TimetableEntry entry) =>
+        entry.StudentGroupId is { } groupId
+            ? await db.TimetableEntries.Where(e => e.TimetableVersionId == entry.TimetableVersionId && e.StudentGroupId == groupId
+                && e.DayOfWeek == entry.DayOfWeek && e.PeriodNumber == entry.PeriodNumber && e.WeekParity == entry.WeekParity)
+                .ToListAsync()
+            : [entry];
+
+    private static string? GroupError(StudentGroup? group, int schoolClassId, int subjectId) =>
+        group is null ? "Neznámá skupina."
+        : !group.Classes.Any(c => c.SchoolClassId == schoolClassId) ? "Skupina do třídy nepatří."
+        : group.SubjectId != subjectId ? "Hodina skupiny má předmět skupiny."
+        : null;
+
+    private async Task<TimetableEntryDto> ToDtoAsync(
+        TimetableEntry entry, Subject subject, User? teacher, Classroom? classroom, Dictionary<int, string[]> conflicts) =>
+        new(
             entry.Id, entry.SchoolClassId, entry.SubjectId, subject.Name, subject.Abbreviation,
             entry.DayOfWeek, entry.PeriodNumber, entry.WeekParity, entry.TeacherId, teacher == null ? null : PersonNames.Display(teacher),
-            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []), entry.Locked);
-        return Ok(dto);
-    }
+            entry.ClassroomId, classroom?.ShortName ?? classroom?.Name, conflicts.GetValueOrDefault(entry.Id, []), entry.Locked,
+            entry.StudentGroupId,
+            entry.StudentGroupId is { } groupId ? await db.StudentGroups.Where(g => g.Id == groupId).Select(g => g.Name).FirstOrDefaultAsync() : null);
 
     /// <summary>Null teacherId is valid (unassigned); a non-null id must
     /// resolve to an actual Teacher in this school, not just any user.</summary>
@@ -284,7 +343,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 e.WeekParity,
                 e.TeacherId,
                 e.ClassroomId,
-                ClassName = e.SchoolClass!.Name,
+                e.StudentGroupId,
+                ClassName = e.StudentGroup == null ? e.SchoolClass!.Name : e.StudentGroup.Name,
                 SubjectName = e.Subject!.Name,
                 TeacherName = e.Teacher == null ? null : PersonNames.Display(e.Teacher.Person, e.Teacher.Username),
                 ClassroomName = e.Classroom == null ? null : e.Classroom.ShortName ?? e.Classroom.Name,
@@ -297,6 +357,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             var messages = new List<string>();
             foreach (var c in candidates.Where(c =>
                          c.Id != slot.Id &&
+                         (c.StudentGroupId == null || c.StudentGroupId != slot.GroupId) &&
                          c.DayOfWeek == slot.DayOfWeek &&
                          c.PeriodNumber == slot.PeriodNumber &&
                          ParityOverlaps(c.WeekParity, slot.WeekParity)))
@@ -312,17 +373,18 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             }
             if (messages.Count > 0)
             {
-                result[slot.Id] = [.. messages];
+                result[slot.Id] = [.. messages.Distinct()];
             }
         }
         return result;
     }
 
     private record ConflictSlot(
-        int Id, DayOfWeek DayOfWeek, int PeriodNumber, WeekParity WeekParity, int? TeacherId, int? ClassroomId)
+        int Id, DayOfWeek DayOfWeek, int PeriodNumber, WeekParity WeekParity, int? TeacherId, int? ClassroomId,
+        int? GroupId = null)
     {
         public static ConflictSlot Of(TimetableEntry e) =>
-            new(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId);
+            new(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId, e.StudentGroupId);
     }
 
     private const string ArchivedMessage = "Archivovanou verzi rozvrhu nejde upravovat.";
@@ -345,7 +407,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             return BadRequest(ArchivedMessage);
         }
 
-        db.TimetableEntries.Remove(entry);
+        db.TimetableEntries.RemoveRange(await SameLessonAsync(entry));
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -362,7 +424,10 @@ public record CreateTimetableEntryRequest(
     /// stays in its version.</summary>
     int? TimetableVersionId = null,
     /// <summary>The generator leaves it where it is.</summary>
-    bool Locked = false);
+    bool Locked = false,
+    /// <summary>A lesson of the group, for all its classes. Ignored on
+    /// update — a lesson stays the group's or the class's.</summary>
+    int? StudentGroupId = null);
 
 public record TimetableEntryDto(
     int Id,
@@ -380,7 +445,9 @@ public record TimetableEntryDto(
     /// <summary>Teacher/classroom collisions with other entries (empty when
     /// none) — see FindConflictsAsync's doc comment.</summary>
     IReadOnlyList<string> Conflicts,
-    bool Locked = false);
+    bool Locked = false,
+    int? StudentGroupId = null,
+    string? StudentGroupName = null);
 
 /// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
 /// each entry belongs to — needed here (unlike the class-scoped DTO above)
@@ -400,4 +467,6 @@ public record TeacherTimetableEntryDto(
     int? ClassroomId,
     string? ClassroomName,
     IReadOnlyList<string> Conflicts,
-    bool Locked = false);
+    bool Locked = false,
+    int? StudentGroupId = null,
+    string? StudentGroupName = null);
