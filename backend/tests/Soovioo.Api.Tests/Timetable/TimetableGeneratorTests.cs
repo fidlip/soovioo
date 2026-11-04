@@ -267,4 +267,65 @@ public class TimetableGeneratorTests
         Assert.Empty(result.Unplaced);
         Assert.All(DaysOf100(result), d => Assert.Equal(0, Holes(d.Select(p => p.Period))));
     }
+
+    [Fact]
+    public void GroupsOfADivisionAreTaughtAtOnceEachWithItsTeacherAndClassroom()
+    {
+        // 2.A and 2.B: Tv in two groups, girls in gym 1 and boys in gym 2,
+        // each class also maths of its own.
+        var tv = new Demand(1, 20, 100, 2, 0, [1, 2])
+        {
+            ClassIds = [1, 2],
+            Parts = [new Part(7, 100, [1, 2], 20), new Part(8, 101, [1, 2], 21)],
+            Key = -1_000_001,
+        };
+        var result = Run([tv, new Demand(1, 10, 200, 4, 0), new Demand(2, 10, 201, 4, 0)]);
+
+        Assert.Empty(result.Unplaced);
+        var girls = result.Placements.Where(p => p.GroupId == 7).ToList();
+        var boys = result.Placements.Where(p => p.GroupId == 8).ToList();
+        Assert.Equal(2, girls.Count);
+        Assert.Equal(girls.Select(p => (p.Day, p.Period)).Order(), boys.Select(p => (p.Day, p.Period)).Order());
+        Assert.All(girls, p => Assert.Equal((20, 100), (p.SubjectId, p.TeacherId!.Value)));
+        Assert.All(boys, p => Assert.Equal((21, 101), (p.SubjectId, p.TeacherId!.Value)));
+        // Two gyms at once, never the same one.
+        Assert.All(girls.Concat(boys), p => Assert.NotNull(p.ClassroomId));
+        Assert.All(girls, g => Assert.NotEqual(g.ClassroomId, boys.Single(b => b.Day == g.Day && b.Period == g.Period).ClassroomId));
+        // Neither class has maths then.
+        var tvSlots = girls.Select(p => (p.Day, p.Period)).ToHashSet();
+        Assert.DoesNotContain(result.Placements, p => p.GroupId is null && tvSlots.Contains((p.Day, p.Period)));
+    }
+
+    [Fact]
+    public void AGroupTakesAllItsClassesAndALessonOfAGroupKeptBlocksThem()
+    {
+        // A seminar of 9.A and 9.B pupils; one of its lessons is kept, one of a
+        // group of 9.B alone too.
+        var seminar = new Demand(1, 30, 100, 2, 0) { ClassIds = [1, 2], Parts = [new Part(5, 100, [])], Key = -5 };
+        var kept = new[]
+        {
+            new Kept(2, 31, 300, null, DayOfWeek.Monday, 1, -6, 6),
+        };
+        var result = Run([seminar, new Demand(1, 10, 200, 5, 0), new Demand(2, 10, 201, 4, 0)], kept);
+
+        Assert.Empty(result.Unplaced);
+        var seminarSlots = result.Placements.Where(p => p.GroupId == 5).Select(p => (p.Day, p.Period)).ToHashSet();
+        Assert.Equal(2, seminarSlots.Count);
+        Assert.DoesNotContain((DayOfWeek.Monday, 1), seminarSlots);
+        Assert.DoesNotContain(result.Placements, p => p.GroupId is null && seminarSlots.Contains((p.Day, p.Period)));
+        Assert.DoesNotContain(result.Placements, p => p.ClassId == 2 && p.Day == DayOfWeek.Monday && p.Period == 1);
+    }
+
+    [Fact]
+    public void ADivisionWaitsForAllItsTeachers()
+    {
+        var division = new Demand(1, 20, 100, 2, 0)
+        {
+            ClassIds = [1], Parts = [new Part(7, 100, []), new Part(8, 101, [])], Key = -1_000_001,
+        };
+        var result = Run([division], teachers: new() { [101] = DaysOff([.. Week.Where(d => d != DayOfWeek.Wednesday)]) });
+
+        Assert.All(result.Placements, p => Assert.Equal(DayOfWeek.Wednesday, p.Day));
+        Assert.Equal(2, result.Placements.Count(p => p.GroupId == 7));
+    }
 }
