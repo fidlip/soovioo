@@ -1,16 +1,19 @@
 using Google.OrTools.Sat;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Timetable;
 
 /// <summary>Places lessons into the week with OR-Tools CP-SAT. Hard: a class
-/// and a teacher at most once at a time, the teacher's days, at most a
-/// balanced number of lessons a day for a class. Required, but reported
-/// rather than forced when impossible (weighted): every lesson placed, a free
-/// classroom for each, lessons every day, no gaps for classes (a day starts
-/// with the first lesson), a subject at most once a day, no 0. hodina. The
-/// search stops once those all hold (or can't get better), then a short
-/// second one cuts teachers' gaps without giving any of them up.</summary>
+/// and a teacher at most once at a time, never when the teacher can't, a
+/// block of two lessons in a row, at most a balanced number of lessons a day
+/// for a class. Required, but reported rather than forced when impossible
+/// (weighted): every lesson placed, a free classroom for each, lessons every
+/// day, no gaps for classes (a day starts with the first lesson), a subject
+/// at most once a day, no 0. hodina; then the teachers' wishes (raději ne,
+/// free days, lessons and gaps a day). The search stops once those all hold
+/// (or can't get better), then a short second one cuts teachers' gaps
+/// without giving any of them up.</summary>
 public static class TimetableGenerator
 {
     private const int MissingWeight = 1000;
@@ -21,28 +24,39 @@ public static class TimetableGenerator
     private const int EarlyPeriodWeight = 8;
     private const int SubjectTwiceWeight = 6;
     private const int TeacherGapWeight = 2;
+    private const int FreeDayWeight = 12;
+    private const int TooManyWeight = 6;
+    private const int TooFewWeight = 4;
+    private const int TooManyGapsWeight = 4;
+    private const int AvoidWeight = 3;
 
     /// <param name="Weekly">Lessons every week.</param>
     /// <param name="Biweekly">Lessons every other week (0.5 h); placed in
     /// odd weeks and holding the slot in both.</param>
     /// <param name="Rooms">Classrooms it can have, first choice first; empty
     /// = none needed.</param>
+    /// <param name="DoubleLessons">The weekly lessons in blocks of two in a
+    /// row, an odd one left on its own.</param>
     public record Demand(
-        int ClassId, int SubjectId, int? TeacherId, int Weekly, int Biweekly, IReadOnlyList<int>? Rooms = null)
+        int ClassId, int SubjectId, int? TeacherId, int Weekly, int Biweekly, IReadOnlyList<int>? Rooms = null,
+        bool DoubleLessons = false)
     {
         public IReadOnlyList<int> Rooms { get; init; } = Rooms ?? [];
     }
 
+    /// <summary>When a teacher can teach and what they wish for.</summary>
+    public record Teacher(IReadOnlyList<AvailabilitySlot> Availability, int? FreeDays = null, TeacherWishes? Wishes = null);
+
     /// <summary>A lesson that stays where it is.</summary>
     public record Kept(int ClassId, int SubjectId, int? TeacherId, int? ClassroomId, DayOfWeek Day, int Period);
 
-    /// <param name="TeacherDays">Days a teacher can teach; missing = any.</param>
+    /// <param name="Teachers">Missing = free any time, no wishes.</param>
     public record Input(
         IReadOnlyList<DayOfWeek> Days,
         IReadOnlyList<int> Periods,
         IReadOnlyList<Demand> Demands,
         IReadOnlyList<Kept> KeptLessons,
-        IReadOnlyDictionary<int, IReadOnlyCollection<DayOfWeek>> TeacherDays,
+        IReadOnlyDictionary<int, Teacher> Teachers,
         TimeSpan TimeLimit)
     {
         /// <summary>The second search stops when it hasn't improved for this
@@ -87,7 +101,8 @@ public static class TimetableGenerator
         bool Solved, IReadOnlyList<Placement> Placements, IReadOnlyList<Unplaced> Unplaced,
         bool TimedOut = false, double Penalty = 0, double Bound = 0);
 
-    private record Unit(Demand Demand, WeekParity Parity, int Count);
+    /// <param name="Length">Lessons in a row: 2 for a block.</param>
+    private record Unit(Demand Demand, WeekParity Parity, int Count, int Length = 1);
 
     public static Result Generate(Input input)
     {
@@ -95,7 +110,9 @@ public static class TimetableGenerator
         var periods = input.Periods.Order().ToList();
         var slots = (from d in days from p in periods select (Day: d, Period: p)).ToList();
         var units = input.Demands
-            .SelectMany(d => new[] { new Unit(d, WeekParity.Every, d.Weekly), new Unit(d, WeekParity.Odd, d.Biweekly) })
+            .SelectMany(d => d.DoubleLessons
+                ? new[] { new Unit(d, WeekParity.Every, d.Weekly / 2, 2), new Unit(d, WeekParity.Every, d.Weekly % 2), new Unit(d, WeekParity.Odd, d.Biweekly) }
+                : [new Unit(d, WeekParity.Every, d.Weekly), new Unit(d, WeekParity.Odd, d.Biweekly)])
             .Where(u => u.Count > 0)
             .ToList();
         if (units.Count == 0 || slots.Count == 0)
@@ -103,42 +120,60 @@ public static class TimetableGenerator
             return new Result(true, [], Missing(units, _ => 0));
         }
 
+        // A block takes the period and the one right after it.
+        var next = periods.Zip(periods.Skip(1)).Where(p => p.Second == p.First + 1).ToDictionary(p => p.First, p => p.Second);
+        int[] Covered(Unit unit, int period) => unit.Length == 2 ? [period, next[period]] : [period];
+
         var kept = input.KeptLessons;
         var classBusy = kept.Select(k => (k.ClassId, k.Day, k.Period)).ToHashSet();
         var teacherBusy = kept.Where(k => k.TeacherId is not null).Select(k => (k.TeacherId!.Value, k.Day, k.Period)).ToHashSet();
         var roomBusy = kept.Where(k => k.ClassroomId is not null).Select(k => (k.ClassroomId!.Value, k.Day, k.Period)).ToHashSet();
+        Teacher? TeacherOf(Demand d) => d.TeacherId is { } t ? input.Teachers.GetValueOrDefault(t) : null;
 
         var model = new CpModel();
         var overs = new List<IntVar>();
         var objective = LinearExpr.NewBuilder();
         var teacherGaps = LinearExpr.NewBuilder();
+        // Lessons of a unit starting at a slot, and those taking it.
         var x = new Dictionary<(int Unit, DayOfWeek Day, int Period), BoolVar>();
+        var cover = new Dictionary<(int Unit, DayOfWeek Day, int Period), List<BoolVar>>();
         var missing = new IntVar[units.Count];
         for (var u = 0; u < units.Count; u++)
         {
-            var demand = units[u].Demand;
-            var teacherDays = demand.TeacherId is { } t && input.TeacherDays.TryGetValue(t, out var allowed) ? allowed : null;
+            var unit = units[u];
+            var demand = unit.Demand;
+            var availability = TeacherOf(demand)?.Availability ?? [];
+            bool Free(DayOfWeek day, int period) =>
+                AvailabilitySlot.At(availability, day, period) != AvailabilityKind.Unavailable
+                && !classBusy.Contains((demand.ClassId, day, period))
+                && !(demand.TeacherId is { } teacher && teacherBusy.Contains((teacher, day, period)));
             var sum = LinearExpr.NewBuilder();
             foreach (var (day, period) in slots)
             {
-                if ((teacherDays is not null && !teacherDays.Contains(day))
-                    || classBusy.Contains((demand.ClassId, day, period))
-                    || (demand.TeacherId is { } teacher && teacherBusy.Contains((teacher, day, period))))
+                if ((unit.Length == 2 && !next.ContainsKey(period)) || !Covered(unit, period).All(p => Free(day, p)))
                 {
                     continue;
                 }
                 var v = model.NewBoolVar($"x{u}_{day}_{period}");
                 x[(u, day, period)] = v;
                 sum.Add(v);
-                if (period < 1)
+                foreach (var p in Covered(unit, period))
                 {
-                    objective.AddTerm(v, EarlyPeriodWeight);
+                    (cover.TryGetValue((u, day, p), out var list) ? list : cover[(u, day, p)] = []).Add(v);
+                    if (p < 1)
+                    {
+                        objective.AddTerm(v, EarlyPeriodWeight);
+                    }
+                    if (AvailabilitySlot.At(availability, day, p) == AvailabilityKind.Avoid)
+                    {
+                        objective.AddTerm(v, AvoidWeight);
+                    }
                 }
             }
-            missing[u] = model.NewIntVar(0, units[u].Count, $"missing{u}");
+            missing[u] = model.NewIntVar(0, unit.Count, $"missing{u}");
             sum.Add(missing[u]);
-            model.Add(sum == units[u].Count);
-            objective.AddTerm(missing[u], MissingWeight);
+            model.Add(sum == unit.Count);
+            objective.AddTerm(missing[u], MissingWeight * unit.Length);
         }
 
         LinearExpr Occupied(IEnumerable<int> unitIndexes, DayOfWeek day, int period, int fixedCount)
@@ -146,9 +181,12 @@ public static class TimetableGenerator
             var b = LinearExpr.NewBuilder();
             foreach (var u in unitIndexes)
             {
-                if (x.TryGetValue((u, day, period), out var v))
+                if (cover.TryGetValue((u, day, period), out var vs))
                 {
-                    b.Add(v);
+                    foreach (var v in vs)
+                    {
+                        b.Add(v);
+                    }
                 }
             }
             b.Add(fixedCount);
@@ -163,7 +201,7 @@ public static class TimetableGenerator
         foreach (var (classId, unitIndexes) in byClass)
         {
             var keptCount = kept.Count(k => k.ClassId == classId);
-            var weekly = units.Where(u => u.Demand.ClassId == classId).Sum(u => u.Count) + keptCount;
+            var weekly = units.Where(u => u.Demand.ClassId == classId).Sum(u => u.Count * u.Length) + keptCount;
             var perDay = (int)Math.Ceiling(weekly / (double)days.Count) + 1;
             var minPerDay = weekly / days.Count;
             foreach (var day in days)
@@ -195,7 +233,8 @@ public static class TimetableGenerator
                 objective.AddTerm(shortfall, ShortDayWeight);
             }
 
-            // A subject at most once a day (or as evenly as its hours allow).
+            // A subject at most once a day (or as evenly as its hours allow),
+            // a block counting once.
             foreach (var subjectUnits in unitIndexes.GroupBy(u => units[u].Demand.SubjectId))
             {
                 var subjectId = subjectUnits.Key;
@@ -207,8 +246,14 @@ public static class TimetableGenerator
                     var daySum = LinearExpr.NewBuilder();
                     foreach (var period in periods)
                     {
-                        daySum.Add(Occupied(subjectUnits, day, period,
-                            kept.Count(k => k.ClassId == classId && k.SubjectId == subjectId && k.Day == day && k.Period == period)));
+                        foreach (var u in subjectUnits)
+                        {
+                            if (x.TryGetValue((u, day, period), out var v))
+                            {
+                                daySum.Add(v);
+                            }
+                        }
+                        daySum.Add(kept.Count(k => k.ClassId == classId && k.SubjectId == subjectId && k.Day == day && k.Period == period));
                     }
                     var excess = model.NewIntVar(0, periods.Count, $"twice{classId}_{subjectId}_{day}");
                     model.Add(excess >= daySum - allowed);
@@ -217,22 +262,89 @@ public static class TimetableGenerator
             }
         }
 
-        // A teacher at most once at a time, and few blocks a day.
+        // A teacher at most once at a time, few blocks a day and the wishes.
         foreach (var (teacherId, unitIndexes) in byTeacher)
         {
+            var teacher = input.Teachers.GetValueOrDefault(teacherId);
+            var wishes = teacher?.Wishes ?? new TeacherWishes();
+            var teaches = new List<BoolVar>();
             foreach (var day in days)
             {
                 LinearExpr? previous = null;
+                var occupied = new List<LinearExpr>();
                 foreach (var period in periods)
                 {
                     var busy = teacherBusy.Contains((teacherId, day, period)) ? 1 : 0;
-                    var occupied = Occupied(unitIndexes, day, period, busy);
-                    model.Add(occupied <= 1);
+                    var now = Occupied(unitIndexes, day, period, busy);
+                    model.Add(now <= 1);
                     var start = model.NewBoolVar($"ts{teacherId}_{day}_{period}");
-                    model.Add(start >= occupied - (previous ?? LinearExpr.Constant(0)));
+                    model.Add(start >= now - (previous ?? LinearExpr.Constant(0)));
                     teacherGaps.AddTerm(start, TeacherGapWeight);
-                    previous = occupied;
+                    previous = now;
+                    occupied.Add(now);
                 }
+                var daySum = LinearExpr.Sum(occupied);
+                if (teacher?.FreeDays is > 0 || wishes.MinLessonsPerDay is not null)
+                {
+                    var on = model.NewBoolVar($"on{teacherId}_{day}");
+                    foreach (var now in occupied)
+                    {
+                        model.Add(on >= now);
+                    }
+                    teaches.Add(on);
+                    if (wishes.MinLessonsPerDay is { } min)
+                    {
+                        var few = model.NewIntVar(0, min, $"few{teacherId}_{day}");
+                        model.Add(few >= min * on - daySum);
+                        objective.AddTerm(few, TooFewWeight);
+                    }
+                }
+                if (wishes.MaxLessonsPerDay is { } max)
+                {
+                    var many = model.NewIntVar(0, periods.Count, $"many{teacherId}_{day}");
+                    model.Add(many >= daySum - max);
+                    objective.AddTerm(many, TooManyWeight);
+                }
+                if (wishes.MaxGapsPerDay is { } maxGaps)
+                {
+                    // A free period with a lesson before and after it.
+                    var holes = LinearExpr.NewBuilder();
+                    var before = new BoolVar[periods.Count];
+                    var after = new BoolVar[periods.Count];
+                    for (var i = 0; i < periods.Count; i++)
+                    {
+                        before[i] = model.NewBoolVar($"tb{teacherId}_{day}_{i}");
+                        if (i > 0)
+                        {
+                            model.Add(before[i] >= before[i - 1]);
+                            model.Add(before[i] >= occupied[i - 1]);
+                        }
+                    }
+                    for (var i = periods.Count - 1; i >= 0; i--)
+                    {
+                        after[i] = model.NewBoolVar($"ta{teacherId}_{day}_{i}");
+                        if (i < periods.Count - 1)
+                        {
+                            model.Add(after[i] >= after[i + 1]);
+                            model.Add(after[i] >= occupied[i + 1]);
+                        }
+                    }
+                    for (var i = 1; i < periods.Count - 1; i++)
+                    {
+                        var hole = model.NewBoolVar($"th{teacherId}_{day}_{i}");
+                        model.Add(hole >= before[i] + after[i] - 1 - occupied[i]);
+                        holes.Add(hole);
+                    }
+                    var gaps = model.NewIntVar(0, periods.Count, $"tg{teacherId}_{day}");
+                    model.Add(gaps >= holes - maxGaps);
+                    objective.AddTerm(gaps, TooManyGapsWeight);
+                }
+            }
+            if (teacher?.FreeDays is { } freeDays and > 0)
+            {
+                var lacking = model.NewIntVar(0, freeDays, $"free{teacherId}");
+                model.Add(lacking >= freeDays - days.Count + LinearExpr.Sum(teaches));
+                objective.AddTerm(lacking, FreeDayWeight);
             }
         }
 
@@ -254,7 +366,7 @@ public static class TimetableGenerator
             foreach (var (day, period) in slots)
             {
                 var free = pool.Count(r => !roomBusy.Contains((r, day, period)));
-                if (free >= inPool.Count(i => x.ContainsKey((i, day, period))))
+                if (free >= inPool.Sum(i => cover.TryGetValue((i, day, period), out var vs) ? vs.Count : 0))
                 {
                     continue;
                 }
@@ -265,12 +377,13 @@ public static class TimetableGenerator
             }
         }
 
-        var total = units.Sum(u => u.Count) + kept.Count;
+        var total = units.Sum(u => u.Count * u.Length) + kept.Count;
         var first = periods.Where(p => p >= 1).DefaultIfEmpty(periods[0]).Min();
         Progress Measure(CpSolverSolutionCallback at, Phase phase)
         {
             var lessons = x.Where(p => at.BooleanValue(p.Value))
-                .Select(p => (units[p.Key.Unit].Demand.ClassId, units[p.Key.Unit].Demand.TeacherId, p.Key.Day, p.Key.Period))
+                .SelectMany(p => Covered(units[p.Key.Unit], p.Key.Period)
+                    .Select(period => (units[p.Key.Unit].Demand.ClassId, units[p.Key.Unit].Demand.TeacherId, p.Key.Day, Period: period)))
                 .Concat(kept.Select(k => (k.ClassId, k.TeacherId, k.Day, k.Period)))
                 .ToList();
             var classDays = lessons.GroupBy(l => (l.ClassId, l.Day)).ToList();
@@ -311,7 +424,7 @@ public static class TimetableGenerator
             }
         }
 
-        var placed = x1.Where(p => p.Value).Select(p => p.Key).ToList();
+        var placed = x1.Where(p => p.Value).Select(p => (p.Key.Unit, p.Key.Day, Covered(units[p.Key.Unit], p.Key.Period))).ToList();
         return new Result(true, AssignRooms(placed, units, input, roomBusy),
             Missing(units, u => units[u].Count - (int)missing1[u]),
             penalty > 0 && penalty > bound, penalty, bound);
@@ -421,7 +534,7 @@ public static class TimetableGenerator
             .Where(p => p.Left > 0)
             .GroupBy(p => p.u.Demand)
             .Select(g => new Unplaced(g.Key.ClassId, g.Key.SubjectId, g.Key.TeacherId,
-                g.Sum(p => p.u.Parity == WeekParity.Every ? p.Left : p.Left * 0.5m)))
+                g.Sum(p => p.u.Parity == WeekParity.Every ? p.Left * p.u.Length : p.Left * 0.5m)))
             .ToList();
 
     /// <summary>Overlapping classroom sets merged.</summary>
@@ -444,17 +557,18 @@ public static class TimetableGenerator
     /// <summary>A class keeps one classroom for a subject where it can — the
     /// one free for most of its lessons, then the one it already has, then
     /// the first choice — and only the lessons that clash go elsewhere, to
-    /// the first free one; none free = no classroom.</summary>
+    /// the first free one; none free = no classroom. A block stays in one.</summary>
     private static List<Placement> AssignRooms(
-        List<(int Unit, DayOfWeek Day, int Period)> placed, List<Unit> units, Input input,
+        List<(int Unit, DayOfWeek Day, int[] Periods)> placed, List<Unit> units, Input input,
         HashSet<(int, DayOfWeek, int)> roomBusy)
     {
         var taken = new HashSet<(int, DayOfWeek, int)>(roomBusy);
+        bool Free(int room, (int Unit, DayOfWeek Day, int[] Periods) l) => l.Periods.All(p => !taken.Contains((room, l.Day, p)));
         var result = new List<Placement>();
         var groups = placed
             .GroupBy(p => (units[p.Unit].Demand.ClassId, units[p.Unit].Demand.SubjectId))
             .OrderBy(g => units[g.First().Unit].Demand.Rooms.Count is var n && n == 0 ? int.MaxValue : n)
-            .ThenByDescending(g => g.Count());
+            .ThenByDescending(g => g.Sum(l => l.Periods.Length));
         foreach (var lessons in groups)
         {
             var demand = units[lessons.First().Unit].Demand;
@@ -463,20 +577,24 @@ public static class TimetableGenerator
                 .Select(k => k.ClassroomId).ToList();
             int? home = rooms.Count == 0 ? null : rooms
                 .Select((r, i) => (r, i))
-                .OrderByDescending(p => lessons.Count(l => !taken.Contains((p.r, l.Day, l.Period))))
+                .OrderByDescending(p => lessons.Count(l => Free(p.r, l)))
                 .ThenByDescending(p => has.Count(k => k == p.r))
                 .ThenBy(p => p.i)
                 .First().r;
-            foreach (var (u, day, period) in lessons)
+            foreach (var lesson in lessons)
             {
-                var roomId = home is { } h && !taken.Contains((h, day, period))
+                var roomId = home is { } h && Free(h, lesson)
                     ? h
-                    : rooms.Where(r => !taken.Contains((r, day, period))).Select(r => (int?)r).FirstOrDefault();
-                if (roomId is { } id)
+                    : rooms.Where(r => Free(r, lesson)).Select(r => (int?)r).FirstOrDefault();
+                foreach (var period in lesson.Periods)
                 {
-                    taken.Add((id, day, period));
+                    if (roomId is { } id)
+                    {
+                        taken.Add((id, lesson.Day, period));
+                    }
+                    result.Add(new Placement(
+                        demand.ClassId, demand.SubjectId, demand.TeacherId, lesson.Day, period, units[lesson.Unit].Parity, roomId));
                 }
-                result.Add(new Placement(demand.ClassId, demand.SubjectId, demand.TeacherId, day, period, units[u].Parity, roomId));
             }
         }
         return result;

@@ -1,0 +1,50 @@
+<div class="overflow-x-auto">
+  <table class="text-sm" aria-label="Dostupnost">
+    <thead>
+      <tr>
+        <th class="p-1"><span class="sr-only">Den</span></th>
+        @for (p of periods(); track p) {
+        <th class="p-1 text-center font-normal text-surface-500">{{ p }}.</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (d of days; track d.value) {
+      <tr>
+        <th class="p-1">
+          <button
+            type="button"
+            class="w-10 rounded border px-1 py-0.5 text-xs"
+            [class]="daysOff().has(d.value) ? styles.Unavailable + ' line-through' : 'border-surface-300 dark:border-surface-600'"
+            [attr.aria-pressed]="daysOff().has(d.value)"
+            [attr.aria-label]="'Celý den nemůže — ' + d.name"
+            [title]="daysOff().has(d.value) ? 'Volný den — kliknutím zrušíte' : 'Kliknutím celý den nemůže'"
+            (click)="toggleDay(d.value)"
+          >
+            {{ d.label }}
+          </button>
+        </th>
+        @for (p of periods(); track p) { @let s = state(d.value, p);
+        <td class="p-0.5">
+          <button
+            type="button"
+            class="h-7 w-8 rounded border text-xs disabled:opacity-50"
+            [class]="styles[s]"
+            [disabled]="daysOff().has(d.value)"
+            [attr.aria-label]="d.name + ' ' + p + '. hod.: ' + label[s]"
+            [title]="label[s]"
+            (click)="cycle(d.value, p)"
+          >
+            {{ s === 'Free' ? '✓' : s === 'Avoid' ? '~' : '✗' }}
+          </button>
+        </td>
+        }
+      </tr>
+      }
+    </tbody>
+  </table>
+  <p class="mt-1 text-xs text-surface-500">
+    ✓ může · ~ raději ne · ✗ nemůže. Kliknutím na políčko změníte stav, na den —
+    celý den volno.
+  </p>
+</div>

@@ -18,6 +18,10 @@ public class Subject
     /// no particular classroom.</summary>
     public List<SubjectClassroom> Classrooms { get; set; } = [];
 
+    /// <summary>Taught in blocks of two lessons in a row (the generator
+    /// places them so); a grade's or a class's učební plán can say otherwise.</summary>
+    public bool DoubleLessons { get; set; }
+
     public int SchoolId { get; set; }
     public School? School { get; set; }
 }

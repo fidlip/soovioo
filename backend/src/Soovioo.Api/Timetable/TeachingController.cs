@@ -86,7 +86,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         db.CurriculumItems.AddRange(items.Select(i => new CurriculumItem
         {
             SchoolId = schoolId, TimetableVersionId = version.Id, Grade = i.Grade, SubjectId = i.SubjectId,
-            HoursPerWeek = i.HoursPerWeek,
+            HoursPerWeek = i.HoursPerWeek, DoubleLessons = i.DoubleLessons,
         }));
         await db.SaveChangesAsync();
         return Ok(await OverviewAsync(version));
@@ -125,27 +125,59 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         var item = await db.ClassCurriculumItems.FirstOrDefaultAsync(c =>
             c.TimetableVersionId == version.Id && c.SchoolClassId == schoolClass.Id && c.SubjectId == request.SubjectId);
         var hours = request.HoursPerWeek == (gradeHours ?? 0) ? null : request.HoursPerWeek;
-        if (hours is null)
-        {
-            if (item is not null)
-            {
-                db.ClassCurriculumItems.Remove(item);
-            }
-        }
-        else if (item is null)
-        {
-            db.ClassCurriculumItems.Add(new ClassCurriculumItem
-            {
-                SchoolId = currentSchool.SchoolId!.Value, TimetableVersionId = version.Id,
-                SchoolClassId = schoolClass.Id, SubjectId = request.SubjectId, HoursPerWeek = hours.Value,
-            });
-        }
-        else
-        {
-            item.HoursPerWeek = hours.Value;
-        }
+        SetClassItem(version, schoolClass.Id, request.SubjectId, item, i => i.HoursPerWeek = hours);
         await db.SaveChangesAsync();
         return Ok(await OverviewAsync(version));
+    }
+
+    /// <summary>Whether the class has the subject in blocks of two; null =
+    /// as its grade (or the subject) has.</summary>
+    [HttpPut("class-double-lessons")]
+    [RequirePermission(Permission.Teaching)]
+    public async Task<ActionResult<TeachingOverviewDto>> SetClassDoubleLessons(int versionId, SetClassDoubleLessonsRequest request)
+    {
+        var (version, error) = await EditableVersionAsync(versionId);
+        if (version is null)
+        {
+            return error!;
+        }
+        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Neznámá třída.");
+        }
+        var subject = await db.Subjects.FindAsync(request.SubjectId);
+        if (subject is null)
+        {
+            return BadRequest("Neznámý předmět.");
+        }
+        var gradeBlocks = (schoolClass.Rocnik is { } grade
+            ? await db.CurriculumItems
+                .Where(c => c.TimetableVersionId == version.Id && c.Grade == grade && c.SubjectId == subject.Id)
+                .Select(c => c.DoubleLessons).FirstOrDefaultAsync()
+            : null) ?? subject.DoubleLessons;
+        var item = await db.ClassCurriculumItems.FirstOrDefaultAsync(c =>
+            c.TimetableVersionId == version.Id && c.SchoolClassId == schoolClass.Id && c.SubjectId == subject.Id);
+        var blocks = request.DoubleLessons == gradeBlocks ? null : request.DoubleLessons;
+        SetClassItem(version, schoolClass.Id, subject.Id, item, i => i.DoubleLessons = blocks);
+        await db.SaveChangesAsync();
+        return Ok(await OverviewAsync(version));
+    }
+
+    /// <summary>A class's own plan row goes once it says nothing of its own.</summary>
+    private void SetClassItem(
+        TimetableVersion version, int classId, int subjectId, ClassCurriculumItem? item, Action<ClassCurriculumItem> change)
+    {
+        item ??= db.ClassCurriculumItems.Add(new ClassCurriculumItem
+        {
+            SchoolId = currentSchool.SchoolId!.Value, TimetableVersionId = version.Id,
+            SchoolClassId = classId, SubjectId = subjectId,
+        }).Entity;
+        change(item);
+        if (item.HoursPerWeek is null && item.DoubleLessons is null)
+        {
+            db.ClassCurriculumItems.Remove(item);
+        }
     }
 
     private static bool ValidHours(decimal hours) => hours is >= 0 and <= 40 && hours * 2 == Math.Floor(hours * 2);
@@ -240,15 +272,18 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             .ToListAsync();
         var planned = await db.CurriculumItems.Where(c => c.TimetableVersionId == version.Id)
             .Select(c => new { c.Grade, c.SubjectId }).ToListAsync();
-        var ownPlanned = await db.ClassCurriculumItems.Where(c => c.TimetableVersionId == version.Id)
-            .Select(c => new { c.SchoolClassId, c.SubjectId }).ToListAsync();
+        var ownPlanned = await db.ClassCurriculumItems.Where(c => c.TimetableVersionId == version.Id).ToListAsync();
         var classes = await db.SchoolClasses.Select(c => new { c.Id, c.Rocnik }).ToListAsync();
         decimal HoursOf(int classId, int subjectId) => lessons
             .Where(l => l.SchoolClassId == classId && l.SubjectId == subjectId)
             .Sum(l => l.WeekParity == WeekParity.Every ? 1m : 0.5m);
         void AddOwn(int classId, int subjectId, decimal hours)
         {
-            if (!ownPlanned.Any(o => o.SchoolClassId == classId && o.SubjectId == subjectId))
+            if (ownPlanned.FirstOrDefault(o => o.SchoolClassId == classId && o.SubjectId == subjectId) is { } existing)
+            {
+                existing.HoursPerWeek ??= hours;
+            }
+            else
             {
                 db.ClassCurriculumItems.Add(new ClassCurriculumItem
                 {
@@ -369,6 +404,9 @@ public record SaveCurriculumRequest(IReadOnlyList<CurriculumItemDto> Items);
 
 /// <param name="HoursPerWeek">Null = as the class's grade has; 0 = not in the class.</param>
 public record SetClassCurriculumRequest(int SchoolClassId, int SubjectId, decimal? HoursPerWeek);
+
+/// <param name="DoubleLessons">Null = as the grade.</param>
+public record SetClassDoubleLessonsRequest(int SchoolClassId, int SubjectId, bool? DoubleLessons);
 
 /// <param name="TeacherId">Null = chosen automatically.</param>
 public record SetAssignmentRequest(int SchoolClassId, int SubjectId, int? TeacherId);

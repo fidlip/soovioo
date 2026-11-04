@@ -41,6 +41,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             Abbreviation = request.Abbreviation,
             Color = request.Color,
             Classrooms = Classrooms(request),
+            DoubleLessons = request.DoubleLessons,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.Subjects.Add(subject);
@@ -90,6 +91,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
         subject.Abbreviation = request.Abbreviation;
         subject.Color = request.Color;
         subject.Classrooms = Classrooms(request);
+        subject.DoubleLessons = request.DoubleLessons;
         await db.SaveChangesAsync();
         return Ok(subject);
     }
@@ -124,7 +126,8 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
 }
 
 public record CreateSubjectRequest(
-    string Name, string? Abbreviation = null, string? Color = null, IReadOnlyList<SubjectClassroomRequest>? Classrooms = null);
+    string Name, string? Abbreviation = null, string? Color = null, IReadOnlyList<SubjectClassroomRequest>? Classrooms = null,
+    bool DoubleLessons = false);
 
 /// <summary>A particular classroom or a type, not both.</summary>
 public record SubjectClassroomRequest(int? ClassroomId = null, ClassroomType? Type = null);

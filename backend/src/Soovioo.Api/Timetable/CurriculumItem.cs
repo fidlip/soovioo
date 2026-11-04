@@ -19,11 +19,15 @@ public class CurriculumItem
     public Subject? Subject { get; set; }
 
     public decimal HoursPerWeek { get; set; }
+
+    /// <summary>In blocks of two (<see cref="Subject.DoubleLessons"/>) or
+    /// not; null = as the subject.</summary>
+    public bool? DoubleLessons { get; set; }
 }
 
 /// <summary>A class's own učební plán for a subject, in place of its grade's
 /// (<see cref="CurriculumItem"/>): 7.A has Aj, 7.B Nj. Zero hours = the
-/// class doesn't have the subject.</summary>
+/// class doesn't have the subject; null hours or blocks = as its grade.</summary>
 public class ClassCurriculumItem
 {
     public int Id { get; set; }
@@ -39,5 +43,7 @@ public class ClassCurriculumItem
     public int SubjectId { get; set; }
     public Subject? Subject { get; set; }
 
-    public decimal HoursPerWeek { get; set; }
+    public decimal? HoursPerWeek { get; set; }
+
+    public bool? DoubleLessons { get; set; }
 }

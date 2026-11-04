@@ -348,6 +348,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<TeacherProfile>().HasQueryFilter(t =>
             currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<TeacherProfile>().Property(t => t.ContractedHours).HasPrecision(4, 1);
+        modelBuilder.Entity<TeacherProfile>(e =>
+        {
+            e.Ignore(t => t.TeachingDays);
+            e.Property(t => t.Availability).HasColumnType("jsonb").HasConversion(
+                a => System.Text.Json.JsonSerializer.Serialize(a, (System.Text.Json.JsonSerializerOptions?)null),
+                s => System.Text.Json.JsonSerializer.Deserialize<List<AvailabilitySlot>>(s, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<AvailabilitySlot>(),
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<AvailabilitySlot>>(
+                    (a, b) => a!.SequenceEqual(b!),
+                    a => a.Aggregate(0, (h, s) => HashCode.Combine(h, s)),
+                    a => a.ToList()));
+        });
         modelBuilder.Entity<TeacherQualification>(e =>
         {
             e.HasIndex(x => new { x.TeacherProfileId, x.SubjectId });

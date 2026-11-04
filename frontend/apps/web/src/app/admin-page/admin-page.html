@@ -338,7 +338,11 @@
               </ng-template>
               <ng-template pTemplate="body" let-subject>
                 <tr>
-                  <td>{{ subject.name }}</td>
+                  <td>
+                    {{ subject.name }} @if (subject.doubleLessons) {
+                    <span class="text-xs text-surface-500">dvouhodinovky</span>
+                    }
+                  </td>
                   <td class="text-surface-500">
                     {{ subject.abbreviation ?? '—' }}
                   </td>
@@ -704,6 +708,8 @@
           </p-card>
 
           <app-periods-editor />
+
+          <app-teacher-wishes-defaults />
 
           <app-school-notifications />
 
@@ -1091,6 +1097,17 @@
         (onClick)="addSubjectClassroom()"
       />
     </fieldset>
+    <label class="flex items-center gap-2 text-sm">
+      <p-checkbox
+        [binary]="true"
+        [(ngModel)]="newSubjectDoubleLessons"
+        name="subjectDoubleLessons"
+        inputId="subjectDoubleLessons"
+      />
+      Dvouhodinovky — v rozvrhu po dvou hodinách za sebou<app-info-hint
+        text="Generátor rozvrhu dává hodiny předmětu do bloků po dvou, lichá zbude samostatně. Ročník nebo třída to může mít jinak v Přidělení výuky."
+      />
+    </label>
     <app-submit-button
       [form]="subjectForm"
       [label]="editingSubjectId === null ? 'Vytvořit' : 'Uložit'"

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
@@ -106,6 +107,7 @@ import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
+import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
@@ -144,6 +146,8 @@ import { Loading } from '../loading/loading';
     DateFormatPipe,
     Loading,
     PeriodsEditor,
+    TeacherWishesDefaults,
+    Checkbox,
     SchoolNotifications,
     VisibilitySettings,
     Departures,
@@ -364,6 +368,7 @@ export class AdminPage {
   protected newSubjectName = '';
   protected newSubjectAbbreviation = '';
   protected newSubjectColor: string | null = null;
+  protected newSubjectDoubleLessons = false;
   protected newClassroomName = '';
   protected newClassroomShortName = '';
   protected newClassroomType: ClassroomType | null = null;
@@ -827,6 +832,7 @@ export class AdminPage {
     this.newSubjectName = '';
     this.newSubjectAbbreviation = '';
     this.newSubjectColor = null;
+    this.newSubjectDoubleLessons = false;
     this.newSubjectClassrooms.set([]);
     this.notify.clear();
     this.newSubjectDialogVisible.set(true);
@@ -837,6 +843,7 @@ export class AdminPage {
     this.newSubjectName = subject.name;
     this.newSubjectAbbreviation = subject.abbreviation ?? '';
     this.newSubjectColor = subject.color;
+    this.newSubjectDoubleLessons = subject.doubleLessons;
     this.newSubjectClassrooms.set(
       [...subject.classrooms]
         .sort((a, b) => a.position - b.position)
@@ -856,6 +863,7 @@ export class AdminPage {
       name: this.newSubjectName,
       abbreviation: this.newSubjectAbbreviation || undefined,
       color: this.newSubjectColor || undefined,
+      doubleLessons: this.newSubjectDoubleLessons,
       classrooms: [...new Set(this.newSubjectClassrooms())]
         .filter((c) => c !== null)
         .map((c) =>

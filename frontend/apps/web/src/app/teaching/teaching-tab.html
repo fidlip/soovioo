@@ -155,6 +155,7 @@
                   <th>Předmět</th>
                   <th>Plán</th>
                   <th>V rozvrhu</th>
+                  <th>Dvouhodinovky</th>
                   <th>Učitel</th>
                   <th>Kontrola</th>
                 </tr>
@@ -199,6 +200,19 @@
                     }
                   </td>
                   <td>{{ formatHours(row.timetableHours) }}</td>
+                  <td>
+                    @if (o.canEdit) {
+                    <p-checkbox
+                      [binary]="true"
+                      [ngModel]="row.doubleLessons"
+                      (ngModelChange)="setClassBlocks(c, row, $event)"
+                      [ngModelOptions]="{ standalone: true }"
+                      [disabled]="busy()"
+                      [ariaLabel]="'Dvouhodinovky — ' + c.name + ' ' + row.subjectName"
+                      [pTooltip]="row.doubleLessons === row.gradeDoubleLessons ? 'Podle ročníku' : 'Vlastní, ročník: ' + (row.gradeDoubleLessons ? 'ano' : 'ne')"
+                    />
+                    } @else { {{ row.doubleLessons ? 'ano' : '—' }} }
+                  </td>
                   <td class="min-w-56">
                     @if (o.canEdit) {
                     <p-select
@@ -234,7 +248,7 @@
               </ng-template>
               <ng-template #emptymessage>
                 <tr>
-                  <td colspan="5" class="text-surface-500">
+                  <td colspan="6" class="text-surface-500">
                     {{ filtered() ? 'Filtrům nic neodpovídá.' : 'Třída nemá v
                     plánu ani v rozvrhu žádný předmět.' }}
                   </td>
@@ -332,8 +346,9 @@
         <p class="text-sm text-surface-500">
           Hodiny týdně podle ročníků — šablona pro jejich třídy. Kde se třída
           liší (jiný jazyk, předmět navíc), změní se jí plán v záložce Podle
-          tříd. Ročník třídy se zadává v Administraci → Třídy, předměty a
-          učebny.
+          tříd. „2×“ = dvouhodinovky (bloky po dvou hodinách za sebou), výchozí
+          podle předmětu. Ročník třídy se zadává v Administraci → Třídy,
+          předměty a učebny.
         </p>
         @if (o.grades.length === 0) {
         <p class="text-surface-500">Žádná třída nemá zadaný ročník.</p>
@@ -355,18 +370,34 @@
                 @for (g of o.grades; track g) {
                 <td class="p-1 text-center">
                   @if (o.canEdit) {
-                  <p-inputNumber
-                    [(ngModel)]="plan[g + '-' + s.id]"
-                    [ariaLabel]="s.name + ' — ' + g + '. ročník'"
-                    [min]="0"
-                    [max]="40"
-                    [minFractionDigits]="0"
-                    [maxFractionDigits]="1"
-                    locale="cs-CZ"
-                    inputStyleClass="w-14 text-center"
-                  />
+                  <div class="flex items-center justify-center gap-0.5">
+                    <p-inputNumber
+                      [(ngModel)]="plan[g + '-' + s.id]"
+                      [ariaLabel]="s.name + ' — ' + g + '. ročník'"
+                      [min]="0"
+                      [max]="40"
+                      [minFractionDigits]="0"
+                      [maxFractionDigits]="1"
+                      locale="cs-CZ"
+                      inputStyleClass="w-14 text-center"
+                    />
+                    <button
+                      type="button"
+                      class="rounded px-1 text-xs"
+                      [class]="gradeBlocks(g, s) ? 'bg-primary-100 font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-200' : 'text-surface-400'"
+                      [attr.aria-pressed]="gradeBlocks(g, s)"
+                      [attr.aria-label]="'Dvouhodinovky — ' + s.name + ' ' + g + '. ročník'"
+                      [pTooltip]="'Dvouhodinovky: ' + (gradeBlocks(g, s) ? 'ano' : 'ne') + (planBlocks[g + '-' + s.id] === null || planBlocks[g + '-' + s.id] === undefined ? ' (podle předmětu)' : ' (předmět: ' + (s.doubleLessons ? 'ano' : 'ne') + ')')"
+                      (click)="toggleGradeBlocks(g, s)"
+                    >
+                      2×
+                    </button>
+                  </div>
                   } @else { {{ plan[g + '-' + s.id] ? formatHours(plan[g + '-' +
-                  s.id]!) : '—' }} }
+                  s.id]!) : '—' }} @if (plan[g + '-' + s.id] && gradeBlocks(g,
+                  s)) {
+                  <span class="text-xs text-surface-500">2×</span>
+                  } }
                 </td>
                 }
               </tr>

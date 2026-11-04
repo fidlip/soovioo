@@ -56,13 +56,24 @@ public class PeopleControllerTests
 
         var person = Value(await Controller().AddPerson(new SavePersonRequest(
             "Jana", "Nováková", "777", "j@n.cz", new TeacherProfileRequest(
-                [new(maths.Id), new(history.Id, 6, 9)], " 1. stupeň ", 22, [DayOfWeek.Tuesday, DayOfWeek.Monday]), new ParentProfileRequest([child.Student!.Id]))));
+                [new(maths.Id), new(history.Id, 6, 9)], " 1. stupeň ", 22,
+                [
+                    new(DayOfWeek.Friday, 1, AvailabilityKind.Avoid), new(DayOfWeek.Wednesday, 2, AvailabilityKind.Unavailable),
+                    new(DayOfWeek.Wednesday, null, AvailabilityKind.Unavailable), new(DayOfWeek.Thursday, null, AvailabilityKind.Unavailable),
+                ], FreeDays: 1, MaxLessonsPerDay: 5), new ParentProfileRequest([child.Student!.Id]))));
 
         Assert.Equal("Jana Nováková", person.Name);
         Assert.Null(person.Account);
         Assert.Equal("D 6.–9., M, 1. stupeň", person.Teacher!.Qualification);
         Assert.Equal((22m, "1. stupeň"), (person.Teacher.ContractedHours, person.Teacher.QualificationNote));
-        Assert.Equal([DayOfWeek.Monday, DayOfWeek.Tuesday], person.Teacher.TeachingDays);
+        Assert.Equal([DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Friday], person.Teacher.TeachingDays);
+        // A day off drops its periods.
+        Assert.Equal(
+            [
+                new(DayOfWeek.Wednesday, null, AvailabilityKind.Unavailable), new(DayOfWeek.Thursday, null, AvailabilityKind.Unavailable),
+                new AvailabilitySlot(DayOfWeek.Friday, 1, AvailabilityKind.Avoid),
+            ], person.Teacher.Availability);
+        Assert.Equal((1, (int?)null, 5), (person.Teacher.FreeDays, person.Teacher.MinLessonsPerDay, person.Teacher.MaxLessonsPerDay));
         Assert.Equal(["Jan Novák"], person.Parent!.Children.Select(c => c.Name));
         Assert.Null(person.Student);
         Assert.Equal("1.A", child.Student.SchoolClassName);
@@ -84,6 +95,9 @@ public class PeopleControllerTests
         var refused = await Controller().UpdatePerson(person.Id, new SavePersonRequest(
             "Jana", "Nováková", Teacher: new TeacherProfileRequest([new(history.Id, 9, 6)])));
         Assert.IsType<BadRequestObjectResult>(refused.Result);
+        var fewerThanAtLeast = await Controller().UpdatePerson(person.Id, new SavePersonRequest(
+            "Jana", "Nováková", Teacher: new TeacherProfileRequest([], MinLessonsPerDay: 4, MaxLessonsPerDay: 3)));
+        Assert.IsType<BadRequestObjectResult>(fewerThanAtLeast.Result);
     }
 
     [Fact]

@@ -34,10 +34,10 @@ výuka ve dny, kdy učitel nemůže, hodiny bez učebny); zveřejnit jde i tak.
 |---|---|---|
 | Úvazky: třída × předmět × hodin týdně × učitel | 5.A, Matematika, 5 h, Novák | ne (jen ručně v rozvrhu) |
 | Dělení tříd na skupiny | Aj ve 2 skupinách, Tv chlapci/dívky | ne |
-| Dvouhodinovky / bloky | Pracovní činnosti 2 h v kuse | ne |
+| Dvouhodinovky / bloky | Pracovní činnosti 2 h v kuse | ano (`Subject.DoubleLessons`, přepis v učebním plánu) |
 | Učebny a jejich typ | Tělocvična, počítačová | ano (`Classroom`, `ClassroomType`) |
 | Předmět → učebny / typ učebny | Tv v tělocvičně, jinak jakékoli tělocvičně | ano (`Subject.Classrooms`) |
-| Dostupnost učitelů | Novák nemůže v pátek | ne |
+| Dostupnost učitelů | Novák nemůže v pátek | ano (`TeacherProfile.Availability`, přání) |
 | Časy hodin | 0.–8. hodina | ano (`SchoolPeriod`) |
 
 ### Tvrdá omezení (musí platit)
@@ -119,7 +119,10 @@ které z nich vychází:
 TeacherProfile (Osoby → učitel)
   + Qualifications: TeacherQualification (SubjectId, GradeFrom?, GradeTo?)  — aprobace
   + QualificationNote (dosavadní volný text aprobace)
-  + ContractedHours (nasmlouvané hodiny týdně), TeachingDays (dny, kdy může učit)
+  + ContractedHours (nasmlouvané hodiny týdně)
+  + Availability (#162): den × hodina → nemůže / raději ne; celý den = Period null
+  + přání (#162): FreeDays, Min/MaxLessonsPerDay, MaxGapsPerDay — poslední tři s výchozí
+    hodnotou školy (School.TeacherMin/MaxLessonsPerDay, TeacherMaxGapsPerDay)
 
 CurriculumItem (učební plán, u verze rozvrhu)
   TimetableVersionId, Grade (ročník), SubjectId, HoursPerWeek
@@ -141,14 +144,10 @@ TeachingAssignment (přidělení výuky, u verze rozvrhu)
 - Skupiny žáků (i napříč třídami) řeší #166.
 - Pro generátor (fáze 3) je to vstup „kdo, co, kolik“; generátor řeší jen „kdy“.
 
-Ve fázi 4 přibude:
-
-```
-TeachingAssignment + GroupName? ("sk. 1"), BlockLength, RequiredClassroomType?, PreferredClassroomId?
-
-TeacherAvailability
-  TeacherId, DayOfWeek, PeriodNumber, Kind: Unavailable | Avoid
-```
+Ve fázi 4 (#162) přibyla dostupnost a přání učitelů (viz výše) a dvouhodinovky:
+`Subject.DoubleLessons`, přepis `CurriculumItem.DoubleLessons` (ročník) a
+`ClassCurriculumItem.DoubleLessons` (třída; řádek třídy má teď hodiny i bloky volitelné,
+zmizí, když neříká nic vlastního). Skupiny žáků řeší #166.
 
 ## Generátor (fáze 3, #161)
 
@@ -156,19 +155,25 @@ Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP
 Hangfire job `TimetableGenerationJob` ve frontě `timetable` s jedním workerem — generuje se
 vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně jádrech se střídají):
 
-- Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dny, kdy
-  učitel může učit, časy hodin a učebny předmětu (`Subject.Classrooms`: seznam v pořadí
+- Vstup: učební plán a přidělení výuky verze (i automaticky vybraní učitelé), dostupnost
+  a přání učitelů, dvouhodinovky, časy hodin a učebny předmětu (`Subject.Classrooms`: seznam v pořadí
   priority, každá položka konkrétní učebna nebo „jakákoli“ daného typu). Učebna s kapacitou
   menší než počet žáků třídy se pro třídu nepoužije; když se nevejde do žádné, výsledek to hlásí.
 - Režimy: **Doplnit chybějící** (hodiny v konceptu zůstanou, přibude, co podle plánu
   chybí) a **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`).
-- Tvrdá omezení: třída a učitel nejvýš jednou v čase, dny učitele, třída nejvýš
+- Tvrdá omezení: třída a učitel nejvýš jednou v čase, nikdy když učitel „nemůže“ (hodina
+  i celý den), dvouhodinovka = dvě hodiny po sobě ve stejný den a učebně (lichá zbude
+  samostatně; předmět → ročník → třída, každá úroveň může přepsat), třída nejvýš
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
 - Požadavky (váhy, porušení se hlásí místo nesplnitelného modelu): každá hodina umístěná
   (1000 za hodinu), volná učebna ze seznamu předmětu (200; souběžné hodiny ≤ volné učebny
   každé skupiny učeben), den třídy začíná první hodinou (30), každý den aspoň
   ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken (10), 0. hodina (8),
-  předmět nejvýš jednou denně (6).
+  předmět nejvýš jednou denně (6, dvouhodinovka se počítá jednou).
+- Přání učitelů (#162, ve stejném hledání, slabší než požadavky tříd): volné dny
+  (12 za chybějící den), nejvýš hodin denně (6 za hodinu navíc), nejméně hodin v den, kdy
+  učí (4 za chybějící), nejvýš oken denně (4 za okno navíc), „raději ne“ (3 za hodinu).
+  Nesplněná přání vypíše výsledek („Nesplněná přání učitelů: …“).
 - Konec podle stavu, ne času: 1. hledání skončí, jakmile jsou splněné všechny požadavky
   (penalizace 0), nebo když solver dokáže, že líp to nejde (nesplnitelná data, např. málo
   tělocvičen). 2. hledání pak se zachováním požadavků snižuje okna učitelů (2 za blok);
@@ -193,7 +198,7 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
 - Ruční přidání hodiny předvyplní první učebnu ze seznamu předmětu volnou v daném čase.
 - 0,5 h = hodina v lichém týdnu, slot drží v obou týdnech (dvojice lichý/sudý zatím ne).
 - Zatím ne: náročné předměty dopoledne (chybí údaj u předmětu), limity hodin denně podle
-  vyhlášky, nastavitelné váhy, skupiny (#166), bloky a přání učitelů (#162).
+  vyhlášky, nastavitelné váhy, skupiny (#166).
 
 ## Navržené fáze
 
@@ -203,7 +208,7 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
    pokrytí rozvrhu a nasmlouvaných hodin).
 3. **Generátor CP-SAT** pro koncept verze: tvrdá omezení → první použitelná verze;
    pak měkká omezení a váhy nastavitelné školou; výsledek vždy jen jako koncept.
-4. **Dostupnost učitelů a přání**, dělení na skupiny, bloky.
+4. **Dostupnost učitelů a přání**, bloky (#162); skupiny žáků samostatně (#166).
 5. (Samostatně) **Suplování** nad verzemi.
 
 ## Rizika a otevřené otázky

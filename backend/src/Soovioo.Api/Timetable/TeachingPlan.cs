@@ -17,14 +17,14 @@ public record TeachingPlan(
             .Select(c => new TeachingPlanner.ClassInput(c.Id, c.Name, c.Rocnik, c.ClassTeacherId))
             .ToListAsync();
         var subjects = await db.Subjects.OrderBy(s => s.Name)
-            .Select(s => new TeachingPlanner.SubjectInput(s.Id, s.Name, s.Abbreviation))
+            .Select(s => new TeachingPlanner.SubjectInput(s.Id, s.Name, s.Abbreviation, s.DoubleLessons))
             .ToListAsync();
         var curriculum = await db.CurriculumItems.Where(c => c.TimetableVersionId == version.Id)
             .OrderBy(c => c.Grade).ThenBy(c => c.SubjectId)
-            .Select(c => new CurriculumItemDto(c.Grade, c.SubjectId, c.HoursPerWeek))
+            .Select(c => new CurriculumItemDto(c.Grade, c.SubjectId, c.HoursPerWeek, c.DoubleLessons))
             .ToListAsync();
         var classCurriculum = await db.ClassCurriculumItems.Where(c => c.TimetableVersionId == version.Id)
-            .Select(c => new ClassCurriculumItemDto(c.SchoolClassId, c.SubjectId, c.HoursPerWeek))
+            .Select(c => new ClassCurriculumItemDto(c.SchoolClassId, c.SubjectId, c.HoursPerWeek, c.DoubleLessons))
             .ToListAsync();
         var assignments = (await db.TeachingAssignments.Where(a => a.TimetableVersionId == version.Id)
                 .Select(a => new { a.SchoolClassId, a.SubjectId, a.TeacherId })
@@ -32,7 +32,7 @@ public record TeachingPlan(
             .Select(a => (a.SchoolClassId, a.SubjectId, a.TeacherId))
             .ToList();
         var lessons = await db.TimetableEntries.Where(e => e.TimetableVersionId == version.Id)
-            .Select(e => new TeachingPlanner.LessonInput(e.SchoolClassId, e.SubjectId, e.TeacherId, e.DayOfWeek, e.WeekParity))
+            .Select(e => new TeachingPlanner.LessonInput(e.SchoolClassId, e.SubjectId, e.TeacherId, e.DayOfWeek, e.WeekParity, e.PeriodNumber))
             .ToListAsync();
 
         var involved = assignments.Select(a => a.TeacherId)
@@ -51,7 +51,7 @@ public record TeachingPlan(
                 u.Id, PersonNames.Display(u),
                 u.DeactivatedAt == null && u.Roles.Any(r => r.BuiltIn == UserRole.Teacher),
                 profile?.Qualifications ?? [], profile?.Describe(), profile?.ContractedHours,
-                profile?.TeachingDays ?? [.. TeacherProfile.Weekdays], profile is not null);
+                profile?.Availability ?? [], profile is not null);
         }).ToList();
 
         var (classDtos, teacherDtos) = TeachingPlanner.Plan(new TeachingPlanner.Input(

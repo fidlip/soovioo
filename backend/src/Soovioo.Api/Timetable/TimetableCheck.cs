@@ -54,9 +54,9 @@ public static class TimetableCheck
         var plan = await TeachingPlan.LoadAsync(db, version);
         Add(plan.Classes.SelectMany(c => c.Rows.Where(r => r.TimetableHours > 0 || r.PlanHours > 0)
             .SelectMany(r => r.Problems.Select(p => $"{c.Name} {r.SubjectAbbreviation ?? r.SubjectName}: {p}"))));
-        Add(plan.Teachers.SelectMany(t => entries.Where(e => e.TeacherId == t.Id)
-            .Select(e => e.Day).Distinct().Where(d => !t.TeachingDays.Contains(d)).Order()
-            .Select(d => $"{t.Name} učí {TeachingPlanner.OnDay(d)}, kdy učit nemůže.")));
+        Add(plan.Teachers.SelectMany(t => TeachingPlanner.Unavailable(
+                t.Availability, entries.Where(e => e.TeacherId == t.Id).Select(e => (e.Day, e.Period)))
+            .Select(when => $"{t.Name} učí {when}, kdy učit nemůže.")));
 
         Add(entries.Where(e => e.NeedsRoom && e.ClassroomId is null)
             .GroupBy(e => (e.ClassName, e.Subject))

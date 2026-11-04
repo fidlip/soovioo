@@ -46,6 +46,19 @@ export class TeachingApiService {
   }
 
   /** `hoursPerWeek` null = as the class's grade, 0 = not in the class. */
+  /** null = as the grade. */
+  setClassDoubleLessons(
+    versionId: number,
+    schoolClassId: number,
+    subjectId: number,
+    doubleLessons: boolean | null,
+  ): Observable<TeachingOverview> {
+    return this.http.put<TeachingOverview>(
+      `${this.url(versionId)}/class-double-lessons`,
+      { schoolClassId, subjectId, doubleLessons },
+    );
+  }
+
   setClassCurriculum(
     versionId: number,
     schoolClassId: number,
