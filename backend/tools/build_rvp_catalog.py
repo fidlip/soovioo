@@ -18,6 +18,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import unicodedata
 import urllib.request
 
@@ -148,11 +149,24 @@ def general_programs():
     return programs
 
 
+def download(url):
+    """The content of `url`; the ministry's sites fail now and then."""
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                return response.read()
+        except OSError:
+            if attempt == 2:
+                raise
+            time.sleep(15)
+
+
 def fetch(url, path):
     if not os.path.exists(path) or os.path.getsize(path) == 0:
-        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(request, timeout=120) as response, open(path, "wb") as file:
-            file.write(response.read())
+        content = download(url)
+        with open(path, "wb") as file:
+            file.write(content)
 
 
 def download_vocational(cache):
@@ -328,15 +342,20 @@ def vocational_programs(cache):
     return programs
 
 
+def build(cache):
+    download_vocational(cache)
+    programs = general_programs() + vocational_programs(cache)
+    assert len({p["code"] for p in programs}) == len(programs)
+    return programs
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--cache", required=True, help="directory for the downloaded PDFs")
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
-    download_vocational(args.cache)
-    programs = general_programs() + vocational_programs(args.cache)
-    assert len({p["code"] for p in programs}) == len(programs)
+    programs = build(args.cache)
     with open(args.output, "w", encoding="utf-8") as file:
         json.dump(dict(programs=programs), file, ensure_ascii=False, separators=(",", ":"))
     print(len(programs), "programs:", collections.Counter(p["family"] for p in programs))
