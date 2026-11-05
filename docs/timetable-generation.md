@@ -211,6 +211,9 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   každé skupiny učeben), den třídy začíná první hodinou (30 za každou ztracenou hodinu), každý den aspoň
   ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken (10), 0. hodina (8),
   předmět nejvýš jednou denně (6, dvouhodinovka se počítá jednou).
+- Délka dne (slabší než přání učitelů): hodina třídy od 5. hodiny dál (5. = 1, 6. = 3, 7. = 5,
+  8. = 7). Přesun hodiny do delšího dne stojí 1–2, méně než nejslabší přání (3). To, co si vynutí
+  počet hodin třídy při co nejrovnoměrnějších dnech, se za porušení nepočítá.
 - Přání učitelů (#162, ve stejném hledání, slabší než požadavky tříd): volné dny
   (12 za chybějící den), nejvýš hodin denně (6 za hodinu navíc), nejméně hodin v den, kdy
   učí (4 za chybějící), nejvýš oken denně (4 za okno navíc), „raději ne“ (3 za hodinu).
