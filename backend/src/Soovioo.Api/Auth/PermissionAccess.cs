@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Auth;
 
@@ -61,7 +62,7 @@ public static class PermissionAccess
         await user.ClassIdsAsync(db, permission) is not { } ids || ids.Contains(schoolClassId);
 
     /// <summary>Like <see cref="ReachesClassAsync"/>, but "my classes" means
-    /// teaching that subject there (homework).</summary>
+    /// teaching that subject there to the whole class (homework).</summary>
     public static async Task<bool> ReachesClassSubjectAsync(
         this ClaimsPrincipal user, AppDbContext db, Permission permission, int schoolClassId, int subjectId) =>
         await user.ScopeAsync(db, permission) switch
@@ -69,6 +70,20 @@ public static class PermissionAccess
             PermissionScope.School => true,
             PermissionScope.MyClasses => await db.TeachesClassInSubjectAsync(user.UserId(), schoolClassId, subjectId),
             PermissionScope.ClassTeacher => await db.IsClassTeacherOfAsync(user.UserId(), schoolClassId),
+            _ => false,
+        };
+
+    /// <summary>Like <see cref="ReachesClassSubjectAsync"/> for one pupil:
+    /// "my classes" means teaching the subject to the pupil, in their class
+    /// or their group.</summary>
+    public static async Task<bool> ReachesStudentSubjectAsync(
+        this ClaimsPrincipal user, AppDbContext db, Permission permission, int studentId, int subjectId) =>
+        await user.ScopeAsync(db, permission) switch
+        {
+            PermissionScope.School => true,
+            PermissionScope.MyClasses => await db.TeachesStudentInSubjectAsync(user.UserId(), studentId, subjectId),
+            PermissionScope.ClassTeacher => await db.Students.Where(s => s.Id == studentId).Select(s => (int?)s.SchoolClassId).FirstOrDefaultAsync() is { } classId
+                && await db.IsClassTeacherOfAsync(user.UserId(), classId),
             _ => false,
         };
 
@@ -80,11 +95,68 @@ public static class PermissionAccess
         {
             return await user.OwnStudentIdsAsync(db);
         }
+        if (scope == PermissionScope.MyClasses)
+        {
+            return await db.GetTeacherStudentIdsAsync(user.UserId());
+        }
         if (await user.ClassIdsAsync(db, permission) is not { } classIds)
         {
             return null;
         }
         return (await db.Students.Where(s => classIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync()).ToHashSet();
+    }
+
+    /// <summary>Pupils of what a permission for whole classes (events,
+    /// payments) reaches: of its classes, for "my classes" also of the
+    /// teacher's groups — for "own" the children's classes, unlike
+    /// <see cref="StudentIdsAsync"/>. Null = the whole school.</summary>
+    public static async Task<HashSet<int>?> ClassStudentIdsAsync(this ClaimsPrincipal user, AppDbContext db, Permission permission)
+    {
+        if (await user.ClassIdsAsync(db, permission) is not { } classIds)
+        {
+            return null;
+        }
+        var ids = (await db.Students.Where(s => classIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync()).ToHashSet();
+        if (await user.ScopeAsync(db, permission) == PermissionScope.MyClasses)
+        {
+            ids.UnionWith(await db.GetTeacherStudentIdsAsync(user.UserId()));
+        }
+        return ids;
+    }
+
+    /// <summary>The pupils the permission reaches, each with the subjects it
+    /// reaches them in (<see cref="ReachesStudentSubjectAsync"/>; null = any)
+    /// and the caller's groups they are in. Null = the whole school, any
+    /// subject.</summary>
+    public static async Task<List<StudentReach>?> StudentReachAsync(this ClaimsPrincipal user, AppDbContext db, Permission permission)
+    {
+        var scope = await user.ScopeAsync(db, permission);
+        if (scope == PermissionScope.School)
+        {
+            return null;
+        }
+        if (scope != PermissionScope.MyClasses)
+        {
+            return [.. (await user.StudentIdsAsync(db, permission) ?? []).Order().Select(id => new StudentReach(id, null, []))];
+        }
+
+        var teacherId = user.UserId();
+        var lessons = await db.TimetableEntriesOn().Where(t => t.TeacherId == teacherId)
+            .Select(t => new { t.SchoolClassId, t.SubjectId, t.StudentGroupId }).Distinct().ToListAsync();
+        var groupIds = lessons.Where(l => l.StudentGroupId != null).Select(l => l.StudentGroupId!.Value).Distinct().ToList();
+        var members = await db.StudentGroupMembers.Where(m => groupIds.Contains(m.StudentGroupId))
+            .Select(m => new { m.StudentId, m.StudentGroupId }).ToListAsync();
+        var studentIds = await db.GetTeacherStudentIdsAsync(teacherId);
+        var pupils = await db.Students.Where(s => studentIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.SchoolClassId }).ToListAsync();
+        return [.. pupils.OrderBy(p => p.Id).Select(p =>
+        {
+            var groups = members.Where(m => m.StudentId == p.Id).Select(m => m.StudentGroupId).ToList();
+            var subjects = lessons
+                .Where(l => l.StudentGroupId == null ? l.SchoolClassId == p.SchoolClassId : groups.Contains(l.StudentGroupId.Value))
+                .Select(l => l.SubjectId).Distinct().Order().ToList();
+            return new StudentReach(p.Id, subjects, groups);
+        })];
     }
 
     public static async Task<bool> ReachesStudentAsync(this ClaimsPrincipal user, AppDbContext db, Permission permission, int studentId) =>
@@ -160,3 +232,7 @@ public class RequirePermissionAttribute(Permission permission) : Attribute, IAsy
         }
     }
 }
+
+/// <param name="SubjectIds">Null = any subject.</param>
+/// <param name="StudentGroupIds">The caller's groups (they teach) the pupil is in.</param>
+public record StudentReach(int StudentId, IReadOnlyList<int>? SubjectIds, IReadOnlyList<int> StudentGroupIds);

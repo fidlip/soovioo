@@ -23,17 +23,14 @@ public static class EventVisibilityExtensions
 
     /// <summary>Teacher sees: their own creations, Everyone-audience events,
     /// and Selected-audience events touching anything "theirs" — targeted at
-    /// them directly, at a class they teach, at one of their students, or at
-    /// a parent of one of their students. Also a deliberate oversight
+    /// them directly, at a class they teach, at one of their students (also of
+    /// their groups), or at a parent of one of their students. Also a deliberate oversight
     /// exception (not just plain recipient matching), scoped to the
     /// teacher's own classes rather than the whole school like Admin's.</summary>
     public static async Task<IQueryable<Event>> VisibleToTeacherAsync(this AppDbContext db, int schoolId, int teacherUserId)
     {
         var classIds = await db.GetTeacherClassIdsAsync(teacherUserId);
-        var studentIds = await db.Students.IgnoreQueryFilters()
-            .Where(s => s.SchoolId == schoolId && classIds.Contains(s.SchoolClassId))
-            .Select(s => s.Id)
-            .ToListAsync();
+        var studentIds = await db.GetTeacherStudentIdsAsync(teacherUserId);
         var parentUserIds = await db.ParentStudents.IgnoreQueryFilters()
             .Where(ps => ps.SchoolId == schoolId && studentIds.Contains(ps.StudentId))
             .ParentAccountLinks()

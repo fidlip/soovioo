@@ -20,6 +20,7 @@ import {
   SchoolClass,
   SchoolClassesApiService,
   Student,
+  StudentReach,
   StudentsApiService,
   Subject,
   SubjectsApiService,
@@ -53,6 +54,16 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
   '.ods',
   '.odp',
 ];
+
+function assignmentKey(
+  schoolClassId: number | null,
+  studentGroupId: number | null,
+  subjectId: number,
+): string {
+  return studentGroupId !== null
+    ? `g${studentGroupId}`
+    : `${schoolClassId}-${subjectId}`;
+}
 
 @Component({
   selector: 'app-homework-page',
@@ -115,26 +126,35 @@ export class HomeworkPage {
       .filter((c) => this.canManageHomework() || own.has(c.id))
       .map((c) => ({ id: c.id, label: c.name }));
   });
-  /** Deduplicated (class, subject) pairs a Teacher actually teaches — the
-   * create dialog's single "Třída a předmět" picker for that role. */
+  /** Whom HomeworkWrite reaches — for a Teacher the pupils of their
+   * groups, offered for a group's homework. */
+  private readonly reach = signal<StudentReach | null>(null);
+
+  /** Deduplicated (class, subject) pairs and groups a Teacher actually
+   * teaches — the create dialog's single "Třída a předmět" picker for that
+   * role. */
   protected readonly teachingAssignmentOptions = computed(() => {
     const seen = new Set<string>();
     const options: {
       key: string;
       label: string;
-      schoolClassId: number;
+      schoolClassId: number | null;
+      studentGroupId: number | null;
       subjectId: number;
     }[] = [];
     for (const entry of this.myTeachingAssignments()) {
-      const key = `${entry.schoolClassId}-${entry.subjectId}`;
+      const groupId = entry.studentGroupId ?? null;
+      const key = assignmentKey(entry.schoolClassId, groupId, entry.subjectId);
       if (seen.has(key)) {
         continue;
       }
       seen.add(key);
       options.push({
         key,
+        // A group's lesson is named "Nj (7.A, 7.B)" already.
         label: `${entry.schoolClassName} — ${entry.subjectName}`,
-        schoolClassId: entry.schoolClassId,
+        schoolClassId: groupId === null ? entry.schoolClassId : null,
+        studentGroupId: groupId,
         subjectId: entry.subjectId,
       });
     }
@@ -156,6 +176,12 @@ export class HomeworkPage {
 
   protected selectedAssignmentKey: string | null = null;
   protected readonly newSchoolClassId = signal<number | null>(null);
+  /** Homework of a group instead of a class. */
+  protected readonly newStudentGroupId = signal<number | null>(null);
+  /** The edited group homework's label ("Nj (7.A, 7.B)"), and its pupils
+   * known from it. */
+  protected editingGroupLabel: string | null = null;
+  private readonly editingGroupStudentIds = signal<number[]>([]);
   protected newSubjectId: number | null = null;
   protected newText = '';
   protected newDueDate = new Date();
@@ -164,11 +190,27 @@ export class HomeworkPage {
   protected newTargetStudentIds: number[] = [];
   protected selectedFile: File | null = null;
 
-  protected readonly newClassStudentOptions = computed(() =>
-    this.students()
-      .filter((s) => s.schoolClassId === this.newSchoolClassId())
-      .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+  protected readonly targetLabel = computed(() =>
+    this.newStudentGroupId() !== null
+      ? 'Komu (prázdné = celá skupina)'
+      : 'Komu (prázdné = celá třída)',
   );
+  protected readonly newClassStudentOptions = computed(() => {
+    const groupId = this.newStudentGroupId();
+    const inGroup = new Set([
+      ...this.editingGroupStudentIds(),
+      ...(this.reach()?.students ?? [])
+        .filter((r) => groupId !== null && r.studentGroupIds.includes(groupId))
+        .map((r) => r.studentId),
+    ]);
+    return this.students()
+      .filter((s) =>
+        groupId !== null
+          ? inGroup.has(s.id)
+          : s.schoolClassId === this.newSchoolClassId(),
+      )
+      .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` }));
+  });
 
   constructor() {
     this.reload();
@@ -191,6 +233,12 @@ export class HomeworkPage {
       error: (err) => console.error('getSchoolClasses failed', err),
     });
     if (!this.anyClass) {
+      if (this.canManageHomework()) {
+        this.studentsApi.getReach('HomeworkWrite').subscribe({
+          next: (reach) => this.reach.set(reach),
+          error: (err) => console.error('getReach failed', err),
+        });
+      }
       const teacherId = this.authApi.getUserId();
       if (teacherId) {
         this.timetableApi.getTeacherTimetable(teacherId).subscribe({
@@ -215,7 +263,7 @@ export class HomeworkPage {
       .filter(
         (h) =>
           (this.filterClassId === null ||
-            h.schoolClassId === this.filterClassId) &&
+            h.schoolClassIds.includes(this.filterClassId)) &&
           (this.filterSubjectId === null ||
             h.subjectId === this.filterSubjectId) &&
           (archive ? h.dueDate < today : h.dueDate >= today),
@@ -237,6 +285,10 @@ export class HomeworkPage {
       return item.targetStudentIds
         .map((id) => byId.get(id))
         .filter((s): s is Student => !!s);
+    }
+    if (item.groupStudentIds) {
+      const members = new Set(item.groupStudentIds);
+      return this.students().filter((s) => members.has(s.id));
     }
     return this.students().filter(
       (s) => s.schoolClassId === item.schoolClassId,
@@ -261,8 +313,16 @@ export class HomeworkPage {
     this.openAddHomeworkDialog();
     this.editingHomeworkId.set(item.id);
     this.newSchoolClassId.set(item.schoolClassId);
+    this.newStudentGroupId.set(item.studentGroupId);
+    this.editingGroupLabel =
+      item.studentGroupId !== null ? item.schoolClassName : null;
+    this.editingGroupStudentIds.set(item.groupStudentIds ?? []);
     this.newSubjectId = item.subjectId;
-    this.selectedAssignmentKey = `${item.schoolClassId}-${item.subjectId}`;
+    this.selectedAssignmentKey = assignmentKey(
+      item.schoolClassId,
+      item.studentGroupId,
+      item.subjectId,
+    );
     this.newText = item.text;
     this.newDueDate = new Date(`${item.dueDate}T00:00:00`);
     this.newRequiresCompletion = item.requiresCompletion;
@@ -271,6 +331,9 @@ export class HomeworkPage {
 
   protected openAddHomeworkDialog(): void {
     this.editingHomeworkId.set(null);
+    this.newStudentGroupId.set(null);
+    this.editingGroupLabel = null;
+    this.editingGroupStudentIds.set([]);
     this.createError.set(null);
     this.fileError.set(null);
     this.selectedAssignmentKey =
@@ -314,6 +377,7 @@ export class HomeworkPage {
     );
     if (assignment) {
       this.newSchoolClassId.set(assignment.schoolClassId);
+      this.newStudentGroupId.set(assignment.studentGroupId);
       this.newSubjectId = assignment.subjectId;
     }
     this.newTargetStudentIds = [];
@@ -342,12 +406,18 @@ export class HomeworkPage {
 
   protected saveHomework(): void {
     const schoolClassId = this.newSchoolClassId();
-    if (!schoolClassId || !this.newSubjectId || !this.newText.trim()) {
+    const studentGroupId = this.newStudentGroupId();
+    if (
+      (!schoolClassId && !studentGroupId) ||
+      !this.newSubjectId ||
+      !this.newText.trim()
+    ) {
       return;
     }
     this.createError.set(null);
     const request: CreateHomeworkRequest = {
-      schoolClassId,
+      schoolClassId: studentGroupId ? null : schoolClassId,
+      studentGroupId,
       subjectId: this.newSubjectId,
       text: this.newText,
       dueDate: this.toDateOnlyString(this.newDueDate),

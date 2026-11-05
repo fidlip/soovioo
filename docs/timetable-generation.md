@@ -176,7 +176,15 @@ Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a k
 - Změnu členství, po které by žák měl ve stejnou dobu jinou hodinu (celé třídy nebo jiné své
   skupiny mimo dělení) nebo by se skupina nevešla do učebny některé své hodiny, API odmítne;
   kontroluje se jen přidávaný žák.
-- Známky, docházka a úkoly pro hodinu skupiny zatím nabízejí celou třídu (druhá část #166).
+- Kdo skupinu učí, učí jen její žáky: rozsah „moje třídy“ (`GetTeacherClassIdsAsync`) dávají
+  jen celotřídní hodiny a třídnictví, žáky (`GetTeacherStudentIdsAsync`) i členové jeho skupin.
+  Známka jde zapsat žákovi v předmětu, který ho učitel učí ve třídě nebo ve skupině
+  (`ReachesStudentSubjectAsync`); absence, chování, akce a platby žákům jeho skupin, hromadná
+  zpráva a adresář třídy jen celé třídě, kterou učí. Žák a rodič mají v adresáři a kontaktech
+  učitele svých skupin, ne cizích. Dialogy Známky, Docházka a Úkoly nabízejí jen to, kam
+  oprávnění sahá (`GET /api/students/reach`), čipy hodin v absenci podle rozvrhu žáka.
+- Úkol skupiny (`Homework.StudentGroupId`, třída pak prázdná) je pro její aktuální členy (nebo
+  vybrané z nich), učitel ho zadá u „Nj (7.A, 7.B) — Německý jazyk“. Skupinu s úkoly nejde smazat.
 
 ## Učební plán podle RVP (#165)
 

@@ -377,8 +377,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || m.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<MessageAttachment>().HasQueryFilter(a =>
             currentSchool.IsSuperAdmin || a.SchoolId == currentSchool.SchoolId);
-        modelBuilder.Entity<Homework.Homework>().HasQueryFilter(h =>
-            currentSchool.IsSuperAdmin || h.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Homework.Homework>(e =>
+        {
+            e.HasQueryFilter(h => currentSchool.IsSuperAdmin || h.SchoolId == currentSchool.SchoolId);
+            e.HasOne(h => h.SchoolClass).WithMany().HasForeignKey(h => h.SchoolClassId).OnDelete(DeleteBehavior.Cascade);
+            // A group with homework isn't deleted, see StudentGroupsController.
+            e.HasOne(h => h.StudentGroup).WithMany().HasForeignKey(h => h.StudentGroupId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<HomeworkStudent>().HasQueryFilter(hs =>
             currentSchool.IsSuperAdmin || hs.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<HomeworkCompletion>().HasQueryFilter(hc =>

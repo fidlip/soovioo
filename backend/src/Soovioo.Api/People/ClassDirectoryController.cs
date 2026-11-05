@@ -36,7 +36,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
         var isParent = User.ActiveKind() == RoleKind.Parent;
         var audience = isParent ? VisibilityAudience.Parents : VisibilityAudience.Students;
 
-        var teachers = await TeachersAsync(visibility, audience, classId, student.SchoolClass!.ClassTeacherId);
+        var teachers = await TeachersAsync(visibility, audience, student.Id, student.SchoolClass!.ClassTeacherId);
 
         List<ClassmateDto>? classmates = null;
         if (visibility.CanShow(new(VisibilityOwner.Student, VisibilityField.Name, audience), VisibilityScope.MyClasses))
@@ -69,14 +69,15 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
             teachers, classmates, parents));
     }
 
-    /// <summary>Class teacher and everyone with a lesson in the class —
-    /// names always (the same people are in Zprávy's contacts), phone and
-    /// e-mail where the teacher shares them with the caller's audience.</summary>
+    /// <summary>Class teacher and everyone with a lesson of the pupil (the
+    /// class's or their group's) — names always (the same people are in
+    /// Zprávy's contacts), phone and e-mail where the teacher shares them with
+    /// the caller's audience.</summary>
     private async Task<List<DirectoryTeacherDto>> TeachersAsync(
-        SchoolVisibility visibility, VisibilityAudience audience, int classId, int? classTeacherId)
+        SchoolVisibility visibility, VisibilityAudience audience, int studentId, int? classTeacherId)
     {
-        var teaching = await db.TimetableEntriesOn()
-            .Where(t => t.SchoolClassId == classId && t.TeacherId != null)
+        var teaching = await db.TimetableEntriesOn().LessonsOf(db, studentId)
+            .Where(t => t.TeacherId != null)
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.Subject!.Name })
             .Distinct()
             .ToListAsync();

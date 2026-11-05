@@ -7,8 +7,15 @@ export interface HomeworkAttachment {
 
 export interface Homework {
   id: number;
-  schoolClassId: number;
+  /** null for homework of a group. */
+  schoolClassId: number | null;
+  /** The class, or the group as "Nj (7.A, 7.B)". */
   schoolClassName: string;
+  studentGroupId: number | null;
+  /** The class, or the group's classes. */
+  schoolClassIds: number[];
+  /** The (caller-visible) pupils of the group now; null for a class's. */
+  groupStudentIds: number[] | null;
   subjectId: number;
   subjectName: string;
   subjectAbbreviation: string | null;
@@ -18,7 +25,7 @@ export interface Homework {
   requiresCompletion: boolean;
   createdByName: string;
   createdAt: string;
-  /** Empty means "assigned to the whole class". */
+  /** Empty means "assigned to the whole class / group". */
   targetStudentIds: number[];
   attachments: HomeworkAttachment[];
   /** Which of the (caller-visible) target students have marked it done. */
@@ -26,7 +33,10 @@ export interface Homework {
 }
 
 export interface CreateHomeworkRequest {
-  schoolClassId: number;
+  /** null with `studentGroupId`. */
+  schoolClassId: number | null;
+  /** Homework of a group; the subject is the group's. */
+  studentGroupId?: number | null;
   subjectId: number;
   text: string;
   dueDate: string;

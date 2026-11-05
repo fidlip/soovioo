@@ -1121,10 +1121,13 @@ namespace Soovioo.Api.Migrations
                     b.Property<bool>("RequiresCompletion")
                         .HasColumnType("boolean");
 
-                    b.Property<int>("SchoolClassId")
+                    b.Property<int?>("SchoolClassId")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StudentGroupId")
                         .HasColumnType("integer");
 
                     b.Property<int>("SubjectId")
@@ -1139,6 +1142,8 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("SchoolClassId");
 
                     b.HasIndex("SchoolId");
+
+                    b.HasIndex("StudentGroupId");
 
                     b.HasIndex("SubjectId");
 
@@ -3032,14 +3037,18 @@ namespace Soovioo.Api.Migrations
                     b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
                         .WithMany()
                         .HasForeignKey("SchoolClassId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Timetable.StudentGroup", "StudentGroup")
+                        .WithMany()
+                        .HasForeignKey("StudentGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
                         .WithMany()
@@ -3050,6 +3059,8 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("SchoolClass");
+
+                    b.Navigation("StudentGroup");
 
                     b.Navigation("Subject");
                 });

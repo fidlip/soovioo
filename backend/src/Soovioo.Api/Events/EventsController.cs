@@ -105,12 +105,12 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             .OrderBy(c => c.Name)
             .Select(c => new SchoolClassOptionDto(c.Id, c.Name, c.Rocnik))
             .ToListAsync();
+        var myStudentIds = await User.ClassStudentIdsAsync(db, Permission.EventsWrite) ?? [];
         var myStudents = await db.Students
-            .Where(s => myClassIds.Contains(s.SchoolClassId))
+            .Where(s => myStudentIds.Contains(s.Id))
             .OrderBy(s => s.Person!.LastName)
             .Select(s => new StudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name, s.SchoolClass!.Rocnik))
             .ToListAsync();
-        var myStudentIds = myStudents.Select(s => s.Id).ToList();
         var myParents = await db.ParentStudents
             .Where(ps => myStudentIds.Contains(ps.StudentId) && ps.ParentProfile!.Person!.UserId != null)
             .Select(ps => ps.ParentProfile!.Person!.User!)
@@ -280,13 +280,12 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
                 classIds.ToHashSet(), teacherIds.ToHashSet(), parentIds.ToHashSet(), studentIds.ToHashSet());
         }
 
-        var myStudentIds = await db.Students
-            .Where(s => myClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync();
+        var myStudentIds = await User.ClassStudentIdsAsync(db, Permission.EventsWrite) ?? [];
         var myParentIds = await db.ParentStudents
             .Where(ps => myStudentIds.Contains(ps.StudentId)).ParentAccountLinks().Select(l => l.UserId).Distinct().ToListAsync();
         // Teacher may never target other teachers — empty set makes any
         // submitted teacherUserIds fail the subset check automatically.
-        return new AllowedRecipientIds(myClassIds, [], myParentIds.ToHashSet(), myStudentIds.ToHashSet());
+        return new AllowedRecipientIds(myClassIds, [], myParentIds.ToHashSet(), myStudentIds);
     }
 
     private void SetRecipients(Event @event, CreateEventRequest request)

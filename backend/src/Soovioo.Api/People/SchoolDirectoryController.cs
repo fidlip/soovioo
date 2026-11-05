@@ -55,7 +55,7 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
         var people = new List<Entry>();
         if (kind is null or SchoolPersonKind.Staff)
         {
-            people.AddRange(await StaffAsync(visibility, audience, myClassIds, classNames));
+            people.AddRange(await StaffAsync(visibility, audience, accessible, myClassIds, classNames));
         }
         var pupils = kind is null or SchoolPersonKind.Student || (isParent && kind is SchoolPersonKind.Parent)
             ? await StudentsAsync(visibility, audience, accessible, myClassIds, classNames)
@@ -99,7 +99,8 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
     private sealed record Entry(SchoolPersonDto Dto, string SortName, IReadOnlySet<int> ClassIds);
 
     private async Task<List<Entry>> StaffAsync(
-        SchoolVisibility visibility, VisibilityAudience audience, HashSet<int> myClassIds, Dictionary<int, string> classNames)
+        SchoolVisibility visibility, VisibilityAudience audience, HashSet<int> myStudentIds, HashSet<int> myClassIds,
+        Dictionary<int, string> classNames)
     {
         var staff = await db.Users.Include(u => u.Person)
             .Where(u => u.DeactivatedAt == null && u.ErasedAt == null
@@ -108,16 +109,20 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
         var led = await db.SchoolClasses.Where(c => c.ClassTeacherId != null)
             .Select(c => new { TeacherId = c.ClassTeacherId!.Value, ClassId = c.Id }).ToListAsync();
         var taught = await db.TimetableEntriesOn().Where(t => t.TeacherId != null)
-            .Select(t => new { TeacherId = t.TeacherId!.Value, ClassId = t.SchoolClassId, Subject = t.Subject!.Name })
+            .Select(t => new { TeacherId = t.TeacherId!.Value, ClassId = t.SchoolClassId, Subject = t.Subject!.Name, Group = t.StudentGroupId != null })
             .Distinct().ToListAsync();
+        // A group's teacher is the viewer's when they teach the viewer's child / the pupil.
+        var groupTeachers = (await db.TimetableEntriesOn()
+            .Where(t => t.TeacherId != null && t.StudentGroup!.Members.Any(m => myStudentIds.Contains(m.StudentId)))
+            .Select(t => t.TeacherId!.Value).Distinct().ToListAsync()).ToHashSet();
         var choices = await ChoicesOfPersonsAsync(staff.Where(u => u.Person != null).Select(u => u.Person!.Id));
 
         return staff.Select(u =>
         {
             var classIds = led.Where(l => l.TeacherId == u.Id).Select(l => l.ClassId)
-                .Concat(taught.Where(t => t.TeacherId == u.Id).Select(t => t.ClassId))
+                .Concat(taught.Where(t => t.TeacherId == u.Id && !t.Group).Select(t => t.ClassId))
                 .ToHashSet();
-            var distance = classIds.Overlaps(myClassIds) ? VisibilityScope.MyClasses : VisibilityScope.School;
+            var distance = classIds.Overlaps(myClassIds) || groupTeachers.Contains(u.Id) ? VisibilityScope.MyClasses : VisibilityScope.School;
             var own = u.Person is null ? [] : choices[u.Person.Id];
             bool Shows(VisibilityField field) =>
                 visibility.Shows(new(VisibilityOwner.Staff, field, audience), own, distance);

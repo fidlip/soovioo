@@ -14,8 +14,11 @@ import {
   GradesApiService,
   ReportCardApiService,
   Student,
+  StudentReach,
   StudentsApiService,
   Subject,
+  reachedSubjectIds,
+  reachesStudent,
   SubjectsApiService,
   formatDate,
   localizeStudentTerm,
@@ -93,6 +96,23 @@ export class GradesPage {
     })),
   );
 
+  /** Whom GradesWrite reaches — the dialog offers only them (a teacher:
+   * what they teach, a group's subject only to its pupils). */
+  private readonly reach = signal<StudentReach | null>(null);
+  /** The dialog's subject — its pupils depend on it. */
+  protected readonly dialogSubjectId = signal<number | null>(null);
+  protected readonly dialogSubjects = computed(() => {
+    const reached = reachedSubjectIds(this.reach());
+    return this.subjects().filter((s) => !reached || reached.has(s.id));
+  });
+  protected readonly dialogStudentOptions = computed(() => {
+    const subjectId = this.dialogSubjectId();
+    return this.studentOptions().filter(
+      (s) =>
+        subjectId !== null && reachesStudent(this.reach(), s.id, subjectId),
+    );
+  });
+
   /** null = "all" — separate from the dialog fields below, which drive the
    * add/edit-grade form, not what's shown in the table. */
   protected readonly filterStudentId = signal<number | null>(null);
@@ -166,12 +186,29 @@ export class GradesPage {
       next: (subjects) => this.subjects.set(subjects),
       error: (err) => console.error('getSubjects failed', err),
     });
+    if (this.canAddGrade()) {
+      this.studentsApi.getReach('GradesWrite').subscribe({
+        next: (reach) => this.reach.set(reach),
+        error: (err) => console.error('getReach failed', err),
+      });
+    }
+  }
+
+  protected onDialogSubjectChange(subjectId: number | null): void {
+    this.newSubjectId = subjectId;
+    this.dialogSubjectId.set(subjectId);
+    if (
+      this.newStudentId !== null &&
+      !reachesStudent(this.reach(), this.newStudentId, subjectId)
+    ) {
+      this.newStudentId = null;
+    }
   }
 
   protected openAddGradeDialog(): void {
     this.editingGradeId = null;
     this.newStudentId = this.reportCardStudentId;
-    this.newSubjectId = this.subjects()[0]?.id ?? null;
+    this.onDialogSubjectChange(this.dialogSubjects()[0]?.id ?? null);
     this.newValue = 1;
     this.newWeight = 1;
     this.newNote = '';
@@ -213,7 +250,7 @@ export class GradesPage {
   protected startEditGrade(grade: Grade): void {
     this.editingGradeId = grade.id;
     this.newStudentId = grade.studentId;
-    this.newSubjectId = grade.subjectId;
+    this.onDialogSubjectChange(grade.subjectId);
     this.newValue = grade.value;
     this.newWeight = grade.weight;
     this.newNote = grade.note ?? '';

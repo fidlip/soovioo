@@ -22,14 +22,16 @@ namespace Soovioo.Api.People;
 ///   (parents, class teacher, admin);
 /// - everyone sees their own.
 ///
-/// "Moje třídy" for a parent or pupil looking at someone: a class of the
-/// viewer's children / the pupil's own class that the other person teaches
-/// (staff), has a child in (parents) or is in (pupils).</summary>
+/// "Moje třídy" for a parent or pupil looking at someone: the viewer's
+/// children / the pupil whom the other person teaches (staff, in the class or
+/// a group), or a class of theirs the other person has a child in (parents)
+/// or is in (pupils).</summary>
 public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
 {
     private School? school;
     private SchoolVisibility? visibility;
     private HashSet<int>? viewerClassIds;
+    private HashSet<int>? viewerStudentIds;
 
     public async Task<School> SchoolAsync() =>
         school ??= await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId);
@@ -52,7 +54,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
         var s = await SchoolAsync();
         var isAdmin = await viewer.HasPermissionAsync(db, Permission.Administration);
         var isStaff = viewer.IsStaff();
-        HashSet<int>? teacherClassIds = null;
+        HashSet<int>? teacherStudentIds = null;
         var personIds = withPhoto.Select(u => u.Person!.Id).ToList();
         var choices = (await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync())
             .ToLookup(c => c.PersonId);
@@ -68,7 +70,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             else if (IsStaff(user))
             {
                 visible = isStaff || await PeerSeesAsync(
-                    viewer, VisibilityOwner.Staff, own, () => db.GetTeacherClassIdsAsync(user.Id));
+                    viewer, VisibilityOwner.Staff, own, async () => (await db.GetTeacherStudentIdsAsync(user.Id)).Overlaps(await ViewerStudentIdsAsync(viewer)));
             }
             else if (user.HasKind(RoleKind.Parent) && s.ParentPhotos)
             {
@@ -78,12 +80,13 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
                 }
                 else if (isStaff)
                 {
-                    teacherClassIds ??= (await db.GetTeacherClassIdsAsync(viewerId)).ToHashSet();
-                    visible = (await ChildClassIdsAsync(user.Id)).Any(teacherClassIds.Contains);
+                    teacherStudentIds ??= await db.GetTeacherStudentIdsAsync(viewerId);
+                    visible = await db.ChildIdsOf(user.Id).AnyAsync(id => teacherStudentIds.Contains(id));
                 }
                 else
                 {
-                    visible = await PeerSeesAsync(viewer, VisibilityOwner.Parent, own, () => ChildClassIdsAsync(user.Id));
+                    visible = await PeerSeesAsync(viewer, VisibilityOwner.Parent, own, async () =>
+                        (await ChildClassIdsAsync(user.Id)).Any((await ViewerClassIdsAsync(viewer)).Contains));
                 }
             }
             else
@@ -146,7 +149,7 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
             return true;
         }
         return approved && await PeerSeesAsync(
-            viewer, VisibilityOwner.Student, choices, () => Task.FromResult(new List<int> { student.SchoolClassId }));
+            viewer, VisibilityOwner.Student, choices, async () => (await ViewerClassIdsAsync(viewer)).Contains(student.SchoolClassId));
     }
 
     /// <summary>Parents of the pupil and the school's side.</summary>
@@ -163,13 +166,14 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
     /// <summary>Staff whose <see cref="Permission.StudentPhotos"/> reaches the
     /// pupil (by default Admin and the class teacher) — the school's side of a pupil's photo.</summary>
     public async Task<bool> IsSchoolSideAsync(ClaimsPrincipal viewer, StudentProfile student) =>
-        viewer.IsStaff() && await viewer.ReachesClassAsync(db, Permission.StudentPhotos, student.SchoolClassId);
+        viewer.IsStaff() && await viewer.ReachesStudentAsync(db, Permission.StudentPhotos, student.Id);
 
     /// <summary>Whether a parent or pupil viewer sees the photo of someone
-    /// with <paramref name="choices"/>, whose classes
-    /// <paramref name="ownerClassIds"/> gives (asked only when needed).</summary>
+    /// with <paramref name="choices"/>; <paramref name="inMyClasses"/> says
+    /// whether the person is in the viewer's "Moje třídy" (asked only when
+    /// needed).</summary>
     private async Task<bool> PeerSeesAsync(
-        ClaimsPrincipal viewer, VisibilityOwner owner, IEnumerable<VisibilityChoice> choices, Func<Task<List<int>>> ownerClassIds)
+        ClaimsPrincipal viewer, VisibilityOwner owner, IEnumerable<VisibilityChoice> choices, Func<Task<bool>> inMyClasses)
     {
         VisibilityAudience audience;
         if (viewer.ActiveKind() == RoleKind.Parent)
@@ -191,17 +195,23 @@ public class PhotoAccess(AppDbContext db, ICurrentSchoolContext currentSchool)
         {
             return false;
         }
-        viewerClassIds ??= await ViewerClassIdsAsync(viewer);
-        var distance = (await ownerClassIds()).Any(viewerClassIds.Contains) ? VisibilityScope.MyClasses : VisibilityScope.School;
+        var distance = await inMyClasses() ? VisibilityScope.MyClasses : VisibilityScope.School;
         return rules.Shows(key, choices, distance);
     }
 
     private async Task<HashSet<int>> ViewerClassIdsAsync(ClaimsPrincipal viewer)
     {
-        var studentIds = await viewer.GetAccessibleStudentIdsAsync(db) ?? [];
-        return (await db.Students.Where(st => studentIds.Contains(st.Id)).Select(st => st.SchoolClassId).ToListAsync())
-            .ToHashSet();
+        if (viewerClassIds is null)
+        {
+            var studentIds = await ViewerStudentIdsAsync(viewer);
+            viewerClassIds = (await db.Students.Where(st => studentIds.Contains(st.Id)).Select(st => st.SchoolClassId).ToListAsync())
+                .ToHashSet();
+        }
+        return viewerClassIds;
     }
+
+    private async Task<HashSet<int>> ViewerStudentIdsAsync(ClaimsPrincipal viewer) =>
+        viewerStudentIds ??= await viewer.GetAccessibleStudentIdsAsync(db) ?? [];
 
     private Task<List<int>> ChildClassIdsAsync(int parentUserId) =>
         db.ChildIdsOf(parentUserId)
