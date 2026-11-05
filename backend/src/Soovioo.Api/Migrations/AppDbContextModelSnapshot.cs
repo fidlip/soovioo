@@ -2138,6 +2138,9 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("integer[]");
 
+                    b.Property<int?>("CoversSubjectId")
+                        .HasColumnType("integer");
+
                     b.Property<bool?>("DoubleLessons")
                         .HasColumnType("boolean");
 
@@ -2157,6 +2160,8 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CoversSubjectId");
 
                     b.HasIndex("TimetableVersionId");
 
@@ -3546,11 +3551,18 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>
                 {
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "CoversSubject")
+                        .WithMany()
+                        .HasForeignKey("CoversSubjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
                         .WithMany("Divisions")
                         .HasForeignKey("TimetableVersionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("CoversSubject");
 
                     b.Navigation("TimetableVersion");
                 });

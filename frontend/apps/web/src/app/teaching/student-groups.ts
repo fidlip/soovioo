@@ -49,6 +49,7 @@ interface DivisionForm {
   hoursPerWeek: number | null;
   doubleLessons: boolean;
   classIds: number[];
+  coversSubjectId: number | null;
 }
 
 interface GroupForm {
@@ -337,6 +338,7 @@ export class StudentGroupsPanel {
       hoursPerWeek: null,
       doubleLessons: false,
       classIds: [],
+      coversSubjectId: null,
     });
   }
 
@@ -348,6 +350,7 @@ export class StudentGroupsPanel {
       hoursPerWeek: d.hoursPerWeek,
       doubleLessons: d.doubleLessons ?? false,
       classIds: [...d.classIds],
+      coversSubjectId: d.coversSubjectId,
     });
   }
 
@@ -357,6 +360,7 @@ export class StudentGroupsPanel {
       hoursPerWeek: form.hoursPerWeek,
       doubleLessons: form.doubleLessons || null,
       classIds: form.classIds,
+      coversSubjectId: form.coversSubjectId,
     };
     const versionId = this.versionId();
     this.run(

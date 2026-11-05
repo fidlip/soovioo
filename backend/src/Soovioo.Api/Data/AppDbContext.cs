@@ -322,6 +322,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.Property(x => x.HoursPerWeek).HasPrecision(4, 1);
             e.HasOne(x => x.TimetableVersion).WithMany(v => v.Divisions)
                 .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.CoversSubject).WithMany().HasForeignKey(x => x.CoversSubjectId).OnDelete(DeleteBehavior.SetNull);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<StudentGroupClass>(e =>

@@ -206,3 +206,53 @@ test.describe.serial('student groups', () => {
     await expect(page.locator('tbody')).not.toContainText(GROUP);
   });
 });
+
+// A division of a pupil's choice teaches a row of the plan of its own, a
+// placeholder made for it here and deleted with it.
+test('a division teaches a row of the učební plán', async ({ page }) => {
+  const row = 'Volitelný předmět e2e';
+  await login(page, 'admin', 'admin123');
+  await openNav(page, 'Administrace');
+  await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+  await page.getByRole('button', { name: 'Nový předmět' }).click();
+  const subjectDialog = page.getByRole('dialog', { name: 'Nový předmět' });
+  await subjectDialog.getByLabel('Název předmětu').fill(row);
+  await subjectDialog.getByRole('button', { name: 'Vytvořit' }).click();
+  await expect(subjectDialog).toBeHidden();
+
+  await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
+  await page.getByRole('tab', { name: 'Skupiny' }).click();
+  await page.getByRole('button', { name: 'Nové dělení' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nové dělení' });
+  await dialog.getByLabel('Název').fill('Volba e2e');
+  await dialog.locator('p-multiselect[name="divisionClasses"]').click();
+  await page.getByRole('option', { name: '5.A', exact: true }).click();
+  await page.keyboard.press('Escape');
+  const covers = dialog.getByRole('combobox', { name: 'Řádek učebního plánu' });
+  await pick(page, covers, row);
+  await dialog.getByRole('spinbutton', { name: 'Hodiny týdně' }).fill('1');
+  await dialog.getByRole('button', { name: 'Uložit' }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: 'Upravit dělení Volba e2e' }).click();
+  const edit = page.getByRole('dialog', { name: 'Upravit dělení' });
+  await expect(
+    edit.getByRole('combobox', { name: 'Řádek učebního plánu' }),
+  ).toHaveText(row);
+  await edit.getByRole('button', { name: 'Zrušit' }).click();
+  await page.getByRole('button', { name: 'Smazat dělení Volba e2e' }).click();
+  await page
+    .getByRole('alertdialog', { name: 'Smazat dělení' })
+    .getByRole('button', { name: 'Smazat' })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Upravit dělení Volba e2e' }),
+  ).toHaveCount(0);
+
+  await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+  await page
+    .getByRole('row', { name: new RegExp(row) })
+    .getByRole('button', { name: 'Smazat' })
+    .click();
+  await expect(page.getByRole('row', { name: new RegExp(row) })).toHaveCount(0);
+});

@@ -166,6 +166,13 @@ Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a k
   (Tv 2.A+2.B dívky/chlapci v různých tělocvičnách, Nj | Fj). Žák je v dělení nejvýš
   v jedné skupině (do jiné ho jde přidat, až když ho z původní odeberete); kdo není v žádné, má volno (kontrola před
   zveřejněním ho vypíše).
+- Dělení může učit **řádek učebního plánu** (`CoversSubjectId`) — zástupný předmět jako
+  „Povinně volitelný předmět“, „Další cizí jazyk“ nebo „Seminář“, za který si žáci volí
+  skutečné předměty skupin (Dramatická výchova | Domácnost, Nj | Fj). Bez vlastních hodin
+  má dělení hodiny toho řádku; víc dělení jednoho řádku (semináře 3 h + 2 h) musí mít
+  dohromady jeho hodiny. Řádek se tak počítá do týdne třídy i do RVP, sám se ale neučí:
+  nedostane učitele ani hodiny v rozvrhu a známku nebo úkol z něj API odmítne (dávají se
+  z předmětu skupiny).
 - Hodina skupiny je `TimetableEntry` se `StudentGroupId`, jedna za každou třídu skupiny
   (úprava a smazání platí pro všechny); rozvrh třídy ukáže v políčku hodiny všech jejích
   skupin, žák a rodič jen skupiny žáka, učitel hodinu jednou („Nj (7.A, 7.B)“).

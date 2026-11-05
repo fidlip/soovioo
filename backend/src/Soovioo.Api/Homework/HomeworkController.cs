@@ -7,6 +7,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Homework;
 
@@ -91,6 +92,10 @@ public class HomeworkController(
         if (subject is null)
         {
             return (null, "Neznámý předmět.");
+        }
+        if ((await db.CoveredSubjectIdsAsync()).Contains(subject.Id))
+        {
+            return (null, "Předmět se učí ve skupinách — úkol zadejte z předmětu skupiny.");
         }
         var studentIds = (request.StudentIds ?? []).Distinct().ToList();
         if (request.StudentGroupId is { } groupId)

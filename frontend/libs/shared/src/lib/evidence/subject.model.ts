@@ -18,6 +18,9 @@ export interface Subject {
   classrooms: SubjectClassroom[];
   /** In blocks of two lessons in a row; the učební plán can say otherwise. */
   doubleLessons: boolean;
+  /** A row of the učební plán divisions of other subjects teach — not
+   * graded or given homework itself. */
+  coveredByDivisions?: boolean;
 }
 
 export interface CreateSubjectRequest {

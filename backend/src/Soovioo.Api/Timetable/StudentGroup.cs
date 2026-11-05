@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Timetable;
@@ -50,6 +52,13 @@ public class StudentGroup
     public List<StudentGroupMember> Members { get; set; } = [];
 }
 
+public static class GroupDivisions
+{
+    /// <summary>Subjects that are rows of the učební plán divisions cover.</summary>
+    public static async Task<HashSet<int>> CoveredSubjectIdsAsync(this AppDbContext db) =>
+        [.. await db.GroupDivisions.Where(d => d.CoversSubjectId != null).Select(d => d.CoversSubjectId!.Value).Distinct().ToListAsync()];
+}
+
 /// <summary>Dělení: groups of the same classes with the same hours, always
 /// at the same time — Tv 2.A and 2.B girls and boys in two gyms, Nj | Fj.
 /// Pupils of its classes in none of its groups are free then.</summary>
@@ -68,6 +77,12 @@ public class GroupDivision
     public decimal? HoursPerWeek { get; set; }
 
     public bool? DoubleLessons { get; set; }
+
+    /// <summary>The row of the učební plán it teaches — a placeholder like
+    /// "Povinně volitelný předmět" or "Další cizí jazyk" its groups' subjects
+    /// are chosen for; null = their own subjects' rows.</summary>
+    public int? CoversSubjectId { get; set; }
+    public Subject? CoversSubject { get; set; }
 
     /// <summary>Its groups' (<see cref="StudentGroup.Classes"/>), kept here
     /// for a division without groups yet.</summary>

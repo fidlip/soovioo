@@ -103,6 +103,10 @@ export class HomeworkPage {
   protected readonly homeworkItems = signal<Homework[] | null>(null);
   protected readonly students = signal<Student[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
+  /** Not a row of the plan its divisions teach. */
+  protected readonly givenSubjects = computed(() =>
+    this.subjects().filter((s) => !s.coveredByDivisions),
+  );
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
   /** Only populated (and only relevant) for a Teacher — the exact
    * class+subject combinations they actually teach, reused from the
@@ -341,7 +345,9 @@ export class HomeworkPage {
     this.newSchoolClassId.set(
       this.anyClass ? (this.schoolClasses()[0]?.id ?? null) : null,
     );
-    this.newSubjectId = this.anyClass ? (this.subjects()[0]?.id ?? null) : null;
+    this.newSubjectId = this.anyClass
+      ? (this.givenSubjects()[0]?.id ?? null)
+      : null;
     this.onAssignmentChange();
     this.newText = '';
     this.newDueDate = new Date();
@@ -362,7 +368,7 @@ export class HomeworkPage {
       if (this.newSchoolClassId() === null) {
         this.newSchoolClassId.set(this.schoolClasses()[0]?.id ?? null);
       }
-      this.newSubjectId ??= this.subjects()[0]?.id ?? null;
+      this.newSubjectId ??= this.givenSubjects()[0]?.id ?? null;
     } else if (this.selectedAssignmentKey === null) {
       this.selectedAssignmentKey =
         this.teachingAssignmentOptions()[0]?.key ?? null;

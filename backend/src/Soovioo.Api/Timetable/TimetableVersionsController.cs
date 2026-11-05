@@ -80,6 +80,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         var divisions = (source?.Divisions ?? []).ToDictionary(d => d.Id, d => new GroupDivision
         {
             SchoolId = schoolId, Name = d.Name, HoursPerWeek = d.HoursPerWeek, DoubleLessons = d.DoubleLessons, ClassIds = [.. d.ClassIds],
+            CoversSubjectId = d.CoversSubjectId,
         });
         var groups = (source?.Groups ?? []).ToDictionary(g => g.Id, g => new StudentGroup
         {

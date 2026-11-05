@@ -44,7 +44,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         }
         var divisions = await db.GroupDivisions.Where(d => d.TimetableVersionId == versionId)
             .OrderBy(d => d.Name)
-            .Select(d => new GroupDivisionDto(d.Id, d.Name, d.HoursPerWeek, d.DoubleLessons, d.ClassIds))
+            .Select(d => new GroupDivisionDto(d.Id, d.Name, d.HoursPerWeek, d.DoubleLessons, d.ClassIds, d.CoversSubjectId))
             .ToListAsync();
         if (scope != PermissionScope.School)
         {
@@ -70,10 +70,11 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         {
             SchoolId = currentSchool.SchoolId!.Value, TimetableVersionId = version.Id, Name = request.Name.Trim(),
             HoursPerWeek = request.HoursPerWeek, DoubleLessons = request.DoubleLessons, ClassIds = [.. request.ClassIds.Distinct()],
+            CoversSubjectId = request.CoversSubjectId,
         };
         db.GroupDivisions.Add(division);
         await db.SaveChangesAsync();
-        return Ok(new GroupDivisionDto(division.Id, division.Name, division.HoursPerWeek, division.DoubleLessons, request.ClassIds));
+        return Ok(new GroupDivisionDto(division.Id, division.Name, division.HoursPerWeek, division.DoubleLessons, request.ClassIds, division.CoversSubjectId));
     }
 
     /// <summary>Its groups follow: the hours, the blocks and the classes —
@@ -100,6 +101,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         division.HoursPerWeek = request.HoursPerWeek;
         division.DoubleLessons = request.DoubleLessons;
         division.ClassIds = [.. request.ClassIds.Distinct()];
+        division.CoversSubjectId = request.CoversSubjectId;
         var groups = await db.StudentGroups.Include(g => g.Classes).Include(g => g.Members).ThenInclude(m => m.Student)
             .Where(g => g.GroupDivisionId == id).ToListAsync();
         foreach (var group in groups)
@@ -110,7 +112,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
             group.Members.RemoveAll(m => !request.ClassIds.Contains(m.Student!.SchoolClassId));
         }
         await db.SaveChangesAsync();
-        return Ok(new GroupDivisionDto(division.Id, division.Name, division.HoursPerWeek, division.DoubleLessons, request.ClassIds));
+        return Ok(new GroupDivisionDto(division.Id, division.Name, division.HoursPerWeek, division.DoubleLessons, request.ClassIds, division.CoversSubjectId));
     }
 
     /// <summary>With its groups and their lessons; not one with a group with homework.</summary>
@@ -229,6 +231,10 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         if (request.ClassIds.Count == 0)
         {
             return "Vyberte aspoň jednu třídu.";
+        }
+        if (request.CoversSubjectId is { } covers && !await db.Subjects.AnyAsync(s => s.Id == covers))
+        {
+            return "Neznámý předmět.";
         }
         var classIds = request.ClassIds.Distinct().ToList();
         return await db.SchoolClasses.CountAsync(c => classIds.Contains(c.Id)) != classIds.Count ? "Neznámá třída." : null;
@@ -439,7 +445,9 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
 
 /// <param name="ClassIds">Of its groups.</param>
 /// <param name="HoursPerWeek">Null = as the učební plán.</param>
-public record GroupDivisionDto(int Id, string Name, decimal? HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds);
+/// <param name="CoversSubjectId">The row of the učební plán it teaches, see <see cref="GroupDivision.CoversSubjectId"/>.</param>
+public record GroupDivisionDto(
+    int Id, string Name, decimal? HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds, int? CoversSubjectId = null);
 
 public record StudentGroupDto(
     int Id, string Name, int? DivisionId, int SubjectId, decimal? HoursPerWeek, bool? DoubleLessons, int? TeacherId,
@@ -449,7 +457,8 @@ public record GroupsDto(IReadOnlyList<GroupDivisionDto> Divisions, IReadOnlyList
 
 /// <param name="ClassIds">Classes of its groups.</param>
 /// <param name="HoursPerWeek">Null = as the učební plán of its classes has its groups' subjects.</param>
-public record SaveGroupDivisionRequest(string Name, decimal? HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds);
+public record SaveGroupDivisionRequest(
+    string Name, decimal? HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds, int? CoversSubjectId = null);
 
 /// <param name="HoursPerWeek">Null = as the učební plán of its classes; ignored in a division: the division's.</param>
 /// <param name="ClassIds">Ignored in a division: the division's.</param>
