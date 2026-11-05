@@ -136,7 +136,7 @@ const schoolRoutes: Route[] = [
 // and `:schoolSlug` would otherwise swallow "superadmin" as a literal slug.
 const superAdminRoutes: Route[] = [
   // Not a SuperAdmin page, but outside the school tree for the same reason:
-  // schoolExistsGuard redirects here, and in dev `:schoolSlug` would take it.
+  // schoolExistsGuard shows it, and in dev `:schoolSlug` would take it.
   {
     path: 'school-not-found',
     loadComponent: () =>

@@ -24,16 +24,16 @@ test.describe('unknown school', () => {
   // The browser logs the school lookup's 404 as a console error.
   test.use({ allowedConsoleMessages: [/status of 404/] });
 
-  test('an unknown school slug shows "škola neexistuje" instead of a login form', async ({
+  test('an unknown school slug shows "škola neexistuje" instead of a login form, under the same address', async ({
     page,
   }) => {
     await page.goto('/neexistujici-skola/login');
-    await expect(page).toHaveURL(
-      /\/school-not-found\?slug=neexistujici-skola$/,
-    );
     await expect(
       page.getByRole('heading', { name: 'Škola neexistuje' }),
     ).toBeVisible();
+    await expect(page.getByText('neexistujici-skola')).toBeVisible();
+    // The typed address stays, so a typo can be fixed in place.
+    await expect(page).toHaveURL(/\/neexistujici-skola\/login$/);
   });
 });
 
