@@ -24,8 +24,9 @@ public record DemoFeaturedUsers(int AdminId, int TeacherId, int ParentId, int St
 
 /// <summary>Fills an empty demo school with a plausible school year up to
 /// today: classes, pupils with their families, teachers with their
-/// aprobace, a collision-free (as far as greedy placement gets) timetable,
-/// and every agenda — grades, absences, behaviour, homework, messages,
+/// aprobace, a collision-free (as far as greedy placement gets) timetable
+/// with divisions (Tv of girls and boys of a grade, a gymnázium's
+/// seminars), and every agenda — grades, absences, behaviour, homework, messages,
 /// events, payments. Deterministic for a given seed and day, so tests can
 /// pin it down. Nobody gets a password: demo users log in by being picked
 /// (see <see cref="DemoController"/>). Profile photos are illustrated
@@ -117,6 +118,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
     private DemoSchoolCalendar calendar = null!;
     private readonly HashSet<string> usernames = [];
     private readonly List<User> users = [];
+    private readonly List<DivisionInfo> divisions = [];
     private Dictionary<UserRole, Role> roles = [];
 
     private sealed class TeacherInfo
@@ -142,6 +144,31 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         /// <summary>Lessons per day (Monday first).</summary>
         public int[] DayLengths { get; set; } = [];
         public TeacherInfo ClassTeacher { get; set; } = null!;
+
+        /// <summary>Subjects taught in the groups of a division.</summary>
+        public Dictionary<string, DivisionInfo> Divisions { get; } = [];
+    }
+
+    /// <summary>The grade's classes taught a subject in groups at the same time.</summary>
+    private sealed class DivisionInfo
+    {
+        public required string Name { get; init; }
+        public required string Subject { get; init; }
+        public required List<ClassInfo> Classes { get; init; }
+        public List<GroupInfo> Groups { get; } = [];
+        public GroupDivision Entity { get; set; } = null!;
+    }
+
+    private sealed class GroupInfo
+    {
+        public required string Name { get; init; }
+        public TeacherInfo Teacher { get; set; } = null!;
+
+        /// <summary>Its own room; null = one of the subject's.</summary>
+        public Classroom? Room { get; init; }
+
+        public List<StudentInfo> Members { get; } = [];
+        public StudentGroup Entity { get; set; } = null!;
     }
 
     private sealed class StudentInfo
@@ -169,6 +196,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         calendar = new DemoSchoolCalendar(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Prague).DateTime));
         usernames.Clear();
         users.Clear();
+        divisions.Clear();
         roles = await db.Roles.IgnoreQueryFilters()
             .Where(r => r.SchoolId == target.Id && r.BuiltIn != null)
             .ToDictionaryAsync(r => r.BuiltIn!.Value);
@@ -216,8 +244,10 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         FillSchoolDetails();
 
         var classes = CreateClasses(plan, options.ClassesPerGrade, elementary);
+        PlanDivisions(classes, elementary, roomGroups);
         var teachers = AssignTeachers(classes, elementary);
         CreateFamilies(classes, elementary);
+        FillGroups();
         // Na prvním stupni aprobace pro předměty své třídy v 1.–5. ročníku;
         // nasmlouváno mají, co učí.
         db.TeacherProfiles.AddRange(teachers.Select(t => new TeacherProfile
@@ -241,6 +271,10 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         // One save for the whole people/structure graph — EF orders the
         // inserts by the navigations; the agendas below need real ids.
         await SaveAsync();
+        foreach (var division in divisions)
+        {
+            division.Entity.ClassIds = [.. division.Classes.Select(c => c.Class.Id)];
+        }
 
         GenerateGrades(classes, subjects);
         GenerateAbsences(classes);
@@ -341,11 +375,11 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             return room;
         }
 
-        var gyms = new List<Classroom> { Room("Tělocvična", "TV1", ClassroomType.Gym, 30) };
-        if (perGrade > 1)
+        // Two at least: girls and boys have Tv at the same time.
+        var gyms = new List<Classroom>
         {
-            gyms.Add(Room("Malá tělocvična", "TV2", ClassroomType.Gym, 20));
-        }
+            Room("Tělocvična", "TV1", ClassroomType.Gym, 30), Room("Malá tělocvična", "TV2", ClassroomType.Gym, 24),
+        };
         if (perGrade > 2)
         {
             gyms.Add(Room("Školní hřiště", "HŘ", ClassroomType.Gym, 60));
@@ -369,6 +403,10 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         {
             groups["music"] = [Room("Hudebna", "HV", ClassroomType.Specialized, 30)];
             groups["workshop"] = [Room("Dílna", "DÍL", ClassroomType.Workshop, 16)];
+        }
+        else
+        {
+            groups["seminar"] = [Room("Seminární učebna", "SEM", ClassroomType.Specialized, 24)];
         }
         return groups;
     }
@@ -412,6 +450,56 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         return classes;
     }
 
+    private static readonly string[] Seminars = ["Přírodovědný seminář", "Společenskovědní seminář", "Jazykový seminář"];
+
+    /// <summary>Tv of a grade's classes (the upper grades of a ZŠ, every
+    /// grade of a gymnázium) in girls and boys; a gymnázium's seminars as
+    /// a division of a grade's pupils, each in a seminar of their choice.</summary>
+    private void PlanDivisions(List<ClassInfo> classes, bool elementary, Dictionary<string, List<Classroom>> roomGroups)
+    {
+        foreach (var grade in classes.GroupBy(c => c.Grade))
+        {
+            var gradeClasses = grade.ToList();
+            if (!elementary || grade.Key >= 6)
+            {
+                Add("Tv", $"Tv {grade.Key}. ročník", [$"Tv dívky {grade.Key}", $"Tv chlapci {grade.Key}"], []);
+            }
+            if (gradeClasses[0].Plan.ContainsKey("Sem"))
+            {
+                // Each in a homeroom of the grade — the classes are all in it.
+                var rooms = gradeClasses.Select(c => c.Homeroom).Append(roomGroups["seminar"][0]).ToList();
+                Add("Sem", $"Semináře {grade.Key}. ročník",
+                    [.. Seminars.Take(Math.Max(2, gradeClasses.Count)).Select(s => $"{s} {grade.Key}")], rooms);
+            }
+
+            void Add(string subject, string name, List<string> groupNames, List<Classroom> rooms)
+            {
+                var division = new DivisionInfo { Name = name, Subject = subject, Classes = gradeClasses };
+                division.Groups.AddRange(groupNames.Select((n, i) => new GroupInfo { Name = n, Room = rooms.ElementAtOrDefault(i) }));
+                divisions.Add(division);
+                gradeClasses.ForEach(c => c.Divisions[subject] = division);
+            }
+        }
+    }
+
+    private void FillGroups()
+    {
+        foreach (var division in divisions)
+        {
+            var pupils = division.Classes.SelectMany(c => c.Students).ToList();
+            if (division.Subject == "Tv")
+            {
+                division.Groups[0].Members.AddRange(pupils.Where(p => p.Student.Gender == Gender.Female));
+                division.Groups[1].Members.AddRange(pupils.Where(p => p.Student.Gender != Gender.Female));
+                continue;
+            }
+            foreach (var (pupil, i) in pupils.OrderBy(_ => rng.Next()).Select((p, i) => (p, i)))
+            {
+                division.Groups[i % division.Groups.Count].Members.Add(pupil);
+            }
+        }
+    }
+
     private List<TeacherInfo> AssignTeachers(List<ClassInfo> classes, bool elementary)
     {
         var teachers = new List<TeacherInfo>();
@@ -425,10 +513,10 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             return teacher;
         }
 
-        TeacherInfo TeacherFor(string subject, int hours)
+        TeacherInfo TeacherFor(string subject, int hours, IReadOnlyCollection<TeacherInfo>? except = null)
         {
             var candidates = teachers
-                .Where(t => !t.FirstStage && t.Qualifications.Contains(subject) && t.Load + hours <= 22)
+                .Where(t => !t.FirstStage && t.Qualifications.Contains(subject) && t.Load + hours <= 22 && except?.Contains(t) != true)
                 .OrderBy(t => t.Load)
                 .ToList();
             if (candidates.Count > 0)
@@ -458,11 +546,22 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 }
                 continue;
             }
-            foreach (var (subject, hours) in info.Plan.OrderByDescending(p => p.Value))
+            foreach (var (subject, hours) in info.Plan.Where(p => !info.Divisions.ContainsKey(p.Key)).OrderByDescending(p => p.Value))
             {
                 var teacher = TeacherFor(subject, hours);
                 teacher.Load += hours;
                 info.TeacherBySubject[subject] = teacher;
+            }
+        }
+
+        // Groups of a division are taught at once, each by someone else.
+        foreach (var division in divisions)
+        {
+            var hours = division.Classes[0].Plan[division.Subject];
+            foreach (var group in division.Groups)
+            {
+                group.Teacher = TeacherFor(division.Subject, hours, [.. division.Groups.Where(g => g.Teacher is not null).Select(g => g.Teacher)]);
+                group.Teacher.Load += hours;
             }
         }
 
@@ -654,14 +753,21 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
 
     // ---- timetable ----------------------------------------------------
 
-    private sealed record Lesson(ClassInfo Class, string Subject, TeacherInfo Teacher);
+    /// <summary>A lesson of a class, or of a division — all its classes,
+    /// each group with its teacher and room.</summary>
+    private sealed record Lesson(ClassInfo Class, string Subject, TeacherInfo Teacher, DivisionInfo? Division = null)
+    {
+        public IReadOnlyList<ClassInfo> Classes => Division?.Classes ?? [Class];
+        public IReadOnlyList<TeacherInfo> Teachers => Division?.Groups.Select(g => g.Teacher).ToList() ?? [Teacher];
+    }
 
-    private sealed class Placement(Lesson lesson, int day, int period, Classroom room)
+    /// <summary><see cref="Rooms"/> by the division's groups.</summary>
+    private sealed class Placement(Lesson lesson, int day, int period, List<Classroom> rooms)
     {
         public Lesson Lesson { get; } = lesson;
         public int Day { get; set; } = day;
         public int Period { get; set; } = period;
-        public Classroom Room { get; set; } = room;
+        public List<Classroom> Rooms { get; set; } = rooms;
     }
 
     private void BuildTimetable(
@@ -683,12 +789,16 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         }
 
         var lessons = classes
-            .SelectMany(c => c.Plan.SelectMany(p => Enumerable.Repeat(new Lesson(c, p.Key, c.TeacherBySubject[p.Key]), p.Value)))
+            .SelectMany(c => c.Plan.Where(p => !c.Divisions.ContainsKey(p.Key))
+                .SelectMany(p => Enumerable.Repeat(new Lesson(c, p.Key, c.TeacherBySubject[p.Key]), p.Value)))
+            .Concat(divisions.SelectMany(d =>
+                Enumerable.Repeat(new Lesson(d.Classes[0], d.Subject, d.Groups[0].Teacher, d), d.Classes[0].Plan[d.Subject])))
             .ToList();
-        // Most constrained first: specialists teaching many classes, rooms
-        // that are shared, then the class teachers' own lessons.
+        // Most constrained first: divisions, specialists teaching many
+        // classes, rooms that are shared, then the class teachers' own lessons.
         var ordered = lessons
-            .OrderBy(l => l.Teacher == l.Class.ClassTeacher && l.Teacher.FirstStage ? 1 : 0)
+            .OrderByDescending(l => l.Division is null ? 0 : 1)
+            .ThenBy(l => l.Teacher == l.Class.ClassTeacher && l.Teacher.FirstStage ? 1 : 0)
             .ThenByDescending(l => defs[l.Subject].RoomGroup is null ? 0 : 1)
             .ThenByDescending(l => l.Teacher.Load)
             .ThenBy(_ => rng.Next())
@@ -710,76 +820,108 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             return free ?? (g is "art" or "music" or "workshop" ? lesson.Class.Homeroom : null);
         }
 
+        // A division's groups: their own rooms, else free ones of the
+        // subject — the biggest group in the biggest.
+        List<Classroom>? RoomsFor(Lesson lesson, int day, int period)
+        {
+            if (lesson.Division is not { } division)
+            {
+                return RoomFor(lesson, day, period) is { } room ? [room] : null;
+            }
+            var free = defs[lesson.Subject].RoomGroup is { } g
+                ? new Queue<Classroom>(roomGroups[g].Where(r => !roomBusy.Contains((r, day, period))).OrderByDescending(r => r.Capacity))
+                : [];
+            var rooms = new Classroom?[division.Groups.Count];
+            foreach (var (group, i) in division.Groups.Select((x, i) => (x, i)).OrderByDescending(x => x.x.Members.Count))
+            {
+                rooms[i] = group.Room is { } own
+                    ? (roomBusy.Contains((own, day, period)) ? null : own)
+                    : free.TryDequeue(out var room) ? room : null;
+            }
+            return rooms.All(r => r is not null) ? [.. rooms.Select(r => r!)] : null;
+        }
+
+        List<Classroom> AnyRooms(Lesson lesson) =>
+            lesson.Division is { } division
+                ? [.. division.Groups.Select((x, i) => x.Room ?? roomGroups[defs[lesson.Subject].RoomGroup!][i % roomGroups[defs[lesson.Subject].RoomGroup!].Count])]
+                : [roomGroups[defs[lesson.Subject].RoomGroup!][0]];
+
         foreach (var lesson in ordered)
         {
-            var info = lesson.Class;
-            var hours = info.Plan[lesson.Subject];
-            (int Day, int Period, Classroom Room, double Score)? best = null;
+            var hours = lesson.Class.Plan[lesson.Subject];
+            (int Day, int Period, List<Classroom> Rooms, double Score)? best = null;
             for (var day = 0; day < 5; day++)
             {
-                for (var period = 1; period <= info.DayLengths[day]; period++)
+                var length = lesson.Classes.Min(c => c.DayLengths[day]);
+                for (var period = 1; period <= length; period++)
                 {
-                    if (classBusy.Contains((info, day, period)))
+                    if (lesson.Classes.Any(c => classBusy.Contains((c, day, period))))
                     {
                         continue;
                     }
                     var score = rng.NextDouble();
-                    if (teacherBusy.GetValueOrDefault((lesson.Teacher, day, period)) > 0)
+                    if (lesson.Teachers.Any(t => teacherBusy.GetValueOrDefault((t, day, period)) > 0))
                     {
                         score += 100;
                     }
-                    var room = RoomFor(lesson, day, period);
-                    if (room is null)
+                    var rooms = RoomsFor(lesson, day, period);
+                    if (rooms is null)
                     {
                         score += 10;
                     }
-                    var sameDay = subjectDay.GetValueOrDefault((info, lesson.Subject, day));
+                    var sameDay = lesson.Classes.Max(c => subjectDay.GetValueOrDefault((c, lesson.Subject, day)));
                     if (sameDay > 0)
                     {
                         score += hours > 5 ? 2 * sameDay : 5 * sameDay;
                     }
                     if (best is null || score < best.Value.Score)
                     {
-                        best = (day, period, room ?? roomGroups[defs[lesson.Subject].RoomGroup!][0], score);
+                        best = (day, period, rooms ?? AnyRooms(lesson), score);
                     }
                 }
             }
             var (d, p, r, _) = best!.Value;
-            classBusy.Add((info, d, p));
-            teacherBusy[(lesson.Teacher, d, p)] = teacherBusy.GetValueOrDefault((lesson.Teacher, d, p)) + 1;
-            roomBusy.Add((r, d, p));
-            subjectDay[(info, lesson.Subject, d)] = subjectDay.GetValueOrDefault((info, lesson.Subject, d)) + 1;
+            foreach (var c in lesson.Classes)
+            {
+                classBusy.Add((c, d, p));
+                subjectDay[(c, lesson.Subject, d)] = subjectDay.GetValueOrDefault((c, lesson.Subject, d)) + 1;
+            }
+            foreach (var t in lesson.Teachers)
+            {
+                teacherBusy[(t, d, p)] = teacherBusy.GetValueOrDefault((t, d, p)) + 1;
+            }
+            r.ForEach(room => roomBusy.Add((room, d, p)));
             placed.Add(new Placement(lesson, d, p, r));
         }
 
-        // Repair: a lesson whose teacher is double-booked swaps slots with
-        // another lesson of the same class when that frees both teachers.
-        foreach (var clash in placed.Where(x => teacherBusy[(x.Lesson.Teacher, x.Day, x.Period)] > 1).ToList())
+        // Repair: a class's lesson whose teacher is double-booked swaps slots
+        // with another lesson of the class when that frees both teachers.
+        foreach (var clash in placed.Where(x => x.Lesson.Division is null && teacherBusy[(x.Lesson.Teacher, x.Day, x.Period)] > 1).ToList())
         {
             if (teacherBusy[(clash.Lesson.Teacher, clash.Day, clash.Period)] <= 1)
             {
                 continue;
             }
             var swap = placed.FirstOrDefault(o =>
-                o.Lesson.Class == clash.Lesson.Class && o != clash && o.Lesson.Teacher != clash.Lesson.Teacher
+                o.Lesson.Division is null && o.Lesson.Class == clash.Lesson.Class && o != clash && o.Lesson.Teacher != clash.Lesson.Teacher
                 && teacherBusy.GetValueOrDefault((clash.Lesson.Teacher, o.Day, o.Period)) == 0
                 && teacherBusy.GetValueOrDefault((o.Lesson.Teacher, clash.Day, clash.Period)) == 0
-                && RoomFor(clash.Lesson, o.Day, o.Period, except: o.Room) is not null
-                && RoomFor(o.Lesson, clash.Day, clash.Period, except: clash.Room) is not null);
+                && RoomFor(clash.Lesson, o.Day, o.Period, except: o.Rooms[0]) is not null
+                && RoomFor(o.Lesson, clash.Day, clash.Period, except: clash.Rooms[0]) is not null);
             if (swap is null)
             {
                 continue;
             }
             teacherBusy[(clash.Lesson.Teacher, clash.Day, clash.Period)]--;
             teacherBusy[(swap.Lesson.Teacher, swap.Day, swap.Period)]--;
-            roomBusy.Remove((clash.Room, clash.Day, clash.Period));
-            roomBusy.Remove((swap.Room, swap.Day, swap.Period));
+            roomBusy.Remove((clash.Rooms[0], clash.Day, clash.Period));
+            roomBusy.Remove((swap.Rooms[0], swap.Day, swap.Period));
             var clashRoom = RoomFor(clash.Lesson, swap.Day, swap.Period)!;
             roomBusy.Add((clashRoom, swap.Day, swap.Period));
             var swapRoom = RoomFor(swap.Lesson, clash.Day, clash.Period)!;
             roomBusy.Add((swapRoom, clash.Day, clash.Period));
             (clash.Day, clash.Period, swap.Day, swap.Period) = (swap.Day, swap.Period, clash.Day, clash.Period);
-            (clash.Room, swap.Room) = (clashRoom, swapRoom);
+            (clash.Rooms, swap.Rooms) = ([clashRoom], [swapRoom]);
             teacherBusy[(clash.Lesson.Teacher, clash.Day, clash.Period)] = teacherBusy.GetValueOrDefault((clash.Lesson.Teacher, clash.Day, clash.Period)) + 1;
             teacherBusy[(swap.Lesson.Teacher, swap.Day, swap.Period)] = teacherBusy.GetValueOrDefault((swap.Lesson.Teacher, swap.Day, swap.Period)) + 1;
         }
@@ -815,20 +957,51 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 });
             }
         }
+        foreach (var division in divisions)
+        {
+            division.Entity = new GroupDivision { SchoolId = school.Id, TimetableVersion = version, Name = division.Name };
+            db.GroupDivisions.Add(division.Entity);
+            foreach (var group in division.Groups)
+            {
+                group.Entity = new StudentGroup
+                {
+                    SchoolId = school.Id,
+                    TimetableVersion = version,
+                    GroupDivision = division.Entity,
+                    Name = group.Name,
+                    Subject = subjects[division.Subject],
+                    Teacher = group.Teacher.User,
+                    Classroom = group.Room,
+                    Classes = [.. division.Classes.Select(c => new StudentGroupClass { SchoolClass = c.Class, SchoolId = school.Id })],
+                    Members = [.. group.Members.Select(m => new StudentGroupMember { Student = m.Student, SchoolId = school.Id })],
+                };
+                db.StudentGroups.Add(group.Entity);
+            }
+        }
         foreach (var x in placed)
         {
-            db.TimetableEntries.Add(new TimetableEntry
+            var taught = x.Lesson.Division is { } division
+                ? division.Groups.Select((g, i) => (Group: (GroupInfo?)g, g.Teacher, Room: x.Rooms[i]))
+                : [(Group: null, x.Lesson.Teacher, Room: x.Rooms[0])];
+            foreach (var (group, teacher, room) in taught)
             {
-                SchoolId = school.Id,
-                TimetableVersion = version,
-                SchoolClass = x.Lesson.Class.Class,
-                Subject = subjects[x.Lesson.Subject],
-                DayOfWeek = Weekdays[x.Day],
-                PeriodNumber = x.Period,
-                WeekParity = WeekParity.Every,
-                Teacher = x.Lesson.Teacher.User,
-                Classroom = x.Room,
-            });
+                foreach (var info in x.Lesson.Classes)
+                {
+                    db.TimetableEntries.Add(new TimetableEntry
+                    {
+                        SchoolId = school.Id,
+                        TimetableVersion = version,
+                        SchoolClass = info.Class,
+                        Subject = subjects[x.Lesson.Subject],
+                        DayOfWeek = Weekdays[x.Day],
+                        PeriodNumber = x.Period,
+                        WeekParity = WeekParity.Every,
+                        Teacher = teacher.User,
+                        Classroom = room,
+                        StudentGroup = group?.Entity,
+                    });
+                }
+            }
         }
     }
 
@@ -1067,6 +1240,37 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                             CompletedAt = At(due.AddDays(-1), 18, 0),
                         });
                     }
+                }
+                db.Homework.Add(homework);
+            }
+        }
+
+        // A seminar's homework is its group's, about one a week.
+        foreach (var group in divisions.Where(d => d.Subject == "Sem").SelectMany(d => d.Groups))
+        {
+            for (var i = Math.Max(0, past.Count - 60) + rng.Next(5); i < past.Count; i += rng.Next(4, 7))
+            {
+                var due = all[Math.Min(all.Count - 1, i + rng.Next(3, 6))];
+                var homework = new Homework.Homework
+                {
+                    SchoolId = school.Id,
+                    StudentGroupId = group.Entity.Id,
+                    SubjectId = group.Entity.SubjectId,
+                    Text = Pick(GenericHomework),
+                    DueDate = due,
+                    RequiresCompletion = true,
+                    CreatedByName = group.Teacher.Person.FullName,
+                    CreatedAt = At(past[i], 12, 30),
+                };
+                var doneShare = due <= calendar.Today ? 0.85 : 0.3;
+                foreach (var member in group.Members.Where(_ => rng.NextDouble() < doneShare))
+                {
+                    homework.Completions.Add(new HomeworkCompletion
+                    {
+                        StudentId = member.Student.Id,
+                        SchoolId = school.Id,
+                        CompletedAt = At(due.AddDays(-1), 18, 0),
+                    });
                 }
                 db.Homework.Add(homework);
             }
