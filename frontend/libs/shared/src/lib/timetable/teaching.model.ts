@@ -116,7 +116,10 @@ export function taughtSummary(taught: TeachingTaught[]): string {
 /** Učební plán and přidělení výuky of one timetable version. */
 export interface TeachingOverview {
   versionId: number;
+  /** The plan and přidělení: only of a draft. */
   canEdit: boolean;
+  /** Who's in the groups: also of a published version that isn't over. */
+  canEditMembers: boolean;
   /** Ročníky of the school's classes and of the plan. */
   grades: number[];
   curriculum: CurriculumItem[];

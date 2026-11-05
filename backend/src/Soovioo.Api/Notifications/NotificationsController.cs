@@ -196,8 +196,8 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     }
 
     /// <summary>The kinds that can reach this account — staff alone hear
-    /// only about messages and events (and generated timetables when they
-    /// may edit the timetable), pupils' and parents' agendas are theirs.
+    /// only about messages, events and changes of their lessons (and generated
+    /// timetables when they may edit the timetable), pupils' and parents' agendas are theirs.
     /// Needs the roles' permissions loaded.</summary>
     public static IReadOnlyList<NotificationType> TypesFor(IReadOnlyCollection<Role> roles)
     {
@@ -212,7 +212,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         {
             return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Timetable))];
         }
-        return [NotificationType.Message, NotificationType.Event, .. timetable];
+        return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, .. timetable];
     }
 
     private NotificationSettingsDto SettingsOf(User user)

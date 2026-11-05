@@ -59,6 +59,19 @@ export function versionValidity(version: TimetableVersion): string {
     : `od ${from}`;
 }
 
+const NOTIFY_OPTIONS: { label: string; value: number | null }[] = [
+  { label: 'Dnes večer', value: null },
+  { label: 'Den před začátkem platnosti', value: 1 },
+  { label: '3 dny před začátkem platnosti', value: 3 },
+  { label: 'Týden před začátkem platnosti', value: 7 },
+];
+
+function noticeDay(version: TimetableVersion, daysBefore: number): string {
+  const day = new Date(`${version.validFrom}T00:00:00`);
+  day.setDate(day.getDate() - daysBefore);
+  return toDateOnly(day);
+}
+
 /** Versions of the timetable: a new draft (empty or a copy), its name and
  * start, publishing, archiving and bringing an archived one back. */
 @Component({
@@ -197,10 +210,21 @@ export class TimetableVersionsDialog {
    * while that loads). */
   protected readonly publishing = signal<TimetableVersion | null>(null);
   protected readonly publishProblems = signal<string[] | null>(null);
+  protected publishNotifyDaysBefore: number | null = null;
+  /** Only the days still ahead. */
+  protected readonly publishNotifyOptions = computed(() => {
+    const version = this.publishing();
+    return NOTIFY_OPTIONS.filter(
+      (o) =>
+        o.value === null ||
+        (version && noticeDay(version, o.value) > this.today),
+    );
+  });
 
   protected publish(version: TimetableVersion): void {
     this.publishing.set(version);
     this.publishProblems.set(null);
+    this.publishNotifyDaysBefore = null;
     this.versionsApi.getProblems(version.id).subscribe({
       next: (problems) => this.publishProblems.set(problems),
       error: (err) => {
@@ -216,11 +240,14 @@ export class TimetableVersionsDialog {
   }
 
   protected confirmPublish(version: TimetableVersion): void {
+    const days = this.publishNotifyDaysBefore;
     this.publishing.set(null);
     this.run(
-      this.versionsApi.publishVersion(version.id),
+      this.versionsApi.publishVersion(version.id, days),
       'publish',
-      'Verze rozvrhu je zveřejněná.',
+      days === null
+        ? 'Verze rozvrhu je zveřejněná, dotčení dostanou upozornění dnes večer.'
+        : `Verze rozvrhu je zveřejněná, dotčení dostanou upozornění ${formatDate(noticeDay(version, days), 'date')} večer.`,
       () => this.published.emit(),
     );
   }
@@ -228,7 +255,7 @@ export class TimetableVersionsDialog {
   protected unpublish(version: TimetableVersion): void {
     this.confirmation.confirm({
       header: 'Zrušit zveřejnění verze rozvrhu',
-      message: `Vrátit „${version.name}“ mezi koncepty? Od ${formatDate(version.validFrom, 'date')} platit nebude a uvidí ji jen ti, kdo připravují rozvrh.`,
+      message: `Vrátit „${version.name}“ mezi koncepty? Od ${formatDate(version.validFrom, 'date')} platit nebude a uvidí ji jen ti, kdo připravují rozvrh. Kdo už dostal upozornění na změnu, dostane večer oznámení, pokud ji do té doby znovu nezveřejníte.`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Zrušit zveřejnění',
       rejectLabel: 'Ponechat',
@@ -245,7 +272,7 @@ export class TimetableVersionsDialog {
   protected archive(version: TimetableVersion): void {
     this.confirmation.confirm({
       header: 'Archivovat verzi rozvrhu',
-      message: `Archivovat „${version.name}“? Nebude platit a zůstane jen k nahlédnutí, případně ji půjde vrátit mezi koncepty.`,
+      message: `Archivovat „${version.name}“? Nebude platit a zůstane jen k nahlédnutí, případně ji půjde vrátit mezi koncepty.${version.status === 'Published' ? ' Kdo už dostal upozornění na změnu, dostane večer oznámení o zrušení.' : ''}`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Archivovat',
       rejectLabel: 'Zrušit',

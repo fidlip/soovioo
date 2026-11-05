@@ -2569,6 +2569,27 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("TimetableGenerations");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableGroupChange", b =>
+                {
+                    b.Property<int>("StudentGroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Joined")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("StudentGroupId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("TimetableGroupChanges");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
                 {
                     b.Property<int>("Id")
@@ -2576,6 +2597,12 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("ChangeNoticeOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("ChangeNoticeSentAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -3765,6 +3792,25 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("TimetableVersion");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.TimetableGroupChange", b =>
+                {
+                    b.HasOne("Soovioo.Api.Timetable.StudentGroup", "StudentGroup")
+                        .WithMany()
+                        .HasForeignKey("StudentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+
+                    b.Navigation("StudentGroup");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>

@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
@@ -17,6 +18,7 @@ using Soovioo.Api.Notifications;
 using Soovioo.Api.Payments;
 using Soovioo.Api.People;
 using Soovioo.Api.Reference;
+using Soovioo.Api.Timetable;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -70,6 +72,7 @@ builder.Services.AddScoped<Soovioo.Api.Retention.StaffLeaving>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.Notifier>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.NotificationDigestJob>();
 builder.Services.AddScoped<Soovioo.Api.Notifications.PushJob>();
+builder.Services.AddScoped<Soovioo.Api.Timetable.TimetableChangeNoticeJob>();
 builder.Services.AddPush(builder.Configuration);
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
 
@@ -179,6 +182,7 @@ using (var scope = app.Services.CreateScope())
     BackfillDemoTimetableTeacher(db);
     BackfillDemoClassTeacher(db);
     BackfillDemoPersonNames(db);
+    BackfillDemoGroup(db, app.Configuration.GetSection("Seed").Get<SeedOptions>() ?? new SeedOptions());
     SeedReferenceData(db);
     BackfillDemoStudentReferenceCodes(db);
     VariableSymbols.Backfill(db);
@@ -211,6 +215,9 @@ using (var scope = app.Services.CreateScope())
         "notification-digest", job => job.RunAsync(), "*/15 * * * *");
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.PushJob>(
         "notification-push", job => job.RunAsync(), Cron.Minutely);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Timetable.TimetableChangeNoticeJob>(
+        "timetable-change-notice", job => job.RunAsync(), Soovioo.Api.Timetable.TimetableChangeNoticeJob.Schedule,
+        new RecurringJobOptions { TimeZone = SchoolClock.TimeZone });
 }
 
 // Configure the HTTP request pipeline.
@@ -382,6 +389,41 @@ static void BackfillDemoClassTeacher(AppDbContext db)
     }
 
     demoClass.ClassTeacherId = teacher.Id;
+    db.SaveChanges();
+}
+
+// A group of the demo class in the version that applies, whose lessons no
+// longer change: Jan Novák in English with "ucitel" (the e2e tests' group
+// with homework). Demo accounts only, and never over a group already there.
+static void BackfillDemoGroup(AppDbContext db, SeedOptions seed)
+{
+    const int demoSchoolId = 1;
+    const string name = "Seminář Aj";
+    var today = SchoolClock.Today(TimeProvider.System);
+    var version = db.TimetableVersions.IgnoreQueryFilters().FirstOrDefault(v =>
+        v.SchoolId == demoSchoolId && v.Status == TimetableVersionStatus.Published
+        && v.ValidFrom <= today && (v.ValidTo == null || v.ValidTo >= today));
+    var teacher = db.Users.IgnoreQueryFilters().FirstOrDefault(u => u.Username == "ucitel" && u.SchoolId == demoSchoolId);
+    var pupil = db.Students.IgnoreQueryFilters().FirstOrDefault(s =>
+        s.SchoolId == demoSchoolId && s.SchoolClassId == 1 && s.Person!.User!.Username == "zak");
+    if (!seed.DemoAccounts || version is null || teacher is null || pupil is null
+        || db.StudentGroups.IgnoreQueryFilters().Any(g => g.TimetableVersionId == version.Id && g.Name == name))
+    {
+        return;
+    }
+
+    var group = new StudentGroup
+    {
+        SchoolId = demoSchoolId, TimetableVersionId = version.Id, Name = name, SubjectId = 3, TeacherId = teacher.Id, HoursPerWeek = 1,
+        Classes = [new StudentGroupClass { SchoolId = demoSchoolId, SchoolClassId = 1 }],
+        Members = [new StudentGroupMember { SchoolId = demoSchoolId, StudentId = pupil.Id }],
+    };
+    db.StudentGroups.Add(group);
+    db.TimetableEntries.Add(new TimetableEntry
+    {
+        SchoolId = demoSchoolId, TimetableVersionId = version.Id, SchoolClassId = 1, StudentGroup = group, SubjectId = 3,
+        DayOfWeek = DayOfWeek.Friday, PeriodNumber = 6, WeekParity = WeekParity.Every, TeacherId = teacher.Id,
+    });
     db.SaveChanges();
 }
 

@@ -17,6 +17,8 @@ namespace Soovioo.Api.Timetable;
 public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock)
     : ControllerBase
 {
+    public const int MaxNotifyDaysBefore = 30;
+
     private DateOnly Today => SchoolClock.Today(clock);
 
     /// <summary>Drafts and archived versions only for whoever may edit the
@@ -161,6 +163,14 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
                 {
                     return BadRequest(error);
                 }
+                if (version.ChangeNoticeOn is { } noticeOn)
+                {
+                    version.ChangeNoticeOn = noticeOn.AddDays(request.ValidFrom.DayNumber - version.ValidFrom.DayNumber);
+                }
+                else if (version.ChangeNoticeSentAt is not null)
+                {
+                    version.ChangeNoticeOn = Today;
+                }
             }
             version.ValidFrom = request.ValidFrom;
         }
@@ -172,11 +182,17 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     }
 
     /// <summary>From its <see cref="TimetableVersion.ValidFrom"/> on, the
-    /// draft replaces the version valid until then.</summary>
+    /// draft replaces the version valid until then. Those it concerns hear
+    /// about it at the end of today, or of the day
+    /// <see cref="PublishTimetableVersionRequest.NotifyDaysBefore"/> days before it starts.</summary>
     [HttpPost("{id:int}/publish")]
     [RequirePermission(Permission.Timetable)]
-    public async Task<ActionResult<TimetableVersionDto>> PublishVersion(int id)
+    public async Task<ActionResult<TimetableVersionDto>> PublishVersion(int id, PublishTimetableVersionRequest? request = null)
     {
+        if (request?.NotifyDaysBefore is < 1 or > MaxNotifyDaysBefore)
+        {
+            return BadRequest($"Upozornit lze nejvýše {MaxNotifyDaysBefore} dní předem.");
+        }
         var version = await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == id);
         if (version is null)
         {
@@ -194,6 +210,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         version.Status = TimetableVersionStatus.Published;
         version.PublishedAt = clock.GetUtcNow();
         version.PublishedByUserId = User.UserId();
+        version.ChangeNoticeOn = request?.NotifyDaysBefore is { } days ? version.ValidFrom.AddDays(-days) : Today;
         await db.SaveChangesAsync();
         await db.RecomputeTimetableValidityAsync();
         await db.SaveChangesAsync();
@@ -223,7 +240,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         version.Status = TimetableVersionStatus.Draft;
         version.PublishedAt = null;
         version.PublishedByUserId = null;
-        await db.SaveChangesAsync();
+        await new TimetableChangeNotice(db, clock).WithdrawAsync(version);
         await db.RecomputeTimetableValidityAsync();
         await db.SaveChangesAsync();
         return Ok(ToDto(version));
@@ -251,7 +268,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         }
 
         version.Status = TimetableVersionStatus.Archived;
-        await db.SaveChangesAsync();
+        await new TimetableChangeNotice(db, clock).WithdrawAsync(version);
         await db.RecomputeTimetableValidityAsync();
         await db.SaveChangesAsync();
         return Ok(ToDto(version));
@@ -321,3 +338,6 @@ public record TimetableVersionDto(
 public record CreateTimetableVersionRequest(string Name, DateOnly ValidFrom, int? CopyFromVersionId = null);
 
 public record UpdateTimetableVersionRequest(string Name, DateOnly ValidFrom);
+
+/// <param name="NotifyDaysBefore">Null = at the end of today.</param>
+public record PublishTimetableVersionRequest(int? NotifyDaysBefore = null);

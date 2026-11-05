@@ -6,7 +6,8 @@ export type NotificationType =
   | 'Homework'
   | 'Event'
   | 'Photo'
-  | 'Timetable';
+  | 'Timetable'
+  | 'TimetableChange';
 
 export interface AppNotification {
   id: number;
@@ -110,6 +111,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   Event: 'Nové a změněné akce v kalendáři',
   Photo: 'Fotky dětí ke schválení',
   Timetable: 'Dokončená generování rozvrhu',
+  TimetableChange: 'Změny rozvrhu',
 };
 
 /** Times offered for the daily e-mail, `HH:mm` every half hour. */

@@ -430,6 +430,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         var version = await db.TimetableVersions.FindAsync(versionId);
         return version is null ? (null, NotFound())
             : version.Status == TimetableVersionStatus.Archived ? (null, BadRequest("Archivovanou verzi rozvrhu nejde upravovat."))
+            : version.Status == TimetableVersionStatus.Published ? (null, BadRequest(TimetableVersions.PublishedReadOnly))
             : (version, null);
     }
 
@@ -458,17 +459,21 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             rvp = await RvpCheck.LoadAsync(db, plan);
         }
+        var mayEdit = await User.HasPermissionAsync(db, Permission.Teaching);
         return new TeachingOverviewDto(
             version.Id,
-            version.Status != TimetableVersionStatus.Archived && await User.HasPermissionAsync(db, Permission.Teaching),
-            grades, curriculum, classDtos, teacherDtos, groups, version.Status == TimetableVersionStatus.Draft, rvp);
+            mayEdit && version.Status == TimetableVersionStatus.Draft,
+            grades, curriculum, classDtos, teacherDtos, groups, version.Status == TimetableVersionStatus.Draft, rvp,
+            mayEdit && version.Status != TimetableVersionStatus.Archived && !(version.ValidTo < SchoolClock.Today(clock)));
     }
 
     private Task<TeachingPlan> PlanAsync(TimetableVersion version) => TeachingPlan.LoadAsync(db, version);
 }
 
 /// <param name="CanEdit">The caller may change the plan and přidělení of
-/// this version (not an archived one).</param>
+/// this version: only a draft's, or they'd no longer match its lessons.</param>
+/// <param name="CanEditMembers">The caller may change who's in its groups:
+/// also in a published version, while it applies or is to apply.</param>
 /// <param name="Grades">Ročníky of the school's classes and of the plan.</param>
 /// <param name="Rvp">The plan against the RVPs; only for who sees the whole school's.</param>
 public record TeachingOverviewDto(
@@ -480,7 +485,8 @@ public record TeachingOverviewDto(
     IReadOnlyList<TeachingTeacherDto> Teachers,
     IReadOnlyList<TeachingGroupDto> Groups,
     bool IsDraft,
-    RvpCheckDto? Rvp);
+    RvpCheckDto? Rvp,
+    bool CanEditMembers = false);
 
 public record TeacherTeachingDto(int VersionId, string VersionName, TeachingTeacherDto Teacher);
 

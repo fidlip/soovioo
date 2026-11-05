@@ -160,6 +160,22 @@
   </p-message>
   } } @else {
   <app-loading text="Kontroluji rozvrh…" />
+  } @if (publishNotifyOptions().length > 1) {
+  <div class="mt-4">
+    <app-float-field label="Upozornit dotčené" for="publishNotify">
+      <p-select
+        ariaLabel="Upozornit dotčené"
+        inputId="publishNotify"
+        name="publishNotify"
+        [options]="publishNotifyOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="publishNotifyDaysBefore"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+  </div>
   }
   <div class="mt-4 flex justify-end gap-2">
     <p-button

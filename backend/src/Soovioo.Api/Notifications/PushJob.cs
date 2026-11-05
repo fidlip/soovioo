@@ -24,6 +24,7 @@ public class PushJob(AppDbContext db, IPushSender sender, TimeProvider clock)
         NotificationType.Event => "Akce v kalendáři",
         NotificationType.Photo => "Fotka ke schválení",
         NotificationType.Timetable => "Rozvrh je vygenerovaný",
+        NotificationType.TimetableChange => "Změna rozvrhu",
         _ => "Nové upozornění",
     };
 

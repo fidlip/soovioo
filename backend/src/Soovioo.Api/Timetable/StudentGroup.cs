@@ -102,6 +102,21 @@ public class StudentGroupClass
     public int SchoolId { get; set; }
 }
 
+/// <summary>A pupil who joined or left a group of a published version today,
+/// for <see cref="TimetableChangeNotice"/> at the day's end.</summary>
+public class TimetableGroupChange
+{
+    public int StudentGroupId { get; set; }
+    public StudentGroup? StudentGroup { get; set; }
+
+    public int StudentId { get; set; }
+    public StudentProfile? Student { get; set; }
+
+    public int SchoolId { get; set; }
+
+    public bool Joined { get; set; }
+}
+
 public class StudentGroupMember
 {
     public int StudentGroupId { get; set; }

@@ -29,6 +29,13 @@ public class TimetableVersion
     public DateTimeOffset? PublishedAt { get; set; }
     public int? PublishedByUserId { get; set; }
 
+    /// <summary>The day at whose end <see cref="TimetableChangeNotice"/> tells
+    /// those concerned; null = nothing waiting.</summary>
+    public DateOnly? ChangeNoticeOn { get; set; }
+
+    /// <summary>Moving the start of a version people already heard about tells them again.</summary>
+    public DateTimeOffset? ChangeNoticeSentAt { get; set; }
+
     public List<TimetableEntry> Entries { get; set; } = [];
     public List<CurriculumItem> Curriculum { get; set; } = [];
     public List<ClassCurriculumItem> ClassCurriculum { get; set; } = [];

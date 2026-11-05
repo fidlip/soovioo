@@ -267,14 +267,22 @@ export class TimetablePage {
   /** The version the entries were last loaded for — undefined while the
    * list of versions wasn't in yet. */
   private loadedVersionId: number | null | undefined;
+  /** `selectedVersionId` is there only for the week `showChangeStart` opened. */
+  private versionShownForWeek = false;
 
+  /** Before anything is published, the draft the first lessons went to. */
+  private readonly onlyDraft = computed(() =>
+    this.versions().some((v) => v.status === 'Published')
+      ? undefined
+      : this.versions().find((v) => v.status === 'Draft'),
+  );
   private readonly weekVersion = computed(() =>
     timetableVersionOn(this.versions(), toDateOnly(this.weekStart())),
   );
   protected readonly shownVersion = computed(() => {
     const id = this.selectedVersionId();
     return id === null
-      ? this.weekVersion()
+      ? (this.weekVersion() ?? this.onlyDraft())
       : this.versions().find((v) => v.id === id);
   });
   /** Which version is on screen — shown once there's more than one to tell
@@ -291,6 +299,7 @@ export class TimetablePage {
       validity: versionValidity(version),
       status: versionStatusLabel(version, toDateOnly(new Date())),
       draft: version.status !== 'Published',
+      readOnly: this.editor && version.status === 'Published',
     };
   });
 
@@ -459,6 +468,15 @@ export class TimetablePage {
       this.openFromAddress(this.selection);
     } else {
       this.loadVersions();
+      this.route.queryParamMap
+        .pipe(takeUntilDestroyed())
+        .subscribe((params) => {
+          const version = Number(params.get('version'));
+          if (version && params.get('change') === 'start') {
+            this.router.navigate([], { queryParams: {}, replaceUrl: true });
+            this.loadVersions(() => this.showChangeStart(version));
+          }
+        });
     }
     this.schoolPeriodsApi.getPeriods().subscribe({
       next: (periods) => {
@@ -620,10 +638,15 @@ export class TimetablePage {
     return this.canManageTimetable() && this.shownVersion()?.status === 'Draft';
   }
 
-  /** An archived version is only to look at. */
+  /** Only a draft; a school without any version gets one with its first
+   * lesson. */
   protected canEditShownVersion(): boolean {
+    const version = this.shownVersion();
     return (
-      this.canManageTimetable() && this.shownVersion()?.status !== 'Archived'
+      this.canManageTimetable() &&
+      (version
+        ? version.status === 'Draft'
+        : !this.versions().some((v) => v.status === 'Published'))
     );
   }
 
@@ -639,6 +662,27 @@ export class TimetablePage {
       },
       error: (err) => console.error('getVersions failed', err),
     });
+  }
+
+  /** The week a notification's change starts in (after a weekend the next
+   * one). A week otherwise goes by its Monday: starting later in the week the
+   * version is shown by hand, until the user moves to another week. */
+  private showChangeStart(versionId: number): void {
+    const version = this.versions().find(
+      (v) => v.id === versionId && v.status === 'Published',
+    );
+    if (!version) {
+      return;
+    }
+    const start = new Date(`${version.validFrom}T00:00:00`);
+    const day = start.getDay();
+    if (day === 0 || day === 6) {
+      start.setDate(start.getDate() + 2);
+    }
+    this.weekStart.set(mondayOf(start));
+    this.selectedVersionId.set(day >= 2 && day <= 5 ? versionId : null);
+    this.versionShownForWeek = this.selectedVersionId() !== null;
+    this.reload();
   }
 
   protected onShowVersion(id: number): void {
@@ -727,6 +771,12 @@ export class TimetablePage {
 
   /** Another week may fall into another version of the timetable. */
   private reloadIfVersionChanged(): void {
+    if (this.versionShownForWeek) {
+      this.versionShownForWeek = false;
+      this.selectedVersionId.set(null);
+      this.reload();
+      return;
+    }
     if (
       this.selectedVersionId() === null &&
       this.loadedVersionId !== (this.weekVersion()?.id ?? null)
@@ -1022,8 +1072,8 @@ export class TimetablePage {
     result.subscribe({
       next: () => {
         this.dialogVisible.set(false);
-        // The school's first lesson started its first version.
-        if (this.versions().length === 0) {
+        // The school's first lesson started its first draft.
+        if (!this.shownVersion()) {
           this.loadVersions(() => this.reload());
         } else {
           this.loadVersions();
@@ -1091,7 +1141,7 @@ export class TimetablePage {
     if (this.selection && !this.selection.loaded()) {
       return;
     }
-    const selected = this.selectedVersionId();
+    const selected = this.selectedVersionId() ?? this.onlyDraft()?.id ?? null;
     const query =
       selected === null
         ? { date: toDateOnly(this.weekStart()) }

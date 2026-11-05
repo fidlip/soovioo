@@ -176,9 +176,9 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         {
             return BadRequest("Neznámá verze rozvrhu.");
         }
-        if (version.Status == TimetableVersionStatus.Archived)
+        if (LockedMessage(version) is { } locked)
         {
-            return BadRequest(ArchivedMessage);
+            return BadRequest(locked);
         }
 
         List<int> classIds = [schoolClassId];
@@ -228,9 +228,9 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         {
             return NotFound();
         }
-        if (entry.TimetableVersion!.Status == TimetableVersionStatus.Archived)
+        if (LockedMessage(entry.TimetableVersion!) is { } locked)
         {
-            return BadRequest(ArchivedMessage);
+            return BadRequest(locked);
         }
         if (entry.StudentGroupId is { } groupId
             && GroupError(await db.StudentGroups.Include(g => g.Classes).FirstOrDefaultAsync(g => g.Id == groupId), schoolClassId, request.SubjectId)
@@ -397,7 +397,13 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             new(e.Id, e.DayOfWeek, e.PeriodNumber, e.WeekParity, e.TeacherId, e.ClassroomId, e.StudentGroupId);
     }
 
-    private const string ArchivedMessage = "Archivovanou verzi rozvrhu nejde upravovat.";
+    /// <summary>Lessons change only in a draft.</summary>
+    private static string? LockedMessage(TimetableVersion version) => version.Status switch
+    {
+        TimetableVersionStatus.Draft => null,
+        TimetableVersionStatus.Archived => "Archivovanou verzi rozvrhu nejde upravovat.",
+        _ => TimetableVersions.PublishedReadOnly,
+    };
 
     private static bool ParityOverlaps(WeekParity a, WeekParity b) =>
         a == WeekParity.Every || b == WeekParity.Every || a == b;
@@ -412,9 +418,9 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         {
             return NotFound();
         }
-        if (entry.TimetableVersion!.Status == TimetableVersionStatus.Archived)
+        if (LockedMessage(entry.TimetableVersion!) is { } locked)
         {
-            return BadRequest(ArchivedMessage);
+            return BadRequest(locked);
         }
 
         db.TimetableEntries.RemoveRange(await SameLessonAsync(entry));
