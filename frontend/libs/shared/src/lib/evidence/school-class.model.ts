@@ -9,6 +9,8 @@ export interface SchoolClass {
   teachingLanguage: string | null;
   /** Kmenová učebna — classroom id. */
   homeroomId: number | null;
+  /** The RVP the class is taught by; null = its plan isn't checked. */
+  rvpProgramCode: string | null;
 }
 
 export interface CreateSchoolClassRequest {
@@ -17,4 +19,5 @@ export interface CreateSchoolClassRequest {
   classTeacherId?: number;
   teachingLanguage?: string;
   homeroomId?: number;
+  rvpProgramCode?: string;
 }

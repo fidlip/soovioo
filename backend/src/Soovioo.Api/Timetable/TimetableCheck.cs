@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable.Rvp;
 
 namespace Soovioo.Api.Timetable;
 
@@ -78,6 +79,8 @@ public static class TimetableCheck
 
         Add(plan.Groups.Where(g => g.TimetableHours > 0 || g.PlanHours > 0)
             .SelectMany(g => g.Problems.Select(p => $"{g.Name} {g.SubjectAbbreviation ?? g.SubjectName}: {p}")));
+
+        Add((await RvpCheck.LoadAsync(db, plan)).AllProblems);
 
         Add(entries.Where(e => e.NeedsRoom && e.ClassroomId is null)
             .DistinctBy(e => e.GroupId is { } g ? (g, e.Day, e.Period, e.Parity, 0) : (0, e.Day, e.Period, e.Parity, e.ClassId))

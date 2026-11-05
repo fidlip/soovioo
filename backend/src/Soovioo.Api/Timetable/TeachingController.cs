@@ -5,6 +5,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable.Rvp;
 
 namespace Soovioo.Api.Timetable;
 
@@ -88,6 +89,71 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             SchoolId = schoolId, TimetableVersionId = version.Id, Grade = i.Grade, SubjectId = i.SubjectId,
             HoursPerWeek = i.HoursPerWeek, DoubleLessons = i.DoubleLessons,
         }));
+        await db.SaveChangesAsync();
+        return Ok(await OverviewAsync(version));
+    }
+
+    /// <summary>Fills the plan of a draft by the RVPs of its classes, as
+    /// <paramref name="request"/>'s options say; a dry run only tells what
+    /// would happen.</summary>
+    [HttpPost("curriculum/fill")]
+    [RequirePermission(Permission.Teaching)]
+    public async Task<ActionResult<FillCurriculumResponse>> FillCurriculum(int versionId, FillCurriculumRequest request)
+    {
+        var version = await db.TimetableVersions.FindAsync(versionId);
+        if (version is null)
+        {
+            return NotFound();
+        }
+        if (version.Status != TimetableVersionStatus.Draft)
+        {
+            return BadRequest("Učební plán jde automaticky vyplnit jen v konceptu.");
+        }
+        var summary = await RvpFill.RunAsync(db, version, request.Options, apply: !request.DryRun);
+        return Ok(new FillCurriculumResponse(summary, request.DryRun ? null : await OverviewAsync(version)));
+    }
+
+    /// <summary>The area a subject counts towards in a program.
+    /// <paramref name="request"/>'s AreaKey null = only towards the
+    /// disponibilní hours; Automatic = as the system recognises it.</summary>
+    [HttpPut("rvp-subject-area")]
+    [RequirePermission(Permission.Teaching)]
+    public async Task<ActionResult<TeachingOverviewDto>> SetSubjectArea(int versionId, SetRvpSubjectAreaRequest request)
+    {
+        var (version, error) = await EditableVersionAsync(versionId);
+        if (version is null)
+        {
+            return error!;
+        }
+        var program = RvpCatalog.Find(request.ProgramCode);
+        if (program is null)
+        {
+            return BadRequest("Neznámý vzdělávací program.");
+        }
+        if (request.AreaKey is { } key && !program.Areas.Any(a => a.Key == key))
+        {
+            return BadRequest("Program takovou oblast nemá.");
+        }
+        if (!await db.Subjects.AnyAsync(s => s.Id == request.SubjectId))
+        {
+            return BadRequest("Neznámý předmět.");
+        }
+        var choice = await db.SubjectRvpAreas.FirstOrDefaultAsync(c => c.SubjectId == request.SubjectId && c.ProgramCode == request.ProgramCode);
+        if (request.Automatic)
+        {
+            if (choice is not null)
+            {
+                db.SubjectRvpAreas.Remove(choice);
+            }
+        }
+        else
+        {
+            choice ??= db.SubjectRvpAreas.Add(new SubjectRvpArea
+            {
+                SchoolId = currentSchool.SchoolId!.Value, SubjectId = request.SubjectId, ProgramCode = request.ProgramCode,
+            }).Entity;
+            choice.AreaKey = request.AreaKey;
+        }
         await db.SaveChangesAsync();
         return Ok(await OverviewAsync(version));
     }
@@ -377,6 +443,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         var plan = await PlanAsync(version);
         var (classDtos, teacherDtos, grades, curriculum) = plan;
         var groups = plan.Groups;
+        RvpCheckDto? rvp = null;
         if (await ScopeAsync() != PermissionScope.School)
         {
             var me = User.UserId();
@@ -387,10 +454,14 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
                 .ToList();
             teacherDtos = teacherDtos.Where(t => t.Id == me).ToList();
         }
+        else
+        {
+            rvp = await RvpCheck.LoadAsync(db, plan);
+        }
         return new TeachingOverviewDto(
             version.Id,
             version.Status != TimetableVersionStatus.Archived && await User.HasPermissionAsync(db, Permission.Teaching),
-            grades, curriculum, classDtos, teacherDtos, groups);
+            grades, curriculum, classDtos, teacherDtos, groups, version.Status == TimetableVersionStatus.Draft, rvp);
     }
 
     private Task<TeachingPlan> PlanAsync(TimetableVersion version) => TeachingPlan.LoadAsync(db, version);
@@ -399,6 +470,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
 /// <param name="CanEdit">The caller may change the plan and přidělení of
 /// this version (not an archived one).</param>
 /// <param name="Grades">Ročníky of the school's classes and of the plan.</param>
+/// <param name="Rvp">The plan against the RVPs; only for who sees the whole school's.</param>
 public record TeachingOverviewDto(
     int VersionId,
     bool CanEdit,
@@ -406,9 +478,14 @@ public record TeachingOverviewDto(
     IReadOnlyList<CurriculumItemDto> Curriculum,
     IReadOnlyList<TeachingClassDto> Classes,
     IReadOnlyList<TeachingTeacherDto> Teachers,
-    IReadOnlyList<TeachingGroupDto> Groups);
+    IReadOnlyList<TeachingGroupDto> Groups,
+    bool IsDraft,
+    RvpCheckDto? Rvp);
 
 public record TeacherTeachingDto(int VersionId, string VersionName, TeachingTeacherDto Teacher);
+
+/// <param name="Automatic">As the system recognises it; AreaKey is ignored.</param>
+public record SetRvpSubjectAreaRequest(string ProgramCode, int SubjectId, string? AreaKey, bool Automatic = false);
 
 public record SaveCurriculumRequest(IReadOnlyList<CurriculumItemDto> Items);
 

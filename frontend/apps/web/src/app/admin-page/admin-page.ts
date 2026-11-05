@@ -46,7 +46,9 @@ import {
   RoleRef,
   RolesApiService,
   SchoolClass,
+  RvpProgramOption,
   SchoolClassesApiService,
+  TeachingApiService,
   SchoolType,
   Student,
   StudentsApiService,
@@ -194,6 +196,7 @@ export class AdminPage {
   private readonly authApi = inject(AuthApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly schoolClassesApi = inject(SchoolClassesApiService);
+  private readonly teachingApi = inject(TeachingApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly classroomsApi = inject(ClassroomsApiService);
   private readonly usersApi = inject(UsersApiService);
@@ -225,6 +228,7 @@ export class AdminPage {
   protected readonly classroomOptions = computed(() =>
     this.classrooms().map((c) => ({ id: c.id, label: c.name })),
   );
+  protected readonly rvpPrograms = signal<RvpProgramOption[]>([]);
   protected readonly homeroomOptions = computed(() =>
     this.classrooms()
       .filter((c) => c.type === 'Homeroom')
@@ -371,6 +375,7 @@ export class AdminPage {
   protected newSchoolClassTeacherId: number | null = null;
   protected newSchoolClassTeachingLanguage = '';
   protected newSchoolClassHomeroomId: number | null = null;
+  protected newSchoolClassRvpProgramCode: string | null = null;
   protected newSubjectName = '';
   protected newSubjectAbbreviation = '';
   protected newSubjectColor: string | null = null;
@@ -779,6 +784,16 @@ export class AdminPage {
     });
   }
 
+  private loadRvpPrograms(): void {
+    if (this.rvpPrograms().length > 0) {
+      return;
+    }
+    this.teachingApi.getRvpPrograms().subscribe({
+      next: (programs) => this.rvpPrograms.set(programs),
+      error: (err) => console.error('getRvpPrograms failed', err),
+    });
+  }
+
   protected openAddClassDialog(): void {
     this.editingSchoolClassId = null;
     this.newSchoolClassName = '';
@@ -786,6 +801,8 @@ export class AdminPage {
     this.newSchoolClassTeacherId = null;
     this.newSchoolClassTeachingLanguage = '';
     this.newSchoolClassHomeroomId = null;
+    this.newSchoolClassRvpProgramCode = null;
+    this.loadRvpPrograms();
     this.notify.clear();
     this.newClassDialogVisible.set(true);
   }
@@ -797,6 +814,8 @@ export class AdminPage {
     this.newSchoolClassTeacherId = schoolClass.classTeacherId;
     this.newSchoolClassTeachingLanguage = schoolClass.teachingLanguage ?? '';
     this.newSchoolClassHomeroomId = schoolClass.homeroomId;
+    this.newSchoolClassRvpProgramCode = schoolClass.rvpProgramCode;
+    this.loadRvpPrograms();
     this.notify.clear();
     this.newClassDialogVisible.set(true);
   }
@@ -811,6 +830,7 @@ export class AdminPage {
       classTeacherId: this.newSchoolClassTeacherId ?? undefined,
       teachingLanguage: this.newSchoolClassTeachingLanguage || undefined,
       homeroomId: this.newSchoolClassHomeroomId ?? undefined,
+      rvpProgramCode: this.newSchoolClassRvpProgramCode ?? undefined,
     };
     const result =
       this.editingSchoolClassId === null

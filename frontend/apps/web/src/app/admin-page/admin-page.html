@@ -1012,6 +1012,21 @@
         appendTo="body"
       />
     </app-float-field>
+    <app-float-field label="Vzdělávací program (RVP)" for="classRvpProgram">
+      <p-select
+        ariaLabel="Vzdělávací program (RVP)"
+        inputId="classRvpProgram"
+        [options]="rvpPrograms()"
+        optionLabel="name"
+        optionValue="code"
+        [filter]="true"
+        [showClear]="true"
+        [(ngModel)]="newSchoolClassRvpProgramCode"
+        name="classRvpProgram"
+        styleClass="w-72"
+        appendTo="body"
+      />
+    </app-float-field>
     <app-submit-button
       [form]="classForm"
       [label]="editingSchoolClassId === null ? 'Vytvořit' : 'Uložit'"

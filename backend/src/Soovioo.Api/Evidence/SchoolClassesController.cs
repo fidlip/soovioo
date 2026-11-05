@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable.Rvp;
 
 namespace Soovioo.Api.Evidence;
 
@@ -25,6 +26,10 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         {
             return BadRequest("Učebna neexistuje.");
         }
+        if (request.RvpProgramCode is not null && RvpCatalog.Find(request.RvpProgramCode) is null)
+        {
+            return BadRequest("Neznámý vzdělávací program.");
+        }
 
         var schoolClass = new SchoolClass
         {
@@ -33,6 +38,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
             ClassTeacherId = request.ClassTeacherId,
             TeachingLanguage = request.TeachingLanguage,
             HomeroomId = request.HomeroomId,
+            RvpProgramCode = request.RvpProgramCode,
             SchoolId = currentSchool.SchoolId!.Value,
         };
         db.SchoolClasses.Add(schoolClass);
@@ -54,12 +60,17 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         {
             return BadRequest("Učebna neexistuje.");
         }
+        if (request.RvpProgramCode is not null && RvpCatalog.Find(request.RvpProgramCode) is null)
+        {
+            return BadRequest("Neznámý vzdělávací program.");
+        }
 
         schoolClass.Name = request.Name;
         schoolClass.Rocnik = request.Rocnik;
         schoolClass.ClassTeacherId = request.ClassTeacherId;
         schoolClass.TeachingLanguage = request.TeachingLanguage;
         schoolClass.HomeroomId = request.HomeroomId;
+        schoolClass.RvpProgramCode = request.RvpProgramCode;
         await db.SaveChangesAsync();
         return Ok(schoolClass);
     }
@@ -93,4 +104,5 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
 }
 
 public record CreateSchoolClassRequest(
-    string Name, int? Rocnik = null, int? ClassTeacherId = null, string? TeachingLanguage = null, int? HomeroomId = null);
+    string Name, int? Rocnik = null, int? ClassTeacherId = null, string? TeachingLanguage = null, int? HomeroomId = null,
+    string? RvpProgramCode = null);

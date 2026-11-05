@@ -123,6 +123,88 @@ export interface TeachingOverview {
   classes: TeachingClass[];
   teachers: TeachingTeacher[];
   groups: TeachingGroup[];
+  /** A draft: only here the plan can be filled by the RVPs. */
+  isDraft: boolean;
+  /** The plan against the RVPs of the classes; null = not for this user. */
+  rvp: RvpCheck | null;
+}
+
+/** An RVP a class can be taught by. */
+export interface RvpProgramOption {
+  code: string;
+  name: string;
+  family: 'ZV' | 'G' | 'SOV';
+}
+
+export interface RvpCheck {
+  programs: RvpProgramCheck[];
+  /** Classes with no program, not checked. */
+  classesWithout: string[];
+}
+
+export interface RvpProgramCheck {
+  code: string;
+  name: string;
+  classes: string[];
+  stages: RvpStageCheck[];
+  problems: string[];
+  subjects: RvpSubject[];
+  areas: { key: string; name: string }[];
+}
+
+export interface RvpStageCheck {
+  label: string;
+  fromGrade: number;
+  toGrade: number;
+  /** No class of the program there: totals and areas aren't checked. */
+  missingGrades: number[];
+  total: number;
+  have: number;
+  disponible: number | null;
+  /** Hours over the minima; null = not known. */
+  disponibleUsed: number | null;
+  areas: RvpAreaCheck[];
+}
+
+export interface RvpAreaCheck {
+  key: string;
+  name: string;
+  min: number;
+  have: number;
+  ok: boolean;
+}
+
+export interface RvpSubject {
+  subjectId: number;
+  subjectName: string;
+  /** null = only towards the disponibilní hours. */
+  areaKey: string | null;
+  /** The school chose, the system didn't. */
+  chosen: boolean;
+}
+
+export interface RvpFillOptions {
+  overwrite: boolean;
+  createSubjects: boolean;
+  spreadDisponible: boolean;
+  removeOthers: boolean;
+}
+
+export interface RvpFillSummary {
+  added: number;
+  overwritten: number;
+  kept: number;
+  removed: number;
+  subjectsCreated: string[];
+  subjectsMissing: string[];
+  classesSkipped: string[];
+  notes: string[];
+}
+
+export interface FillCurriculumResponse {
+  summary: RvpFillSummary;
+  /** null in a dry run. */
+  overview: TeachingOverview | null;
 }
 
 /** Dělení: groups of the same classes at the same time. */

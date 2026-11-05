@@ -1,0 +1,205 @@
+@if (rvp(); as check) {
+<section
+  class="mt-4 flex flex-col gap-4 border-t border-surface-200 pt-4 dark:border-surface-700"
+  aria-label="Kontrola podle RVP"
+>
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-lg">Kontrola podle RVP</h2>
+    @if (canFill()) {
+    <p-button
+      label="Vyplnit podle RVP"
+      icon="pi pi-magic"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="openDialog()"
+    />
+    }
+  </div>
+  <p class="text-sm text-surface-500">
+    Počítá se plán ročníků, jak je teď v této verzi; v ročníku rozhoduje třída
+    programu, která má hodin nejméně. Program třídy se zadává v Administraci →
+    Třídy, předměty a učebny.
+  </p>
+  @if (check.classesWithout.length > 0) {
+  <p class="text-sm text-surface-500">
+    Bez vzdělávacího programu: {{ check.classesWithout.join(', ') }}
+  </p>
+  } @for (program of check.programs; track program.code) {
+  <section [attr.aria-label]="program.name" class="flex flex-col gap-3">
+    <h3 class="font-medium">
+      {{ program.name }}
+      <span class="text-sm font-normal text-surface-500"
+        >({{ program.classes.join(', ') }})</span
+      >
+    </h3>
+    @for (problem of program.problems; track $index) {
+    <p class="text-sm text-orange-600 dark:text-orange-400">{{ problem }}</p>
+    } @for (stage of program.stages; track stage.label) {
+    <div>
+      <p class="text-sm">
+        <span class="font-medium">{{ stage.label }}:</span>
+        @if (stage.missingGrades.length > 0) { chybí ročníky {{
+        grades(stage.missingGrades) }} — součet se nekontroluje } @else { {{
+        formatHours(stage.have) }} z {{ formatHours(stage.total) }} h @if
+        (stage.disponible !== null) { · disponibilní využito {{
+        formatHours(stage.disponibleUsed ?? 0) }} z {{
+        formatHours(stage.disponible) }} h } }
+      </p>
+      @if (stage.missingGrades.length > 0) {} @else if (stage.areas.length ===
+      0) {
+      <p class="text-sm text-surface-500">
+        Revidovaný RVP minima vzdělávacích oblastí nestanovuje.
+      </p>
+      } @else {
+      <div class="overflow-x-auto">
+        <table class="text-sm" [attr.aria-label]="stage.label + ' — oblasti'">
+          <thead>
+            <tr>
+              <th class="p-1 text-left">Oblast</th>
+              <th class="p-1 text-center">Minimum</th>
+              <th class="p-1 text-center">V plánu</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (area of stage.areas; track area.key) {
+            <tr class="border-t border-surface-200 dark:border-surface-700">
+              <td class="p-1">{{ area.name }}</td>
+              <td class="p-1 text-center">{{ formatHours(area.min) }}</td>
+              <td
+                class="p-1 text-center"
+                [class.text-orange-600]="!area.ok"
+                [class.dark:text-orange-400]="!area.ok"
+              >
+                {{ formatHours(area.have) }}
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      }
+    </div>
+    } @if (program.areas.length > 0 && program.subjects.length > 0) {
+    <details>
+      <summary class="cursor-pointer text-sm">
+        Předměty a vzdělávací oblasti
+      </summary>
+      <div class="flex flex-col gap-2 pt-2">
+        @for (subject of program.subjects; track subject.subjectId) {
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <span class="w-48">{{ subject.subjectName }}</span>
+          <p-select
+            [ariaLabel]="'Oblast — ' + subject.subjectName"
+            [options]="areaOptions(program)"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="areaChoice(subject)"
+            (ngModelChange)="setArea(program, subject, $event)"
+            [ngModelOptions]="{ standalone: true }"
+            [disabled]="busy() || !overview().canEdit"
+            styleClass="w-72"
+            appendTo="body"
+          />
+          <span class="text-surface-500"
+            >{{ recognized(program, subject) }}</span
+          >
+        </div>
+        }
+      </div>
+    </details>
+    }
+  </section>
+  } @empty {
+  <p class="text-sm text-surface-500">Žádná třída nemá vzdělávací program.</p>
+  }
+</section>
+
+<p-dialog
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  header="Vyplnit učební plán podle RVP"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  <div class="flex flex-col gap-3 pt-2">
+    <p class="text-sm text-surface-500">
+      Návrh vychází z programů tříd. RVP neurčuje hodiny po ročnících, proto jde
+      o typický plán, který škola upraví podle svého ŠVP.
+    </p>
+    <label class="flex items-center gap-2">
+      <p-checkbox
+        [binary]="true"
+        [(ngModel)]="options.overwrite"
+        (ngModelChange)="preview()"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Přepsat hodiny, které už v plánu jsou
+    </label>
+    <label class="flex items-center gap-2">
+      <p-checkbox
+        [binary]="true"
+        [(ngModel)]="options.createSubjects"
+        (ngModelChange)="preview()"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Založit předměty, které škola nemá
+    </label>
+    <label class="flex items-center gap-2">
+      <p-checkbox
+        [binary]="true"
+        [(ngModel)]="options.spreadDisponible"
+        (ngModelChange)="preview()"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Rozdělit i disponibilní hodiny (typický plán ZŠ je má vždy)
+    </label>
+    <label class="flex items-center gap-2">
+      <p-checkbox
+        [binary]="true"
+        [(ngModel)]="options.removeOthers"
+        (ngModelChange)="preview()"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Odebrat z plánu předměty, které návrh nemá
+    </label>
+    @if (summary(); as s) {
+    <div
+      class="flex flex-col gap-1 rounded bg-surface-100 p-3 text-sm dark:bg-surface-800"
+      aria-label="Co se stane"
+      role="status"
+    >
+      <p>
+        Přibude {{ s.added }}, přepíše se {{ s.overwritten }}, zůstane {{ s.kept
+        }}, odebere se {{ s.removed }} položek plánu.
+      </p>
+      @if (s.subjectsCreated.length > 0) {
+      <p>Nové předměty: {{ s.subjectsCreated.join(', ') }}</p>
+      } @if (s.subjectsMissing.length > 0) {
+      <p>Bez předmětu se vynechá: {{ s.subjectsMissing.join(', ') }}</p>
+      } @if (s.classesSkipped.length > 0) {
+      <p>
+        Třídy bez programu nebo s ročníkem mimo něj se nevyplní: {{
+        s.classesSkipped.join(', ') }}
+      </p>
+      } @for (note of s.notes; track note) {
+      <p>{{ note }}</p>
+      }
+    </div>
+    }
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zrušit"
+        severity="secondary"
+        [text]="true"
+        (onClick)="dialogVisible.set(false)"
+      />
+      <p-button
+        label="Vyplnit"
+        icon="pi pi-check"
+        [disabled]="busy() || summary() === null"
+        (onClick)="fill()"
+      />
+    </div>
+  </div>
+</p-dialog>
+}
