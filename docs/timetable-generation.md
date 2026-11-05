@@ -161,7 +161,7 @@ Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a k
   (řádek třídy ukazuje „Ve skupinách: …“, celotřídní hodiny předmětu hlásí jako problém).
 - `GroupDivision` (dělení): skupiny stejných tříd se stejnými hodinami, vždy ve stejný čas
   (Tv 2.A+2.B dívky/chlapci v různých tělocvičnách, Nj | Fj). Žák je v dělení nejvýš
-  v jedné skupině — přidání do jiné ho přesune; kdo není v žádné, má volno (kontrola před
+  v jedné skupině (do jiné ho jde přidat, až když ho z původní odeberete); kdo není v žádné, má volno (kontrola před
   zveřejněním ho vypíše).
 - Hodina skupiny je `TimetableEntry` se `StudentGroupId`, jedna za každou třídu skupiny
   (úprava a smazání platí pro všechny); rozvrh třídy ukáže v políčku hodiny všech jejích

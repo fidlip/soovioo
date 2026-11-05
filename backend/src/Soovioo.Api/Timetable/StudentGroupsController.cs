@@ -300,6 +300,18 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         var slots = lessons.DistinctBy(l => (l.DayOfWeek, l.PeriodNumber, l.WeekParity)).ToList();
         // Only pupils joining it are checked: what's there already was.
         var joining = students.Where(s => group.Members.All(m => m.StudentId != s.Id)).ToList();
+        if (division is not null && joining.Count > 0)
+        {
+            var joiningIds = joining.Select(s => s.Id).ToList();
+            var taken = await db.StudentGroupMembers
+                .Where(m => m.StudentGroup!.GroupDivisionId == division.Id && m.StudentGroupId != group.Id && joiningIds.Contains(m.StudentId))
+                .Select(m => new { m.StudentId, m.StudentGroup!.Name })
+                .FirstOrDefaultAsync();
+            if (taken is not null)
+            {
+                return $"{joining.First(s => s.Id == taken.StudentId).Name} už je ve skupině {taken.Name} tohoto dělení.";
+            }
+        }
         if (joining.Count > 0 && slots.FirstOrDefault(l => l.Classroom?.Capacity < students.Count) is { } small)
         {
             return $"Skupina by měla {students.Count} žáků, učebna {small.Classroom!.ShortName ?? small.Classroom.Name} má kapacitu {small.Classroom.Capacity} ({TimetableCheckSlot(small.DayOfWeek, small.PeriodNumber)}). Změňte nejdřív učebnu hodiny.";
@@ -351,12 +363,6 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         group.GroupDivisionId = division?.Id;
         await SetClassesAsync(group, classIds);
 
-        // In a division a pupil moves here from its other group.
-        if (division is not null && studentIds.Count > 0)
-        {
-            db.StudentGroupMembers.RemoveRange(db.StudentGroupMembers.Where(m =>
-                m.StudentGroup!.GroupDivisionId == division.Id && m.StudentGroupId != group.Id && studentIds.Contains(m.StudentId)));
-        }
         group.Members.RemoveAll(m => !studentIds.Contains(m.StudentId));
         foreach (var id in studentIds.Where(id => group.Members.All(m => m.StudentId != id)))
         {

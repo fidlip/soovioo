@@ -269,10 +269,10 @@ export class StudentGroupsPanel {
   }
 
   /** Pupils of the form's classes; in a division, who's in another of its
-   * groups says so (choosing moves them here). */
+   * groups can't be chosen and says where they are. */
   protected studentOptions(
     form: GroupForm,
-  ): { label: string; value: number }[] {
+  ): { label: string; value: number; disabled: boolean }[] {
     const classIds = this.formClassIds(form);
     const others = new Map<number, string>();
     if (form.divisionId !== null) {
@@ -291,8 +291,9 @@ export class StudentGroupsPanel {
           a.firstName.localeCompare(b.firstName, 'cs'),
       )
       .map((s) => ({
-        label: `${s.lastName} ${s.firstName} (${s.schoolClassName})${others.has(s.id) ? ` — teď ${others.get(s.id)}` : ''}`,
+        label: `${s.lastName} ${s.firstName} (${s.schoolClassName})${others.has(s.id) ? ` — ve skupině ${others.get(s.id)}` : ''}`,
         value: s.id,
+        disabled: others.has(s.id),
       }));
   }
 
