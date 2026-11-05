@@ -87,12 +87,68 @@ public class StudentGroupsTests
 
     private static string Bad<T>(ActionResult<T> result) => Assert.IsType<string>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
 
-    private async Task<GroupDivisionDto> Division(string name = "Tv 2.AB", decimal hours = 2) =>
+    private async Task<GroupDivisionDto> Division(string name = "Tv 2.AB", decimal? hours = 2) =>
         Ok(await Groups().CreateDivision(draft.Id, new SaveGroupDivisionRequest(name, hours, null, [a.Id, b.Id])));
 
     private static SaveStudentGroupRequest Request(
         string name, Subject subject, User? teacher, int? divisionId, IReadOnlyList<SchoolClass> classes, params StudentProfile[] pupils) =>
         new(name, subject.Id, 2, null, teacher?.Id, null, divisionId, [.. classes.Select(c => c.Id)], [.. pupils.Select(p => p.Id)]);
+
+    private async Task<TeachingOverviewDto> Overview() =>
+        Ok(await new TeachingController(db, new FakeCurrentSchoolContext(SchoolId), clock)
+        {
+            ControllerContext = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin)),
+        }.GetTeaching(draft.Id));
+
+    [Fact]
+    public async Task WithoutHoursOfItsOwnADivisionHasThePlansAndSaysWhenItIsNotClear()
+    {
+        Plan(pe, 2);
+        db.SaveChanges();
+        var division = await Division(hours: null);
+        var girls = Ok(await Groups().CreateGroup(draft.Id, Request("Dívky", pe, novakova, division.Id, [], anna)));
+        var seminar = Ok(await Groups().CreateGroup(draft.Id, Request("Seminář", german, kral, null, [a], anna) with { HoursPerWeek = null }));
+
+        var overview = await Overview();
+        var tv = overview.Groups.Single(g => g.Id == girls.Id);
+        Assert.Equal((2m, true), (tv.PlanHours, tv.HoursByPlan));
+        Assert.DoesNotContain(tv.Problems, p => p.Contains("zadejte"));
+        Assert.Contains("Předmět není v učebním plánu třídy, zadejte hodiny skupiny.", overview.Groups.Single(g => g.Id == seminar.Id).Problems);
+
+        // 2.B has Tv 3 h of its own.
+        db.ClassCurriculumItems.Add(new ClassCurriculumItem
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, SchoolClassId = b.Id, SubjectId = pe.Id, HoursPerWeek = 3,
+        });
+        db.SaveChanges();
+        Assert.Contains("V učebním plánu má 2.A Tv 2 h, 2.B Tv 3 h, zadejte hodiny dělení.",
+            (await Overview()).Groups.Single(g => g.Id == girls.Id).Problems);
+    }
+
+    [Fact]
+    public async Task GroupsOfADivisionGetDifferentTeachersAutomaticallyAndTheSameOneByHandIsReported()
+    {
+        Plan(pe, 2);
+        db.SaveChanges();
+        var division = await Division();
+        var girls = Ok(await Groups().CreateGroup(draft.Id, Request("Dívky", pe, null, division.Id, [], anna, eva)));
+        var boys = Ok(await Groups().CreateGroup(draft.Id, Request("Chlapci", pe, null, division.Id, [], petr, karel)));
+
+        var automatic = (await Overview()).Groups;
+        Assert.All(automatic, g => Assert.True(g.Automatic));
+        Assert.NotEqual(automatic.Single(g => g.Id == girls.Id).TeacherId, automatic.Single(g => g.Id == boys.Id).TeacherId);
+
+        // A third group finds nobody else qualified.
+        var third = Ok(await Groups().CreateGroup(draft.Id, Request("Třetí", pe, null, division.Id, [])));
+        Assert.Contains("Kdo má aprobaci pro Tv v 2. ročníku, učí jinou skupinu dělení.",
+            (await Overview()).Groups.Single(g => g.Id == third.Id).Problems);
+        Assert.IsType<NoContentResult>(await Groups().DeleteGroup(draft.Id, third.Id));
+
+        Ok(await Groups().UpdateGroup(draft.Id, girls.Id, Request("Dívky", pe, dvorak, division.Id, [], anna, eva)));
+        Ok(await Groups().UpdateGroup(draft.Id, boys.Id, Request("Chlapci", pe, dvorak, division.Id, [], petr, karel)));
+        Assert.Contains("Dvořák učí i skupinu Chlapci téhož dělení, ve stejnou dobu.",
+            (await Overview()).Groups.Single(g => g.Id == girls.Id).Problems);
+    }
 
     /// <summary>Tv 2.AB: girls with Nováková, boys with Dvořák.</summary>
     private async Task<(StudentGroupDto Girls, StudentGroupDto Boys)> PeDivision()

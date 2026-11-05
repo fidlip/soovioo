@@ -69,6 +69,8 @@ test.describe.serial('student groups', () => {
     await page.getByRole('option', { name: /^Novák Jan/ }).click();
     await page.keyboard.press('Escape');
     await expect(dialog.getByText('Vybráno 1.')).toBeVisible();
+    // Its own hours: Aj of 5.A in the plan is up to the other tests.
+    await dialog.getByRole('spinbutton', { name: 'Hodiny týdně' }).fill('1');
     await dialog.getByRole('button', { name: 'Uložit' }).click();
     await expect(dialog).toBeHidden();
 

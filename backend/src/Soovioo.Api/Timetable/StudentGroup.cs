@@ -24,8 +24,9 @@ public class StudentGroup
     public int SubjectId { get; set; }
     public Subject? Subject { get; set; }
 
-    /// <summary>In a division always the division's.</summary>
-    public decimal HoursPerWeek { get; set; }
+    /// <summary>Null = as the učební plán of its classes has the subject;
+    /// in a division always the division's.</summary>
+    public decimal? HoursPerWeek { get; set; }
 
     /// <summary>Null = as the subject; in a division the division's.</summary>
     public bool? DoubleLessons { get; set; }
@@ -63,7 +64,8 @@ public class GroupDivision
 
     public required string Name { get; set; }
 
-    public decimal HoursPerWeek { get; set; }
+    /// <summary>Null = as the učební plán of its classes has its groups' subjects.</summary>
+    public decimal? HoursPerWeek { get; set; }
 
     public bool? DoubleLessons { get; set; }
 

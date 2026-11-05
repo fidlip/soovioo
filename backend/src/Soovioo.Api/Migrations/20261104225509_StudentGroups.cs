@@ -27,7 +27,7 @@ namespace Soovioo.Api.Migrations
                     SchoolId = table.Column<int>(type: "integer", nullable: false),
                     TimetableVersionId = table.Column<int>(type: "integer", nullable: false),
                     Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    HoursPerWeek = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: false),
+                    HoursPerWeek = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: true),
                     DoubleLessons = table.Column<bool>(type: "boolean", nullable: true),
                     ClassIds = table.Column<List<int>>(type: "integer[]", nullable: false)
                 },
@@ -52,7 +52,7 @@ namespace Soovioo.Api.Migrations
                     TimetableVersionId = table.Column<int>(type: "integer", nullable: false),
                     Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     SubjectId = table.Column<int>(type: "integer", nullable: false),
-                    HoursPerWeek = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: false),
+                    HoursPerWeek = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: true),
                     DoubleLessons = table.Column<bool>(type: "boolean", nullable: true),
                     TeacherId = table.Column<int>(type: "integer", nullable: true),
                     ClassroomId = table.Column<int>(type: "integer", nullable: true),
