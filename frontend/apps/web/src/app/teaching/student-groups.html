@@ -207,11 +207,16 @@
         [(ngModel)]="form.coversSubjectId"
         [filter]="true"
         [showClear]="true"
-        placeholder="Žádný — každá skupina učí řádek svého předmětu"
+        placeholder="Podle předmětů skupin"
         styleClass="w-full"
         appendTo="body"
       />
     </app-float-field>
+    <p class="-mt-2 m-0 text-sm text-surface-500">
+      Vyberte, když si žáci volí mezi různými předměty a učební plán pro ně má
+      jen společný řádek — např. Nj | Fj za „Další cizí jazyk“. Nechte prázdné,
+      když mají skupiny předmět, který v plánu je (Tv dívky | Tv chlapci).
+    </p>
     <div class="flex flex-wrap items-center gap-4">
       <app-float-field label="Hodiny týdně" for="divisionHours">
         <p-inputNumber
@@ -243,8 +248,7 @@
     <p class="m-0 text-sm text-surface-500">
       Skupiny dělení převezmou jeho třídy, hodiny i dvouhodinovky. Bez hodin se
       vezmou z učebního plánu tříd — z vybraného řádku, jinak pro předměty
-      skupin. Řádek se hodí pro volbu mezi předměty, např. „Povinně volitelný
-      předmět“ nebo „Další cizí jazyk“ — učí ho pak skupiny dělení.
+      skupin.
     </p>
     <div class="flex justify-end gap-2">
       <p-button
