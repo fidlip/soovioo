@@ -21,6 +21,7 @@ import {
   RouterLinkActive,
   RouterOutlet,
 } from '@angular/router';
+import { canSeeTeachingArea } from './teaching/teaching-area-access';
 import { ButtonDirective } from '@openng/optimus-ui/button';
 import { Menu } from '@openng/optimus-ui/menu';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
@@ -353,8 +354,7 @@ export class App {
       !item.staffOnly ||
       this.authApi.isAdmin() ||
       this.authApi.can('Students') ||
-      this.authApi.can('TeachingRead') ||
-      this.authApi.can('Teaching')
+      canSeeTeachingArea(this.authApi)
     );
   }
 

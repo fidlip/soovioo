@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, model, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
@@ -20,6 +20,13 @@ import {
   StaffLeaveNoticeGroup,
   formatDate,
 } from '@soovioo/shared';
+import {
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+} from '@openng/optimus-ui/tabs';
 import { FORM_FIELDS } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
@@ -34,7 +41,7 @@ import {
 } from './retention-labels';
 import { Loading } from '../loading/loading';
 
-/** Administrace → Archiv a výmaz údajů: pupils leaving or gone, staff who left, and
+/** Administrace → Archiv: pupils leaving or gone, staff who left, and
  * the school's rules for erasing their data (RetentionController). */
 @Component({
   selector: 'app-departures',
@@ -54,6 +61,11 @@ import { Loading } from '../loading/loading';
     LeaveDialog,
     MultiSelect,
     StaffLeaveDialog,
+    Tab,
+    TabList,
+    TabPanel,
+    TabPanels,
+    Tabs,
     ...FORM_FIELDS,
   ],
   templateUrl: './departures.html',
@@ -62,6 +74,13 @@ export class Departures {
   private readonly retentionApi = inject(RetentionApiService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly notify = inject(NotifyService);
+
+  /** The open section, kept by Administrace in the address. */
+  readonly section = model<string | null>(null);
+  protected readonly activeSection = computed(() => {
+    const section = this.section();
+    return section === 'staff' || section === 'rules' ? section : 'pupils';
+  });
 
   protected readonly people = signal<RetentionOverview | null>(null);
   protected readonly policy = signal<RetentionPolicy | null>(null);

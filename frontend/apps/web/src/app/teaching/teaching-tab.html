@@ -1,134 +1,152 @@
-<div class="mb-4 flex flex-wrap items-end gap-3">
+@if (selection.options().length > 0) {
+<div class="mb-4">
   <app-float-field label="Verze rozvrhu" for="teachingVersion">
     <p-select
       ariaLabel="Verze rozvrhu"
       inputId="teachingVersion"
-      [options]="versionOptions()"
+      [options]="selection.options()"
       optionLabel="label"
       optionValue="value"
       [ngModel]="versionId()"
-      (ngModelChange)="selectVersion($event)"
+      (ngModelChange)="versionId.set($event)"
       name="teachingVersion"
       styleClass="w-72"
       appendTo="body"
     />
   </app-float-field>
-  @if (overview()?.canEdit) {
-  <p-button
-    label="Načíst z rozvrhu"
-    icon="pi pi-download"
-    severity="secondary"
-    [outlined]="true"
-    [disabled]="busy()"
-    (onClick)="importFromTimetable()"
-  />
-  <p-button
-    [label]="'Potvrdit automatické (' + automaticCount() + ')'"
-    icon="pi pi-check"
-    severity="secondary"
-    [outlined]="true"
-    [disabled]="busy() || automaticCount() === 0"
-    (onClick)="confirmAutomatic()"
-  />
-  }
 </div>
-
-@if (loading()) {
-<app-loading />
-} @else if (overview(); as o) {
-<p class="mb-4 text-sm text-surface-500">
-  Kde škola učitele nepřidělí, vybere ho systém z učitelů s aprobací pro předmět
-  a ročník podle nasmlouvaných hodin. Hodina jen v lichém nebo sudém týdnu se
-  počítá jako 0,5 h.
-</p>
-@if (problemCount() > 0) {
-<p-message severity="warn" styleClass="mb-4">
-  Ke kontrole: {{ problemCount() }}
-</p-message>
 }
 
-<div
-  class="mb-2 flex flex-wrap items-end gap-3"
-  role="search"
-  aria-label="Filtry"
+<p-tabs
+  [value]="activeSection()"
+  (valueChange)="section.set($any($event))"
+  [scrollable]="true"
 >
-  <app-float-field label="Třída" for="teachingClassFilter">
-    <p-select
-      ariaLabel="Třída"
-      inputId="teachingClassFilter"
-      [options]="classFilterOptions()"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="classFilter()"
-      (ngModelChange)="classFilter.set($event)"
-      [showClear]="true"
-      [filter]="true"
-      name="teachingClassFilter"
-      styleClass="w-36"
-      appendTo="body"
-    />
-  </app-float-field>
-  <app-float-field label="Učitel" for="teachingTeacherFilter">
-    <p-select
-      ariaLabel="Učitel"
-      inputId="teachingTeacherFilter"
-      [options]="teacherFilterOptions()"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="teacherFilter()"
-      (ngModelChange)="teacherFilter.set($event)"
-      [showClear]="true"
-      [filter]="true"
-      name="teachingTeacherFilter"
-      styleClass="w-56"
-      appendTo="body"
-    />
-  </app-float-field>
-  <app-float-field label="Předmět" for="teachingSubjectFilter">
-    <p-select
-      ariaLabel="Předmět"
-      inputId="teachingSubjectFilter"
-      [options]="subjects()"
-      optionLabel="name"
-      optionValue="id"
-      [ngModel]="subjectFilter()"
-      (ngModelChange)="subjectFilter.set($event)"
-      [showClear]="true"
-      [filter]="true"
-      name="teachingSubjectFilter"
-      styleClass="w-48"
-      appendTo="body"
-    />
-  </app-float-field>
-  <label class="flex items-center gap-2 pb-2 text-sm">
-    <p-checkbox
-      [binary]="true"
-      [ngModel]="problemsOnly()"
-      (ngModelChange)="problemsOnly.set($event)"
-      [ngModelOptions]="{ standalone: true }"
-    />
-    Jen ke kontrole
-  </label>
-  @if (filtered()) {
-  <p-button
-    label="Zrušit filtry"
-    icon="pi pi-filter-slash"
-    [text]="true"
-    severity="secondary"
-    (onClick)="clearFilters()"
-  />
-  }
-</div>
-
-<p-tabs [(value)]="activeTab" [scrollable]="true">
   <p-tablist>
-    <p-tab value="classes">Podle tříd</p-tab>
-    <p-tab value="teachers">Podle učitelů</p-tab>
-    <p-tab value="groups">Skupiny</p-tab>
-    <p-tab value="plan">Učební plán</p-tab>
+    @for (s of sections(); track s.value) {
+    <p-tab [value]="s.value">{{ s.label }}</p-tab>
+    }
   </p-tablist>
+  @if (showsOverview()) { @if (loading()) {
+  <app-loading />
+  } @else if (overview(); as o) {
+  <div class="mb-4 mt-4 flex flex-wrap items-end gap-3">
+    @if (o.canEdit) {
+    <p-button
+      label="Načíst z rozvrhu"
+      icon="pi pi-download"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="importFromTimetable()"
+    />
+    <p-button
+      [label]="'Potvrdit automatické (' + automaticCount() + ')'"
+      icon="pi pi-check"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy() || automaticCount() === 0"
+      (onClick)="confirmAutomatic()"
+    />
+    }
+  </div>
+  <p class="mb-4 text-sm text-surface-500">
+    Kde škola učitele nepřidělí, vybere ho systém z učitelů s aprobací pro
+    předmět a ročník podle nasmlouvaných hodin. Hodina jen v lichém nebo sudém
+    týdnu se počítá jako 0,5 h.
+  </p>
+  @if (problemCount() > 0) {
+  <p-message severity="warn" styleClass="mb-4">
+    Ke kontrole: {{ problemCount() }}
+  </p-message>
+  }
+
+  <div
+    class="mb-2 flex flex-wrap items-end gap-3"
+    role="search"
+    aria-label="Filtry"
+  >
+    <app-float-field label="Třída" for="teachingClassFilter">
+      <p-select
+        ariaLabel="Třída"
+        inputId="teachingClassFilter"
+        [options]="classFilterOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="classFilter()"
+        (ngModelChange)="classFilter.set($event)"
+        [showClear]="true"
+        [filter]="true"
+        name="teachingClassFilter"
+        styleClass="w-36"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Učitel" for="teachingTeacherFilter">
+      <p-select
+        ariaLabel="Učitel"
+        inputId="teachingTeacherFilter"
+        [options]="teacherFilterOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="teacherFilter()"
+        (ngModelChange)="teacherFilter.set($event)"
+        [showClear]="true"
+        [filter]="true"
+        name="teachingTeacherFilter"
+        styleClass="w-56"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Předmět" for="teachingSubjectFilter">
+      <p-select
+        ariaLabel="Předmět"
+        inputId="teachingSubjectFilter"
+        [options]="subjects()"
+        optionLabel="name"
+        optionValue="id"
+        [ngModel]="subjectFilter()"
+        (ngModelChange)="subjectFilter.set($event)"
+        [showClear]="true"
+        [filter]="true"
+        name="teachingSubjectFilter"
+        styleClass="w-48"
+        appendTo="body"
+      />
+    </app-float-field>
+    <label class="flex items-center gap-2 pb-2 text-sm">
+      <p-checkbox
+        [binary]="true"
+        [ngModel]="problemsOnly()"
+        (ngModelChange)="problemsOnly.set($event)"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Jen ke kontrole
+    </label>
+    @if (filtered()) {
+    <p-button
+      label="Zrušit filtry"
+      icon="pi pi-filter-slash"
+      [text]="true"
+      severity="secondary"
+      (onClick)="clearFilters()"
+    />
+    }
+  </div>
+
+  } @else {
+  <p class="mt-4 text-surface-500">Škola zatím nemá rozvrh.</p>
+  } }
   <p-tabpanels>
+    <p-tabpanel value="timetable">
+      @if (activeSection() === 'timetable') {
+      <div class="pt-4">
+        <app-timetable-page />
+      </div>
+      }
+    </p-tabpanel>
     <p-tabpanel value="classes">
+      @if (shownOverview(); as o) {
       <div class="flex flex-col gap-6 pt-4">
         @for (c of shownClasses(); track c.id) {
         <section [attr.aria-label]="'Třída ' + c.name">
@@ -291,9 +309,11 @@
         </p>
         }
       </div>
+      }
     </p-tabpanel>
 
     <p-tabpanel value="teachers">
+      @if (shownOverview()) {
       <div class="overflow-x-auto pt-4">
         <p-table [value]="shownTeachers()" dataKey="id">
           <ng-template #header>
@@ -344,9 +364,11 @@
           </ng-template>
         </p-table>
       </div>
+      }
     </p-tabpanel>
 
     <p-tabpanel value="groups">
+      @if (shownOverview(); as o) {
       <app-student-groups
         [versionId]="o.versionId"
         [canEdit]="o.canEdit"
@@ -359,16 +381,17 @@
         [problemsOnly]="problemsOnly()"
         (changed)="reloadOverview()"
       />
+      }
     </p-tabpanel>
 
     <p-tabpanel value="plan">
+      @if (shownOverview(); as o) {
       <div class="flex flex-col gap-3 pt-4">
         <p class="text-sm text-surface-500">
           Hodiny týdně podle ročníků — šablona pro jejich třídy. Kde se třída
-          liší (jiný jazyk, předmět navíc), změní se jí plán v záložce Podle
-          tříd. „2×“ = dvouhodinovky (bloky po dvou hodinách za sebou), výchozí
-          podle předmětu. Ročník třídy se zadává v Administraci → Třídy,
-          předměty a učebny.
+          liší (jiný jazyk, předmět navíc), změní se jí plán v záložce Třídy.
+          „2×“ = dvouhodinovky (bloky po dvou hodinách za sebou), výchozí podle
+          předmětu. Ročník třídy se zadává v Administraci → Škola → Třídy.
         </p>
         @if (o.grades.length === 0) {
         <p class="text-surface-500">Žádná třída nemá zadaný ročník.</p>
@@ -449,9 +472,16 @@
         } }
         <app-rvp-panel [overview]="o" (changed)="show($event)" />
       </div>
+      }
+    </p-tabpanel>
+
+    <p-tabpanel value="settings">
+      @if (activeSection() === 'settings') {
+      <div class="flex flex-col gap-6 pt-4">
+        <app-periods-editor />
+        <app-teacher-wishes-defaults />
+      </div>
+      }
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>
-} @else {
-<p class="text-surface-500">Škola zatím nemá rozvrh.</p>
-}

@@ -6,8 +6,10 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -51,6 +53,8 @@ import {
   subjectClassroomIds,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { SchoolContextService } from '../school-context';
+import { TimetableVersionSelection } from './timetable-version-selection';
 import { TermPipe } from '../term.pipe';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
@@ -177,6 +181,15 @@ function formatShortDate(date: Date): string {
   templateUrl: './timetable-page.html',
 })
 export class TimetablePage {
+  /** Administrace → Výuka → Rozvrh provides it. There the timetable is
+   * edited and its versions chosen; on its own the page only shows it. */
+  private readonly selection = inject(TimetableVersionSelection, {
+    optional: true,
+  });
+  protected readonly editor = this.selection !== null;
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly schoolContext = inject(SchoolContextService);
   protected readonly notify = inject(NotifyService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly timetableApi = inject(TimetableApiService);
@@ -239,13 +252,17 @@ export class TimetablePage {
   protected readonly selectedStudentId = signal<number | null>(null);
 
   protected readonly weekStart = signal(mondayOf(new Date()));
-  protected readonly editMode = signal(false);
+  protected readonly editMode = computed(
+    () => this.editor && this.canEditShownVersion(),
+  );
 
   /** Published ones for everyone; drafts and archived ones too for whoever
    * may edit the timetable. */
-  protected readonly versions = signal<TimetableVersion[]>([]);
+  protected readonly versions =
+    this.selection?.versions ?? signal<TimetableVersion[]>([]);
   /** null = the published version valid in the displayed week. */
-  protected readonly selectedVersionId = signal<number | null>(null);
+  protected readonly selectedVersionId =
+    this.selection?.versionId ?? signal<number | null>(null);
   protected readonly versionsDialogVisible = signal(false);
   /** The version the entries were last loaded for — undefined while the
    * list of versions wasn't in yet. */
@@ -260,13 +277,6 @@ export class TimetablePage {
       ? this.weekVersion()
       : this.versions().find((v) => v.id === id);
   });
-  protected readonly versionOptions = computed(() => [
-    { label: 'Podle týdne', value: null as number | null },
-    ...this.versions().map((v) => ({
-      label: `${v.name} (${versionStatusLabel(v, toDateOnly(new Date())).label.toLowerCase()})`,
-      value: v.id as number | null,
-    })),
-  ]);
   /** Which version is on screen — shown once there's more than one to tell
    * apart, or always to whoever sees the drafts. */
   protected readonly versionInfo = computed(() => {
@@ -445,22 +455,11 @@ export class TimetablePage {
   );
 
   constructor() {
-    this.loadVersions();
-    const router = inject(Router);
-    inject(ActivatedRoute)
-      .queryParamMap.pipe(takeUntilDestroyed())
-      .subscribe((params) => {
-        const version = Number(params.get('version'));
-        if (!version || params.get('generation') !== 'result') {
-          return;
-        }
-        router.navigate([], { queryParams: {}, replaceUrl: true });
-        this.loadVersions(() => {
-          this.onVersionSelected(version);
-          this.generateShowResult.set(true);
-          this.generateDialogVisible.set(true);
-        });
-      });
+    if (this.selection) {
+      this.openFromAddress(this.selection);
+    } else {
+      this.loadVersions();
+    }
     this.schoolPeriodsApi.getPeriods().subscribe({
       next: (periods) => {
         this.periods.set(periods);
@@ -511,6 +510,64 @@ export class TimetablePage {
         error: (err) => console.error('getStudents failed', err),
       });
     }
+    if (this.selectedTeacherId() !== null) {
+      this.viewMode.set('teacher');
+    } else if (this.selectedClassId() !== null) {
+      this.viewMode.set('class');
+    }
+  }
+
+  /** What the page was showing when it sent here, or the "generated"
+   * notification's version with its result. */
+  private openFromAddress(selection: TimetableVersionSelection): void {
+    const query = this.route.snapshot.queryParamMap;
+    const week = query.get('week');
+    if (week) {
+      this.weekStart.set(mondayOf(new Date(week)));
+    }
+    this.selectedClassId.set(Number(query.get('class')) || null);
+    this.selectedTeacherId.set(Number(query.get('teacher')) || null);
+    const version = Number(query.get('version'));
+    if (version) {
+      selection.versionId.set(version);
+    }
+    if (version && query.get('generation') === 'result') {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { generation: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+      selection.reload(() => {
+        this.generateShowResult.set(true);
+        this.generateDialogVisible.set(true);
+      });
+    }
+    // The list and the choice live above this page: its version changing
+    // shows here.
+    effect(() => {
+      if (selection.loaded()) {
+        selection.versionId();
+        untracked(() => this.reload());
+      }
+    });
+  }
+
+  /** The button of the page on its own: the same week and class or teacher,
+   * in the same version, to edit. */
+  protected openEditor(): void {
+    const version = this.shownVersion()?.id;
+    const mode = this.viewMode();
+    this.router.navigate(this.schoolContext.link('admin'), {
+      queryParams: {
+        group: 'teaching',
+        section: 'timetable',
+        week: toDateOnly(this.weekStart()),
+        ...(version === undefined ? {} : { version }),
+        ...(mode === 'class' ? { class: this.selectedClassId() } : {}),
+        ...(mode === 'teacher' ? { teacher: this.selectedTeacherId() } : {}),
+      },
+    });
   }
 
   private loadSchoolClasses(selectFirst: boolean): void {
@@ -518,7 +575,7 @@ export class TimetablePage {
       next: (classes) => {
         this.schoolClasses.set(classes);
         if (selectFirst) {
-          this.selectedClassId.set(classes[0]?.id ?? null);
+          this.selectedClassId.update((id) => id ?? classes[0]?.id ?? null);
           this.reload();
         }
       },
@@ -534,7 +591,9 @@ export class TimetablePage {
           const me = teachers.find(
             (t) => t.username === this.authApi.getUsername(),
           );
-          this.selectedTeacherId.set(me?.id ?? teachers[0]?.id ?? null);
+          this.selectedTeacherId.update(
+            (id) => id ?? me?.id ?? teachers[0]?.id ?? null,
+          );
           this.reload();
         }
       },
@@ -569,29 +628,22 @@ export class TimetablePage {
   }
 
   private loadVersions(then?: () => void): void {
+    if (this.selection) {
+      this.selection.reload(then);
+      return;
+    }
     this.versionsApi.getVersions().subscribe({
       next: (versions) => {
         this.versions.set(versions);
-        if (!this.canEditShownVersion()) {
-          this.editMode.set(false);
-        }
         then?.();
       },
       error: (err) => console.error('getVersions failed', err),
     });
   }
 
-  protected onVersionSelected(id: number | null): void {
-    this.selectedVersionId.set(id);
-    if (!this.canEditShownVersion()) {
-      this.editMode.set(false);
-    }
-    this.reload();
-  }
-
   protected onShowVersion(id: number): void {
     this.versionsDialogVisible.set(false);
-    this.onVersionSelected(id);
+    this.selectedVersionId.set(id);
   }
 
   /** Publishing or archiving moves where the other versions end. */
@@ -1036,6 +1088,9 @@ export class TimetablePage {
   }
 
   private reload(): void {
+    if (this.selection && !this.selection.loaded()) {
+      return;
+    }
     const selected = this.selectedVersionId();
     const query =
       selected === null

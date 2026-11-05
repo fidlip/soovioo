@@ -1,7 +1,9 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Params, Router } from '@angular/router';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -63,6 +65,21 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { foldForSearch, matchesContact } from '../text-search';
 
+/** The sections each group of Administrace shows itself; Výuka and Archiv
+ * have their own (TeachingTab, Departures). */
+const GROUP_SECTIONS: Record<string, string[]> = {
+  school: [
+    'details',
+    'registry',
+    'classes',
+    'subjects',
+    'classrooms',
+    'people',
+  ],
+  app: ['users', 'roles', 'visibility', 'notifications'],
+  class: ['students', 'parents'],
+};
+
 /** Admin: full access to every tab. ClassTeacher: a Teacher who owns at
  * least one class (SchoolClass.classTeacherId) gets a cut-down page — just
  * their own class's students and parent↔student links, nothing else (see
@@ -108,12 +125,11 @@ import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { PeriodsEditor } from '../periods-editor/periods-editor';
-import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
 import { TeachingTab } from '../teaching/teaching-tab';
+import { canSeeTeachingArea } from '../teaching/teaching-area-access';
 import { PeopleTab } from '../people/people-tab';
 import { RolesTab } from '../roles/roles-tab';
 import { PersonCard } from '../people/person-card';
@@ -147,8 +163,6 @@ import { Loading } from '../loading/loading';
     FloatField,
     DateFormatPipe,
     Loading,
-    PeriodsEditor,
-    TeacherWishesDefaults,
     Checkbox,
     SchoolNotifications,
     VisibilitySettings,
@@ -253,7 +267,57 @@ export class AdminPage {
   protected readonly links = signal<ParentStudentLink[]>([]);
   protected readonly countries = signal<Country[]>([]);
 
-  protected readonly activeTab = signal('classes');
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly query = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap,
+  });
+
+  protected readonly groups = computed(() => {
+    const teaching = { value: 'teaching', label: 'Výuka' };
+    return this.accessLevel() === 'admin'
+      ? [
+          { value: 'school', label: 'Škola' },
+          teaching,
+          { value: 'app', label: 'Aplikace' },
+          { value: 'archive', label: 'Archiv' },
+        ]
+      : [
+          { value: 'class', label: 'Moje třída' },
+          ...(canSeeTeachingArea(this.authApi) ? [teaching] : []),
+        ];
+  });
+  /** The open group and section are in the address: a reload or a link
+   * keeps them. */
+  protected readonly group = computed(() => {
+    const groups = this.groups();
+    const wanted = this.query().get('group');
+    return groups.find((g) => g.value === wanted)?.value ?? groups[0].value;
+  });
+  protected readonly section = computed(() => this.query().get('section'));
+  protected readonly groupSection = computed(() => {
+    const sections = GROUP_SECTIONS[this.group()] ?? [];
+    const wanted = this.section();
+    return wanted !== null && sections.includes(wanted) ? wanted : sections[0];
+  });
+
+  protected openGroup(group: string | number | undefined): void {
+    this.teachingFocus.set(null);
+    this.navigate({ group });
+  }
+
+  protected openSection(section: string | number | undefined | null): void {
+    this.teachingFocus.set(null);
+    this.navigate({ group: this.group(), section });
+  }
+
+  private navigate(queryParams: Params): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      replaceUrl: true,
+    });
+  }
 
   protected readonly newClassDialogVisible = signal(false);
   protected readonly newSubjectDialogVisible = signal(false);
@@ -446,18 +510,14 @@ export class AdminPage {
   protected matrikaCast = '01';
   protected readonly matrikaExportErrors = signal<string[]>([]);
 
-  protected canSeeTeaching(): boolean {
-    return this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
-  }
-
   protected readonly teachingFocus = signal<{
     classId?: number;
     teacherId?: number;
   } | null>(null);
 
   protected showTeaching(focus: { classId?: number; teacherId?: number }) {
+    this.navigate({ group: 'teaching', section: 'classes' });
     this.teachingFocus.set(focus);
-    this.activeTab.set('teaching');
   }
 
   /** A signal, not a plain field — this app has no zone.js polyfill, so a
@@ -467,9 +527,9 @@ export class AdminPage {
 
   constructor() {
     if (this.authApi.isAdmin()) {
-      // accessLevel turns 'admin' only once the first tab's tables have
-      // their data (see adminDataArrived) — rendering the cards empty and
-      // then filling them shoved the lower cards down the page.
+      // accessLevel turns 'admin' only once the school's classes, subjects and
+      // classrooms are in (see adminDataArrived) — rendering the cards empty
+      // and then filling them shoved the lower cards down the page.
       this.reloadAll();
       this.loadMySchool();
       this.loadRoles();
@@ -502,7 +562,6 @@ export class AdminPage {
           return;
         }
         this.accessLevel.set('classTeacher');
-        this.activeTab.set('students');
         this.schoolClasses.set(
           classes.filter((c) => this.ownClassIds.includes(c.id)),
         );
@@ -515,11 +574,11 @@ export class AdminPage {
     });
   }
 
-  /** Without a class of their own, a teacher may still see Přidělení
-   * výuky. */
+  /** Without a class of their own, a teacher may still see Výuka. */
   private denyOrTeaching(): void {
-    this.accessLevel.set(this.canSeeTeaching() ? 'teaching' : 'denied');
-    this.activeTab.set('teaching');
+    this.accessLevel.set(
+      canSeeTeachingArea(this.authApi) ? 'teaching' : 'denied',
+    );
   }
 
   /** Dispatches to whichever reload matches the resolved access level —

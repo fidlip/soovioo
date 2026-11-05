@@ -1,35 +1,36 @@
+@if (editor) { @if (canSeeVersions()) {
+<div class="mb-4 flex flex-wrap gap-2">
+  <p-button
+    label="Verze rozvrhu"
+    icon="pi pi-history"
+    severity="secondary"
+    [outlined]="true"
+    (onClick)="versionsDialogVisible.set(true)"
+  />
+  @if (canGenerate()) {
+  <p-button
+    label="Generovat"
+    icon="pi pi-cog"
+    severity="secondary"
+    [outlined]="true"
+    (onClick)="generateDialogVisible.set(true)"
+  />
+  }
+</div>
+} } @else {
 <div class="mb-6 flex items-center justify-between gap-4">
   <h1 class="mb-0 flex items-center gap-3">
     <app-icon name="timetable" />Rozvrh
   </h1>
   @if (canSeeVersions()) {
-  <div class="flex flex-wrap justify-end gap-2">
-    <p-button
-      label="Verze rozvrhu"
-      icon="pi pi-history"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="versionsDialogVisible.set(true)"
-    />
-    @if (canGenerate()) {
-    <p-button
-      label="Generovat"
-      icon="pi pi-cog"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="generateDialogVisible.set(true)"
-    />
-    } @if (canEditShownVersion()) {
-    <p-button
-      [label]="editMode() ? 'Ukončit úpravy' : 'Upravit rozvrh'"
-      [icon]="editMode() ? 'pi pi-check' : 'pi pi-pencil'"
-      [severity]="editMode() ? 'secondary' : 'primary'"
-      (onClick)="editMode.set(!editMode())"
-    />
-    }
-  </div>
+  <p-button
+    [label]="canManageTimetable() ? 'Upravit rozvrh' : 'Verze rozvrhu'"
+    [icon]="canManageTimetable() ? 'pi pi-pencil' : 'pi pi-history'"
+    (onClick)="openEditor()"
+  />
   }
 </div>
+}
 
 <div class="mb-4 flex flex-wrap items-end gap-3">
   @if (authApi.isStaff()) {
@@ -90,21 +91,6 @@
       name="studentPicker"
       styleClass="w-56"
       [filter]="true"
-      appendTo="body"
-    />
-  </app-float-field>
-  } @if (canSeeVersions()) {
-  <app-float-field label="Verze" for="versionPicker">
-    <p-select
-      ariaLabel="Verze"
-      inputId="versionPicker"
-      [options]="versionOptions()"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="selectedVersionId()"
-      (ngModelChange)="onVersionSelected($event)"
-      name="versionPicker"
-      styleClass="w-56"
       appendTo="body"
     />
   </app-float-field>
@@ -180,7 +166,7 @@
   <div
     #headerScroller
     class="sticky z-[5] overflow-hidden rounded-t-lg"
-    style="top: var(--app-topbar-height)"
+    style="top: calc(var(--app-topbar-height) + var(--sticky-tabs-height, 0px))"
   >
     <table
       class="w-full table-fixed border-collapse text-sm"
@@ -355,7 +341,7 @@
 </div>
 } @else {
 <app-loading />
-} @if (canSeeVersions()) {
+} @if (editor && canSeeVersions()) {
 <app-timetable-versions-dialog
   [visible]="versionsDialogVisible()"
   [canEdit]="canManageTimetable()"
@@ -363,10 +349,9 @@
   [shownVersionId]="shownVersion()?.id ?? null"
   (closed)="versionsDialogVisible.set(false)"
   (changed)="onVersionsChanged()"
-  (published)="selectedVersionId.set(null)"
   (show)="onShowVersion($event)"
 />
-} @if (canGenerate()) {
+} @if (editor && canGenerate()) {
 <app-timetable-generate-dialog
   [visible]="generateDialogVisible()"
   [versionId]="shownVersion()!.id"
