@@ -1,5 +1,8 @@
 import {
   Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -189,6 +192,10 @@ export class StudentGroupsPanel {
 
   protected readonly divisionForm = signal<DivisionForm | null>(null);
   protected readonly groupForm = signal<GroupForm | null>(null);
+  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly injector = inject(Injector);
+  /** Shown once the list has it: the division or group just made. */
+  private scrollTo: string | null = null;
 
   constructor() {
     effect(() => {
@@ -211,7 +218,20 @@ export class StudentGroupsPanel {
 
   private load(versionId: number): void {
     this.teachingApi.getGroups(versionId).subscribe({
-      next: (data) => this.data.set(data),
+      next: (data) => {
+        this.data.set(data);
+        const id = this.scrollTo;
+        this.scrollTo = null;
+        if (id) {
+          afterNextRender(
+            () =>
+              (this.host.nativeElement as HTMLElement)
+                .querySelector(`#${id}`)
+                ?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+            { injector: this.injector },
+          );
+        }
+      },
       error: (err) => this.notify.actionFailed('getGroups failed', err),
     });
   }
@@ -367,7 +387,12 @@ export class StudentGroupsPanel {
       form.id === null
         ? this.teachingApi.createDivision(versionId, request)
         : this.teachingApi.updateDivision(versionId, form.id, request),
-      () => this.divisionForm.set(null),
+      (d) => {
+        this.divisionForm.set(null);
+        if (form.id === null) {
+          this.scrollTo = `division-${d.id}`;
+        }
+      },
     );
   }
 
@@ -454,7 +479,12 @@ export class StudentGroupsPanel {
       form.id === null
         ? this.teachingApi.createGroup(versionId, request)
         : this.teachingApi.updateGroup(versionId, form.id, request),
-      () => this.groupForm.set(null),
+      (g) => {
+        this.groupForm.set(null);
+        if (form.id === null) {
+          this.scrollTo = `group-${g.id}`;
+        }
+      },
     );
   }
 
@@ -472,13 +502,13 @@ export class StudentGroupsPanel {
     });
   }
 
-  private run(request: Observable<unknown>, done?: () => void): void {
+  private run<T>(request: Observable<T>, done?: (result: T) => void): void {
     this.notify.clear();
     this.busy.set(true);
     request.subscribe({
-      next: () => {
+      next: (result) => {
         this.busy.set(false);
-        done?.();
+        done?.(result);
         this.load(this.versionId());
         this.changed.emit();
       },

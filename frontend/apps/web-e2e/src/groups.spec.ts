@@ -85,6 +85,7 @@ test.describe.serial('student groups', () => {
       .filter({ hasText: GROUP });
     await expect(row).toContainText('Anglický jazyk');
     await expect(row).toContainText('V rozvrhu chybí 1 h.');
+    await expect(row).toBeInViewport();
   });
 
   test('admin gives the group a lesson in Rozvrh', async ({ page }) => {
@@ -233,6 +234,9 @@ test('a division teaches a row of the učební plán', async ({ page }) => {
   await dialog.getByRole('spinbutton', { name: 'Hodiny týdně' }).fill('1');
   await dialog.getByRole('button', { name: 'Uložit' }).click();
   await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole('region', { name: 'Dělení Volba e2e' }),
+  ).toBeInViewport();
 
   await page.getByRole('button', { name: 'Upravit dělení Volba e2e' }).click();
   const edit = page.getByRole('dialog', { name: 'Upravit dělení' });
