@@ -55,7 +55,12 @@
     předmět a ročník podle nasmlouvaných hodin. Hodina jen v lichém nebo sudém
     týdnu se počítá jako 0,5 h.
   </p>
-  @if (problemCount() > 0) {
+  @if (o.canEditMembers && !o.canEdit && activeSection() !== 'groups') {
+  <p class="mb-4 text-sm text-surface-500" data-testid="teaching-read-only">
+    Verze je zveřejněná, učební plán a přidělení výuky jdou měnit jen v
+    konceptu.
+  </p>
+  } @if (problemCount() > 0) {
   <p-message severity="warn" styleClass="mb-4">
     Ke kontrole: {{ problemCount() }}
   </p-message>
@@ -365,7 +370,8 @@
       @if (shownOverview(); as o) {
       <app-student-groups
         [versionId]="o.versionId"
-        [canEdit]="o.canEdit"
+        [canEdit]="o.canEditMembers"
+        [membersOnly]="!o.canEdit"
         [rows]="o.groups"
         [subjects]="subjects()"
         [teachers]="teachers()"

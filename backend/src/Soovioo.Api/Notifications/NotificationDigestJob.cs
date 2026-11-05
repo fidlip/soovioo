@@ -105,7 +105,11 @@ public class NotificationDigestJob(
             var title = Html.Encode(item.Title);
             if (origin is not null)
             {
-                var query = item.Page == "messages" && item.TargetId is { } id ? $"?conversation={id}" : "";
+                var query = item.TargetId is not { } id
+                    ? ""
+                    : item.Page == "messages"
+                        ? $"?conversation={id}"
+                        : item.Type == NotificationType.TimetableChange ? $"?version={id}&change=start" : "";
                 title = $"""<a href="{origin}/{item.Page}{query}">{title}</a>""";
             }
             html.Append($"<li><strong>{title}</strong>");

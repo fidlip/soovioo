@@ -173,6 +173,18 @@ export class TeachingApiService {
     );
   }
 
+  /** Also in a published version, unlike the rest of the group. */
+  updateGroupMembers(
+    versionId: number,
+    id: number,
+    studentIds: number[],
+  ): Observable<StudentGroup> {
+    return this.http.put<StudentGroup>(
+      `${this.url(versionId)}/groups/${id}/members`,
+      { studentIds },
+    );
+  }
+
   updateGroup(
     versionId: number,
     id: number,

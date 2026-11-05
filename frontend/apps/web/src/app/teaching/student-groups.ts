@@ -102,6 +102,8 @@ export class StudentGroupsPanel {
 
   readonly versionId = input.required<number>();
   readonly canEdit = input(false);
+  /** A published version: of a group only who's in it. */
+  readonly membersOnly = input(false);
   /** The plan and přidělení of each group. */
   readonly rows = input<TeachingGroup[]>([]);
   readonly subjects = input<Subject[]>([]);
@@ -113,6 +115,10 @@ export class StudentGroupsPanel {
   readonly problemsOnly = input(false);
   /** Something changed: the plan's checks need loading again. */
   readonly changed = output<void>();
+
+  protected readonly canEditWhole = computed(
+    () => this.canEdit() && !this.membersOnly(),
+  );
 
   protected readonly data = signal<StudentGroups>({
     divisions: [],
@@ -457,6 +463,17 @@ export class StudentGroupsPanel {
 
   protected saveGroup(form: GroupForm): void {
     if (form.subjectId === null) {
+      return;
+    }
+    if (this.membersOnly() && form.id !== null) {
+      this.run(
+        this.teachingApi.updateGroupMembers(
+          this.versionId(),
+          form.id,
+          form.studentIds,
+        ),
+        () => this.groupForm.set(null),
+      );
       return;
     }
     const subject = this.subjects().find((s) => s.id === form.subjectId);

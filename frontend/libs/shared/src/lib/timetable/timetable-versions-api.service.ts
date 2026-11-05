@@ -70,8 +70,15 @@ export class TimetableVersionsApiService {
     });
   }
 
-  publishVersion(id: number): Observable<TimetableVersion> {
-    return this.http.post<TimetableVersion>(`${this.url}/${id}/publish`, {});
+  /** Those it concerns hear about it right away (null), or this many days
+   * before it starts. */
+  publishVersion(
+    id: number,
+    notifyDaysBefore: number | null = null,
+  ): Observable<TimetableVersion> {
+    return this.http.post<TimetableVersion>(`${this.url}/${id}/publish`, {
+      notifyDaysBefore,
+    });
   }
 
   /** What's wrong with the timetable — shown before publishing it. */

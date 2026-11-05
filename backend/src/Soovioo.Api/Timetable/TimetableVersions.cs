@@ -37,8 +37,11 @@ public static class TimetableVersions
 
     public static string SchoolYearName(DateOnly start) => $"Rozvrh {start.Year}/{(start.Year + 1) % 100:00}";
 
+    public const string PublishedReadOnly =
+        "Zveřejněnou verzi rozvrhu nejde upravovat. Změnu připravte v novém konceptu, naplánované verzi můžete zveřejnění zrušit.";
+
     /// <summary>The version valid on <paramref name="day"/>. A school that has
-    /// no published version yet gets one from the start of the school year,
+    /// no published version yet gets a draft from the start of the school year,
     /// so its first lessons have somewhere to go.</summary>
     public static async Task<TimetableVersion?> EnsureTimetableVersionOnAsync(
         this AppDbContext db, int schoolId, DateOnly day, DateTimeOffset now)
@@ -50,15 +53,23 @@ public static class TimetableVersions
             return version;
         }
 
+        var draft = await db.TimetableVersions
+            .Where(v => v.Status == TimetableVersionStatus.Draft)
+            .OrderByDescending(v => v.ValidFrom).ThenByDescending(v => v.Id)
+            .FirstOrDefaultAsync();
+        if (draft is not null)
+        {
+            return draft;
+        }
+
         var start = SchoolYearStart(day);
         version = new TimetableVersion
         {
             SchoolId = schoolId,
             Name = SchoolYearName(start),
             ValidFrom = start,
-            Status = TimetableVersionStatus.Published,
+            Status = TimetableVersionStatus.Draft,
             CreatedAt = now,
-            PublishedAt = now,
         };
         db.TimetableVersions.Add(version);
         await db.SaveChangesAsync();

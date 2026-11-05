@@ -135,6 +135,11 @@
     [class.dark:bg-surface-800]="!info.draft"
     >{{ info.status.label }}</span
   >
+  @if (info.readOnly) {
+  <span data-testid="timetable-version-read-only"
+    >Zveřejněná verze se neupravuje — změnu připravte v novém konceptu.</span
+  >
+  }
 </p>
 } @if (viewMode() === 'teacher' && teachingSummary(); as summary) {
 <p

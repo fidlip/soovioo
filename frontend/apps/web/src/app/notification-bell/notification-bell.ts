@@ -21,6 +21,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   Event: 'pi-calendar',
   Photo: 'pi-image',
   Timetable: 'pi-cog',
+  TimetableChange: 'pi-table',
 };
 
 /** The bell's popover with the notifications — a click opens the thing
@@ -82,7 +83,11 @@ export class NotificationBell {
       this.markRead(notification);
     }
     this.popover().hide();
-    if (notification.page === 'timetable' && notification.targetId) {
+    if (
+      notification.page === 'timetable' &&
+      notification.targetId &&
+      notification.type !== 'TimetableChange'
+    ) {
       this.router.navigate(this.schoolContext.link('admin'), {
         queryParams: {
           group: 'teaching',
@@ -97,7 +102,9 @@ export class NotificationBell {
       queryParams:
         notification.targetId && notification.page === 'messages'
           ? { conversation: notification.targetId }
-          : {},
+          : notification.type === 'TimetableChange' && notification.targetId
+            ? { version: notification.targetId, change: 'start' }
+            : {},
     });
   }
 

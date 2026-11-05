@@ -7,7 +7,12 @@
     (seminář, volitelný předmět) má hodiny kdykoli, jen ne v době jiných hodin
     svých žáků.
   </p>
-  @if (canEdit()) {
+  @if (canEdit() && membersOnly()) {
+  <p class="m-0 text-sm text-surface-500" data-testid="groups-members-only">
+    Verze je zveřejněná, měnit jde jen žáky ve skupinách. Rodina žáka, kterého
+    se změna týká, dostane večer upozornění.
+  </p>
+  } @if (canEditWhole()) {
   <div class="flex flex-wrap gap-2">
     <p-button
       label="Nové dělení"
@@ -38,7 +43,7 @@
         hoursLabel(d.division.hoursPerWeek, divisionGroupIds(d.division.id)) }}
         @if (d.division.doubleLessons) { · dvouhodinovky }</span
       >
-      @if (canEdit()) {
+      @if (canEditWhole()) {
       <p-button
         icon="pi pi-pencil"
         [text]="true"
@@ -60,7 +65,7 @@
     <ng-container
       *ngTemplateOutlet="groupTable; context: { $implicit: d.groups, division: d.division }"
     />
-    @if (canEdit() && !filtered()) {
+    @if (canEditWhole() && !filtered()) {
     <p-button
       label="Přidat skupinu do dělení"
       icon="pi pi-plus"
@@ -139,6 +144,7 @@
               [ariaLabel]="'Upravit skupinu ' + g.name"
               (onClick)="editGroup(g)"
             />
+            @if (canEditWhole()) {
             <p-button
               icon="pi pi-trash"
               [text]="true"
@@ -147,6 +153,7 @@
               [ariaLabel]="'Smazat skupinu ' + g.name"
               (onClick)="deleteGroup(g)"
             />
+            }
           </td>
           }
         </tr>
@@ -266,12 +273,13 @@
 <p-dialog
   [visible]="groupForm() !== null"
   (visibleChange)="!$event && groupForm.set(null)"
-  [header]="groupForm()?.id === null ? 'Nová skupina' : 'Upravit skupinu'"
+  [header]="membersOnly() ? 'Žáci skupiny ' + groupForm()?.name : groupForm()?.id === null ? 'Nová skupina' : 'Upravit skupinu'"
   [modal]="true"
   styleClass="w-full max-w-xl"
 >
   @if (groupForm(); as form) {
   <form class="flex flex-col gap-4 pt-2" (ngSubmit)="saveGroup(form)">
+    @if (!membersOnly()) {
     <app-float-field label="Název" for="groupName">
       <input
         pInputText
@@ -374,6 +382,7 @@
         appendTo="body"
       />
     </app-float-field>
+    }
     <app-float-field label="Žáci" for="groupStudents">
       <p-multiselect
         ariaLabel="Žáci"

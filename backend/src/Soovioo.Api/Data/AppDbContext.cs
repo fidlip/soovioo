@@ -35,6 +35,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<GroupDivision> GroupDivisions => Set<GroupDivision>();
     public DbSet<StudentGroupClass> StudentGroupClasses => Set<StudentGroupClass>();
     public DbSet<StudentGroupMember> StudentGroupMembers => Set<StudentGroupMember>();
+    public DbSet<TimetableGroupChange> TimetableGroupChanges => Set<TimetableGroupChange>();
     public DbSet<TimetableGeneration> TimetableGenerations => Set<TimetableGeneration>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -332,6 +333,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 .HasForeignKey(x => x.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.SchoolClass).WithMany()
                 .HasForeignKey(x => x.SchoolClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<TimetableGroupChange>(e =>
+        {
+            e.HasKey(x => new { x.StudentGroupId, x.StudentId });
+            e.HasOne(x => x.StudentGroup).WithMany()
+                .HasForeignKey(x => x.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany()
+                .HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<StudentGroupMember>(e =>

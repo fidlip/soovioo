@@ -10,11 +10,13 @@ namespace Soovioo.Api.Timetable;
 
 /// <summary>Groups of pupils and divisions of a timetable version (see
 /// <see cref="StudentGroup"/>). A change of pupils that would put one in two
-/// lessons at once, or a group in a classroom it doesn't fit in, is refused.</summary>
+/// lessons at once, or a group in a classroom it doesn't fit in, is refused.
+/// Only a draft's groups change as a whole; a published version's just their
+/// pupils, while it applies or is to apply.</summary>
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions/{versionId:int}")]
-public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
     [HttpGet("groups")]
     public async Task<ActionResult<GroupsDto>> GetGroups(int versionId)
@@ -191,6 +193,49 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         return Ok(ToDto(group));
     }
 
+    /// <summary>A pupil joins or leaves mid-year: their family hears about it
+    /// at the day's end.</summary>
+    [HttpPut("groups/{id:int}/members")]
+    [RequirePermission(Permission.Teaching)]
+    public async Task<ActionResult<StudentGroupDto>> UpdateGroupMembers(int versionId, int id, SaveGroupMembersRequest request)
+    {
+        var version = await db.TimetableVersions.FindAsync(versionId);
+        if (version is null)
+        {
+            return NotFound();
+        }
+        if (version.Status == TimetableVersionStatus.Archived)
+        {
+            return BadRequest("Archivovanou verzi rozvrhu nejde upravovat.");
+        }
+        if (version.ValidTo < SchoolClock.Today(clock))
+        {
+            return BadRequest("Verzi rozvrhu, která už neplatí, nejde upravovat.");
+        }
+        var group = await db.StudentGroups.Include(g => g.Classes).Include(g => g.Members)
+            .FirstOrDefaultAsync(g => g.Id == id && g.TimetableVersionId == versionId);
+        if (group is null)
+        {
+            return NotFound();
+        }
+        var division = group.GroupDivisionId is { } divisionId
+            ? await db.GroupDivisions.FirstOrDefaultAsync(d => d.Id == divisionId)
+            : null;
+        var studentIds = request.StudentIds.Distinct().ToList();
+        var classIds = division?.ClassIds ?? [.. group.Classes.Select(c => c.SchoolClassId)];
+        if (await MembersErrorAsync(group, division, classIds, studentIds) is { } problem)
+        {
+            return BadRequest(problem);
+        }
+
+        var before = group.Members.Select(m => m.StudentId).ToList();
+        SetMembers(group, studentIds);
+        await db.SaveChangesAsync();
+        await new TimetableChangeNotice(db, clock).RecordGroupChangesAsync(
+            version, group, [.. studentIds.Except(before)], [.. before.Except(studentIds)]);
+        return Ok(ToDto(group));
+    }
+
     /// <summary>With its lessons; not one with homework.</summary>
     [HttpDelete("groups/{id:int}")]
     [RequirePermission(Permission.Teaching)]
@@ -296,6 +341,42 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         }
 
         var studentIds = request.StudentIds.Distinct().ToList();
+        if (await MembersErrorAsync(group, division, classIds, studentIds) is { } membersError)
+        {
+            return membersError;
+        }
+
+        if (group.SubjectId != 0 && group.SubjectId != request.SubjectId)
+        {
+            foreach (var entry in await db.TimetableEntries.Where(e => e.StudentGroupId == group.Id).ToListAsync())
+            {
+                entry.SubjectId = request.SubjectId;
+            }
+        }
+        group.Name = request.Name.Trim();
+        group.SubjectId = request.SubjectId;
+        group.HoursPerWeek = hours;
+        group.DoubleLessons = blocks;
+        group.TeacherId = request.TeacherId;
+        group.ClassroomId = request.ClassroomId;
+        group.GroupDivisionId = division?.Id;
+        await SetClassesAsync(group, classIds);
+        SetMembers(group, studentIds);
+        return null;
+    }
+
+    private static void SetMembers(StudentGroup group, List<int> studentIds)
+    {
+        group.Members.RemoveAll(m => !studentIds.Contains(m.StudentId));
+        foreach (var id in studentIds.Where(id => group.Members.All(m => m.StudentId != id)))
+        {
+            group.Members.Add(new StudentGroupMember { SchoolId = group.SchoolId, StudentId = id });
+        }
+    }
+
+    private async Task<string?> MembersErrorAsync(
+        StudentGroup group, GroupDivision? division, IReadOnlyList<int> classIds, List<int> studentIds)
+    {
         var students = await db.Students.Where(s => studentIds.Contains(s.Id))
             .Select(s => new Pupil(s.Id, s.SchoolClassId, s.Person!.FirstName, s.Person.LastName))
             .ToListAsync();
@@ -363,27 +444,6 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
             }
         }
 
-        if (group.SubjectId != 0 && group.SubjectId != request.SubjectId)
-        {
-            foreach (var entry in await db.TimetableEntries.Where(e => e.StudentGroupId == group.Id).ToListAsync())
-            {
-                entry.SubjectId = request.SubjectId;
-            }
-        }
-        group.Name = request.Name.Trim();
-        group.SubjectId = request.SubjectId;
-        group.HoursPerWeek = hours;
-        group.DoubleLessons = blocks;
-        group.TeacherId = request.TeacherId;
-        group.ClassroomId = request.ClassroomId;
-        group.GroupDivisionId = division?.Id;
-        await SetClassesAsync(group, classIds);
-
-        group.Members.RemoveAll(m => !studentIds.Contains(m.StudentId));
-        foreach (var id in studentIds.Where(id => group.Members.All(m => m.StudentId != id)))
-        {
-            group.Members.Add(new StudentGroupMember { SchoolId = group.SchoolId, StudentId = id });
-        }
         return null;
     }
 
@@ -439,6 +499,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         var version = await db.TimetableVersions.FindAsync(versionId);
         return version is null ? (null, NotFound())
             : version.Status == TimetableVersionStatus.Archived ? (null, BadRequest("Archivovanou verzi rozvrhu nejde upravovat."))
+            : version.Status == TimetableVersionStatus.Published ? (null, BadRequest(TimetableVersions.PublishedReadOnly))
             : (version, null);
     }
 }
@@ -454,6 +515,8 @@ public record StudentGroupDto(
     int? ClassroomId, IReadOnlyList<int> ClassIds, IReadOnlyList<int> StudentIds);
 
 public record GroupsDto(IReadOnlyList<GroupDivisionDto> Divisions, IReadOnlyList<StudentGroupDto> Groups);
+
+public record SaveGroupMembersRequest(IReadOnlyList<int> StudentIds);
 
 /// <param name="ClassIds">Classes of its groups.</param>
 /// <param name="HoursPerWeek">Null = as the učební plán of its classes has its groups' subjects.</param>
