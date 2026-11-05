@@ -40,6 +40,9 @@
       styleClass="w-48"
     />
   </app-float-field>
+  @if (filterStudentId !== null || filterStatus !== null) {
+  <app-clear-filters (cleared)="clearFilters()" />
+  }
 </div>
 
 @if (missedSummary(); as summary) { @if (summary.total > 0 || summary.wholeDays

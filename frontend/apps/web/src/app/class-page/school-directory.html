@@ -36,6 +36,9 @@
       appendTo="body"
     />
   </app-float-field>
+  @if (search.trim() || kind() !== null || classId() !== null) {
+  <app-clear-filters (cleared)="clearFilters()" />
+  }
 </div>
 
 @if (directory(); as d) {

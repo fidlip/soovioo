@@ -40,7 +40,7 @@ import {
   teachingDaysLabel,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
-import { FloatField } from '../forms';
+import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
@@ -63,6 +63,7 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
   imports: [
     Button,
     Checkbox,
+    ClearFilters,
     FloatField,
     FormsModule,
     InputNumber,

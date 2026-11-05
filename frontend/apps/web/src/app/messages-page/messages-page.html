@@ -13,20 +13,25 @@
     [class.md:flex]="selected() !== null || selectedBroadcast() !== null"
     aria-label="Konverzace"
   >
-    <app-float-field label="Stav" for="readFilter">
-      <p-select
-        inputId="readFilter"
-        [options]="readFilterOptions"
-        optionLabel="label"
-        optionValue="value"
-        [ngModel]="readFilter()"
-        (ngModelChange)="readFilter.set($event)"
-        name="readFilter"
-        ariaLabel="Stav"
-        styleClass="w-40"
-        appendTo="body"
-      />
-    </app-float-field>
+    <div class="flex flex-wrap items-end gap-2">
+      <app-float-field label="Stav" for="readFilter">
+        <p-select
+          inputId="readFilter"
+          [options]="readFilterOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="readFilter()"
+          (ngModelChange)="readFilter.set($event)"
+          name="readFilter"
+          ariaLabel="Stav"
+          styleClass="w-40"
+          appendTo="body"
+        />
+      </app-float-field>
+      @if (readFilter() !== 'all') {
+      <app-clear-filters (cleared)="readFilter.set('all')" />
+      }
+    </div>
     <ul class="m-0 flex list-none flex-col gap-1 p-0">
       @for (c of visibleConversations(); track c.broadcastId ? 'b' +
       c.broadcastId : c.id) {

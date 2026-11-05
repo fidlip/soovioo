@@ -1,5 +1,5 @@
-/** Minimal name-only parent record for pickers (e.g. the parent↔student link
- * form), fetched by any authenticated school member — unlike the full
+/** Minimal parent record for pickers (e.g. the parent↔student link form),
+ * fetched by any authenticated school member — unlike the full
  * `AppUser` from `UsersApiService`, which is Admin-only. */
 export interface Parent {
   id: number;
@@ -9,4 +9,7 @@ export interface Parent {
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */
   photo?: string | null;
+  /** Only for the class teacher of the parent's child. */
+  phone?: string | null;
+  email?: string | null;
 }

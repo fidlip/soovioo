@@ -28,7 +28,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
-import { FloatField } from '../forms';
+import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -45,6 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-logs-page',
   imports: [
+    ClearFilters,
     FloatField,
     AppIcon,
     AutoComplete,

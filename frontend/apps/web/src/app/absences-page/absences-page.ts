@@ -28,7 +28,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 
 const STATUS_SEVERITY: Record<
@@ -81,6 +81,7 @@ export function formatPeriods(periods: number[]): string {
 @Component({
   selector: 'app-absences-page',
   imports: [
+    ClearFilters,
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
@@ -302,6 +303,11 @@ export class AbsencesPage {
 
   protected statusLabel(status: AbsenceStatus): string {
     return STATUS_LABEL[status];
+  }
+
+  protected clearFilters(): void {
+    this.filterStudentId = null;
+    this.filterStatus = null;
   }
 
   protected filteredAbsences(): Absence[] {

@@ -113,13 +113,7 @@
       />
     </app-float-field>
     @if (hasFilters()) {
-    <p-button
-      label="Zrušit filtry"
-      icon="pi pi-filter-slash"
-      size="small"
-      [text]="true"
-      (onClick)="clearFilters()"
-    />
+    <app-clear-filters (cleared)="clearFilters()" />
     }
   </div>
 

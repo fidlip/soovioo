@@ -40,6 +40,9 @@
       styleClass="w-48"
     />
   </app-float-field>
+  @if (filterStudentId() !== null || filterSubjectId() !== null) {
+  <app-clear-filters (cleared)="clearFilters()" />
+  }
 
   <div class="flex flex-wrap items-end gap-3 md:ml-auto">
     @if (students().length > 1) {

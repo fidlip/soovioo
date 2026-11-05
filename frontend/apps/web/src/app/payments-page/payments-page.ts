@@ -33,7 +33,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 
 type AudienceOption = { value: PaymentAudience; label: string };
@@ -90,6 +90,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    ClearFilters,
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
@@ -145,6 +146,12 @@ export class PaymentsPage {
   protected readonly paidFilter = signal<PaidFilter>('all');
   protected readonly classFilter = signal<number | null>(null);
   protected readonly studentFilter = signal<number | null>(null);
+
+  protected clearFilters(): void {
+    this.paidFilter.set('all');
+    this.classFilter.set(null);
+    this.studentFilter.set(null);
+  }
 
   /** Students appearing in the payments (works for parents too, who have
    * no recipient options) — for the "Žák" filter. */

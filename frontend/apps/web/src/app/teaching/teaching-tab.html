@@ -124,13 +124,7 @@
       Jen ke kontrole
     </label>
     @if (filtered()) {
-    <p-button
-      label="Zrušit filtry"
-      icon="pi pi-filter-slash"
-      [text]="true"
-      severity="secondary"
-      (onClick)="clearFilters()"
-    />
+    <app-clear-filters (cleared)="clearFilters()" />
     }
   </div>
 

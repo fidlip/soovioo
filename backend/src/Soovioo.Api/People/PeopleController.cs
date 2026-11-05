@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable;
 using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.People;
@@ -290,14 +291,20 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
         var userIds = people.Where(p => p.UserId != null).Select(p => p.UserId!.Value).ToList();
         var classTeacherOf = (await db.SchoolClasses
                 .Where(c => c.ClassTeacherId != null && userIds.Contains(c.ClassTeacherId.Value))
-                .Select(c => new { TeacherId = c.ClassTeacherId!.Value, c.Name })
+                .Select(c => new { TeacherId = c.ClassTeacherId!.Value, c.Id, c.Name })
                 .ToListAsync())
-            .ToLookup(c => c.TeacherId, c => c.Name);
+            .ToLookup(c => c.TeacherId);
+        var teaches = (await db.TimetableEntriesOn()
+                .Where(e => e.TeacherId != null && userIds.Contains(e.TeacherId.Value))
+                .Select(e => new { TeacherId = e.TeacherId!.Value, e.SchoolClassId })
+                .Distinct()
+                .ToListAsync())
+            .ToLookup(e => e.TeacherId, e => e.SchoolClassId);
         var childIds = people.SelectMany(p => p.ParentProfile?.Children.Select(c => c.StudentId) ?? []).Distinct().ToList();
-        var childNames = await db.Students
+        var children = await db.Students
             .Where(s => childIds.Contains(s.Id))
-            .Select(s => new { s.Id, Name = s.Person!.FirstName + " " + s.Person.LastName })
-            .ToDictionaryAsync(s => s.Id, s => s.Name);
+            .Select(s => new { s.Id, Name = s.Person!.FirstName + " " + s.Person.LastName, s.SchoolClassId })
+            .ToDictionaryAsync(s => s.Id);
 
         Dictionary<int, string> userPhotos = [];
         Dictionary<int, string> studentPhotos = [];
@@ -322,12 +329,14 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
                         t.Qualifications.OrderBy(q => q.Subject?.Name).Select(QualificationDto.Of).ToList(),
                         t.QualificationNote, t.ContractedHours, t.TeachingDays, t.Availability,
                         t.FreeDays, t.MinLessonsPerDay, t.MaxLessonsPerDay, t.MaxGapsPerDay,
-                        p.UserId is { } teacherId ? classTeacherOf[teacherId].ToList() : [])
+                        p.UserId is { } teacherId ? classTeacherOf[teacherId].Select(c => c.Name).ToList() : [],
+                        p.UserId is { } ledBy ? classTeacherOf[ledBy].Select(c => c.Id).ToList() : [],
+                        p.UserId is { } taughtBy ? teaches[taughtBy].ToList() : [])
                     : null,
                 p.ParentProfile is { } pp
                     ? new ParentProfileDto(pp.Children
-                        .Where(c => childNames.ContainsKey(c.StudentId))
-                        .Select(c => new PersonChildDto(c.StudentId, childNames[c.StudentId]))
+                        .Where(c => children.ContainsKey(c.StudentId))
+                        .Select(c => new PersonChildDto(c.StudentId, children[c.StudentId].Name, children[c.StudentId].SchoolClassId))
                         .OrderBy(c => c.Name)
                         .ToList())
                     : null,
@@ -386,6 +395,7 @@ public record PersonAccountDto(int UserId, string Username, IReadOnlyList<RoleRe
 
 /// <param name="Qualification">The aprobace as text, e.g. "D 6.–9., Čj".</param>
 /// <param name="ClassTeacherOf">Classes whose class teacher the person's account is.</param>
+/// <param name="TeachesClassIds">Classes with a lesson of theirs in today's timetable.</param>
 public record TeacherProfileDto(
     string? Qualification,
     IReadOnlyList<QualificationDto> Qualifications,
@@ -397,8 +407,10 @@ public record TeacherProfileDto(
     int? MinLessonsPerDay,
     int? MaxLessonsPerDay,
     int? MaxGapsPerDay,
-    IReadOnlyList<string> ClassTeacherOf);
+    IReadOnlyList<string> ClassTeacherOf,
+    IReadOnlyList<int> ClassTeacherOfIds,
+    IReadOnlyList<int> TeachesClassIds);
 
 public record ParentProfileDto(IReadOnlyList<PersonChildDto> Children);
 
-public record PersonChildDto(int StudentId, string Name);
+public record PersonChildDto(int StudentId, string Name, int SchoolClassId);

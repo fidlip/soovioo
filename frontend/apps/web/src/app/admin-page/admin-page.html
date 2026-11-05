@@ -46,6 +46,9 @@
             appendTo="body"
           />
         </app-float-field>
+        @if (hasStudentFilters()) {
+        <app-clear-filters (cleared)="clearStudentFilters()" />
+        }
       </div>
       <p-button
         [label]="'Nový student' | term"
@@ -142,19 +145,51 @@
       >Rodiče<app-info-hint
         text="Rodičovské účty se vytvářejí v záložce Uživatelé — tady se jen přiřazují jejich děti."
     /></ng-template>
-    @if (accessLevel() === 'classTeacher') {
-    <!-- Admin's list already shows every parent account; a class teacher's
-         only those linked to their class, so they need a way to add one. -->
-    <div class="mb-3 flex justify-end">
+    <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+      <div class="flex flex-wrap items-end gap-2">
+        <app-float-field label="Jméno" for="filterParentName">
+          <input
+            id="filterParentName"
+            pInputText
+            type="text"
+            [(ngModel)]="filterParentName"
+            name="filterParentName"
+          />
+        </app-float-field>
+        <app-float-field label="Dítě" for="filterParentChild">
+          <input
+            id="filterParentChild"
+            pInputText
+            type="text"
+            [(ngModel)]="filterParentChild"
+            name="filterParentChild"
+          />
+        </app-float-field>
+        <app-float-field label="Kontakt" for="filterParentContact">
+          <input
+            id="filterParentContact"
+            pInputText
+            type="text"
+            [(ngModel)]="filterParentContact"
+            name="filterParentContact"
+          />
+        </app-float-field>
+        @if (hasParentFilters()) {
+        <app-clear-filters (cleared)="clearParentFilters()" />
+        }
+      </div>
+      @if (accessLevel() === 'classTeacher') {
+      <!-- Admin's list already shows every parent account; a class teacher's
+           only those linked to their class, so they need a way to add one. -->
       <p-button
         label="Přidat"
         icon="pi pi-plus"
         size="small"
         (onClick)="openAssignParentDialog()"
       />
+      }
     </div>
-    }
-    <p-table [value]="visibleParents()" dataKey="id" styleClass="mb-4">
+    <p-table [value]="filteredParents()" dataKey="id" styleClass="mb-4">
       <ng-template pTemplate="header">
         <tr>
           <th>Jméno</th>
@@ -782,6 +817,8 @@
                   <app-people-tab
                     #peopleTab
                     [roles]="schoolRoles()"
+                    [classes]="schoolClasses()"
+                    [subjects]="subjects()"
                     (createAccount)="openCreateAccountFor($event)"
                     (changed)="reload()"
                     (showTeaching)="showTeaching({ teacherId: $event })"
@@ -866,6 +903,9 @@
                             appendTo="body"
                           />
                         </app-float-field>
+                        @if (hasUserFilters()) {
+                        <app-clear-filters (cleared)="clearUserFilters()" />
+                        }
                       </div>
                       <p-button
                         label="Nový uživatel"

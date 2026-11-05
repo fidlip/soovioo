@@ -16,7 +16,7 @@ import {
 } from '@soovioo/shared';
 import { Subject, debounceTime } from 'rxjs';
 import { Avatar } from '../avatar/avatar';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 
 /** Lidé → Škola: everyone at the school as far as their "Viditelnost
@@ -25,6 +25,7 @@ import { Loading } from '../loading/loading';
 @Component({
   selector: 'app-school-directory',
   imports: [
+    ClearFilters,
     FloatField,
     ...FORM_FIELDS,
     FormsModule,
@@ -87,6 +88,13 @@ export class SchoolDirectoryList {
 
   protected setClass(classId: number | null): void {
     this.classId.set(classId);
+    this.reload(1);
+  }
+
+  protected clearFilters(): void {
+    this.search = '';
+    this.kind.set(null);
+    this.classId.set(null);
     this.reload(1);
   }
 
