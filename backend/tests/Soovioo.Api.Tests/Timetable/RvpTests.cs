@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
@@ -67,6 +68,66 @@ public class RvpTests
         Assert.NotNull(RvpCatalog.Find("ZV2025"));
         Assert.NotNull(RvpCatalog.Find("G4"));
         Assert.Equal(271, RvpCatalog.Programs.Count(p => p.Family == "SOV"));
+    }
+
+    [Fact]
+    public void Elementary_schools_get_only_elementary_programs_and_secondary_the_rest()
+    {
+        Assert.Equal(["ZV2021", "ZV2025"], RvpCatalog.For(SchoolType.Elementary).Select(p => p.Code));
+        var secondary = RvpCatalog.For(SchoolType.Secondary).Select(p => p.Code).ToList();
+        Assert.Contains("G4", secondary);
+        Assert.Contains("ZV2025-G8", secondary);
+        Assert.Contains("16-01-M/01", secondary);
+        Assert.DoesNotContain("ZV2025", secondary);
+    }
+
+    private School AddSchool(SchoolType type)
+    {
+        var school = new School { Id = SchoolId, Name = "Škola", Slug = "skola", Type = type };
+        db.Schools.Add(school);
+        db.SaveChanges();
+        return school;
+    }
+
+    [Theory]
+    [InlineData(SchoolType.Elementary, "ZV2025", "G4")]
+    [InlineData(SchoolType.Secondary, "G4", "ZV2025")]
+    public async Task A_class_takes_only_a_program_of_its_school_type(SchoolType type, string fits, string doesNot)
+    {
+        AddSchool(type);
+        var controller = new SchoolClassesController(db, new FakeCurrentSchoolContext(SchoolId));
+
+        Assert.IsType<CreatedAtActionResult>((await controller.AddSchoolClass(new CreateSchoolClassRequest("1.A", 1, RvpProgramCode: fits))).Result);
+        Assert.IsType<BadRequestObjectResult>((await controller.AddSchoolClass(new CreateSchoolClassRequest("1.B", 1, RvpProgramCode: doesNot))).Result);
+        var schoolClass = await db.SchoolClasses.SingleAsync();
+        Assert.IsType<BadRequestObjectResult>((await controller.UpdateSchoolClass(schoolClass.Id, new CreateSchoolClassRequest("1.A", 1, RvpProgramCode: doesNot))).Result);
+        Assert.IsType<BadRequestObjectResult>((await controller.UpdateSchoolClass(schoolClass.Id, new CreateSchoolClassRequest("1.A", 1, RvpProgramCode: "nic"))).Result);
+    }
+
+    [Fact]
+    public async Task The_endpoint_offers_programs_of_the_school_type()
+    {
+        AddSchool(SchoolType.Elementary);
+        var result = await new RvpProgramsController(db, new FakeCurrentSchoolContext(SchoolId)).GetPrograms();
+        var programs = Assert.IsAssignableFrom<IEnumerable<RvpProgramOptionDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(["ZV2021", "ZV2025"], programs.Select(p => p.Code));
+    }
+
+    [Fact]
+    public async Task Changing_the_school_type_clears_programs_not_of_it()
+    {
+        AddSchool(SchoolType.Secondary);
+        var gymnasium = Class("1.A", 1, "G4");
+        var lower = Class("1.B", 1, "ZV2025-G8");
+        var none = Class("1.C", 1, null);
+
+        await new MySchoolController(db, new FakeCurrentSchoolContext(SchoolId)).SetType(new SetSchoolTypeRequest(SchoolType.Secondary));
+        Assert.Equal("G4", gymnasium.RvpProgramCode);
+
+        await new MySchoolController(db, new FakeCurrentSchoolContext(SchoolId)).SetType(new SetSchoolTypeRequest(SchoolType.Elementary));
+        Assert.Null(gymnasium.RvpProgramCode);
+        Assert.Null(lower.RvpProgramCode);
+        Assert.Null(none.RvpProgramCode);
     }
 
     [Theory]
