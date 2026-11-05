@@ -133,6 +133,8 @@ test.describe.serial('student groups', () => {
     await openNav(page, 'Rozvrh');
     await page.locator('p-select[name="classPicker"]').click();
     await page.getByRole('option', { name: '5.A', exact: true }).click();
-    await expect(cell(page, slot.day, slot.period)).not.toContainText(GROUP);
+    // A period without lessons isn't shown at all: the whole grid then.
+    await expect(page.locator('tbody td[data-period]').first()).toBeVisible();
+    await expect(page.locator('tbody')).not.toContainText(GROUP);
   });
 });
