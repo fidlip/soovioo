@@ -9,6 +9,8 @@ using Soovioo.Api.Demo;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable;
+using Soovioo.Api.Timetable.Rvp;
 using Soovioo.Api.Tests.Auth;
 
 namespace Soovioo.Api.Tests.Demo;
@@ -73,6 +75,31 @@ public class DemoTests
             Options.Create(new DemoOptions { MaxActive = 3 }),
             new FakeClock(now ?? Now),
             NullLogger<DemoSchoolService>.Instance);
+
+    [Theory]
+    [InlineData(SchoolType.Elementary, "ZV2021")]
+    [InlineData(SchoolType.Secondary, "G4")]
+    public async Task ClassesHaveAProgramOfTheSchoolTypeAndTheirPlanMeetsIt(SchoolType type, string program)
+    {
+        var name = Guid.NewGuid().ToString();
+        int schoolId;
+        using (var generating = NewDb(name: name))
+        {
+            schoolId = (await GenerateAsync(generating, type, perGrade: 1)).School.Id;
+        }
+
+        using var db = NewDb(name, schoolId);
+        Assert.All(await db.SchoolClasses.ToListAsync(), c => Assert.Equal(program, c.RvpProgramCode));
+        var version = await db.TimetableVersions.SingleAsync();
+        var plan = await TeachingPlan.LoadAsync(db, version);
+        // The timetable holds all the plan has.
+        Assert.All(plan.Classes.SelectMany(c => c.Rows), r => Assert.Equal(r.PlanHours ?? 0, r.TimetableHours));
+        var check = await RvpCheck.LoadAsync(db, plan);
+        var programCheck = Assert.Single(check.Programs);
+        Assert.Empty(programCheck.Problems);
+        Assert.All(programCheck.Stages, s => Assert.Empty(s.MissingGrades));
+        Assert.Empty(check.ClassesWithout);
+    }
 
     [Fact]
     public async Task GeneratesAFullElementarySchool()

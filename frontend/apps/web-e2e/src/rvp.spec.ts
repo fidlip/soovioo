@@ -61,6 +61,26 @@ const REVISED = 'Základní vzdělávání (revidovaný RVP ZV)';
 test.describe.serial('RVP', () => {
   const name = `E2E RVP ${Date.now()}`;
 
+  test('a základní škola is offered only its programs', async ({ page }) => {
+    await login(page);
+    await openNav(page, 'Administrace');
+    await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+    await page
+      .getByRole('row')
+      .filter({ hasText: '5.A' })
+      .getByRole('button', { name: 'Upravit' })
+      .click();
+    const select = page
+      .getByRole('dialog', { name: 'Upravit třídu' })
+      .getByRole('combobox', { name: 'Vzdělávací program (RVP)' });
+    await select.click();
+    const list = page.locator(`#${await select.getAttribute('aria-controls')}`);
+    await expect(list.getByRole('option')).toHaveText([
+      'Základní vzdělávání (dosavadní RVP ZV)',
+      'Základní vzdělávání (revidovaný RVP ZV)',
+    ]);
+  });
+
   test('a draft of a class with a program is filled and checked', async ({
     page,
   }) => {
