@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import {
   ActivatedRouteSnapshot,
   CanActivateChildFn,
+  RedirectCommand,
   Router,
 } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
@@ -10,7 +11,8 @@ import { SchoolLookupService } from './school-lookup.service';
 
 /** Every subdomain has a valid (wildcard) certificate, so a mistyped or
  * deleted school would otherwise land on a login form nobody can use —
- * send it to "škola neexistuje" instead. Fails open when the API can't be
+ * show "škola neexistuje" instead — under the typed address, so a typo
+ * can be fixed in place. Fails open when the API can't be
  * reached: the pages then report the error themselves. */
 export const schoolExistsGuard: CanActivateChildFn = (
   route: ActivatedRouteSnapshot,
@@ -29,9 +31,12 @@ export const schoolExistsGuard: CanActivateChildFn = (
       map((school) =>
         school
           ? true
-          : router.createUrlTree(['/', 'school-not-found'], {
-              queryParams: { slug },
-            }),
+          : new RedirectCommand(
+              router.createUrlTree(['/', 'school-not-found'], {
+                queryParams: { slug },
+              }),
+              { skipLocationChange: true },
+            ),
       ),
       catchError(() => of(true)),
     );
