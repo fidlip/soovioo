@@ -105,12 +105,12 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .OrderBy(c => c.Name)
             .Select(c => new PaymentSchoolClassOptionDto(c.Id, c.Name, c.Rocnik))
             .ToListAsync();
+        var myStudentIds = await User.ClassStudentIdsAsync(db, Permission.PaymentsWrite) ?? [];
         var myStudents = await db.Students
-            .Where(s => myClassIds.Contains(s.SchoolClassId))
+            .Where(s => myStudentIds.Contains(s.Id))
             .OrderBy(s => s.Person!.LastName)
             .Select(s => new PaymentStudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name))
             .ToListAsync();
-        var myStudentIds = myStudents.Select(s => s.Id).ToList();
         var myParents = await db.ParentStudents
             .Where(ps => myStudentIds.Contains(ps.StudentId) && ps.ParentProfile!.Person!.UserId != null)
             .Select(ps => ps.ParentProfile!.Person!.User!)
@@ -302,11 +302,10 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             return new AllowedRecipientIds(classIds.ToHashSet(), parentIds.ToHashSet(), studentIds.ToHashSet());
         }
 
-        var myStudentIds = await db.Students
-            .Where(s => myClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).ToListAsync();
+        var myStudentIds = await User.ClassStudentIdsAsync(db, Permission.PaymentsWrite) ?? [];
         var myParentIds = await db.ParentStudents
             .Where(ps => myStudentIds.Contains(ps.StudentId)).ParentAccountLinks().Select(l => l.UserId).Distinct().ToListAsync();
-        return new AllowedRecipientIds(myClassIds, myParentIds.ToHashSet(), myStudentIds.ToHashSet());
+        return new AllowedRecipientIds(myClassIds, myParentIds.ToHashSet(), myStudentIds);
     }
 
     private void SetRecipientTargets(Payment payment, CreatePaymentRequest request)

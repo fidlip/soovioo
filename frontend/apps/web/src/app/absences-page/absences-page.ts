@@ -18,8 +18,10 @@ import {
   SchoolPeriod,
   SchoolPeriodsApiService,
   Student,
+  StudentReach,
   StudentsApiService,
   TimetableApiService,
+  reachesStudent,
   TimetableEntry,
   weekParityOf,
 } from '@soovioo/shared';
@@ -116,6 +118,13 @@ export class AbsencesPage {
     })),
   );
 
+  /** Whom AbsencesWrite reaches — the dialog offers only them (a teacher:
+   * pupils of their classes and groups). */
+  private readonly reach = signal<StudentReach | null>(null);
+  protected readonly dialogStudentOptions = computed(() =>
+    this.studentOptions().filter((s) => reachesStudent(this.reach(), s.id)),
+  );
+
   protected excuseDrafts: Record<number, string> = {};
 
   /** null = "all" — separate from the dialog fields below, which drive the
@@ -138,27 +147,25 @@ export class AbsencesPage {
   /** Missed periods picked in the dialog (see `dayPeriods`). */
   protected readonly newPeriods = signal<number[]>([]);
   protected readonly schoolPeriods = signal<SchoolPeriod[]>([]);
-  /** Timetable of the dialog's student's class on the dialog's date (the
-   * version valid then), cached per class and date. */
-  private readonly classTimetables = signal<Record<string, TimetableEntry[]>>(
+  /** Timetable of the dialog's student (their class's lessons and their
+   * groups') on the dialog's date (the version valid then), cached per
+   * student and date. */
+  private readonly studentTimetables = signal<Record<string, TimetableEntry[]>>(
     {},
   );
   private readonly dialogStudentId = signal<number | null>(null);
   private readonly dialogDate = signal(new Date());
 
   /** The school's periods for the dialog's date, each with the lesson the
-   * student's class has then (by timetable, incl. odd/even weeks) — the
+   * student has then (by timetable, incl. odd/even weeks) — the
    * chips to pick missed periods from. */
   protected readonly dayPeriods = computed(() => {
-    const student = this.students().find(
-      (s) => s.id === this.dialogStudentId(),
-    );
+    const studentId = this.dialogStudentId();
     const date = this.dialogDate();
-    const entries = student
-      ? (this.classTimetables()[
-          this.timetableKey(student.schoolClassId, date)
-        ] ?? [])
-      : [];
+    const entries =
+      studentId !== null
+        ? (this.studentTimetables()[this.timetableKey(studentId, date)] ?? [])
+        : [];
     const day = DAYS_BY_INDEX[date.getDay()];
     const parity = weekParityOf(date);
     return this.schoolPeriods().map((period) => {
@@ -207,6 +214,10 @@ export class AbsencesPage {
       error: (err) => console.error('getStudents failed', err),
     });
     if (this.canManageAbsences()) {
+      this.studentsApi.getReach('AbsencesWrite').subscribe({
+        next: (reach) => this.reach.set(reach),
+        error: (err) => console.error('getReach failed', err),
+      });
       this.schoolPeriodsApi.getPeriods().subscribe({
         next: (periods) => this.schoolPeriods.set(periods),
         error: (err) => console.error('getPeriods failed', err),
@@ -226,7 +237,7 @@ export class AbsencesPage {
     );
   }
 
-  /** Student or date changed in the dialog: load that class's timetable if
+  /** Student or date changed in the dialog: load their timetable if
    * needed, then (unless editing) preselect every period with a lesson. */
   protected onDialogStudentOrDateChange(preselect = true): void {
     this.dialogStudentId.set(this.newStudentId);
@@ -245,18 +256,19 @@ export class AbsencesPage {
       }
     };
     const date = this.dialogDate();
-    const key = this.timetableKey(student.schoolClassId, date);
-    if (this.classTimetables()[key]) {
+    const key = this.timetableKey(student.id, date);
+    if (this.studentTimetables()[key]) {
       select();
       return;
     }
     this.timetableApi
       .getTimetable(student.schoolClassId, {
         date: this.toDateOnlyString(date),
+        studentId: student.id,
       })
       .subscribe({
         next: (entries) => {
-          this.classTimetables.update((m) => ({
+          this.studentTimetables.update((m) => ({
             ...m,
             [key]: entries,
           }));
@@ -369,8 +381,8 @@ export class AbsencesPage {
     });
   }
 
-  private timetableKey(schoolClassId: number, date: Date): string {
-    return `${schoolClassId}|${this.toDateOnlyString(date)}`;
+  private timetableKey(studentId: number, date: Date): string {
+    return `${studentId}|${this.toDateOnlyString(date)}`;
   }
 
   /** Local (not UTC) y-m-d — `toISOString().slice(0, 10)` converts through

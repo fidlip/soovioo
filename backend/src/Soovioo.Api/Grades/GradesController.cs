@@ -156,12 +156,11 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         return NoContent();
     }
 
-    /// <summary>The pupil's class and the subject within the caller's
+    /// <summary>The pupil and the subject within the caller's
     /// <see cref="Permission.GradesWrite"/> (by default: a teacher grades
-    /// what they teach).</summary>
-    private async Task<bool> MayGradeAsync(int studentId, int subjectId) =>
-        await db.Students.Where(s => s.Id == studentId).Select(s => (int?)s.SchoolClassId).FirstOrDefaultAsync() is { } classId
-        && await User.ReachesClassSubjectAsync(db, Permission.GradesWrite, classId, subjectId);
+    /// what they teach the pupil — in the class or the pupil's group).</summary>
+    private Task<bool> MayGradeAsync(int studentId, int subjectId) =>
+        User.ReachesStudentSubjectAsync(db, Permission.GradesWrite, studentId, subjectId);
 }
 
 /// <param name="GradedOn">Omitted = today on create, unchanged on update.</param>

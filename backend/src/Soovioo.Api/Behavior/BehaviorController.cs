@@ -71,7 +71,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
             return BadRequest("Neznámý žák.");
         }
 
-        if (!await CanRecordTypeAsync(request.Type, student.SchoolClassId))
+        if (!await CanRecordTypeAsync(request.Type, student.Id))
         {
             return Forbid();
         }
@@ -108,7 +108,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         var student = await db.Students.FindAsync(record.StudentId);
-        if (student is null || !await CanRecordTypeAsync(record.Type, student.SchoolClassId))
+        if (student is null || !await CanRecordTypeAsync(record.Type, student.Id))
         {
             return Forbid();
         }
@@ -155,7 +155,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         var permission = request.Value == BehaviorClassificationValue.VelmiDobre
             ? Permission.BehaviorClassTeacher
             : Permission.BehaviorDirector;
-        if (!await User.ReachesClassAsync(db, permission, student.SchoolClassId))
+        if (!await User.ReachesStudentAsync(db, permission, student.Id))
         {
             return Forbid();
         }
@@ -191,13 +191,13 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(dto);
     }
 
-    private async Task<bool> CanRecordTypeAsync(BehaviorRecordType type, int schoolClassId) =>
-        await User.ReachesClassAsync(db, type switch
+    private async Task<bool> CanRecordTypeAsync(BehaviorRecordType type, int studentId) =>
+        await User.ReachesStudentAsync(db, type switch
         {
             BehaviorRecordType.Pochvala or BehaviorRecordType.Poznamka => Permission.BehaviorPraise,
             BehaviorRecordType.NapomenutiTridnihoUcitele or BehaviorRecordType.DutkaTridnihoUcitele => Permission.BehaviorClassTeacher,
             _ => Permission.BehaviorDirector,
-        }, schoolClassId);
+        }, studentId);
 }
 
 public record CreateBehaviorRecordRequest(int StudentId, BehaviorRecordType Type, string Text, DateOnly Date);

@@ -113,7 +113,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         return Ok(new GroupDivisionDto(division.Id, division.Name, division.HoursPerWeek, division.DoubleLessons, request.ClassIds));
     }
 
-    /// <summary>With its groups and their lessons.</summary>
+    /// <summary>With its groups and their lessons; not one with a group with homework.</summary>
     [HttpDelete("divisions/{id:int}")]
     [RequirePermission(Permission.Teaching)]
     public async Task<IActionResult> DeleteDivision(int versionId, int id)
@@ -129,6 +129,10 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
             return NotFound();
         }
         var groupIds = await db.StudentGroups.Where(g => g.GroupDivisionId == id).Select(g => g.Id).ToListAsync();
+        if (await db.Homework.AnyAsync(h => h.StudentGroupId != null && groupIds.Contains(h.StudentGroupId.Value)))
+        {
+            return BadRequest(HasHomework);
+        }
         db.TimetableEntries.RemoveRange(db.TimetableEntries.Where(e => e.StudentGroupId != null && groupIds.Contains(e.StudentGroupId.Value)));
         db.StudentGroups.RemoveRange(db.StudentGroups.Where(g => g.GroupDivisionId == id));
         db.GroupDivisions.Remove(division);
@@ -185,7 +189,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         return Ok(ToDto(group));
     }
 
-    /// <summary>With its lessons.</summary>
+    /// <summary>With its lessons; not one with homework.</summary>
     [HttpDelete("groups/{id:int}")]
     [RequirePermission(Permission.Teaching)]
     public async Task<IActionResult> DeleteGroup(int versionId, int id)
@@ -200,11 +204,17 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         {
             return NotFound();
         }
+        if (await db.Homework.AnyAsync(h => h.StudentGroupId == id))
+        {
+            return BadRequest(HasHomework);
+        }
         db.TimetableEntries.RemoveRange(db.TimetableEntries.Where(e => e.StudentGroupId == id));
         db.StudentGroups.Remove(group);
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    private const string HasHomework = "Skupina má domácí úkoly, smazat ji nejde.";
 
     private async Task<string?> DivisionErrorAsync(SaveGroupDivisionRequest request)
     {

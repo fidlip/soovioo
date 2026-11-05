@@ -182,30 +182,31 @@
     #gradeForm="ngForm"
     (ngSubmit)="saveGrade()"
   >
-    <app-float-field [label]="'Žák' | term" for="gradeStudent">
+    <app-float-field label="Předmět" for="gradeSubject">
       <p-select
-        [ariaLabel]="'Žák' | term"
-        inputId="gradeStudent"
-        [options]="studentOptions()"
-        optionLabel="label"
+        ariaLabel="Předmět"
+        inputId="gradeSubject"
+        [options]="dialogSubjects()"
+        optionLabel="name"
         optionValue="id"
-        [(ngModel)]="newStudentId"
-        name="gradeStudent"
+        [ngModel]="newSubjectId"
+        (ngModelChange)="onDialogSubjectChange($event)"
+        name="gradeSubject"
         required
         appendTo="body"
         styleClass="w-full"
       />
     </app-float-field>
 
-    <app-float-field label="Předmět" for="gradeSubject">
+    <app-float-field [label]="'Žák' | term" for="gradeStudent">
       <p-select
-        ariaLabel="Předmět"
-        inputId="gradeSubject"
-        [options]="subjects()"
-        optionLabel="name"
+        [ariaLabel]="'Žák' | term"
+        inputId="gradeStudent"
+        [options]="dialogStudentOptions()"
+        optionLabel="label"
         optionValue="id"
-        [(ngModel)]="newSubjectId"
-        name="gradeSubject"
+        [(ngModel)]="newStudentId"
+        name="gradeStudent"
         required
         appendTo="body"
         styleClass="w-full"

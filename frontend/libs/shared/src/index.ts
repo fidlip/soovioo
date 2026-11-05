@@ -6,6 +6,7 @@ export * from './lib/grades/grade.model';
 export * from './lib/grades/grades-api.service';
 export * from './lib/grades/report-card-api.service';
 export * from './lib/evidence/student.model';
+export * from './lib/evidence/student-reach';
 export * from './lib/evidence/subject.model';
 export * from './lib/evidence/classroom.model';
 export * from './lib/evidence/school-class.model';

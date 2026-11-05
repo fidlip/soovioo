@@ -423,8 +423,8 @@ public class ConversationsController(
     {
         var classId = await db.Students.Where(s => s.Id == studentId).Select(s => s.SchoolClassId).FirstAsync();
         var classTeacherId = await db.SchoolClasses.Where(c => c.Id == classId).Select(c => c.ClassTeacherId).FirstOrDefaultAsync();
-        var teaching = await db.TimetableEntriesOn()
-            .Where(t => t.SchoolClassId == classId && t.TeacherId != null)
+        var teaching = await db.TimetableEntriesOn().LessonsOf(db, studentId)
+            .Where(t => t.TeacherId != null)
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.Subject!.Name })
             .Distinct()
             .ToListAsync();

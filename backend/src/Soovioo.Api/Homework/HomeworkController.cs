@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
 
@@ -16,123 +17,169 @@ public class HomeworkController(
     AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage,
     Notifier notifier) : ControllerBase
 {
-    /// <summary>Unscoped, like GET /api/grades — Teacher/Admin see every
-    /// homework item in the school (client-side filters by class/subject),
-    /// Parent/Student only the ones actually assigned to an accessible
-    /// student of theirs.</summary>
+    /// <summary>Staff see their classes' and groups' homework (client-side
+    /// filters by class/subject), Parent/Student only the ones actually
+    /// assigned to an accessible student of theirs.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<HomeworkDto>>> GetHomework()
     {
         var allowedStudentIds = await User.StudentIdsAsync(db, Permission.HomeworkRead);
 
-        var query = db.Homework.AsQueryable();
-        if (User.IsStaff() && await User.ClassIdsAsync(db, Permission.HomeworkRead) is { } classIds)
-        {
-            // Staff see their classes' homework, pupils or not.
-            query = query.Where(h => classIds.Contains(h.SchoolClassId));
-        }
-        else if (allowedStudentIds is not null)
-        {
-            query = query.Where(h =>
-                (h.Students.Count == 0 &&
-                    db.Students.Any(s => s.SchoolClassId == h.SchoolClassId && allowedStudentIds.Contains(s.Id)))
-                || h.Students.Any(hs => allowedStudentIds.Contains(hs.StudentId)));
-        }
-
-        var homework = await query
+        var rows = await (await User.VisibleHomeworkAsync(db))
             .OrderByDescending(h => h.DueDate)
-            .Select(h => new HomeworkDto(
+            .Select(h => new
+            {
                 h.Id,
                 h.SchoolClassId,
-                h.SchoolClass!.Name,
+                ClassName = h.SchoolClass == null ? null : h.SchoolClass.Name,
+                h.StudentGroupId,
+                GroupName = h.StudentGroup == null ? null : h.StudentGroup.Name,
+                GroupClasses = h.StudentGroup == null
+                    ? null
+                    : h.StudentGroup.Classes.OrderBy(c => c.SchoolClass!.Name).Select(c => new { c.SchoolClassId, c.SchoolClass!.Name }).ToList(),
                 h.SubjectId,
-                h.Subject!.Name,
+                SubjectName = h.Subject!.Name,
                 h.Subject!.Abbreviation,
                 h.Text,
                 h.DueDate,
                 h.RequiresCompletion,
                 h.CreatedByName,
                 h.CreatedAt,
-                h.Students.Select(s => s.StudentId).ToList(),
-                h.Attachments.Select(a => new HomeworkAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList(),
-                h.Completions
+                StudentIds = h.Students.Select(s => s.StudentId).ToList(),
+                GroupStudentIds = h.StudentGroup == null
+                    ? null
+                    : h.StudentGroup.Members
+                        .Where(m => allowedStudentIds == null || allowedStudentIds.Contains(m.StudentId))
+                        .Select(m => m.StudentId)
+                        .ToList(),
+                Attachments = h.Attachments.Select(a => new HomeworkAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList(),
+                Completed = h.Completions
                     .Where(c => allowedStudentIds == null || allowedStudentIds.Contains(c.StudentId))
                     .Select(c => c.StudentId)
-                    .ToList()))
+                    .ToList(),
+            })
             .ToListAsync();
 
-        return Ok(homework);
+        return Ok(rows.Select(h => new HomeworkDto(
+            h.Id,
+            h.SchoolClassId,
+            h.GroupClasses is { } classes ? GroupLabel(h.GroupName!, classes.Select(c => c.Name)) : h.ClassName!,
+            h.SubjectId,
+            h.SubjectName,
+            h.Abbreviation,
+            h.Text,
+            h.DueDate,
+            h.RequiresCompletion,
+            h.CreatedByName,
+            h.CreatedAt,
+            h.StudentIds,
+            h.Attachments,
+            h.Completed,
+            h.StudentGroupId,
+            h.GroupClasses?.Select(c => c.SchoolClassId).ToList() ?? [h.SchoolClassId!.Value],
+            h.GroupStudentIds)));
     }
+
+    /// <summary>"Nj (7.A, 7.B)" — as the teacher's timetable names a group's lesson.</summary>
+    private static string GroupLabel(string group, IEnumerable<string> classes) => $"{group} ({string.Join(", ", classes)})";
+
+    /// <summary>The class (and its listed pupils) or the group (and its
+    /// listed members) the request is for; an error otherwise.</summary>
+    private async Task<(Target? Target, string? Error)> TargetAsync(CreateHomeworkRequest request)
+    {
+        var subject = await db.Subjects.FindAsync(request.SubjectId);
+        if (subject is null)
+        {
+            return (null, "Neznámý předmět.");
+        }
+        var studentIds = (request.StudentIds ?? []).Distinct().ToList();
+        if (request.StudentGroupId is { } groupId)
+        {
+            var group = await db.StudentGroups.Include(g => g.Classes).ThenInclude(c => c.SchoolClass)
+                .FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group is null)
+            {
+                return (null, "Neznámá skupina.");
+            }
+            if (group.SubjectId != subject.Id)
+            {
+                return (null, "Skupina má jiný předmět.");
+            }
+            if (studentIds.Count > 0
+                && await db.StudentGroupMembers.CountAsync(m => m.StudentGroupId == groupId && studentIds.Contains(m.StudentId)) != studentIds.Count)
+            {
+                return (null, "Všichni vybraní žáci musí patřit do skupiny.");
+            }
+            var label = GroupLabel(group.Name, group.Classes.Select(c => c.SchoolClass!.Name).Order());
+            return (new Target(null, group.Id, label, [.. group.Classes.Select(c => c.SchoolClassId)], subject, studentIds), null);
+        }
+
+        var schoolClass = request.SchoolClassId is { } classId ? await db.SchoolClasses.FindAsync(classId) : null;
+        if (schoolClass is null)
+        {
+            return (null, "Neznámá třída.");
+        }
+        if (studentIds.Count > 0
+            && await db.Students.CountAsync(s => studentIds.Contains(s.Id) && s.SchoolClassId == schoolClass.Id) != studentIds.Count)
+        {
+            return (null, "Všichni vybraní žáci musí patřit do zadané třídy.");
+        }
+        return (new Target(schoolClass.Id, null, schoolClass.Name, [schoolClass.Id], subject, studentIds), null);
+    }
+
+    private sealed record Target(
+        int? SchoolClassId, int? StudentGroupId, string Label, List<int> ClassIds, Subject Subject, List<int> StudentIds);
 
     [HttpPost]
     [RequirePermission(Permission.HomeworkWrite)]
     public async Task<ActionResult<HomeworkDto>> CreateHomework(CreateHomeworkRequest request)
     {
-        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
-        if (schoolClass is null)
+        var (target, error) = await TargetAsync(request);
+        if (target is null)
         {
-            return BadRequest("Neznámá třída.");
+            return BadRequest(error);
         }
-
-        var subject = await db.Subjects.FindAsync(request.SubjectId);
-        if (subject is null)
-        {
-            return BadRequest("Neznámý předmět.");
-        }
-
-        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, request.SchoolClassId, request.SubjectId))
+        if (!await User.MayWriteHomeworkAsync(db, target.SchoolClassId, target.StudentGroupId, target.Subject.Id))
         {
             return Forbid();
-        }
-
-        var studentIds = request.StudentIds ?? [];
-        if (studentIds.Count > 0)
-        {
-            var matchingCount = await db.Students
-                .CountAsync(s => studentIds.Contains(s.Id) && s.SchoolClassId == request.SchoolClassId);
-            if (matchingCount != studentIds.Distinct().Count())
-            {
-                return BadRequest("Všichni vybraní žáci musí patřit do zadané třídy.");
-            }
         }
 
         var schoolId = currentSchool.SchoolId!.Value;
         var homework = new Homework
         {
-            SchoolClassId = request.SchoolClassId,
-            SubjectId = request.SubjectId,
+            SchoolClassId = target.SchoolClassId,
+            StudentGroupId = target.StudentGroupId,
+            SubjectId = target.Subject.Id,
             Text = request.Text,
             DueDate = request.DueDate,
             RequiresCompletion = request.RequiresCompletion,
             CreatedByName = User.Identity?.Name ?? "Neznámý uživatel",
             SchoolId = schoolId,
-            Students = studentIds.Select(id => new HomeworkStudent { StudentId = id, SchoolId = schoolId }).ToList(),
+            Students = target.StudentIds.Select(id => new HomeworkStudent { StudentId = id, SchoolId = schoolId }).ToList(),
         };
 
         db.Homework.Add(homework);
         await db.SaveChangesAsync();
 
-        var targetIds = studentIds.Count > 0
-            ? studentIds
-            : await db.Students.Where(s => s.SchoolClassId == request.SchoolClassId).Select(s => s.Id).ToListAsync();
+        var targetIds = await db.TargetStudentIdsAsync(target.SchoolClassId, target.StudentGroupId, target.StudentIds);
         var families = await notifier.FamiliesAsync(targetIds);
         await notifier.AddAsync(schoolId, families
             .SelectMany(f => f.Value.Select(userId => new NotificationDraft(
-                userId, NotificationType.Homework, $"Nový domácí úkol — {subject.Name}",
+                userId, NotificationType.Homework, $"Nový domácí úkol — {target.Subject.Name}",
                 Notifier.Preview($"{homework.Text} (do {SchoolFormat.Date(homework.DueDate)})"),
                 "homework", homework.Id, f.Key)))
             .ToList());
         await db.SaveChangesAsync();
 
         var dto = new HomeworkDto(
-            homework.Id, homework.SchoolClassId, schoolClass.Name, homework.SubjectId, subject.Name, subject.Abbreviation,
+            homework.Id, homework.SchoolClassId, target.Label, homework.SubjectId, target.Subject.Name, target.Subject.Abbreviation,
             homework.Text, homework.DueDate, homework.RequiresCompletion, homework.CreatedByName, homework.CreatedAt,
-            studentIds, [], []);
+            target.StudentIds, [], [], homework.StudentGroupId, target.ClassIds);
         return CreatedAtAction(nameof(GetHomework), dto);
     }
 
     /// <summary>Same ownership rule as creating it, checked for both the
-    /// current and the new class+subject. Moving it to another class drops
+    /// current and the new class / group. Moving it elsewhere drops
     /// completions and targets that don't belong there anymore.</summary>
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.HomeworkWrite)]
@@ -148,20 +195,14 @@ public class HomeworkController(
             return NotFound();
         }
 
-        var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
-        if (schoolClass is null)
+        var (target, error) = await TargetAsync(request);
+        if (target is null)
         {
-            return BadRequest("Neznámá třída.");
+            return BadRequest(error);
         }
 
-        var subject = await db.Subjects.FindAsync(request.SubjectId);
-        if (subject is null)
-        {
-            return BadRequest("Neznámý předmět.");
-        }
-
-        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, homework.SchoolClassId, homework.SubjectId)
-            || !await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, request.SchoolClassId, request.SubjectId))
+        if (!await User.MayWriteHomeworkAsync(db, homework.SchoolClassId, homework.StudentGroupId, homework.SubjectId)
+            || !await User.MayWriteHomeworkAsync(db, target.SchoolClassId, target.StudentGroupId, target.Subject.Id))
         {
             return Forbid();
         }
@@ -171,19 +212,10 @@ public class HomeworkController(
             return this.FieldError("text", "Zadání je povinné.");
         }
 
-        var studentIds = (request.StudentIds ?? []).Distinct().ToList();
-        if (studentIds.Count > 0)
-        {
-            var matchingCount = await db.Students
-                .CountAsync(s => studentIds.Contains(s.Id) && s.SchoolClassId == request.SchoolClassId);
-            if (matchingCount != studentIds.Count)
-            {
-                return BadRequest("Všichni vybraní žáci musí patřit do zadané třídy.");
-            }
-        }
-
-        homework.SchoolClassId = request.SchoolClassId;
-        homework.SubjectId = request.SubjectId;
+        var studentIds = target.StudentIds;
+        homework.SchoolClassId = target.SchoolClassId;
+        homework.StudentGroupId = target.StudentGroupId;
+        homework.SubjectId = target.Subject.Id;
         homework.Text = request.Text;
         homework.DueDate = request.DueDate;
         homework.RequiresCompletion = request.RequiresCompletion;
@@ -195,19 +227,18 @@ public class HomeworkController(
         }
 
         // Completions only make sense for students the homework still targets.
-        var targetIds = studentIds.Count > 0
-            ? studentIds
-            : await db.Students.Where(s => s.SchoolClassId == request.SchoolClassId).Select(s => s.Id).ToListAsync();
+        var targetIds = await db.TargetStudentIdsAsync(target.SchoolClassId, target.StudentGroupId, studentIds);
         homework.Completions.RemoveAll(c => !targetIds.Contains(c.StudentId) || !request.RequiresCompletion);
 
         await db.SaveChangesAsync();
 
         return Ok(new HomeworkDto(
-            homework.Id, homework.SchoolClassId, schoolClass.Name, homework.SubjectId, subject.Name, subject.Abbreviation,
+            homework.Id, homework.SchoolClassId, target.Label, homework.SubjectId, target.Subject.Name, target.Subject.Abbreviation,
             homework.Text, homework.DueDate, homework.RequiresCompletion, homework.CreatedByName, homework.CreatedAt,
             studentIds,
             homework.Attachments.Select(a => new HomeworkAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList(),
-            homework.Completions.Select(c => c.StudentId).ToList()));
+            homework.Completions.Select(c => c.StudentId).ToList(),
+            homework.StudentGroupId, target.ClassIds));
     }
 
     /// <summary>A separate step after CreateHomework, same reasoning as
@@ -222,7 +253,7 @@ public class HomeworkController(
         {
             return NotFound();
         }
-        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, homework.SchoolClassId, homework.SubjectId))
+        if (!await User.MayWriteHomeworkAsync(db, homework.SchoolClassId, homework.StudentGroupId, homework.SubjectId))
         {
             return Forbid();
         }
@@ -296,7 +327,7 @@ public class HomeworkController(
 
         var homework = await db.Homework
             .Where(h => h.Id == id)
-            .Select(h => new { h.SchoolClassId, h.RequiresCompletion, StudentIds = h.Students.Select(s => s.StudentId).ToList() })
+            .Select(h => new { h.SchoolClassId, h.StudentGroupId, h.RequiresCompletion, StudentIds = h.Students.Select(s => s.StudentId).ToList() })
             .FirstOrDefaultAsync();
         if (homework is null)
         {
@@ -307,10 +338,7 @@ public class HomeworkController(
             return BadRequest("Tento úkol nevyžaduje potvrzení splnění.");
         }
 
-        var isTargeted = homework.StudentIds.Count > 0
-            ? homework.StudentIds.Contains(request.StudentId)
-            : await db.Students.AnyAsync(s => s.Id == request.StudentId && s.SchoolClassId == homework.SchoolClassId);
-        if (!isTargeted)
+        if (!(await db.TargetStudentIdsAsync(homework.SchoolClassId, homework.StudentGroupId, homework.StudentIds)).Contains(request.StudentId))
         {
             return BadRequest("Žák nemá tento úkol zadaný.");
         }
@@ -340,7 +368,7 @@ public class HomeworkController(
             return NotFound();
         }
 
-        if (!await User.ReachesClassSubjectAsync(db, Permission.HomeworkWrite, homework.SchoolClassId, homework.SubjectId))
+        if (!await User.MayWriteHomeworkAsync(db, homework.SchoolClassId, homework.StudentGroupId, homework.SubjectId))
         {
             return Forbid();
         }
@@ -358,21 +386,28 @@ public class HomeworkController(
     }
 }
 
+/// <param name="StudentGroupId">Homework of a group instead of a class
+/// (<paramref name="SchoolClassId"/> is then left out); the subject is the
+/// group's.</param>
 public record CreateHomeworkRequest(
-    int SchoolClassId,
+    int? SchoolClassId,
     int SubjectId,
     string Text,
     DateOnly DueDate,
     bool RequiresCompletion,
-    List<int>? StudentIds = null);
+    List<int>? StudentIds = null,
+    int? StudentGroupId = null);
 
 public record MarkHomeworkCompleteRequest(int StudentId);
 
 public record HomeworkAttachmentDto(int Id, string FileName, string ContentType, long SizeBytes);
 
+/// <param name="SchoolClassId">Null for homework of a group.</param>
+/// <param name="SchoolClassName">The class, or the group as "Nj (7.A, 7.B)".</param>
+/// <param name="SchoolClassIds">The class, or the group's classes.</param>
 public record HomeworkDto(
     int Id,
-    int SchoolClassId,
+    int? SchoolClassId,
     string SchoolClassName,
     int SubjectId,
     string SubjectName,
@@ -382,10 +417,14 @@ public record HomeworkDto(
     bool RequiresCompletion,
     string CreatedByName,
     DateTimeOffset CreatedAt,
-    /// <summary>Empty means "whole class" — see Homework.Students.</summary>
+    /// <summary>Empty means "whole class / group" — see Homework.Students.</summary>
     IReadOnlyList<int> TargetStudentIds,
     IReadOnlyList<HomeworkAttachmentDto> Attachments,
     /// <summary>Which of the (caller-visible) target students have marked
     /// it done — Teacher/Admin see everyone's, Parent/Student only their
     /// own linked student(s).</summary>
-    IReadOnlyList<int> CompletedStudentIds);
+    IReadOnlyList<int> CompletedStudentIds,
+    int? StudentGroupId,
+    IReadOnlyList<int> SchoolClassIds,
+    /// <summary>The (caller-visible) pupils of the group now; null for a class's homework.</summary>
+    IReadOnlyList<int>? GroupStudentIds = null);

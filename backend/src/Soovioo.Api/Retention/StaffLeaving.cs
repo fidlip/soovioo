@@ -291,14 +291,18 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
 
         var ledClassIds = await db.SchoolClasses.Where(c => c.ClassTeacherId == user.Id).Select(c => c.Id).ToListAsync();
         var classIds = new HashSet<int>();
+        var groupStudentIds = new HashSet<int>();
         if (groups.Contains(StaffLeaveNoticeGroup.LedClasses))
         {
             classIds.UnionWith(ledClassIds);
         }
         if (groups.Contains(StaffLeaveNoticeGroup.TaughtClasses))
         {
+            var lessons = db.TimetableEntriesOn(SchoolClock.Today(clock)).Where(t => t.TeacherId == user.Id);
             classIds.UnionWith(ledClassIds);
-            classIds.UnionWith(await db.TimetableEntriesOn(SchoolClock.Today(clock)).Where(t => t.TeacherId == user.Id).Select(t => t.SchoolClassId).ToListAsync());
+            classIds.UnionWith(await lessons.Where(t => t.StudentGroupId == null).Select(t => t.SchoolClassId).ToListAsync());
+            groupStudentIds.UnionWith(await lessons.Where(t => t.StudentGroupId != null)
+                .SelectMany(t => t.StudentGroup!.Members).Select(m => m.StudentId).ToListAsync());
         }
         var successorNotes = new Dictionary<int, string>();
         if (kind != StaffLeaveNoticeKind.Cancelled)
@@ -315,7 +319,7 @@ public class StaffLeaving(AppDbContext db, AccountEraser accounts, TimeProvider 
         }
 
         // A conversation per family, like a message to a whole class — parents don't see each other.
-        var students = await db.Students.Where(s => classIds.Contains(s.SchoolClassId))
+        var students = await db.Students.Where(s => classIds.Contains(s.SchoolClassId) || groupStudentIds.Contains(s.Id))
             .Select(s => new { s.Id, s.SchoolClassId }).ToListAsync();
         foreach (var student in students)
         {

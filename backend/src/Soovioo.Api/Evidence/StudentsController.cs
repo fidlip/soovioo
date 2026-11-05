@@ -45,6 +45,15 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(students);
     }
 
+    /// <summary>Whom (and in which subjects) the caller's
+    /// <paramref name="permission"/> reaches — what the dialogs of Známky,
+    /// Docházka and Úkoly offer. <c>All</c> = every pupil, any subject.</summary>
+    [HttpGet("reach")]
+    public async Task<ActionResult<StudentReachDto>> GetReach([FromQuery] Permission permission) =>
+        Ok(await User.StudentReachAsync(db, permission) is { } students
+            ? new StudentReachDto(false, students)
+            : new StudentReachDto(true, []));
+
     [HttpPost]
     [RequirePermission(Permission.Students)]
     public async Task<ActionResult<StudentDto>> AddStudent(CreateStudentRequest request)
@@ -145,6 +154,8 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
         return NoContent();
     }
 }
+
+public record StudentReachDto(bool All, IReadOnlyList<StudentReach> Students);
 
 public record CreateStudentRequest(
     string FirstName,

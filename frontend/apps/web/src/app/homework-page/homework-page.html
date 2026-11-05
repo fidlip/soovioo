@@ -162,7 +162,9 @@
     #hwForm="ngForm"
     (ngSubmit)="saveHomework()"
   >
-    @if (anyClass) {
+    @if (editingGroupLabel !== null && anyClass) {
+    <p class="m-0">{{ editingGroupLabel }}</p>
+    } @else if (anyClass) {
     <div class="flex flex-wrap gap-3">
       <app-float-field label="Třída" for="newClass">
         <p-select
@@ -213,12 +215,9 @@
     </app-float-field>
     }
 
-    <app-float-field
-      label="Komu (prázdné = celá třída)"
-      for="newTargetStudents"
-    >
+    <app-float-field [label]="targetLabel()" for="newTargetStudents">
       <p-multiSelect
-        ariaLabel="Komu (prázdné = celá třída)"
+        [ariaLabel]="targetLabel()"
         inputId="newTargetStudents"
         [options]="newClassStudentOptions()"
         optionLabel="label"
