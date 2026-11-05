@@ -7,6 +7,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.People;
 
@@ -127,6 +128,47 @@ public class PeopleControllerTests
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.True(await db.TeacherProfiles.AnyAsync());
+    }
+
+    [Fact]
+    public async Task ATeacherSaysTheClassesTheyLeadAndTeachByTodaysTimetable()
+    {
+        var user = new User { Username = "ucitel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Teacher, SchoolId), SchoolId = SchoolId };
+        db.Users.Add(user);
+        var person = new Person { User = user, LastName = "Učitelová", SchoolId = SchoolId };
+        person.TeacherProfile = new TeacherProfile { Person = person, SchoolId = SchoolId };
+        db.Persons.Add(person);
+        var led = new SchoolClass { Name = "2.A", SchoolId = SchoolId, ClassTeacher = user };
+        var inDraft = new SchoolClass { Name = "3.A", SchoolId = SchoolId };
+        db.SchoolClasses.AddRange(led, inDraft);
+        await db.SaveChangesAsync();
+        var lesson = (int classId, int period, TimetableVersion version) => new TimetableEntry
+        {
+            TimetableVersion = version, SchoolId = SchoolId, SchoolClassId = classId, SubjectId = maths.Id,
+            TeacherId = user.Id, DayOfWeek = DayOfWeek.Monday, PeriodNumber = period,
+        };
+        var current = db.CurrentTimetableVersion(SchoolId);
+        var draft = new TimetableVersion { Name = "Návrh", SchoolId = SchoolId, ValidFrom = new DateOnly(2000, 9, 1), Status = TimetableVersionStatus.Draft };
+        db.TimetableEntries.AddRange(
+            lesson(schoolClass.Id, 1, current), lesson(schoolClass.Id, 2, current), lesson(inDraft.Id, 1, draft));
+        await db.SaveChangesAsync();
+
+        var teacher = Value(await Controller().GetPeople()).Single().Teacher!;
+
+        Assert.Equal([led.Id], teacher.ClassTeacherOfIds);
+        Assert.Equal(["2.A"], teacher.ClassTeacherOf);
+        Assert.Equal([schoolClass.Id], teacher.TeachesClassIds);
+    }
+
+    [Fact]
+    public async Task AParentsChildSaysItsClass()
+    {
+        var child = Value(await Controller().AddPerson(new SavePersonRequest("Jan", "Novák", Student: Matrika())));
+
+        var parent = Value(await Controller().AddPerson(new SavePersonRequest(
+            "Petr", "Novák", Parent: new ParentProfileRequest([child.Student!.Id]))));
+
+        Assert.Equal(schoolClass.Id, parent.Parent!.Children.Single().SchoolClassId);
     }
 
     [Fact]

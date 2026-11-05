@@ -357,6 +357,27 @@ public class PhotosTests
     }
 
     [Fact]
+    public async Task ParentListCarriesTheContactOnlyForTheClassTeacherOfTheirChild()
+    {
+        using var db = NewDb();
+        var fx = await SeedAsync(db);
+
+        async Task<string?> EmailSeenBy(User viewer)
+        {
+            var controller = new ParentsController(db, new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)))
+            {
+                ControllerContext = Controller(db, viewer).ControllerContext,
+            };
+            var parents = Assert.IsAssignableFrom<IEnumerable<ParentDto>>(
+                Assert.IsType<OkObjectResult>((await controller.GetParents()).Result).Value);
+            return parents.Single(p => p.Id == fx.Parent.Id).Email;
+        }
+
+        Assert.Equal("petr@example.com", await EmailSeenBy(fx.ClassTeacher));
+        Assert.Null(await EmailSeenBy(fx.OtherTeacher));
+    }
+
+    [Fact]
     public async Task ParentListCarriesThePhotoOnlyForThoseWhoMaySeeIt()
     {
         using var db = NewDb();
