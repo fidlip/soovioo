@@ -45,7 +45,8 @@ import { NotifyService } from '../notify.service';
 interface DivisionForm {
   id: number | null;
   name: string;
-  hoursPerWeek: number;
+  /** null = as the učební plán. */
+  hoursPerWeek: number | null;
   doubleLessons: boolean;
   classIds: number[];
 }
@@ -55,7 +56,8 @@ interface GroupForm {
   divisionId: number | null;
   name: string;
   subjectId: number | null;
-  hoursPerWeek: number;
+  /** null = as the učební plán. */
+  hoursPerWeek: number | null;
   doubleLessons: boolean;
   teacherId: number | null;
   classroomId: number | null;
@@ -217,6 +219,29 @@ export class StudentGroupsPanel {
     return this.rowsById().get(group.id);
   }
 
+  /** "3 h", or "podle plánu (2 h)". */
+  protected hoursLabel(hours: number | null, groupIds: number[]): string {
+    if (hours !== null) {
+      return formatHours(hours);
+    }
+    const planned = this.planHours(groupIds);
+    return planned ? `podle plánu (${planned})` : 'podle plánu';
+  }
+
+  /** "2 h" by the učební plán, from a group's row; '' when unknown. */
+  protected planHours(groupIds: number[]): string {
+    const row = groupIds
+      .map((id) => this.rowsById().get(id))
+      .find((r) => r !== undefined);
+    return row ? formatHours(row.planHours) : '';
+  }
+
+  protected divisionGroupIds(divisionId: number | null): number[] {
+    return this.data()
+      .groups.filter((g) => g.divisionId === divisionId)
+      .map((g) => g.id);
+  }
+
   protected classNames(classIds: number[]): string {
     return this.classes()
       .filter((c) => classIds.includes(c.id))
@@ -309,7 +334,7 @@ export class StudentGroupsPanel {
     this.divisionForm.set({
       id: null,
       name: '',
-      hoursPerWeek: 1,
+      hoursPerWeek: null,
       doubleLessons: false,
       classIds: [],
     });
@@ -329,7 +354,7 @@ export class StudentGroupsPanel {
   protected saveDivision(form: DivisionForm): void {
     const request = {
       name: form.name,
-      hoursPerWeek: form.hoursPerWeek ?? 0,
+      hoursPerWeek: form.hoursPerWeek,
       doubleLessons: form.doubleLessons || null,
       classIds: form.classIds,
     };
@@ -363,7 +388,7 @@ export class StudentGroupsPanel {
       divisionId: division?.id ?? null,
       name: '',
       subjectId: this.subjectFilter() ?? this.subjects()[0]?.id ?? null,
-      hoursPerWeek: division?.hoursPerWeek ?? 1,
+      hoursPerWeek: division?.hoursPerWeek ?? null,
       doubleLessons: division?.doubleLessons ?? false,
       teacherId: null,
       classroomId: null,
@@ -410,7 +435,7 @@ export class StudentGroupsPanel {
       name: form.name,
       subjectId: form.subjectId,
       divisionId: form.divisionId,
-      hoursPerWeek: form.hoursPerWeek ?? 0,
+      hoursPerWeek: form.hoursPerWeek,
       doubleLessons:
         form.doubleLessons === (subject?.doubleLessons ?? false)
           ? null

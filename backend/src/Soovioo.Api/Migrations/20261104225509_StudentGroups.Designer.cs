@@ -2136,7 +2136,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<bool?>("DoubleLessons")
                         .HasColumnType("boolean");
 
-                    b.Property<decimal>("HoursPerWeek")
+                    b.Property<decimal?>("HoursPerWeek")
                         .HasPrecision(4, 1)
                         .HasColumnType("numeric(4,1)");
 
@@ -2253,7 +2253,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("GroupDivisionId")
                         .HasColumnType("integer");
 
-                    b.Property<decimal>("HoursPerWeek")
+                    b.Property<decimal?>("HoursPerWeek")
                         .HasPrecision(4, 1)
                         .HasColumnType("numeric(4,1)");
 

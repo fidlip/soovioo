@@ -32,8 +32,8 @@
       {{ d.division.name }}
       <span class="text-sm font-normal text-surface-500"
         >dělení · {{ classNames(d.division.classIds) }} · {{
-        formatHours(d.division.hoursPerWeek) }} @if (d.division.doubleLessons) {
-        · dvouhodinovky }</span
+        hoursLabel(d.division.hoursPerWeek, divisionGroupIds(d.division.id)) }}
+        @if (d.division.doubleLessons) { · dvouhodinovky }</span
       >
       @if (canEdit()) {
       <p-button
@@ -105,7 +105,7 @@
           @if (!division) {
           <td>{{ classNames(g.classIds) }}</td>
           <td class="whitespace-nowrap">
-            {{ formatHours(g.hoursPerWeek) }} · v rozvrhu {{
+            {{ hoursLabel(g.hoursPerWeek, [g.id]) }} · v rozvrhu {{
             formatHours(row(g)?.timetableHours ?? 0) }}
           </td>
           }
@@ -207,6 +207,11 @@
           inputStyleClass="w-24"
         />
       </app-float-field>
+      <span class="text-sm text-surface-500"
+        >prázdné = podle učebního plánu tříd @if (form.id !== null &&
+        form.hoursPerWeek === null) { {{ planHours(divisionGroupIds(form.id)) ?
+        '(' + planHours(divisionGroupIds(form.id)) + ')' : '' }} }</span
+      >
       <label class="flex items-center gap-2 text-sm">
         <p-checkbox
           [binary]="true"
@@ -217,7 +222,8 @@
       </label>
     </div>
     <p class="m-0 text-sm text-surface-500">
-      Skupiny dělení převezmou jeho třídy, hodiny i dvouhodinovky.
+      Skupiny dělení převezmou jeho třídy, hodiny i dvouhodinovky. Bez hodin se
+      vezmou z učebního plánu tříd pro předměty skupin.
     </p>
     <div class="flex justify-end gap-2">
       <p-button
@@ -295,6 +301,11 @@
           inputStyleClass="w-24"
         />
       </app-float-field>
+      <span class="text-sm text-surface-500"
+        >prázdné = podle učebního plánu tříd @if (form.id !== null &&
+        form.hoursPerWeek === null) { {{ planHours([form.id]) ? '(' +
+        planHours([form.id]) + ')' : '' }} }</span
+      >
       <label class="flex items-center gap-2 text-sm">
         <p-checkbox
           [binary]="true"
@@ -306,8 +317,8 @@
     </div>
     } @else {
     <p class="m-0 text-sm text-surface-500">
-      Třídy {{ classNames(formClassIds(form)) }} a {{
-      formatHours(form.hoursPerWeek) }} týdně podle dělení.
+      Třídy a hodiny týdně podle dělení: {{ classNames(formClassIds(form)) }},
+      {{ hoursLabel(form.hoursPerWeek, divisionGroupIds(form.divisionId)) }}.
     </p>
     }
     <app-float-field label="Učitel" for="groupTeacher">

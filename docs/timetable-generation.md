@@ -155,11 +155,14 @@ zmizí, když neříká nic vlastního).
 Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a kopíruje se s ní
 (skupiny, dělení, členství i vazba hodin na skupinu):
 
-- `StudentGroup`: název, předmět, hodiny týdně a dvouhodinovky, učitel (prázdný = vybere ho
-  systém jako u třídy), učebna (prázdná = podle předmětu; kmenová jen u skupiny jedné třídy),
+- `StudentGroup`: název, předmět, hodiny týdně (prázdné = podle učebního plánu jejích tříd;
+  když se třídy liší nebo předmět v plánu nemají, hlásí to) a dvouhodinovky, učitel (prázdný =
+  vybere ho systém jako u třídy, skupinám jednoho dělení různé učitele; stejný učitel dvou
+  skupin dělení se hlásí), učebna (prázdná = podle předmětu; kmenová jen u skupiny jedné třídy),
   třídy a žáci z nich. Třída, jejíž je skupina předmětu, ten předmět jako celá třída nemá
   (řádek třídy ukazuje „Ve skupinách: …“, celotřídní hodiny předmětu hlásí jako problém).
-- `GroupDivision` (dělení): skupiny stejných tříd se stejnými hodinami, vždy ve stejný čas
+- `GroupDivision` (dělení): skupiny stejných tříd se stejnými hodinami (prázdné = podle plánu
+  tříd pro předměty skupin, musí se shodovat), vždy ve stejný čas
   (Tv 2.A+2.B dívky/chlapci v různých tělocvičnách, Nj | Fj). Žák je v dělení nejvýš
   v jedné skupině (do jiné ho jde přidat, až když ho z původní odeberete); kdo není v žádné, má volno (kontrola před
   zveřejněním ho vypíše).

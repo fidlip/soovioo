@@ -57,6 +57,8 @@ export interface TeachingGroup {
   doubleLessons: boolean;
   memberCount: number;
   problems: string[];
+  /** `planHours` come from the učební plán of its classes. */
+  hoursByPlan: boolean;
 }
 
 export interface TeachingClass {
@@ -127,7 +129,8 @@ export interface TeachingOverview {
 export interface GroupDivision {
   id: number;
   name: string;
-  hoursPerWeek: number;
+  /** null = as the učební plán of its classes has its groups' subjects. */
+  hoursPerWeek: number | null;
   doubleLessons: boolean | null;
   classIds: number[];
 }
@@ -138,8 +141,8 @@ export interface StudentGroup {
   name: string;
   divisionId: number | null;
   subjectId: number;
-  /** In a division the division's. */
-  hoursPerWeek: number;
+  /** null = as the učební plán of its classes; in a division the division's. */
+  hoursPerWeek: number | null;
   doubleLessons: boolean | null;
   /** null = chosen automatically. */
   teacherId: number | null;

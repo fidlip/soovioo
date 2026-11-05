@@ -212,7 +212,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         {
             return "Zadejte název dělení.";
         }
-        if (!ValidHours(request.HoursPerWeek))
+        if (request.HoursPerWeek is { } hours && !ValidHours(hours))
         {
             return HoursMessage;
         }
@@ -247,7 +247,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
 
         GroupDivision? division = null;
         List<int> classIds;
-        decimal hours;
+        decimal? hours;
         bool? blocks;
         if (request.DivisionId is { } divisionId)
         {
@@ -265,7 +265,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
             classIds = [.. request.ClassIds.Distinct()];
             hours = request.HoursPerWeek;
             blocks = request.DoubleLessons;
-            if (!ValidHours(hours))
+            if (hours is { } own && !ValidHours(own))
             {
                 return HoursMessage;
             }
@@ -428,25 +428,27 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
 }
 
 /// <param name="ClassIds">Of its groups.</param>
-public record GroupDivisionDto(int Id, string Name, decimal HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds);
+/// <param name="HoursPerWeek">Null = as the učební plán.</param>
+public record GroupDivisionDto(int Id, string Name, decimal? HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds);
 
 public record StudentGroupDto(
-    int Id, string Name, int? DivisionId, int SubjectId, decimal HoursPerWeek, bool? DoubleLessons, int? TeacherId,
+    int Id, string Name, int? DivisionId, int SubjectId, decimal? HoursPerWeek, bool? DoubleLessons, int? TeacherId,
     int? ClassroomId, IReadOnlyList<int> ClassIds, IReadOnlyList<int> StudentIds);
 
 public record GroupsDto(IReadOnlyList<GroupDivisionDto> Divisions, IReadOnlyList<StudentGroupDto> Groups);
 
 /// <param name="ClassIds">Classes of its groups.</param>
-public record SaveGroupDivisionRequest(string Name, decimal HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds);
+/// <param name="HoursPerWeek">Null = as the učební plán of its classes has its groups' subjects.</param>
+public record SaveGroupDivisionRequest(string Name, decimal? HoursPerWeek, bool? DoubleLessons, IReadOnlyList<int> ClassIds);
 
-/// <param name="HoursPerWeek">Ignored in a division: the division's.</param>
+/// <param name="HoursPerWeek">Null = as the učební plán of its classes; ignored in a division: the division's.</param>
 /// <param name="ClassIds">Ignored in a division: the division's.</param>
 /// <param name="TeacherId">Null = chosen automatically.</param>
 /// <param name="ClassroomId">Null = from the subject's classrooms.</param>
 public record SaveStudentGroupRequest(
     string Name,
     int SubjectId,
-    decimal HoursPerWeek,
+    decimal? HoursPerWeek,
     bool? DoubleLessons,
     int? TeacherId,
     int? ClassroomId,

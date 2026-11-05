@@ -173,6 +173,10 @@ public class TimetableGenerationJob(
                     g.Id, g.TeacherId, RoomsFor(subjects[g.SubjectId], groups[g.Id].ClassroomId, homeroom, groups[g.Id].Members, g.Name, group: true),
                     g.SubjectId);
             }).ToList();
+            if (together.Where(g => g.TeacherId is not null).GroupBy(g => g.TeacherId).FirstOrDefault(g => g.Count() > 1) is { } twice)
+            {
+                messages.Add($"{lead.DivisionName}: {twice.First().TeacherName} učí {string.Join(" i ", twice.Select(g => g.Name))} ve stejnou dobu, přidělte jiného učitele.");
+            }
             var weekly = (int)Math.Floor(hours);
             demands.Add(new TimetableGenerator.Demand(
                 lead.ClassIds[0], lead.SubjectId, lead.TeacherId, weekly, hours - weekly >= 0.5m ? 1 : 0, parts[0].Rooms,
