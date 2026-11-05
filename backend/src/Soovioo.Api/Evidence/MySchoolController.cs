@@ -5,6 +5,7 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
+using Soovioo.Api.Timetable.Rvp;
 
 namespace Soovioo.Api.Evidence;
 
@@ -65,6 +66,14 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             pupils.Name = PermissionCatalog.DefaultName(UserRole.Student, request.Type);
         }
         school.Type = request.Type;
+        // A program of the other type isn't on offer any more.
+        foreach (var schoolClass in await db.SchoolClasses.Where(c => c.RvpProgramCode != null).ToListAsync())
+        {
+            if (RvpCatalog.Find(schoolClass.RvpProgramCode)?.SchoolType != request.Type)
+            {
+                schoolClass.RvpProgramCode = null;
+            }
+        }
         await db.SaveChangesAsync();
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));
