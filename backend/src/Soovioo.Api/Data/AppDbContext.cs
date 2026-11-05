@@ -11,6 +11,7 @@ using Soovioo.Api.Messaging;
 using Soovioo.Api.Payments;
 using Soovioo.Api.Reference;
 using Soovioo.Api.Timetable;
+using Soovioo.Api.Timetable.Rvp;
 
 namespace Soovioo.Api.Data;
 
@@ -28,6 +29,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<TimetableVersion> TimetableVersions => Set<TimetableVersion>();
     public DbSet<CurriculumItem> CurriculumItems => Set<CurriculumItem>();
     public DbSet<ClassCurriculumItem> ClassCurriculumItems => Set<ClassCurriculumItem>();
+    public DbSet<SubjectRvpArea> SubjectRvpAreas => Set<SubjectRvpArea>();
     public DbSet<TeachingAssignment> TeachingAssignments => Set<TeachingAssignment>();
     public DbSet<StudentGroup> StudentGroups => Set<StudentGroup>();
     public DbSet<GroupDivision> GroupDivisions => Set<GroupDivision>();
@@ -285,6 +287,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasIndex(x => new { x.TimetableVersionId, x.SchoolClassId, x.SubjectId }).IsUnique();
             e.HasOne(x => x.TimetableVersion).WithMany(v => v.ClassCurriculum)
                 .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<SubjectRvpArea>(e =>
+        {
+            e.HasIndex(x => new { x.SubjectId, x.ProgramCode }).IsUnique();
+            e.HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<TeachingAssignment>(e =>

@@ -876,6 +876,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("Rocnik")
                         .HasColumnType("integer");
 
+                    b.Property<string>("RvpProgramCode")
+                        .HasColumnType("text");
+
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
@@ -2153,6 +2156,35 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("TimetableVersionId");
 
                     b.ToTable("GroupDivisions");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.Rvp.SubjectRvpArea", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AreaKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProgramCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId", "ProgramCode")
+                        .IsUnique();
+
+                    b.ToTable("SubjectRvpAreas");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>
@@ -3510,6 +3542,17 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("TimetableVersion");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.Rvp.SubjectRvpArea", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.SchoolPeriod", b =>

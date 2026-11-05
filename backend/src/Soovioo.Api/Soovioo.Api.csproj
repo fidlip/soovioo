@@ -36,6 +36,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Timetable/Rvp/rvp-programs.json" LogicalName="rvp-programs.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Demo avatar sheets, see Demo/DemoAvatars.cs. -->
     <Content Include="Demo/Avatars/*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

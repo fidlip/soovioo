@@ -33,4 +33,8 @@ public class SchoolClass
     public int? HomeroomId { get; set; }
     [JsonIgnore]
     public Classroom? Homeroom { get; set; }
+
+    /// <summary>The RVP the class is taught by, a code of
+    /// <see cref="Timetable.Rvp.RvpCatalog"/>; null = its plan isn't checked.</summary>
+    public string? RvpProgramCode { get; set; }
 }

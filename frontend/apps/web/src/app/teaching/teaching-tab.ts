@@ -47,6 +47,7 @@ import { FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { versionStatusLabel } from '../timetable-page/timetable-versions-dialog';
+import { RvpPanel } from './rvp-panel';
 import { StudentGroupsPanel } from './student-groups';
 
 /** Administrace → Přidělení výuky: the učební plán of a timetable version
@@ -64,6 +65,7 @@ import { StudentGroupsPanel } from './student-groups';
     InputNumber,
     Loading,
     Message,
+    RvpPanel,
     Select,
     StudentGroupsPanel,
     TableModule,
@@ -208,7 +210,8 @@ export class TeachingTab {
         0,
       ) +
       o.teachers.filter((t) => t.problems.length).length +
-      o.groups.filter((g) => g.problems.length).length
+      o.groups.filter((g) => g.problems.length).length +
+      (o.rvp?.programs.reduce((n, p) => n + p.problems.length, 0) ?? 0)
     );
   });
 
@@ -285,7 +288,7 @@ export class TeachingTab {
     }
   }
 
-  private show(overview: TeachingOverview): void {
+  protected show(overview: TeachingOverview): void {
     this.overview.set(overview);
     this.plan = Object.fromEntries(
       overview.curriculum.map((c) => [

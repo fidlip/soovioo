@@ -4,7 +4,10 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import {
   CurriculumItem,
+  FillCurriculumResponse,
   GroupDivision,
+  RvpFillOptions,
+  RvpProgramOption,
   SaveGroupDivisionRequest,
   SaveStudentGroupRequest,
   StudentGroup,
@@ -47,6 +50,39 @@ export class TeachingApiService {
       {
         items,
       },
+    );
+  }
+
+  getRvpPrograms(): Observable<RvpProgramOption[]> {
+    return this.http.get<RvpProgramOption[]>(
+      `${this.baseUrl}/api/rvp-programs`,
+    );
+  }
+
+  /** A dry run tells what would happen, changes nothing. */
+  fillCurriculum(
+    versionId: number,
+    options: RvpFillOptions,
+    dryRun: boolean,
+  ): Observable<FillCurriculumResponse> {
+    return this.http.post<FillCurriculumResponse>(
+      `${this.url(versionId)}/curriculum/fill`,
+      { options, dryRun },
+    );
+  }
+
+  /** `areaKey` null = only towards the disponibilní hours; `automatic` =
+   * as the system recognises the subject. */
+  setRvpSubjectArea(
+    versionId: number,
+    programCode: string,
+    subjectId: number,
+    areaKey: string | null,
+    automatic: boolean,
+  ): Observable<TeachingOverview> {
+    return this.http.put<TeachingOverview>(
+      `${this.url(versionId)}/rvp-subject-area`,
+      { programCode, subjectId, areaKey, automatic },
     );
   }
 
