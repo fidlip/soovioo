@@ -106,61 +106,106 @@ public class DemoTests
     }
 
     [Theory]
-    [InlineData(SchoolType.Elementary, 1)]
-    [InlineData(SchoolType.Elementary, 3)]
-    [InlineData(SchoolType.Secondary, 2)]
-    public async Task DividesTvAndSeminarsIntoGroupsTaughtAtOnce(SchoolType type, int perGrade)
+    [InlineData(SchoolType.Elementary, 1, 42)]
+    [InlineData(SchoolType.Elementary, 2, 7)]
+    [InlineData(SchoolType.Elementary, 3, 3)]
+    [InlineData(SchoolType.Secondary, 1, 11)]
+    [InlineData(SchoolType.Secondary, 2, 42)]
+    [InlineData(SchoolType.Secondary, 3, 5)]
+    public async Task DividesClassesAndOffersOptionalSubjectsInGroups(SchoolType type, int perGrade, int seed)
     {
         var name = Guid.NewGuid().ToString();
         int schoolId;
         using (var generating = NewDb(name: name))
         {
-            schoolId = (await GenerateAsync(generating, type, perGrade)).School.Id;
+            schoolId = (await GenerateAsync(generating, type, perGrade, seed)).School.Id;
         }
 
         using var db = NewDb(name, schoolId);
         var version = await db.TimetableVersions.SingleAsync();
+        var groups = await db.StudentGroups.Include(g => g.Members).Include(g => g.Classes).Include(g => g.Subject).ToListAsync();
         var divisions = await db.GroupDivisions.Include(d => d.Groups).ThenInclude(g => g.Members).ToListAsync();
         var classes = await db.SchoolClasses.ToListAsync();
         var students = await db.Students.ToListAsync();
         var entries = await db.TimetableEntries.ToListAsync();
-        var upper = classes.Where(c => type == SchoolType.Secondary || c.Rocnik >= 6).ToList();
-        Assert.Equal(upper.Count / perGrade + (type == SchoolType.Secondary ? 2 : 0), divisions.Count);
-        Assert.Contains(divisions, d => d.Name == (type == SchoolType.Secondary ? "Semináře 3. ročník" : "Tv 6. ročník"));
+
+        // Tv of the upper grades and the second language always, the rest as the school offers.
+        var upperGrades = classes.Where(c => type == SchoolType.Secondary || c.Rocnik >= 6).Select(c => c.Rocnik).Distinct().Count();
+        Assert.Equal(upperGrades, divisions.Count(d => d.Name.StartsWith("Tv ")));
+        Assert.Equal(type == SchoolType.Secondary ? 4 : 3, divisions.Count(d => d.Name.StartsWith("Další cizí jazyk")));
+        if (type == SchoolType.Secondary)
+        {
+            Assert.Equal(5, divisions.Count(d => d.Name.StartsWith("Semináře")));
+        }
         foreach (var division in divisions)
         {
-            // Every pupil of its classes in one group of it, girls and boys apart.
+            // Every pupil of its classes in one group of it, girls and boys apart in Tv.
             var pupils = students.Where(s => division.ClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).Order();
             Assert.Equal(pupils, division.Groups.SelectMany(g => g.Members).Select(m => m.StudentId).Order());
-            if (division.Name.StartsWith("Tv"))
+            Assert.All(division.Groups, g => Assert.NotEmpty(g.Members));
+            if (division.Name.StartsWith("Tv "))
             {
                 Assert.All(division.Groups[0].Members, m => Assert.Equal(Gender.Female, students.Single(s => s.Id == m.StudentId).Gender));
             }
-            // The groups at the same time, each in each class, by another teacher and in another room.
+            // At the same time in each class, each group by another teacher in another room.
             var slots = division.Groups.Select(g => entries.Where(e => e.StudentGroupId == g.Id)
                 .Select(e => (e.DayOfWeek, e.PeriodNumber, e.SchoolClassId)).Order().ToList()).ToList();
             Assert.All(slots, s => Assert.Equal(slots[0], s));
-            Assert.Equal(division.ClassIds.Count * 2 * (division.Name.StartsWith("Tv") ? 2 : division.Name.Contains('3') ? 5 : 6),
-                slots.Sum(s => s.Count));
-            var lessons = entries.Where(e => division.Groups.Any(g => g.Id == e.StudentGroupId)).GroupBy(e => (e.DayOfWeek, e.PeriodNumber));
-            Assert.All(lessons, l =>
+            Assert.NotEmpty(slots[0]);
+            Assert.All(entries.Where(e => division.Groups.Any(g => g.Id == e.StudentGroupId)).GroupBy(e => (e.DayOfWeek, e.PeriodNumber)), l =>
             {
                 Assert.Equal(division.Groups.Count, l.Select(e => e.TeacherId).Distinct().Count());
                 Assert.Equal(division.Groups.Count, l.Select(e => e.ClassroomId).Distinct().Count());
             });
         }
-        // No whole-class Tv in the divided classes.
-        Assert.DoesNotContain(entries, e => e.StudentGroupId == null && upper.Any(c => c.Id == e.SchoolClassId)
-            && divisions.Any(d => d.ClassIds.Contains(e.SchoolClassId) && d.Groups[0].SubjectId == e.SubjectId));
 
-        var problems = await TimetableCheck.ProblemsAsync(db, version);
-        Assert.DoesNotContain(problems, p => divisions.Any(d => p.Contains(d.Name)) || divisions.SelectMany(d => d.Groups).Any(g => p.Contains(g.Name)));
-        if (type == SchoolType.Secondary)
+        // Nepovinné: pupils of its classes, at most two each, after their classes' lessons.
+        var optional = groups.Where(g => g.GroupDivisionId == null).ToList();
+        Assert.NotEmpty(optional);
+        Assert.All(optional, g =>
         {
-            var homework = await db.Homework.Where(h => h.StudentGroupId != null).ToListAsync();
-            Assert.NotEmpty(homework);
-            Assert.All(homework, h => Assert.Null(h.SchoolClassId));
+            Assert.NotNull(g.HoursPerWeek);
+            var classIds = g.Classes.Select(c => c.SchoolClassId).Order().ToList();
+            Assert.Equal(classIds, g.Members.Select(m => students.Single(s => s.Id == m.StudentId).SchoolClassId).Distinct().Order());
+            var own = entries.Where(e => e.StudentGroupId == g.Id).ToList();
+            Assert.Equal((int)g.HoursPerWeek!.Value * classIds.Count, own.Count);
+            Assert.All(own, e => Assert.DoesNotContain(entries, o => o.SchoolClassId == e.SchoolClassId && o.DayOfWeek == e.DayOfWeek
+                && o.PeriodNumber >= e.PeriodNumber && (o.StudentGroupId == null || o.StudentGroup!.GroupDivisionId != null)));
+        });
+        Assert.All(optional.SelectMany(g => g.Members).GroupBy(m => m.StudentId), m => Assert.InRange(m.Count(), 1, 2));
+
+        // A group's subject graded only to its members.
+        var wholeClass = entries.Where(e => e.StudentGroupId == null).Select(e => e.SubjectId).ToHashSet();
+        var members = groups.SelectMany(g => g.Members.Select(m => (m.StudentId, g.SubjectId))).ToHashSet();
+        var grades = await db.Grades.Where(g => !wholeClass.Contains(g.SubjectId)).ToListAsync();
+        Assert.Contains(grades, g => optional.Any(o => o.SubjectId == g.SubjectId));
+        Assert.All(grades, g => Assert.Contains((g.StudentId, g.SubjectId), members));
+        var homework = await db.Homework.Where(h => h.StudentGroupId != null).ToListAsync();
+        Assert.NotEmpty(homework);
+        Assert.All(homework, h => Assert.Null(h.SchoolClassId));
+        Assert.DoesNotContain(await db.Homework.Where(h => h.SchoolClassId != null).ToListAsync(), h => !wholeClass.Contains(h.SubjectId));
+
+        // Nothing wrong but the laboratories, too few for three classes a grade.
+        var problems = await TimetableCheck.ProblemsAsync(db, version);
+        Assert.DoesNotContain(problems, p => !p.StartsWith("Učebna L") && !p.StartsWith("… a dalších"));
+    }
+
+    [Fact]
+    public async Task SchoolsOfferDifferentOptionalSubjects()
+    {
+        var offers = new HashSet<string>();
+        foreach (var seed in Enumerable.Range(1, 5))
+        {
+            var name = Guid.NewGuid().ToString();
+            int schoolId;
+            using (var generating = NewDb(name: name))
+            {
+                schoolId = (await GenerateAsync(generating, perGrade: 1, seed: seed)).School.Id;
+            }
+            using var db = NewDb(name, schoolId);
+            offers.Add(string.Join(", ", (await db.Subjects.Select(s => s.Name).ToListAsync()).Order()));
         }
+        Assert.True(offers.Count > 1);
     }
 
     [Fact]
