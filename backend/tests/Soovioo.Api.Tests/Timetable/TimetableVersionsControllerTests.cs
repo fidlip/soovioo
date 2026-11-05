@@ -202,17 +202,60 @@ public class TimetableVersionsControllerTests
     }
 
     [Fact]
-    public async Task TheFirstLessonOfASchoolWithoutATimetableStartsOneForTheSchoolYear()
+    public async Task TheFirstLessonOfASchoolWithoutATimetableStartsADraftForTheSchoolYear()
     {
         db.TimetableVersions.Remove(current);
         await db.SaveChangesAsync();
 
-        var added = await Timetable().AddEntry(schoolClass.Id, new(maths.Id, DayOfWeek.Monday, 1, WeekParity.Every));
+        Assert.IsType<CreatedAtActionResult>((await Timetable().AddEntry(schoolClass.Id, new(maths.Id, DayOfWeek.Monday, 1, WeekParity.Every))).Result);
+        Assert.IsType<CreatedAtActionResult>((await Timetable().AddEntry(schoolClass.Id, new(maths.Id, DayOfWeek.Monday, 2, WeekParity.Every))).Result);
 
-        Assert.IsType<CreatedAtActionResult>(added.Result);
         var version = await db.TimetableVersions.SingleAsync();
-        Assert.Equal(("Rozvrh 2026/27", new DateOnly(2026, 9, 1), TimetableVersionStatus.Published),
+        Assert.Equal(("Rozvrh 2026/27", new DateOnly(2026, 9, 1), TimetableVersionStatus.Draft),
             (version.Name, version.ValidFrom, version.Status));
+        Assert.Equal(2, await db.TimetableEntries.CountAsync(e => e.TimetableVersionId == version.Id));
+    }
+
+    [Fact]
+    public async Task LessonsOfAPublishedVersionDontChange()
+    {
+        var lesson = Lesson(current, maths);
+        db.TimetableEntries.Add(lesson);
+        await db.SaveChangesAsync();
+        var spring = await Draft("2. pololetí", new DateOnly(2027, 2, 1), current.Id);
+        await Versions().PublishVersion(spring.Id);
+        var planned = await db.TimetableEntries.FirstAsync(e => e.TimetableVersionId == spring.Id);
+        var lessons = await db.TimetableEntries.CountAsync();
+
+        foreach (var (versionId, entry) in new[] { (current.Id, lesson), (spring.Id, planned) })
+        {
+            AssertReadOnly(await Timetable().AddEntry(
+                schoolClass.Id, new(maths.Id, DayOfWeek.Friday, 5, WeekParity.Every, TimetableVersionId: versionId)));
+            AssertReadOnly(await Timetable().UpdateEntry(schoolClass.Id, entry.Id, new(czech.Id, DayOfWeek.Friday, 5, WeekParity.Every)));
+            var deleted = Assert.IsType<BadRequestObjectResult>(await Timetable().DeleteEntry(schoolClass.Id, entry.Id));
+            Assert.Equal(TimetableVersions.PublishedReadOnly, deleted.Value);
+        }
+        db.ChangeTracker.Clear();
+        Assert.Equal(lessons, await db.TimetableEntries.CountAsync());
+        Assert.Equal(maths.Id, (await db.TimetableEntries.FindAsync(lesson.Id))!.SubjectId);
+        Assert.Equal(planned.SubjectId, (await db.TimetableEntries.FindAsync(planned.Id))!.SubjectId);
+
+        // Without a version it's the one valid today.
+        AssertReadOnly(await Timetable().AddEntry(schoolClass.Id, new(maths.Id, DayOfWeek.Friday, 5, WeekParity.Every)));
+
+        static void AssertReadOnly(ActionResult<TimetableEntryDto> result) =>
+            Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+    }
+
+    [Fact]
+    public async Task UnpublishedAgainItsLessonsChange()
+    {
+        var spring = await Draft("2. pololetí", new DateOnly(2027, 2, 1), current.Id);
+        await Versions().PublishVersion(spring.Id);
+        await Versions().UnpublishVersion(spring.Id);
+
+        Assert.IsType<CreatedAtActionResult>((await Timetable().AddEntry(
+            schoolClass.Id, new(maths.Id, DayOfWeek.Friday, 5, WeekParity.Every, TimetableVersionId: spring.Id))).Result);
     }
 
     [Fact]

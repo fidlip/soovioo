@@ -200,10 +200,12 @@ public class GroupAgendasTests
     public async Task AGroupWithHomeworkIsNotDeleted()
     {
         Assert.IsType<CreatedAtActionResult>((await Homework(Kral).CreateHomework(GroupHomework())).Result);
-        var groups = new StudentGroupsController(db, new FakeCurrentSchoolContext(SchoolId))
+        var groups = new StudentGroupsController(db, new FakeCurrentSchoolContext(SchoolId), TimeProvider.System)
         {
             ControllerContext = TestRoles.Context(db, Admin, UserRole.Admin),
         };
+
+        (await db.TimetableVersions.FindAsync(germanGroup.TimetableVersionId))!.Status = TimetableVersionStatus.Draft;
 
         var refused = Assert.IsType<BadRequestObjectResult>(await groups.DeleteGroup(germanGroup.TimetableVersionId, germanGroup.Id));
         Assert.Equal("Skupina má domácí úkoly, smazat ji nejde.", refused.Value);

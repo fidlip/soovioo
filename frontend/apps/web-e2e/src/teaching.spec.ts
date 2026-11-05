@@ -1,5 +1,6 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import { archive, draftCopy, versionsApi } from './timetable-versions';
 
 async function login(page: Page, username: string, password: string) {
   await page.goto('/skola/login');
@@ -16,25 +17,62 @@ function openNav(page: Page, name: string) {
     .click();
 }
 
-async function openTeaching(page: Page) {
+async function pickVersion(page: Page, version: string) {
+  await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
+  await page.getByRole('option', { name: version }).click();
+}
+
+async function openTeaching(page: Page, version: string) {
   await login(page, 'admin', 'admin123');
   await openNav(page, 'Administrace');
   await page.getByRole('tab', { name: 'Výuka' }).click();
   // Škola has its own Třídy, until Výuka opens.
   await page.getByRole('tab', { name: 'Učební plán' }).waitFor();
+  await pickVersion(page, version);
   await page.getByRole('tab', { name: 'Třídy' }).click();
   await expect(
     page.getByRole('button', { name: 'Načíst z rozvrhu' }),
   ).toBeVisible();
 }
 
-// The seeded 5.A has maths with Jana Učitelová in its timetable; reading
-// the plan from the timetable is idempotent, so a rerun finds it the same.
+// The seeded 5.A has maths with Jana Učitelová in its timetable; the plan and
+// přidělení change only in a draft, here a copy of what applies.
 test.describe.serial('teaching', () => {
+  const version = `E2E výuka ${Date.now()}`;
+  let versionId = 0;
+
+  test('a published version only shows them', async ({ page, request }) => {
+    await login(page, 'admin', 'admin123');
+    versionId = await draftCopy(
+      await versionsApi(page, request),
+      version,
+      6000,
+    );
+    await openNav(page, 'Administrace');
+    await page.getByRole('tab', { name: 'Výuka' }).click();
+    // Škola has its own Třídy, until Výuka opens.
+    await page.getByRole('tab', { name: 'Učební plán' }).waitFor();
+    await page.getByRole('tab', { name: 'Třídy' }).click();
+    await expect(page.getByRole('region', { name: 'Třída 5.A' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Načíst z rozvrhu' }),
+    ).toHaveCount(0);
+    await expect(page.getByTestId('teaching-read-only')).toBeVisible();
+    await page.getByRole('tab', { name: 'Učební plán' }).click();
+    await expect(page.getByTestId('teaching-read-only')).toBeVisible();
+    // Skupiny say their own: there the pupils do change.
+    await page.getByRole('tab', { name: 'Skupiny' }).click();
+    await expect(page.getByTestId('groups-members-only')).toBeVisible();
+    await expect(page.getByTestId('teaching-read-only')).toHaveCount(0);
+    await expect(
+      page.getByRole('spinbutton', { name: 'Plán — 5.A Matematika' }),
+    ).toHaveCount(0);
+  });
+
   test('admin reads the plan and assignments from the timetable', async ({
     page,
   }) => {
-    await openTeaching(page);
+    await openTeaching(page, version);
     await page.getByRole('button', { name: 'Načíst z rozvrhu' }).click();
     await expect(
       page.getByText('Plán a přidělení jsou doplněné z rozvrhu.'),
@@ -53,7 +91,7 @@ test.describe.serial('teaching', () => {
   });
 
   test('admin saves the učební plán', async ({ page }) => {
-    await openTeaching(page);
+    await openTeaching(page, version);
     await page.getByRole('tab', { name: 'Učební plán' }).click();
     const english = page.getByRole('spinbutton', {
       name: 'Anglický jazyk — 5. ročník',
@@ -75,7 +113,9 @@ test.describe.serial('teaching', () => {
       'aria-selected',
       'true',
     );
+    await pickVersion(page, version);
     await expect(page.getByRole('region', { name: /^Třída / })).toHaveCount(1);
+    await expect(page.getByTestId('teaching-read-only')).toHaveCount(0);
 
     const english = page
       .getByRole('region', { name: 'Třída 5.A' })
@@ -97,8 +137,10 @@ test.describe.serial('teaching', () => {
 
   test('a teacher sees their own in Rozvrh and Profil, not the agenda', async ({
     page,
+    request,
   }) => {
     await login(page, 'ucitel', 'ucitel123');
+    await archive(await versionsApi(page, request), versionId);
     await openNav(page, 'Rozvrh');
     await expect(page.getByTestId('teacher-teaching')).toContainText(
       /Přiděleno .+ z 22 h nasmlouvaných: .*5\.A M/,
