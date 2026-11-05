@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Grades;
+using Soovioo.Api.Homework;
+using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
@@ -356,5 +360,62 @@ public class StudentGroupsTests
         Assert.NotEqual(girls.Id, copiedGirls.Id);
         Assert.Equal([anna.Id, eva.Id], copiedGirls.StudentIds.Order());
         Assert.Equal(copiedGirls.Id, db.TimetableEntries.Single(e => e.TimetableVersionId == copy.Id).StudentGroupId);
+    }
+
+    [Fact]
+    public async Task ADivisionCoversARowOfThePlanItsGroupsSubjectsAreChosenFor()
+    {
+        var second = new Subject { Name = "Další cizí jazyk", Abbreviation = "Dcj", SchoolId = SchoolId };
+        var french = new Subject { Name = "Francouzský jazyk", Abbreviation = "Fj", SchoolId = SchoolId };
+        db.AddRange(second, french);
+        db.SaveChanges();
+        Plan(second, 2);
+        db.SaveChanges();
+        Assert.Equal("Neznámý předmět.", Bad(await Groups().CreateDivision(draft.Id,
+            new SaveGroupDivisionRequest("Jazyky", null, null, [a.Id, b.Id], 9999))));
+        var languages = Ok(await Groups().CreateDivision(draft.Id, new SaveGroupDivisionRequest("Jazyky", null, null, [a.Id, b.Id], second.Id)));
+        Assert.Equal(second.Id, languages.CoversSubjectId);
+        Ok(await Groups().CreateGroup(draft.Id, Request("Nj", german, kral, languages.Id, [], anna, eva) with { HoursPerWeek = null }));
+        Ok(await Groups().CreateGroup(draft.Id, Request("Fj", french, dvorak, languages.Id, [], petr, karel) with { HoursPerWeek = null }));
+
+        // The row is taught by the groups, their hours are the row's.
+        var overview = await Overview();
+        var row = overview.Classes.Single(c => c.Id == a.Id).Rows.Single(r => r.SubjectId == second.Id);
+        Assert.Equal(["Fj", "Nj"], row.Groups);
+        Assert.Empty(row.Problems);
+        Assert.Null(row.TeacherId);
+        Assert.All(overview.Groups, g => Assert.Equal((2m, true), (g.PlanHours, g.HoursByPlan)));
+        Assert.DoesNotContain(overview.Classes.SelectMany(c => c.Rows), r => r.SubjectId == french.Id || r.SubjectId == german.Id);
+
+        // Divisions covering it together have its hours.
+        var more = Ok(await Groups().CreateDivision(draft.Id, new SaveGroupDivisionRequest("Konverzace", 1, null, [a.Id, b.Id], second.Id)));
+        Ok(await Groups().CreateGroup(draft.Id, Request("Konverzace Nj", german, kral, more.Id, [], anna)));
+        Assert.Contains("Dělení, která ho učí, mají 3 h, v plánu je 2 h.",
+            (await Overview()).Classes.Single(c => c.Id == a.Id).Rows.Single(r => r.SubjectId == second.Id).Problems);
+        Assert.Equal(2, Ok(await Groups().UpdateDivision(draft.Id, languages.Id,
+            new SaveGroupDivisionRequest("Jazyky", 1, null, [a.Id, b.Id], second.Id))).ClassIds.Count);
+        Assert.Empty((await Overview()).Classes.Single(c => c.Id == a.Id).Rows.Single(r => r.SubjectId == second.Id).Problems);
+
+        // A placeholder: not graded, no homework of it.
+        var subjects = Assert.IsAssignableFrom<IEnumerable<Subject>>(Assert.IsType<OkObjectResult>(
+            (await new SubjectsController(db, new FakeCurrentSchoolContext(SchoolId)).GetSubjects()).Result).Value).ToList();
+        Assert.Equal([second.Id], subjects.Where(s => s.CoveredByDivisions).Select(s => s.Id));
+        var admin = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin));
+        var grades = new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)) { ControllerContext = admin };
+        Assert.Equal("Předmět se učí ve skupinách — známku dejte z předmětu skupiny.",
+            Bad(await grades.AddGrade(new CreateGradeRequest(anna.Id, second.Id, 1, 1, null))));
+        Assert.IsType<CreatedAtActionResult>((await grades.AddGrade(new CreateGradeRequest(anna.Id, german.Id, 1, 1, null))).Result);
+        var homework = new HomeworkController(db, new FakeCurrentSchoolContext(SchoolId),
+            new MessageAttachmentStorageService(new FakeWebHostEnvironment()), new Notifier(db, TimeProvider.System)) { ControllerContext = admin };
+        Assert.Equal("Předmět se učí ve skupinách — úkol zadejte z předmětu skupiny.",
+            Bad(await homework.CreateHomework(new CreateHomeworkRequest(a.Id, second.Id, "Slovíčka", new DateOnly(2026, 11, 10), false))));
+
+        // A copied version keeps the row its division covers.
+        var created = await new TimetableVersionsController(db, new FakeCurrentSchoolContext(SchoolId), clock)
+        {
+            ControllerContext = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin)),
+        }.CreateVersion(new CreateTimetableVersionRequest("Kopie", new DateOnly(2027, 9, 1), draft.Id));
+        var copy = Assert.IsType<TimetableVersionDto>(Assert.IsType<CreatedAtActionResult>(created.Result).Value);
+        Assert.All(Ok(await Groups().GetGroups(copy.Id)).Divisions, d => Assert.Equal(second.Id, d.CoversSubjectId));
     }
 }

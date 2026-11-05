@@ -79,10 +79,11 @@ public record TeachingPlan(
                 g.Id, g.Name, g.SubjectId, ClassIds = g.Classes.Select(c => c.SchoolClassId).ToList(), g.HoursPerWeek,
                 DoubleLessons = g.DoubleLessons ?? g.Subject!.DoubleLessons, g.TeacherId, g.GroupDivisionId,
                 DivisionName = g.GroupDivision == null ? null : g.GroupDivision.Name, Members = g.Members.Count,
+                CoversSubjectId = g.GroupDivision == null ? null : g.GroupDivision.CoversSubjectId,
             })
             .ToListAsync())
         .Select(g => new TeachingPlanner.GroupInput(
             g.Id, g.Name, g.SubjectId, g.ClassIds, g.HoursPerWeek, g.DoubleLessons, g.TeacherId, g.GroupDivisionId,
-            g.DivisionName, g.Members))
+            g.DivisionName, g.Members, g.CoversSubjectId))
         .ToList();
 }

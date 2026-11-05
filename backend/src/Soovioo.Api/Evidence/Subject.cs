@@ -24,4 +24,11 @@ public class Subject
 
     public int SchoolId { get; set; }
     public School? School { get; set; }
+
+    /// <summary>A row of the učební plán taught by divisions of other
+    /// subjects (<see cref="Timetable.GroupDivision.CoversSubjectId"/>) — a
+    /// placeholder, not graded or given homework itself. Filled in by
+    /// <see cref="SubjectsController.GetSubjects"/>.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool CoveredByDivisions { get; set; }
 }

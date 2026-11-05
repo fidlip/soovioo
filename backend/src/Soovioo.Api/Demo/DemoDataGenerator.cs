@@ -54,7 +54,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         new("Tv", "Tělesná výchova", "#bef264", "gym"), new("Vz", "Výchova ke zdraví", "#d9f99d"),
         new("Pč", "Pracovní činnosti", "#e7e5e4", "workshop"),
         new("Fj", "Francouzský jazyk", "#bfdbfe"), new("Šj", "Španělský jazyk", "#fecaca"),
-        new("PVP", "Povinně volitelný předmět", "#ddd6fe"),
+        new("PVP", "Povinně volitelný předmět", "#ddd6fe"), new("Dcj", "Další cizí jazyk", "#fde68a"),
     ];
 
     private static readonly SubjectDef[] SecondarySubjects =
@@ -66,6 +66,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         new("Inf", "Informatika", "#67e8f9", "computer"), new("Vv", "Výtvarná výchova", "#fbcfe8", "art"),
         new("Tv", "Tělesná výchova", "#bef264", "gym"), new("Sem", "Seminář", "#e7e5e4"),
         new("Fj", "Francouzský jazyk", "#bfdbfe"), new("Šj", "Španělský jazyk", "#fecaca"),
+        new("Dcj", "Další cizí jazyk", "#fde68a"),
     ];
 
     /// <summary>Created only when the school offers them.</summary>
@@ -100,31 +101,37 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
     /// of these subjects' (the RVP's minima and totals still met).</summary>
     private static readonly Dictionary<int, string> ElectiveHourFrom = new() { [6] = "Vv", [8] = "M", [9] = "Čj" };
 
-    /// <summary>What a grade's pupils choose from — the group's name and
-    /// the subject its teacher teaches.</summary>
-    private static readonly Dictionary<int, (string Name, string Teacher)[]> ElectiveTopics = new()
+    /// <summary>A subject a pupil chooses: its name, abbreviation and the
+    /// subject its teacher teaches.</summary>
+    private sealed record Topic(string Name, string Abbr, string Teacher);
+
+    /// <summary>What a grade's pupils choose from for the plan's
+    /// "Povinně volitelný předmět".</summary>
+    private static readonly Dictionary<int, Topic[]> ElectiveTopics = new()
     {
-        [6] = [("Dramatická výchova", "Čj"), ("Domácnost", "Pč"), ("Informatika plus", "Inf"), ("Rozvoj pohybových dovedností", "Tv")],
-        [8] = [("Matematické praktikum", "M"), ("Čtenářský seminář", "Čj"), ("Fyzikální hrátky", "F"), ("Kouzla matematiky", "M"), ("Cambridge English", "Aj")],
-        [9] = [("Ekologický seminář", "Př"), ("Mediální výchova", "Ov"), ("Historický seminář", "D"), ("Rozšiřující čeština", "Čj"), ("Rozšiřující matematika", "M")],
+        [6] = [new("Dramatická výchova", "DV", "Čj"), new("Domácnost", "Dom", "Pč"), new("Informatika plus", "Inf+", "Inf"), new("Rozvoj pohybových dovedností", "RPD", "Tv")],
+        [8] = [new("Matematické praktikum", "MP", "M"), new("Čtenářský seminář", "ČtS", "Čj"), new("Fyzikální hrátky", "FH", "F"), new("Kouzla matematiky", "KM", "M"), new("Cambridge English", "CE", "Aj")],
+        [9] = [new("Ekologický seminář", "EkS", "Př"), new("Mediální výchova", "MeV", "Ov"), new("Historický seminář", "HiS", "D"), new("Rozšiřující čeština", "RČj", "Čj"), new("Rozšiřující matematika", "RM", "M")],
     };
 
-    /// <summary>A gymnázium's seminars: blocks of the grade's Sem hours,
-    /// in each a seminar of the pupil's choice.</summary>
-    private static readonly Dictionary<int, (string Label, int Hours, (string Name, string Teacher)[] Topics)[]> SeminarBlocks = new()
+    /// <summary>A gymnázium's seminars: blocks of the plan's "Seminář"
+    /// hours, in each a seminar of the pupil's choice.</summary>
+    private static readonly Dictionary<int, (string Label, int Hours, Topic[] Topics)[]> SeminarBlocks = new()
     {
         [3] =
         [
-            ("I", 3, [("Seminář z chemie", "Ch"), ("Seminář z dějepisu", "D"), ("Aplikovaná matematika", "M"), ("Seminář z fyziky", "F")]),
-            ("II", 2, [("Seminář z biologie", "Bi"), ("Psychologie", "ZSV"), ("Dějiny kultury", "D")]),
+            ("I", 3, [new("Seminář z chemie", "SCh", "Ch"), new("Seminář z dějepisu", "SD", "D"), new("Aplikovaná matematika", "AM", "M"), new("Seminář z fyziky", "SF", "F")]),
+            ("II", 2, [new("Seminář z biologie", "SBi", "Bi"), new("Psychologie", "Psy", "ZSV"), new("Dějiny kultury", "DK", "D")]),
         ],
         [4] =
         [
-            ("I", 2, [("Seminář z fyziky", "F"), ("Dějiny kultury", "D"), ("Programování", "Inf"), ("Seminář z chemie", "Ch")]),
-            ("II", 2, [("Základy práva", "ZSV"), ("Seminář ze ZSV", "ZSV"), ("Seminář z biologie", "Bi")]),
-            ("III", 2, [("American history and culture", "Aj"), ("Konverzace v Nj", "Nj"), ("Seminář z dějepisu", "D"), ("Aplikovaná matematika", "M")]),
+            ("I", 2, [new("Seminář z fyziky", "SF", "F"), new("Dějiny kultury", "DK", "D"), new("Programování", "Prog", "Inf"), new("Seminář z chemie", "SCh", "Ch")]),
+            ("II", 2, [new("Základy práva", "ZPr", "ZSV"), new("Seminář ze ZSV", "SZSV", "ZSV"), new("Seminář z biologie", "SBi", "Bi")]),
+            ("III", 2, [new("American history and culture", "AHC", "Aj"), new("Konverzace v Nj", "KNj", "Nj"), new("Seminář z dějepisu", "SD", "D"), new("Aplikovaná matematika", "AM", "M")]),
         ],
     };
+
+    private static readonly string[] TopicColors = ["#e9d5ff", "#c7d2fe", "#bbf7d0", "#fed7aa", "#fbcfe8", "#a5f3fc", "#fde68a", "#d9f99d"];
 
     /// <summary>Weekly hours per grade (index 0 = 1st grade), meeting
     /// <see cref="ElementaryProgram"/>.</summary>
@@ -138,17 +145,17 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         new() { ["Čj"] = 7, ["M"] = 5, ["Aj"] = 3, ["Přv"] = 2, ["Vl"] = 2, ["Inf"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
         new() { ["Čj"] = 7, ["M"] = 5, ["Aj"] = 3, ["Přv"] = 2, ["Vl"] = 2, ["Inf"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
         new() { ["Čj"] = 5, ["M"] = 4, ["Aj"] = 3, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Vz"] = 1, ["Pč"] = 1 },
-        new() { ["Čj"] = 4, ["M"] = 4, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Vz"] = 1, ["Pč"] = 1 },
-        new() { ["Čj"] = 4, ["M"] = 5, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
-        new() { ["Čj"] = 5, ["M"] = 5, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
+        new() { ["Čj"] = 4, ["M"] = 4, ["Aj"] = 3, ["Dcj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Vz"] = 1, ["Pč"] = 1 },
+        new() { ["Čj"] = 4, ["M"] = 5, ["Aj"] = 3, ["Dcj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
+        new() { ["Čj"] = 5, ["M"] = 5, ["Aj"] = 3, ["Dcj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
     ];
 
     private static readonly Dictionary<string, int>[] SecondaryPlan =
     [
-        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 5, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
-        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 5, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
-        new() { ["Čj"] = 3, ["Aj"] = 3, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 2, ["Inf"] = 1, ["Tv"] = 2, ["Sem"] = 5 },
-        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["ZSV"] = 2, ["Tv"] = 2, ["Sem"] = 6 },
+        new() { ["Čj"] = 4, ["Aj"] = 4, ["Dcj"] = 3, ["M"] = 5, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
+        new() { ["Čj"] = 4, ["Aj"] = 4, ["Dcj"] = 3, ["M"] = 5, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
+        new() { ["Čj"] = 3, ["Aj"] = 3, ["Dcj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 2, ["Inf"] = 1, ["Tv"] = 2, ["Sem"] = 5 },
+        new() { ["Čj"] = 4, ["Aj"] = 4, ["Dcj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["ZSV"] = 2, ["Tv"] = 2, ["Sem"] = 6 },
     ];
 
     /// <summary>Aprobace pairs a newly needed teacher is drawn from.</summary>
@@ -184,6 +191,9 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
     private readonly List<User> users = [];
     private readonly List<DivisionInfo> divisions = [];
     private readonly List<GroupInfo> optionalGroups = [];
+
+    /// <summary>The subjects pupils chose from for a placeholder row of the plan.</summary>
+    private readonly Dictionary<string, SubjectDef> topicSubjects = [];
     private Dictionary<UserRole, Role> roles = [];
 
     private sealed class TeacherInfo
@@ -280,6 +290,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         users.Clear();
         divisions.Clear();
         optionalGroups.Clear();
+        topicSubjects.Clear();
         roles = await db.Roles.IgnoreQueryFilters()
             .Where(r => r.SchoolId == target.Id && r.BuiltIn != null)
             .ToDictionaryAsync(r => r.BuiltIn!.Value);
@@ -311,7 +322,13 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         }
 
         var roomGroups = CreateSpecialRooms(elementary, options.ClassesPerGrade);
-        var subjects = subjectDefs.ToDictionary(d => d.Abbr, d =>
+        var admin = NewPerson(rng.Next(2) == 0, adult: true, [UserRole.Admin]);
+        school.DirectorName = $"Mgr. {admin.Person.FullName}";
+        FillSchoolDetails();
+
+        var classes = CreateClasses(plan, options.ClassesPerGrade, elementary);
+        PlanDivisions(classes, elementary, roomGroups, languages, optional);
+        var subjects = subjectDefs.Concat(topicSubjects.Values).ToDictionary(d => d.Abbr, d =>
         {
             var subject = new Subject
             {
@@ -337,13 +354,6 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             db.Subjects.Add(subject);
             return subject;
         });
-
-        var admin = NewPerson(rng.Next(2) == 0, adult: true, [UserRole.Admin]);
-        school.DirectorName = $"Mgr. {admin.Person.FullName}";
-        FillSchoolDetails();
-
-        var classes = CreateClasses(plan, options.ClassesPerGrade, elementary);
-        PlanDivisions(classes, elementary, roomGroups, languages, optional);
         var teachers = AssignTeachers(classes, elementary);
         CreateFamilies(classes, elementary);
         FillGroups(classes);
@@ -570,9 +580,9 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             {
                 Add("Tv", $"Tv {grade.Key}. ročník", plan["Tv"], [($"Tv dívky {grade.Key}", "Tv", "Tv"), ($"Tv chlapci {grade.Key}", "Tv", "Tv")], null);
             }
-            if (plan.TryGetValue("Nj", out var languageHours))
+            if (plan.TryGetValue("Dcj", out var languageHours))
             {
-                Add("Nj", $"Další cizí jazyk {grade.Key}. ročník", languageHours,
+                Add("Dcj", $"Další cizí jazyk {grade.Key}. ročník", languageHours,
                     [.. languages.Take(groupCount).Select(l => ($"{l} {grade.Key}", l, l))], rooms);
             }
             if (plan.ContainsKey("PVP"))
@@ -587,8 +597,12 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 }
             }
 
-            List<(string, string, string)> Topics((string Name, string Teacher)[] topics, string subject) =>
-                [.. topics.OrderBy(_ => rng.Next()).Take(groupCount).Select(t => ($"{t.Name} {grade.Key}", subject, t.Teacher))];
+            List<(string, string, string)> Topics(Topic[] topics, string planRow) =>
+                [.. topics.OrderBy(_ => rng.Next()).Take(groupCount).Select(t =>
+                {
+                    topicSubjects.TryAdd(t.Abbr, new SubjectDef(t.Abbr, t.Name, TopicColors[topicSubjects.Count % TopicColors.Length]));
+                    return ($"{t.Name} {grade.Key}", t.Abbr, t.Teacher);
+                })];
 
             void Add(string planSubject, string name, int hours, List<(string Name, string Subject, string Teacher)> groups, List<Classroom>? groupRooms)
             {
@@ -1217,7 +1231,12 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         {
             // Own hours when the plan's are of more of them (seminars).
             decimal? hours = division.Hours == division.Classes[0].Plan[division.PlanSubject] ? null : division.Hours;
-            division.Entity = new GroupDivision { SchoolId = school.Id, TimetableVersion = version, Name = division.Name, HoursPerWeek = hours };
+            division.Entity = new GroupDivision
+            {
+                SchoolId = school.Id, TimetableVersion = version, Name = division.Name, HoursPerWeek = hours,
+                // Groups of other subjects than the plan's row teach it.
+                CoversSubject = division.Groups.Any(g => g.Subject != division.PlanSubject) ? subjects[division.PlanSubject] : null,
+            };
             db.GroupDivisions.Add(division.Entity);
             db.StudentGroups.AddRange(division.Groups.Select(g => Group(g, division.Classes, division.Entity, hours)));
         }

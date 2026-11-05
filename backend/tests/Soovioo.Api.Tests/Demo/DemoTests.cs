@@ -159,6 +159,19 @@ public class DemoTests
             });
         }
 
+        // The language, povinně volitelný and seminars cover a row of the
+        // plan, a placeholder: their groups have subjects of their own, and
+        // the row is neither taught, graded nor given homework itself.
+        var subjects = await db.Subjects.ToDictionaryAsync(s => s.Id);
+        var covering = divisions.Where(d => d.CoversSubjectId != null).ToList();
+        Assert.Equal(divisions.Count(d => !d.Name.StartsWith("Tv ")), covering.Count);
+        var placeholders = covering.Select(d => d.CoversSubjectId!.Value).ToHashSet();
+        Assert.Contains("Další cizí jazyk", placeholders.Select(id => subjects[id].Name));
+        Assert.All(covering.SelectMany(d => d.Groups), g => Assert.DoesNotContain(g.SubjectId, placeholders));
+        Assert.DoesNotContain(entries, e => placeholders.Contains(e.SubjectId));
+        Assert.False(await db.Grades.AnyAsync(g => placeholders.Contains(g.SubjectId)));
+        Assert.False(await db.Homework.AnyAsync(h => placeholders.Contains(h.SubjectId)));
+
         // Nepovinné: pupils of its classes, at most two each, after their classes' lessons.
         var optional = groups.Where(g => g.GroupDivisionId == null).ToList();
         Assert.NotEmpty(optional);

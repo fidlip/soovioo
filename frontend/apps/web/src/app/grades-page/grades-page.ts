@@ -103,7 +103,9 @@ export class GradesPage {
   protected readonly dialogSubjectId = signal<number | null>(null);
   protected readonly dialogSubjects = computed(() => {
     const reached = reachedSubjectIds(this.reach());
-    return this.subjects().filter((s) => !reached || reached.has(s.id));
+    return this.subjects().filter(
+      (s) => !s.coveredByDivisions && (!reached || reached.has(s.id)),
+    );
   });
   protected readonly dialogStudentOptions = computed(() => {
     const subjectId = this.dialogSubjectId();

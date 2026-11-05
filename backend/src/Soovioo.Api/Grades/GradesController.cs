@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Grades;
 
@@ -53,6 +54,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         if (!studentExists || !subjectExists)
         {
             return BadRequest("Neznámý žák nebo předmět.");
+        }
+        if ((await db.CoveredSubjectIdsAsync()).Contains(request.SubjectId))
+        {
+            return BadRequest(CoveredSubject);
         }
         if (!await MayGradeAsync(request.StudentId, request.SubjectId))
         {
@@ -115,6 +120,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             return BadRequest("Neznámý žák nebo předmět.");
         }
+        if (request.SubjectId != grade.SubjectId && (await db.CoveredSubjectIdsAsync()).Contains(request.SubjectId))
+        {
+            return BadRequest(CoveredSubject);
+        }
         if (!await MayGradeAsync(grade.StudentId, grade.SubjectId) || !await MayGradeAsync(request.StudentId, request.SubjectId))
         {
             return Forbid();
@@ -159,6 +168,8 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     /// <summary>The pupil and the subject within the caller's
     /// <see cref="Permission.GradesWrite"/> (by default: a teacher grades
     /// what they teach the pupil — in the class or the pupil's group).</summary>
+    private const string CoveredSubject = "Předmět se učí ve skupinách — známku dejte z předmětu skupiny.";
+
     private Task<bool> MayGradeAsync(int studentId, int subjectId) =>
         User.ReachesStudentSubjectAsync(db, Permission.GradesWrite, studentId, subjectId);
 }

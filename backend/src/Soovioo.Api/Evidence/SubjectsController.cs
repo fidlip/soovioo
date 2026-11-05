@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Evidence;
 
@@ -18,7 +19,10 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Subject>>> GetSubjects()
     {
-        return Ok(await db.Subjects.OrderBy(s => s.Name).ToListAsync());
+        var subjects = await db.Subjects.OrderBy(s => s.Name).ToListAsync();
+        var covered = await db.CoveredSubjectIdsAsync();
+        subjects.ForEach(s => s.CoveredByDivisions = covered.Contains(s.Id));
+        return Ok(subjects);
     }
 
     [HttpPost]

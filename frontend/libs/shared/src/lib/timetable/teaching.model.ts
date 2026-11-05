@@ -211,10 +211,13 @@ export interface FillCurriculumResponse {
 export interface GroupDivision {
   id: number;
   name: string;
-  /** null = as the učební plán of its classes has its groups' subjects. */
+  /** null = as the učební plán of its classes has the row it covers, else its groups' subjects. */
   hoursPerWeek: number | null;
   doubleLessons: boolean | null;
   classIds: number[];
+  /** The row of the učební plán it teaches ("Povinně volitelný předmět",
+   * "Další cizí jazyk") its groups' subjects are chosen for; null = their own rows. */
+  coversSubjectId: number | null;
 }
 
 /** Pupils taught a subject apart from the rest of their class. */

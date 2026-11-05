@@ -193,6 +193,22 @@
         appendTo="body"
       />
     </app-float-field>
+    <app-float-field label="Řádek učebního plánu" for="divisionCovers">
+      <p-select
+        ariaLabel="Řádek učebního plánu"
+        inputId="divisionCovers"
+        name="divisionCovers"
+        [options]="subjects()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="form.coversSubjectId"
+        [filter]="true"
+        [showClear]="true"
+        placeholder="Řádky předmětů skupin"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
     <div class="flex flex-wrap items-center gap-4">
       <app-float-field label="Hodiny týdně" for="divisionHours">
         <p-inputNumber
@@ -223,7 +239,9 @@
     </div>
     <p class="m-0 text-sm text-surface-500">
       Skupiny dělení převezmou jeho třídy, hodiny i dvouhodinovky. Bez hodin se
-      vezmou z učebního plánu tříd pro předměty skupin.
+      vezmou z učebního plánu tříd — z vybraného řádku, jinak pro předměty
+      skupin. Řádek se hodí pro volbu mezi předměty, např. „Povinně volitelný
+      předmět“ nebo „Další cizí jazyk“ — učí ho pak skupiny dělení.
     </p>
     <div class="flex justify-end gap-2">
       <p-button
