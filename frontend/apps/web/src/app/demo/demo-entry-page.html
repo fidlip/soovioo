@@ -25,11 +25,17 @@
     } @case ('type') {
     <p class="demo-step-label">Krok 1 ze 4</p>
     <h2 class="demo-step-title">Jaký typ školy si chcete prohlédnout?</h2>
-    <div class="grid gap-3 sm:grid-cols-2">
+    <div
+      class="grid gap-3 sm:grid-cols-2"
+      role="radiogroup"
+      aria-label="Typ školy"
+    >
       <button
         type="button"
+        role="radio"
         class="demo-option"
         [class.selected]="type() === 'Elementary'"
+        [attr.aria-checked]="type() === 'Elementary'"
         (click)="chooseType('Elementary')"
       >
         <i class="pi pi-home text-2xl text-primary"></i>
@@ -38,8 +44,10 @@
       </button>
       <button
         type="button"
+        role="radio"
         class="demo-option"
         [class.selected]="type() === 'Secondary'"
+        [attr.aria-checked]="type() === 'Secondary'"
         (click)="chooseType('Secondary')"
       >
         <i class="pi pi-graduation-cap text-2xl text-primary"></i>
@@ -59,6 +67,7 @@
           class="w-full"
           maxlength="100"
           [(ngModel)]="name"
+          (keydown.enter)="focusOptions($event)"
         />
       </app-float-field>
       <div class="flex flex-col gap-1.5">
@@ -79,7 +88,8 @@
             class="demo-option compact"
             [class.selected]="classesPerGrade() === size.perGrade"
             [attr.aria-checked]="classesPerGrade() === size.perGrade"
-            (click)="classesPerGrade.set(size.perGrade)"
+            [disabled]="!name.trim()"
+            (click)="chooseSize(size.perGrade)"
           >
             <strong>{{ size.perGrade }}</strong>
             <span>{{ size.classes }} tříd</span>
@@ -94,13 +104,6 @@
         [text]="true"
         icon="pi pi-arrow-left"
         (onClick)="back()"
-      />
-      <p-button
-        label="Další"
-        icon="pi pi-arrow-right"
-        iconPos="right"
-        [disabled]="!name.trim()"
-        (onClick)="step.set('contact')"
       />
     </div>
     } @case ('contact') {
@@ -122,6 +125,7 @@
             class="w-full"
             placeholder="vas@email.cz"
             [(ngModel)]="email"
+            (keydown.enter)="toRole()"
             [class.ng-invalid]="emailInvalid()"
             [class.ng-dirty]="emailInvalid()"
           />
@@ -170,7 +174,7 @@
         icon="pi pi-arrow-right"
         iconPos="right"
         [disabled]="emailInvalid()"
-        (onClick)="step.set('role')"
+        (onClick)="toRole()"
       />
     </div>
     } @case ('role') {
@@ -187,7 +191,7 @@
         class="demo-option"
         [class.selected]="role() === option.role"
         [attr.aria-checked]="role() === option.role"
-        (click)="role.set(option.role)"
+        (click)="chooseRole(option.role)"
       >
         <i class="pi text-xl text-primary" [class]="option.icon"></i>
         <strong>{{ option.label }}</strong>
@@ -204,11 +208,6 @@
         [text]="true"
         icon="pi pi-arrow-left"
         (onClick)="back()"
-      />
-      <p-button
-        [label]="resetSlug ? 'Vygenerovat nová data' : 'Vytvořit ukázkovou školu'"
-        icon="pi pi-check"
-        (onClick)="create()"
       />
     </div>
     } @case ('generating') {

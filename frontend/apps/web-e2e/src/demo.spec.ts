@@ -9,14 +9,13 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   test.slow();
   await page.goto('/demo?new=1');
 
-  await page.getByRole('button', { name: /Střední škola/ }).click();
+  // Picking an option moves on; the role creates the demo.
+  await page.getByRole('radio', { name: /Střední škola/ }).click();
   await expect(page.getByLabel('Název školy')).toHaveValue('Gymnázium Ukázkov');
   await page.getByRole('radio', { name: /^1/ }).click();
-  await page.getByRole('button', { name: 'Další' }).click();
   // Contact step — e-mail is optional.
   await page.getByRole('button', { name: 'Další' }).click();
   await page.getByRole('radio', { name: /Rodič/ }).click();
-  await page.getByRole('button', { name: 'Vytvořit ukázkovou školu' }).click();
 
   await expect(page).toHaveURL(/\/demo-[a-z0-9]{11}\/home$/, {
     timeout: 30_000,
@@ -74,4 +73,63 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Vyzkoušejte Soovioo' }),
   ).toBeVisible();
+});
+
+test('demo: wizard by keyboard, nothing picked in advance', async ({
+  page,
+}) => {
+  await page.goto('/demo?new=1');
+  const types = page.getByRole('radiogroup', { name: 'Typ školy' });
+  await expect(types.getByRole('radio')).toHaveCount(2);
+  await expect(types.getByRole('radio', { checked: true })).toHaveCount(0);
+
+  // Arrows pick, Enter confirms and moves on.
+  await page.keyboard.press('ArrowRight');
+  await expect(
+    types.getByRole('radio', { name: /Základní škola/ }),
+  ).toBeChecked();
+  await page.keyboard.press('ArrowRight');
+  await expect(
+    types.getByRole('radio', { name: /Střední škola/ }),
+  ).toBeChecked();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Název školy')).toHaveValue('Gymnázium Ukázkov');
+  const sizes = page.getByRole('radiogroup', { name: 'Počet tříd v ročníku' });
+  await expect(sizes.getByRole('radio')).toHaveCount(3);
+  await expect(sizes.getByRole('radio', { checked: true })).toHaveCount(0);
+
+  // Backspace goes back, the earlier pick stays.
+  await page.keyboard.press('Backspace');
+  await expect(
+    types.getByRole('radio', { name: /Střední škola/ }),
+  ).toBeChecked();
+  await expect(
+    types.getByRole('radio', { name: /Střední škola/ }),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  // Backspace in the name field edits the name, Enter hands over to the sizes.
+  await page.getByLabel('Název školy').fill('Gymnázium Testov');
+  await page.getByLabel('Název školy').press('Backspace');
+  await expect(page.getByLabel('Název školy')).toHaveValue('Gymnázium Testo');
+  await page.getByLabel('Název školy').press('Enter');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(sizes.getByRole('radio', { name: /^3/ })).toBeChecked();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByLabel('E-mail')).toBeVisible();
+  await page.getByLabel('E-mail').press('Enter');
+  const roles = page.getByRole('radiogroup', { name: 'Role' });
+  await expect(roles.getByRole('radio')).toHaveCount(4);
+  await expect(roles.getByRole('radio', { checked: true })).toHaveCount(0);
+  await page.keyboard.press('ArrowDown');
+  await expect(
+    roles.getByRole('radio', { name: /Vedení školy/ }),
+  ).toBeChecked();
+
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Backspace');
+  await expect(sizes.getByRole('radio', { name: /^3/ })).toBeChecked();
+  await expect(page.getByLabel('Název školy')).toHaveValue('Gymnázium Testo');
 });
