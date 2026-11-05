@@ -211,6 +211,66 @@ public class TimetableGeneratorTests
         Assert.All(result.Placements.GroupBy(p => p.Day), d => Assert.True(d.Min(p => p.Period) <= 2));
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 0)]
+    [InlineData(4, 0)]
+    [InlineData(5, 1)]
+    [InlineData(6, 3)]
+    [InlineData(7, 5)]
+    [InlineData(8, 7)]
+    public void ALessonWeighsMoreTheLaterItIsFromTheFifthPeriod(int period, int weight) =>
+        Assert.Equal(weight, LongDayWeight(period));
+
+    [Fact]
+    public void AWishGoesBeforeAnEvenWeek()
+    {
+        // 27 lessons of a teacher who'd rather not teach from Tuesday to Friday.
+        Teacher teacher = new([.. from day in Week.Skip(1) from period in Enumerable.Range(1, 8)
+                               select new AvailabilitySlot(day, period, AvailabilityKind.Avoid)]);
+
+        var result = Run(
+            [new Demand(1, 10, 100, 7, 0), new Demand(1, 11, 100, 7, 0), new Demand(1, 12, 100, 7, 0), new Demand(1, 13, 100, 6, 0)],
+            teachers: new() { [100] = teacher }, periods: 8);
+
+        Assert.Empty(result.Unplaced);
+        Assert.Equal(7, result.Placements.Count(p => p.Day == DayOfWeek.Monday));
+        Assert.All(Week.Skip(1), day => Assert.Equal(5, result.Placements.Count(p => p.Day == day)));
+    }
+
+    [Fact]
+    public void ALongerDayOnlyWhenTheHoursNeedIt()
+    {
+        // Teacher 100's seven lessons would make one block on a day of 7.
+        List<Demand> demands = [
+            .. Enumerable.Range(10, 7).Select(subject => new Demand(1, subject, 100, 1, 0)),
+            .. Enumerable.Range(20, 5).Select(subject => new Demand(1, subject, 200, 4, 0))];
+
+        var result = Run(demands, periods: 8);
+
+        Assert.Empty(result.Unplaced);
+        Assert.Equal([5, 5, 5, 6, 6], result.Placements.GroupBy(p => p.Day).Select(d => d.Count()).Order());
+        Assert.All(result.Placements, p => Assert.True(p.Period <= 6));
+    }
+
+    [Fact]
+    public void LongDaysTheHoursNeedAreNoBreachAndDoNotKeepTheSearchGoing()
+    {
+        var started = Environment.TickCount64;
+
+        var result = Generate(new Input(Week, [.. Enumerable.Range(1, 8)],
+            [new Demand(1, 10, 100, 7, 0), new Demand(1, 11, 101, 7, 0), new Demand(1, 12, 102, 7, 0), new Demand(1, 13, 103, 6, 0)],
+            [], new Dictionary<int, Teacher>(), TimeSpan.FromMinutes(2))
+        {
+            RequirementsStall = TimeSpan.FromMinutes(1),
+            PolishStall = TimeSpan.FromSeconds(1),
+        });
+
+        Assert.Empty(result.Unplaced);
+        Assert.Equal(0, result.Penalty);
+        Assert.True(Environment.TickCount64 - started < 30_000);
+    }
+
     /// <summary>Teacher 100 has 2 lessons in each of classes 1–3, whose other
     /// lessons (14 a week) are another teacher's.</summary>
     private static Result ThreeClasses(Teacher teacher) =>
