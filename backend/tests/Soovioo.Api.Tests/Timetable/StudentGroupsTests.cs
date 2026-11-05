@@ -410,6 +410,13 @@ public class StudentGroupsTests
         Assert.Equal("Předmět se učí ve skupinách — úkol zadejte z předmětu skupiny.",
             Bad(await homework.CreateHomework(new CreateHomeworkRequest(a.Id, second.Id, "Slovíčka", new DateOnly(2026, 11, 10), false))));
 
+        const string NoLesson = "Předmět se učí ve skupinách dělení — hodinu dejte skupině.";
+        Assert.Equal(NoLesson, Bad(await Timetable().AddEntry(a.Id,
+            new CreateTimetableEntryRequest(second.Id, DayOfWeek.Monday, 1, WeekParity.Every, null, null, draft.Id))));
+        var mathsLesson = Lesson(a, maths, DayOfWeek.Monday, 2);
+        Assert.Equal(NoLesson, Bad(await Timetable().UpdateEntry(a.Id, mathsLesson.Id,
+            new CreateTimetableEntryRequest(second.Id, DayOfWeek.Monday, 2, WeekParity.Every))));
+
         // A copied version keeps the row its division covers.
         var created = await new TimetableVersionsController(db, new FakeCurrentSchoolContext(SchoolId), clock)
         {

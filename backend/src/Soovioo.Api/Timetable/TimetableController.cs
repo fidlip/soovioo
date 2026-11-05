@@ -133,6 +133,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
                 : null;
     }
 
+    private const string CoveredSubject = "Předmět se učí ve skupinách dělení — hodinu dejte skupině.";
+
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableEntryDto>> AddEntry(int schoolClassId, CreateTimetableEntryRequest request)
@@ -149,6 +151,10 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         if (subject is null)
         {
             return BadRequest("Neznámý předmět.");
+        }
+        if (request.StudentGroupId is null && (await db.CoveredSubjectIdsAsync()).Contains(subject.Id))
+        {
+            return BadRequest(CoveredSubject);
         }
 
         var teacher = await ResolveTeacherAsync(request.TeacherId);
@@ -237,6 +243,10 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
         if (subject is null)
         {
             return BadRequest("Neznámý předmět.");
+        }
+        if (entry.StudentGroupId is null && request.SubjectId != entry.SubjectId && (await db.CoveredSubjectIdsAsync()).Contains(subject.Id))
+        {
+            return BadRequest(CoveredSubject);
         }
 
         var teacher = await ResolveTeacherAsync(request.TeacherId);

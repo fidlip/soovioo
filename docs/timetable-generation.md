@@ -171,8 +171,8 @@ Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a k
   skutečné předměty skupin (Dramatická výchova | Domácnost, Nj | Fj). Bez vlastních hodin
   má dělení hodiny toho řádku; víc dělení jednoho řádku (semináře 3 h + 2 h) musí mít
   dohromady jeho hodiny. Řádek se tak počítá do týdne třídy i do RVP, sám se ale neučí:
-  nedostane učitele ani hodiny v rozvrhu a známku nebo úkol z něj API odmítne (dávají se
-  z předmětu skupiny).
+  nedostane učitele ani hodiny v rozvrhu (ruční úprava rozvrhu ho nenabízí a hodinu celé
+  třídy z něj API odmítne) a známku nebo úkol z něj API odmítne (dávají se z předmětu skupiny).
 - Hodina skupiny je `TimetableEntry` se `StudentGroupId`, jedna za každou třídu skupiny
   (úprava a smazání platí pro všechny); rozvrh třídy ukáže v políčku hodiny všech jejích
   skupin, žák a rodič jen skupiny žáka, učitel hodinu jednou („Nj (7.A, 7.B)“).

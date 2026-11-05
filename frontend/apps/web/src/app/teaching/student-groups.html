@@ -27,7 +27,10 @@
     />
   </div>
   } @for (d of divisions(); track d.division.id) {
-  <section [attr.aria-label]="'Dělení ' + d.division.name">
+  <section
+    [id]="'division-' + d.division.id"
+    [attr.aria-label]="'Dělení ' + d.division.name"
+  >
     <h2 class="mb-2 flex flex-wrap items-center gap-2 text-lg">
       {{ d.division.name }}
       <span class="text-sm font-normal text-surface-500"
@@ -99,7 +102,7 @@
         </tr>
       </ng-template>
       <ng-template #body let-g>
-        <tr>
+        <tr [id]="'group-' + g.id">
           <td>{{ g.name }}</td>
           <td>{{ subjectName(g.subjectId) }}</td>
           @if (!division) {
@@ -204,7 +207,7 @@
         [(ngModel)]="form.coversSubjectId"
         [filter]="true"
         [showClear]="true"
-        placeholder="Řádky předmětů skupin"
+        placeholder="Žádný — každá skupina učí řádek svého předmětu"
         styleClass="w-full"
         appendTo="body"
       />

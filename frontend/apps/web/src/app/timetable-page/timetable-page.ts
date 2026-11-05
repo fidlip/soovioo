@@ -207,6 +207,15 @@ export class TimetablePage {
   protected readonly weekParityOptions = WEEK_PARITY_OPTIONS;
 
   protected readonly subjects = signal<Subject[]>([]);
+  /** The edited lesson's subject, kept on offer even when it's a row of
+   * the plan divisions teach. */
+  private readonly editedSubjectId = signal<number | null>(null);
+  /** Not a row of the plan divisions teach — their groups have the lessons. */
+  protected readonly lessonSubjects = computed(() =>
+    this.subjects().filter(
+      (s) => !s.coveredByDivisions || s.id === this.editedSubjectId(),
+    ),
+  );
   protected readonly classrooms = signal<Classroom[]>([]);
   protected readonly teachers = signal<Teacher[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
@@ -469,7 +478,7 @@ export class TimetablePage {
     this.subjectsApi.getSubjects().subscribe({
       next: (subjects) => {
         this.subjects.set(subjects);
-        this.formSubjectId ??= subjects[0]?.id ?? null;
+        this.formSubjectId ??= this.lessonSubjects()[0]?.id ?? null;
       },
       error: (err) => console.error('getSubjects failed', err),
     });
@@ -840,7 +849,8 @@ export class TimetablePage {
     this.editingGroupName = null;
     this.loadGroups();
     this.editingEntrySchoolClassId.set(this.selectedClassId());
-    this.formSubjectId = this.subjects()[0]?.id ?? null;
+    this.editedSubjectId.set(null);
+    this.formSubjectId = this.lessonSubjects()[0]?.id ?? null;
     this.formDayOfWeek = day;
     this.formPeriodNumber = periodNumber;
     this.formWeekParity = 'Every';
@@ -858,6 +868,7 @@ export class TimetablePage {
     this.formGroupId = entry.studentGroupId ?? null;
     this.editingGroupName = entry.studentGroupName ?? null;
     this.editingEntrySchoolClassId.set(entry.schoolClassId);
+    this.editedSubjectId.set(entry.subjectId);
     this.formSubjectId = entry.subjectId;
     this.formDayOfWeek = entry.dayOfWeek;
     this.formPeriodNumber = entry.periodNumber;
