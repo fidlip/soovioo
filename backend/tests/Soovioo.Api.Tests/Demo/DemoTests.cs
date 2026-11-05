@@ -92,13 +92,75 @@ public class DemoTests
         Assert.All(await db.SchoolClasses.ToListAsync(), c => Assert.Equal(program, c.RvpProgramCode));
         var version = await db.TimetableVersions.SingleAsync();
         var plan = await TeachingPlan.LoadAsync(db, version);
-        // The timetable holds all the plan has.
-        Assert.All(plan.Classes.SelectMany(c => c.Rows), r => Assert.Equal(r.PlanHours ?? 0, r.TimetableHours));
+        // The timetable holds all the plan has, Tv (and seminars) in groups.
+        var rows = plan.Classes.SelectMany(c => c.Rows).ToList();
+        Assert.All(rows.Where(r => r.Groups.Count == 0), r => Assert.Equal(r.PlanHours ?? 0, r.TimetableHours));
+        Assert.All(rows.Where(r => r.Groups.Count > 0), r => Assert.Equal(0, r.TimetableHours));
+        Assert.NotEmpty(plan.Groups);
+        Assert.All(plan.Groups, g => Assert.Equal(g.PlanHours, g.TimetableHours));
         var check = await RvpCheck.LoadAsync(db, plan);
         var programCheck = Assert.Single(check.Programs);
         Assert.Empty(programCheck.Problems);
         Assert.All(programCheck.Stages, s => Assert.Empty(s.MissingGrades));
         Assert.Empty(check.ClassesWithout);
+    }
+
+    [Theory]
+    [InlineData(SchoolType.Elementary, 1)]
+    [InlineData(SchoolType.Elementary, 3)]
+    [InlineData(SchoolType.Secondary, 2)]
+    public async Task DividesTvAndSeminarsIntoGroupsTaughtAtOnce(SchoolType type, int perGrade)
+    {
+        var name = Guid.NewGuid().ToString();
+        int schoolId;
+        using (var generating = NewDb(name: name))
+        {
+            schoolId = (await GenerateAsync(generating, type, perGrade)).School.Id;
+        }
+
+        using var db = NewDb(name, schoolId);
+        var version = await db.TimetableVersions.SingleAsync();
+        var divisions = await db.GroupDivisions.Include(d => d.Groups).ThenInclude(g => g.Members).ToListAsync();
+        var classes = await db.SchoolClasses.ToListAsync();
+        var students = await db.Students.ToListAsync();
+        var entries = await db.TimetableEntries.ToListAsync();
+        var upper = classes.Where(c => type == SchoolType.Secondary || c.Rocnik >= 6).ToList();
+        Assert.Equal(upper.Count / perGrade + (type == SchoolType.Secondary ? 2 : 0), divisions.Count);
+        Assert.Contains(divisions, d => d.Name == (type == SchoolType.Secondary ? "Semináře 3. ročník" : "Tv 6. ročník"));
+        foreach (var division in divisions)
+        {
+            // Every pupil of its classes in one group of it, girls and boys apart.
+            var pupils = students.Where(s => division.ClassIds.Contains(s.SchoolClassId)).Select(s => s.Id).Order();
+            Assert.Equal(pupils, division.Groups.SelectMany(g => g.Members).Select(m => m.StudentId).Order());
+            if (division.Name.StartsWith("Tv"))
+            {
+                Assert.All(division.Groups[0].Members, m => Assert.Equal(Gender.Female, students.Single(s => s.Id == m.StudentId).Gender));
+            }
+            // The groups at the same time, each in each class, by another teacher and in another room.
+            var slots = division.Groups.Select(g => entries.Where(e => e.StudentGroupId == g.Id)
+                .Select(e => (e.DayOfWeek, e.PeriodNumber, e.SchoolClassId)).Order().ToList()).ToList();
+            Assert.All(slots, s => Assert.Equal(slots[0], s));
+            Assert.Equal(division.ClassIds.Count * 2 * (division.Name.StartsWith("Tv") ? 2 : division.Name.Contains('3') ? 5 : 6),
+                slots.Sum(s => s.Count));
+            var lessons = entries.Where(e => division.Groups.Any(g => g.Id == e.StudentGroupId)).GroupBy(e => (e.DayOfWeek, e.PeriodNumber));
+            Assert.All(lessons, l =>
+            {
+                Assert.Equal(division.Groups.Count, l.Select(e => e.TeacherId).Distinct().Count());
+                Assert.Equal(division.Groups.Count, l.Select(e => e.ClassroomId).Distinct().Count());
+            });
+        }
+        // No whole-class Tv in the divided classes.
+        Assert.DoesNotContain(entries, e => e.StudentGroupId == null && upper.Any(c => c.Id == e.SchoolClassId)
+            && divisions.Any(d => d.ClassIds.Contains(e.SchoolClassId) && d.Groups[0].SubjectId == e.SubjectId));
+
+        var problems = await TimetableCheck.ProblemsAsync(db, version);
+        Assert.DoesNotContain(problems, p => divisions.Any(d => p.Contains(d.Name)) || divisions.SelectMany(d => d.Groups).Any(g => p.Contains(g.Name)));
+        if (type == SchoolType.Secondary)
+        {
+            var homework = await db.Homework.Where(h => h.StudentGroupId != null).ToListAsync();
+            Assert.NotEmpty(homework);
+            Assert.All(homework, h => Assert.Null(h.SchoolClassId));
+        }
     }
 
     [Fact]
