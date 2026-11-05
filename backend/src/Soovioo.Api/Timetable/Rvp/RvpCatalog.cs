@@ -1,9 +1,11 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Timetable.Rvp;
 
 /// <summary>Rámcové učební plány of the RVPs a school can teach by, from the
-/// ministry's texts (see docs/timetable-generation.md). Grades are the
+/// ministry's texts (built by backend/tools/build_rvp_catalog.py). Grades are the
 /// school's own (<see cref="Evidence.SchoolClass.Rocnik"/>), so a lower stage
 /// of a víceleté gymnázium starts with 1.</summary>
 public static class RvpCatalog
@@ -12,13 +14,16 @@ public static class RvpCatalog
 
     public static IReadOnlyCollection<RvpProgram> Programs => ByCode.Value.Values;
 
+    public static IEnumerable<RvpProgram> For(SchoolType type) => Programs.Where(p => p.SchoolType == type);
+
     public static RvpProgram? Find(string? code) =>
         code is not null && ByCode.Value.TryGetValue(code, out var program) ? program : null;
 
     private static Dictionary<string, RvpProgram> Load()
     {
         using var stream = typeof(RvpCatalog).Assembly.GetManifestResourceStream("rvp-programs.json")!;
-        var catalog = JsonSerializer.Deserialize<Catalog>(stream, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
+        var catalog = JsonSerializer.Deserialize<Catalog>(stream, options)!;
         return catalog.Programs.ToDictionary(p => p.Code);
     }
 
@@ -26,11 +31,13 @@ public static class RvpCatalog
 }
 
 /// <param name="Family">ZV, G or SOV.</param>
+/// <param name="SchoolType">Who it's for: a lower stage of a gymnázium is
+/// taught by RVP ZV at a secondary school.</param>
 /// <param name="Template">ZV = <see cref="RvpTemplates"/>'s typical plan by
 /// grades, GEN = spread from the minima.</param>
 /// <param name="TemplateOffset">Grade of the typical plan = the class's + this.</param>
 public record RvpProgram(
-    string Code, string Name, string Family, IReadOnlyList<RvpStage> Stages, IReadOnlyList<RvpWeekly> Weekly,
+    string Code, string Name, string Family, SchoolType SchoolType, IReadOnlyList<RvpStage> Stages, IReadOnlyList<RvpWeekly> Weekly,
     RvpRules Rules, string Template, int TemplateOffset)
 {
     public IEnumerable<int> Grades => Stages.SelectMany(s => Enumerable.Range(s.FromGrade, s.ToGrade - s.FromGrade + 1));

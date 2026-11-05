@@ -785,9 +785,6 @@ export class AdminPage {
   }
 
   private loadRvpPrograms(): void {
-    if (this.rvpPrograms().length > 0) {
-      return;
-    }
     this.teachingApi.getRvpPrograms().subscribe({
       next: (programs) => this.rvpPrograms.set(programs),
       error: (err) => console.error('getRvpPrograms failed', err),

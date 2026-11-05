@@ -26,9 +26,9 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         {
             return BadRequest("Učebna neexistuje.");
         }
-        if (request.RvpProgramCode is not null && RvpCatalog.Find(request.RvpProgramCode) is null)
+        if (await ProgramErrorAsync(request.RvpProgramCode) is { } programError)
         {
-            return BadRequest("Neznámý vzdělávací program.");
+            return BadRequest(programError);
         }
 
         var schoolClass = new SchoolClass
@@ -60,9 +60,9 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         {
             return BadRequest("Učebna neexistuje.");
         }
-        if (request.RvpProgramCode is not null && RvpCatalog.Find(request.RvpProgramCode) is null)
+        if (await ProgramErrorAsync(request.RvpProgramCode) is { } programError)
         {
-            return BadRequest("Neznámý vzdělávací program.");
+            return BadRequest(programError);
         }
 
         schoolClass.Name = request.Name;
@@ -97,6 +97,20 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
         db.SchoolClasses.Remove(schoolClass);
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    private async Task<string?> ProgramErrorAsync(string? code)
+    {
+        if (code is null)
+        {
+            return null;
+        }
+        if (RvpCatalog.Find(code) is not { } program)
+        {
+            return "Neznámý vzdělávací program.";
+        }
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        return program.SchoolType == school?.Type ? null : "Tento vzdělávací program není pro tento typ školy.";
     }
 
     private async Task<bool> HomeroomExistsAsync(int? id) =>
