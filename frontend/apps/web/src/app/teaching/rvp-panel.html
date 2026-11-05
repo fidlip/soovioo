@@ -40,10 +40,10 @@
         <span class="font-medium">{{ stage.label }}:</span>
         @if (stage.missingGrades.length > 0) { chybí ročníky {{
         grades(stage.missingGrades) }} — součet se nekontroluje } @else { {{
-        formatHours(stage.have) }} z {{ formatHours(stage.total) }} h @if
+        formatHours(stage.have) }} z {{ formatHours(stage.total) }} @if
         (stage.disponible !== null) { · disponibilní využito {{
         formatHours(stage.disponibleUsed ?? 0) }} z {{
-        formatHours(stage.disponible) }} h } }
+        formatHours(stage.disponible) }} } }
       </p>
       @if (stage.missingGrades.length > 0) {} @else if (stage.areas.length ===
       0) {
