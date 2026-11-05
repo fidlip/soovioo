@@ -11,7 +11,8 @@ namespace Soovioo.Api.Timetable;
 /// (weighted): every lesson placed, a free classroom for each, lessons every
 /// day, no gaps for classes (a day starts with the first lesson), a subject
 /// at most once a day, no 0. hodina; then the teachers' wishes (raději ne,
-/// free days, lessons and gaps a day). The search stops once those all hold
+/// free days, lessons and gaps a day); then no longer days than the class's
+/// hours need. The search stops once those all hold
 /// (or can't get better), then a short second one cuts teachers' gaps
 /// without giving any of them up. A group's lesson takes all its classes;
 /// the groups of a division are placed together, each with its teacher and
@@ -31,6 +32,11 @@ public static class TimetableGenerator
     private const int TooFewWeight = 4;
     private const int TooManyGapsWeight = 4;
     private const int AvoidWeight = 3;
+
+    /// <summary>What a class's lesson in a period weighs: from the 5th period
+    /// on (around noon) every next one costs more. Moving a lesson to a longer
+    /// day costs less than the weakest teacher's wish, so a wish goes first.</summary>
+    public static int LongDayWeight(int period) => period < 5 ? 0 : (period - 5) * 2 + 1;
 
     /// <param name="Weekly">Lessons every week.</param>
     /// <param name="Biweekly">Lessons every other week (0.5 h); placed in
@@ -237,6 +243,7 @@ public static class TimetableGenerator
             var weekly = unitIndexes.Sum(u => units[u].Count * units[u].Length) + keptCount;
             var perDay = (int)Math.Ceiling(weekly / (double)days.Count) + 1;
             var minPerDay = weekly / days.Count;
+            objective.Add(-UnavoidableLongDays(weekly, days.Count, periods));
             foreach (var day in days)
             {
                 var daySum = LinearExpr.NewBuilder();
@@ -247,6 +254,7 @@ public static class TimetableGenerator
                     var occupied = Occupied(unitIndexes, day, period, busy);
                     model.Add(occupied <= 1);
                     daySum.Add(occupied);
+                    objective.AddTerm(occupied, LongDayWeight(period));
                     if (period >= 1 && period != periods.First(p => p >= 1))
                     {
                         // A lesson starting a new block after a free period.
@@ -472,6 +480,17 @@ public static class TimetableGenerator
         return new Result(true, AssignRooms(placed, units, input, roomBusy),
             Missing(units, u => units[u].Count - (int)missing1[u]),
             timedOut && penalty > 0 && penalty > bound, penalty, bound);
+    }
+
+    /// <summary>The long days' weight of a class's week at best: as even as
+    /// the hours allow, each day in its cheapest periods. It isn't a breach,
+    /// so it doesn't keep the search from stopping at no breach at all.</summary>
+    private static int UnavoidableLongDays(int weekly, int dayCount, IReadOnlyList<int> periods)
+    {
+        var cheapest = periods.Select(LongDayWeight).Order().ToList();
+        int Day(int lessons) => cheapest.Take(lessons).Sum();
+        var longer = weekly % dayCount;
+        return longer * Day(weekly / dayCount + 1) + (dayCount - longer) * Day(weekly / dayCount);
     }
 
     private static IEnumerable<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> Lessons(Demand demand, DayOfWeek day, int period)
