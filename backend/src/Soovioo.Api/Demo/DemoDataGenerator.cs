@@ -50,7 +50,8 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         new("Př", "Přírodopis", "#bbf7d0"), new("F", "Fyzika", "#a5b4fc", "lab"), new("Ch", "Chemie", "#c4b5fd", "lab"),
         new("Inf", "Informatika", "#67e8f9", "computer"), new("Ov", "Občanská výchova", "#f9a8d4"),
         new("Hv", "Hudební výchova", "#f0abfc", "music"), new("Vv", "Výtvarná výchova", "#fbcfe8", "art"),
-        new("Tv", "Tělesná výchova", "#bef264", "gym"), new("Pč", "Pracovní činnosti", "#e7e5e4", "workshop"),
+        new("Tv", "Tělesná výchova", "#bef264", "gym"), new("Vz", "Výchova ke zdraví", "#d9f99d"),
+        new("Pč", "Pracovní činnosti", "#e7e5e4", "workshop"),
     ];
 
     private static readonly SubjectDef[] SecondarySubjects =
@@ -63,33 +64,36 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         new("Tv", "Tělesná výchova", "#bef264", "gym"), new("Sem", "Seminář", "#e7e5e4"),
     ];
 
-    /// <summary>Weekly hours per grade (index 0 = 1st grade), roughly the RVP.</summary>
+    /// <summary>Weekly hours per grade (index 0 = 1st grade), meeting
+    /// <see cref="ElementaryProgram"/>.</summary>
+    private const string ElementaryProgram = "ZV2021", SecondaryProgram = "G4";
+
     private static readonly Dictionary<string, int>[] ElementaryPlan =
     [
         new() { ["Čj"] = 8, ["M"] = 4, ["Aj"] = 1, ["Prv"] = 2, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
         new() { ["Čj"] = 8, ["M"] = 5, ["Aj"] = 1, ["Prv"] = 2, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
-        new() { ["Čj"] = 7, ["M"] = 5, ["Aj"] = 3, ["Prv"] = 3, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
+        new() { ["Čj"] = 7, ["M"] = 5, ["Aj"] = 3, ["Prv"] = 3, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
         new() { ["Čj"] = 7, ["M"] = 5, ["Aj"] = 3, ["Přv"] = 2, ["Vl"] = 2, ["Inf"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
         new() { ["Čj"] = 7, ["M"] = 5, ["Aj"] = 3, ["Přv"] = 2, ["Vl"] = 2, ["Inf"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
-        new() { ["Čj"] = 4, ["M"] = 4, ["Aj"] = 3, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
-        new() { ["Čj"] = 4, ["M"] = 4, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Pč"] = 1 },
-        new() { ["Čj"] = 4, ["M"] = 4, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2 },
-        new() { ["Čj"] = 5, ["M"] = 5, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 1, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2 },
+        new() { ["Čj"] = 5, ["M"] = 4, ["Aj"] = 3, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Vz"] = 1, ["Pč"] = 1 },
+        new() { ["Čj"] = 4, ["M"] = 4, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 2, ["Tv"] = 2, ["Vz"] = 1, ["Pč"] = 1 },
+        new() { ["Čj"] = 4, ["M"] = 5, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
+        new() { ["Čj"] = 5, ["M"] = 5, ["Aj"] = 3, ["Nj"] = 2, ["D"] = 2, ["Z"] = 2, ["Př"] = 2, ["F"] = 2, ["Ch"] = 2, ["Inf"] = 1, ["Ov"] = 1, ["Hv"] = 1, ["Vv"] = 1, ["Tv"] = 2, ["Pč"] = 1 },
     ];
 
     private static readonly Dictionary<string, int>[] SecondaryPlan =
     [
-        new() { ["Čj"] = 3, ["Aj"] = 3, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
-        new() { ["Čj"] = 3, ["Aj"] = 3, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
-        new() { ["Čj"] = 3, ["Aj"] = 3, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 2, ["Inf"] = 1, ["Tv"] = 2, ["Sem"] = 2 },
-        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["ZSV"] = 2, ["Tv"] = 2, ["Sem"] = 2 },
+        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 5, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
+        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 5, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 1, ["Inf"] = 2, ["Vv"] = 2, ["Tv"] = 2 },
+        new() { ["Čj"] = 3, ["Aj"] = 3, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["Z"] = 2, ["ZSV"] = 2, ["Inf"] = 1, ["Tv"] = 2, ["Sem"] = 5 },
+        new() { ["Čj"] = 4, ["Aj"] = 4, ["Nj"] = 3, ["M"] = 4, ["F"] = 2, ["Ch"] = 2, ["Bi"] = 2, ["D"] = 2, ["ZSV"] = 2, ["Tv"] = 2, ["Sem"] = 6 },
     ];
 
     /// <summary>Aprobace pairs a newly needed teacher is drawn from.</summary>
     private static readonly (string, string)[] ElementaryQualifications =
     [
         ("Čj", "D"), ("Čj", "Ov"), ("M", "F"), ("M", "Inf"), ("Aj", "Nj"), ("Aj", "Z"), ("Př", "Ch"),
-        ("Z", "Tv"), ("Hv", "Vv"), ("Tv", "Pč"), ("D", "Ov"), ("F", "Inf"), ("Př", "Z"), ("Vv", "Pč"),
+        ("Z", "Tv"), ("Hv", "Vv"), ("Tv", "Pč"), ("Tv", "Vz"), ("D", "Ov"), ("F", "Inf"), ("Př", "Z"), ("Vv", "Pč"),
     ];
 
     private static readonly (string, string)[] SecondaryQualifications =
@@ -378,7 +382,11 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             for (var i = 0; i < perGrade; i++)
             {
                 var name = $"{grade}.{(char)('A' + i)}";
-                var schoolClass = new SchoolClass { Name = name, Rocnik = grade, TeachingLanguage = "čeština", SchoolId = school.Id };
+                var schoolClass = new SchoolClass
+                {
+                    Name = name, Rocnik = grade, TeachingLanguage = "čeština", SchoolId = school.Id,
+                    RvpProgramCode = elementary ? ElementaryProgram : SecondaryProgram,
+                };
                 var floor = elementary ? (grade <= 5 ? 1 : 2) : (grade <= 2 ? 1 : 2);
                 roomsPerFloor[floor] = roomsPerFloor.GetValueOrDefault(floor) + 1;
                 var homeroom = new Classroom
