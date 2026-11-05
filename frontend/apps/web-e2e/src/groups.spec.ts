@@ -19,7 +19,7 @@ function openNav(page: Page, name: string) {
 async function openGroups(page: Page) {
   await login(page, 'admin', 'admin123');
   await openNav(page, 'Administrace');
-  await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
+  await page.getByRole('tab', { name: 'Výuka' }).click();
   await page.getByRole('tab', { name: 'Skupiny' }).click();
   await expect(
     page.getByRole('button', { name: 'Nová skupina' }),
@@ -214,14 +214,14 @@ test('a division teaches a row of the učební plán', async ({ page }) => {
   const row = 'Volitelný předmět e2e';
   await login(page, 'admin', 'admin123');
   await openNav(page, 'Administrace');
-  await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+  await page.getByRole('tab', { name: 'Předměty' }).click();
   await page.getByRole('button', { name: 'Nový předmět' }).click();
   const subjectDialog = page.getByRole('dialog', { name: 'Nový předmět' });
   await subjectDialog.getByLabel('Název předmětu').fill(row);
   await subjectDialog.getByRole('button', { name: 'Vytvořit' }).click();
   await expect(subjectDialog).toBeHidden();
 
-  await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
+  await page.getByRole('tab', { name: 'Výuka' }).click();
   await page.getByRole('tab', { name: 'Skupiny' }).click();
   await page.getByRole('button', { name: 'Nové dělení' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nové dělení' });
@@ -253,7 +253,8 @@ test('a division teaches a row of the učební plán', async ({ page }) => {
     page.getByRole('button', { name: 'Upravit dělení Volba e2e' }),
   ).toHaveCount(0);
 
-  await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+  await page.getByRole('tab', { name: 'Škola' }).click();
+  await page.getByRole('tab', { name: 'Předměty' }).click();
   await page
     .getByRole('row', { name: new RegExp(row) })
     .getByRole('button', { name: 'Smazat' })

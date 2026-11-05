@@ -22,6 +22,7 @@ test('a class’s homeroom is set in Administrace and fills in a new lesson', as
     .getByRole('link', { name: 'Administrace', exact: true })
     .click();
 
+  await page.getByRole('tab', { name: 'Učebny' }).click();
   await page.getByRole('button', { name: 'Nová učebna' }).click();
   const roomDialog = page.getByRole('dialog', { name: 'Nová učebna' });
   await roomDialog.getByLabel('Název', { exact: true }).fill(room);
@@ -29,6 +30,7 @@ test('a class’s homeroom is set in Administrace and fills in a new lesson', as
   await roomDialog.locator('button[type="submit"]').click();
   await expect(roomDialog).toBeHidden();
 
+  await page.getByRole('tab', { name: 'Třídy' }).click();
   await page.getByRole('button', { name: 'Nová třída' }).click();
   const classDialog = page.getByRole('dialog', { name: 'Nová třída' });
   await classDialog.getByLabel('Název třídy', { exact: true }).fill(className);
@@ -57,8 +59,10 @@ test('a class’s homeroom is set in Administrace and fills in a new lesson', as
   await navigation
     .getByRole('link', { name: 'Administrace', exact: true })
     .click();
+  await page.getByRole('tab', { name: 'Třídy' }).click();
   await classRow.getByRole('button', { name: 'Smazat' }).click();
   await expect(classRow).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Učebny' }).click();
   await page
     .getByRole('row')
     .filter({ hasText: room })

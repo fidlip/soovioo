@@ -47,6 +47,7 @@ async function createRole(
 ) {
   await login(page, 'admin', 'admin123');
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
   await page.getByRole('tab', { name: 'Role' }).click();
   const panel = page.getByRole('tabpanel', { name: 'Role' });
   await expect(panel.locator('tr', { hasText: copyOf }).first()).toBeVisible();

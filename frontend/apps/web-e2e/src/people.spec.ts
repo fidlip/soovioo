@@ -59,6 +59,7 @@ test('an account is a person’s: picked, completed with the missing profile, th
 
   // Her account as a teacher — she's offered — then also a parent, which
   // she has no profile for yet.
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
   await page.getByRole('button', { name: 'Nový uživatel' }).click();
   const userDialog = page.getByRole('dialog', { name: 'Nový uživatel' });
@@ -110,6 +111,7 @@ test('an account is a person’s: picked, completed with the missing profile, th
     .getByRole('button', { name: 'Smazat' })
     .click();
   await expect(userRow).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Škola' }).click();
   await page.getByRole('tab', { name: 'Osoby' }).click();
   await expect(personRow.getByText('bez účtu')).toBeVisible();
   await personRow.getByRole('button', { name: 'Smazat' }).click();
