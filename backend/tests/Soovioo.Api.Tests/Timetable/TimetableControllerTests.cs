@@ -19,6 +19,19 @@ public class TimetableControllerTests
         return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
     }
 
+    /// <summary>Lessons change only in a draft; without a published version
+    /// a lesson goes to the draft on its own.</summary>
+    private static TimetableVersion DraftOf(AppDbContext db)
+    {
+        var draft = db.TimetableVersions.Local.FirstOrDefault(v => v.Status == TimetableVersionStatus.Draft);
+        if (draft is null)
+        {
+            draft = new TimetableVersion { SchoolId = SchoolId, Name = "Koncept", ValidFrom = new DateOnly(2020, 9, 1), Status = TimetableVersionStatus.Draft };
+            db.TimetableVersions.Add(draft);
+        }
+        return draft;
+    }
+
     [Fact]
     public async Task UpdateEntryChangesDayAndPeriod()
     {
@@ -30,7 +43,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         var entry = new TimetableEntry
         {
-            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
+            TimetableVersion = DraftOf(db),
             SchoolClassId = schoolClass.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -63,7 +76,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         var entry = new TimetableEntry
         {
-            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
+            TimetableVersion = DraftOf(db),
             SchoolClassId = schoolClass.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -209,7 +222,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
-            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
+            TimetableVersion = DraftOf(db),
             SchoolClassId = classA.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -248,7 +261,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
-            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
+            TimetableVersion = DraftOf(db),
             SchoolClassId = classA.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -287,7 +300,7 @@ public class TimetableControllerTests
         await db.SaveChangesAsync();
         db.TimetableEntries.Add(new TimetableEntry
         {
-            TimetableVersion = db.CurrentTimetableVersion(SchoolId),
+            TimetableVersion = DraftOf(db),
             SchoolClassId = classA.Id,
             SubjectId = subject.Id,
             SchoolId = SchoolId,
@@ -305,6 +318,8 @@ public class TimetableControllerTests
         var dto = Assert.IsType<TimetableEntryDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
         Assert.Contains("1.A", Assert.Single(dto.Conflicts));
 
+        DraftOf(db).Status = TimetableVersionStatus.Published;
+        await db.SaveChangesAsync();
         var read = await controller.GetTimetable(classA.Id);
         var entries = Assert.IsAssignableFrom<IEnumerable<TimetableEntryDto>>(Assert.IsType<OkObjectResult>(read.Result).Value);
         Assert.Contains("2.B", Assert.Single(Assert.Single(entries).Conflicts));

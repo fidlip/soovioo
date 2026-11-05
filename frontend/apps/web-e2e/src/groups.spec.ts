@@ -1,5 +1,15 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import {
+  archive,
+  draftCopy,
+  openVersionWeek,
+  publishQuietly,
+  runDayEndJob,
+  showVersion,
+  unpublish,
+  versionsApi,
+} from './timetable-versions';
 
 async function login(page: Page, username: string, password: string) {
   await page.goto('/skola/login');
@@ -16,13 +26,17 @@ function openNav(page: Page, name: string) {
     .click();
 }
 
-async function openGroups(page: Page) {
+async function openGroups(page: Page, version?: string) {
   await login(page, 'admin', 'admin123');
   await openNav(page, 'Administrace');
   await page.getByRole('tab', { name: 'Výuka' }).click();
+  if (version) {
+    await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
+    await page.getByRole('option', { name: version }).click();
+  }
   await page.getByRole('tab', { name: 'Skupiny' }).click();
   await expect(
-    page.getByRole('button', { name: 'Nová skupina' }),
+    page.getByRole('region', { name: 'Samostatné skupiny' }),
   ).toBeVisible();
 }
 
@@ -44,16 +58,27 @@ async function pick(
   await list.getByRole('option', { name: option, exact: true }).click();
 }
 
-const GROUP = 'Seminář e2e';
+const GROUP = 'Skupina e2e';
+/** Of the version that applies, seeded with Jan Novák and a lesson with Jana
+ * Učitelová: a group can't be made there any more. */
+const SEEDED = 'Seminář Aj';
 
-// A group of Jan Novák alone goes through its life: made in Administrace,
-// given a lesson in Rozvrh, seen by Jan, given homework by its teacher,
-// deleted with its lesson — so the shared data end as they started.
+// A group of Jan Novák alone goes through its life in a draft far ahead: made
+// in Administrace, given a lesson in Rozvrh, seen by Jan once published, deleted
+// with its lesson back among drafts — so the timetable that applies stays as it was.
 test.describe.serial('student groups', () => {
   const slot = { day: '', period: '' };
+  const version = `E2E skupiny ${Date.now()}`;
+  let versionId = 0;
 
-  test('admin makes a group of a pupil of 5.A', async ({ page }) => {
-    await openGroups(page);
+  test('admin makes a group of a pupil of 5.A', async ({ page, request }) => {
+    await page.goto('/skola/login');
+    versionId = await draftCopy(
+      await versionsApi(page, request),
+      version,
+      2000,
+    );
+    await openGroups(page, version);
     await page.getByRole('button', { name: 'Nová skupina' }).click();
     const dialog = page.getByRole('dialog', { name: 'Nová skupina' });
     await dialog.getByLabel('Název').fill(GROUP);
@@ -94,6 +119,7 @@ test.describe.serial('student groups', () => {
     await page.locator('p-select[name="classPicker"]').click();
     await page.getByRole('option', { name: '5.A', exact: true }).click();
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
+    await showVersion(page, version);
 
     // The last free slot: the timetable lesson test takes the first.
     const addButton = page
@@ -119,9 +145,13 @@ test.describe.serial('student groups', () => {
     await expect(cell(page, slot.day, slot.period)).toContainText(`(${GROUP})`);
   });
 
-  test('the pupil sees the lesson of their group', async ({ page }) => {
+  test('the pupil sees the lesson of their group', async ({
+    page,
+    request,
+  }) => {
     await login(page, 'zak', 'zak123');
-    await openNav(page, 'Rozvrh');
+    await publishQuietly(await versionsApi(page, request), versionId);
+    await openVersionWeek(page, versionId);
     await expect(cell(page, slot.day, slot.period)).toContainText(`(${GROUP})`);
   });
 
@@ -137,7 +167,7 @@ test.describe.serial('student groups', () => {
     await pick(
       page,
       dialog.getByRole('combobox', { name: 'Třída a předmět' }),
-      `${GROUP} (5.A) — Anglický jazyk`,
+      `${SEEDED} (5.A) — Anglický jazyk`,
     );
     await expect(
       dialog.getByText('Komu (prázdné = celá skupina)'),
@@ -146,7 +176,7 @@ test.describe.serial('student groups', () => {
     await dialog.getByText('Vyžadovat potvrzení splnění').click();
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();
-    await expect(card(page)).toContainText(`${GROUP} (5.A)`);
+    await expect(card(page)).toContainText(`${SEEDED} (5.A)`);
     // The group's pupils, not the whole class.
     await expect(card(page)).toContainText('Jan Novák — nesplněno');
   });
@@ -157,30 +187,6 @@ test.describe.serial('student groups', () => {
     await expect(card(page)).toHaveCount(1);
   });
 
-  test.describe('refused', () => {
-    // One pattern: a second one would be read as the fixture's options.
-    test.use({
-      allowedConsoleMessages: [/status of 400|group change failed/],
-    });
-
-    test('a group with homework is not deleted', async ({ page }) => {
-      await openGroups(page);
-      await page
-        .getByRole('button', { name: `Smazat skupinu ${GROUP}` })
-        .click();
-      await page
-        .getByRole('alertdialog', { name: 'Smazat skupinu' })
-        .getByRole('button', { name: 'Smazat' })
-        .click();
-      await expect(
-        page.getByText('Skupina má domácí úkoly, smazat ji nejde.'),
-      ).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: `Smazat skupinu ${GROUP}` }),
-      ).toHaveCount(1);
-    });
-  });
-
   test('its teacher deletes the homework', async ({ page }) => {
     await login(page, 'ucitel', 'ucitel123');
     await openNav(page, 'Domácí úkoly');
@@ -188,8 +194,14 @@ test.describe.serial('student groups', () => {
     await expect(card(page)).toHaveCount(0);
   });
 
-  test('admin deletes the group with its lesson', async ({ page }) => {
-    await openGroups(page);
+  test('admin deletes the group with its lesson back in the draft', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/skola/login');
+    const admin = await versionsApi(page, request);
+    await unpublish(admin, versionId);
+    await openGroups(page, version);
     await page.getByRole('button', { name: `Smazat skupinu ${GROUP}` }).click();
     await page
       .getByRole('alertdialog', { name: 'Smazat skupinu' })
@@ -199,20 +211,95 @@ test.describe.serial('student groups', () => {
       page.getByRole('button', { name: `Smazat skupinu ${GROUP}` }),
     ).toHaveCount(0);
 
-    await openNav(page, 'Rozvrh');
+    await page.getByRole('tab', { name: 'Rozvrh' }).click();
+    await expect(page.getByTestId('timetable-version-info')).toContainText(
+      version,
+    );
     await page.locator('p-select[name="classPicker"]').click();
     await page.getByRole('option', { name: '5.A', exact: true }).click();
     // A period without lessons isn't shown at all: the whole grid then.
     await expect(page.locator('tbody td[data-period]').first()).toBeVisible();
-    await expect(page.locator('tbody')).not.toContainText(GROUP);
+    await expect(page.getByText(GROUP)).toHaveCount(0);
+    await archive(admin, versionId);
   });
+});
+
+// In the version that applies only who's in a group changes, and the family hears
+// about it. Jan leaves the seeded group and comes back, as he was.
+test('a pupil leaving a group of the valid version tells the family', async ({
+  page,
+  request,
+}) => {
+  await openGroups(page);
+  await expect(page.getByTestId('groups-members-only')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Nová skupina' })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole('button', { name: `Smazat skupinu ${SEEDED}` }),
+  ).toHaveCount(0);
+
+  const setJan = async () => {
+    await page
+      .getByRole('button', { name: `Upravit skupinu ${SEEDED}` })
+      .click();
+    const dialog = page.getByRole('dialog', { name: `Žáci skupiny ${SEEDED}` });
+    await expect(dialog.getByLabel('Název')).toHaveCount(0);
+    await dialog.locator('p-multiselect[name="groupStudents"]').click();
+    await page.getByRole('option', { name: /^Novák Jan/ }).click();
+    await page.keyboard.press('Escape');
+    await dialog.getByRole('button', { name: 'Uložit' }).click();
+    await expect(dialog).toBeHidden();
+  };
+  const url = new URL(page.url());
+  const api = `http://${url.hostname}:${Number(url.port || 4200) + 880}/api`;
+  const { token } = await (
+    await request.post(`${api}/auth/login`, {
+      data: { username: 'rodic', password: 'rodic123', schoolSlug: 'skola' },
+    })
+  ).json();
+  const headers = { Authorization: `Bearer ${token}` };
+  const notice = async (): Promise<
+    { id: number; body: string } | undefined
+  > => {
+    const { items } = await (
+      await request.get(`${api}/notifications`, { headers })
+    ).json();
+    return items.find(
+      (n: { title: string; body: string; read: boolean }) =>
+        n.title === 'Změna rozvrhu — Jan Novák' &&
+        n.body.includes(SEEDED) &&
+        !n.read,
+    );
+  };
+  // A rerun on the same data: what's unread from before would take this in.
+  const earlier = await notice();
+  if (earlier) {
+    await request.post(`${api}/notifications/${earlier.id}/read`, { headers });
+  }
+  const noticeBody = async () => (await notice())?.body ?? '';
+
+  // Each heard about at the day's end, the second added to the first.
+  await setJan();
+  expect(await noticeBody()).toBe('');
+  await runDayEndJob(page, request);
+  await expect.poll(noticeBody).toContain(`Vyřazení ze skupiny ${SEEDED}`);
+  await setJan();
+  await runDayEndJob(page, request);
+  await expect.poll(noticeBody).toContain(`Zařazení do skupiny ${SEEDED}`);
 });
 
 // A division of a pupil's choice teaches a row of the plan of its own, a
 // placeholder made for it here and deleted with it.
-test('a division teaches a row of the učební plán', async ({ page }) => {
+test('a division teaches a row of the učební plán', async ({
+  page,
+  request,
+}) => {
   const row = 'Volitelný předmět e2e';
+  const version = `E2E dělení ${Date.now()}`;
   await login(page, 'admin', 'admin123');
+  const admin = await versionsApi(page, request);
+  const versionId = await draftCopy(admin, version, 3000);
   await openNav(page, 'Administrace');
   await page.getByRole('tab', { name: 'Předměty' }).click();
   await page.getByRole('button', { name: 'Nový předmět' }).click();
@@ -222,6 +309,8 @@ test('a division teaches a row of the učební plán', async ({ page }) => {
   await expect(subjectDialog).toBeHidden();
 
   await page.getByRole('tab', { name: 'Výuka' }).click();
+  await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
+  await page.getByRole('option', { name: version }).click();
   await page.getByRole('tab', { name: 'Skupiny' }).click();
   await page.getByRole('button', { name: 'Nové dělení' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nové dělení' });
@@ -252,6 +341,7 @@ test('a division teaches a row of the učební plán', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Upravit dělení Volba e2e' }),
   ).toHaveCount(0);
+  await archive(admin, versionId);
 
   await page.getByRole('tab', { name: 'Škola' }).click();
   await page.getByRole('tab', { name: 'Předměty' }).click();

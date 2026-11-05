@@ -1,4 +1,13 @@
 import { expect, test } from './fixtures';
+import {
+  archive,
+  draftCopy,
+  openVersionWeek,
+  publishQuietly,
+  showVersion,
+  unpublish,
+  versionsApi,
+} from './timetable-versions';
 
 async function login(
   page: import('@playwright/test').Page,
@@ -61,11 +70,14 @@ async function showClass(
   await page.getByRole('option', { name: className, exact: true }).click();
 }
 
-// One lesson goes through its life: the admin adds it to Jan Novák's
-// class in a free slot, Jan's parent sees it, the admin removes it again —
-// so the shared timetable ends up as it started. A teacher only looks.
+// One lesson goes through its life in a draft far ahead: the admin adds it to
+// Jan Novák's class in a free slot, published Jan's parent sees it, and back
+// among drafts the admin removes it — so the timetable that applies stays as
+// it was. A teacher only looks.
 test.describe.serial('timetable lesson', () => {
   const slot = { day: '', period: '', text: '', className: '' };
+  const name = `E2E hodina ${Date.now()}`;
+  let versionId = 0;
 
   test('a teacher sees the timetable but does not edit it', async ({
     page,
@@ -75,6 +87,28 @@ test.describe.serial('timetable lesson', () => {
       page.getByRole('button', { name: 'Upravit rozvrh' }),
     ).toHaveCount(0);
     slot.className = await jansClassName(page);
+  });
+
+  test('a published version offers no editing, a draft does', async ({
+    page,
+    request,
+  }) => {
+    await login(page, 'admin', 'admin123');
+    versionId = await draftCopy(await versionsApi(page, request), name, 1000);
+    await showClass(page, slot.className);
+    await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
+    await expect(page.getByTestId('timetable-version-read-only')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Přidat hodinu' }),
+    ).toHaveCount(0);
+
+    await showVersion(page, name);
+    await expect(page.getByTestId('timetable-version-read-only')).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByRole('button', { name: 'Přidat hodinu' }).first(),
+    ).toBeAttached();
   });
 
   test('admin adds a lesson to a free slot', async ({ page }) => {
@@ -90,6 +124,7 @@ test.describe.serial('timetable lesson', () => {
     await expect(page.getByRole('combobox', { name: 'Třída' })).toHaveText(
       slot.className,
     );
+    await showVersion(page, name);
 
     const addButton = page
       .getByRole('button', { name: 'Přidat hodinu' })
@@ -153,8 +188,13 @@ test.describe.serial('timetable lesson', () => {
     expect(slot.text).not.toBe('');
   });
 
-  test('parent sees it and cannot edit the timetable', async ({ page }) => {
+  test('parent sees it published and cannot edit the timetable', async ({
+    page,
+    request,
+  }) => {
     await login(page, 'rodic', 'rodic123');
+    await publishQuietly(await versionsApi(page, request), versionId);
+    await openVersionWeek(page, versionId);
 
     await expect(
       page.getByRole('button', { name: 'Upravit rozvrh' }),
@@ -162,11 +202,18 @@ test.describe.serial('timetable lesson', () => {
     await expect(cell(page, slot.day, slot.period)).toContainText(slot.text);
   });
 
-  test('admin deletes the lesson', async ({ page }) => {
+  test('admin deletes the lesson back in the draft', async ({
+    page,
+    request,
+  }) => {
     await login(page, 'admin', 'admin123');
+    const admin = await versionsApi(page, request);
+    await unpublish(admin, versionId);
+    await page.reload();
 
     await showClass(page, slot.className);
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
+    await showVersion(page, name);
     await cell(page, slot.day, slot.period).hover();
     await cell(page, slot.day, slot.period)
       .getByRole('button', { name: 'Smazat hodinu' })
@@ -181,6 +228,7 @@ test.describe.serial('timetable lesson', () => {
         name: 'Přidat hodinu',
       }),
     ).toHaveCount(1);
+    await archive(admin, versionId);
   });
 });
 

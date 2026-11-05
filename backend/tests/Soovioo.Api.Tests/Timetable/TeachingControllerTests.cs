@@ -25,6 +25,7 @@ public class TeachingControllerTests
         history = new Subject { Name = "Dějepis", Abbreviation = "D", SchoolId = SchoolId };
         maths = new Subject { Name = "Matematika", Abbreviation = "M", SchoolId = SchoolId };
         version = db.CurrentTimetableVersion();
+        version.Status = TimetableVersionStatus.Draft;
         db.Subjects.AddRange(history, maths);
         db.SaveChanges();
     }
@@ -299,6 +300,7 @@ public class TeachingControllerTests
     [Fact]
     public async Task ATeacherSeesTheirOwnInRozvrhAndProfileButThePageOnlyIfTheSchoolLetsThem()
     {
+        version.Status = TimetableVersionStatus.Published;
         var sixth = Class("6.A", 6);
         var me = Teacher("Adámek", 2, Of(history));
         var other = Teacher("Bártová", 4, Of(maths));
@@ -394,5 +396,37 @@ public class TeachingControllerTests
 
         Assert.Equal([new CurriculumItemDto(6, history.Id, 2), new CurriculumItemDto(6, maths.Id, 4, true)],
             saved.Curriculum.OrderBy(c => c.SubjectId == maths.Id));
+    }
+
+    [Fact]
+    public async Task ThePlanAndAssignmentsOfAPublishedVersionDontChangeItsPupilsDo()
+    {
+        var eighth = Class("8.A", 8);
+        var teacher = Teacher("Nová", null);
+        version.Status = TimetableVersionStatus.Published;
+        await db.SaveChangesAsync();
+        var refused = new (string Name, Func<Task<ActionResult<TeachingOverviewDto>>> Call)[]
+        {
+            ("curriculum", () => Controller().SaveCurriculum(version.Id, new([]))),
+            ("class plan", () => Controller().SetClassCurriculum(version.Id, new(eighth.Id, maths.Id, 2))),
+            ("class blocks", () => Controller().SetClassDoubleLessons(version.Id, new(eighth.Id, maths.Id, true))),
+            ("assignment", () => Controller().SetAssignment(version.Id, new(eighth.Id, maths.Id, teacher.Id))),
+            ("confirm", () => Controller().ConfirmAssignments(version.Id)),
+            ("import", () => Controller().ImportFromTimetable(version.Id)),
+        };
+        foreach (var (name, call) in refused)
+        {
+            var bad = Assert.IsType<BadRequestObjectResult>((await call()).Result);
+            Assert.True(TimetableVersions.PublishedReadOnly.Equals(bad.Value), name);
+        }
+
+        var overview = Assert.IsType<TeachingOverviewDto>(Assert.IsType<OkObjectResult>((await Controller().GetTeaching(version.Id)).Result).Value);
+        Assert.False(overview.CanEdit);
+        Assert.True(overview.CanEditMembers);
+
+        version.ValidTo = new DateOnly(2020, 1, 1);
+        await db.SaveChangesAsync();
+        overview = Assert.IsType<TeachingOverviewDto>(Assert.IsType<OkObjectResult>((await Controller().GetTeaching(version.Id)).Result).Value);
+        Assert.False(overview.CanEditMembers);
     }
 }

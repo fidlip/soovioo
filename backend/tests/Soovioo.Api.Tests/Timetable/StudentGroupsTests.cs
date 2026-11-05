@@ -82,7 +82,7 @@ public class StudentGroupsTests
     }
 
     private StudentGroupsController Groups() =>
-        new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin)) };
+        new(db, new FakeCurrentSchoolContext(SchoolId), clock) { ControllerContext = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin)) };
 
     private TimetableController Timetable() =>
         new(db, new FakeCurrentSchoolContext(SchoolId), clock) { ControllerContext = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin)) };
@@ -424,5 +424,70 @@ public class StudentGroupsTests
         }.CreateVersion(new CreateTimetableVersionRequest("Kopie", new DateOnly(2027, 9, 1), draft.Id));
         var copy = Assert.IsType<TimetableVersionDto>(Assert.IsType<CreatedAtActionResult>(created.Result).Value);
         Assert.All(Ok(await Groups().GetGroups(copy.Id)).Divisions, d => Assert.Equal(second.Id, d.CoversSubjectId));
+    }
+
+    private async Task<(TimetableVersion Version, StudentGroup Group)> PublishedGroupAsync(DateOnly validFrom, DateOnly? validTo = null)
+    {
+        var version = new TimetableVersion
+        {
+            SchoolId = SchoolId, Name = "Zveřejněná", ValidFrom = validFrom, ValidTo = validTo, Status = TimetableVersionStatus.Published,
+        };
+        var group = new StudentGroup
+        {
+            SchoolId = SchoolId, TimetableVersion = version, Name = "Nj", SubjectId = german.Id,
+            Classes = [new StudentGroupClass { SchoolId = SchoolId, SchoolClassId = a.Id }],
+            Members = [new StudentGroupMember { SchoolId = SchoolId, StudentId = anna.Id }],
+        };
+        db.AddRange(version, group);
+        await db.SaveChangesAsync();
+        return (version, group);
+    }
+
+    [Fact]
+    public async Task GroupsOfAPublishedVersionChangeOnlyInTheirPupils()
+    {
+        var (version, group) = await PublishedGroupAsync(new DateOnly(2026, 9, 1));
+        var division = new GroupDivision { SchoolId = SchoolId, TimetableVersionId = version.Id, Name = "Tv", ClassIds = [a.Id] };
+        db.Add(division);
+        await db.SaveChangesAsync();
+        var save = new SaveStudentGroupRequest("Jiná", german.Id, null, null, null, null, null, [a.Id], [anna.Id, petr.Id]);
+        var saveDivision = new SaveGroupDivisionRequest("Jiné", null, null, [a.Id]);
+
+        Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>((await Groups().CreateGroup(version.Id, save)).Result).Value);
+        Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>((await Groups().UpdateGroup(version.Id, group.Id, save)).Result).Value);
+        Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>(await Groups().DeleteGroup(version.Id, group.Id)).Value);
+        Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>((await Groups().CreateDivision(version.Id, saveDivision)).Result).Value);
+        Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>((await Groups().UpdateDivision(version.Id, division.Id, saveDivision)).Result).Value);
+        Assert.Equal(TimetableVersions.PublishedReadOnly, Assert.IsType<BadRequestObjectResult>(await Groups().DeleteDivision(version.Id, division.Id)).Value);
+        Assert.Equal("Nj", group.Name);
+
+        var saved = Ok(await Groups().UpdateGroupMembers(version.Id, group.Id, new([petr.Id])));
+
+        Assert.Equal([petr.Id], saved.StudentIds);
+        Assert.Equal("Nj", saved.Name);
+    }
+
+    [Fact]
+    public async Task PupilsOfAPublishedVersionGoThroughTheSameChecks()
+    {
+        var (version, group) = await PublishedGroupAsync(new DateOnly(2026, 9, 1));
+
+        var refused = Assert.IsType<BadRequestObjectResult>((await Groups().UpdateGroupMembers(version.Id, group.Id, new([anna.Id, eva.Id]))).Result);
+
+        Assert.Equal($"{eva.Person!.FirstName} {eva.Person.LastName} není v žádné třídě skupiny.", refused.Value);
+    }
+
+    [Fact]
+    public async Task PupilsOfAVersionThatEndedOrWasArchivedStay()
+    {
+        var (ended, group) = await PublishedGroupAsync(new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30));
+        Assert.IsType<BadRequestObjectResult>((await Groups().UpdateGroupMembers(ended.Id, group.Id, new([petr.Id]))).Result);
+
+        ended.ValidTo = null;
+        ended.Status = TimetableVersionStatus.Archived;
+        await db.SaveChangesAsync();
+        Assert.IsType<BadRequestObjectResult>((await Groups().UpdateGroupMembers(ended.Id, group.Id, new([petr.Id]))).Result);
+
+        Assert.Equal([anna.Id], group.Members.Select(m => m.StudentId));
     }
 }

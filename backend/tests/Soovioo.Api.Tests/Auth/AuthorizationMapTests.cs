@@ -202,6 +202,7 @@ public class AuthorizationMapTests
         ["StudentGroups.GetGroups"] = "authenticated",
         ["StudentGroups.UpdateDivision"] = "authenticated + perm:Teaching",
         ["StudentGroups.UpdateGroup"] = "authenticated + perm:Teaching",
+        ["StudentGroups.UpdateGroupMembers"] = "authenticated + perm:Teaching",
         ["Teaching.ConfirmAssignments"] = "authenticated + perm:Teaching",
         ["Teaching.GetTeacherTeaching"] = "authenticated",
         ["Teaching.GetTeaching"] = "authenticated",

@@ -1,5 +1,6 @@
 import { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import { archive, draftCopy, showVersion } from './timetable-versions';
 
 // What every page offers follows the permissions of the active role: a
 // staff role of the school's own without any shows no tools, the same role
@@ -292,6 +293,8 @@ test.describe('a permission taken away', () => {
     waitForApiIdle,
   }) => {
     const admin = await adminApi(page, request);
+    const version = `E2E oprávnění ${Date.now()}`;
+    const versionId = await draftCopy(admin, version, 5000);
     const roleName = `Rozvrhář ${Date.now()}`;
     const username = `rozvrh${Date.now()}`;
     const roleId = await staffAccount(admin, roleName, username);
@@ -301,6 +304,7 @@ test.describe('a permission taken away', () => {
     await login(page, username, 'nove-heslo1');
     await open(page, 'Rozvrh', waitForApiIdle);
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
+    await showVersion(page, version);
 
     // Taken away while the page is open, before the token would expire.
     await setRole(admin, roleId, roleName, scopes);
@@ -330,6 +334,7 @@ test.describe('a permission taken away', () => {
     await expect(
       page.getByRole('button', { name: 'Upravit rozvrh' }),
     ).toHaveCount(0);
+    await archive(admin, versionId);
   });
 });
 

@@ -1,5 +1,11 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import {
+  archive,
+  draftCopy,
+  showVersion,
+  versionsApi,
+} from './timetable-versions';
 
 async function pick(page: Page, name: string, option: string) {
   await page.getByRole('combobox', { name }).click();
@@ -8,6 +14,7 @@ async function pick(page: Page, name: string, option: string) {
 
 test('a class’s homeroom is set in Administrace and fills in a new lesson', async ({
   page,
+  request,
 }) => {
   const room = `E2E-${Date.now()}`;
   const className = `H${Date.now() % 100000}`;
@@ -40,12 +47,16 @@ test('a class’s homeroom is set in Administrace and fills in a new lesson', as
   const classRow = page.getByRole('row').filter({ hasText: className });
   await expect(classRow).toContainText(room);
 
+  const admin = await versionsApi(page, request);
+  const version = `E2E kmenová ${Date.now()}`;
+  const versionId = await draftCopy(admin, version, 4000);
   await navigation.getByRole('link', { name: 'Rozvrh', exact: true }).click();
   await page.locator('p-select[name="viewMode"]').click();
   await page.getByRole('option', { name: 'Třída', exact: true }).click();
   await page.locator('p-select[name="classPicker"]').click();
   await page.getByRole('option', { name: className, exact: true }).click();
   await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
+  await showVersion(page, version);
   const add = page.getByRole('button', { name: 'Přidat hodinu' }).first();
   await add.locator('xpath=ancestor::td').hover();
   await add.click();
@@ -55,6 +66,7 @@ test('a class’s homeroom is set in Administrace and fills in a new lesson', as
     room,
   );
   await lesson.getByRole('button', { name: 'Zrušit' }).click();
+  await archive(admin, versionId);
 
   await navigation
     .getByRole('link', { name: 'Administrace', exact: true })
