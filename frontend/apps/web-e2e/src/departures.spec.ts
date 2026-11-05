@@ -121,9 +121,9 @@ test.describe('deleting a pupil', () => {
     await leaveDialog.getByRole('button', { name: 'Uložit' }).click();
     await expect(row).toHaveCount(0);
 
-    await page.getByRole('tab', { name: 'Archiv a výmaz údajů' }).click();
+    await page.getByRole('tab', { name: 'Archiv' }).click();
     const formerRow = page
-      .getByRole('tabpanel', { name: 'Archiv a výmaz údajů' })
+      .getByRole('tabpanel', { name: /ukončeným vzděláváním/ })
       .locator('tr', { hasText: lastName });
     await expect(formerRow).toBeVisible();
     await formerRow.getByRole('button', { name: 'Vymazat vše hned' }).click();
@@ -176,9 +176,9 @@ test('a former pupil moves to the archive and can be erased', async ({
   await expect(leaveDialog).toBeHidden();
   await expect(row).toHaveCount(0);
 
-  await page.getByRole('tab', { name: 'Archiv a výmaz údajů' }).click();
+  await page.getByRole('tab', { name: 'Archiv' }).click();
   const formerRow = page
-    .getByRole('tabpanel', { name: 'Archiv a výmaz údajů' })
+    .getByRole('tabpanel', { name: /ukončeným vzděláváním/ })
     .locator('tr', { hasText: lastName });
   await expect(formerRow.getByText('Bývalý')).toBeVisible();
 
@@ -196,6 +196,7 @@ test('a teacher leaving: last day ahead, třídnictví handed over, cancelled fr
   test.slow();
   await login(page, 'admin');
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
   const row = page
     .getByRole('tabpanel', { name: 'Uživatelé' })
@@ -218,9 +219,10 @@ test('a teacher leaving: last day ahead, třídnictví handed over, cancelled fr
   await expect(dialog).toBeHidden();
   await expect(row.getByText(/Končí k/)).toBeVisible();
 
-  await page.getByRole('tab', { name: 'Archiv a výmaz údajů' }).click();
+  await page.getByRole('tab', { name: 'Archiv' }).click();
+  await page.getByRole('tab', { name: 'Bývalí zaměstnanci' }).click();
   const archived = page
-    .getByRole('tabpanel', { name: 'Archiv a výmaz údajů' })
+    .getByRole('tabpanel', { name: 'Bývalí zaměstnanci' })
     .locator('tr', { hasText: 'Jana Učitelová' });
   await expect(archived.getByText('Ještě ve škole')).toBeVisible();
 

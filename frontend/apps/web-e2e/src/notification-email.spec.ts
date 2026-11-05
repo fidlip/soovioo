@@ -55,7 +55,8 @@ test('the school forces an e-mail kind: the parent sees it locked in Nastavení'
 }) => {
   await login(page, 'admin', 'admin123');
   await page.goto('/skola/admin');
-  await page.getByRole('tab', { name: 'Škola a matrika' }).click();
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
+  await page.getByRole('tab', { name: 'Upozornění' }).click();
   const card = page.locator('p-card', { hasText: 'Upozornění e-mailem' });
   await card.locator('p-multiselect').click();
   const absences = page.getByRole('option', { name: 'Zapsané absence' });
@@ -103,7 +104,8 @@ test('push: the school allows the whole text, the parent agrees and sets own nig
   // A retry starts where a timed-out attempt left the parent.
   await resetParentPush(request, page);
   await page.goto('/skola/admin');
-  await page.getByRole('tab', { name: 'Škola a matrika' }).click();
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
+  await page.getByRole('tab', { name: 'Upozornění' }).click();
   const card = page.locator('p-card', { hasText: 'Upozornění e-mailem' });
   await card.getByRole('switch', { name: /Povolit celý text/ }).check();
   await card.getByRole('button', { name: 'Uložit' }).click();

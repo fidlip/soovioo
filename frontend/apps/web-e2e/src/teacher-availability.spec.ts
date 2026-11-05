@@ -30,7 +30,8 @@ async function setNumber(field: Locator, value: string) {
 }
 
 async function setSchoolMaxGaps(page: Page, value: string) {
-  await page.getByRole('tab', { name: 'Škola a matrika' }).click();
+  await page.getByRole('tab', { name: 'Výuka' }).click();
+  await page.getByRole('tab', { name: 'Nastavení' }).click();
   const card = page.locator('p-card', { hasText: 'Přání učitelů k rozvrhu' });
   const gaps = card.getByRole('spinbutton', { name: 'Nejvýš oken denně' });
   await setNumber(gaps, value);
@@ -55,6 +56,7 @@ test('a teacher’s availability and wishes, the school’s default as a hint', 
   await setSchoolMaxGaps(page, '1');
 
   // A new teacher who can't teach the first period on Monday, nor on Friday at all.
+  await page.getByRole('tab', { name: 'Škola' }).click();
   await page.getByRole('tab', { name: 'Osoby' }).click();
   const people = page.getByRole('tabpanel', { name: 'Osoby' });
   await people.getByRole('button', { name: 'Nová osoba' }).click();

@@ -33,7 +33,7 @@ function inDays(days: number): string {
 
 async function setProgram(page: Page, program: string | null) {
   await openNav(page, 'Administrace');
-  await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+  await page.getByRole('tab', { name: 'Třídy' }).click();
   await page
     .getByRole('row')
     .filter({ hasText: '5.A' })
@@ -64,7 +64,7 @@ test.describe.serial('RVP', () => {
   test('a základní škola is offered only its programs', async ({ page }) => {
     await login(page);
     await openNav(page, 'Administrace');
-    await page.getByRole('tab', { name: 'Třídy, předměty a učebny' }).click();
+    await page.getByRole('tab', { name: 'Třídy' }).click();
     await page
       .getByRole('row')
       .filter({ hasText: '5.A' })
@@ -88,6 +88,7 @@ test.describe.serial('RVP', () => {
     await setProgram(page, REVISED);
 
     await openNav(page, 'Rozvrh');
+    await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     const versions = page.getByRole('dialog', { name: 'Verze rozvrhu' });
     await versions.getByRole('button', { name: 'Nový koncept' }).click();
@@ -99,7 +100,7 @@ test.describe.serial('RVP', () => {
     await expect(versions).toBeHidden();
 
     await openNav(page, 'Administrace');
-    await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
+    await page.getByRole('tab', { name: 'Výuka' }).click();
     await pick(
       page,
       page.getByRole('combobox', { name: 'Verze rozvrhu' }),
@@ -136,7 +137,7 @@ test.describe.serial('RVP', () => {
   }) => {
     await login(page);
     await openNav(page, 'Administrace');
-    await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
+    await page.getByRole('tab', { name: 'Výuka' }).click();
     await page.getByRole('tab', { name: 'Učební plán' }).click();
     await expect(
       page.getByRole('region', { name: 'Kontrola podle RVP' }),
@@ -146,6 +147,7 @@ test.describe.serial('RVP', () => {
     ).toHaveCount(0);
 
     await openNav(page, 'Rozvrh');
+    await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     const version = page
       .getByRole('dialog', { name: 'Verze rozvrhu' })

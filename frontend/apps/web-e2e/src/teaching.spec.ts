@@ -19,7 +19,10 @@ function openNav(page: Page, name: string) {
 async function openTeaching(page: Page) {
   await login(page, 'admin', 'admin123');
   await openNav(page, 'Administrace');
-  await page.getByRole('tab', { name: 'Přidělení výuky' }).click();
+  await page.getByRole('tab', { name: 'Výuka' }).click();
+  // Škola has its own Třídy, until Výuka opens.
+  await page.getByRole('tab', { name: 'Učební plán' }).waitFor();
+  await page.getByRole('tab', { name: 'Třídy' }).click();
   await expect(
     page.getByRole('button', { name: 'Načíst z rozvrhu' }),
   ).toBeVisible();
@@ -66,10 +69,12 @@ test.describe.serial('teaching', () => {
   }) => {
     await login(page, 'admin', 'admin123');
     await openNav(page, 'Administrace');
+    await page.getByRole('tab', { name: 'Třídy' }).click();
     await page.getByRole('button', { name: 'Přidělení výuky — 5.A' }).click();
-    await expect(
-      page.getByRole('tab', { name: 'Přidělení výuky' }),
-    ).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Výuka' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     await expect(page.getByRole('region', { name: /^Třída / })).toHaveCount(1);
 
     const english = page
@@ -107,8 +112,6 @@ test.describe.serial('teaching', () => {
 
     await openNav(page, 'Administrace');
     await expect(page.getByRole('tab', { name: 'Rodiče' })).toBeVisible();
-    await expect(
-      page.getByRole('tab', { name: 'Přidělení výuky' }),
-    ).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Výuka' })).toHaveCount(0);
   });
 });

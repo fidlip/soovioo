@@ -17,6 +17,7 @@ async function login(page: Page, username: string, password: string) {
 async function setClassListForParents(page: Page, def: string, max: string) {
   await login(page, 'admin', 'admin123');
   await page.goto('/skola/admin');
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
   await page.getByRole('tab', { name: 'Viditelnost údajů' }).click();
   for (const [bound, label] of [
     ['max', max],

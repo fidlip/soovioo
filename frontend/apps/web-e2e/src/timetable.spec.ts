@@ -82,6 +82,14 @@ test.describe.serial('timetable lesson', () => {
 
     await showClass(page, slot.className);
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
+    await expect(page).toHaveURL(/\/admin\?group=teaching&section=timetable/);
+    await expect(page.getByRole('tab', { name: 'Rozvrh' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.getByRole('combobox', { name: 'Třída' })).toHaveText(
+      slot.className,
+    );
 
     const addButton = page
       .getByRole('button', { name: 'Přidat hodinu' })
@@ -192,6 +200,14 @@ test.describe.serial('timetable version', () => {
     // The generator runs until the timetable meets the requirements.
     test.setTimeout(240_000);
     await login(page, 'admin', 'admin123');
+    // The page only shows the timetable, its versions are where it's edited.
+    await expect(page.getByRole('button', { name: 'Generovat' })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByRole('button', { name: 'Verze rozvrhu' }),
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
     await dialog.getByRole('button', { name: 'Nový koncept' }).click();
@@ -225,21 +241,22 @@ test.describe.serial('timetable version', () => {
   test('a parent does not see the draft', async ({ page }) => {
     await login(page, 'rodic', 'rodic123');
     await expect(page.getByText(name)).toHaveCount(0);
-    await expect(page.locator('p-select[name="versionPicker"]')).toHaveCount(0);
+    await expect(page.getByRole('combobox', { name: /Verze/ })).toHaveCount(0);
   });
 
   test('admin publishes it ahead, unpublishes, publishes and archives it', async ({
     page,
   }) => {
     await login(page, 'admin', 'admin123');
+    await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
     const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
     const version = dialog
       .getByTestId('timetable-version')
       .filter({ hasText: name });
-    const picker = page.locator('p-select[name="versionPicker"]');
+    const picker = page.getByRole('combobox', { name: 'Verze rozvrhu' });
 
-    // Shown on its own while a draft, by week once published.
+    // Stays the chosen one, a draft or published.
     await version.getByRole('button', { name: 'Zobrazit' }).click();
     await expect(picker).toContainText(name);
     await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
@@ -249,7 +266,7 @@ test.describe.serial('timetable version', () => {
       .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
       .click();
     await expect(version).toContainText('Naplánovaná');
-    await expect(picker).toContainText('Podle týdne');
+    await expect(picker).toContainText(name);
 
     // Unpublished it's a draft again, and published once more.
     await version.getByRole('button', { name: 'Zrušit zveřejnění' }).click();

@@ -16,19 +16,71 @@ test('admin sees the full tabbed Administrace page', async ({ page }) => {
   await login(page, 'admin', 'admin123');
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
 
-  await expect(
-    page.getByRole('tab', { name: 'Třídy, předměty a učebny' }),
-  ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Osoby' })).toBeVisible();
+  for (const group of ['Škola', 'Výuka', 'Aplikace', 'Archiv']) {
+    await expect(page.getByRole('tab', { name: group })).toBeVisible();
+  }
+  for (const section of [
+    'Údaje',
+    'Matrika',
+    'Třídy',
+    'Předměty',
+    'Učebny',
+    'Osoby',
+  ]) {
+    await expect(page.getByRole('tab', { name: section })).toBeVisible();
+  }
+  await expect(page.getByLabel('Ulice')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
   await expect(page.getByRole('tab', { name: 'Uživatelé' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Upozornění' }).click();
+
+  // The address keeps the section.
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Upozornění' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.getByText('Upozornění e-mailem a na mobil')).toBeVisible();
+});
+
+test('the tab headers stay in sight while the content scrolls', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 320 });
+  await login(page, 'admin', 'admin123');
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  const group = page.getByRole('tab', { name: 'Škola' });
+  const section = page.getByRole('tab', { name: 'Předměty' });
+  await section.click();
   await expect(
-    page.getByRole('tab', { name: 'Škola a matrika' }),
+    page.getByRole('button', { name: 'Nový předmět' }),
   ).toBeVisible();
+
+  await page.getByRole('main').hover();
+  await page.mouse.wheel(0, 2000);
+  await expect(
+    page.getByRole('heading', { name: 'Administrace' }),
+  ).not.toBeInViewport();
+  await expect(group).toBeInViewport();
+  await expect(section).toBeInViewport();
+  const groupBox = await group.boundingBox();
+  expect((await section.boundingBox())!.y).toBeGreaterThan(groupBox!.y + 20);
+
+  // On a phone, under the top bar.
+  await page.setViewportSize({ width: 390, height: 320 });
+  await page.mouse.wheel(0, 2000);
+  await expect(group).toBeInViewport();
+  const topBar = await page.locator('.app-topbar').boundingBox();
+  expect((await group.boundingBox())!.y).toBeGreaterThanOrEqual(
+    topBar!.y + topBar!.height - 1,
+  );
 });
 
 test('admin filters users by name and contact', async ({ page }) => {
   await login(page, 'admin', 'admin123');
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
   await page.getByRole('tab', { name: 'Uživatelé' }).click();
 
   // Inactive tab panels stay in the DOM (the Osoby one has its own "Jméno"),
@@ -51,9 +103,8 @@ test('class teacher sees their own class in two tabs', async ({ page }) => {
   await page.getByRole('link', { name: 'Administrace', exact: true }).click();
 
   await expect(page.getByText('Jste třídní učitel')).toBeVisible();
-  await expect(
-    page.getByRole('tab', { name: 'Třídy, předměty a učebny' }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Předměty' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Moje třída' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Žáci' })).toBeVisible();
   // 5.A's demo student, not any student from an unrelated class — appears
   // twice (Studenti table + the "Rodiče" tooltip title), so assert on the

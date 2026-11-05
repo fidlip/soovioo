@@ -135,7 +135,6 @@ const TOOLS: [string, string][] = [
   ['Kalendář', 'Nová akce'],
   ['Platby', 'Nová platba'],
   ['Rozvrh', 'Upravit rozvrh'],
-  ['Rozvrh', 'Verze rozvrhu'],
 ];
 
 /** The "Komu" choices of a new message. */
@@ -246,8 +245,41 @@ test('the pages offer exactly what the role may do', async ({
   await expect(
     page
       .getByText('Jste třídní učitel')
-      .or(page.getByRole('button', { name: 'Načíst z rozvrhu' })),
+      .or(page.getByRole('tab', { name: 'Učební plán' })),
   ).toBeVisible();
+});
+
+test('drafts to look at only: Rozvrh in Administrace, without editing', async ({
+  page,
+  request,
+  waitForApiIdle,
+}) => {
+  const admin = await adminApi(page, request);
+  const roleName = `Koncepty ${Date.now()}`;
+  const username = `koncepty${Date.now()}`;
+  const roleId = await staffAccount(admin, roleName, username);
+  await setRole(admin, roleId, roleName, {
+    ...(await staffScopes(admin, false)),
+    TimetableVersionsRead: 'School',
+  });
+
+  await login(page, username, 'nove-heslo1');
+  await open(page, 'Rozvrh', waitForApiIdle);
+  await expect(
+    page.getByRole('button', { name: 'Upravit rozvrh' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
+
+  await expect(page.getByRole('tab', { name: 'Rozvrh' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Učební plán' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Nastavení' })).toHaveCount(0);
+  await expect(
+    page.getByRole('combobox', { name: 'Verze rozvrhu' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Přidat hodinu' })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole('button', { name: 'Generovat' })).toHaveCount(0);
 });
 
 test.describe('a permission taken away', () => {
