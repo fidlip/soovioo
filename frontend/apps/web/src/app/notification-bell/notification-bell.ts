@@ -82,14 +82,22 @@ export class NotificationBell {
       this.markRead(notification);
     }
     this.popover().hide();
+    if (notification.page === 'timetable' && notification.targetId) {
+      this.router.navigate(this.schoolContext.link('admin'), {
+        queryParams: {
+          group: 'teaching',
+          section: 'timetable',
+          version: notification.targetId,
+          generation: 'result',
+        },
+      });
+      return;
+    }
     this.router.navigate(this.schoolContext.link(notification.page), {
-      queryParams: !notification.targetId
-        ? {}
-        : notification.page === 'messages'
+      queryParams:
+        notification.targetId && notification.page === 'messages'
           ? { conversation: notification.targetId }
-          : notification.page === 'timetable'
-            ? { version: notification.targetId, generation: 'result' }
-            : {},
+          : {},
     });
   }
 

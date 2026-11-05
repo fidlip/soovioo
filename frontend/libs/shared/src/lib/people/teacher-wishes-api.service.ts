@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import { TeacherWishes } from './person.model';
 
-/** The school's default wishes of teachers (Administrace → Škola). */
+/** The school's default wishes of teachers (Administrace → Výuka → Nastavení). */
 @Injectable({ providedIn: 'root' })
 export class TeacherWishesApiService {
   private readonly http = inject(HttpClient);

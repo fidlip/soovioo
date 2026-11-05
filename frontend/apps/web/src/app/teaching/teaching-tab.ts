@@ -4,6 +4,7 @@ import {
   effect,
   inject,
   input,
+  model,
   signal,
   untracked,
 } from '@angular/core';
@@ -33,24 +34,26 @@ import {
   TeachingClass,
   TeachingOverview,
   TeachingRow,
-  TimetableVersion,
-  TimetableVersionsApiService,
   formatHours,
   qualifiedFor,
   taughtSummary,
   teachingDaysLabel,
-  timetableVersionOn,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
-import { toDateOnly } from '../departures/retention-labels';
 import { FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
-import { versionStatusLabel } from '../timetable-page/timetable-versions-dialog';
+import { PeriodsEditor } from '../periods-editor/periods-editor';
+import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
+import { TimetablePage } from '../timetable-page/timetable-page';
+import { TimetableVersionSelection } from '../timetable-page/timetable-version-selection';
 import { RvpPanel } from './rvp-panel';
 import { StudentGroupsPanel } from './student-groups';
 
-/** Administrace → Přidělení výuky: the učební plán of a timetable version
+const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
+
+/** Administrace → Výuka: the one choice of a timetable version; that version's
+ * timetable to edit; the učební plán of the version
  * (the grade's, changed for a class where it differs), who teaches what in
  * each class
  * (the system picks where the school didn't) and what doesn't add up. A
@@ -65,6 +68,7 @@ import { StudentGroupsPanel } from './student-groups';
     InputNumber,
     Loading,
     Message,
+    PeriodsEditor,
     RvpPanel,
     Select,
     StudentGroupsPanel,
@@ -75,13 +79,16 @@ import { StudentGroupsPanel } from './student-groups';
     TabPanels,
     Tabs,
     Tag,
+    TeacherWishesDefaults,
+    TimetablePage,
     Tooltip,
   ],
+  providers: [TimetableVersionSelection],
   templateUrl: './teaching-tab.html',
 })
 export class TeachingTab {
   private readonly teachingApi = inject(TeachingApiService);
-  private readonly versionsApi = inject(TimetableVersionsApiService);
+  protected readonly selection = inject(TimetableVersionSelection);
   private readonly teachersApi = inject(TeachersApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly notify = inject(NotifyService);
@@ -94,14 +101,48 @@ export class TeachingTab {
   /** Opens filtered to the class or teacher (from Třídy, Osoby). */
   readonly focus = input<{ classId?: number; teacherId?: number } | null>(null);
 
-  protected readonly versions = signal<TimetableVersion[]>([]);
-  protected readonly versionId = signal<number | null>(null);
+  /** The open section, kept by Administrace in the address. */
+  readonly section = model<string | null>(null);
+
+  private readonly canSeeOverview =
+    this.authApi.can('TeachingRead') || this.authApi.can('Teaching');
+  protected readonly sections = computed(() => [
+    ...(this.authApi.can('Timetable') ||
+    this.authApi.can('TimetableVersionsRead')
+      ? [{ value: 'timetable', label: 'Rozvrh' }]
+      : []),
+    ...(this.canSeeOverview
+      ? [
+          { value: 'classes', label: 'Třídy' },
+          { value: 'teachers', label: 'Učitelé' },
+          { value: 'groups', label: 'Skupiny' },
+          { value: 'plan', label: 'Učební plán' },
+        ]
+      : []),
+    ...(this.authApi.can('Timetable')
+      ? [{ value: 'settings', label: 'Nastavení' }]
+      : []),
+  ]);
+  protected readonly activeSection = computed(() => {
+    const sections = this.sections();
+    const wanted = this.section();
+    return (
+      sections.find((s) => s.value === wanted)?.value ?? sections[0]?.value
+    );
+  });
+  protected readonly showsOverview = computed(() =>
+    OVERVIEW_SECTIONS.includes(this.activeSection()),
+  );
+
+  protected readonly versionId = this.selection.versionId;
   protected readonly overview = signal<TeachingOverview | null>(null);
-  protected readonly loading = signal(true);
+  protected readonly loading = signal(this.canSeeOverview);
+  protected readonly shownOverview = computed(() =>
+    this.loading() ? null : this.overview(),
+  );
   protected readonly busy = signal(false);
   protected readonly teachers = signal<Teacher[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
-  protected activeTab = 'classes';
 
   /** Hours being edited in Učební plán, by `grade-subjectId`. */
   protected plan: Record<string, number | null> = {};
@@ -189,13 +230,6 @@ export class TeachingTab {
       this.problemsOnly(),
   );
 
-  protected readonly versionOptions = computed(() =>
-    this.versions().map((v) => ({
-      label: `${v.name} (${versionStatusLabel(v, toDateOnly(new Date())).label.toLowerCase()})`,
-      value: v.id,
-    })),
-  );
-
   protected readonly problemCount = computed(() => {
     const o = this.overview();
     if (!o) {
@@ -235,38 +269,45 @@ export class TeachingTab {
           this.clearFilters();
           this.classFilter.set(focus.classId ?? null);
           this.teacherFilter.set(focus.teacherId ?? null);
-          this.activeTab = 'classes';
         });
       }
     });
-    this.teachersApi.getTeachers().subscribe({
-      next: (teachers) => this.teachers.set(teachers),
-      error: (err) => console.error('getTeachers failed', err),
-    });
-    this.subjectsApi.getSubjects().subscribe({
-      next: (subjects) => this.subjects.set(subjects),
-      error: (err) => console.error('getSubjects failed', err),
-    });
-    this.versionsApi.getVersions().subscribe({
-      next: (versions) => {
-        this.versions.set(versions);
-        const version =
-          timetableVersionOn(versions, toDateOnly(new Date())) ?? versions[0];
-        if (version) {
-          this.selectVersion(version.id);
-        } else {
+    this.selection.reload();
+    effect(() => {
+      const versionId = this.versionId();
+      const loaded = this.selection.loaded();
+      untracked(() => {
+        if (versionId !== null && this.canSeeOverview) {
+          this.loadOverview(versionId);
+        } else if (loaded) {
           this.loading.set(false);
         }
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.notify.actionFailed('getVersions failed', err);
-      },
+      });
     });
+    // Lessons edited in Rozvrh count in the overview's hours and checks.
+    let previous: string | undefined;
+    effect(() => {
+      const section = this.activeSection();
+      untracked(() => {
+        if (previous === 'timetable' && this.canSeeOverview) {
+          this.reloadOverview();
+        }
+        previous = section;
+      });
+    });
+    if (this.canSeeOverview) {
+      this.teachersApi.getTeachers().subscribe({
+        next: (teachers) => this.teachers.set(teachers),
+        error: (err) => console.error('getTeachers failed', err),
+      });
+      this.subjectsApi.getSubjects().subscribe({
+        next: (subjects) => this.subjects.set(subjects),
+        error: (err) => console.error('getSubjects failed', err),
+      });
+    }
   }
 
-  protected selectVersion(id: number): void {
-    this.versionId.set(id);
+  private loadOverview(id: number): void {
     this.loading.set(true);
     this.teachingApi.getTeaching(id).subscribe({
       next: (overview) => this.show(overview),

@@ -63,6 +63,31 @@ body {
   --soovioo-icon-color: #fff;
 }
 
+/* The tab headers stay in sight while a tab's content scrolls — a nested row
+ * under its parent's, and sticky content (the timetable's header) under both. */
+:root {
+  --tabs-row-height: 3.25rem;
+}
+
+.p-tablist {
+  position: sticky;
+  top: var(--app-topbar-height);
+  z-index: 6;
+  background: var(--p-content-background);
+}
+
+.p-tabpanels {
+  --sticky-tabs-height: var(--tabs-row-height);
+}
+
+.p-tabs .p-tabs .p-tablist {
+  top: calc(var(--app-topbar-height) + var(--tabs-row-height));
+}
+
+.p-tabs .p-tabs .p-tabpanels {
+  --sticky-tabs-height: calc(2 * var(--tabs-row-height));
+}
+
 .soovioo-icon {
   display: inline-block;
   flex-shrink: 0;

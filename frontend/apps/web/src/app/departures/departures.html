@@ -1,300 +1,328 @@
-<p-card>
-  <ng-template #title
-    >{{ 'Žáci s ukončeným vzděláváním' | term }}<app-info-hint
-      [text]="
-        'Ukončení vzdělávání se zadává v záložce Studenti. Po posledním dni se žák v aplikaci nezobrazuje, rodiče k němu ztratí přístup a jeho údaje se mažou podle pravidel níže.'
+<p-tabs
+  [value]="activeSection()"
+  (valueChange)="section.set($any($event))"
+  [scrollable]="true"
+>
+  <p-tablist>
+    <p-tab value="pupils">{{ 'Žáci s ukončeným vzděláváním' | term }}</p-tab>
+    <p-tab value="staff">Bývalí zaměstnanci</p-tab>
+    <p-tab value="rules">Pravidla výmazu</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <p-tabpanel value="pupils"
+      ><div class="pt-4">
+        <p-card>
+          <ng-template #title
+            >{{ 'Žáci s ukončeným vzděláváním' | term }}<app-info-hint
+              [text]="
+        'Ukončení vzdělávání se zadává v záložce Osoby. Po posledním dni se žák v aplikaci nezobrazuje, rodiče k němu ztratí přístup a jeho údaje se mažou podle Pravidel výmazu.'
           | term
       "
-  /></ng-template>
-  @if (dueCount() > 0) {
-  <div
-    class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-orange-50 p-3 text-sm dark:bg-orange-950"
-  >
-    <span
-      >Některým údajům uplynula lhůta k výmazu (počet osob: {{ dueCount()
-      }}).</span
-    >
-    <p-button
-      label="Provést všechny výmazy"
-      icon="pi pi-eraser"
-      size="small"
-      severity="danger"
-      (onClick)="eraseAllDue()"
-    />
-  </div>
-  } @if (people(); as p) {
-  <p-table [value]="p.students" dataKey="id">
-    <ng-template pTemplate="header">
-      <tr>
-        <th>Jméno</th>
-        <th>Třída</th>
-        <th>Poslední den</th>
-        <th>Stav</th>
-        <th>Vymazáno</th>
-        <th>K výmazu</th>
-        <th><span class="sr-only">Akce</span></th>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="body" let-s>
-      <tr>
-        <td>
-          <div>{{ s.firstName }} {{ s.lastName }}</div>
-          @if (s.reason || s.note) {
-          <div class="text-xs text-surface-500">{{ reasonAndNote(s) }}</div>
-          }
-        </td>
-        <td>{{ s.schoolClassName }}</td>
-        <td>{{ s.leftAt | dateFormat: 'date' }}</td>
-        <td>
-          @if (s.former) {
-          <p-tag value="Bývalý" severity="secondary" />
-          @if (s.accountActive) {
-          <div class="text-xs text-surface-500">účet ještě aktivní</div>
-          } } @else {
-          <p-tag
-            [value]="'Končí k ' + (s.leftAt | dateFormat: 'date')"
-            severity="info"
-          />
-          }
-        </td>
-        <td class="text-sm text-surface-500">
-          {{ s.erased.length ? labels(s.erased) : '—' }}
-        </td>
-        <td class="text-sm">
-          @if (s.due.length) {
-          <span class="text-orange-600 dark:text-orange-400"
-            >teď: {{ labels(s.due) }}</span
+          /></ng-template>
+          @if (dueCount() > 0) {
+          <div
+            class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-orange-50 p-3 text-sm dark:bg-orange-950"
           >
-          } @else {
-          <span class="text-surface-500">{{ next(s) }}</span>
-          }
-        </td>
-        <td>
-          <div class="flex justify-end gap-1">
-            @if (s.erased.length === 0) {
+            <span
+              >Některým údajům uplynula lhůta k výmazu (počet osob: {{
+              dueCount() }}).</span
+            >
             <p-button
-              icon="pi pi-pencil"
-              ariaLabel="Upravit ukončení"
-              title="Upravit ukončení"
-              size="small"
-              [text]="true"
-              (onClick)="editing.set(s)"
-            />
-            } @if (s.due.length) {
-            <p-button
+              label="Provést všechny výmazy"
               icon="pi pi-eraser"
-              ariaLabel="Vymazat, čemu uplynula lhůta"
-              title="Vymazat, čemu uplynula lhůta"
               size="small"
               severity="danger"
-              [text]="true"
-              (onClick)="eraseDueOf(s)"
+              (onClick)="eraseAllDue()"
             />
-            } @if (s.former) {
-            <p-button
-              icon="pi pi-trash"
-              ariaLabel="Vymazat vše hned"
-              title="Vymazat vše hned"
-              size="small"
-              severity="danger"
-              [text]="true"
-              (onClick)="eraseEverything(s)"
-            />
-            }
           </div>
-        </td>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="7" class="py-3 text-surface-500">
-          Nikdo zde neukončil vzdělávání.
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
-  } @else {
-  <app-loading />
-  }
-</p-card>
-
-@if (people(); as p) { @if (p.staff.length) {
-<p-card styleClass="mt-6">
-  <ng-template #title
-    >Odcházející a bývalí zaměstnanci<app-info-hint
-      text="Zaměstnanci s ukončeným pracovním poměrem a účty deaktivované v záložce Uživatelé. Po lhůtě se vymaže jméno, kontakty a fotka a účet se zruší; jejich záznamy (známky, akce, zprávy) zůstanou bez jména."
-  /></ng-template>
-  <p-table [value]="p.staff" dataKey="userId">
-    <ng-template pTemplate="header">
-      <tr>
-        <th>Jméno</th>
-        <th>Poslední den</th>
-        <th>Nepředáno</th>
-        <th>Výmaz</th>
-        <th><span class="sr-only">Akce</span></th>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="body" let-s>
-      <tr>
-        <td>
-          {{ s.name }} @if (!s.deactivatedAt) {
-          <p-tag value="Ještě ve škole" severity="info" />
+          } @if (people(); as p) {
+          <p-table [value]="p.students" dataKey="id">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Jméno</th>
+                <th>Třída</th>
+                <th>Poslední den</th>
+                <th>Stav</th>
+                <th>Vymazáno</th>
+                <th>K výmazu</th>
+                <th><span class="sr-only">Akce</span></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-s>
+              <tr>
+                <td>
+                  <div>{{ s.firstName }} {{ s.lastName }}</div>
+                  @if (s.reason || s.note) {
+                  <div class="text-xs text-surface-500">
+                    {{ reasonAndNote(s) }}
+                  </div>
+                  }
+                </td>
+                <td>{{ s.schoolClassName }}</td>
+                <td>{{ s.leftAt | dateFormat: 'date' }}</td>
+                <td>
+                  @if (s.former) {
+                  <p-tag value="Bývalý" severity="secondary" />
+                  @if (s.accountActive) {
+                  <div class="text-xs text-surface-500">účet ještě aktivní</div>
+                  } } @else {
+                  <p-tag
+                    [value]="'Končí k ' + (s.leftAt | dateFormat: 'date')"
+                    severity="info"
+                  />
+                  }
+                </td>
+                <td class="text-sm text-surface-500">
+                  {{ s.erased.length ? labels(s.erased) : '—' }}
+                </td>
+                <td class="text-sm">
+                  @if (s.due.length) {
+                  <span class="text-orange-600 dark:text-orange-400"
+                    >teď: {{ labels(s.due) }}</span
+                  >
+                  } @else {
+                  <span class="text-surface-500">{{ next(s) }}</span>
+                  }
+                </td>
+                <td>
+                  <div class="flex justify-end gap-1">
+                    @if (s.erased.length === 0) {
+                    <p-button
+                      icon="pi pi-pencil"
+                      ariaLabel="Upravit ukončení"
+                      title="Upravit ukončení"
+                      size="small"
+                      [text]="true"
+                      (onClick)="editing.set(s)"
+                    />
+                    } @if (s.due.length) {
+                    <p-button
+                      icon="pi pi-eraser"
+                      ariaLabel="Vymazat, čemu uplynula lhůta"
+                      title="Vymazat, čemu uplynula lhůta"
+                      size="small"
+                      severity="danger"
+                      [text]="true"
+                      (onClick)="eraseDueOf(s)"
+                    />
+                    } @if (s.former) {
+                    <p-button
+                      icon="pi pi-trash"
+                      ariaLabel="Vymazat vše hned"
+                      title="Vymazat vše hned"
+                      size="small"
+                      severity="danger"
+                      [text]="true"
+                      (onClick)="eraseEverything(s)"
+                    />
+                    }
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="7" class="py-3 text-surface-500">
+                  Nikdo zde neukončil vzdělávání.
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+          } @else {
+          <app-loading />
           }
-        </td>
-        <td>
-          {{ s.leftAt ? (s.leftAt | dateFormat: 'date') : 'deaktivován ' +
-          (s.deactivatedAt | dateFormat: 'date') }}
-        </td>
-        <td [class.text-orange-600]="s.classesLed + s.lessons > 0">
-          {{ handoverLeft(s) }}
-        </td>
-        <td [class.text-orange-600]="s.due">
-          {{ s.due ? 'teď' : s.erasesOn ? (s.erasesOn | dateFormat: 'date') :
-          '—' }}
-        </td>
-        <td>
-          <div class="flex justify-end">
-            @if (!s.deactivatedAt) {
-            <p-button
-              icon="pi pi-pencil"
-              ariaLabel="Upravit ukončení"
-              title="Upravit ukončení"
-              size="small"
-              [text]="true"
-              (onClick)="editingStaff.set({ userId: s.userId, name: s.name })"
-            />
-            } @else {
-            <p-button
-              icon="pi pi-trash"
-              ariaLabel="Vymazat hned"
-              title="Vymazat hned"
-              size="small"
-              severity="danger"
-              [text]="true"
-              (onClick)="eraseStaff(s)"
-            />
-            }
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
-</p-card>
-} }
+        </p-card>
+      </div></p-tabpanel
+    >
+    <p-tabpanel value="staff"
+      ><div class="pt-4">
+        <p-card>
+          <ng-template #title
+            >Odcházející a bývalí zaměstnanci<app-info-hint
+              text="Zaměstnanci s ukončeným pracovním poměrem a účty deaktivované v záložce Uživatelé. Po lhůtě se vymaže jméno, kontakty a fotka a účet se zruší; jejich záznamy (známky, akce, zprávy) zůstanou bez jména."
+          /></ng-template>
+          @if (people(); as p) {
+          <p-table [value]="p.staff" dataKey="userId">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Jméno</th>
+                <th>Poslední den</th>
+                <th>Nepředáno</th>
+                <th>Výmaz</th>
+                <th><span class="sr-only">Akce</span></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-s>
+              <tr>
+                <td>
+                  {{ s.name }} @if (!s.deactivatedAt) {
+                  <p-tag value="Ještě ve škole" severity="info" />
+                  }
+                </td>
+                <td>
+                  {{ s.leftAt ? (s.leftAt | dateFormat: 'date') : 'deaktivován '
+                  + (s.deactivatedAt | dateFormat: 'date') }}
+                </td>
+                <td [class.text-orange-600]="s.classesLed + s.lessons > 0">
+                  {{ handoverLeft(s) }}
+                </td>
+                <td [class.text-orange-600]="s.due">
+                  {{ s.due ? 'teď' : s.erasesOn ? (s.erasesOn | dateFormat:
+                  'date') : '—' }}
+                </td>
+                <td>
+                  <div class="flex justify-end">
+                    @if (!s.deactivatedAt) {
+                    <p-button
+                      icon="pi pi-pencil"
+                      ariaLabel="Upravit ukončení"
+                      title="Upravit ukončení"
+                      size="small"
+                      [text]="true"
+                      (onClick)="editingStaff.set({ userId: s.userId, name: s.name })"
+                    />
+                    } @else {
+                    <p-button
+                      icon="pi pi-trash"
+                      ariaLabel="Vymazat hned"
+                      title="Vymazat hned"
+                      size="small"
+                      severity="danger"
+                      [text]="true"
+                      (onClick)="eraseStaff(s)"
+                    />
+                    }
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+          } @else {
+          <app-loading />
+          }
+        </p-card>
+      </div></p-tabpanel
+    >
+    <p-tabpanel value="rules"
+      ><div class="pt-4">
+        <p-card>
+          <ng-template #title
+            >Pravidla výmazu<app-info-hint
+              text="Nastavte podle spisového a skartačního řádu školy. Lhůty se počítají od posledního dne žáka ve škole, 0 = hned po posledním dni. Údaje, které škola musí uchovat (např. pro matriku), nechte v Celém profilu."
+          /></ng-template>
+          @if (policy(); as policy) {
+          <form
+            class="flex flex-col gap-5"
+            #policyForm="ngForm"
+            (ngSubmit)="savePolicy()"
+          >
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="flex flex-col gap-1">
+                <label for="ret-mode">Výmaz po uplynutí lhůty</label>
+                <p-select
+                  inputId="ret-mode"
+                  name="mode"
+                  [options]="modes"
+                  optionLabel="label"
+                  optionValue="value"
+                  [ngModel]="policy.mode"
+                  (ngModelChange)="policy.mode = $event"
+                  appendTo="body"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label for="ret-grace"
+                  >Účty žáka a rodičů zůstanou aktivní (dní)<app-info-hint
+                    text="Po posledním dni žáka — např. aby si rodiče dočetli zprávy. Rodič, kterému ve škole zůstává jiné dítě, účet nepřijde."
+                /></label>
+                <p-inputNumber
+                  inputId="ret-grace"
+                  name="accountGraceDays"
+                  [ngModel]="policy.accountGraceDays"
+                  (ngModelChange)="policy.accountGraceDays = $event ?? 0"
+                  [min]="0"
+                  [max]="365"
+                  [showButtons]="true"
+                  class="self-start"
+                  inputStyleClass="w-24"
+                />
+              </div>
+            </div>
 
-<p-card styleClass="mt-6">
-  <ng-template #title
-    >Pravidla výmazu<app-info-hint
-      text="Nastavte podle spisového a skartačního řádu školy. Lhůty se počítají od posledního dne žáka ve škole, 0 = hned po posledním dni. Údaje, které škola musí uchovat (např. pro matriku), nechte v Celém profilu."
-  /></ng-template>
-  @if (policy(); as policy) {
-  <form
-    class="flex flex-col gap-5"
-    #policyForm="ngForm"
-    (ngSubmit)="savePolicy()"
-  >
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div class="flex flex-col gap-1">
-        <label for="ret-mode">Výmaz po uplynutí lhůty</label>
-        <p-select
-          inputId="ret-mode"
-          name="mode"
-          [options]="modes"
-          optionLabel="label"
-          optionValue="value"
-          [ngModel]="policy.mode"
-          (ngModelChange)="policy.mode = $event"
-          appendTo="body"
-        />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="ret-grace"
-          >Účty žáka a rodičů zůstanou aktivní (dní)<app-info-hint
-            text="Po posledním dni žáka — např. aby si rodiče dočetli zprávy. Rodič, kterému ve škole zůstává jiné dítě, účet nepřijde."
-        /></label>
-        <p-inputNumber
-          inputId="ret-grace"
-          name="accountGraceDays"
-          [ngModel]="policy.accountGraceDays"
-          (ngModelChange)="policy.accountGraceDays = $event ?? 0"
-          [min]="0"
-          [max]="365"
-          [showButtons]="true"
-          class="self-start"
-          inputStyleClass="w-24"
-        />
-      </div>
-    </div>
+            <section class="flex flex-col gap-2">
+              <h3 class="m-0 text-base font-semibold">
+                {{ 'Údaje bývalých žáků — za kolik let po posledním dni se
+                vymažou' | term }}
+              </h3>
+              <div class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                @for (f of yearFields; track f.field) {
+                <div class="flex items-center justify-between gap-2">
+                  <label [for]="'ret-' + f.field" class="text-sm"
+                    >{{ categoryLabels[f.category] }}<app-info-hint
+                      [text]="f.hint"
+                  /></label>
+                  <p-inputNumber
+                    [inputId]="'ret-' + f.field"
+                    [name]="f.field"
+                    [ngModel]="yearsOf(f.field)"
+                    (ngModelChange)="setYears(f.field, $event)"
+                    [min]="0"
+                    [max]="100"
+                    inputStyleClass="w-24"
+                  />
+                </div>
+                }
+              </div>
+            </section>
 
-    <section class="flex flex-col gap-2">
-      <h3 class="m-0 text-base font-semibold">
-        {{ 'Údaje bývalých žáků — za kolik let po posledním dni se vymažou' |
-        term }}
-      </h3>
-      <div class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-        @for (f of yearFields; track f.field) {
-        <div class="flex items-center justify-between gap-2">
-          <label [for]="'ret-' + f.field" class="text-sm"
-            >{{ categoryLabels[f.category] }}<app-info-hint [text]="f.hint"
-          /></label>
-          <p-inputNumber
-            [inputId]="'ret-' + f.field"
-            [name]="f.field"
-            [ngModel]="yearsOf(f.field)"
-            (ngModelChange)="setYears(f.field, $event)"
-            [min]="0"
-            [max]="100"
-            inputStyleClass="w-24"
-          />
-        </div>
-        }
-      </div>
-    </section>
+            <section class="flex flex-col gap-2">
+              <h3 class="m-0 text-base font-semibold">Bývalí zaměstnanci</h3>
+              <div class="flex items-center gap-3">
+                <label for="ret-staffYears" class="text-sm"
+                  >Za kolik let od deaktivace účtu se vymažou</label
+                >
+                <p-inputNumber
+                  inputId="ret-staffYears"
+                  name="staffYears"
+                  [ngModel]="policy.staffYears"
+                  (ngModelChange)="policy.staffYears = $event ?? 0"
+                  [min]="0"
+                  [max]="100"
+                  inputStyleClass="w-24"
+                />
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <label for="ret-staffNotices" class="text-sm"
+                  >Odchod zaměstnance oznámit</label
+                >
+                <p-multiselect
+                  inputId="ret-staffNotices"
+                  name="staffLeaveNotices"
+                  [options]="staffNoticeOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  [(ngModel)]="policy.staffLeaveNotices"
+                  placeholder="Nikomu"
+                  [showToggleAll]="false"
+                  [filter]="false"
+                  styleClass="w-80"
+                  appendTo="body"
+                />
+              </div>
+            </section>
 
-    <section class="flex flex-col gap-2">
-      <h3 class="m-0 text-base font-semibold">Bývalí zaměstnanci</h3>
-      <div class="flex items-center gap-3">
-        <label for="ret-staffYears" class="text-sm"
-          >Za kolik let od deaktivace účtu se vymažou</label
-        >
-        <p-inputNumber
-          inputId="ret-staffYears"
-          name="staffYears"
-          [ngModel]="policy.staffYears"
-          (ngModelChange)="policy.staffYears = $event ?? 0"
-          [min]="0"
-          [max]="100"
-          inputStyleClass="w-24"
-        />
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <label for="ret-staffNotices" class="text-sm"
-          >Odchod zaměstnance oznámit</label
-        >
-        <p-multiselect
-          inputId="ret-staffNotices"
-          name="staffLeaveNotices"
-          [options]="staffNoticeOptions"
-          optionLabel="label"
-          optionValue="value"
-          [(ngModel)]="policy.staffLeaveNotices"
-          placeholder="Nikomu"
-          [showToggleAll]="false"
-          [filter]="false"
-          styleClass="w-80"
-          appendTo="body"
-        />
-      </div>
-    </section>
-
-    <div>
-      <app-submit-button [form]="policyForm" />
-    </div>
-  </form>
-  } @else {
-  <app-loading />
-  }
-</p-card>
+            <div>
+              <app-submit-button [form]="policyForm" />
+            </div>
+          </form>
+          } @else {
+          <app-loading />
+          }
+        </p-card>
+      </div></p-tabpanel
+    >
+  </p-tabpanels>
+</p-tabs>
 
 <app-staff-leave-dialog
   [staff]="editingStaff()"

@@ -152,7 +152,7 @@ zmizí, když neříká nic vlastního).
 
 ## Skupiny žáků (#166)
 
-Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a kopíruje se s ní
+Administrace → Výuka → Skupiny; vše patří verzi rozvrhu a kopíruje se s ní
 (skupiny, dělení, členství i vazba hodin na skupinu):
 
 - `StudentGroup`: název, předmět, hodiny týdně (prázdné = podle učebního plánu jejích tříd;
@@ -195,17 +195,17 @@ Administrace → Přidělení výuky → Skupiny; vše patří verzi rozvrhu a k
 
 ## Učební plán podle RVP (#165)
 
-- **Program třídy** (`SchoolClass.RvpProgramCode`, Administrace → Třídy): základní vzdělávání podle dosavadního nebo revidovaného RVP ZV, nižší stupeň víceletého gymnázia, RVP G a RVP GSP, nebo obor středního odborného vzdělávání. Přechod na revidovaný RVP ZV jde po ročnících s kohortou, proto program patří třídě, ne škole.
+- **Program třídy** (`SchoolClass.RvpProgramCode`, Administrace → Škola → Třídy): základní vzdělávání podle dosavadního nebo revidovaného RVP ZV, nižší stupeň víceletého gymnázia, RVP G a RVP GSP, nebo obor středního odborného vzdělávání. Přechod na revidovaný RVP ZV jde po ročnících s kohortou, proto program patří třídě, ne škole.
 - **Nabídka podle typu školy**: ZŠ vidí jen základní vzdělávání, SŠ gymnázia (i jejich nižší stupně) a obory SOŠ. Při změně typu školy se třídám zruší program, který pro nový typ neplatí.
 - **Katalog** (`Timetable/Rvp/rvp-programs.json`): rámcové učební plány z textů MŠMT. Ročníky jsou ročníky školy, takže nižší stupeň víceletého gymnázia začíná 1. ročníkem. Revidovaný RVP ZV minima oblastí nemá, závazný je součet 118/122 h, týdenní rozsah, angličtina, další cizí jazyk a Tv alespoň 2 h týdně.
 - **RVP SOV**: 271 oborů z [databáze MŠMT platné od 1. 9. 2023](https://edu.gov.cz/dokumenty/rvp-ramcove-vzdelavaci-programy/rvp-sov-ramcove-vzdelavaci-programy-stredniho-odborneho-vzdelavani/databaze-rvp-sov-od-1-9-2023/), vytěženo z PDF tabulek Rámcové rozvržení obsahu vzdělávání skriptem `backend/tools/build_rvp_catalog.py`, který katalog vygeneruje celý (ruční opravy tabulek jsou v něm popsané). Mimo katalog je 82-44-M/P01, který má hodiny v rozpětí podle zaměření. U 69-41-L/51 a 75-41-M/01 v textu RVP řádky nedávají uvedený součet, katalog je přebírá beze změny.
 - **Změny RVP**: workflow `rvp-sources.yml` jednou za měsíc spustí `backend/tools/check_rvp_sources.py`. Znovu sestaví katalog oborů SOV a porovná ho s uloženým, u ručně zapsaných RVP ZV, G a GSP hlídá otisk textu a na stránkách MŠMT seznam odkazů. Při rozdílu založí issue, nebo ke stávajícímu přidá komentář. Dosavadní RVP ZV se nehlídá, je zrušený a dobíhá. Katalog a otisky (`rvp-sources.json`) aktualizuje vývojář.
-- **Kontrola** (Přidělení výuky → Učební plán, kontrola před zveřejněním): počítá plán ročníků tak, jak je ve verzi teď; v ročníku rozhoduje třída programu s nejmenším počtem hodin. Stupeň s chybějícím ročníkem kontroluje jen týdenní rozsah. Předmět se k oblasti přiřadí podle názvu nebo zkratky, škola to může změnit.
+- **Kontrola** (Výuka → Učební plán, kontrola před zveřejněním): počítá plán ročníků tak, jak je ve verzi teď; v ročníku rozhoduje třída programu s nejmenším počtem hodin. Stupeň s chybějícím ročníkem kontroluje jen týdenní rozsah. Předmět se k oblasti přiřadí podle názvu nebo zkratky, škola to může změnit.
 - **Vyplnění** (jen v konceptu): RVP nedává hodiny po ročnících, takže návrh není oficiální údaj. U ZŠ je to typický plán, jinde se minima rozloží rovnoměrně. Co se stane s dosavadními hodinami a předměty, volí uživatel v dialogu.
 
 ## Generátor (fáze 3, #161)
 
-Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP-SAT, běží jako
+Administrace → Výuka → Rozvrh → koncept verze → **Generovat** (`TimetableGenerator` nad OR-Tools CP-SAT, běží jako
 Hangfire job `TimetableGenerationJob` ve frontě `timetable` s jedním workerem — generuje se
 vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně jádrech se střídají):
 
@@ -266,7 +266,7 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
 
 1. **Verze rozvrhu** (model, migrace, výběr verze podle týdne, koncept + zveřejnění).
    Přínos i bez generátoru: příprava rozvrhu na 2. pololetí dopředu.
-2. **Učební plán, aprobace a přidělení výuky** (Administrace → Přidělení výuky, kontroly
+2. **Učební plán, aprobace a přidělení výuky** (Administrace → Výuka, kontroly
    pokrytí rozvrhu a nasmlouvaných hodin).
 3. **Generátor CP-SAT** pro koncept verze: tvrdá omezení → první použitelná verze;
    pak měkká omezení a váhy nastavitelné školou; výsledek vždy jen jako koncept.

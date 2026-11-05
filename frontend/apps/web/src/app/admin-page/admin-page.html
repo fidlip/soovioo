@@ -7,10 +7,10 @@
 } @else if (accessLevel() === 'denied') {
 <p class="text-surface-500">
   Tato stránka je dostupná pro roli Admin, pro třídního učitele (jen pro vlastní
-  třídu), nebo pro toho, kdo smí vidět přidělení výuky.
+  třídu), nebo pro toho, kdo smí vidět výuku nebo koncepty rozvrhu.
 </p>
 } @else if (accessLevel() === 'teaching') {
-<app-teaching-tab />
+<app-teaching-tab [section]="section()" (sectionChange)="openSection($event)" />
 } @else { @if (accessLevel() === 'classTeacher') {
 <p class="mb-6 text-sm text-surface-500">
   {{ 'Jste třídní učitel — vidíte a upravujete jen žáky své třídy a jejich vazby
@@ -203,740 +203,860 @@
 </ng-template>
 
 @if (accessLevel() === 'classTeacher') {
-<p-tabs [(value)]="activeTab" [scrollable]="true">
+<p-tabs [value]="group()" (valueChange)="openGroup($event)" [scrollable]="true">
   <p-tablist>
-    <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
-    <p-tab value="parents">Rodiče</p-tab>
-    @if (canSeeTeaching()) {
-    <p-tab value="teaching">Přidělení výuky</p-tab>
+    @for (g of groups(); track g.value) {
+    <p-tab [value]="g.value">{{ g.label }}</p-tab>
     }
   </p-tablist>
   <p-tabpanels>
-    <p-tabpanel value="students">
-      <div class="pt-4">
-        <ng-container [ngTemplateOutlet]="studentsCard" />
-      </div>
+    <p-tabpanel value="class">
+      <p-tabs
+        [value]="groupSection()"
+        (valueChange)="openSection($event)"
+        [scrollable]="true"
+      >
+        <p-tablist>
+          <p-tab value="students">{{ 'Studenti' | term }}</p-tab>
+          <p-tab value="parents">Rodiče</p-tab>
+        </p-tablist>
+        <p-tabpanels>
+          <p-tabpanel value="students">
+            <div class="pt-4">
+              <ng-container [ngTemplateOutlet]="studentsCard" />
+            </div>
+          </p-tabpanel>
+          <p-tabpanel value="parents">
+            <div class="pt-4">
+              <ng-container [ngTemplateOutlet]="parentsCard" />
+            </div>
+          </p-tabpanel>
+        </p-tabpanels>
+      </p-tabs>
     </p-tabpanel>
-    <p-tabpanel value="parents">
-      <div class="pt-4">
-        <ng-container [ngTemplateOutlet]="parentsCard" />
-      </div>
-    </p-tabpanel>
-    @if (canSeeTeaching()) {
     <p-tabpanel value="teaching">
+      @if (group() === 'teaching') {
       <div class="pt-4">
-        <app-teaching-tab />
+        <app-teaching-tab
+          [section]="section()"
+          (sectionChange)="openSection($event)"
+        />
       </div>
+      }
     </p-tabpanel>
-    }
   </p-tabpanels>
 </p-tabs>
 } @else {
-<!-- Lazy: a tab's content (tables, forms) renders when first opened, not
-     all seven at page load — that was most of the page's blocking time. -->
-<p-tabs [(value)]="activeTab" [scrollable]="true" [lazy]="true">
+<!-- Lazy: a section's content (tables, forms) renders when first opened, not
+     all of them at page load — that was most of the page's blocking time. -->
+<p-tabs
+  [value]="group()"
+  (valueChange)="openGroup($event)"
+  [scrollable]="true"
+  [lazy]="true"
+>
   <p-tablist>
-    <p-tab value="classes">Třídy, předměty a učebny</p-tab>
-    <p-tab value="teaching">Přidělení výuky</p-tab>
-    <p-tab value="people">Osoby</p-tab>
-    <p-tab value="users">Uživatelé</p-tab>
-    <p-tab value="roles">Role</p-tab>
-    <p-tab value="school">Škola a matrika</p-tab>
-    <p-tab value="visibility">Viditelnost údajů</p-tab>
-    <p-tab value="departures">Archiv a výmaz údajů</p-tab>
+    @for (g of groups(); track g.value) {
+    <p-tab [value]="g.value">{{ g.label }}</p-tab>
+    }
   </p-tablist>
   <p-tabpanels>
-    <p-tabpanel value="classes">
+    <p-tabpanel value="school">
       <ng-template #content>
-        <div class="flex flex-col gap-6 pt-4">
-          <p-card header="Třídy">
-            <div class="mb-3 flex justify-end">
-              <p-button
-                label="Nová třída"
-                icon="pi pi-plus"
-                size="small"
-                (onClick)="openAddClassDialog()"
-              />
-            </div>
-            <p-table [value]="schoolClasses()" dataKey="id" styleClass="mb-4">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Název</th>
-                  <th>Ročník</th>
-                  <th>Třídní učitel</th>
-                  <th>Vyuč. jazyk</th>
-                  <th>Kmenová učebna</th>
-                  <th><span class="sr-only">Akce</span></th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-schoolClass>
-                <tr>
-                  <td>{{ schoolClass.name }}</td>
-                  <td>{{ schoolClass.rocnik ?? '—' }}</td>
-                  <td class="text-surface-500">
-                    {{ classTeacherName(schoolClass.classTeacherId) }}
-                  </td>
-                  <td class="text-surface-500">
-                    {{ schoolClass.teachingLanguage ?? '—' }}
-                  </td>
-                  <td class="text-surface-500">
-                    {{ classroomName(schoolClass.homeroomId) }}
-                  </td>
-                  <td>
-                    <div class="flex justify-end gap-1">
-                      <p-button
-                        icon="pi pi-users"
-                        [ariaLabel]="'Přidělení výuky — ' + schoolClass.name"
-                        title="Přidělení výuky"
-                        size="small"
-                        [text]="true"
-                        (onClick)="showTeaching({ classId: schoolClass.id })"
-                      />
-                      <p-button
-                        icon="pi pi-pencil"
-                        ariaLabel="Upravit"
-                        size="small"
-                        [text]="true"
-                        (onClick)="startEditSchoolClass(schoolClass)"
-                      />
-                      <p-button
-                        icon="pi pi-trash"
-                        ariaLabel="Smazat"
-                        size="small"
-                        severity="danger"
-                        [text]="true"
-                        (onClick)="deleteSchoolClass(schoolClass)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="6" class="py-3 text-surface-500">
-                    Žádné třídy.
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
-          </p-card>
-
-          <p-card header="Předměty">
-            <div class="mb-3 flex justify-end">
-              <p-button
-                label="Nový předmět"
-                icon="pi pi-plus"
-                size="small"
-                (onClick)="openAddSubjectDialog()"
-              />
-            </div>
-            <p-table [value]="subjects()" dataKey="id" styleClass="mb-4">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Název</th>
-                  <th>Zkratka</th>
-                  <th>Barva</th>
-                  <th>Učebny</th>
-                  <th><span class="sr-only">Akce</span></th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-subject>
-                <tr>
-                  <td>
-                    {{ subject.name }} @if (subject.doubleLessons) {
-                    <span class="text-xs text-surface-500">dvouhodinovky</span>
-                    }
-                  </td>
-                  <td class="text-surface-500">
-                    {{ subject.abbreviation ?? '—' }}
-                  </td>
-                  <td>
-                    @if (subject.color) {
-                    <span
-                      class="inline-block h-4 w-4 rounded-full align-middle"
-                      [style.background-color]="subject.color"
-                    ></span>
-                    } @else {
-                    <span class="text-surface-500 dark:text-surface-400"
-                      >—</span
+        <p-tabs
+          [value]="groupSection()"
+          (valueChange)="openSection($event)"
+          [scrollable]="true"
+          [lazy]="true"
+        >
+          <p-tablist>
+            <p-tab value="details">Údaje</p-tab>
+            <p-tab value="registry">Matrika</p-tab>
+            <p-tab value="classes">Třídy</p-tab>
+            <p-tab value="subjects">Předměty</p-tab>
+            <p-tab value="classrooms">Učebny</p-tab>
+            <p-tab value="people">Osoby</p-tab>
+          </p-tablist>
+          <p-tabpanels>
+            <p-tabpanel value="details">
+              <ng-template #content>
+                <div class="flex flex-col gap-6 pt-4">
+                  <p-card>
+                    <ng-template #title
+                      >Typ školy<app-info-hint
+                        text="Určuje, jestli celá aplikace (včetně vysvědčení) mluví o žácích (ZŠ), nebo o studentech (SŠ)."
+                    /></ng-template>
+                    <form
+                      class="flex flex-wrap items-end gap-2"
+                      (ngSubmit)="saveSchoolType()"
                     >
-                    }
-                  </td>
-                  <td class="text-surface-500">
-                    {{ subjectClassroomsLabel(subject) }}
-                  </td>
-                  <td>
-                    <div class="flex justify-end gap-1">
+                      <app-float-field label="Typ" for="schoolType">
+                        <p-select
+                          ariaLabel="Typ"
+                          inputId="schoolType"
+                          [options]="schoolTypeOptions"
+                          optionLabel="label"
+                          optionValue="value"
+                          [ngModel]="schoolType()"
+                          (ngModelChange)="schoolType.set($event)"
+                          name="schoolType"
+                          styleClass="w-56"
+                          appendTo="body"
+                        />
+                      </app-float-field>
                       <p-button
-                        icon="pi pi-pencil"
-                        ariaLabel="Upravit"
-                        size="small"
-                        [text]="true"
-                        (onClick)="startEditSubject(subject)"
+                        type="submit"
+                        label="Uložit"
+                        severity="secondary"
+                        [outlined]="true"
                       />
-                      <p-button
-                        icon="pi pi-trash"
-                        ariaLabel="Smazat"
-                        size="small"
-                        severity="danger"
-                        [text]="true"
-                        (onClick)="deleteSubject(subject)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="5" class="py-3 text-surface-500">
-                    Žádné předměty.
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
-          </p-card>
-
-          <p-card header="Učebny">
-            <div class="mb-3 flex justify-end">
-              <p-button
-                label="Nová učebna"
-                icon="pi pi-plus"
-                size="small"
-                (onClick)="openAddClassroomDialog()"
-              />
-            </div>
-            <p-table [value]="classrooms()" dataKey="id" styleClass="mb-4">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Název</th>
-                  <th>Zkratka</th>
-                  <th>Typ</th>
-                  <th>Kapacita</th>
-                  <th><span class="sr-only">Akce</span></th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-classroom>
-                <tr>
-                  <td>{{ classroom.name }}</td>
-                  <td>{{ classroom.shortName ?? '—' }}</td>
-                  <td class="text-surface-500">
-                    {{ classroomTypeLabel(classroom.type) }}
-                  </td>
-                  <td class="text-surface-500">
-                    {{ classroom.capacity ?? '—' }}
-                  </td>
-                  <td>
-                    <div class="flex justify-end gap-1">
-                      <p-button
-                        icon="pi pi-pencil"
-                        ariaLabel="Upravit"
-                        size="small"
-                        [text]="true"
-                        (onClick)="startEditClassroom(classroom)"
-                      />
-                      <p-button
-                        icon="pi pi-trash"
-                        ariaLabel="Smazat"
-                        size="small"
-                        severity="danger"
-                        [text]="true"
-                        (onClick)="deleteClassroom(classroom)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="5" class="py-3 text-surface-500">
-                    Žádné učebny.
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
-          </p-card>
-        </div>
-      </ng-template>
-    </p-tabpanel>
-
-    <p-tabpanel value="people">
-      <ng-template #content>
-        <div class="pt-4">
-          <app-people-tab
-            #peopleTab
-            [roles]="schoolRoles()"
-            (createAccount)="openCreateAccountFor($event)"
-            (changed)="reload()"
-            (showTeaching)="showTeaching({ teacherId: $event })"
-          />
-        </div>
-      </ng-template>
-    </p-tabpanel>
-
-    <p-tabpanel value="teaching">
-      <ng-template #content>
-        <div class="pt-4">
-          <app-teaching-tab [focus]="teachingFocus()" />
-        </div>
-      </ng-template>
-    </p-tabpanel>
-
-    <p-tabpanel value="users">
-      <ng-template #content>
-        <div class="flex flex-col gap-6 pt-4">
-          <p-card header="Uživatelé">
-            <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div class="flex flex-wrap items-end gap-2">
-                <app-float-field label="Jméno" for="filterUserName">
-                  <input
-                    id="filterUserName"
-                    pInputText
-                    type="text"
-                    [(ngModel)]="filterUserName"
-                    name="filterUserName"
-                  />
-                </app-float-field>
-                <app-float-field label="Kontakt" for="filterUserContact">
-                  <input
-                    id="filterUserContact"
-                    pInputText
-                    type="text"
-                    [(ngModel)]="filterUserContact"
-                    name="filterUserContact"
-                  />
-                </app-float-field>
-                <app-float-field label="Role" for="filterUserRole">
-                  <p-select
-                    ariaLabel="Role"
-                    inputId="filterUserRole"
-                    [options]="roleOptions()"
-                    optionLabel="label"
-                    optionValue="value"
-                    [(ngModel)]="filterUserRole"
-                    [showClear]="true"
-                    name="filterUserRole"
-                    styleClass="w-40"
-                    appendTo="body"
-                  />
-                </app-float-field>
-              </div>
-              <p-button
-                label="Nový uživatel"
-                icon="pi pi-plus"
-                size="small"
-                (onClick)="openAddUserDialog()"
-              />
-            </div>
-            <p-table [value]="filteredUsers()" dataKey="id" styleClass="mb-4">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Jméno</th>
-                  <th>Role</th>
-                  <th>Kontakt</th>
-                  <th><span class="sr-only">Akce</span></th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-user>
-                <tr>
-                  <td>
-                    <div class="flex items-center gap-2">
-                      <app-avatar
-                        [name]="user.name"
-                        [photoUrl]="userPhotoUrl(user)"
-                      />
-                      <div>
-                        <div>
-                          {{ user.name }} @if (user.deactivatedAt) {
-                          <p-tag value="Neaktivní" severity="secondary" />
-                          } @else if (user.leftAt) {
-                          <p-tag
-                            [value]="'Končí k ' + (user.leftAt | dateFormat: 'date')"
-                            severity="info"
-                          />
-                          }
-                        </div>
-                        @if (user.name !== user.username) {
-                        <div class="text-xs text-surface-500">
-                          {{ user.username }}
-                        </div>
-                        }
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="flex flex-wrap items-center gap-1">
-                      @for (role of user.roles; track role.id) {
-                      <p-tag [value]="role.name" severity="secondary" />
-                      } @if (isPupilAccount(user)) {
-                      <span class="text-sm text-surface-500"
-                        >{{ studentName(user.studentId) }}</span
+                    </form>
+                  </p-card>
+                  <p-card>
+                    <ng-template #title
+                      >Údaje o škole<app-info-hint
+                        text="Používá se na oficiálních dokumentech (hlavička vysvědčení) — matrice se tyto údaje neposílají."
+                    /></ng-template>
+                    <form
+                      class="flex flex-wrap items-end gap-2"
+                      (ngSubmit)="saveSchoolDetails()"
+                    >
+                      <app-float-field label="Ulice" for="schoolStreet">
+                        <input
+                          pInputText
+                          id="schoolStreet"
+                          name="schoolStreet"
+                          [ngModel]="schoolStreet()"
+                          (ngModelChange)="schoolStreet.set($event)"
+                        />
+                      </app-float-field>
+                      <app-float-field label="Obec" for="schoolCity">
+                        <input
+                          pInputText
+                          id="schoolCity"
+                          name="schoolCity"
+                          [ngModel]="schoolCity()"
+                          (ngModelChange)="schoolCity.set($event)"
+                        />
+                      </app-float-field>
+                      <app-float-field label="PSČ" for="schoolPostalCode">
+                        <input
+                          pInputText
+                          id="schoolPostalCode"
+                          name="schoolPostalCode"
+                          [ngModel]="schoolPostalCode()"
+                          (ngModelChange)="schoolPostalCode.set($event)"
+                          class="w-24"
+                        />
+                      </app-float-field>
+                      <app-float-field
+                        label="Ředitel/ka"
+                        for="schoolDirectorName"
                       >
-                      }
+                        <input
+                          pInputText
+                          id="schoolDirectorName"
+                          name="schoolDirectorName"
+                          [ngModel]="schoolDirectorName()"
+                          (ngModelChange)="schoolDirectorName.set($event)"
+                        />
+                      </app-float-field>
+                      <app-float-field label="E-mail" for="schoolEmail">
+                        <input
+                          pInputText
+                          type="email"
+                          id="schoolEmail"
+                          name="schoolEmail"
+                          [ngModel]="schoolEmail()"
+                          (ngModelChange)="schoolEmail.set($event)"
+                        />
+                      </app-float-field>
+                      <app-float-field label="Telefon" for="schoolPhone">
+                        <input
+                          pInputText
+                          type="tel"
+                          id="schoolPhone"
+                          name="schoolPhone"
+                          [ngModel]="schoolPhone()"
+                          (ngModelChange)="schoolPhone.set($event)"
+                        />
+                      </app-float-field>
+                      <p-button
+                        type="submit"
+                        label="Uložit"
+                        severity="secondary"
+                        [outlined]="true"
+                      />
+                    </form>
+                  </p-card>
+
+                  <p-card>
+                    <ng-template #title
+                      >Platby<app-info-hint
+                        text="Bankovní účet, na který se generuje QR platba u plateb. Zadejte IBAN, nebo číslo účtu v českém tvaru (předčíslí-číslo/kód banky) — převede se na IBAN."
+                    /></ng-template>
+                    <form
+                      class="flex flex-wrap items-end gap-2"
+                      (ngSubmit)="saveSchoolBankAccount()"
+                    >
+                      <app-float-field
+                        label="Číslo bankovního účtu"
+                        for="schoolBankAccountNumber"
+                      >
+                        <input
+                          pInputText
+                          id="schoolBankAccountNumber"
+                          name="schoolBankAccountNumber"
+                          placeholder="IBAN nebo 19-2000145399/0800"
+                          class="w-80 max-w-full"
+                          [ngModel]="schoolBankAccountNumber()"
+                          (ngModelChange)="schoolBankAccountNumber.set($event)"
+                        />
+                      </app-float-field>
+                      <p-button
+                        type="submit"
+                        label="Uložit"
+                        severity="secondary"
+                        [outlined]="true"
+                      />
+                    </form>
+                  </p-card>
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="registry">
+              <ng-template #content>
+                <div class="pt-4">
+                  <p-card>
+                    <ng-template #title
+                      >Matrika (MŠMT)<app-info-hint
+                        text="Pre-pilotní export pro ověření na testovacím serveru MŠMT."
+                    /></ng-template>
+
+                    <div class="mb-6 flex flex-wrap items-end gap-2">
+                      <app-float-field label="IZO školy" for="matrikaIzo">
+                        <input
+                          pInputText
+                          id="matrikaIzo"
+                          name="matrikaIzo"
+                          [ngModel]="matrikaIzo()"
+                          (ngModelChange)="matrikaIzo.set($event)"
+                        />
+                      </app-float-field>
+                      <app-float-field label="RED_IZO" for="matrikaRedIzo">
+                        <input
+                          pInputText
+                          id="matrikaRedIzo"
+                          name="matrikaRedIzo"
+                          [ngModel]="matrikaRedIzo()"
+                          (ngModelChange)="matrikaRedIzo.set($event)"
+                        />
+                      </app-float-field>
+                      <p-button
+                        label="Uložit"
+                        severity="secondary"
+                        [outlined]="true"
+                        (onClick)="saveMatrikaIds()"
+                      />
                     </div>
-                  </td>
-                  <td class="text-surface-500">
-                    {{ user.phone ?? user.email ?? '—' }}
-                  </td>
-                  <td>
-                    <div class="flex justify-end gap-1">
-                      @if (user.email) {
+
+                    @if (matrikaExportErrors().length > 0) {
+                    <div
+                      class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+                    >
+                      <p class="mt-0 mb-1 font-medium">
+                        Export nelze vygenerovat:
+                      </p>
+                      <ul class="mb-0 list-disc pl-5">
+                        @for (e of matrikaExportErrors(); track e) {
+                        <li>{{ e }}</li>
+                        }
+                      </ul>
+                    </div>
+                    }
+
+                    <form
+                      class="flex flex-wrap items-end gap-2"
+                      (ngSubmit)="exportMatrika()"
+                    >
+                      <app-float-field
+                        label="Kontaktní osoba"
+                        for="matrikaContactName"
+                      >
+                        <input
+                          pInputText
+                          type="text"
+                          id="matrikaContactName"
+                          autocomplete="name"
+                          name="matrikaContactName"
+                          [(ngModel)]="matrikaContactName"
+                        />
+                      </app-float-field>
+                      <app-float-field
+                        label="Telefon"
+                        for="matrikaContactPhone"
+                      >
+                        <input
+                          pInputText
+                          type="tel"
+                          id="matrikaContactPhone"
+                          autocomplete="tel"
+                          name="matrikaContactPhone"
+                          [(ngModel)]="matrikaContactPhone"
+                        />
+                      </app-float-field>
+                      <app-float-field label="E-mail" for="matrikaContactEmail">
+                        <input
+                          pInputText
+                          type="email"
+                          id="matrikaContactEmail"
+                          autocomplete="email"
+                          name="matrikaContactEmail"
+                          [(ngModel)]="matrikaContactEmail"
+                        />
+                      </app-float-field>
+                      <app-float-field label="Část (CAST)" for="matrikaCast">
+                        <input
+                          pInputText
+                          type="text"
+                          id="matrikaCast"
+                          name="matrikaCast"
+                          [(ngModel)]="matrikaCast"
+                          class="w-24"
+                        />
+                      </app-float-field>
                       <p-button
-                        icon="pi pi-envelope"
-                        ariaLabel="Poslat pozvánku"
-                        size="small"
-                        [text]="true"
-                        (onClick)="sendInvite(user)"
+                        type="submit"
+                        label="Stáhnout export (XML)"
+                        icon="pi pi-download"
                       />
-                      } @if (isStaffUser(user)) {
+                    </form>
+                  </p-card>
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="classes">
+              <ng-template #content>
+                <div class="pt-4">
+                  <p-card header="Třídy">
+                    <div class="mb-3 flex justify-end">
                       <p-button
-                        icon="pi pi-camera"
-                        ariaLabel="Fotka"
-                        title="Fotka"
+                        label="Nová třída"
+                        icon="pi pi-plus"
                         size="small"
-                        [text]="true"
-                        (onClick)="photoUser.set(user)"
+                        (onClick)="openAddClassDialog()"
                       />
-                      }
+                    </div>
+                    <p-table
+                      [value]="schoolClasses()"
+                      dataKey="id"
+                      styleClass="mb-4"
+                    >
+                      <ng-template pTemplate="header">
+                        <tr>
+                          <th>Název</th>
+                          <th>Ročník</th>
+                          <th>Třídní učitel</th>
+                          <th>Vyuč. jazyk</th>
+                          <th>Kmenová učebna</th>
+                          <th><span class="sr-only">Akce</span></th>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-schoolClass>
+                        <tr>
+                          <td>{{ schoolClass.name }}</td>
+                          <td>{{ schoolClass.rocnik ?? '—' }}</td>
+                          <td class="text-surface-500">
+                            {{ classTeacherName(schoolClass.classTeacherId) }}
+                          </td>
+                          <td class="text-surface-500">
+                            {{ schoolClass.teachingLanguage ?? '—' }}
+                          </td>
+                          <td class="text-surface-500">
+                            {{ classroomName(schoolClass.homeroomId) }}
+                          </td>
+                          <td>
+                            <div class="flex justify-end gap-1">
+                              <p-button
+                                icon="pi pi-users"
+                                [ariaLabel]="'Přidělení výuky — ' + schoolClass.name"
+                                title="Přidělení výuky"
+                                size="small"
+                                [text]="true"
+                                (onClick)="showTeaching({ classId: schoolClass.id })"
+                              />
+                              <p-button
+                                icon="pi pi-pencil"
+                                ariaLabel="Upravit"
+                                size="small"
+                                [text]="true"
+                                (onClick)="startEditSchoolClass(schoolClass)"
+                              />
+                              <p-button
+                                icon="pi pi-trash"
+                                ariaLabel="Smazat"
+                                size="small"
+                                severity="danger"
+                                [text]="true"
+                                (onClick)="deleteSchoolClass(schoolClass)"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="emptymessage">
+                        <tr>
+                          <td colspan="6" class="py-3 text-surface-500">
+                            Žádné třídy.
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </p-card>
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="subjects">
+              <ng-template #content>
+                <div class="pt-4">
+                  <p-card header="Předměty">
+                    <div class="mb-3 flex justify-end">
                       <p-button
-                        icon="pi pi-pencil"
-                        ariaLabel="Upravit"
+                        label="Nový předmět"
+                        icon="pi pi-plus"
                         size="small"
-                        [text]="true"
-                        (onClick)="startEditUser(user)"
+                        (onClick)="openAddSubjectDialog()"
                       />
-                      @if (user.id !== myUserId && isStaffUser(user) &&
-                      !user.deactivatedAt) {
+                    </div>
+                    <p-table
+                      [value]="subjects()"
+                      dataKey="id"
+                      styleClass="mb-4"
+                    >
+                      <ng-template pTemplate="header">
+                        <tr>
+                          <th>Název</th>
+                          <th>Zkratka</th>
+                          <th>Barva</th>
+                          <th>Učebny</th>
+                          <th><span class="sr-only">Akce</span></th>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-subject>
+                        <tr>
+                          <td>
+                            {{ subject.name }} @if (subject.doubleLessons) {
+                            <span class="text-xs text-surface-500"
+                              >dvouhodinovky</span
+                            >
+                            }
+                          </td>
+                          <td class="text-surface-500">
+                            {{ subject.abbreviation ?? '—' }}
+                          </td>
+                          <td>
+                            @if (subject.color) {
+                            <span
+                              class="inline-block h-4 w-4 rounded-full align-middle"
+                              [style.background-color]="subject.color"
+                            ></span>
+                            } @else {
+                            <span class="text-surface-500 dark:text-surface-400"
+                              >—</span
+                            >
+                            }
+                          </td>
+                          <td class="text-surface-500">
+                            {{ subjectClassroomsLabel(subject) }}
+                          </td>
+                          <td>
+                            <div class="flex justify-end gap-1">
+                              <p-button
+                                icon="pi pi-pencil"
+                                ariaLabel="Upravit"
+                                size="small"
+                                [text]="true"
+                                (onClick)="startEditSubject(subject)"
+                              />
+                              <p-button
+                                icon="pi pi-trash"
+                                ariaLabel="Smazat"
+                                size="small"
+                                severity="danger"
+                                [text]="true"
+                                (onClick)="deleteSubject(subject)"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="emptymessage">
+                        <tr>
+                          <td colspan="5" class="py-3 text-surface-500">
+                            Žádné předměty.
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </p-card>
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="classrooms">
+              <ng-template #content>
+                <div class="pt-4">
+                  <p-card header="Učebny">
+                    <div class="mb-3 flex justify-end">
                       <p-button
-                        icon="pi pi-sign-out"
-                        ariaLabel="Ukončení pracovního poměru"
-                        title="Ukončení pracovního poměru"
+                        label="Nová učebna"
+                        icon="pi pi-plus"
                         size="small"
-                        [text]="true"
-                        (onClick)="leaveStaff.set({ userId: user.id, name: user.name })"
+                        (onClick)="openAddClassroomDialog()"
                       />
-                      } @if (user.id !== myUserId) {
+                    </div>
+                    <p-table
+                      [value]="classrooms()"
+                      dataKey="id"
+                      styleClass="mb-4"
+                    >
+                      <ng-template pTemplate="header">
+                        <tr>
+                          <th>Název</th>
+                          <th>Zkratka</th>
+                          <th>Typ</th>
+                          <th>Kapacita</th>
+                          <th><span class="sr-only">Akce</span></th>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-classroom>
+                        <tr>
+                          <td>{{ classroom.name }}</td>
+                          <td>{{ classroom.shortName ?? '—' }}</td>
+                          <td class="text-surface-500">
+                            {{ classroomTypeLabel(classroom.type) }}
+                          </td>
+                          <td class="text-surface-500">
+                            {{ classroom.capacity ?? '—' }}
+                          </td>
+                          <td>
+                            <div class="flex justify-end gap-1">
+                              <p-button
+                                icon="pi pi-pencil"
+                                ariaLabel="Upravit"
+                                size="small"
+                                [text]="true"
+                                (onClick)="startEditClassroom(classroom)"
+                              />
+                              <p-button
+                                icon="pi pi-trash"
+                                ariaLabel="Smazat"
+                                size="small"
+                                severity="danger"
+                                [text]="true"
+                                (onClick)="deleteClassroom(classroom)"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="emptymessage">
+                        <tr>
+                          <td colspan="5" class="py-3 text-surface-500">
+                            Žádné učebny.
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </p-card>
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="people">
+              <ng-template #content>
+                <div class="pt-4">
+                  <app-people-tab
+                    #peopleTab
+                    [roles]="schoolRoles()"
+                    (createAccount)="openCreateAccountFor($event)"
+                    (changed)="reload()"
+                    (showTeaching)="showTeaching({ teacherId: $event })"
+                  />
+                </div>
+              </ng-template>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
+      </ng-template>
+    </p-tabpanel>
+
+    <!-- Created anew each time: what it shows depends on Škola's classes,
+         subjects and people. -->
+    <p-tabpanel value="teaching">
+      @if (group() === 'teaching') {
+      <div class="pt-4">
+        <app-teaching-tab
+          [focus]="teachingFocus()"
+          [section]="section()"
+          (sectionChange)="openSection($event)"
+        />
+      </div>
+      }
+    </p-tabpanel>
+
+    <p-tabpanel value="app">
+      <ng-template #content>
+        <p-tabs
+          [value]="groupSection()"
+          (valueChange)="openSection($event)"
+          [scrollable]="true"
+          [lazy]="true"
+        >
+          <p-tablist>
+            <p-tab value="users">Uživatelé</p-tab>
+            <p-tab value="roles">Role</p-tab>
+            <p-tab value="visibility">Viditelnost údajů</p-tab>
+            <p-tab value="notifications">Upozornění</p-tab>
+          </p-tablist>
+          <p-tabpanels>
+            <p-tabpanel value="users">
+              <ng-template #content>
+                <div class="flex flex-col gap-6 pt-4">
+                  <p-card header="Uživatelé">
+                    <div
+                      class="mb-3 flex flex-wrap items-end justify-between gap-2"
+                    >
+                      <div class="flex flex-wrap items-end gap-2">
+                        <app-float-field label="Jméno" for="filterUserName">
+                          <input
+                            id="filterUserName"
+                            pInputText
+                            type="text"
+                            [(ngModel)]="filterUserName"
+                            name="filterUserName"
+                          />
+                        </app-float-field>
+                        <app-float-field
+                          label="Kontakt"
+                          for="filterUserContact"
+                        >
+                          <input
+                            id="filterUserContact"
+                            pInputText
+                            type="text"
+                            [(ngModel)]="filterUserContact"
+                            name="filterUserContact"
+                          />
+                        </app-float-field>
+                        <app-float-field label="Role" for="filterUserRole">
+                          <p-select
+                            ariaLabel="Role"
+                            inputId="filterUserRole"
+                            [options]="roleOptions()"
+                            optionLabel="label"
+                            optionValue="value"
+                            [(ngModel)]="filterUserRole"
+                            [showClear]="true"
+                            name="filterUserRole"
+                            styleClass="w-40"
+                            appendTo="body"
+                          />
+                        </app-float-field>
+                      </div>
                       <p-button
-                        [icon]="
+                        label="Nový uživatel"
+                        icon="pi pi-plus"
+                        size="small"
+                        (onClick)="openAddUserDialog()"
+                      />
+                    </div>
+                    <p-table
+                      [value]="filteredUsers()"
+                      dataKey="id"
+                      styleClass="mb-4"
+                    >
+                      <ng-template pTemplate="header">
+                        <tr>
+                          <th>Jméno</th>
+                          <th>Role</th>
+                          <th>Kontakt</th>
+                          <th><span class="sr-only">Akce</span></th>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-user>
+                        <tr>
+                          <td>
+                            <div class="flex items-center gap-2">
+                              <app-avatar
+                                [name]="user.name"
+                                [photoUrl]="userPhotoUrl(user)"
+                              />
+                              <div>
+                                <div>
+                                  {{ user.name }} @if (user.deactivatedAt) {
+                                  <p-tag
+                                    value="Neaktivní"
+                                    severity="secondary"
+                                  />
+                                  } @else if (user.leftAt) {
+                                  <p-tag
+                                    [value]="'Končí k ' + (user.leftAt | dateFormat: 'date')"
+                                    severity="info"
+                                  />
+                                  }
+                                </div>
+                                @if (user.name !== user.username) {
+                                <div class="text-xs text-surface-500">
+                                  {{ user.username }}
+                                </div>
+                                }
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="flex flex-wrap items-center gap-1">
+                              @for (role of user.roles; track role.id) {
+                              <p-tag [value]="role.name" severity="secondary" />
+                              } @if (isPupilAccount(user)) {
+                              <span class="text-sm text-surface-500"
+                                >{{ studentName(user.studentId) }}</span
+                              >
+                              }
+                            </div>
+                          </td>
+                          <td class="text-surface-500">
+                            {{ user.phone ?? user.email ?? '—' }}
+                          </td>
+                          <td>
+                            <div class="flex justify-end gap-1">
+                              @if (user.email) {
+                              <p-button
+                                icon="pi pi-envelope"
+                                ariaLabel="Poslat pozvánku"
+                                size="small"
+                                [text]="true"
+                                (onClick)="sendInvite(user)"
+                              />
+                              } @if (isStaffUser(user)) {
+                              <p-button
+                                icon="pi pi-camera"
+                                ariaLabel="Fotka"
+                                title="Fotka"
+                                size="small"
+                                [text]="true"
+                                (onClick)="photoUser.set(user)"
+                              />
+                              }
+                              <p-button
+                                icon="pi pi-pencil"
+                                ariaLabel="Upravit"
+                                size="small"
+                                [text]="true"
+                                (onClick)="startEditUser(user)"
+                              />
+                              @if (user.id !== myUserId && isStaffUser(user) &&
+                              !user.deactivatedAt) {
+                              <p-button
+                                icon="pi pi-sign-out"
+                                ariaLabel="Ukončení pracovního poměru"
+                                title="Ukončení pracovního poměru"
+                                size="small"
+                                [text]="true"
+                                (onClick)="leaveStaff.set({ userId: user.id, name: user.name })"
+                              />
+                              } @if (user.id !== myUserId) {
+                              <p-button
+                                [icon]="
                           user.deactivatedAt ? 'pi pi-replay' : 'pi pi-ban'
                         "
-                        [ariaLabel]="
+                                [ariaLabel]="
                           user.deactivatedAt ? 'Znovu aktivovat' : 'Deaktivovat'
                         "
-                        [title]="
+                                [title]="
                           user.deactivatedAt
                             ? 'Znovu aktivovat'
                             : 'Deaktivovat (už ve škole nepracuje)'
                         "
-                        size="small"
-                        [text]="true"
-                        (onClick)="toggleActive(user)"
-                      />
-                      }
-                      <!-- Wrapped: a disabled button gets no hover for the tooltip. -->
-                      <span
-                        [pTooltip]="
+                                size="small"
+                                [text]="true"
+                                (onClick)="toggleActive(user)"
+                              />
+                              }
+                              <!-- Wrapped: a disabled button gets no hover for the tooltip. -->
+                              <span
+                                [pTooltip]="
                         user.id === myUserId ? 'Vlastní účet nelze smazat.' : ''
                       "
-                        tooltipPosition="left"
-                      >
-                        <p-button
-                          icon="pi pi-trash"
-                          ariaLabel="Smazat"
-                          size="small"
-                          severity="danger"
-                          [text]="true"
-                          [disabled]="user.id === myUserId"
-                          (onClick)="deleteUser(user)"
-                        />
-                      </span>
-                    </div>
-                  </td>
-                </tr>
+                                tooltipPosition="left"
+                              >
+                                <p-button
+                                  icon="pi pi-trash"
+                                  ariaLabel="Smazat"
+                                  size="small"
+                                  severity="danger"
+                                  [text]="true"
+                                  [disabled]="user.id === myUserId"
+                                  (onClick)="deleteUser(user)"
+                                />
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="emptymessage">
+                        <tr>
+                          <td colspan="4" class="py-3 text-surface-500">
+                            @if (usersLoaded()) { Žádní uživatelé. } @else {
+                            <app-loading />
+                            }
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </p-card>
+                </div>
               </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="4" class="py-3 text-surface-500">
-                    @if (usersLoaded()) { Žádní uživatelé. } @else {
-                    <app-loading />
-                    }
-                  </td>
-                </tr>
+            </p-tabpanel>
+
+            <p-tabpanel value="roles">
+              <ng-template #content>
+                <div class="pt-4">
+                  <app-roles-tab (changed)="loadRoles()" />
+                </div>
               </ng-template>
-            </p-table>
-          </p-card>
-        </div>
+            </p-tabpanel>
+
+            <p-tabpanel value="visibility">
+              <ng-template #content>
+                <div class="flex flex-col gap-6 pt-4">
+                  <app-visibility-settings />
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="notifications">
+              <ng-template #content>
+                <div class="pt-4">
+                  <app-school-notifications />
+                </div>
+              </ng-template>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
       </ng-template>
     </p-tabpanel>
 
-    <p-tabpanel value="roles">
-      <ng-template #content>
-        <div class="pt-4">
-          <app-roles-tab (changed)="loadRoles()" />
-        </div>
-      </ng-template>
-    </p-tabpanel>
-
-    <p-tabpanel value="school">
-      <ng-template #content>
-        <div class="flex flex-col gap-6 pt-4">
-          <p-card>
-            <ng-template #title
-              >Typ školy<app-info-hint
-                text="Určuje, jestli celá aplikace (včetně vysvědčení) mluví o žácích (ZŠ), nebo o studentech (SŠ)."
-            /></ng-template>
-            <form
-              class="flex flex-wrap items-end gap-2"
-              (ngSubmit)="saveSchoolType()"
-            >
-              <app-float-field label="Typ" for="schoolType">
-                <p-select
-                  ariaLabel="Typ"
-                  inputId="schoolType"
-                  [options]="schoolTypeOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  [ngModel]="schoolType()"
-                  (ngModelChange)="schoolType.set($event)"
-                  name="schoolType"
-                  styleClass="w-56"
-                  appendTo="body"
-                />
-              </app-float-field>
-              <p-button
-                type="submit"
-                label="Uložit"
-                severity="secondary"
-                [outlined]="true"
-              />
-            </form>
-          </p-card>
-
-          <app-periods-editor />
-
-          <app-teacher-wishes-defaults />
-
-          <app-school-notifications />
-
-          <p-card>
-            <ng-template #title
-              >Údaje o škole<app-info-hint
-                text="Používá se na oficiálních dokumentech (hlavička vysvědčení) — matrice se tyto údaje neposílají."
-            /></ng-template>
-            <form
-              class="flex flex-wrap items-end gap-2"
-              (ngSubmit)="saveSchoolDetails()"
-            >
-              <app-float-field label="Ulice" for="schoolStreet">
-                <input
-                  pInputText
-                  id="schoolStreet"
-                  name="schoolStreet"
-                  [ngModel]="schoolStreet()"
-                  (ngModelChange)="schoolStreet.set($event)"
-                />
-              </app-float-field>
-              <app-float-field label="Obec" for="schoolCity">
-                <input
-                  pInputText
-                  id="schoolCity"
-                  name="schoolCity"
-                  [ngModel]="schoolCity()"
-                  (ngModelChange)="schoolCity.set($event)"
-                />
-              </app-float-field>
-              <app-float-field label="PSČ" for="schoolPostalCode">
-                <input
-                  pInputText
-                  id="schoolPostalCode"
-                  name="schoolPostalCode"
-                  [ngModel]="schoolPostalCode()"
-                  (ngModelChange)="schoolPostalCode.set($event)"
-                  class="w-24"
-                />
-              </app-float-field>
-              <app-float-field label="Ředitel/ka" for="schoolDirectorName">
-                <input
-                  pInputText
-                  id="schoolDirectorName"
-                  name="schoolDirectorName"
-                  [ngModel]="schoolDirectorName()"
-                  (ngModelChange)="schoolDirectorName.set($event)"
-                />
-              </app-float-field>
-              <app-float-field label="E-mail" for="schoolEmail">
-                <input
-                  pInputText
-                  type="email"
-                  id="schoolEmail"
-                  name="schoolEmail"
-                  [ngModel]="schoolEmail()"
-                  (ngModelChange)="schoolEmail.set($event)"
-                />
-              </app-float-field>
-              <app-float-field label="Telefon" for="schoolPhone">
-                <input
-                  pInputText
-                  type="tel"
-                  id="schoolPhone"
-                  name="schoolPhone"
-                  [ngModel]="schoolPhone()"
-                  (ngModelChange)="schoolPhone.set($event)"
-                />
-              </app-float-field>
-              <p-button
-                type="submit"
-                label="Uložit"
-                severity="secondary"
-                [outlined]="true"
-              />
-            </form>
-          </p-card>
-
-          <p-card>
-            <ng-template #title
-              >Platby<app-info-hint
-                text="Bankovní účet, na který se generuje QR platba u plateb. Zadejte IBAN, nebo číslo účtu v českém tvaru (předčíslí-číslo/kód banky) — převede se na IBAN."
-            /></ng-template>
-            <form
-              class="flex flex-wrap items-end gap-2"
-              (ngSubmit)="saveSchoolBankAccount()"
-            >
-              <app-float-field
-                label="Číslo bankovního účtu"
-                for="schoolBankAccountNumber"
-              >
-                <input
-                  pInputText
-                  id="schoolBankAccountNumber"
-                  name="schoolBankAccountNumber"
-                  placeholder="IBAN nebo 19-2000145399/0800"
-                  class="w-80 max-w-full"
-                  [ngModel]="schoolBankAccountNumber()"
-                  (ngModelChange)="schoolBankAccountNumber.set($event)"
-                />
-              </app-float-field>
-              <p-button
-                type="submit"
-                label="Uložit"
-                severity="secondary"
-                [outlined]="true"
-              />
-            </form>
-          </p-card>
-
-          <p-card>
-            <ng-template #title
-              >Matrika (MŠMT)<app-info-hint
-                text="Pre-pilotní export pro ověření na testovacím serveru MŠMT."
-            /></ng-template>
-
-            <div class="mb-6 flex flex-wrap items-end gap-2">
-              <app-float-field label="IZO školy" for="matrikaIzo">
-                <input
-                  pInputText
-                  id="matrikaIzo"
-                  name="matrikaIzo"
-                  [ngModel]="matrikaIzo()"
-                  (ngModelChange)="matrikaIzo.set($event)"
-                />
-              </app-float-field>
-              <app-float-field label="RED_IZO" for="matrikaRedIzo">
-                <input
-                  pInputText
-                  id="matrikaRedIzo"
-                  name="matrikaRedIzo"
-                  [ngModel]="matrikaRedIzo()"
-                  (ngModelChange)="matrikaRedIzo.set($event)"
-                />
-              </app-float-field>
-              <p-button
-                label="Uložit"
-                severity="secondary"
-                [outlined]="true"
-                (onClick)="saveMatrikaIds()"
-              />
-            </div>
-
-            @if (matrikaExportErrors().length > 0) {
-            <div
-              class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-            >
-              <p class="mt-0 mb-1 font-medium">Export nelze vygenerovat:</p>
-              <ul class="mb-0 list-disc pl-5">
-                @for (e of matrikaExportErrors(); track e) {
-                <li>{{ e }}</li>
-                }
-              </ul>
-            </div>
-            }
-
-            <form
-              class="flex flex-wrap items-end gap-2"
-              (ngSubmit)="exportMatrika()"
-            >
-              <app-float-field label="Kontaktní osoba" for="matrikaContactName">
-                <input
-                  pInputText
-                  type="text"
-                  id="matrikaContactName"
-                  autocomplete="name"
-                  name="matrikaContactName"
-                  [(ngModel)]="matrikaContactName"
-                />
-              </app-float-field>
-              <app-float-field label="Telefon" for="matrikaContactPhone">
-                <input
-                  pInputText
-                  type="tel"
-                  id="matrikaContactPhone"
-                  autocomplete="tel"
-                  name="matrikaContactPhone"
-                  [(ngModel)]="matrikaContactPhone"
-                />
-              </app-float-field>
-              <app-float-field label="E-mail" for="matrikaContactEmail">
-                <input
-                  pInputText
-                  type="email"
-                  id="matrikaContactEmail"
-                  autocomplete="email"
-                  name="matrikaContactEmail"
-                  [(ngModel)]="matrikaContactEmail"
-                />
-              </app-float-field>
-              <app-float-field label="Část (CAST)" for="matrikaCast">
-                <input
-                  pInputText
-                  type="text"
-                  id="matrikaCast"
-                  name="matrikaCast"
-                  [(ngModel)]="matrikaCast"
-                  class="w-24"
-                />
-              </app-float-field>
-              <p-button
-                type="submit"
-                label="Stáhnout export (XML)"
-                icon="pi pi-download"
-              />
-            </form>
-          </p-card>
-        </div>
-      </ng-template>
-    </p-tabpanel>
-
-    <p-tabpanel value="visibility">
-      <div class="flex flex-col gap-6 pt-4">
-        <app-visibility-settings />
-      </div>
-    </p-tabpanel>
-
-    <p-tabpanel value="departures">
-      <ng-template #content>
-        <div class="pt-4">
-          <app-departures />
-        </div>
-      </ng-template>
+    <p-tabpanel value="archive">
+      @if (group() === 'archive') {
+      <app-departures
+        [section]="section()"
+        (sectionChange)="openSection($event)"
+      />
+      }
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>

@@ -69,7 +69,7 @@ interface GroupForm {
   studentIds: number[];
 }
 
-/** Administrace → Přidělení výuky → Skupiny: dělení tříd and groups on
+/** Administrace → Výuka → Skupiny: dělení tříd and groups on
  * their own, with who's in them. The plan and přidělení of each group
  * come from `rows` (the overview's groups). */
 @Component({
