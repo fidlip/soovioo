@@ -31,4 +31,13 @@ describe('StudentsApiService', () => {
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
+
+  it('asks whom a permission reaches', () => {
+    service.getReach('GradesWrite').subscribe();
+    const req = httpMock.expectOne(
+      'http://test/api/students/reach?permission=GradesWrite',
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ all: true, students: [] });
+  });
 });

@@ -47,8 +47,8 @@ async function pick(
 const GROUP = 'Seminář e2e';
 
 // A group of Jan Novák alone goes through its life: made in Administrace,
-// given a lesson in Rozvrh, seen by Jan, deleted with its lesson — so the
-// shared data end as they started.
+// given a lesson in Rozvrh, seen by Jan, given homework by its teacher,
+// deleted with its lesson — so the shared data end as they started.
 test.describe.serial('student groups', () => {
   const slot = { day: '', period: '' };
 
@@ -71,6 +71,11 @@ test.describe.serial('student groups', () => {
     await expect(dialog.getByText('Vybráno 1.')).toBeVisible();
     // Its own hours: Aj of 5.A in the plan is up to the other tests.
     await dialog.getByRole('spinbutton', { name: 'Hodiny týdně' }).fill('1');
+    await pick(
+      page,
+      dialog.getByRole('combobox', { name: 'Učitel' }),
+      'Jana Učitelová',
+    );
     await dialog.getByRole('button', { name: 'Uložit' }).click();
     await expect(dialog).toBeHidden();
 
@@ -117,6 +122,69 @@ test.describe.serial('student groups', () => {
     await login(page, 'zak', 'zak123');
     await openNav(page, 'Rozvrh');
     await expect(cell(page, slot.day, slot.period)).toContainText(`(${GROUP})`);
+  });
+
+  const homework = `E2E úkol skupiny ${Date.now()}`;
+  const card = (page: Page) =>
+    page.locator('p-card').filter({ hasText: homework });
+
+  test('its teacher gives the group homework', async ({ page }) => {
+    await login(page, 'ucitel', 'ucitel123');
+    await openNav(page, 'Domácí úkoly');
+    await page.getByRole('button', { name: 'Nový úkol' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Nový úkol' });
+    await pick(
+      page,
+      dialog.getByRole('combobox', { name: 'Třída a předmět' }),
+      `${GROUP} (5.A) — Anglický jazyk`,
+    );
+    await expect(
+      dialog.getByText('Komu (prázdné = celá skupina)'),
+    ).toBeVisible();
+    await dialog.getByLabel(/^Zadání/).fill(homework);
+    await dialog.getByText('Vyžadovat potvrzení splnění').click();
+    await dialog.locator('button[type="submit"]').click();
+    await expect(dialog).toBeHidden();
+    await expect(card(page)).toContainText(`${GROUP} (5.A)`);
+    // The group's pupils, not the whole class.
+    await expect(card(page)).toContainText('Jan Novák — nesplněno');
+  });
+
+  test('the pupil sees the homework of their group', async ({ page }) => {
+    await login(page, 'zak', 'zak123');
+    await openNav(page, 'Domácí úkoly');
+    await expect(card(page)).toHaveCount(1);
+  });
+
+  test.describe('refused', () => {
+    // One pattern: a second one would be read as the fixture's options.
+    test.use({
+      allowedConsoleMessages: [/status of 400|group change failed/],
+    });
+
+    test('a group with homework is not deleted', async ({ page }) => {
+      await openGroups(page);
+      await page
+        .getByRole('button', { name: `Smazat skupinu ${GROUP}` })
+        .click();
+      await page
+        .getByRole('alertdialog', { name: 'Smazat skupinu' })
+        .getByRole('button', { name: 'Smazat' })
+        .click();
+      await expect(
+        page.getByText('Skupina má domácí úkoly, smazat ji nejde.'),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: `Smazat skupinu ${GROUP}` }),
+      ).toHaveCount(1);
+    });
+  });
+
+  test('its teacher deletes the homework', async ({ page }) => {
+    await login(page, 'ucitel', 'ucitel123');
+    await openNav(page, 'Domácí úkoly');
+    await card(page).getByRole('button', { name: 'Smazat úkol' }).click();
+    await expect(card(page)).toHaveCount(0);
   });
 
   test('admin deletes the group with its lesson', async ({ page }) => {

@@ -177,6 +177,7 @@ public class AuthorizationMapTests
         ["Schools.UpdateSchool"] = "roles:SuperAdmin",
         ["Students.AddStudent"] = "authenticated + perm:Students",
         ["Students.DeleteStudent"] = "authenticated + perm:Students",
+        ["Students.GetReach"] = "authenticated",
         ["Students.GetStudents"] = "authenticated",
         ["Students.UpdateStudent"] = "authenticated + perm:Students",
         ["Subjects.AddSubject"] = "authenticated + perm:Subjects",
