@@ -11,6 +11,16 @@
           name="filterPeopleName"
         />
       </app-float-field>
+      <app-float-field label="Kontakt" for="filterPeopleContact">
+        <input
+          pInputText
+          type="text"
+          id="filterPeopleContact"
+          [ngModel]="filterContact()"
+          (ngModelChange)="filterContact.set($event)"
+          name="filterPeopleContact"
+        />
+      </app-float-field>
       <app-float-field label="Kdo" for="filterPeopleKind">
         <p-select
           [options]="kindOptions"
@@ -19,7 +29,7 @@
           inputId="filterPeopleKind"
           ariaLabel="Kdo"
           [ngModel]="filterKind()"
-          (ngModelChange)="filterKind.set($event)"
+          (ngModelChange)="setKind($event)"
           [showClear]="true"
           name="filterPeopleKind"
           styleClass="w-36"
@@ -56,6 +66,67 @@
           appendTo="body"
         />
       </app-float-field>
+      @if (filterKind() === 'teacher') {
+      <app-float-field label="Aprobace" for="filterPeopleQualification">
+        <p-select
+          [options]="qualificationOptions()"
+          optionLabel="name"
+          optionValue="id"
+          inputId="filterPeopleQualification"
+          ariaLabel="Aprobace"
+          [ngModel]="filterSubjectId()"
+          (ngModelChange)="filterSubjectId.set($event)"
+          [showClear]="true"
+          [filter]="true"
+          name="filterPeopleQualification"
+          styleClass="w-44"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Třídní" for="filterPeopleClassTeacher">
+        <p-select
+          [options]="classOptions()"
+          optionLabel="name"
+          optionValue="id"
+          inputId="filterPeopleClassTeacher"
+          ariaLabel="Třídní"
+          [ngModel]="filterClassTeacherOf()"
+          (ngModelChange)="filterClassTeacherOf.set($event)"
+          [showClear]="true"
+          name="filterPeopleClassTeacher"
+          styleClass="w-36"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Učí ve třídě" for="filterPeopleTeaches">
+        <p-select
+          [options]="classOptions()"
+          optionLabel="name"
+          optionValue="id"
+          inputId="filterPeopleTeaches"
+          ariaLabel="Učí ve třídě"
+          [ngModel]="filterTeaches()"
+          (ngModelChange)="filterTeaches.set($event)"
+          [showClear]="true"
+          name="filterPeopleTeaches"
+          styleClass="w-36"
+          appendTo="body"
+        />
+      </app-float-field>
+      } @if (filterKind() === 'parent') {
+      <app-float-field label="Dítě" for="filterPeopleChild">
+        <input
+          pInputText
+          type="text"
+          id="filterPeopleChild"
+          [ngModel]="filterChild()"
+          (ngModelChange)="filterChild.set($event)"
+          name="filterPeopleChild"
+        />
+      </app-float-field>
+      } @if (hasFilters()) {
+      <app-clear-filters (cleared)="clearFilters()" />
+      }
     </div>
     <p-button
       label="Nová osoba"

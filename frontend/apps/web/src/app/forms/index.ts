@@ -1,6 +1,7 @@
 import { FieldErrorDirective } from './field-error.directive';
 import { SubmitButton } from './submit-button';
 
+export { ClearFilters } from './clear-filters';
 export { FloatField } from './float-field';
 
 /** Import into a page with forms: automatic required markers + field

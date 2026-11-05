@@ -30,7 +30,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
@@ -68,6 +68,7 @@ function assignmentKey(
 @Component({
   selector: 'app-homework-page',
   imports: [
+    ClearFilters,
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
@@ -258,6 +259,12 @@ export class HomeworkPage {
 
   protected canManageHomework(): boolean {
     return this.authApi.can('HomeworkWrite');
+  }
+
+  protected clearFilters(): void {
+    this.filterPeriod = 'current';
+    this.filterClassId = null;
+    this.filterSubjectId = null;
   }
 
   protected filteredHomework(): Homework[] {

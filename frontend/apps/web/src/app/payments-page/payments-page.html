@@ -65,6 +65,9 @@
         appendTo="body"
       />
     </app-float-field>
+    } @if (paidFilter() !== 'all' || classFilter() !== null || studentFilter()
+    !== null) {
+    <app-clear-filters (cleared)="clearFilters()" />
     }
   </div>
 

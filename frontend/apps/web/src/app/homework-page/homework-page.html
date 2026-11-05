@@ -55,6 +55,10 @@
       styleClass="w-48"
     />
   </app-float-field>
+  @if (filterPeriod !== 'current' || filterClassId !== null || filterSubjectId
+  !== null) {
+  <app-clear-filters (cleared)="clearFilters()" />
+  }
 </div>
 
 <div class="flex flex-col gap-3">

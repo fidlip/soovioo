@@ -47,6 +47,9 @@ export interface TeacherProfile {
   maxGapsPerDay: number | null;
   /** Classes whose class teacher the person's account is. */
   classTeacherOf: string[];
+  classTeacherOfIds: number[];
+  /** Classes with a lesson of theirs in today's timetable. */
+  teachesClassIds: number[];
 }
 
 /** Nemůže / raději ne; a slot not listed is free. */
@@ -68,7 +71,7 @@ export interface TeacherWishes {
 }
 
 export interface ParentProfile {
-  children: { studentId: number; name: string }[];
+  children: { studentId: number; name: string; schoolClassId: number }[];
 }
 
 /** The matrika without the name, which is the person's. */

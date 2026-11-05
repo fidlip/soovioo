@@ -40,7 +40,7 @@ import { TermPipe } from '../term.pipe';
 import { UnreadCountsService } from '../unread-counts.service';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
@@ -98,6 +98,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 @Component({
   selector: 'app-messages-page',
   imports: [
+    ClearFilters,
     FloatField,
     ...FORM_FIELDS,
     Avatar,

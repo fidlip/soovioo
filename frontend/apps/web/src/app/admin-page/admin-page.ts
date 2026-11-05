@@ -124,7 +124,7 @@ import { InfoHint } from '../info-hint/info-hint';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
@@ -160,6 +160,7 @@ import { Loading } from '../loading/loading';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    ClearFilters,
     FloatField,
     DateFormatPipe,
     Loading,
@@ -465,6 +466,9 @@ export class AdminPage {
   protected filterUserRole: number | null = null;
   protected filterUserName = '';
   protected filterUserContact = '';
+  protected filterParentName = '';
+  protected filterParentChild = '';
+  protected filterParentContact = '';
 
   // null = the dialog is in "add" mode; a row id = it's editing that row.
   protected editingSchoolClassId: number | null = null;
@@ -663,6 +667,47 @@ export class AdminPage {
     return names.length > 0 ? names.join(', ') : '—';
   }
 
+  protected filteredParents(): ParentUser[] {
+    const name = foldForSearch(this.filterParentName.trim());
+    const child = foldForSearch(this.filterParentChild.trim());
+    const contact = this.filterParentContact.trim();
+    return this.visibleParents().filter(
+      (p) =>
+        (!name || foldForSearch(p.name).includes(name)) &&
+        (!child ||
+          foldForSearch(this.parentChildNames(p.id)).includes(child)) &&
+        (!contact || matchesContact(p, contact)),
+    );
+  }
+
+  protected hasParentFilters(): boolean {
+    return !!(
+      this.filterParentName.trim() ||
+      this.filterParentChild.trim() ||
+      this.filterParentContact.trim()
+    );
+  }
+
+  protected clearParentFilters(): void {
+    this.filterParentName = '';
+    this.filterParentChild = '';
+    this.filterParentContact = '';
+  }
+
+  protected hasStudentFilters(): boolean {
+    return (
+      !!this.filterStudentName.trim() ||
+      this.filterStudentSchoolClassId !== null ||
+      this.filterStudentGender !== null
+    );
+  }
+
+  protected clearStudentFilters(): void {
+    this.filterStudentName = '';
+    this.filterStudentSchoolClassId = null;
+    this.filterStudentGender = null;
+  }
+
   protected filteredStudents(): Student[] {
     const name = foldForSearch(this.filterStudentName.trim());
     return this.students().filter(
@@ -737,6 +782,20 @@ export class AdminPage {
   /** The roles picked in the account dialog. */
   private chosenRoles(): RoleRef[] {
     return this.schoolRoles().filter((r) => this.newUserRoles.includes(r.id));
+  }
+
+  protected hasUserFilters(): boolean {
+    return (
+      !!this.filterUserName.trim() ||
+      !!this.filterUserContact.trim() ||
+      this.filterUserRole !== null
+    );
+  }
+
+  protected clearUserFilters(): void {
+    this.filterUserName = '';
+    this.filterUserContact = '';
+    this.filterUserRole = null;
   }
 
   protected filteredUsers(): AppUser[] {

@@ -27,7 +27,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 
 /** "2026-10-18" (DateOnly) -> local Date, without the UTC shift
  * `new Date(string)` applies to date-only ISO strings. */
@@ -59,6 +59,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
 @Component({
   selector: 'app-grades-page',
   imports: [
+    ClearFilters,
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
@@ -126,6 +127,11 @@ export class GradesPage {
   protected readonly showStudentFilter = computed(
     () => !this.authApi.isStudent() && this.students().length > 1,
   );
+
+  protected clearFilters(): void {
+    this.filterStudentId.set(null);
+    this.filterSubjectId.set(null);
+  }
 
   protected readonly filteredGrades = computed(() => {
     const studentId = this.filterStudentId();

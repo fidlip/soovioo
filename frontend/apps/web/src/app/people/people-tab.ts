@@ -26,7 +26,7 @@ import {
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
-import { FloatField } from '../forms';
+import { ClearFilters, FloatField } from '../forms';
 import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
 import { NotifyService } from '../notify.service';
 import {
@@ -34,12 +34,22 @@ import {
   UserPhotoDialog,
 } from '../photo-dialogs/photo-dialogs';
 import { TermPipe } from '../term.pipe';
-import { foldForSearch } from '../text-search';
+import { foldForSearch, matchesContact } from '../text-search';
 import { PersonDialog, PersonDialogTarget } from './person-dialog';
 import { personPhotoUrl } from './person-photo';
 import { Loading } from '../loading/loading';
 
 type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
+
+/** A pupil of the class, a parent of one, its class teacher or a teacher of it. */
+function isInClass(person: Person, classId: number): boolean {
+  return (
+    person.student?.schoolClassId === classId ||
+    !!person.parent?.children.some((c) => c.schoolClassId === classId) ||
+    !!person.teacher?.classTeacherOfIds.includes(classId) ||
+    !!person.teacher?.teachesClassIds.includes(classId)
+  );
+}
 
 /** Administrace → Osoby: everyone at the school with their profiles, with
  * or without an account. */
@@ -50,6 +60,7 @@ type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
     Button,
     Card,
     DateFormatPipe,
+    ClearFilters,
     FloatField,
     FormsModule,
     InputText,
@@ -75,6 +86,8 @@ export class PeopleTab {
 
   /** The school's roles (Administrace → Role). */
   readonly roles = input<RoleRef[]>([]);
+  readonly classes = input<{ id: number; name: string }[]>([]);
+  readonly subjects = input<{ id: number; name: string }[]>([]);
 
   /** "Vytvořit účet" — the account dialog lives in Uživatelé. */
   readonly createAccount = output<Person>();
@@ -97,6 +110,11 @@ export class PeopleTab {
   protected readonly filterKind = signal<Kind | null>(null);
   protected readonly filterRoleId = signal<number | null>(null);
   protected readonly filterClassId = signal<number | null>(null);
+  protected readonly filterContact = signal('');
+  protected readonly filterSubjectId = signal<number | null>(null);
+  protected readonly filterClassTeacherOf = signal<number | null>(null);
+  protected readonly filterTeaches = signal<number | null>(null);
+  protected readonly filterChild = signal('');
 
   protected readonly kindOptions: { label: string; value: Kind }[] = [
     { label: 'Učitelé', value: 'teacher' },
@@ -108,16 +126,18 @@ export class PeopleTab {
     { label: 'Bez účtu', value: 'noAccount' },
   ];
 
-  protected readonly classOptions = computed(() => {
-    const classes = new Map<number, string>();
-    for (const p of this.people() ?? []) {
-      if (p.student) {
-        classes.set(p.student.schoolClassId, p.student.schoolClassName);
-      }
-    }
-    return [...classes]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  protected readonly classOptions = computed(() =>
+    [...this.classes()].sort((a, b) => a.name.localeCompare(b.name, 'cs')),
+  );
+
+  /** The subjects someone at the school is qualified for. */
+  protected readonly qualificationOptions = computed(() => {
+    const qualified = new Set(
+      (this.people() ?? []).flatMap(
+        (p) => p.teacher?.qualifications.map((q) => q.subjectId) ?? [],
+      ),
+    );
+    return this.subjects().filter((s) => qualified.has(s.id));
   });
 
   protected readonly filtered = computed(() => {
@@ -125,6 +145,11 @@ export class PeopleTab {
     const kind = this.filterKind();
     const roleId = this.filterRoleId();
     const classId = this.filterClassId();
+    const contact = this.filterContact().trim();
+    const subjectId = this.filterSubjectId();
+    const classTeacherOf = this.filterClassTeacherOf();
+    const teaches = this.filterTeaches();
+    const child = foldForSearch(this.filterChild().trim());
     return (this.people() ?? []).filter(
       (p) =>
         (!name || foldForSearch(p.name).includes(name)) &&
@@ -134,12 +159,48 @@ export class PeopleTab {
           (kind === 'student' && !!p.student) ||
           (kind === 'noAccount' && !p.account)) &&
         (roleId === null || !!p.account?.roles.some((r) => r.id === roleId)) &&
-        (classId === null || p.student?.schoolClassId === classId),
+        (classId === null || isInClass(p, classId)) &&
+        (!contact || matchesContact(p, contact)) &&
+        (subjectId === null ||
+          !!p.teacher?.qualifications.some((q) => q.subjectId === subjectId)) &&
+        (classTeacherOf === null ||
+          !!p.teacher?.classTeacherOfIds.includes(classTeacherOf)) &&
+        (teaches === null || !!p.teacher?.teachesClassIds.includes(teaches)) &&
+        (!child ||
+          !!p.parent?.children.some((c) =>
+            foldForSearch(c.name).includes(child),
+          )),
     );
   });
 
+  protected readonly hasFilters = computed(
+    () =>
+      !!this.filterName().trim() ||
+      !!this.filterContact().trim() ||
+      this.filterKind() !== null ||
+      this.filterRoleId() !== null ||
+      this.filterClassId() !== null,
+  );
+
   constructor() {
     this.reload();
+  }
+
+  /** The filters of another kind go with their fields. */
+  protected setKind(kind: Kind | null): void {
+    this.filterKind.set(kind);
+    this.filterSubjectId.set(null);
+    this.filterClassTeacherOf.set(null);
+    this.filterTeaches.set(null);
+    this.filterChild.set('');
+  }
+
+  protected clearFilters(): void {
+    this.filterName.set('');
+    this.filterContact.set('');
+    this.filterRoleId.set(null);
+    this.filterClassId.set(null);
+    this.setKind(null);
   }
 
   reload(): void {
