@@ -16,7 +16,10 @@ async function pick(page: Page, field: Locator, option: string) {
 async function setNumber(field: Locator, value: string) {
   await field.click();
   // Its own key handling deletes one character at a time, selection or not.
-  await field.press('End');
+  // The caret to the end by hand: End is the spinbutton's "set to maximum".
+  await field.evaluate((input: HTMLInputElement) =>
+    input.setSelectionRange(input.value.length, input.value.length),
+  );
   for (let i = 0; i < 3; i++) {
     await field.press('Backspace');
   }
