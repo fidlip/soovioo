@@ -349,14 +349,17 @@
         [(ngModel)]="form.studentIds"
         [filter]="true"
         display="chip"
-        [placeholder]="formClassIds(form).length === 0 ? 'Nejdřív vyberte třídy' : 'Nikdo'"
+        optionDisabled="disabled"
         styleClass="w-full"
         appendTo="body"
       />
     </app-float-field>
     <p class="m-0 text-sm text-surface-500">
-      Vybráno {{ form.studentIds.length }}. Žák, který by měl v době hodiny
-      skupiny jinou hodinu, nebo by se skupina nevešla do učebny, nejde přidat.
+      @if (formClassIds(form).length === 0) { Nejdřív vyberte třídy. } @else {
+      Vybráno {{ form.studentIds.length }}. } @if (form.divisionId !== null) {
+      Žák z jiné skupiny dělení se přesune tak, že ho z ní nejdřív odeberete. }
+      Žák, který by měl v době hodiny skupiny jinou hodinu, nebo by se skupina
+      nevešla do učebny, nejde přidat.
     </p>
     <div class="flex justify-end gap-2">
       <p-button

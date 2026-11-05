@@ -119,15 +119,18 @@ public class StudentGroupsTests
     }
 
     [Fact]
-    public async Task GroupsOfADivisionHaveItsClassesAndHoursAndAPupilMovesBetweenThem()
+    public async Task GroupsOfADivisionHaveItsClassesAndHoursAndAPupilIsInOneOfThem()
     {
         var (girls, boys) = await PeDivision();
 
         Assert.Equal([a.Id, b.Id], girls.ClassIds.Order());
         Assert.Equal(2, boys.HoursPerWeek);
-        // Anna into the boys' group leaves the girls'.
-        Ok(await Groups().UpdateGroup(draft.Id, boys.Id, Request("Chlapci", pe, dvorak, girls.DivisionId, [], petr, karel, anna)));
+        var twice = Bad(await Groups().UpdateGroup(draft.Id, boys.Id, Request("Chlapci", pe, dvorak, girls.DivisionId, [], petr, karel, anna)));
+        Assert.Equal("Anna Žák už je ve skupině Dívky tohoto dělení.", twice);
 
+        // Out of one, then into the other.
+        Ok(await Groups().UpdateGroup(draft.Id, girls.Id, Request("Dívky", pe, novakova, girls.DivisionId, [], eva)));
+        Ok(await Groups().UpdateGroup(draft.Id, boys.Id, Request("Chlapci", pe, dvorak, girls.DivisionId, [], petr, karel, anna)));
         var groups = Ok(await Groups().GetGroups(draft.Id));
         Assert.Equal([eva.Id], groups.Groups.Single(g => g.Id == girls.Id).StudentIds);
         Assert.Contains(anna.Id, groups.Groups.Single(g => g.Id == boys.Id).StudentIds);
