@@ -1,10 +1,6 @@
 import { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-// Osoby and Uživatelé list everyone's photo — the photos test deletes its
-// own teacher's in parallel, a thumbnail already asked for then 404s.
-test.use({ allowedConsoleMessages: [/status of 404/] });
-
 /** Picks an option of a multiselect and closes its list — Escape only
  * once the list is open, otherwise it closes the dialog instead. */
 async function pick(page: Page, field: Locator, option: string | RegExp) {
@@ -214,6 +210,8 @@ test('Osoby: filters of a teacher and a parent appear with Kdo, Třída finds ev
   const select = async (label: string, option: string) => {
     await people.getByRole('combobox', { name: label, exact: true }).click();
     await page.getByRole('option', { name: option, exact: true }).click();
+    // The next list has the same classes: this one must be gone first.
+    await expect(page.getByRole('listbox')).toHaveCount(0);
   };
   const clear = people.getByRole('button', { name: 'Zrušit filtry' });
   await expect(teacher).toHaveCount(1);
@@ -242,7 +240,6 @@ test('Osoby: filters of a teacher and a parent appear with Kdo, Třída finds ev
   await select('Učí ve třídě', '5.A');
   await expect(teacher).toHaveCount(1);
   await people.getByRole('combobox', { name: 'Aprobace', exact: true }).click();
-  await expect(page.getByRole('option').first()).toBeVisible();
   await expect(page.getByRole('option', { name: 'Učitelé' })).toHaveCount(0);
   const subject = page.getByRole('option', { name: /Matematika/ });
   await subject.click();
