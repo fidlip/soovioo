@@ -69,6 +69,63 @@ describe('AuthApiService', () => {
     httpMock = TestBed.inject(HttpTestingController);
   }
 
+  describe('redeemLoginCode', () => {
+    const response = { token: jwt({}), username: 'novak' };
+
+    it('on the web starts the session by the cookie and leaves the other one alone', () => {
+      setup(true);
+      const changes: SessionChange[] = [];
+      service.sessionChanged$.subscribe((change) => changes.push(change));
+
+      service.redeemLoginCode('abc').subscribe();
+
+      const request = httpMock.expectOne('http://test/api/auth/login-code');
+      expect(request.request.body).toEqual({ code: 'abc', useCookie: true });
+      expect(request.request.withCredentials).toBe(true);
+      expect(request.request.headers.has(CSRF_HEADER)).toBe(true);
+      request.flush(response);
+      expect(service.isLoggedIn()).toBe(true);
+      expect(changes).toEqual([{ kind: 'login', username: 'novak' }]);
+      httpMock.verify();
+    });
+
+    it('on mobile takes over the new tokens and logs the replaced account out on the server', () => {
+      setup(false);
+      tokenStorage.setRefreshToken('stary');
+
+      service.redeemLoginCode('abc').subscribe();
+      httpMock
+        .expectOne('http://test/api/auth/login-code')
+        .flush({ ...response, refreshToken: 'novy' });
+
+      expect(tokenStorage.getRefreshToken()).toBe('novy');
+      const logout = httpMock.expectOne('http://test/api/auth/logout');
+      expect(logout.request.body).toEqual({ refreshToken: 'stary' });
+      logout.flush(null);
+      httpMock.verify();
+    });
+
+    it('a refused code leaves the session as it was', () => {
+      setup(false);
+      tokenStorage.setRefreshToken('stary');
+
+      service.redeemLoginCode('abc').subscribe({ error: () => undefined });
+      httpMock
+        .expectOne('http://test/api/auth/login-code')
+        .flush('ne', { status: 400, statusText: 'Bad Request' });
+
+      expect(tokenStorage.getRefreshToken()).toBe('stary');
+      httpMock.verify();
+    });
+  });
+
+  it('reads the school name with its diacritics from the token', () => {
+    setup(true);
+    tokenStorage.setToken(jwt({ schoolName: 'SŠ Údolí' }));
+
+    expect(service.getSchoolName()).toBe('SŠ Údolí');
+  });
+
   afterEach(() => httpMock.verify());
 
   describe('mobile (refresh token in body)', () => {

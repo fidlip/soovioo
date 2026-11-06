@@ -68,7 +68,10 @@ test('support mode: enter a school, survive a reload, leave', async ({
   await page.goto('/skola/grades');
   await expect(page).toHaveURL(/\/superadmin$/);
 
-  await page.getByRole('button', { name: 'Vstoupit do školy' }).first().click();
+  await page
+    .getByRole('row', { name: /skola/ })
+    .getByRole('button', { name: 'Vstoupit do školy' })
+    .click();
   await expect(page).toHaveURL(/\/skola\/home$/);
   await expect(page.getByText('Režim podpory')).toBeVisible();
 
