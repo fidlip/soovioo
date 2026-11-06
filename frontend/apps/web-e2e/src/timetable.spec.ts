@@ -133,7 +133,10 @@ test.describe.serial('timetable lesson', () => {
       'Učitelová (aprobace)',
     );
     await pickSubject('Matematika');
-    expect((await teacherOptions())[0]).toBe('Jana Učitelová (aprobace)');
+    const options = await teacherOptions();
+    const qualified = options.filter((o) => o.endsWith(' (aprobace)'));
+    expect(qualified).toContain('Jana Učitelová (aprobace)');
+    expect(options.slice(0, qualified.length)).toEqual(qualified);
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();
 
