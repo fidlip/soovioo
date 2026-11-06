@@ -10,7 +10,8 @@ namespace Soovioo.Api.Timetable;
 /// for a class. Required, but reported rather than forced when impossible
 /// (weighted): every lesson placed, a free classroom for each, lessons every
 /// day, no gaps for classes (a day starts with the first lesson), a subject
-/// at most once a day, no 0. hodina; then the teachers' wishes (raději ne,
+/// at most once a day, no 0. hodina, elective lessons outside the lessons for
+/// everyone; then the teachers' wishes (raději ne,
 /// free days, lessons and gaps a day); then no longer days than the class's
 /// hours need. The search stops once those all hold
 /// (or can't get better), then a short second one cuts teachers' gaps
@@ -23,6 +24,10 @@ public static class TimetableGenerator
     private const int NoRoomWeight = 200;
     private const int LateStartWeight = 30;
     private const int ClassGapWeight = 10;
+
+    /// <summary>The pupils not in an elective lesson have a gap: per class,
+    /// as much as the class's own.</summary>
+    private const int ElectiveInsideWeight = ClassGapWeight;
     private const int ShortDayWeight = 20;
     private const int EarlyPeriodWeight = 8;
     private const int SubjectTwiceWeight = 6;
@@ -70,6 +75,10 @@ public static class TimetableGenerator
         /// anywhere. One per part at a time.</summary>
         public IReadOnlyList<Home> Homes { get; init; } = [];
 
+        /// <summary>Classes not all of whose pupils have it: it belongs
+        /// before or after the lessons all of them have.</summary>
+        public IReadOnlyList<int> ElectiveClasses { get; init; } = [];
+
         public IEnumerable<int> TeacherIds => Parts.Where(p => p.TeacherId is not null).Select(p => p.TeacherId!.Value).Distinct();
     }
 
@@ -85,9 +94,10 @@ public static class TimetableGenerator
 
     /// <summary>A lesson that stays where it is; of a group one per class.</summary>
     /// <param name="Key">As <see cref="Demand.Key"/>; null = the subject.</param>
+    /// <param name="Elective">Not all pupils of the class have it, see <see cref="Demand.ElectiveClasses"/>.</param>
     public record Kept(
         int ClassId, int SubjectId, int? TeacherId, int? ClassroomId, DayOfWeek Day, int Period, int? Key = null,
-        int? GroupId = null);
+        int? GroupId = null, bool Elective = false);
 
     /// <param name="Teachers">Missing = free any time, no wishes.</param>
     public record Input(
@@ -276,6 +286,9 @@ public static class TimetableGenerator
         // A group's kept lesson is one per class, each class once at a time.
         var keptSlots = kept.Select(k => (k.ClassId, Key: k.Key ?? k.SubjectId, k.Day, k.Period)).Distinct().ToList();
 
+        var keptElective = kept.Where(k => k.Elective).Select(k => (k.ClassId, k.Day, k.Period)).ToHashSet();
+        var keptForAll = kept.Where(k => !k.Elective).Select(k => (k.ClassId, k.Day, k.Period)).ToHashSet();
+
         // A class at most once at a time, gaps and the first lesson.
         foreach (var (classId, unitIndexes) in byClass)
         {
@@ -314,6 +327,45 @@ public static class TimetableGenerator
                 var shortfall = model.NewIntVar(0, minPerDay, $"short{classId}_{day}");
                 model.Add(shortfall >= minPerDay - daySum);
                 objective.AddTerm(shortfall, ShortDayWeight);
+            }
+
+            // An elective lesson with a lesson for everyone before and after it.
+            var electiveUnits = unitIndexes.Where(u => units[u].Demand.ElectiveClasses.Contains(classId)).ToList();
+            if (electiveUnits.Count > 0 || keptElective.Any(k => k.ClassId == classId))
+            {
+                var forAllUnits = unitIndexes.Except(electiveUnits).ToList();
+                foreach (var day in days)
+                {
+                    var before = new BoolVar[periods.Count];
+                    var after = new BoolVar[periods.Count];
+                    LinearExpr ForAll(int i) =>
+                        Occupied(forAllUnits, day, periods[i], keptForAll.Contains((classId, day, periods[i])) ? 1 : 0);
+                    for (var i = 0; i < periods.Count; i++)
+                    {
+                        before[i] = model.NewBoolVar($"eb{classId}_{day}_{i}");
+                        if (i > 0)
+                        {
+                            model.Add(before[i] >= before[i - 1]);
+                            model.Add(before[i] >= ForAll(i - 1));
+                        }
+                    }
+                    for (var i = periods.Count - 1; i >= 0; i--)
+                    {
+                        after[i] = model.NewBoolVar($"ea{classId}_{day}_{i}");
+                        if (i < periods.Count - 1)
+                        {
+                            model.Add(after[i] >= after[i + 1]);
+                            model.Add(after[i] >= ForAll(i + 1));
+                        }
+                    }
+                    for (var i = 0; i < periods.Count; i++)
+                    {
+                        var inside = model.NewBoolVar($"ei{classId}_{day}_{i}");
+                        var elective = Occupied(electiveUnits, day, periods[i], keptElective.Contains((classId, day, periods[i])) ? 1 : 0);
+                        model.Add(inside >= elective + before[i] + after[i] - 2);
+                        objective.AddTerm(inside, ElectiveInsideWeight);
+                    }
+                }
             }
 
             // A subject at most once a day (or as evenly as its hours allow),
