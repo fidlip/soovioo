@@ -165,9 +165,11 @@ public class ScopeTests
         }
         await db.SaveChangesAsync();
 
-        Assert.Equal([jan.Id, eva.Id], Ok(await Grades(Teacher).GetGrades()).Select(g => g.StudentId).Order());
-        Assert.Equal([jan.Id], Ok(await Grades(Parent).GetGrades()).Select(g => g.StudentId));
-        Assert.Equal(3, Ok(await Grades(Admin).GetGrades()).Count());
+        Assert.Equal([jan.Id, eva.Id], Ok(await Grades(Teacher).GetGrades()).Items.Select(g => g.StudentId).Order());
+        Assert.Equal([jan.Id], Ok(await Grades(Parent).GetGrades()).Items.Select(g => g.StudentId));
+        Assert.Equal(3, Ok(await Grades(Admin).GetGrades()).TotalCount);
+        // A filter doesn't reach past the scope.
+        Assert.Empty(Ok(await Grades(Parent).GetGrades(studentId: eva.Id)).Items);
     }
 
     [Fact]

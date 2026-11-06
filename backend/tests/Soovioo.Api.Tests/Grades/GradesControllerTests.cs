@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
@@ -141,7 +142,75 @@ public class GradesControllerTests
 
         var result = await NewTeacherController(db).GetGrades();
 
-        var grades = Assert.IsType<List<GradeDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal([3, 2, 1], grades.Select(g => g.Value));
+        Assert.Equal([3, 2, 1], Page(result).Items.Select(g => g.Value));
     }
+
+    [Fact]
+    public async Task GetGradesReturnsOnePageAndTheTotal()
+    {
+        using var db = NewDb();
+        var (student, subject) = await SeedStudentAndSubject(db);
+        var createdAt = new DateTime(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc);
+        var day = new DateOnly(2026, 9, 1);
+        for (var i = 0; i < 5; i++)
+        {
+            db.Grades.Add(new Grade { StudentId = student.Id, SubjectId = subject.Id, Value = 1, GradedOn = day, CreatedAt = createdAt, SchoolId = SchoolId });
+        }
+        await db.SaveChangesAsync();
+        var controller = NewTeacherController(db);
+
+        var first = Page(await controller.GetGrades(page: 1, pageSize: 2));
+        var second = Page(await controller.GetGrades(page: 2, pageSize: 2));
+        var last = Page(await controller.GetGrades(page: 3, pageSize: 2));
+
+        Assert.Equal(5, first.TotalCount);
+        // The same day and moment: without a tie-break a grade could show up on two pages.
+        var ids = first.Items.Concat(second.Items).Concat(last.Items).Select(g => g.Id).ToList();
+        Assert.Equal(5, ids.Distinct().Count());
+        Assert.Single(last.Items);
+    }
+
+    [Theory]
+    [InlineData(0, 1, 1)]
+    [InlineData(1, 0, 1)]
+    [InlineData(1, 5000, 100)]
+    public async Task GetGradesKeepsThePageWithinLimits(int page, int pageSize, int expectedSize)
+    {
+        using var db = NewDb();
+
+        var result = Page(await NewTeacherController(db).GetGrades(page: page, pageSize: pageSize));
+
+        Assert.Equal(Math.Max(page, 1), result.Page);
+        Assert.Equal(expectedSize, result.PageSize);
+    }
+
+    [Fact]
+    public async Task GetGradesFiltersByStudentAndSubject()
+    {
+        using var db = NewDb();
+        var (novak, maths) = await SeedStudentAndSubject(db);
+        var adamec = new StudentProfile { Person = new Person { FirstName = "Petr", LastName = "Adamec", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        var czech = new Subject { Name = "Čeština", SchoolId = SchoolId };
+        db.Students.Add(adamec);
+        db.Subjects.Add(czech);
+        await db.SaveChangesAsync();
+        db.Teaches(1, adamec.SchoolClassId, czech.Id);
+        db.Grades.AddRange(
+            new Grade { StudentId = novak.Id, SubjectId = maths.Id, Value = 1, SchoolId = SchoolId },
+            new Grade { StudentId = novak.Id, SubjectId = czech.Id, Value = 2, SchoolId = SchoolId },
+            new Grade { StudentId = adamec.Id, SubjectId = maths.Id, Value = 3, SchoolId = SchoolId });
+        await db.SaveChangesAsync();
+        var controller = NewTeacherController(db);
+
+        var byStudent = Page(await controller.GetGrades(studentId: novak.Id));
+        var bySubject = Page(await controller.GetGrades(subjectId: maths.Id));
+        var both = Page(await controller.GetGrades(studentId: novak.Id, subjectId: czech.Id));
+
+        Assert.Equal(2, byStudent.TotalCount);
+        Assert.Equal([3, 1], bySubject.Items.Select(g => g.Value));
+        Assert.Equal(2, Assert.Single(both.Items).Value);
+    }
+
+    private static PagedResult<GradeDto> Page(ActionResult<PagedResult<GradeDto>> result) =>
+        Assert.IsType<PagedResult<GradeDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
 }

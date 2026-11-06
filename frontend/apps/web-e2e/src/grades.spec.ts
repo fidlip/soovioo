@@ -64,3 +64,17 @@ test('parent does not see the grade-entry form, only their child’s grades', as
   );
   await expect(gradesLoaded(page)).toBeVisible();
 });
+
+test('the subject filter asks the server for that subject’s grades', async ({
+  page,
+}) => {
+  await login(page, 'ucitel', 'ucitel123');
+  await expect(gradesLoaded(page)).toBeVisible();
+
+  const filtered = page.waitForRequest((r) =>
+    /\/api\/grades\?.*subjectId=\d+.*page=1/.test(r.url()),
+  );
+  await page.locator('#filterSubject').click();
+  await page.getByRole('option').first().click();
+  await filtered;
+});
