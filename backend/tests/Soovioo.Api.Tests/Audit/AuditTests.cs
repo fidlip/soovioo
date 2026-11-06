@@ -111,6 +111,25 @@ public class AuditTests
     }
 
     [Fact]
+    public async Task ACrossSchoolEndpointGoesOnlyToTheSuperAdminsLogWithoutItsPayload()
+    {
+        using var db = NewDb();
+        var context = Request("POST", "/api/linked-accounts", """{"schoolSlug":"udoli","username":"novak","password":"x"}""",
+            Principal(2, "rodic", "Parent", 1));
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(
+            new ControllerActionDescriptor { ControllerName = "LinkedAccounts", ActionName = "Link" },
+            new CrossSchoolAuditAttribute()), "test"));
+
+        await Middleware(_ => Task.CompletedTask).InvokeAsync(context, db);
+
+        var entry = Assert.Single(db.AuditLogEntries);
+        Assert.Null(entry.SchoolId);
+        Assert.Null(entry.RequestBody);
+        Assert.Equal(2, entry.UserId);
+        Assert.Equal("Propojen účet z jiné školy", entry.Action);
+    }
+
+    [Fact]
     public async Task StudentInPayloadGivesTheClassAndTheNameAndErrorsKeepTheirMessage()
     {
         using var db = NewDb();
