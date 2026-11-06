@@ -19,6 +19,8 @@ import { SelectButton } from '@openng/optimus-ui/selectbutton';
 import {
   TimetableGeneration,
   TimetableGenerationMode,
+  TimetableUpdateMismatches,
+  TimetableUpdateMoves,
   TimetableVersionsApiService,
 } from '@soovioo/shared';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
@@ -61,6 +63,17 @@ export class TimetableGenerateDialog {
   protected readonly modeOptions = [
     { label: 'Doplnit chybějící', value: 'Fill' },
     { label: 'Přegenerovat vše', value: 'All' },
+    { label: 'Upravit podle změn', value: 'Update' },
+  ];
+  protected moves: TimetableUpdateMoves = 'Fewest';
+  protected readonly movesOptions = [
+    { label: 'Co nejméně přesunů', value: 'Fewest' },
+    { label: 'Jen dotčené hodiny', value: 'AffectedOnly' },
+  ];
+  protected mismatches: TimetableUpdateMismatches = 'FollowPlan';
+  protected readonly mismatchesOptions = [
+    { label: 'Upravit podle plánu', value: 'FollowPlan' },
+    { label: 'Ponechat a upozornit', value: 'Leave' },
   ];
   protected readonly generation = signal<TimetableGeneration | null>(null);
   protected readonly loaded = signal(false);
@@ -116,7 +129,11 @@ export class TimetableGenerateDialog {
 
   protected start(): void {
     const versionId = this.versionId();
-    this.versionsApi.generate(versionId, this.mode).subscribe({
+    const update =
+      this.mode === 'Update'
+        ? { moves: this.moves, mismatches: this.mismatches }
+        : undefined;
+    this.versionsApi.generate(versionId, this.mode, update).subscribe({
       next: (generation) => {
         this.generation.set(generation);
         this.poll(versionId);

@@ -33,11 +33,14 @@
     </p-message>
     } @if (g.status === 'Done') {
     <ul class="m-0 list-disc pl-5 text-sm">
+      @if (g.mode === 'Update') {
+      <li>Upraveno podle změn, trvalo {{ duration(g) }}.</li>
+      } @else {
       <li>
         Přidáno {{ g.placed }} h ({{ g.mode === 'All' ? 'přegenerováno vše' :
         'doplněno chybějící' }}), trvalo {{ duration(g) }}.
       </li>
-      @for (note of g.notes; track $index) {
+      } @for (note of g.notes; track $index) {
       <li>{{ note }}</li>
       }
     </ul>
@@ -93,6 +96,7 @@
     učitelů se splní, kde to jde.
   </p>
   <p-selectbutton
+    class="flex-wrap"
     [options]="modeOptions"
     optionLabel="label"
     optionValue="value"
@@ -102,9 +106,49 @@
   />
   <p class="mb-0 mt-2 text-sm text-surface-500">
     @if (mode === 'Fill') { Hodiny, které už v rozvrhu jsou, zůstanou; přibude,
-    co podle plánu chybí. } @else { Zůstanou jen zamčené hodiny, ostatní se
-    rozmístí znovu. }
+    co podle plánu chybí. } @else if (mode === 'All') { Zůstanou jen zamčené
+    hodiny, ostatní se rozmístí znovu. } @else { Rozvrh se srovná s učebním
+    plánem, přidělením výuky a dostupností a přáními učitelů. Zamčené hodiny se
+    nemění, hodina, kdy učitel nemůže, se přesune a chybějící učitel nebo učebna
+    se doplní. }
   </p>
+  @if (mode === 'Update') {
+  <div class="mt-4 font-semibold text-sm" id="generate-moves">Přesuny</div>
+  <p-selectbutton
+    class="mt-1 flex-wrap"
+    [options]="movesOptions"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="moves"
+    [allowEmpty]="false"
+    ariaLabelledBy="generate-moves"
+  />
+  <p class="mb-0 mt-2 text-sm text-surface-500">
+    @if (moves === 'Fewest') { Přesunout jde každou nezamčenou hodinu, ale jen
+    když to změna vyžaduje nebo když se tím zlepší rozvrh třídy či splní přání
+    učitele. } @else { Přesunou se jen hodiny, kterých se změny týkají. V plném
+    rozvrhu se některé nemusí vejít a přání jako volný den se splní jen zřídka.
+    }
+  </p>
+  <div class="mt-4 font-semibold text-sm" id="generate-mismatches">
+    Hodiny, které neodpovídají plánu nebo přidělení
+  </div>
+  <p-selectbutton
+    class="mt-1 flex-wrap"
+    [options]="mismatchesOptions"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="mismatches"
+    [allowEmpty]="false"
+    ariaLabelledBy="generate-mismatches"
+  />
+  <p class="mb-0 mt-2 text-sm text-surface-500">
+    @if (mismatches === 'FollowPlan') { Jiný učitel nebo učebna se nahradí podle
+    přidělení a přebytečné hodiny zmizí; chcete-li výjimku zachovat, hodinu
+    zamkněte. } @else { Takové hodiny zůstanou beze změny a výsledek na ně
+    upozorní. }
+  </p>
+  }
 
   <div class="mt-4 flex justify-end gap-2">
     <p-button

@@ -216,7 +216,17 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   bez učebny). Učebna s kapacitou
   menší než počet žáků třídy se pro třídu nepoužije; když se nevejde do žádné, výsledek to hlásí.
 - Režimy: **Doplnit chybějící** (hodiny v konceptu zůstanou, přibude, co podle plánu
-  chybí) a **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`).
+  chybí), **Přegenerovat vše** (zůstanou jen zamčené hodiny, `TimetableEntry.Locked`)
+  a **Upravit podle změn** (#179, `TimetableUpdate`) po změně plánu, přidělení, dostupnosti
+  nebo přání. Hodina, kdy učitel nemůže, se přesune a chybějící učitel nebo učebna se doplní
+  vždy. Volby: **Přesuny** — *co nejméně přesunů* (všechny nezamčené hodiny jsou přesunutelné,
+  odchod z dosavadního místa stojí 2, méně než nejslabší přání i požadavky tříd, takže se kvůli nim hodina přesunout může) nebo *jen dotčené hodiny*
+  (ostatní jsou pevné; dotčené jsou i hodiny „raději ne“ a nad denním maximem učitele, volné dny,
+  nejméně hodin a okna tahle volba neřeší); **Neshody s plánem nebo přidělením** (jiný učitel
+  či učebna, přebytečná hodina, předmět mimo plán) — *upravit podle plánu* nebo *ponechat
+  a upozornit*. Hodina, která zůstala na místě, si nechá učebnu, pokud ji předmět stále může
+  mít; výsledek vypíše, co se změnilo. Hodiny v lichém/sudém týdnu se přesouvají, jen když je
+  změna přímo týká.
 - Tvrdá omezení: třída a učitel nejvýš jednou v čase, nikdy když učitel „nemůže“ (hodina
   i celý den), dvouhodinovka = dvě hodiny po sobě ve stejný den a učebně (lichá zbude
   samostatně; předmět → ročník → třída, každá úroveň může přepsat), třída nejvýš

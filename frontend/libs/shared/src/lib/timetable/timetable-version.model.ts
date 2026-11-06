@@ -41,8 +41,17 @@ export function timetableVersionOn(
 }
 
 /** Fill: keep the lessons, add what the plan misses. All: keep only the
- * locked lessons. */
-export type TimetableGenerationMode = 'Fill' | 'All';
+ * locked lessons. Update: bring the lessons in line with the plan, the
+ * přidělení and the teachers' availability and wishes. */
+export type TimetableGenerationMode = 'Fill' | 'All' | 'Update';
+
+/** With Update. Fewest: any unlocked lesson can move, each move costing.
+ * AffectedOnly: only lessons the changes concern move. */
+export type TimetableUpdateMoves = 'Fewest' | 'AffectedOnly';
+
+/** With Update, lessons at odds with the plan or the přidělení. FollowPlan:
+ * the plan decides. Leave: they stay and the result lists them. */
+export type TimetableUpdateMismatches = 'FollowPlan' | 'Leave';
 
 export type TimetableGenerationStatus =
   'Queued' | 'Running' | 'Done' | 'Failed';
@@ -54,7 +63,7 @@ export interface TimetableGeneration {
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
-  /** Lessons added. */
+  /** Lessons added; of an update, lessons changed. */
   placed: number;
   /** What didn't fit or couldn't be done — to fix before generating again. */
   messages: string[];
