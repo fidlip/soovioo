@@ -6,6 +6,8 @@ import {
   CreateTimetableVersionRequest,
   TimetableGeneration,
   TimetableGenerationMode,
+  TimetableUpdateMismatches,
+  TimetableUpdateMoves,
   TimetableVersion,
   UpdateTimetableVersionRequest,
 } from './timetable-version.model';
@@ -64,9 +66,14 @@ export class TimetableVersionsApiService {
   generate(
     id: number,
     mode: TimetableGenerationMode,
+    update?: {
+      moves: TimetableUpdateMoves;
+      mismatches: TimetableUpdateMismatches;
+    },
   ): Observable<TimetableGeneration> {
     return this.http.post<TimetableGeneration>(`${this.url}/${id}/generation`, {
       mode,
+      ...update,
     });
   }
 

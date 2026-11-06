@@ -84,7 +84,7 @@ public class TimetableGenerationJob(
 
         var plan = await TeachingPlan.LoadAsync(db, version);
         var entries = await db.TimetableEntries.Where(e => e.TimetableVersionId == version.Id).ToListAsync();
-        var kept = generation.Mode == TimetableGenerationMode.All ? entries.Where(e => e.Locked).ToList() : entries;
+        var kept = generation.Mode == TimetableGenerationMode.Fill ? entries : entries.Where(e => e.Locked).ToList();
         var periods = await db.SchoolPeriods.Select(p => p.PeriodNumber).ToListAsync();
         if (periods.Count == 0)
         {
@@ -123,28 +123,50 @@ public class TimetableGenerationJob(
             }
             return fitting;
         }
-        static decimal HoursOf(IEnumerable<TimetableEntry> lessons) => lessons
-            .Select(e => (e.DayOfWeek, e.PeriodNumber, e.WeekParity)).Distinct()
-            .Sum(e => e.WeekParity == WeekParity.Every ? 1m : 0.5m);
+        static decimal HoursOf(IEnumerable<TimetableEntry> lessons) => TimetableUpdate.HoursOf(lessons);
+
+        var teachers = await TeachersAsync(db, version.SchoolId, plan.Teachers.Select(t => t.Id).ToList());
+        var teacherNames = plan.Teachers.ToDictionary(t => t.Id, t => t.Name);
+        var update = generation.Mode == TimetableGenerationMode.Update
+            ? new TimetableUpdate(generation.Moves, generation.Mismatches, entries, teachers, teacherNames, rooms.ToDictionary(r => r.Id, r => r.Name))
+            : null;
 
         var demands = new List<TimetableGenerator.Demand>();
         foreach (var schoolClass in plan.Classes)
         {
             foreach (var row in schoolClass.Rows.Where(r => r.PlanHours > 0 && r.Groups.Count == 0))
             {
-                var has = HoursOf(kept.Where(e => e.SchoolClassId == schoolClass.Id && e.SubjectId == row.SubjectId && e.StudentGroupId is null));
-                var hours = row.PlanHours!.Value - has;
+                int? homeroom = homerooms.TryGetValue(schoolClass.Id, out var ownRoom) ? ownRoom : null;
+                // Only classrooms the whole class fits in.
+                List<int> SubjectRooms() => RoomsFor(subjects[row.SubjectId], null, homeroom, classSizes.GetValueOrDefault(schoolClass.Id), schoolClass.Name);
+                var subjectRooms = update is null ? null : SubjectRooms();
+                IReadOnlyList<TimetableGenerator.Home> homes = [];
+                decimal? toPlace = null;
+                bool Own(TimetableEntry e) => e.SchoolClassId == schoolClass.Id && e.SubjectId == row.SubjectId && e.StudentGroupId is null;
+                if (update is not null)
+                {
+                    var sorted = update.Sort(
+                        $"{schoolClass.Name} {subjects[row.SubjectId].Abbreviation ?? subjects[row.SubjectId].Name}",
+                        entries.Where(e => !e.Locked && Own(e)).ToList(),
+                        row.PlanHours!.Value - HoursOf(kept.Where(Own)),
+                        [new(null, row.TeacherId, subjectRooms!, [schoolClass.Id])]);
+                    kept.AddRange(sorted.Kept);
+                    homes = sorted.Homes;
+                    toPlace = sorted.Hours;
+                }
+                var hours = toPlace ?? row.PlanHours!.Value - HoursOf(kept.Where(Own));
                 if (hours <= 0)
                 {
                     continue;
                 }
-                int? homeroom = homerooms.TryGetValue(schoolClass.Id, out var ownRoom) ? ownRoom : null;
-                // Only classrooms the whole class fits in.
-                var subjectRooms = RoomsFor(subjects[row.SubjectId], null, homeroom, classSizes.GetValueOrDefault(schoolClass.Id), schoolClass.Name);
+                subjectRooms ??= SubjectRooms();
                 var weekly = (int)Math.Floor(hours);
                 demands.Add(new TimetableGenerator.Demand(
                     schoolClass.Id, row.SubjectId, row.TeacherId, weekly, hours - weekly >= 0.5m ? 1 : 0, subjectRooms,
-                    row.DoubleLessons));
+                    row.DoubleLessons)
+                {
+                    Homes = homes,
+                });
             }
         }
 
@@ -161,18 +183,33 @@ public class TimetableGenerationJob(
         {
             var lead = together.First();
             var ids = together.Select(g => g.Id).ToHashSet();
-            var hours = lead.PlanHours - HoursOf(kept.Where(e => e.StudentGroupId is { } id && ids.Contains(id)));
-            if (hours <= 0)
-            {
-                continue;
-            }
-            var parts = together.Select(g =>
+            List<TimetableGenerator.Part> Parts() => together.Select(g =>
             {
                 int? homeroom = g.ClassIds.Count == 1 && homerooms.TryGetValue(g.ClassIds[0], out var room) ? room : null;
                 return new TimetableGenerator.Part(
                     g.Id, g.TeacherId, RoomsFor(subjects[g.SubjectId], groups[g.Id].ClassroomId, homeroom, groups[g.Id].Members, g.Name, group: true),
                     g.SubjectId);
             }).ToList();
+            var parts = update is null ? null : Parts();
+            IReadOnlyList<TimetableGenerator.Home> homes = [];
+            decimal? toPlace = null;
+            bool Own(TimetableEntry e) => e.StudentGroupId is { } id && ids.Contains(id);
+            if (update is not null)
+            {
+                var sorted = update.Sort(
+                    groupNames[lead.Id], entries.Where(e => !e.Locked && Own(e)).ToList(),
+                    lead.PlanHours - HoursOf(kept.Where(Own)),
+                    [.. together.Select((g, i) => new TimetableUpdate.Wanted(g.Id, g.TeacherId, parts![i].Rooms, g.ClassIds))]);
+                kept.AddRange(sorted.Kept);
+                homes = sorted.Homes;
+                toPlace = sorted.Hours;
+            }
+            var hours = toPlace ?? lead.PlanHours - HoursOf(kept.Where(Own));
+            if (hours <= 0)
+            {
+                continue;
+            }
+            parts ??= Parts();
             if (together.Where(g => g.TeacherId is not null).GroupBy(g => g.TeacherId).FirstOrDefault(g => g.Count() > 1) is { } twice)
             {
                 messages.Add($"{lead.DivisionName}: {twice.First().TeacherName} učí {string.Join(" i ", twice.Select(g => g.Name))} ve stejnou dobu, přidělte jiného učitele.");
@@ -185,10 +222,15 @@ public class TimetableGenerationJob(
                 ClassIds = [.. together.SelectMany(g => g.ClassIds).Distinct()],
                 Parts = parts,
                 Key = KeyOf(lead),
+                Homes = homes,
             });
         }
 
-        var teachers = await TeachersAsync(db, version.SchoolId, plan.Teachers.Select(t => t.Id).ToList());
+        if (update is not null)
+        {
+            kept.AddRange(update.Unplanned(e => $"{plan.Classes.First(c => c.Id == e.SchoolClassId).Name} {subjects[e.SubjectId].Abbreviation ?? subjects[e.SubjectId].Name}"));
+            messages.AddRange(update.Messages);
+        }
         TimetableGenerator.Progress? latest = null;
         var solving = Task.Run(() => TimetableGenerator.Generate(new TimetableGenerator.Input(
             [.. TeacherProfile.Weekdays], periods, demands,
@@ -245,10 +287,21 @@ public class TimetableGenerationJob(
                 WeekParity = p.Parity,
                 ClassroomId = p.ClassroomId,
             })).ToList();
-        db.TimetableEntries.AddRange(added);
 
         var classNames = plan.Classes.ToDictionary(c => c.Id, c => c.Name);
         string Who(int classId, int? groupId) => groupId is { } g ? groupNames[g] : classNames[classId];
+        TimetableUpdate.Changes? changes = null;
+        if (update is not null)
+        {
+            changes = TimetableUpdate.Apply(db, entries.Where(e => !e.Locked).Except(kept).ToList(), added, e =>
+                e.StudentGroupId is { } g && groupNames.TryGetValue(g, out var name)
+                    ? name
+                    : $"{classNames.GetValueOrDefault(e.SchoolClassId)} {subjects[e.SubjectId].Abbreviation ?? subjects[e.SubjectId].Name}");
+        }
+        else
+        {
+            db.TimetableEntries.AddRange(added);
+        }
         messages.AddRange(result.Unplaced.Select(u => u.GroupId is { } groupId
             ? $"{groupNames[groupId]}: nevešlo se {TeachingPlanner.FormatHours(u.Hours)}."
             : $"{classNames[u.ClassId]} {subjects[u.SubjectId].Abbreviation ?? subjects[u.SubjectId].Name}: nevešlo se {TeachingPlanner.FormatHours(u.Hours)}."));
@@ -270,11 +323,10 @@ public class TimetableGenerationJob(
             .Distinct()
             .ToList();
         var first = periods.Where(p => p >= 1).DefaultIfEmpty(periods.Min()).Min();
-        var teacherNames = plan.Teachers.ToDictionary(t => t.Id, t => t.Name);
         messages.AddRange(LateBecauseOfTeachers(lessons, kept, demands, teachers, classNames, teacherNames, first));
-        generation.Placed = result.Placements.Count;
+        generation.Placed = changes?.Count ?? result.Placements.Count;
         generation.Messages = [.. messages.Distinct()];
-        generation.Notes = Notes(lessons, classNames, first);
+        generation.Notes = [.. changes?.Notes ?? [], .. Notes(lessons, classNames, first)];
         if (Unmet(lessons, teachers, teacherNames) is { } unmet)
         {
             generation.Notes.Add(unmet);

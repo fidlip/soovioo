@@ -361,6 +361,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasOne(x => x.TimetableVersion).WithMany()
                 .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
             e.Property(x => x.Mode).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Moves).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Mismatches).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Progress).HasColumnType("jsonb").HasConversion(
                 p => System.Text.Json.JsonSerializer.Serialize(p, (System.Text.Json.JsonSerializerOptions?)null),

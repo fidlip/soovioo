@@ -109,6 +109,8 @@ public class TimetableGenerationController(
             SchoolId = currentSchool.SchoolId!.Value,
             TimetableVersionId = versionId,
             Mode = request.Mode,
+            Moves = request.Moves,
+            Mismatches = request.Mismatches,
             Status = TimetableGenerationStatus.Queued,
             CreatedAt = clock.GetUtcNow(),
             CreatedByUserId = User.UserId(),
@@ -122,7 +124,10 @@ public class TimetableGenerationController(
     }
 }
 
-public record GenerateTimetableRequest(TimetableGenerationMode Mode);
+public record GenerateTimetableRequest(
+    TimetableGenerationMode Mode,
+    TimetableUpdateMoves Moves = TimetableUpdateMoves.Fewest,
+    TimetableUpdateMismatches Mismatches = TimetableUpdateMismatches.FollowPlan);
 
 public record TimetableGenerationDto(
     int Id,
