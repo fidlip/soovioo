@@ -3,6 +3,7 @@
   (visibleChange)="!$event && closed.emit()"
   [header]="'Ukončení pracovního poměru — ' + (staff()?.name ?? '')"
   [modal]="true"
+  [focusOnShow]="false"
   styleClass="w-full max-w-2xl"
 >
   @if (preview(); as p) {
@@ -22,6 +23,7 @@
           [minDate]="minDate"
           [showIcon]="true"
           [showOnFocus]="false"
+          [autofocus]="true"
           appendTo="body"
         />
       </app-float-field>
