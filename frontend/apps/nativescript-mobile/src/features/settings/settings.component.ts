@@ -22,11 +22,17 @@ import {
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
+import { LinkedAccountsSectionComponent } from './linked-accounts-section.component';
 
 @Component({
   selector: 'ns-settings',
   templateUrl: './settings.component.html',
-  imports: [NativeScriptCommonModule, NativeScriptFormsModule, NavBarComponent],
+  imports: [
+    NativeScriptCommonModule,
+    NativeScriptFormsModule,
+    NavBarComponent,
+    LinkedAccountsSectionComponent,
+  ],
   schemas: [NO_ERRORS_SCHEMA],
 })
 export class SettingsComponent {

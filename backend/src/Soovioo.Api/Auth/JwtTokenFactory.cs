@@ -46,6 +46,7 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
         if (school is not null)
         {
             claims.Add(new Claim("schoolType", school.Type.ToString()));
+            claims.Add(new Claim("schoolName", school.Name));
         }
 
         return Write(claims, DateTime.UtcNow.AddMinutes(15));

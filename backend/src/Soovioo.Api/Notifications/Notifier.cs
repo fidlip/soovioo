@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.People;
@@ -83,10 +84,16 @@ public class Notifier(AppDbContext db, TimeProvider clock)
                 {
                     u.Id, u.MutedNotifications, u.MutedEmailNotifications, u.MutedPushNotifications,
                     HasEmail = u.Person!.Email != null,
-                    HasDevice = db.PushDevices.IgnoreQueryFilters().Any(d => d.UserId == u.Id),
                 })
                 .ToListAsync())
             .ToDictionary(u => u.Id);
+        var linked = await db.LinkedWithAsync(users.Keys);
+        var owners = linked.Values.SelectMany(ids => ids).Distinct().ToList();
+        var deviceOwners = (await db.PushDevices.IgnoreQueryFilters()
+                .Where(d => owners.Contains(d.UserId))
+                .Select(d => d.UserId)
+                .ToListAsync())
+            .ToHashSet();
         var school = await db.Schools.IgnoreQueryFilters()
             .Where(s => s.Id == schoolId)
             .Select(s => new { s.ForcedEmailNotifications, s.IsDemo })
@@ -98,7 +105,7 @@ public class Notifier(AppDbContext db, TimeProvider clock)
             .Select(d => (Draft: d, InApp: !users[d.UserId].MutedNotifications.Contains(d.Type),
                 Email: users[d.UserId].HasEmail
                     && (forced.Contains(d.Type) || !users[d.UserId].MutedEmailNotifications.Contains(d.Type)),
-                Push: school?.IsDemo == false && users[d.UserId].HasDevice
+                Push: school?.IsDemo == false && linked[d.UserId].Any(deviceOwners.Contains)
                     && !users[d.UserId].MutedPushNotifications.Contains(d.Type)))
             .Where(x => x.InApp || x.Email || x.Push)
             .ToList();

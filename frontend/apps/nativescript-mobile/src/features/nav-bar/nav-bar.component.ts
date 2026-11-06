@@ -5,7 +5,14 @@ import {
   NativeScriptRouterModule,
   RouterExtensions,
 } from '@nativescript/angular';
-import { AuthApiService, NotificationsApiService } from '@soovioo/shared';
+import { Dialogs } from '@nativescript/core';
+import {
+  AuthApiService,
+  LinkedAccount,
+  LinkedAccountsApiService,
+  NotificationsApiService,
+} from '@soovioo/shared';
+import { switchMap } from 'rxjs';
 import { PushService } from '../../push.service';
 
 @Component({
@@ -18,12 +25,17 @@ export class NavBarComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(RouterExtensions);
   private readonly notificationsApi = inject(NotificationsApiService);
+  private readonly linkedAccountsApi = inject(LinkedAccountsApiService);
   private readonly push = inject(PushService);
 
   /** Unread notifications — the bar is on every page, so it's checked
    * whenever a page opens, when a push comes and when the app comes back
    * to the front. */
   protected readonly unread = signal(0);
+
+  /** The user's accounts at other schools. */
+  protected readonly linked = signal<LinkedAccount[]>([]);
+  protected readonly schoolName = this.authApi.getSchoolName();
 
   constructor() {
     this.loadUnread();
@@ -37,9 +49,57 @@ export class NavBarComponent {
       return;
     }
     this.notificationsApi.getUnreadCounts().subscribe({
-      next: (counts) => this.unread.set(counts.notifications),
+      next: (counts) => {
+        this.unread.set(counts.notifications);
+        this.linked.set(counts.linkedAccounts ?? []);
+      },
       error: () => this.unread.set(0),
     });
+  }
+
+  protected async chooseAccount(): Promise<void> {
+    const labels = this.linked().map((account) =>
+      account.unread > 0
+        ? `${account.schoolName} (${account.unread})`
+        : account.schoolName,
+    );
+    const chosen = await Dialogs.action({
+      title: 'Přepnout účet',
+      cancelButtonText: 'Zrušit',
+      actions: labels,
+    });
+    const account = this.linked()[labels.indexOf(chosen)];
+    if (account) {
+      this.switchTo(account);
+    }
+  }
+
+  /** The phone stays registered, now for the other account. Pages decide by
+   * the account when they're created, and the router wouldn't recreate the
+   * one already open. */
+  private switchTo(account: LinkedAccount): void {
+    this.linkedAccountsApi
+      .switchTo(account.userId)
+      .pipe(switchMap(({ code }) => this.authApi.redeemLoginCode(code)))
+      .subscribe({
+        next: () => {
+          this.push.enable();
+          this.router.navigate(
+            [
+              this.router.router.url === '/notifications'
+                ? '/grades'
+                : '/notifications',
+            ],
+            { clearHistory: true },
+          );
+        },
+        error: () =>
+          Dialogs.alert({
+            title: 'Přepnutí se nepovedlo',
+            message: 'Zkuste to prosím znovu.',
+            okButtonText: 'OK',
+          }),
+      });
   }
 
   protected logout(): void {

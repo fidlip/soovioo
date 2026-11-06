@@ -34,7 +34,8 @@ import {
   VisibilitySetting,
 } from '@soovioo/shared';
 import { DarkModeService } from '../dark-mode.service';
-import { SchoolContextService } from '../school-context';
+import { SchoolContextService, isDemoSlug } from '../school-context';
+import { LinkedAccountsCard } from './linked-accounts-card/linked-accounts-card';
 
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
@@ -53,6 +54,7 @@ import { Loading } from '../loading/loading';
     Button,
     Card,
     InputText,
+    LinkedAccountsCard,
     Loading,
     Message,
     Password,
@@ -104,6 +106,14 @@ export class SettingsPage {
   protected readonly showCalendarFeed = !this.authApi.isSuperAdmin();
   protected readonly feedUrl = signal<string | null>(null);
   protected readonly feedUrlCopied = signal(false);
+
+  /** A person's own accounts: not for the SuperAdmin, support mode or a
+   * demo school, which the API refuses anyway. */
+  protected readonly showLinkedAccounts =
+    !this.authApi.isSuperAdmin() &&
+    !this.authApi.getSupportInfo() &&
+    !this.authApi.mustChangePassword() &&
+    !isDemoSlug(this.schoolContext.slug());
 
   /** Who sees the caller's own data ("Viditelnost údajů"), offered next
    * to each field. */

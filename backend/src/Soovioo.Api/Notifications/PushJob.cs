@@ -44,10 +44,13 @@ public class PushJob(AppDbContext db, IPushSender sender, TimeProvider clock)
             .Include(u => u.School)
             .Where(u => userIds.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id);
+        var linked = await db.LinkedWithAsync(userIds);
+        var owners = linked.Values.SelectMany(ids => ids).Distinct().ToList();
         var devices = (await db.PushDevices.IgnoreQueryFilters()
-                .Where(d => userIds.Contains(d.UserId))
+                .Where(d => owners.Contains(d.UserId))
                 .ToListAsync())
             .ToLookup(d => d.UserId);
+        var invalid = new HashSet<int>();
 
         foreach (var group in pending.GroupBy(n => n.UserId))
         {
@@ -60,10 +63,11 @@ public class PushJob(AppDbContext db, IPushSender sender, TimeProvider clock)
             if (unread.Count > 0 && user.DeactivatedAt == null && user.School?.IsDemo == false)
             {
                 var message = MessageFor(unread, user.School.PushFullText && user.PushFullTextAt != null);
-                foreach (var device in devices[user.Id])
+                foreach (var device in linked[user.Id].SelectMany(id => devices[id]).Where(d => !invalid.Contains(d.Id)))
                 {
                     if (await sender.SendAsync(device.Token, message) == PushResult.InvalidToken)
                     {
+                        invalid.Add(device.Id);
                         db.PushDevices.Remove(device);
                     }
                 }

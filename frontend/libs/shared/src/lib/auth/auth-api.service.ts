@@ -69,6 +69,31 @@ export class AuthApiService {
       .pipe(tap((response) => this.startSession(response)));
   }
 
+  /** Logs in with the one-time code of switching from a linked account.
+   * On mobile the account it replaces is logged out on the server too; on
+   * the web that session stays at its school's address. */
+  redeemLoginCode(code: string): Observable<LoginResponse> {
+    const replaced = this.tokenStorage.getRefreshToken();
+    return this.http
+      .post<LoginResponse>(
+        `${this.baseUrl}/api/auth/login-code`,
+        { code, useCookie: this.viaCookie },
+        this.cookieOptions(),
+      )
+      .pipe(
+        tap((response) => {
+          this.startSession(response);
+          if (replaced) {
+            this.http
+              .post(`${this.baseUrl}/api/auth/logout`, {
+                refreshToken: replaced,
+              })
+              .subscribe({ error: () => undefined });
+          }
+        }),
+      );
+  }
+
   /** Trades the refresh token for a new access token (rotating the refresh
    * token). Emits the new access token, or null when there's no live
    * session. Concurrent callers share one request — two parallel rotations
@@ -220,6 +245,11 @@ export class AuthApiService {
   getSchoolType(): SchoolType | null {
     const value = this.getClaim('schoolType');
     return value === 'Elementary' || value === 'Secondary' ? value : null;
+  }
+
+  /** The name of the user's school (`schoolName` claim), null for SuperAdmin. */
+  getSchoolName(): string | null {
+    return this.getClaim('schoolName');
   }
 
   /** Set while a SuperAdmin acts in a school in support mode (token from

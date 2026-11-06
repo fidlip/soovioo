@@ -24,6 +24,7 @@ public class AccountEraser(AppDbContext db, RefreshTokenService refreshTokens, P
         user.InvitationToken = null;
         user.InvitationTokenExpiresAt = null;
         await refreshTokens.RevokeAllForUserAsync(user.Id);
+        await db.UnlinkAccountAsync(user.Id);
     }
 
     /// <summary>Also forgets a staff departure — its last day is over, the

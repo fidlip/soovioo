@@ -127,6 +127,10 @@
         }
       }
 
+      @if (!wasForcedPasswordChange) {
+        <ns-linked-accounts-section></ns-linked-accounts-section>
+      }
+
       @if (!wasForcedPasswordChange && profile(); as p) {
         <Label text="Profil" class="text-lg"></Label>
         <Label

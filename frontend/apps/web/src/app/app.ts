@@ -29,7 +29,13 @@ import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { MenuItem } from '@openng/optimus-ui/api';
 import { catchError, filter, interval, map, of, switchMap } from 'rxjs';
-import { AuthApiService, RoleRef, SupportApiService } from '@soovioo/shared';
+import {
+  AuthApiService,
+  LinkedAccount,
+  LinkedAccountsApiService,
+  RoleRef,
+  SupportApiService,
+} from '@soovioo/shared';
 import { AppIcon, AppIconName } from './app-icon';
 import { DarkModeService } from './dark-mode.service';
 import { NotificationBell } from './notification-bell/notification-bell';
@@ -42,6 +48,7 @@ import { SchoolLookupService } from './school-lookup.service';
 import {
   SchoolContextService,
   isDemoSlug,
+  schoolUrl,
   superAdminUrl,
 } from './school-context';
 import { SessionSyncService } from './session-sync.service';
@@ -94,6 +101,7 @@ export class App {
   private readonly router = inject(Router);
   protected readonly schoolContext = inject(SchoolContextService);
   protected readonly unread = inject(UnreadCountsService);
+  private readonly linkedAccountsApi = inject(LinkedAccountsApiService);
   private readonly bell = viewChild(NotificationBell);
 
   private readonly confirmDialog = viewChild(ConfirmDialog, {
@@ -394,6 +402,32 @@ export class App {
       };
     }
     return this.roleMenuCache.items;
+  }
+
+  /** The user's accounts at other schools, with what's unread there. */
+  protected readonly accountMenuItems = computed<MenuItem[]>(() =>
+    this.unread.linkedAccounts().map((account) => ({
+      label:
+        account.unread > 0
+          ? `${account.schoolName} (${account.unread})`
+          : account.schoolName,
+      icon: 'pi pi-fw',
+      command: () => this.switchAccount(account),
+    })),
+  );
+
+  protected readonly linkedUnread = computed(() =>
+    this.unread.linkedAccounts().reduce((sum, a) => sum + a.unread, 0),
+  );
+
+  /** On to the other school's address; this session stays here. */
+  private switchAccount(account: LinkedAccount): void {
+    this.linkedAccountsApi.switchTo(account.userId).subscribe({
+      next: ({ code, schoolSlug }) => {
+        window.location.href = `${schoolUrl(schoolSlug, 'account/switch')}#code=${code}`;
+      },
+      error: (err) => console.error('switchAccount failed', err),
+    });
   }
 
   /** Every page decides what to show by the role once, when it's created —

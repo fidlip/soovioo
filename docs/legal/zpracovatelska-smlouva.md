@@ -1,6 +1,6 @@
 # Smlouva o zpracování osobních údajů
 
-*Šablona — verze 1.1 ze dne 2. 11. 2026. Hranaté závorky `[…]` doplní škola při uzavření
+*Šablona — verze 1.2 ze dne 6. 11. 2026. Hranaté závorky `[…]` doplní škola při uzavření
 smlouvy; ostatní text odpovídá tomu, jak Soovioo skutečně funguje (viz příloha 2), a při
 změně provozu se musí aktualizovat.*
 
@@ -92,7 +92,11 @@ jiné předpisy o ochraně osobních údajů.
 
 3.3 Zpracovatel nepoužije osobní údaje k vlastním účelům, nepředá je třetím osobám mimo
 podzpracovatele podle článku 5 a nebude je kombinovat s údaji jiných správců. Údaje každé
-školy jsou ve službě logicky odděleny od údajů ostatních škol.
+školy jsou ve službě logicky odděleny od údajů ostatních škol. Uživatel, který má účet na více
+školách, si může účty sám propojit zadáním přihlašovacích údajů druhého účtu. Propojení slouží
+jen k přepínání mezi jeho účty a k doručování upozornění na jeho zařízení; údaje se mezi školami
+nepřenášejí a školy propojení nevidí. Propojení zaniká, když ho uživatel zruší, když škola
+účtu nastaví nové heslo nebo pošle pozvánku, a s deaktivací nebo výmazem účtu.
 
 3.4 Zpracovatel zajistí, aby se osoby oprávněné zpracovávat osobní údaje zavázaly k
 mlčenlivosti nebo aby se na ně vztahovala zákonná povinnost mlčenlivosti. Povinnost

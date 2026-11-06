@@ -75,6 +75,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Retention.StaffHandover> StaffHandovers => Set<Retention.StaffHandover>();
     public DbSet<Notifications.Notification> Notifications => Set<Notifications.Notification>();
     public DbSet<Notifications.PushDevice> PushDevices => Set<Notifications.PushDevice>();
+    public DbSet<AccountLink> AccountLinks => Set<AccountLink>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
@@ -535,6 +536,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasIndex(x => x.UserId);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+
+        modelBuilder.Entity<AccountLink>(e =>
+        {
+            e.HasKey(x => x.UserId);
+            e.HasIndex(x => x.GroupId);
+            e.HasIndex(x => x.SwitchCodeHash).IsUnique().HasFilter("\"SwitchCodeHash\" IS NOT NULL");
+            e.HasOne(x => x.User).WithOne().HasForeignKey<AccountLink>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<VisibilityRule>(e =>

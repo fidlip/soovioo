@@ -1,0 +1,74 @@
+<p-card header="Propojené účty">
+  <p class="mt-0 text-sm text-surface-600 dark:text-surface-300">
+    Máte účet i na jiné škole? Po propojení mezi účty přepnete bez hesla a na
+    telefon vám budou chodit upozornění ze všech. Školy o propojení nevědí. Kdo
+    se dostane do jednoho účtu, přepne i do ostatních, proto používejte silná
+    hesla. Když vám škola nastaví nové heslo nebo pošle pozvánku, propojení toho
+    účtu se zruší.
+  </p>
+
+  @for (account of unread.linkedAccounts(); track account.userId) {
+  <div
+    class="mb-2 flex items-center justify-between gap-2 border-b border-surface-200 pb-2 text-sm dark:border-surface-700"
+  >
+    <span>{{ account.schoolName }} – {{ account.username }}</span>
+    <p-button
+      label="Zrušit propojení"
+      size="small"
+      severity="secondary"
+      [text]="true"
+      (onClick)="unlink(account)"
+    />
+  </div>
+  }
+
+  <form class="mt-4 flex flex-col gap-3" #form="ngForm" (ngSubmit)="link(form)">
+    <app-float-field label="Adresa školy" for="linkSchoolSlug">
+      <input
+        pInputText
+        id="linkSchoolSlug"
+        name="linkSchoolSlug"
+        required
+        class="w-full"
+        [(ngModel)]="schoolSlug"
+      />
+    </app-float-field>
+    <p class="m-0 text-xs text-surface-500">
+      První část adresy, kterou používáte na druhé škole: u
+      zs-kopec.soovioo.cloud je to zs-kopec.
+    </p>
+    <app-float-field label="Přihlašovací jméno" for="linkUsername">
+      <input
+        pInputText
+        id="linkUsername"
+        name="linkUsername"
+        required
+        autocomplete="off"
+        class="w-full"
+        [(ngModel)]="username"
+      />
+    </app-float-field>
+    <app-float-field label="Heslo" for="linkPassword">
+      <p-password
+        inputId="linkPassword"
+        name="linkPassword"
+        required
+        autocomplete="new-password"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [(ngModel)]="password"
+        [toggleMask]="true"
+        [feedback]="false"
+      />
+    </app-float-field>
+    @if (error(); as message) {
+    <p-message severity="error" [text]="message" />
+    }
+    <p-button
+      type="submit"
+      label="Propojit další účet"
+      styleClass="self-start"
+      [disabled]="!schoolSlug.trim() || !username || !password"
+    />
+  </form>
+</p-card>
