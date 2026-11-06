@@ -179,6 +179,7 @@ public class TimetableGenerationJob(
         var groupKeys = groupRows.ToDictionary(g => g.Id, KeyOf);
         var groupNames = groupRows.ToDictionary(g => g.Id, g => g.DivisionName ?? g.Name);
         var groupClasses = groupRows.ToDictionary(g => g.Id, g => g.ClassIds);
+        var electives = await ElectivesAsync(db, groupRows, classSizes);
         foreach (var together in groupRows.GroupBy(KeyOf))
         {
             var lead = together.First();
@@ -223,6 +224,7 @@ public class TimetableGenerationJob(
                 Parts = parts,
                 Key = KeyOf(lead),
                 Homes = homes,
+                ElectiveClasses = [.. together.SelectMany(g => g.ClassIds.Where(c => electives.Contains((g.Id, c)))).Distinct()],
             });
         }
 
@@ -237,7 +239,8 @@ public class TimetableGenerationJob(
             [.. kept.Select(e => new TimetableGenerator.Kept(
                 e.SchoolClassId, e.SubjectId, e.TeacherId, e.ClassroomId, e.DayOfWeek, e.PeriodNumber,
                 e.StudentGroupId is { } g && groupKeys.TryGetValue(g, out var key) ? key : e.StudentGroupId is { } other ? -other : null,
-                e.StudentGroupId))],
+                e.StudentGroupId,
+                e.StudentGroupId is { } elective && electives.Contains((elective, e.SchoolClassId))))],
             teachers, timeLimit)
         {
             OnProgress = p => Volatile.Write(ref latest, p),
@@ -327,10 +330,57 @@ public class TimetableGenerationJob(
         generation.Placed = changes?.Count ?? result.Placements.Count;
         generation.Messages = [.. messages.Distinct()];
         generation.Notes = [.. changes?.Notes ?? [], .. Notes(lessons, classNames, first)];
+        if (ElectivesInside(kept.Concat(added), electives, classNames) is { } inside)
+        {
+            generation.Notes.Add(inside);
+        }
         if (Unmet(lessons, teachers, teacherNames) is { } unmet)
         {
             generation.Notes.Add(unmet);
         }
+    }
+
+    /// <summary>Groups and the classes not all of whose pupils are in them or,
+    /// in a division, in any of its groups. A group on its own with no pupils
+    /// yet counts; a division with none says nothing yet.</summary>
+    private static async Task<HashSet<(int GroupId, int ClassId)>> ElectivesAsync(
+        AppDbContext db, List<TeachingGroupDto> groups, Dictionary<int, int> classSizes)
+    {
+        var ids = groups.Select(g => g.Id).ToList();
+        var members = await db.StudentGroupMembers.Where(m => ids.Contains(m.StudentGroupId))
+            .Select(m => new { m.StudentGroupId, m.Student!.SchoolClassId }).ToListAsync();
+        var electives = new HashSet<(int, int)>();
+        foreach (var together in groups.GroupBy(g => g.DivisionId is { } d ? -d : g.Id))
+        {
+            var groupIds = together.Select(g => g.Id).ToHashSet();
+            foreach (var classId in together.SelectMany(g => g.ClassIds).Distinct())
+            {
+                var count = members.Count(m => groupIds.Contains(m.StudentGroupId) && m.SchoolClassId == classId);
+                var inDivision = together.First().DivisionId is not null;
+                if (count < classSizes.GetValueOrDefault(classId) ? !inDivision || count > 0 : !inDivision && count == 0)
+                {
+                    electives.UnionWith(together.Where(g => g.ClassIds.Contains(classId)).Select(g => (g.Id, classId)));
+                }
+            }
+        }
+        return electives;
+    }
+
+    /// <summary>"Volitelné předměty uprostřed dne: 9.A st, 9.B pá."</summary>
+    private static string? ElectivesInside(
+        IEnumerable<TimetableEntry> lessons, HashSet<(int GroupId, int ClassId)> electives, Dictionary<int, string> classNames)
+    {
+        var inside = lessons.GroupBy(e => (e.SchoolClassId, e.DayOfWeek))
+            .Where(day =>
+            {
+                bool Elective(TimetableEntry e) => e.StudentGroupId is { } g && electives.Contains((g, e.SchoolClassId));
+                var forAll = day.Where(e => !Elective(e)).Select(e => e.PeriodNumber).ToList();
+                return forAll.Count > 0 && day.Any(e => Elective(e) && e.PeriodNumber > forAll.Min() && e.PeriodNumber < forAll.Max());
+            })
+            .OrderBy(d => classNames.GetValueOrDefault(d.Key.SchoolClassId)).ThenBy(d => d.Key.DayOfWeek)
+            .Select(d => $"{classNames.GetValueOrDefault(d.Key.SchoolClassId)} {Short(d.Key.DayOfWeek)}")
+            .ToList();
+        return inside.Count == 0 ? null : $"Volitelné předměty uprostřed dne: {string.Join(", ", inside)}.";
     }
 
     /// <summary>Availability and wishes of the teachers, the school's where
