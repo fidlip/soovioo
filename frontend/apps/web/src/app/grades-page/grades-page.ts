@@ -5,8 +5,11 @@ import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
+import { Paginator } from '@openng/optimus-ui/paginator';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
+import { PaginatorState } from '@openng/optimus-ui/types/paginator';
+import { Subscription } from 'rxjs';
 import {
   AuthApiService,
   DateFormatPipe,
@@ -72,6 +75,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
     GroupedTable,
     InputNumber,
     InputText,
+    Paginator,
     Select,
     Tag,
   ],
@@ -131,17 +135,13 @@ export class GradesPage {
   protected clearFilters(): void {
     this.filterStudentId.set(null);
     this.filterSubjectId.set(null);
+    this.onFilterChange();
   }
 
-  protected readonly filteredGrades = computed(() => {
-    const studentId = this.filterStudentId();
-    const subjectId = this.filterSubjectId();
-    return (this.grades() ?? []).filter(
-      (g) =>
-        (studentId === null || g.studentId === studentId) &&
-        (subjectId === null || g.subjectId === subjectId),
-    );
-  });
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(50);
+  protected readonly totalCount = signal(0);
+  private gradesRequest?: Subscription;
 
   /** Staff: date → student. Parent with several children (unfiltered): one
    * group per child. Otherwise a flat list without the student's name. The
@@ -151,10 +151,9 @@ export class GradesPage {
     if (this.isStaff()) {
       return [DATE_GROUP, this.studentGroup];
     }
-    const distinctStudents = new Set(
-      this.filteredGrades().map((g) => g.studentId),
-    );
-    return distinctStudents.size > 1 ? [this.studentGroup] : [];
+    return this.filterStudentId() === null && this.students().length > 1
+      ? [this.studentGroup]
+      : [];
   });
 
   private readonly studentGroup: GroupLevel<Grade> = {
@@ -244,6 +243,9 @@ export class GradesPage {
     result.subscribe({
       next: () => {
         this.gradeDialogVisible.set(false);
+        if (this.editingGradeId === null) {
+          this.page.set(1);
+        }
         this.editingGradeId = null;
         this.reload();
       },
@@ -299,13 +301,43 @@ export class GradesPage {
     });
   }
 
+  protected onFilterChange(): void {
+    this.page.set(1);
+    this.reload();
+  }
+
+  protected onPageChange(event: PaginatorState): void {
+    this.pageSize.set(event.rows ?? this.pageSize());
+    this.page.set((event.page ?? 0) + 1);
+    this.reload();
+  }
+
   private reload(): void {
-    this.gradesApi.getGrades().subscribe({
-      next: (grades) => this.grades.set(grades),
-      error: (err) => {
-        console.error('getGrades failed', err);
-        this.grades.set([]);
-      },
-    });
+    // A slower answer to an older filter must not replace this one.
+    this.gradesRequest?.unsubscribe();
+    this.gradesRequest = this.gradesApi
+      .getGrades({
+        studentId: this.filterStudentId(),
+        subjectId: this.filterSubjectId(),
+        page: this.page(),
+        pageSize: this.pageSize(),
+      })
+      .subscribe({
+        next: (result) => {
+          // The last grade of the last page was just deleted.
+          if (result.items.length === 0 && result.totalCount > 0) {
+            this.page.set(Math.ceil(result.totalCount / this.pageSize()));
+            this.reload();
+            return;
+          }
+          this.grades.set(result.items);
+          this.totalCount.set(result.totalCount);
+        },
+        error: (err) => {
+          console.error('getGrades failed', err);
+          this.grades.set([]);
+          this.totalCount.set(0);
+        },
+      });
   }
 }
