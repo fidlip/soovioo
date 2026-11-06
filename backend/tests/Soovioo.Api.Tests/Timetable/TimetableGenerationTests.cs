@@ -730,4 +730,112 @@ public class TimetableGenerationTests
             (TimetableGenerationMode.Update, TimetableUpdateMoves.AffectedOnly, TimetableUpdateMismatches.Leave),
             (run.Mode, run.Moves, run.Mismatches));
     }
+
+    private StudentGroup Group(SchoolClass of, int pupils, GroupDivision? division = null, string name = "Seminář")
+    {
+        var group = new StudentGroup
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, Name = name, SubjectId = maths.Id, HoursPerWeek = 1, TeacherId = teacher.Id,
+            GroupDivision = division,
+            Classes = [new() { SchoolId = SchoolId, SchoolClassId = of.Id }],
+            Members = [.. db.Students.Where(s => s.SchoolClassId == of.Id).OrderBy(s => s.Id).Take(pupils).AsEnumerable()
+                .Select(s => new StudentGroupMember { SchoolId = SchoolId, StudentId = s.Id })],
+        };
+        db.StudentGroups.Add(group);
+        db.SaveChanges();
+        return group;
+    }
+
+    private void Pupils(SchoolClass of, int count)
+    {
+        foreach (var i in Enumerable.Range(0, count))
+        {
+            db.Students.Add(new StudentProfile { SchoolId = SchoolId, SchoolClassId = of.Id, Person = new Person { SchoolId = SchoolId, FirstName = $"Žák{i}", LastName = "Malý" } });
+        }
+        db.SaveChanges();
+    }
+
+    /// <summary>Locked: M in the 1st and 3rd period on Monday, the group's in the 2nd.</summary>
+    private async Task<TimetableGeneration> GeneratedWithLockedGroupLessonInside(StudentGroup group)
+    {
+        PlanHours(pe, 0);
+        PlanHours(maths, 2);
+        Lesson(maths, DayOfWeek.Monday, 1, locked: true);
+        Lesson(maths, DayOfWeek.Monday, 3, locked: true);
+        var lesson = Lesson(maths, DayOfWeek.Monday, 2, locked: true);
+        lesson.StudentGroupId = group.Id;
+        db.SaveChanges();
+        return await Generate(TimetableGenerationMode.Fill);
+    }
+
+    private const string InsideNote = "Volitelné předměty uprostřed dne: 5.A po.";
+
+    [Fact]
+    public async Task AGroupOfSomePupilsLeftInsideTheDayIsNoted()
+    {
+        Pupils(fifth, 2);
+
+        var generation = await GeneratedWithLockedGroupLessonInside(Group(fifth, 1));
+
+        Assert.Contains(InsideNote, generation.Notes);
+    }
+
+    [Fact]
+    public async Task AGroupWithNoPupilsYetCounts()
+    {
+        Pupils(fifth, 2);
+
+        var generation = await GeneratedWithLockedGroupLessonInside(Group(fifth, 0));
+
+        Assert.Contains(InsideNote, generation.Notes);
+    }
+
+    [Fact]
+    public async Task AGroupOfTheWholeClassIsNotElective()
+    {
+        Pupils(fifth, 2);
+
+        var generation = await GeneratedWithLockedGroupLessonInside(Group(fifth, 2));
+
+        Assert.DoesNotContain(generation.Notes, n => n.StartsWith("Volitelné"));
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    [InlineData(0, false)]
+    public async Task ADivisionIsElectiveWhenSomePupilsAreInNoneOfItsGroups(int pupils, bool elective)
+    {
+        Pupils(fifth, 2);
+        var division = new GroupDivision { SchoolId = SchoolId, TimetableVersionId = draft.Id, Name = "Jazyky", HoursPerWeek = 1, ClassIds = [fifth.Id] };
+        db.GroupDivisions.Add(division);
+        db.SaveChanges();
+
+        var generation = await GeneratedWithLockedGroupLessonInside(Group(fifth, pupils, division));
+
+        Assert.Equal(elective, generation.Notes.Contains(InsideNote));
+    }
+
+    [Fact]
+    public async Task AnElectiveGroupGoesToTheEdgeOfTheDayEvenAgainstItsTeachersWish()
+    {
+        Pupils(fifth, 2);
+        PlanHours(pe, 0);
+        PlanHours(maths, 19);
+        var other = SecondTeacher();
+        Assign(maths, teacher);
+        var seminar = Group(fifth, 1);
+        seminar.TeacherId = other.Id;
+        seminar.SubjectId = pe.Id;
+        db.TeacherProfiles.Single(t => t.Person!.User == other).Availability =
+            [.. TeacherProfile.Weekdays.SelectMany(d => new[] { new AvailabilitySlot(d, 1, AvailabilityKind.Avoid), new AvailabilitySlot(d, 4, AvailabilityKind.Avoid) })];
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        var lesson = db.TimetableEntries.Single(e => e.StudentGroupId == seminar.Id);
+        var forAll = db.TimetableEntries.Where(e => e.StudentGroupId == null && e.DayOfWeek == lesson.DayOfWeek).Select(e => e.PeriodNumber).ToList();
+        Assert.True(lesson.PeriodNumber < forAll.Min() || lesson.PeriodNumber > forAll.Max());
+        Assert.DoesNotContain(generation.Notes, n => n.StartsWith("Volitelné"));
+    }
 }

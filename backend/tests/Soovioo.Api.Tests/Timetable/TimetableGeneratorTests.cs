@@ -388,4 +388,31 @@ public class TimetableGeneratorTests
         Assert.All(result.Placements, p => Assert.Equal(DayOfWeek.Wednesday, p.Day));
         Assert.Equal(2, result.Placements.Count(p => p.GroupId == 7));
     }
+
+    [Fact]
+    public void AnElectiveLessonGoesToTheEdgeOfTheDayEvenAgainstATeachersWish()
+    {
+        // Each day has 4 lessons: the teacher would rather have it in the middle.
+        var edges = Week.SelectMany(d => new[] { new AvailabilitySlot(d, 1, AvailabilityKind.Avoid), new AvailabilitySlot(d, 4, AvailabilityKind.Avoid) }).ToList();
+        var elective = new Demand(1, 20, 101, 1, 0) { ElectiveClasses = [1], Key = 20 };
+
+        var result = Run([new Demand(1, 10, 100, 19, 0), elective], teachers: new() { [101] = new Teacher(edges) });
+
+        var lesson = Assert.Single(result.Placements, p => p.SubjectId == 20);
+        var forAll = result.Placements.Where(p => p.SubjectId == 10 && p.Day == lesson.Day).Select(p => p.Period).ToList();
+        Assert.True(lesson.Period < forAll.Min() || lesson.Period > forAll.Max());
+    }
+
+    [Fact]
+    public void ALessonForEveryoneStaysOffTheFarSideOfAKeptElectiveLesson()
+    {
+        // The teacher's wish for 2 lessons a day would put one after it.
+        var kept = new Kept(1, 20, 101, null, DayOfWeek.Monday, 2, Elective: true);
+        var teacher = new Teacher([], null, new TeacherWishes(2, null, null));
+
+        var result = Run([new Demand(1, 10, 100, 11, 0)], [kept], new() { [100] = teacher });
+
+        var monday = result.Placements.Where(p => p.Day == DayOfWeek.Monday).Select(p => p.Period).ToList();
+        Assert.False(monday.Any(p => p < 2) && monday.Any(p => p > 2));
+    }
 }
