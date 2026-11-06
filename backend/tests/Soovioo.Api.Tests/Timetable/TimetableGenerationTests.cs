@@ -334,4 +334,400 @@ public class TimetableGenerationTests
         Assert.Equal(2, days.Count);
         Assert.All(days, d => Assert.Equal(1, Math.Abs(d.First().PeriodNumber - d.Last().PeriodNumber)));
     }
+
+    private async Task<TimetableGeneration> Update(
+        TimetableUpdateMoves moves = TimetableUpdateMoves.Fewest,
+        TimetableUpdateMismatches mismatches = TimetableUpdateMismatches.FollowPlan)
+    {
+        var generation = new TimetableGeneration
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, Mode = TimetableGenerationMode.Update,
+            Moves = moves, Mismatches = mismatches,
+        };
+        db.TimetableGenerations.Add(generation);
+        await TimetableGenerationJob.GenerateAsync(db, generation, TimeSpan.FromSeconds(5));
+        await db.SaveChangesAsync();
+        return generation;
+    }
+
+    private List<(int Id, DayOfWeek Day, int Period)> Places() => db.TimetableEntries
+        .OrderBy(e => e.Id).Select(e => new { e.Id, e.DayOfWeek, e.PeriodNumber }).AsEnumerable()
+        .Select(e => (e.Id, e.DayOfWeek, e.PeriodNumber)).ToList();
+
+    private User SecondTeacher()
+    {
+        var other = new User { Username = "mala", PasswordHash = "x", SchoolId = SchoolId, Roles = [db.Role(UserRole.Teacher)] };
+        db.Users.Add(other);
+        db.Persons.Add(new Person { SchoolId = SchoolId, FirstName = "Eva", LastName = "Malá", User = other, TeacherProfile = new TeacherProfile { SchoolId = SchoolId } });
+        db.SaveChanges();
+        return other;
+    }
+
+    private void Assign(Subject subject, User who)
+    {
+        db.TeachingAssignments.Add(new TeachingAssignment
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, SchoolClassId = fifth.Id, SubjectId = subject.Id, TeacherId = who.Id,
+        });
+        db.SaveChanges();
+    }
+
+    private void PlanHours(Subject subject, int hours)
+    {
+        db.CurriculumItems.Single(c => c.SubjectId == subject.Id).HoursPerWeek = hours;
+        db.SaveChanges();
+    }
+
+    private void OnlyPeriods(params int[] periods)
+    {
+        foreach (var period in periods)
+        {
+            db.SchoolPeriods.Add(new SchoolPeriod { SchoolId = SchoolId, PeriodNumber = period, StartTime = new TimeOnly(7 + period, 0), EndTime = new TimeOnly(7 + period, 45) });
+        }
+        db.SaveChanges();
+    }
+
+    [Fact]
+    public async Task UpdatingATimetableInLineWithThePlanChangesNothing()
+    {
+        await Generate(TimetableGenerationMode.All);
+        var before = Places();
+
+        var generation = await Update();
+
+        Assert.Equal(before, Places());
+        Assert.Equal(0, generation.Placed);
+        Assert.Contains("V rozvrhu se nic nezměnilo.", generation.Notes);
+    }
+
+    [Fact]
+    public async Task AddedHoursArePlacedAndTheOthersStay()
+    {
+        await Generate(TimetableGenerationMode.All);
+        var before = Places();
+        PlanHours(maths, 5);
+
+        var generation = await Update(TimetableUpdateMoves.AffectedOnly);
+
+        Assert.Equal(7, Places().Count);
+        Assert.All(before, place => Assert.Contains(place, Places()));
+        Assert.Contains("Přidáno 1 h (5.A M).", generation.Notes);
+    }
+
+    [Theory]
+    [InlineData(TimetableUpdateMoves.Fewest)]
+    [InlineData(TimetableUpdateMoves.AffectedOnly)]
+    public async Task ExtraHoursGoWhenThePlanDecides(TimetableUpdateMoves moves)
+    {
+        await Generate(TimetableGenerationMode.All);
+        PlanHours(maths, 2);
+
+        var generation = await Update(moves);
+
+        Assert.Equal(2, db.TimetableEntries.Count(e => e.SubjectId == maths.Id));
+        Assert.Equal(2, db.TimetableEntries.Count(e => e.SubjectId == pe.Id));
+        Assert.Contains("Odebráno 2 h (5.A M).", generation.Notes);
+    }
+
+    [Fact]
+    public async Task ExtraHoursStayAndAreReportedWhenLeft()
+    {
+        await Generate(TimetableGenerationMode.All);
+        var before = Places();
+        PlanHours(maths, 2);
+
+        var generation = await Update(mismatches: TimetableUpdateMismatches.Leave);
+
+        Assert.Equal(before, Places());
+        Assert.Contains("5.A M: o 2 h víc, než je v plánu, ponecháno.", generation.Messages);
+    }
+
+    [Fact]
+    public async Task ASubjectOutOfThePlanGoesOrIsReported()
+    {
+        await Generate(TimetableGenerationMode.All);
+        db.CurriculumItems.RemoveRange(db.CurriculumItems.Where(c => c.SubjectId == pe.Id));
+        db.SaveChanges();
+
+        var left = await Update(mismatches: TimetableUpdateMismatches.Leave);
+
+        Assert.Contains("5.A Tv: není v plánu (2 h), ponecháno.", left.Messages);
+        Assert.Equal(2, db.TimetableEntries.Count(e => e.SubjectId == pe.Id));
+
+        var gone = await Update();
+
+        Assert.Equal(0, db.TimetableEntries.Count(e => e.SubjectId == pe.Id));
+        Assert.Contains("Odebráno 2 h (5.A Tv).", gone.Notes);
+    }
+
+    [Theory]
+    [InlineData(TimetableUpdateMoves.Fewest)]
+    [InlineData(TimetableUpdateMoves.AffectedOnly)]
+    public async Task AnotherAssignedTeacherTakesTheLessonsWhereTheyAre(TimetableUpdateMoves moves)
+    {
+        await Generate(TimetableGenerationMode.All);
+        var before = Places();
+        var other = SecondTeacher();
+        Assign(maths, other);
+
+        var generation = await Update(moves);
+
+        Assert.Equal(before, Places());
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == maths.Id), e => Assert.Equal(other.Id, e.TeacherId));
+        Assert.Contains("Změněn učitel: 4 h (5.A M).", generation.Notes);
+    }
+
+    [Fact]
+    public async Task AnotherTeacherStaysAndIsReportedWhenLeft()
+    {
+        await Generate(TimetableGenerationMode.All);
+        var other = SecondTeacher();
+        Assign(maths, other);
+
+        var generation = await Update(mismatches: TimetableUpdateMismatches.Leave);
+
+        Assert.All(db.TimetableEntries.Where(e => e.SubjectId == maths.Id), e => Assert.Equal(teacher.Id, e.TeacherId));
+        Assert.Contains("5.A M: učí Jan Novák, přiděleno je Eva Malá (4 h), ponecháno.", generation.Messages);
+    }
+
+    [Theory]
+    [InlineData(TimetableUpdateMoves.Fewest, TimetableUpdateMismatches.FollowPlan)]
+    [InlineData(TimetableUpdateMoves.AffectedOnly, TimetableUpdateMismatches.Leave)]
+    public async Task ALessonWhenItsTeacherCannotMovesWhateverIsChosen(TimetableUpdateMoves moves, TimetableUpdateMismatches mismatches)
+    {
+        var monday = Lesson(maths, DayOfWeek.Monday, 1);
+        Lesson(maths, DayOfWeek.Tuesday, 1);
+        Lesson(maths, DayOfWeek.Wednesday, 1);
+        Lesson(maths, DayOfWeek.Thursday, 1);
+        Assign(maths, teacher);
+        PlanHours(pe, 0);
+        db.TeacherProfiles.Single().Availability = [new AvailabilitySlot(DayOfWeek.Monday, 1, AvailabilityKind.Unavailable)];
+        db.SaveChanges();
+
+        var generation = await Update(moves, mismatches);
+
+        Assert.DoesNotContain(db.TimetableEntries, e => e.DayOfWeek == DayOfWeek.Monday && e.PeriodNumber == 1);
+        Assert.Equal(4, db.TimetableEntries.Count(e => e.SubjectId == maths.Id));
+        Assert.Contains("Přesunuto 1 h (5.A M).", generation.Notes);
+    }
+
+    [Fact]
+    public async Task ALockedLessonNeverChanges()
+    {
+        var locked = Lesson(maths, DayOfWeek.Monday, 1, locked: true);
+        var other = SecondTeacher();
+        Assign(maths, other);
+        PlanHours(pe, 0);
+        PlanHours(maths, 1);
+        db.TeacherProfiles.First().Availability = [new AvailabilitySlot(DayOfWeek.Monday, 1, AvailabilityKind.Unavailable)];
+        db.SaveChanges();
+
+        await Update();
+
+        var only = Assert.Single(db.TimetableEntries);
+        Assert.Equal((locked.Id, DayOfWeek.Monday, 1, teacher.Id), (only.Id, only.DayOfWeek, only.PeriodNumber, only.TeacherId!.Value));
+    }
+
+    [Fact]
+    public async Task FewestMovesShiftsAnotherLessonInAFullWeekOnlyAffectedDoesNot()
+    {
+        // One period a day and all five taken: M has to swap with Tv.
+        OnlyPeriods(1);
+        var other = SecondTeacher();
+        Assign(maths, teacher);
+        Assign(pe, other);
+        PlanHours(maths, 3);
+        foreach (var (subject, day) in new[] { (maths, DayOfWeek.Monday), (maths, DayOfWeek.Tuesday), (maths, DayOfWeek.Wednesday), (pe, DayOfWeek.Thursday), (pe, DayOfWeek.Friday) })
+        {
+            var entry = Lesson(subject, day, 1);
+            entry.TeacherId = subject == maths ? teacher.Id : other.Id;
+            entry.ClassroomId = subject == pe ? gym.Id : null;
+        }
+        db.TeacherProfiles.Single(t => t.Person!.User == teacher).Availability = [new AvailabilitySlot(DayOfWeek.Monday, 1, AvailabilityKind.Unavailable)];
+        db.SaveChanges();
+
+        var only = await Update(TimetableUpdateMoves.AffectedOnly);
+
+        Assert.Contains("5.A M: nevešlo se 1 h.", only.Messages);
+        Assert.Equal(2, db.TimetableEntries.Count(e => e.SubjectId == maths.Id));
+        Assert.Equal(new[] { DayOfWeek.Thursday, DayOfWeek.Friday },
+            db.TimetableEntries.Where(e => e.SubjectId == pe.Id).Select(e => e.DayOfWeek).AsEnumerable().Order().ToArray());
+
+        // What the first run took out is back with the swap.
+        var fewest = await Update();
+
+        Assert.DoesNotContain(fewest.Messages, m => m.Contains("nevešlo"));
+        Assert.Equal(3, db.TimetableEntries.Count(e => e.SubjectId == maths.Id));
+        Assert.Equal(2, db.TimetableEntries.Count(e => e.SubjectId == pe.Id));
+        Assert.DoesNotContain(db.TimetableEntries, e => e.SubjectId == maths.Id && e.DayOfWeek == DayOfWeek.Monday);
+    }
+
+    [Fact]
+    public async Task WhatIsMissingIsFilledInWithTheLessonInPlaceEvenWhenLeft()
+    {
+        PlanHours(maths, 1);
+        PlanHours(pe, 1);
+        var other = SecondTeacher();
+        Assign(maths, other);
+        Assign(pe, other);
+        var withoutTeacher = Lesson(maths, DayOfWeek.Monday, 1);
+        withoutTeacher.TeacherId = null;
+        var withoutRoom = Lesson(pe, DayOfWeek.Monday, 2);
+        withoutRoom.TeacherId = other.Id;
+        db.SaveChanges();
+
+        var generation = await Update(TimetableUpdateMoves.AffectedOnly, TimetableUpdateMismatches.Leave);
+
+        var lessons = db.TimetableEntries.OrderBy(e => e.PeriodNumber).ToList();
+        Assert.Equal((withoutTeacher.Id, other.Id), (lessons[0].Id, lessons[0].TeacherId!.Value));
+        Assert.Equal((withoutRoom.Id, (int?)gym.Id), (lessons[1].Id, lessons[1].ClassroomId));
+        Assert.Contains("Změněn učitel: 1 h (5.A M).", generation.Notes);
+        Assert.Contains("Změněna učebna: 1 h (5.A Tv).", generation.Notes);
+    }
+
+    [Fact]
+    public async Task AClassroomOutOfTheSubjectsListIsReplacedOrReported()
+    {
+        PlanHours(maths, 0);
+        PlanHours(pe, 1);
+        var elsewhere = new Classroom { Name = "Aula", Type = ClassroomType.Specialized, SchoolId = SchoolId };
+        db.Classrooms.Add(elsewhere);
+        db.SaveChanges();
+        var lesson = Lesson(pe, DayOfWeek.Monday, 1);
+        lesson.ClassroomId = elsewhere.Id;
+        db.SaveChanges();
+
+        var left = await Update(mismatches: TimetableUpdateMismatches.Leave);
+
+        Assert.Equal(elsewhere.Id, lesson.ClassroomId);
+        Assert.Contains("5.A Tv: učebna Aula není mezi učebnami předmětu (1 h), ponecháno.", left.Messages);
+
+        await Update();
+
+        Assert.Equal(gym.Id, db.TimetableEntries.Single().ClassroomId);
+    }
+
+    [Fact]
+    public async Task ALessonStayingKeepsItsClassroomThoughAnotherComesFirst()
+    {
+        PlanHours(maths, 0);
+        PlanHours(pe, 1);
+        var second = new Classroom { Name = "Malá tělocvična", Type = ClassroomType.Gym, SchoolId = SchoolId };
+        db.Classrooms.Add(second);
+        db.SaveChanges();
+        var lesson = Lesson(pe, DayOfWeek.Monday, 1);
+        lesson.ClassroomId = second.Id;
+        db.SaveChanges();
+
+        await Update();
+
+        Assert.Equal(second.Id, db.TimetableEntries.Single().ClassroomId);
+    }
+
+    [Fact]
+    public async Task OnlyAffectedMovesALessonTheTeacherWouldRatherNotHaveAndOverTheirMostADay()
+    {
+        PlanHours(pe, 0);
+        Lesson(maths, DayOfWeek.Monday, 1);
+        Lesson(maths, DayOfWeek.Tuesday, 1);
+        Lesson(maths, DayOfWeek.Tuesday, 2);
+        Lesson(maths, DayOfWeek.Tuesday, 3);
+        var profile = db.TeacherProfiles.Single();
+        profile.Availability = [new AvailabilitySlot(DayOfWeek.Monday, 1, AvailabilityKind.Avoid)];
+        profile.MaxLessonsPerDay = 2;
+        db.SaveChanges();
+
+        var generation = await Update(TimetableUpdateMoves.AffectedOnly);
+
+        Assert.DoesNotContain(db.TimetableEntries, e => e.DayOfWeek == DayOfWeek.Monday && e.PeriodNumber == 1);
+        Assert.DoesNotContain(db.TimetableEntries, e => e.DayOfWeek == DayOfWeek.Tuesday && e.PeriodNumber == 3);
+        Assert.Contains("Přesunuto 2 h (5.A M).", generation.Notes);
+        Assert.Equal(4, db.TimetableEntries.Count());
+    }
+
+    [Fact]
+    public async Task ABlockStaysInPlaceAndASplitOneComesTogether()
+    {
+        maths.DoubleLessons = true;
+        PlanHours(pe, 0);
+        db.SaveChanges();
+        await Generate(TimetableGenerationMode.All);
+        var before = Places();
+
+        await Update();
+
+        Assert.Equal(before, Places());
+
+        var entry = db.TimetableEntries.OrderBy(e => e.DayOfWeek).ThenBy(e => e.PeriodNumber).First();
+        entry.DayOfWeek = DayOfWeek.Friday;
+        entry.PeriodNumber = 6;
+        db.SaveChanges();
+
+        await Update();
+
+        var days = db.TimetableEntries.AsEnumerable().GroupBy(e => e.DayOfWeek).ToList();
+        Assert.Equal(2, days.Count);
+        Assert.All(days, d => Assert.Equal(1, Math.Abs(d.First().PeriodNumber - d.Last().PeriodNumber)));
+    }
+
+    [Fact]
+    public async Task LessonsLeftFixedOnAFullDayDoNotStopTheRest()
+    {
+        PlanHours(maths, 6);
+        PlanHours(pe, 1);
+        foreach (var period in Enumerable.Range(1, 6))
+        {
+            Lesson(maths, DayOfWeek.Monday, period);
+        }
+
+        var generation = await Update(TimetableUpdateMoves.AffectedOnly);
+
+        Assert.Equal(1, generation.Placed);
+        Assert.Equal(1, db.TimetableEntries.Count(e => e.SubjectId == pe.Id));
+        Assert.Equal(6, db.TimetableEntries.Count(e => e.SubjectId == maths.Id));
+    }
+
+    [Fact]
+    public async Task AGroupsLessonChangesTeacherInEachOfItsClassesInPlace()
+    {
+        var other = SecondTeacher();
+        var sixth = new SchoolClass { Name = "6.A", Rocnik = 6, SchoolId = SchoolId };
+        db.SchoolClasses.Add(sixth);
+        db.CurriculumItems.RemoveRange(db.CurriculumItems);
+        db.SaveChanges();
+        var group = new StudentGroup
+        {
+            SchoolId = SchoolId, TimetableVersionId = draft.Id, Name = "Němčina", SubjectId = maths.Id, HoursPerWeek = 1, TeacherId = other.Id,
+            Classes = [new() { SchoolId = SchoolId, SchoolClassId = fifth.Id }, new() { SchoolId = SchoolId, SchoolClassId = sixth.Id }],
+        };
+        db.StudentGroups.Add(group);
+        db.SaveChanges();
+        foreach (var classId in new[] { fifth.Id, sixth.Id })
+        {
+            db.TimetableEntries.Add(new TimetableEntry
+            {
+                SchoolId = SchoolId, TimetableVersionId = draft.Id, SchoolClassId = classId, StudentGroupId = group.Id, SubjectId = maths.Id,
+                TeacherId = teacher.Id, DayOfWeek = DayOfWeek.Wednesday, PeriodNumber = 1,
+            });
+        }
+        db.SaveChanges();
+        var before = Places();
+
+        var generation = await Update();
+
+        Assert.Equal(before, Places());
+        Assert.All(db.TimetableEntries, e => Assert.Equal(other.Id, e.TeacherId));
+        Assert.Contains("Změněn učitel: 1 h (Němčina).", generation.Notes);
+    }
+
+    [Fact]
+    public async Task TheUpdatesChoicesAreKeptWithTheRun()
+    {
+        await Controller().Generate(draft.Id, new(TimetableGenerationMode.Update, TimetableUpdateMoves.AffectedOnly, TimetableUpdateMismatches.Leave));
+
+        var run = db.TimetableGenerations.Single();
+        Assert.Equal(
+            (TimetableGenerationMode.Update, TimetableUpdateMoves.AffectedOnly, TimetableUpdateMismatches.Leave),
+            (run.Mode, run.Moves, run.Mismatches));
+    }
 }
