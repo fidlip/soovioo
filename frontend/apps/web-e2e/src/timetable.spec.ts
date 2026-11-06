@@ -249,7 +249,7 @@ test.describe.serial('timetable version', () => {
     page,
   }) => {
     // The generator runs until the timetable meets the requirements.
-    test.setTimeout(240_000);
+    test.setTimeout(420_000);
     await login(page, 'admin', 'admin123');
     // The page only shows the timetable, its versions are where it's edited.
     await expect(page.getByRole('button', { name: 'Generovat' })).toHaveCount(
@@ -283,6 +283,19 @@ test.describe.serial('timetable version', () => {
     const result = page.getByRole('dialog', { name: 'Výsledek generování' });
     await expect(result.getByTestId('generation-result')).toContainText(
       'Přidáno',
+      { timeout: 180_000 },
+    );
+    await result.getByRole('button', { name: 'Zavřít' }).click();
+    await expect(result).toBeHidden();
+
+    // Then brought in line with the data, changing only what's concerned.
+    await page.getByRole('button', { name: 'Generovat' }).click();
+    await generate.getByText('Upravit podle změn').click();
+    await generate.getByText('Jen dotčené hodiny').click();
+    await generate.getByText('Ponechat a upozornit').click();
+    await generate.getByRole('button', { name: /Generovat$/ }).click();
+    await expect(result.getByTestId('generation-result')).toContainText(
+      'Upraveno podle změn',
       { timeout: 180_000 },
     );
     await result.getByRole('button', { name: 'Zavřít' }).click();
