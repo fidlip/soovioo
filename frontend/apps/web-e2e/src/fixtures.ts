@@ -29,7 +29,15 @@ export const test = base.extend<{
         }
       };
       page.on('console', (msg) => {
-        if (msg.type() === 'error' || msg.type() === 'warning') {
+        // The photos test deletes its own teacher's photo while other tests'
+        // lists may already be asking for that thumbnail.
+        const deletedPhoto =
+          msg.text().includes('status of 404') &&
+          /\/api\/photos\/users\/\d+\/thumb/.test(msg.location().url);
+        if (
+          (msg.type() === 'error' || msg.type() === 'warning') &&
+          !deletedPhoto
+        ) {
           record(msg.type(), msg.text());
         }
       });
