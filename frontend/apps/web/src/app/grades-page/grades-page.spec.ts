@@ -69,6 +69,7 @@ describe('GradesPage', () => {
     fixture.componentInstance as unknown as {
       filterStudentId: { set(id: number | null): void };
       onFilterChange(): void;
+      clearFilters(): void;
       onPageChange(state: { page: number; rows: number }): void;
       deleteGrade(grade: Grade): void;
     };
@@ -160,6 +161,20 @@ describe('GradesPage', () => {
       expect(filtered.request.params.get('studentId')).toBe('7');
       expect(filtered.request.params.get('page')).toBe('1');
       filtered.flush(page(3, 1));
+    });
+
+    it('clearing the filters asks the server for everything again', () => {
+      const fixture = open();
+      gradesRequest().flush(page(1, 120));
+      component(fixture).filterStudentId.set(7);
+      component(fixture).onFilterChange();
+      gradesRequest().flush(page(2, 1));
+
+      component(fixture).clearFilters();
+      const cleared = gradesRequest();
+      expect(cleared.request.params.has('studentId')).toBe(false);
+      expect(cleared.request.params.get('page')).toBe('1');
+      cleared.flush(page(1, 120));
     });
 
     it('a slower answer to an older filter does not replace the newer one', () => {
