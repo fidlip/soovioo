@@ -190,6 +190,33 @@ test('a former pupil moves to the archive and can be erased', async ({
   await expect(formerRow).toHaveCount(0);
 });
 
+test('a teacher leaving: the last day being typed keeps the focus when the form arrives just after the dialog opened', async ({
+  page,
+}) => {
+  await page.route('**/api/retention/staff/*/leave', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.continue();
+  });
+  await login(page, 'admin');
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aplikace' }).click();
+  await page.getByRole('tab', { name: 'Uživatelé' }).click();
+  await page
+    .getByRole('tabpanel', { name: 'Uživatelé' })
+    .locator('tr', { hasText: 'Jana Učitelová' })
+    .getByRole('button', { name: 'Ukončení pracovního poměru' })
+    .click();
+  const lastDay = page
+    .getByRole('dialog', {
+      name: 'Ukončení pracovního poměru — Jana Učitelová',
+    })
+    .getByLabel('Poslední den ve škole');
+  await expect(lastDay).toBeFocused();
+  await lastDay.pressSequentially(inDays(30), { delay: 50 });
+  await expect(lastDay).toHaveValue(inDays(30));
+  await expect(lastDay).toBeFocused();
+});
+
 test('a teacher leaving: last day ahead, třídnictví handed over, cancelled from the archive', async ({
   page,
 }) => {
