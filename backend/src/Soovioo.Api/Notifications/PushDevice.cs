@@ -9,8 +9,9 @@ public enum PushPlatform
 }
 
 /// <summary>A phone with the mobile app logged in as this user — where
-/// <see cref="PushJob"/> sends the push. One user can have several; the app
-/// registers it after logging in and removes it when logging out.</summary>
+/// <see cref="PushJob"/> sends the push, this user's and that of the accounts
+/// linked to it (<see cref="AccountLink"/>). One user can have several; the
+/// app registers it after logging in and removes it when logging out.</summary>
 public class PushDevice
 {
     public int Id { get; set; }

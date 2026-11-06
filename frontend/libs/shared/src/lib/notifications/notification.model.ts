@@ -1,3 +1,5 @@
+import type { LinkedAccount } from '../auth/linked-accounts-api.service';
+
 export type NotificationType =
   | 'Grade'
   | 'Message'
@@ -26,6 +28,8 @@ export interface UnreadCounts {
   notifications: number;
   /** Conversations with something unread. */
   messages: number;
+  /** The user's accounts at other schools; absent without any. */
+  linkedAccounts?: LinkedAccount[] | null;
 }
 
 export interface NotificationPage {

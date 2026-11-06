@@ -49,6 +49,7 @@ export * from './lib/auth/role.model';
 export * from './lib/auth/roles-api.service';
 export * from './lib/auth/token-storage';
 export * from './lib/auth/auth-api.service';
+export * from './lib/auth/linked-accounts-api.service';
 export * from './lib/auth/auth.interceptor';
 export * from './lib/auth/auth-session.config';
 export * from './lib/auth/users-api.service';

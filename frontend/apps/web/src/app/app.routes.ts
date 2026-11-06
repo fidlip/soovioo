@@ -30,6 +30,15 @@ const schoolRoutes: Route[] = [
       ),
     data: { hideHeader: true },
   },
+  // Switching to a linked account — no guard: it's what logs in.
+  {
+    path: 'account/switch',
+    loadComponent: () =>
+      import('./account-switch-page/account-switch-page').then(
+        (m) => m.AccountSwitchPage,
+      ),
+    data: { hideHeader: true },
+  },
   // SuperAdmin "Vstoupit do školy" — no guard: it's what logs in.
   {
     path: 'support/enter',

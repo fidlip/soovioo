@@ -141,6 +141,37 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("AuditLogEntries");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLink", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SwitchCodeExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SwitchCodeHash")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("SwitchPersistent")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("SwitchCodeHash")
+                        .IsUnique()
+                        .HasFilter("\"SwitchCodeHash\" IS NOT NULL");
+
+                    b.ToTable("AccountLinks");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -2697,6 +2728,17 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLink", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithOne()
+                        .HasForeignKey("Soovioo.Api.Auth.AccountLink", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>

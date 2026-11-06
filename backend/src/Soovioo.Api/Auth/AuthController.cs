@@ -109,6 +109,9 @@ public class AuthController(
 
         // New password = every older session of this account is over.
         await refreshTokens.RevokeAllForUserAsync(user.Id);
+        // The school can send an invite to any address — its way in must not
+        // lead to the owner's accounts at other schools.
+        await db.UnlinkAccountAsync(user.Id);
         return Ok(await sessions.StartAsync(HttpContext, user, persistent: !request.UseCookie, request.UseCookie));
     }
 

@@ -173,6 +173,9 @@ public class UsersController(
         {
             // Whoever knew the old password shouldn't stay signed in on it.
             await refreshTokens.RevokeAllForUserAsync(user.Id);
+            // The school knows this password — it must not lead to the
+            // owner's accounts at other schools.
+            await db.UnlinkAccountAsync(user.Id);
         }
         return Ok(ToDto(user, person.Student?.Id));
     }

@@ -36,13 +36,15 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return Ok(new NotificationPageDto(items.Take(PageSize).ToList(), items.Count > PageSize));
     }
 
-    /// <summary>The bell's and the Zprávy badge's numbers in one request —
-    /// the app asks on every navigation and once a minute.</summary>
+    /// <summary>The bell's and the Zprávy badge's numbers and the linked
+    /// accounts' in one request — the app asks on every navigation and once
+    /// a minute.</summary>
     [HttpGet("unread-counts")]
     public async Task<ActionResult<UnreadCountsDto>> GetUnreadCounts() =>
         Ok(new UnreadCountsDto(
             await Mine().CountAsync(n => n.ReadAt == null),
-            await db.CountUnreadConversationsAsync(CurrentUserId())));
+            await db.CountUnreadConversationsAsync(CurrentUserId()),
+            await db.LinkedAccountsOfAsync(CurrentUserId())));
 
     [HttpPost("{id:int}/read")]
     public async Task<IActionResult> MarkRead(int id)
@@ -73,7 +75,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     public async Task<ActionResult<NotificationSettingsDto>> GetSettings()
     {
         var user = await MeAsync();
-        return user is null ? NotFound() : Ok(SettingsOf(user));
+        return user is null ? NotFound() : Ok(await SettingsOfAsync(user));
     }
 
     /// <summary>The kinds under the bell.</summary>
@@ -87,7 +89,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         }
         user.MutedNotifications = request.Muted.Distinct().Order().ToList();
         await db.SaveChangesAsync();
-        return Ok(SettingsOf(user));
+        return Ok(await SettingsOfAsync(user));
     }
 
     /// <summary>The kinds in the daily e-mail and when it comes (null = the
@@ -103,7 +105,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         user.MutedEmailNotifications = request.Muted.Distinct().Order().ToList();
         user.DigestTime = request.DigestTime is { } time ? new TimeOnly(time.Hour, time.Minute) : null;
         await db.SaveChangesAsync();
-        return Ok(SettingsOf(user));
+        return Ok(await SettingsOfAsync(user));
     }
 
     /// <summary>Push: the kinds, the whole text or just the kind of event
@@ -130,7 +132,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         user.PushQuietFrom = request.Quiet == PushQuietMode.Own ? Minutes(request.QuietFrom!.Value) : null;
         user.PushQuietTo = request.Quiet == PushQuietMode.Own ? Minutes(request.QuietTo!.Value) : null;
         await db.SaveChangesAsync();
-        return Ok(SettingsOf(user));
+        return Ok(await SettingsOfAsync(user));
     }
 
     /// <summary>The mobile app after logging in and whenever its token
@@ -215,9 +217,11 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, .. timetable];
     }
 
-    private NotificationSettingsDto SettingsOf(User user)
+    private async Task<NotificationSettingsDto> SettingsOfAsync(User user)
     {
         var school = user.School!;
+        var accounts = (await db.LinkedWithAsync([user.Id]))[user.Id];
+        var hasDevice = await db.PushDevices.IgnoreQueryFilters().AnyAsync(d => accounts.Contains(d.UserId));
         var forced = school.ForcedEmailNotifications;
         return new(
             TypesFor(user.Roles)
@@ -228,7 +232,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
                 .ToList(),
             user.Person?.Email != null, user.DigestTime, school.DigestTime,
             new PushSettingsDto(
-                db.PushDevices.Any(d => d.UserId == user.Id),
+                hasDevice,
                 school.PushFullText, school.PushFullText && user.PushFullTextAt != null,
                 user.PushQuietOff ? PushQuietMode.Off : user.PushQuietFrom is null ? PushQuietMode.School : PushQuietMode.Own,
                 user.PushQuietFrom, user.PushQuietTo, school.PushQuietFrom, school.PushQuietTo));
@@ -257,7 +261,8 @@ public record NotificationDto(
     DateTimeOffset CreatedAt, bool Read);
 
 /// <param name="Messages">Conversations with something unread.</param>
-public record UnreadCountsDto(int Notifications, int Messages);
+/// <param name="LinkedAccounts">The caller's accounts at other schools, null without any.</param>
+public record UnreadCountsDto(int Notifications, int Messages, IReadOnlyList<LinkedAccountDto>? LinkedAccounts = null);
 
 public record NotificationPageDto(IReadOnlyList<NotificationDto> Items, bool HasMore);
 
@@ -274,7 +279,8 @@ public enum PushQuietMode
     Off,
 }
 
-/// <param name="HasDevice">The mobile app is logged in as this user on some phone.</param>
+/// <param name="HasDevice">The mobile app is logged in as this user, or an
+/// account linked to it, on some phone.</param>
 /// <param name="FullTextAllowed">The school lets a push carry the whole text.</param>
 /// <param name="FullText">The user agreed to it — and the school allows it.</param>
 /// <param name="QuietFrom">Own night quiet, set with <see cref="PushQuietMode.Own"/>.</param>

@@ -69,6 +69,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
         var user = context.User;
         var audit = AuditContext.Find(context);
         var action = context.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>();
+        var crossSchool = context.GetEndpoint()?.Metadata.GetMetadata<CrossSchoolAuditAttribute>() is not null;
 
         // Whatever the endpoint left tracked must not be saved along with
         // the log entry (e.g. a change it rejected without saving).
@@ -117,7 +118,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
         var responseText = Encoding.UTF8.GetString(responseBytes);
         db.AuditLogEntries.Add(new AuditLogEntry
         {
-            SchoolId = schoolId,
+            SchoolId = crossSchool ? null : schoolId,
             UserId = userId,
             Username = username,
             UserDisplayName = displayName,
@@ -135,7 +136,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
                               AuditPayload.SubjectName(payload), studentName, request.RouteValues["id"]?.ToString(),
                               statusCode >= 400),
             StatusCode = statusCode,
-            RequestBody = payloadText,
+            RequestBody = crossSchool ? null : payloadText,
             Result = AuditPayload.SummarizeResponse(statusCode, responseText),
             IpAddress = context.Connection.RemoteIpAddress?.ToString(),
             SchoolClassId = schoolClassId,

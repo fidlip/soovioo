@@ -1,0 +1,32 @@
+<StackLayout>
+  <Label text="Propojené účty" class="text-lg"></Label>
+  <Label
+    text="Máte účet i na jiné škole? Po propojení mezi účty přepnete bez hesla a na telefon vám budou chodit upozornění ze všech. Školy o propojení nevědí. Kdo se dostane do jednoho účtu, přepne i do ostatních, proto používejte silná hesla. Když vám škola nastaví nové heslo nebo pošle pozvánku, propojení toho účtu se zruší."
+    textWrap="true"
+    class="text-xs"
+  ></Label>
+  @for (account of accounts(); track account.userId) {
+    <Label
+      [text]="account.schoolName + ' – ' + account.username"
+      textWrap="true"
+    ></Label>
+    <Button text="Zrušit propojení" (tap)="unlink(account)"></Button>
+  }
+  <TextField
+    hint="Adresa školy (u zs-kopec.soovioo.cloud je to zs-kopec)"
+    autocapitalizationType="none"
+    autocorrect="false"
+    [(ngModel)]="schoolSlug"
+  ></TextField>
+  <TextField
+    hint="Přihlašovací jméno"
+    autocapitalizationType="none"
+    autocorrect="false"
+    [(ngModel)]="username"
+  ></TextField>
+  <TextField hint="Heslo" secure="true" [(ngModel)]="password"></TextField>
+  <Button text="Propojit další účet" (tap)="link()"></Button>
+  @if (error()) {
+    <Label [text]="error()" textWrap="true" class="error"></Label>
+  }
+</StackLayout>

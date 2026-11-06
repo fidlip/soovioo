@@ -1,5 +1,11 @@
 namespace Soovioo.Api.Audit;
 
+/// <summary>The entry goes only to the SuperAdmin's log, without the payload:
+/// the endpoint concerns the user's accounts at other schools, which isn't
+/// the business of the school whose token made the request.</summary>
+[AttributeUsage(AttributeTargets.Method)]
+public class CrossSchoolAuditAttribute : Attribute;
+
 /// <summary>What an endpoint knows about its own audit entry that the
 /// token doesn't say — anonymous endpoints (login, logout) name the user
 /// here, and may replace the generic description.</summary>

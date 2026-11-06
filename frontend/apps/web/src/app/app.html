@@ -167,7 +167,33 @@
       <i class="pi pi-users"></i>
       <span class="app-nav-label truncate">Jako: {{ activeRoleLabel() }}</span>
     </button>
-    <p-menu #roleMenu [popup]="true" [model]="roleMenuItems()" />
+    <p-menu
+      #roleMenu
+      [popup]="true"
+      [model]="roleMenuItems()"
+      appendTo="body"
+    />
+    } @if (accountMenuItems().length > 0) {
+    <button
+      type="button"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="'Přepnout účet, teď: ' + authApi.getSchoolName()"
+      title="Přepnout účet"
+      (click)="accountMenu.toggle($event)"
+    >
+      <i class="pi pi-building"></i>
+      <span class="app-nav-label truncate"
+        >Škola: {{ authApi.getSchoolName() }}</span
+      >@if (linkedUnread() > 0) {<span class="app-nav-badge" aria-hidden="true"
+        >{{ linkedUnread() }}</span
+      >}
+    </button>
+    <p-menu
+      #accountMenu
+      [popup]="true"
+      [model]="accountMenuItems()"
+      appendTo="body"
+    />
     }
     <div class="app-user-row">
       <span
