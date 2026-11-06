@@ -62,8 +62,8 @@ export class TimetableGenerateDialog {
   protected mode: TimetableGenerationMode = 'Fill';
   protected readonly modeOptions = [
     { label: 'Doplnit chybějící', value: 'Fill' },
-    { label: 'Přegenerovat vše', value: 'All' },
     { label: 'Upravit podle změn', value: 'Update' },
+    { label: 'Přegenerovat vše', value: 'All' },
   ];
   protected moves: TimetableUpdateMoves = 'Fewest';
   protected readonly movesOptions = [
