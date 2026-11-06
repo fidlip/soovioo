@@ -117,7 +117,7 @@ public class GroupAgendasTests
         // The class's teacher of another subject doesn't grade the group's.
         Assert.IsType<ForbidResult>((await Grades(Novak).AddGrade(new CreateGradeRequest(anna.Id, german.Id, 1, 1, null))).Result);
 
-        var seen = Ok(await Grades(Kral).GetGrades());
+        var seen = Ok(await Grades(Kral).GetGrades()).Items;
         Assert.Equal([eva.Id], seen.Select(g => g.StudentId));
     }
 

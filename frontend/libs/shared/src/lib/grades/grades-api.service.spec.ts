@@ -29,7 +29,20 @@ describe('GradesApiService', () => {
     service.getGrades().subscribe();
     const req = httpMock.expectOne('http://test/api/grades');
     expect(req.request.method).toBe('GET');
-    req.flush([]);
+    req.flush({ items: [], totalCount: 0, page: 1, pageSize: 50 });
+  });
+
+  it('asks for the page and the filters that are set', () => {
+    service
+      .getGrades({ studentId: 7, subjectId: null, page: 2, pageSize: 20 })
+      .subscribe();
+    const req = httpMock.expectOne(
+      (r) => r.method === 'GET' && r.url === 'http://test/api/grades',
+    );
+    expect(req.request.params.toString()).toBe(
+      'studentId=7&page=2&pageSize=20',
+    );
+    req.flush({ items: [], totalCount: 0, page: 2, pageSize: 20 });
   });
 
   it('posts a new grade to the configured base URL', () => {

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
@@ -99,8 +100,8 @@ public class RolesTests
         db.Teaches(assistant.Id, w.A.Id, w.Maths.Id);
         var principal = TestRoles.PrincipalOf(assistant);
 
-        var grades = Assert.IsAssignableFrom<IEnumerable<GradeDto>>(
-            Assert.IsType<OkObjectResult>((await Grades(db, principal).GetGrades()).Result).Value);
+        var grades = Assert.IsType<PagedResult<GradeDto>>(
+            Assert.IsType<OkObjectResult>((await Grades(db, principal).GetGrades()).Result).Value).Items;
         Assert.Equal([w.Jan.Id], grades.Select(g => g.StudentId));
         Assert.IsType<ForbidResult>((await Grades(db, principal).AddGrade(new(w.Jan.Id, w.Maths.Id, 1, 1, null))).Result);
     }
