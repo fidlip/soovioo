@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.Timetable;
@@ -13,9 +14,15 @@ namespace Soovioo.Api.Grades;
 [Route("api/grades")]
 public class GradesController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
+    private const int MaxPageSize = 100;
+
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<GradeDto>>> GetGrades()
+    public async Task<ActionResult<PagedResult<GradeDto>>> GetGrades(
+        int? studentId = null, int? subjectId = null, int page = 1, int pageSize = 50)
     {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
         var allowedStudentIds = await User.StudentIdsAsync(db, Permission.GradesRead);
 
         var query = db.Grades.AsQueryable();
@@ -23,12 +30,24 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             query = query.Where(g => allowedStudentIds.Contains(g.StudentId));
         }
+        if (studentId is not null)
+        {
+            query = query.Where(g => g.StudentId == studentId);
+        }
+        if (subjectId is not null)
+        {
+            query = query.Where(g => g.SubjectId == subjectId);
+        }
 
+        var total = await query.CountAsync();
         var grades = await query
             .OrderByDescending(g => g.GradedOn)
             .ThenBy(g => g.Student!.Person!.LastName)
             .ThenBy(g => g.Student!.Person!.FirstName)
             .ThenByDescending(g => g.CreatedAt)
+            .ThenByDescending(g => g.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(g => new GradeDto(
                 g.Id,
                 g.StudentId,
@@ -42,7 +61,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
                 g.CreatedAt))
             .ToListAsync();
 
-        return Ok(grades);
+        return Ok(new PagedResult<GradeDto>(grades, total, page, pageSize));
     }
 
     [HttpPost]

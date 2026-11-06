@@ -12,6 +12,13 @@ export interface Grade {
   createdAt: string;
 }
 
+export interface GradesQuery {
+  studentId?: number | null;
+  subjectId?: number | null;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface CreateGradeRequest {
   studentId: number;
   subjectId: number;

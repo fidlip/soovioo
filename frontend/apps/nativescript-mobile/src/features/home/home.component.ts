@@ -62,8 +62,8 @@ export class HomeComponent {
   }
 
   private reload(): void {
-    this.gradesApi.getGrades().subscribe({
-      next: (grades) => this.grades.set(grades),
+    this.gradesApi.getGrades({ pageSize: 100 }).subscribe({
+      next: (result) => this.grades.set(result.items),
       error: (err) => console.error('getGrades failed', err),
     });
   }

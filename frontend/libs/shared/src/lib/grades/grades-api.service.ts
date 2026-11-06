@@ -1,16 +1,25 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { CreateGradeRequest, Grade } from './grade.model';
+import { PagedResult } from '../common/paged-result.model';
+import { CreateGradeRequest, Grade, GradesQuery } from './grade.model';
 
 @Injectable({ providedIn: 'root' })
 export class GradesApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  getGrades(): Observable<Grade[]> {
-    return this.http.get<Grade[]>(`${this.baseUrl}/api/grades`);
+  getGrades(query: GradesQuery = {}): Observable<PagedResult<Grade>> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== null && value !== undefined) {
+        params = params.set(key, String(value));
+      }
+    }
+    return this.http.get<PagedResult<Grade>>(`${this.baseUrl}/api/grades`, {
+      params,
+    });
   }
 
   addGrade(request: CreateGradeRequest): Observable<Grade> {
