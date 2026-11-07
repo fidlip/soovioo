@@ -104,13 +104,6 @@ export interface SubstitutionProblem {
   changeId: number | null;
 }
 
-/** Who's free at the period: those teaching that day by name, the others counted. */
-export interface FreeTeachers {
-  period: number;
-  atSchool: string[];
-  others: number;
-}
-
 export interface SubstitutionDay {
   date: string;
   hasTimetable: boolean;
@@ -122,7 +115,6 @@ export interface SubstitutionDay {
   problems: SubstitutionProblem[];
   periods: number[];
   classes: { id: number; name: string }[];
-  free: FreeTeachers[];
 }
 
 export interface LessonChangeRequest {

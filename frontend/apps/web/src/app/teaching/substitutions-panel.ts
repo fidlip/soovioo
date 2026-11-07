@@ -219,9 +219,6 @@ export class SubstitutionsPanel {
       ),
     ).sort((a, b) => a.name.localeCompare(b.name, 'cs'));
   });
-  protected readonly freeByPeriod = computed(
-    () => new Map((this.day()?.free ?? []).map((f) => [f.period, f])),
-  );
   protected readonly needCover = computed(
     () => this.day()?.lessons.filter((l) => l.needsCover).length ?? 0,
   );

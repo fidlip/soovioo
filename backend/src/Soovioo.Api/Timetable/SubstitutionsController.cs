@@ -481,23 +481,7 @@ public class SubstitutionsController(
         }
 
         var periods = await db.SchoolPeriods.OrderBy(p => p.PeriodNumber).Select(p => p.PeriodNumber).ToListAsync();
-        var teachers = await db.Users
-            .Where(u => u.Roles.Any(r => r.BuiltIn == UserRole.Teacher) && u.DeactivatedAt == null)
-            .Select(u => new { u.Id, u.Person, u.Username, Profile = u.Person!.TeacherProfile })
-            .ToListAsync();
         var collator = StringComparer.Create(new System.Globalization.CultureInfo("cs-CZ"), false);
-        var periodsOf = taught.Where(l => l.TeacherId is not null).ToLookup(l => l.TeacherId!.Value, l => l.Key.Period);
-        var free = periods.Select(period =>
-        {
-            var names = teachers
-                .Where(t => !taught.Any(l => l.Key.Period == period && l.TeacherId == t.Id)
-                    && !absences.Any(a => a.TeacherId == t.Id && a.Covers(date, period))
-                    && AvailabilitySlot.At(t.Profile?.Availability ?? [], date.DayOfWeek, period) != AvailabilityKind.Unavailable)
-                .ToList();
-            var atSchool = names.Where(t => periodsOf[t.Id].Any(p => p < period) && periodsOf[t.Id].Any(p => p > period))
-                .Select(t => PersonNames.Display(t.Person, t.Username)).Order(collator).ToList();
-            return new FreeTeachersDto(period, atSchool, names.Count - atSchool.Count);
-        }).ToList();
         var classes = await db.SchoolClasses.Select(c => new DayClassDto(c.Id, c.Name)).ToListAsync();
 
         return new SubstitutionDayDto(
@@ -528,7 +512,7 @@ public class SubstitutionsController(
                     shown && original!.ClassroomId != l.ClassroomId && original.ClassroomId is { } was
                         ? names.Classrooms.GetValueOrDefault(was) : null);
             })],
-            problems, periods, [.. classes.OrderBy(c => c.Name, collator)], free);
+            problems, periods, [.. classes.OrderBy(c => c.Name, collator)]);
     }
 }
 
@@ -551,12 +535,9 @@ public record LessonChangeRequest(
 public record SubstitutionDayDto(
     DateOnly Date, bool HasTimetable, DateTimeOffset? PublishedAt, bool Unpublished,
     IReadOnlyList<TeacherAbsenceDto> Absences, IReadOnlyList<SubstitutionLessonDto> Lessons, IReadOnlyList<SubstitutionProblemDto> Problems,
-    IReadOnlyList<int> Periods, IReadOnlyList<DayClassDto> Classes, IReadOnlyList<FreeTeachersDto> Free);
+    IReadOnlyList<int> Periods, IReadOnlyList<DayClassDto> Classes);
 
 public record DayClassDto(int Id, string Name);
-
-/// <summary>Who's free at the period: those teaching before and after it (in school) by name, the others counted.</summary>
-public record FreeTeachersDto(int Period, IReadOnlyList<string> AtSchool, int Others);
 
 /// <param name="ChangeId">The change it's about, to undo it.</param>
 public record SubstitutionProblemDto(string Text, int? ChangeId);
