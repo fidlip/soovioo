@@ -398,7 +398,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     }
 
     /// <summary>Lessons change only in a draft.</summary>
-    private static string? LockedMessage(TimetableVersion version) => version.Status switch
+    internal static string? LockedMessage(TimetableVersion version) => version.Status switch
     {
         TimetableVersionStatus.Draft => null,
         TimetableVersionStatus.Archived => "Archivovanou verzi rozvrhu nejde upravovat.",

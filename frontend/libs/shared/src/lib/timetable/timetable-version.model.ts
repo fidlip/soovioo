@@ -1,3 +1,5 @@
+import { DayOfWeek, WeekParity } from './timetable-entry.model';
+
 export type TimetableVersionStatus = 'Draft' | 'Published' | 'Archived';
 
 export interface TimetableVersion {
@@ -52,6 +54,34 @@ export type TimetableUpdateMoves = 'Fewest' | 'AffectedOnly';
 /** With Update, lessons at odds with the plan or the přidělení. FollowPlan:
  * the plan decides. Leave: they stay and the result lists them. */
 export type TimetableUpdateMismatches = 'FollowPlan' | 'Leave';
+
+/** Blocked: it can't go there. Unsuitable: it can, against a wish or leaving
+ * a gap. */
+export interface TimetableDropSlot {
+  day: DayOfWeek;
+  period: number;
+  status: 'Free' | 'Unsuitable' | 'Blocked';
+  reasons: string[];
+}
+
+/** A lesson the plan wants and the timetable lacks. */
+export interface UnplacedLesson {
+  subjectId: number;
+  subjectShort: string;
+  subjectName: string;
+  /** Of a division its first group. */
+  groupId: number | null;
+  groupName: string | null;
+  teacherName: string | null;
+  weekParity: WeekParity;
+}
+
+export interface TimetableAssessment {
+  /** How it looks: gaps, late starts, wishes not met. */
+  notes: string[];
+  /** What's wrong with it, as checked before publishing. */
+  problems: string[];
+}
 
 export type TimetableGenerationStatus =
   'Queued' | 'Running' | 'Done' | 'Failed';
