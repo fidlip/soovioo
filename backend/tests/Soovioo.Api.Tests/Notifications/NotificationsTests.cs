@@ -255,12 +255,12 @@ public class NotificationsTests
         var w = await SeedAsync(db);
 
         var teacher = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, w.Teacher).GetSettings()).Result).Value);
-        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange], teacher.Types.Select(t => t.Type));
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution], teacher.Types.Select(t => t.Type));
         var admin = new User { Username = "reditel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var adminSettings = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, admin).GetSettings()).Result).Value);
-        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
 
         var result = await Bell(db, w.Parent).SetSettings(new NotificationSettingsRequest([NotificationType.Event, NotificationType.Event]));
         var parent = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
