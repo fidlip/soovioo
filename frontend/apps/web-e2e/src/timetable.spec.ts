@@ -320,7 +320,11 @@ test('admin arranges a draft by dragging lessons', async ({
   await grab(lesson);
   await page.mouse.move(10, 10, { steps: 3 });
   await expect(page.locator('td[data-drop]')).toHaveCount(0);
+  await expect(lesson.getByTestId('lesson-locked-attempt')).toBeVisible();
+  expect(await page.evaluate(() => getSelection()?.toString())).toBe('');
   await page.mouse.up();
+  await expect(lesson.getByTestId('lesson-locked-attempt')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await lock.click();
   await expect(lock).toHaveAttribute('aria-pressed', 'false');
   await grab(lesson);
