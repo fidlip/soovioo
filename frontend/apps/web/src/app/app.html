@@ -173,18 +173,17 @@
       [model]="roleMenuItems()"
       appendTo="body"
     />
-    } @if (accountMenuItems().length > 0) {
+    } @if (authApi.getSchoolName(); as schoolName) { @if (canLinkAccounts()) {
     <button
       type="button"
       class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-      [attr.aria-label]="'Přepnout účet, teď: ' + authApi.getSchoolName()"
+      [attr.aria-label]="'Přepnout účet, teď: ' + schoolName"
       title="Přepnout účet"
       (click)="accountMenu.toggle($event)"
     >
       <i class="pi pi-building"></i>
-      <span class="app-nav-label truncate"
-        >Škola: {{ authApi.getSchoolName() }}</span
-      >@if (linkedUnread() > 0) {<span class="app-nav-badge" aria-hidden="true"
+      <span class="app-nav-label truncate">Škola: {{ schoolName }}</span>@if
+      (linkedUnread() > 0) {<span class="app-nav-badge" aria-hidden="true"
         >{{ linkedUnread() }}</span
       >}
     </button>
@@ -194,7 +193,14 @@
       [model]="accountMenuItems()"
       appendTo="body"
     />
-    }
+    } @else {
+    <span
+      class="app-nav-link text-surface-600 dark:text-surface-300"
+      [title]="schoolName"
+      ><i class="pi pi-building"></i
+      ><span class="app-nav-label truncate">Škola: {{ schoolName }}</span></span
+    >
+    } }
     <div class="app-user-row">
       <span
         class="app-nav-link app-user-name text-surface-700 dark:text-surface-200"
@@ -245,7 +251,9 @@
   @if (isLoggedIn()) {
   <app-demo-feedback-dialog [slug]="demo.slug" />
   <app-demo-email-preview />
-  } } @if (sessionSync.notice(); as notice) {
+  } } @if (isLoggedIn() && canLinkAccounts()) {
+  <app-link-account-dialog />
+  } @if (sessionSync.notice(); as notice) {
   <div
     class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
     role="alert"

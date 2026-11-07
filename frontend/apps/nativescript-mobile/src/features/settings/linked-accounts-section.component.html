@@ -12,21 +12,25 @@
     ></Label>
     <Button text="Zrušit propojení" (tap)="unlink(account)"></Button>
   }
-  <TextField
-    hint="Adresa školy (u zs-kopec.soovioo.cloud je to zs-kopec)"
-    autocapitalizationType="none"
-    autocorrect="false"
-    [(ngModel)]="schoolSlug"
-  ></TextField>
-  <TextField
-    hint="Přihlašovací jméno"
-    autocapitalizationType="none"
-    autocorrect="false"
-    [(ngModel)]="username"
-  ></TextField>
-  <TextField hint="Heslo" secure="true" [(ngModel)]="password"></TextField>
-  <Button text="Propojit další účet" (tap)="link()"></Button>
-  @if (error()) {
-    <Label [text]="error()" textWrap="true" class="error"></Label>
+  @if (formOpen()) {
+    <TextField
+      hint="Adresa školy (u zs-kopec.soovioo.cloud je to zs-kopec)"
+      autocapitalizationType="none"
+      autocorrect="false"
+      [(ngModel)]="schoolSlug"
+    ></TextField>
+    <TextField
+      hint="Přihlašovací jméno"
+      autocapitalizationType="none"
+      autocorrect="false"
+      [(ngModel)]="username"
+    ></TextField>
+    <TextField hint="Heslo" secure="true" [(ngModel)]="password"></TextField>
+    <Button text="Propojit" (tap)="link()"></Button>
+    @if (error()) {
+      <Label [text]="error()" textWrap="true" class="error"></Label>
+    }
+  } @else {
+    <Button text="Propojit další účet" (tap)="formOpen.set(true)"></Button>
   }
 </StackLayout>

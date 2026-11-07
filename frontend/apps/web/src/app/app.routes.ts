@@ -39,6 +39,24 @@ const schoolRoutes: Route[] = [
       ),
     data: { hideHeader: true },
   },
+  // Linking accounts: at the other school, which asks to log in itself…
+  {
+    path: 'account/link',
+    loadComponent: () =>
+      import('./account-link-page/account-link-page').then(
+        (m) => m.AccountLinkPage,
+      ),
+    data: { hideHeader: true },
+  },
+  // …and back where it started, finished by the account that asked.
+  {
+    path: 'account/link/done',
+    loadComponent: () =>
+      import('./account-link-page/account-link-done-page').then(
+        (m) => m.AccountLinkDonePage,
+      ),
+    data: { hideHeader: true },
+  },
   // SuperAdmin "Vstoupit do školy" — no guard: it's what logs in.
   {
     path: 'support/enter',

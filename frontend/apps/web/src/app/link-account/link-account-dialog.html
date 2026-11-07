@@ -1,0 +1,58 @@
+<p-dialog
+  [visible]="dialog.open()"
+  (visibleChange)="dialog.open.set($event)"
+  header="Propojit další účet"
+  [modal]="true"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-md"
+>
+  <form class="flex flex-col gap-4" (ngSubmit)="proceed()">
+    <p class="m-0 text-sm text-surface-600 dark:text-surface-300">
+      Vyberte druhou školu. Otevře se její přihlášení, a až se přihlásíte a
+      propojení potvrdíte, vrátíte se sem.
+    </p>
+    <app-float-field label="Škola" for="linkSchool">
+      <p-autoComplete
+        inputId="linkSchool"
+        name="linkSchool"
+        [(ngModel)]="school"
+        [suggestions]="suggestions()"
+        (completeMethod)="search($event)"
+        [minLength]="3"
+        optionLabel="name"
+        dataKey="schoolSlug"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        appendTo="body"
+      >
+        <ng-template let-option #item>
+          <div class="flex flex-col">
+            <span>{{ option.name }}</span>
+            <span class="text-xs text-surface-500"
+              >{{ option.schoolSlug }}</span
+            >
+          </div>
+        </ng-template>
+      </p-autoComplete>
+    </app-float-field>
+    <p class="m-0 text-xs text-surface-500">
+      Napište aspoň 3 znaky z názvu nebo adresy školy.
+    </p>
+    @if (error(); as message) {
+    <p-message severity="error" [text]="message" />
+    }
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zrušit"
+        severity="secondary"
+        [text]="true"
+        (onClick)="dialog.open.set(false)"
+      />
+      <p-button
+        type="submit"
+        label="Pokračovat na přihlášení"
+        [disabled]="!chosen() || starting()"
+      />
+    </div>
+  </form>
+</p-dialog>

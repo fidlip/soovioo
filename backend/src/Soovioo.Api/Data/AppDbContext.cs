@@ -76,6 +76,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Notifications.Notification> Notifications => Set<Notifications.Notification>();
     public DbSet<Notifications.PushDevice> PushDevices => Set<Notifications.PushDevice>();
     public DbSet<AccountLink> AccountLinks => Set<AccountLink>();
+    public DbSet<AccountLinkRequest> AccountLinkRequests => Set<AccountLinkRequest>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
@@ -544,6 +545,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasIndex(x => x.GroupId);
             e.HasIndex(x => x.SwitchCodeHash).IsUnique().HasFilter("\"SwitchCodeHash\" IS NOT NULL");
             e.HasOne(x => x.User).WithOne().HasForeignKey<AccountLink>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccountLinkRequest>(e =>
+        {
+            e.HasIndex(x => x.CodeHash).IsUnique();
+            e.HasIndex(x => x.CompletionCodeHash).IsUnique().HasFilter("\"CompletionCodeHash\" IS NOT NULL");
+            e.HasIndex(x => x.InitiatorUserId);
+            e.HasOne(x => x.InitiatorUser).WithMany().HasForeignKey(x => x.InitiatorUserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.TargetSchool).WithMany().HasForeignKey(x => x.TargetSchoolId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<VisibilityRule>(e =>

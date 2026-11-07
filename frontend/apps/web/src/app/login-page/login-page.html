@@ -19,7 +19,18 @@
     </p>
   </div>
 
-  @if (school()?.isDemo && schoolSlug) {
+  @if (linkRequest(); as request) {
+  <p-message
+    severity="info"
+    [text]="
+      'Přihlášení kvůli propojení s účtem ' +
+      request.username +
+      ' (' +
+      request.schoolName +
+      ')'
+    "
+  />
+  } @if (school()?.isDemo && schoolSlug) {
   <p-card>
     @if (autoLoginPending()) {
     <div class="flex items-center justify-center gap-2 py-6 text-surface-500">

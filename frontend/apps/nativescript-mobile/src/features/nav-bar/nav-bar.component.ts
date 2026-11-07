@@ -15,6 +15,8 @@ import {
 import { switchMap } from 'rxjs';
 import { PushService } from '../../push.service';
 
+const LINK_ACCOUNT = 'Propojit další účet';
+
 @Component({
   selector: 'ns-nav-bar',
   templateUrl: './nav-bar.component.html',
@@ -66,8 +68,12 @@ export class NavBarComponent {
     const chosen = await Dialogs.action({
       title: 'Přepnout účet',
       cancelButtonText: 'Zrušit',
-      actions: labels,
+      actions: [...labels, LINK_ACCOUNT],
     });
+    if (chosen === LINK_ACCOUNT) {
+      this.router.navigate(['/settings']);
+      return;
+    }
     const account = this.linked()[labels.indexOf(chosen)];
     if (account) {
       this.switchTo(account);

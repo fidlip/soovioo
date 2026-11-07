@@ -51,6 +51,8 @@ import {
   schoolUrl,
   superAdminUrl,
 } from './school-context';
+import { LinkAccountDialog } from './link-account/link-account-dialog';
+import { LinkAccountDialogService } from './link-account/link-account-dialog.service';
 import { SessionSyncService } from './session-sync.service';
 import { UnreadCountsService } from './unread-counts.service';
 
@@ -88,6 +90,7 @@ interface NavItem {
     DemoBar,
     DemoEmailPreview,
     DemoFeedbackDialog,
+    LinkAccountDialog,
     NotificationBell,
   ],
   templateUrl: './app.html',
@@ -102,6 +105,7 @@ export class App {
   protected readonly schoolContext = inject(SchoolContextService);
   protected readonly unread = inject(UnreadCountsService);
   private readonly linkedAccountsApi = inject(LinkedAccountsApiService);
+  private readonly linkAccountDialog = inject(LinkAccountDialogService);
   private readonly bell = viewChild(NotificationBell);
 
   private readonly confirmDialog = viewChild(ConfirmDialog, {
@@ -405,8 +409,8 @@ export class App {
   }
 
   /** The user's accounts at other schools, with what's unread there. */
-  protected readonly accountMenuItems = computed<MenuItem[]>(() =>
-    this.unread.linkedAccounts().map((account) => ({
+  protected readonly accountMenuItems = computed<MenuItem[]>(() => [
+    ...this.unread.linkedAccounts().map((account) => ({
       label:
         account.unread > 0
           ? `${account.schoolName} (${account.unread})`
@@ -414,7 +418,24 @@ export class App {
       icon: 'pi pi-fw',
       command: () => this.switchAccount(account),
     })),
-  );
+    ...(this.unread.linkedAccounts().length > 0 ? [{ separator: true }] : []),
+    {
+      label: 'Propojit další účet',
+      icon: 'pi pi-plus',
+      command: () => this.linkAccountDialog.open.set(true),
+    },
+  ]);
+
+  /** A person's own accounts: not for the SuperAdmin, support mode or a
+   * demo school, which the API refuses anyway. */
+  protected canLinkAccounts(): boolean {
+    return (
+      !this.isSuperAdmin() &&
+      !this.authApi.getSupportInfo() &&
+      !this.authApi.mustChangePassword() &&
+      !isDemoSlug(this.schoolContext.slug())
+    );
+  }
 
   protected readonly linkedUnread = computed(() =>
     this.unread.linkedAccounts().reduce((sum, a) => sum + a.unread, 0),

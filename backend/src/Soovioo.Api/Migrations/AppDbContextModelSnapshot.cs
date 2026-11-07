@@ -172,6 +172,49 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("AccountLinks");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLinkRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApprovedUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompletionCodeHash")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("InitiatorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetSchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("CompletionCodeHash")
+                        .IsUnique()
+                        .HasFilter("\"CompletionCodeHash\" IS NOT NULL");
+
+                    b.HasIndex("InitiatorUserId");
+
+                    b.HasIndex("TargetSchoolId");
+
+                    b.ToTable("AccountLinkRequests");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -2739,6 +2782,25 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLinkRequest", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "InitiatorUser")
+                        .WithMany()
+                        .HasForeignKey("InitiatorUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.School", "TargetSchool")
+                        .WithMany()
+                        .HasForeignKey("TargetSchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InitiatorUser");
+
+                    b.Navigation("TargetSchool");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>

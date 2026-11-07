@@ -29,6 +29,7 @@ export class LinkedAccountsSectionComponent {
   protected username = '';
   protected password = '';
   protected readonly error = signal<string | null>(null);
+  protected readonly formOpen = signal(false);
 
   constructor() {
     this.load();
@@ -60,6 +61,7 @@ export class LinkedAccountsSectionComponent {
           this.schoolSlug = '';
           this.username = '';
           this.password = '';
+          this.formOpen.set(false);
           this.changed();
         },
         error: (err: HttpErrorResponse) =>

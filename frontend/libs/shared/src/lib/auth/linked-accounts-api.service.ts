@@ -19,6 +19,26 @@ export interface LinkAccountRequest {
   password: string;
 }
 
+/** A school to link with. */
+export interface LinkableSchool {
+  name: string;
+  schoolSlug: string;
+}
+
+/** A request for linking accounts, on its way between the two schools. */
+export interface LinkRequest {
+  code: string;
+  /** The school whose page goes on with the code. */
+  schoolSlug: string;
+}
+
+/** The account asking to be linked. */
+export interface LinkRequestPreview {
+  username: string;
+  schoolName: string;
+  schoolSlug: string;
+}
+
 export interface AccountSwitch {
   code: string;
   schoolSlug: string;
@@ -31,6 +51,43 @@ export class LinkedAccountsApiService {
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly authApi = inject(AuthApiService);
 
+  searchSchools(search: string): Observable<LinkableSchool[]> {
+    return this.http.get<LinkableSchool[]>(
+      `${this.baseUrl}/api/linked-accounts/schools`,
+      { params: { search } },
+    );
+  }
+
+  /** Web: linking goes through the other school's own login. */
+  startRequest(schoolSlug: string): Observable<LinkRequest> {
+    return this.http.post<LinkRequest>(
+      `${this.baseUrl}/api/linked-accounts/requests`,
+      { schoolSlug },
+    );
+  }
+
+  previewRequest(code: string): Observable<LinkRequestPreview> {
+    return this.http.post<LinkRequestPreview>(
+      `${this.baseUrl}/api/linked-accounts/requests/preview`,
+      { code },
+    );
+  }
+
+  approveRequest(code: string): Observable<LinkRequest> {
+    return this.http.post<LinkRequest>(
+      `${this.baseUrl}/api/linked-accounts/requests/approve`,
+      { code },
+    );
+  }
+
+  completeRequest(code: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/linked-accounts/requests/complete`,
+      { code },
+    );
+  }
+
+  /** Mobile: the app's own form logs into the other account. */
   link(request: LinkAccountRequest): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/api/linked-accounts`, request);
   }
