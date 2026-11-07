@@ -292,6 +292,7 @@ Administrace → Výuka → Rozvrh → koncept verze (`TimetableBoardController`
   bez zástupu agenda (Administrace → Výuka → Suplování) ukáže jako „Chybí zástup“.
 - **Agenda** je mřížka dne: řádky třídy (nebo učitelé), sloupce hodiny, pod nimi
   „Volní“ — jménem ti, kdo v tu hodinu mají okno (učí před ní i po ní), ostatní počtem.
+  Výchozí pohled ukazuje jen hodiny bez zástupu, „Všechny hodiny dne“ celý den.
   Klik na hodinu ji upraví, na prázdné místo třídy přidá hodinu navíc.
 - **Změna hodiny** (den × hodina × třída nebo skupina): jiný učitel, předmět, učebna,
   odpadá, přesun na jinou hodinu téhož týdne, spojení s hodinou jiné třídy či skupiny
