@@ -316,6 +316,8 @@
                   [title]="cellTitle(entry)"
                   [class.cursor-grab]="canDrag() && !entry.locked"
                   [class.min-h-14]="editable"
+                  [class.select-none]="editable"
+                  (pointerdown)="onLessonPress($event, entry)"
                   data-testid="timetable-lesson"
                   cdkDrag
                   [cdkDragDisabled]="!canDrag() || entry.locked"
@@ -325,7 +327,14 @@
                   (cdkDragEnded)="onDragEnded()"
                 >
                   <div *cdkDragPlaceholder class="hidden"></div>
-                  @if (hasConflict) {
+                  @if (lockedAttempt() === entry.id) {
+                  <div
+                    class="absolute inset-0 z-10 flex items-center justify-center rounded bg-surface-900/60"
+                    data-testid="lesson-locked-attempt"
+                  >
+                    <i class="pi pi-lock text-2xl text-white"></i>
+                  </div>
+                  } @if (hasConflict) {
                   <i
                     class="pi pi-exclamation-triangle absolute top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
                     [class.right-1]="!editable"
