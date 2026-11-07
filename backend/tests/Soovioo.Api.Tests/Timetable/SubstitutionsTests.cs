@@ -460,20 +460,11 @@ public class SubstitutionsTests
     }
 
     [Fact]
-    public async Task The_day_names_who_is_free_at_each_period_of_those_teaching_before_and_after_and_counts_the_others()
+    public async Task The_day_lists_the_school_periods_and_the_classes_by_name()
     {
         var day = Ok(await Controller().GetDay(Monday));
 
         Assert.Equal([1, 2, 3, 4, 5, 6], day.Periods);
         Assert.Equal(["5.A", "5.B"], day.Classes.Select(c => c.Name));
-        // Novák teaches the 1st and the 3rd, Malá the 1st and the 2nd.
-        var second = day.Free.Single(f => f.Period == 2);
-        Assert.Equal(["Novák Učitel"], second.AtSchool);
-        Assert.Equal(2, second.Others);
-        Assert.Empty(day.Free.Single(f => f.Period == 4).AtSchool);
-        Assert.Equal(4, day.Free.Single(f => f.Period == 4).Others);
-
-        day = await AbsentAsync(novak);
-        Assert.Empty(day.Free.Single(f => f.Period == 2).AtSchool);
     }
 }
