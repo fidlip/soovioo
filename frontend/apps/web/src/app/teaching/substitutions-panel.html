@@ -132,6 +132,16 @@
         <label class="flex items-center gap-2 text-sm">
           <p-checkbox
             [binary]="true"
+            inputId="solvedLessons"
+            [ngModel]="showSolved() || showAll()"
+            [disabled]="showAll()"
+            (ngModelChange)="showSolved.set($event)"
+          />
+          Vyřešené hodiny
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <p-checkbox
+            [binary]="true"
             inputId="allLessons"
             [ngModel]="showAll()"
             (ngModelChange)="showAll.set($event)"
@@ -151,7 +161,8 @@
     </div>
     @if (!showAll() && rows().length === 0) {
     <p class="m-0 mb-2 text-sm text-surface-500">
-      Žádná hodina bez zástupu. Celý den ukáže „Všechny hodiny dne“.
+      {{ showSolved() ? 'Žádné změny ani hodiny bez zástupu.' : 'Žádná hodina
+      bez zástupu.' }} Celý den ukáže „Všechny hodiny dne“.
     </p>
     }
     <div

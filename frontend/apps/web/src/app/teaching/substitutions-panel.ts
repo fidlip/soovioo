@@ -122,8 +122,10 @@ export class SubstitutionsPanel {
   protected readonly day = signal<SubstitutionDay | null>(null);
   protected readonly busy = signal(false);
   protected readonly viewBy = signal<ViewBy>('classes');
-  /** Otherwise only the lessons without a substitute. */
+  /** Every lesson of the day; otherwise those without a substitute and,
+   * with `showSolved`, those already changed. */
   protected readonly showAll = signal(false);
+  protected readonly showSolved = signal(true);
   protected readonly viewByOptions = [
     { label: 'Třídy', value: 'classes' },
     { label: 'Učitelé', value: 'teachers' },
@@ -167,7 +169,14 @@ export class SubstitutionsPanel {
     ): GridRow => {
       const cells = new Map<number, SubstitutionLesson[]>();
       for (const lesson of day.lessons.filter(
-        (l) => of(l) && (this.showAll() || l.needsCover),
+        (l) =>
+          of(l) &&
+          (this.showAll() ||
+            l.needsCover ||
+            (this.showSolved() &&
+              (l.changeId !== null ||
+                l.label !== null ||
+                l.originalTeacherAbsent))),
       )) {
         cells.set(lesson.periodNumber, [
           ...(cells.get(lesson.periodNumber) ?? []),
