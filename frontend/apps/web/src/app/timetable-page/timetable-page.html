@@ -315,6 +315,7 @@
                   [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
                   [title]="cellTitle(entry)"
                   [class.cursor-grab]="canDrag() && !entry.locked"
+                  [class.min-h-14]="editable"
                   data-testid="timetable-lesson"
                   cdkDrag
                   [cdkDragDisabled]="!canDrag() || entry.locked"
@@ -326,11 +327,37 @@
                   <div *cdkDragPlaceholder class="hidden"></div>
                   @if (hasConflict) {
                   <i
-                    class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
+                    class="pi pi-exclamation-triangle absolute top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
+                    [class.right-1]="!editable"
+                    [class.right-7]="editable"
                     role="img"
                     aria-label="Kolize"
                   ></i>
-                  } @else if (entry.locked && canManageTimetable()) {
+                  } @if (editable) {
+                  <button
+                    type="button"
+                    class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full"
+                    [class.bg-white]="entry.locked"
+                    [class.shadow]="entry.locked"
+                    [class.text-surface-900]="entry.locked"
+                    [class.text-surface-700]="!entry.locked"
+                    [class.opacity-40]="!entry.locked"
+                    [class.hover:opacity-100]="!entry.locked"
+                    [class.focus:opacity-100]="!entry.locked"
+                    [attr.aria-label]="entry.locked ? 'Odemknout hodinu' : 'Zamknout hodinu'"
+                    [attr.aria-pressed]="entry.locked"
+                    [title]="entry.locked ? 'Zamčená — generátor ji nepřesune. Kliknutím odemknete.' : 'Zamknout — generátor ji pak nepřesune'"
+                    data-testid="lesson-lock"
+                    (click)="$event.stopPropagation(); toggleLock(entry)"
+                  >
+                    <i
+                      class="pi text-xs"
+                      [class.pi-lock]="entry.locked"
+                      [class.pi-lock-open]="!entry.locked"
+                    ></i>
+                  </button>
+                  } @else if (!hasConflict && entry.locked &&
+                  canManageTimetable()) {
                   <i
                     class="pi pi-lock absolute right-1 top-1 text-xs text-surface-700"
                     role="img"
@@ -338,7 +365,10 @@
                     title="Zamčená — generátor ji nepřesune"
                   ></i>
                   }
-                  <div class="font-semibold text-surface-900">
+                  <div
+                    class="font-semibold text-surface-900"
+                    [class.pr-5]="editable"
+                  >
                     {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
                     (entry.schoolClassName) {
                     <span class="font-normal"
