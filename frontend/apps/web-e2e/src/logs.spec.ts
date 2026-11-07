@@ -68,6 +68,13 @@ test('Akce filter: pick an exact action or search by typed text', async ({
     options.filter({ hasText: 'Neúspěšné přihlášení' }),
   ).toBeVisible();
   await expect(rows.first()).toContainText(/přihlášení/i);
+  // Case and diacritics don't matter.
+  await page.locator('#filterAction').fill('NEUSPESNE PRIHL');
+  await expect(
+    options.filter({ hasText: 'Neúspěšné přihlášení' }),
+  ).toBeVisible();
+  await expect(options.filter({ hasText: /^Přihlášení$/ })).toHaveCount(0);
+  await page.locator('#filterAction').fill('ihláš');
 
   // Picked: exactly that action.
   await options.filter({ hasText: /^Přihlášení$/ }).click();
