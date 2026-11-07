@@ -71,6 +71,89 @@ public class TimetableVersionsControllerTests
             .Select(e => e.SubjectName).ToList();
     }
 
+    private async Task<TimetableVersionDto> EditFrom(DateOnly validFrom, int? id = null) =>
+        Assert.IsType<TimetableVersionDto>(Assert.IsType<OkObjectResult>(
+            (await Versions().EditFromDate(id ?? current.Id, new(validFrom))).Result).Value);
+
+    [Fact]
+    public async Task EditingFromADateMakesACopyNamedAfterTheDate()
+    {
+        db.CurriculumItems.Add(new CurriculumItem { SchoolId = SchoolId, TimetableVersionId = current.Id, Grade = 5, SubjectId = maths.Id, HoursPerWeek = 4 });
+        await db.SaveChangesAsync();
+
+        var draft = await EditFrom(new DateOnly(2026, 11, 9));
+
+        Assert.Equal(
+            ("Změna od 9. 11. 2026", new DateOnly(2026, 11, 9), TimetableVersionStatus.Draft, 1),
+            (draft.Name, draft.ValidFrom, draft.Status, draft.EntryCount));
+        Assert.Equal(4, (await db.CurriculumItems.SingleAsync(c => c.TimetableVersionId == draft.Id)).HoursPerWeek);
+        Assert.Equal(["Matematika"], await SubjectsOn(new DateOnly(2026, 11, 9)));
+    }
+
+    [Fact]
+    public async Task EditingFromTheSameDateOpensTheSameDraftWithItsChanges()
+    {
+        var first = await EditFrom(new DateOnly(2026, 11, 9));
+        var copied = await db.TimetableEntries.SingleAsync(e => e.TimetableVersionId == first.Id);
+        await Timetable().UpdateEntry(schoolClass.Id, copied.Id, new(czech.Id, DayOfWeek.Monday, 1, WeekParity.Every));
+
+        var again = await EditFrom(new DateOnly(2026, 11, 9));
+        var other = await EditFrom(new DateOnly(2026, 11, 16));
+
+        Assert.Equal((first.Id, 1), (again.Id, again.EntryCount));
+        Assert.NotEqual(first.Id, other.Id);
+        Assert.Equal(["Český jazyk"], await SubjectsOn(versionId: first.Id));
+        Assert.Equal(["Matematika"], await SubjectsOn(versionId: other.Id));
+    }
+
+    [Fact]
+    public async Task EditingFromADateGoesIntoADraftOfThatDateNotAnArchivedOne()
+    {
+        var draft = await EditFrom(new DateOnly(2026, 11, 9));
+        await Versions().ArchiveVersion(draft.Id);
+
+        Assert.NotEqual(draft.Id, (await EditFrom(new DateOnly(2026, 11, 9))).Id);
+    }
+
+    [Fact]
+    public async Task EditingFromADateStartsToday()
+    {
+        var draft = await EditFrom(Today);
+
+        Assert.Equal(Today, draft.ValidFrom);
+        Assert.IsType<OkObjectResult>((await Versions().PublishVersion(draft.Id)).Result);
+        Assert.Equal(Today.AddDays(-1), current.ValidTo);
+    }
+
+    [Fact]
+    public async Task EditingFromADateRefusesThePastAndADayTakenByAnotherVersion()
+    {
+        var count = await db.TimetableVersions.CountAsync();
+        Assert.IsType<BadRequestObjectResult>((await Versions().EditFromDate(current.Id, new(Today.AddDays(-1)))).Result);
+
+        var planned = await Draft("Plánovaná", new DateOnly(2027, 2, 1), current.Id);
+        await Versions().PublishVersion(planned.Id);
+        Assert.IsType<BadRequestObjectResult>((await Versions().EditFromDate(current.Id, new(new DateOnly(2027, 2, 1)))).Result);
+
+        Assert.Equal(count + 1, await db.TimetableVersions.CountAsync());
+    }
+
+    [Fact]
+    public async Task OnlyTheVersionThatAppliesIsEditedFromADate()
+    {
+        var draft = await Draft("Koncept", new DateOnly(2027, 2, 1), current.Id);
+        Assert.IsType<BadRequestObjectResult>((await Versions().EditFromDate(draft.Id, new(new DateOnly(2027, 3, 1)))).Result);
+
+        await Versions().PublishVersion(draft.Id);
+        Assert.IsType<BadRequestObjectResult>((await Versions().EditFromDate(draft.Id, new(new DateOnly(2027, 3, 1)))).Result);
+
+        clock.Now = new DateTimeOffset(2027, 2, 2, 11, 0, 0, TimeSpan.Zero);
+        Assert.IsType<BadRequestObjectResult>((await Versions().EditFromDate(current.Id, new(new DateOnly(2027, 3, 1)))).Result);
+        Assert.IsType<OkObjectResult>((await Versions().EditFromDate(draft.Id, new(new DateOnly(2027, 3, 1)))).Result);
+
+        Assert.IsType<NotFoundResult>((await Versions().EditFromDate(9999, new(new DateOnly(2027, 3, 1)))).Result);
+    }
+
     [Fact]
     public async Task ADraftIsACopyEditedAsideUntilPublishedForItsDate()
     {
