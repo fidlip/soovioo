@@ -24,7 +24,7 @@ public class MunicipalitiesController(AppDbContext db) : ControllerBase
         }
 
         var matches = await db.Municipalities
-            .Where(m => EF.Functions.ILike(m.Name, $"%{query}%"))
+            .Where(m => TextSearch.Fold(m.Name).Contains(TextSearch.Fold(query)))
             .OrderBy(m => m.Name)
             .Take(20)
             .ToListAsync();

@@ -52,6 +52,7 @@ import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { CALENDAR_LOCALE } from '../locale';
 import { Loading } from '../loading/loading';
+import { foldForSearch } from '../text-search';
 
 type ViewOption = { value: string; label: string };
 
@@ -279,11 +280,11 @@ export class EventsPage {
    * round-trip like searchMunicipalities does for the much larger RAOR
    * table). Free text typed by the user is still accepted either way. */
   protected searchLocations(event: AutoCompleteCompleteEvent): void {
-    const query = event.query.trim().toLowerCase();
+    const query = foldForSearch(event.query.trim());
     this.locationSuggestions.set(
       this.classrooms()
         .map((c) => c.name)
-        .filter((name) => name.toLowerCase().includes(query)),
+        .filter((name) => foldForSearch(name).includes(query)),
     );
   }
 
@@ -343,37 +344,37 @@ export class EventsPage {
   }
 
   protected filteredClasses(): SchoolClassOption[] {
-    const name = this.classFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.classFilterName.trim());
     return (this.recipientOptions()?.classes ?? []).filter(
       (c) =>
-        (!name || c.name.toLowerCase().includes(name)) &&
+        (!name || foldForSearch(c.name).includes(name)) &&
         (this.classFilterRocnik === null ||
           c.rocnik === this.classFilterRocnik),
     );
   }
 
   protected filteredStudents(): StudentOption[] {
-    const name = this.studentFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.studentFilterName.trim());
     return (this.recipientOptions()?.students ?? []).filter(
       (s) =>
         (!name ||
-          `${s.firstName} ${s.lastName}`.toLowerCase().includes(name)) &&
+          foldForSearch(`${s.firstName} ${s.lastName}`).includes(name)) &&
         (this.studentFilterRocnik === null ||
           s.rocnik === this.studentFilterRocnik),
     );
   }
 
   protected filteredTeachers(): PersonOption[] {
-    const name = this.teacherFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.teacherFilterName.trim());
     return (this.recipientOptions()?.teachers ?? []).filter(
-      (t) => !name || t.name.toLowerCase().includes(name),
+      (t) => !name || foldForSearch(t.name).includes(name),
     );
   }
 
   protected filteredParents(): PersonOption[] {
-    const name = this.parentFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.parentFilterName.trim());
     return (this.recipientOptions()?.parents ?? []).filter(
-      (p) => !name || p.name.toLowerCase().includes(name),
+      (p) => !name || foldForSearch(p.name).includes(name),
     );
   }
 

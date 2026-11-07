@@ -35,10 +35,10 @@ public class AuditLogController(AppDbContext db) : ControllerBase
         }
         else if (!string.IsNullOrWhiteSpace(filter.ActionSearch))
         {
-            var search = filter.ActionSearch.Trim().ToLower();
+            var search = filter.ActionSearch.Trim();
             query = query.Where(e =>
-                (e.Description != null && e.Description.ToLower().Contains(search))
-                || (e.Action != null && e.Action.ToLower().Contains(search)));
+                (e.Description != null && TextSearch.Fold(e.Description).Contains(TextSearch.Fold(search)))
+                || (e.Action != null && TextSearch.Fold(e.Action).Contains(TextSearch.Fold(search))));
         }
 
         var total = await query.CountAsync();
@@ -64,8 +64,8 @@ public class AuditLogController(AppDbContext db) : ControllerBase
         var query = Filtered(filter).Where(e => e.Action != null).Select(e => e.Action!);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
-            query = query.Where(a => a.ToLower().Contains(term));
+            var term = search.Trim();
+            query = query.Where(a => TextSearch.Fold(a).Contains(TextSearch.Fold(term)));
         }
         return Ok(await query.Distinct().OrderBy(a => a).Take(MaxActionOptions).ToListAsync());
     }

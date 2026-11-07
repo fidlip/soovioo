@@ -37,7 +37,9 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         var query = db.Schools.Where(s => s.IsDemo == demos);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(s => EF.Functions.ILike(s.Name, $"%{search}%") || EF.Functions.ILike(s.Slug, $"%{search}%"));
+            query = query.Where(s =>
+                TextSearch.Fold(s.Name).Contains(TextSearch.Fold(search))
+                || TextSearch.Fold(s.Slug).Contains(TextSearch.Fold(search)));
         }
 
         var totalCount = await query.CountAsync();

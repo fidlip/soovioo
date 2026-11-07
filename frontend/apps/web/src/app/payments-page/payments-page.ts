@@ -35,6 +35,7 @@ import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
+import { foldForSearch } from '../text-search';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type PaidFilter = 'all' | 'unpaid' | 'paid';
@@ -357,24 +358,24 @@ export class PaymentsPage {
   }
 
   protected filteredClasses(): PaymentSchoolClassOption[] {
-    const name = this.classFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.classFilterName.trim());
     return (this.recipientOptions()?.classes ?? []).filter(
-      (c) => !name || c.name.toLowerCase().includes(name),
+      (c) => !name || foldForSearch(c.name).includes(name),
     );
   }
 
   protected filteredStudents(): PaymentStudentOption[] {
-    const name = this.studentFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.studentFilterName.trim());
     return (this.recipientOptions()?.students ?? []).filter(
       (s) =>
-        !name || `${s.firstName} ${s.lastName}`.toLowerCase().includes(name),
+        !name || foldForSearch(`${s.firstName} ${s.lastName}`).includes(name),
     );
   }
 
   protected filteredParents(): PaymentPersonOption[] {
-    const name = this.parentFilterName.trim().toLowerCase();
+    const name = foldForSearch(this.parentFilterName.trim());
     return (this.recipientOptions()?.parents ?? []).filter(
-      (p) => !name || p.name.toLowerCase().includes(name),
+      (p) => !name || foldForSearch(p.name).includes(name),
     );
   }
 
