@@ -106,7 +106,8 @@ test("an absent teacher's lesson is cancelled in Suplování and once the day is
     await edit.getByRole('combobox', { name: 'Co se mění' }).click();
     await page.getByRole('option', { name: 'Odpadá' }).click();
     await edit.getByRole('button', { name: 'Uložit' }).click();
-    // Only the lessons without a substitute show until all are asked for.
+    await expect(lesson).toContainText('Odpadá');
+    await page.getByLabel('Vyřešené hodiny').uncheck();
     await expect(lesson).toBeHidden();
     await page.getByLabel('Všechny hodiny dne').check();
     await expect(lesson).toContainText('Odpadá');
