@@ -38,15 +38,49 @@
   @if (day(); as d) { @if (!d.hasTimetable) {
   <p-message severity="info">Na tento den není zveřejněný rozvrh.</p-message>
   } @else {
+  <section
+    aria-label="Nepřítomní učitelé"
+    class="flex flex-col gap-2 rounded border border-surface-200 p-3 dark:border-surface-700"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h3 class="m-0 text-base">Nepřítomní učitelé</h3>
+      <p-button
+        label="Nepřítomnost učitele"
+        icon="pi pi-user-minus"
+        severity="secondary"
+        [outlined]="true"
+        size="small"
+        [disabled]="busy()"
+        (onClick)="newAbsence()"
+      />
+    </div>
+    @if (d.absences.length === 0) {
+    <p class="m-0 text-sm text-surface-500">Nikdo.</p>
+    } @else {
+    <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
+      @for (a of d.absences; track a.id) {
+      <li
+        class="flex items-center gap-1 rounded border border-surface-300 py-1 pl-3 pr-1 text-sm dark:border-surface-600"
+        data-testid="teacher-absence"
+      >
+        <span class="font-medium">{{ a.teacherName }}</span>
+        <span class="text-surface-500">{{ absenceTime(a) }}</span>
+        <p-button
+          icon="pi pi-times"
+          [text]="true"
+          size="small"
+          severity="secondary"
+          [ariaLabel]="'Smazat nepřítomnost ' + a.teacherName"
+          [disabled]="busy()"
+          (onClick)="deleteAbsence(a.id)"
+        />
+      </li>
+      }
+    </ul>
+    }
+  </section>
+
   <div class="flex flex-wrap gap-2">
-    <p-button
-      label="Nepřítomnost učitele"
-      icon="pi pi-user-minus"
-      severity="secondary"
-      [outlined]="true"
-      [disabled]="busy()"
-      (onClick)="newAbsence()"
-    />
     <p-button
       label="Doplnit zástupy"
       icon="pi pi-bolt"
@@ -83,34 +117,6 @@
   </p-message>
   }
 
-  <section aria-label="Nepřítomní učitelé">
-    <h3 class="mb-2 text-base">Nepřítomní učitelé</h3>
-    @if (d.absences.length === 0) {
-    <p class="m-0 text-sm text-surface-500">Nikdo.</p>
-    } @else {
-    <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
-      @for (a of d.absences; track a.id) {
-      <li
-        class="flex items-center gap-1 rounded border border-surface-300 py-1 pl-3 pr-1 text-sm dark:border-surface-600"
-        data-testid="teacher-absence"
-      >
-        <span class="font-medium">{{ a.teacherName }}</span>
-        <span class="text-surface-500">{{ absenceTime(a) }}</span>
-        <p-button
-          icon="pi pi-times"
-          [text]="true"
-          size="small"
-          severity="secondary"
-          [ariaLabel]="'Smazat nepřítomnost ' + a.teacherName"
-          [disabled]="busy()"
-          (onClick)="deleteAbsence(a.id)"
-        />
-      </li>
-      }
-    </ul>
-    }
-  </section>
-
   <section aria-label="Hodiny dne">
     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <h3 class="m-0 text-base">
@@ -122,18 +128,34 @@
         />
         }
       </h3>
-      <p-selectButton
-        [options]="viewByOptions"
-        optionLabel="label"
-        optionValue="value"
-        [allowEmpty]="false"
-        [ngModel]="viewBy()"
-        (ngModelChange)="viewBy.set($event)"
-        ariaLabel="Řádky"
-      />
+      <div class="flex flex-wrap items-center gap-3">
+        <label class="flex items-center gap-2 text-sm">
+          <p-checkbox
+            [binary]="true"
+            inputId="allLessons"
+            [ngModel]="showAll()"
+            (ngModelChange)="showAll.set($event)"
+          />
+          Všechny hodiny dne
+        </label>
+        <p-selectButton
+          [options]="viewByOptions"
+          optionLabel="label"
+          optionValue="value"
+          [allowEmpty]="false"
+          [ngModel]="viewBy()"
+          (ngModelChange)="viewBy.set($event)"
+          ariaLabel="Řádky"
+        />
+      </div>
     </div>
+    @if (!showAll() && rows().length === 0) {
+    <p class="m-0 mb-2 text-sm text-surface-500">
+      Žádná hodina bez zástupu. Celý den ukáže „Všechny hodiny dne“.
+    </p>
+    }
     <div
-      class="overflow-x-auto rounded border border-surface-200 dark:border-surface-700"
+      class="isolate overflow-x-auto rounded border border-surface-200 dark:border-surface-700"
     >
       <table
         class="w-full border-collapse text-xs"

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
@@ -95,6 +96,7 @@ function today(): Date {
   selector: 'app-substitutions-panel',
   imports: [
     Button,
+    Checkbox,
     DatePicker,
     Dialog,
     FloatField,
@@ -120,6 +122,8 @@ export class SubstitutionsPanel {
   protected readonly day = signal<SubstitutionDay | null>(null);
   protected readonly busy = signal(false);
   protected readonly viewBy = signal<ViewBy>('classes');
+  /** Otherwise only the lessons without a substitute. */
+  protected readonly showAll = signal(false);
   protected readonly viewByOptions = [
     { label: 'Třídy', value: 'classes' },
     { label: 'Učitelé', value: 'teachers' },
@@ -162,7 +166,9 @@ export class SubstitutionsPanel {
       of: (l: SubstitutionLesson) => boolean,
     ): GridRow => {
       const cells = new Map<number, SubstitutionLesson[]>();
-      for (const lesson of day.lessons.filter(of)) {
+      for (const lesson of day.lessons.filter(
+        (l) => of(l) && (this.showAll() || l.needsCover),
+      )) {
         cells.set(lesson.periodNumber, [
           ...(cells.get(lesson.periodNumber) ?? []),
           lesson,
@@ -175,9 +181,13 @@ export class SubstitutionsPanel {
         cells,
       };
     };
+    const shown = (rows: GridRow[]) =>
+      this.showAll() ? rows : rows.filter((r) => r.cells.size > 0);
     if (this.viewBy() === 'classes') {
-      return day.classes.map((c) =>
-        row(c.id, c.name, (l) => l.classIds.includes(c.id)),
+      return shown(
+        day.classes.map((c) =>
+          row(c.id, c.name, (l) => l.classIds.includes(c.id)),
+        ),
       );
     }
     const ids = new Set<number>(absent);
@@ -188,8 +198,8 @@ export class SubstitutionsPanel {
         }
       }
     }
-    return [...ids]
-      .map((id) =>
+    return shown(
+      [...ids].map((id) =>
         row(
           id,
           this.teacherName(id),
@@ -197,8 +207,8 @@ export class SubstitutionsPanel {
             (l.teacherId === id && !l.gone) ||
             (l.originalTeacherId === id && (l.teacherId !== id || l.gone)),
         ),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+      ),
+    ).sort((a, b) => a.name.localeCompare(b.name, 'cs'));
   });
   protected readonly freeByPeriod = computed(
     () => new Map((this.day()?.free ?? []).map((f) => [f.period, f])),
