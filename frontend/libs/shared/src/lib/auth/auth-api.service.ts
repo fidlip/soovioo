@@ -345,13 +345,24 @@ export class AuthApiService {
   }
 }
 
-/** base64url JWT segment -> string, decoding UTF-8 (plain `atob` would
- * turn "Škola" into mojibake). */
+const BASE64URL =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+/** base64url JWT segment -> string, decoding UTF-8. By hand: plain `atob`
+ * gives bytes as characters on the web, and on mobile, where it reads them
+ * as UTF-8 itself, breaks "Škola" for good. */
 function decodeJwtPart(part: string): string {
-  const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(
-    base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='),
-  );
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+  const bytes: number[] = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const char of part) {
+    buffer = (buffer << 6) | BASE64URL.indexOf(char);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+      buffer &= (1 << bits) - 1;
+    }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
 }

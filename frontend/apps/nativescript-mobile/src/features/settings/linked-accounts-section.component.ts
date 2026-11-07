@@ -5,6 +5,7 @@ import {
   NativeScriptFormsModule,
 } from '@nativescript/angular';
 import { Dialogs } from '@nativescript/core';
+import { PushService } from '../../push.service';
 import {
   LinkedAccount,
   LinkedAccountsApiService,
@@ -21,6 +22,7 @@ import {
 export class LinkedAccountsSectionComponent {
   private readonly api = inject(LinkedAccountsApiService);
   private readonly notificationsApi = inject(NotificationsApiService);
+  private readonly push = inject(PushService);
 
   protected readonly accounts = signal<LinkedAccount[]>([]);
   protected schoolSlug = '';
@@ -39,6 +41,12 @@ export class LinkedAccountsSectionComponent {
     });
   }
 
+  /** The list here and the switcher in the bar. */
+  private changed(): void {
+    this.load();
+    this.push.changed.next();
+  }
+
   protected link(): void {
     this.error.set(null);
     this.api
@@ -52,7 +60,7 @@ export class LinkedAccountsSectionComponent {
           this.schoolSlug = '';
           this.username = '';
           this.password = '';
-          this.load();
+          this.changed();
         },
         error: (err: HttpErrorResponse) =>
           this.error.set(
@@ -72,7 +80,7 @@ export class LinkedAccountsSectionComponent {
     });
     if (confirmed) {
       this.api.unlink(account.userId).subscribe({
-        next: () => this.load(),
+        next: () => this.changed(),
         error: (err) => console.error('unlink failed', err),
       });
     }
