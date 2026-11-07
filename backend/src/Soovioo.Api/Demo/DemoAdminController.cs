@@ -7,8 +7,8 @@ using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Demo;
 
-/// <summary>SuperAdmin's view of the "Vyzkoušet" demos: who left a contact,
-/// and what visitors thought.</summary>
+/// <summary>SuperAdmin's view of the "Vyzkoušet" demos: who left a contact.
+/// Their feedback is in <see cref="ProductFeedback.FeedbackAdminController"/>.</summary>
 [Authorize(Roles = "SuperAdmin")]
 [ApiController]
 [Route("api/superadmin/demo")]
@@ -30,14 +30,6 @@ public class DemoAdminController(AppDbContext db) : ControllerBase
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
         return File(bytes, "text/csv; charset=utf-8", "soovioo-demo-kontakty.csv");
     }
-
-    [HttpGet("feedback")]
-    public async Task<ActionResult<IEnumerable<DemoFeedbackDto>>> GetFeedback() =>
-        Ok(await db.DemoFeedback
-            .OrderByDescending(f => f.CreatedAt)
-            .Take(500)
-            .Select(f => new DemoFeedbackDto(f.Id, f.DemoSlug, f.Rating, f.Text, f.Email, f.Consent, f.Role, f.CreatedAt))
-            .ToListAsync());
 
     /// <summary>As the contacts table on the web shows it.</summary>
     private static string SourceLabel(string source) => source switch
@@ -61,6 +53,3 @@ public class DemoAdminController(AppDbContext db) : ControllerBase
 }
 
 public record DemoContactDto(int Id, string Email, bool Consent, string Source, string DemoSlug, bool DemoExists, DateTimeOffset CreatedAt);
-
-public record DemoFeedbackDto(
-    int Id, string DemoSlug, int? Rating, string? Text, string? Email, bool Consent, string? Role, DateTimeOffset CreatedAt);

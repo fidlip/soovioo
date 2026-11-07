@@ -97,6 +97,20 @@
       title="Logy"
       ><app-icon name="logs" /><span class="app-nav-label">Logy</span></a
     >
+    <a
+      routerLink="/superadmin/feedback"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Zpětná vazba"
+      title="Zpětná vazba"
+      ><app-icon name="feedback" /><span class="app-nav-label"
+        >Zpětná vazba</span
+      >@if (unread.feedback() > 0) {<span
+        class="app-nav-badge"
+        [attr.aria-label]="unread.feedback() + ' nových'"
+        >{{ unread.feedback() }}</span
+      >}</a
+    >
     } @else {
     <button
       type="button"

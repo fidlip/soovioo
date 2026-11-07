@@ -6,89 +6,18 @@
   [dismissableMask]="true"
   styleClass="w-full max-w-md"
 >
-  <form class="flex flex-col gap-4" (ngSubmit)="send()">
-    <div
-      class="flex justify-between gap-1"
-      role="radiogroup"
-      aria-label="Hodnocení"
-    >
-      @for (option of ratings; track option.value) {
-      <button
-        type="button"
-        role="radio"
-        class="demo-option compact !px-1 !py-2"
-        [class.selected]="rating() === option.value"
-        [attr.aria-checked]="rating() === option.value"
-        [attr.aria-label]="option.label"
-        (click)="rating.set(rating() === option.value ? null : option.value)"
-      >
-        <span class="text-2xl" aria-hidden="true">{{ option.icon }}</span>
-        <span>{{ option.label }}</span>
-      </button>
-      }
-    </div>
-    <app-float-field
-      label="Co se vám líbí, co chybí, co nefunguje?"
-      for="demo-feedback-text"
-    >
-      <textarea
-        pTextarea
-        id="demo-feedback-text"
-        name="text"
-        rows="4"
-        class="w-full"
-        maxlength="4000"
-        [(ngModel)]="text"
-      ></textarea>
-    </app-float-field>
-    <app-float-field label="Nechte nám kontakt" for="demo-feedback-email">
-      <input
-        pInputText
-        id="demo-feedback-email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        class="w-full"
-        placeholder="vas@email.cz"
-        [(ngModel)]="email"
-      />
-    </app-float-field>
-    <div class="flex items-start gap-2">
-      <p-checkbox
-        inputId="demo-feedback-consent"
-        name="consent"
-        [binary]="true"
-        [disabled]="!email.trim()"
-        [(ngModel)]="consent"
-      />
-      <label
-        for="demo-feedback-consent"
-        class="text-sm text-surface-700 dark:text-surface-200"
-        >Souhlasím, aby mě tým Soovioo kontaktoval.
-        <a
-          href="https://soovioo.cz/zasady.html#demo"
-          target="_blank"
-          rel="noopener"
-          class="text-primary"
-          >Zásady</a
-        ></label
-      >
-    </div>
-    <div class="flex flex-wrap justify-between gap-2">
-      <p-button
-        type="button"
-        label="Už se neptat"
-        [text]="true"
-        severity="secondary"
-        (onClick)="feedback.mute()"
-      />
-      <p-button
-        type="submit"
-        label="Odeslat"
-        icon="pi pi-send"
-        [disabled]="!canSend()"
-        [loading]="sending()"
-      />
-    </div>
-  </form>
+  <app-feedback-form
+    idPrefix="demo-feedback"
+    privacyUrl="https://soovioo.cz/zasady.html#demo"
+    [send]="send"
+    (sent)="feedback.mute()"
+  >
+    <p-button
+      type="button"
+      label="Už se neptat"
+      [text]="true"
+      severity="secondary"
+      (onClick)="feedback.mute()"
+    />
+  </app-feedback-form>
 </p-dialog>

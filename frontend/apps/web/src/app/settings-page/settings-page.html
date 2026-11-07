@@ -1,6 +1,37 @@
-<h1 class="mb-4">Nastavení</h1>
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+  <h1 class="mb-0">Nastavení</h1>
+  @if (showFeedback) {
+  <p-button
+    label="Zpětná vazba"
+    icon="pi pi-comment"
+    severity="secondary"
+    [outlined]="true"
+    (onClick)="feedbackOpen.set(true)"
+  />
+  }
+</div>
 
-@if (wasForcedPasswordChange) {
+@if (showFeedback) {
+<p-dialog
+  [visible]="feedbackOpen()"
+  (visibleChange)="feedbackOpen.set($event)"
+  header="Jak se vám Soovioo líbí?"
+  [modal]="true"
+  [dismissableMask]="true"
+  styleClass="w-full max-w-md"
+>
+  <p class="mb-4 mt-0 text-sm text-surface-500 dark:text-surface-400">
+    Napište nám, co chybí nebo nefunguje — čte to přímo tým Soovioo, ne vaše
+    škola.
+  </p>
+  <app-feedback-form
+    idPrefix="settings-feedback"
+    [email]="profile()?.email ?? ''"
+    [send]="sendFeedback"
+    (sent)="feedbackOpen.set(false)"
+  />
+</p-dialog>
+} @if (wasForcedPasswordChange) {
 <p-message
   severity="warn"
   text="Vaše heslo vám nastavil administrátor. Z bezpečnostních důvodů si prosím nastavte vlastní, než budete moct pokračovat do aplikace."

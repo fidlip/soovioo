@@ -4,6 +4,7 @@ import { Observable, tap } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import { AUTH_REFRESH_VIA_COOKIE } from '../auth/auth-session.config';
 import { AuthApiService } from '../auth/auth-api.service';
+import { FeedbackRequest } from '../feedback/feedback-api.service';
 import { LoginResponse } from '../auth/login-response.model';
 import { SchoolType } from '../evidence/student-term';
 
@@ -46,15 +47,6 @@ export interface DemoEmail {
   createdAt: string;
 }
 
-export interface DemoFeedbackRequest {
-  rating: number | null;
-  text: string | null;
-  email: string | null;
-  consent: boolean;
-  /** The role the visitor was looking through. */
-  role: string | null;
-}
-
 export interface DemoContact {
   id: number;
   email: string;
@@ -63,17 +55,6 @@ export interface DemoContact {
   source: string;
   demoSlug: string;
   demoExists: boolean;
-  createdAt: string;
-}
-
-export interface DemoFeedback {
-  id: number;
-  demoSlug: string;
-  rating: number | null;
-  text: string | null;
-  email: string | null;
-  consent: boolean;
-  role: string | null;
   createdAt: string;
 }
 
@@ -135,7 +116,7 @@ export class DemoApiService {
     return this.http.get<DemoEmail[]>(`${this.baseUrl}/api/demo/emails`);
   }
 
-  feedback(slug: string, request: DemoFeedbackRequest): Observable<void> {
+  feedback(slug: string, request: FeedbackRequest): Observable<void> {
     return this.http.post<void>(`${this.url(slug)}/feedback`, request);
   }
 
@@ -150,12 +131,5 @@ export class DemoApiService {
     return this.http.get(`${this.baseUrl}/api/superadmin/demo/contacts.csv`, {
       responseType: 'blob',
     });
-  }
-
-  /** SuperAdmin: what visitors thought. */
-  allFeedback(): Observable<DemoFeedback[]> {
-    return this.http.get<DemoFeedback[]>(
-      `${this.baseUrl}/api/superadmin/demo/feedback`,
-    );
   }
 }

@@ -75,6 +75,7 @@ builder.Services.AddScoped<Soovioo.Api.Notifications.PushJob>();
 builder.Services.AddScoped<Soovioo.Api.Timetable.TimetableChangeNoticeJob>();
 builder.Services.AddPush(builder.Configuration);
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolService>();
+builder.Services.AddScoped<Soovioo.Api.ProductFeedback.FeedbackService>();
 
 // Generating a demo school is the one anonymous request that costs real
 // work (seconds of CPU, tens of thousands of rows) — limited per client IP

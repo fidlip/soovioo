@@ -1,0 +1,81 @@
+<form class="flex flex-col gap-4" (ngSubmit)="submit()">
+  <div
+    class="flex justify-between gap-1"
+    role="radiogroup"
+    aria-label="Hodnocení"
+  >
+    @for (option of ratings; track option.value) {
+    <button
+      type="button"
+      role="radio"
+      class="demo-option compact !px-1 !py-2"
+      [class.selected]="rating() === option.value"
+      [attr.aria-checked]="rating() === option.value"
+      [attr.aria-label]="option.label"
+      (click)="rating.set(rating() === option.value ? null : option.value)"
+    >
+      <span class="text-2xl" aria-hidden="true">{{ option.icon }}</span>
+      <span>{{ option.label }}</span>
+    </button>
+    }
+  </div>
+  <app-float-field
+    label="Co se vám líbí, co chybí, co nefunguje?"
+    [for]="idPrefix() + '-text'"
+  >
+    <textarea
+      pTextarea
+      [id]="idPrefix() + '-text'"
+      name="text"
+      rows="4"
+      class="w-full"
+      maxlength="4000"
+      [(ngModel)]="text"
+    ></textarea>
+  </app-float-field>
+  <app-float-field label="Nechte nám kontakt" [for]="idPrefix() + '-email'">
+    <input
+      pInputText
+      [id]="idPrefix() + '-email'"
+      name="email"
+      type="email"
+      autocomplete="email"
+      class="w-full"
+      placeholder="vas@email.cz"
+      [ngModel]="contactValue()"
+      (ngModelChange)="contact = $event"
+    />
+  </app-float-field>
+  <div class="flex items-start gap-2">
+    <p-checkbox
+      [inputId]="idPrefix() + '-consent'"
+      name="consent"
+      [binary]="true"
+      [disabled]="!contactValue().trim()"
+      [(ngModel)]="consent"
+    />
+    <label
+      [for]="idPrefix() + '-consent'"
+      class="text-sm text-surface-700 dark:text-surface-200"
+      >Souhlasím, aby mě tým Soovioo kontaktoval.
+      <a
+        [href]="privacyUrl()"
+        target="_blank"
+        rel="noopener"
+        class="text-primary"
+        >Zásady</a
+      ></label
+    >
+  </div>
+  <div class="flex flex-wrap justify-between gap-2">
+    <ng-content />
+    <p-button
+      type="submit"
+      label="Odeslat"
+      icon="pi pi-send"
+      styleClass="ml-auto"
+      [disabled]="!canSend()"
+      [loading]="sending()"
+    />
+  </div>
+</form>

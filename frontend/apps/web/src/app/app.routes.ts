@@ -192,6 +192,14 @@ const superAdminRoutes: Route[] = [
     canActivate: [authGuard],
   },
   {
+    path: 'superadmin/feedback',
+    loadComponent: () =>
+      import('./feedback/feedback-page/feedback-page').then(
+        (m) => m.FeedbackPage,
+      ),
+    canActivate: [authGuard],
+  },
+  {
     path: 'superadmin/settings',
     loadComponent: () =>
       import('./settings-page/settings-page').then((m) => m.SettingsPage),

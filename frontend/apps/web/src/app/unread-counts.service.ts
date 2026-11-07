@@ -1,12 +1,18 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { LinkedAccount, NotificationsApiService } from '@soovioo/shared';
+import {
+  FeedbackApiService,
+  LinkedAccount,
+  NotificationsApiService,
+} from '@soovioo/shared';
 
 /** Unread numbers for the bell and the sidebar "Zprávy" badge, in one
  * request — refreshed on every navigation and once a minute (app.ts), and
- * whenever something gets read. */
+ * whenever something gets read. A SuperAdmin's "Zpětná vazba" badge the
+ * same way. */
 @Injectable({ providedIn: 'root' })
 export class UnreadCountsService {
   private readonly api = inject(NotificationsApiService);
+  private readonly feedbackApi = inject(FeedbackApiService);
 
   readonly notifications = signal(0);
   readonly messages = signal(0);
@@ -15,6 +21,8 @@ export class UnreadCountsService {
   readonly linkedAccounts = signal<LinkedAccount[]>([], {
     equal: (a, b) => JSON.stringify(a) === JSON.stringify(b),
   });
+  /** SuperAdmin: feedback no one opened yet. */
+  readonly feedback = signal(0);
 
   refresh(): void {
     this.api.getUnreadCounts().subscribe({
@@ -29,6 +37,13 @@ export class UnreadCountsService {
         this.messages.set(0);
         this.linkedAccounts.set([]);
       },
+    });
+  }
+
+  refreshFeedback(): void {
+    this.feedbackApi.unseenCount().subscribe({
+      next: (count) => this.feedback.set(count),
+      error: () => this.feedback.set(0),
     });
   }
 }
