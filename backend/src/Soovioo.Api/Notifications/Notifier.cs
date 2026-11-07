@@ -129,7 +129,7 @@ public class Notifier(AppDbContext db, TimeProvider clock)
             var notification = draft.TargetId is null
                 ? null
                 : unread.FirstOrDefault(n => n.UserId == draft.UserId && n.Type == draft.Type && n.TargetId == draft.TargetId
-                    && (draft.Type != NotificationType.TimetableChange || n.StudentId == draft.StudentId));
+                    && (draft.Type is not (NotificationType.TimetableChange or NotificationType.Substitution) || n.StudentId == draft.StudentId));
             if (notification is null)
             {
                 notification = new Notification

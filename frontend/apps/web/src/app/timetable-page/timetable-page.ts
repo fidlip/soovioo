@@ -42,6 +42,8 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  LessonChange,
+  SubstitutionsApiService,
   Teacher,
   TeacherTeaching,
   TeachersApiService,
@@ -144,6 +146,10 @@ interface GridEntry {
   locked: boolean;
   studentGroupId?: number | null;
   studentGroupName?: string | null;
+  /** A published change of the day, e.g. "Zástup". */
+  change?: string | null;
+  /** With `change`: not taught then. */
+  gone?: boolean;
 }
 
 /** What's being dragged: a lesson of the timetable or one of the unplaced. */
@@ -221,6 +227,7 @@ export class TimetablePage {
   protected readonly notify = inject(NotifyService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly timetableApi = inject(TimetableApiService);
+  private readonly substitutionsApi = inject(SubstitutionsApiService);
   private readonly versionsApi = inject(TimetableVersionsApiService);
   private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly subjectsApi = inject(SubjectsApiService);
@@ -421,13 +428,59 @@ export class TimetablePage {
     })),
   );
 
+  /** The published changes of the shown week (suplování); only on the
+   * page on its own — the editor edits the timetable itself. */
+  private readonly weekChanges = signal<LessonChange[]>([]);
+  private changesRequest = 0;
+
   /** Entries visible for the currently displayed week — "Every" always
-   * shows, "Odd"/"Even" only on a matching week. */
-  protected readonly visibleEntries = computed(() =>
-    this.entries().filter(
+   * shows, "Odd"/"Even" only on a matching week — with the week's changes. */
+  protected readonly visibleEntries = computed(() => {
+    const lessons = this.entries().filter(
       (e) => e.weekParity === 'Every' || e.weekParity === this.currentParity(),
-    ),
-  );
+    );
+    const from = toDateOnly(this.weekStart());
+    const end = new Date(this.weekStart());
+    end.setDate(end.getDate() + 7);
+    const to = toDateOnly(end);
+    const changes = this.weekChanges().filter(
+      (c) => c.date >= from && c.date < to,
+    );
+    if (changes.length === 0) {
+      return lessons;
+    }
+    const same = (e: GridEntry, c: LessonChange) =>
+      e.dayOfWeek === c.dayOfWeek &&
+      e.periodNumber === c.periodNumber &&
+      (c.studentGroupId !== null
+        ? e.studentGroupId === c.studentGroupId
+        : !e.studentGroupId && e.schoolClassId === c.schoolClassId);
+    const teacherView = this.viewMode() === 'teacher';
+    return [
+      ...lessons.filter((e) => !changes.some((c) => c.replaces && same(e, c))),
+      ...changes.map((c, i): GridEntry => ({
+        id: -1 - i,
+        schoolClassId: c.schoolClassId ?? 0,
+        schoolClassName: teacherView ? c.schoolClassName : null,
+        subjectId: c.subjectId,
+        subjectName: c.subjectName,
+        subjectAbbreviation: c.subjectAbbreviation,
+        dayOfWeek: c.dayOfWeek,
+        periodNumber: c.periodNumber,
+        weekParity: 'Every',
+        teacherId: c.teacherId,
+        teacherName: c.teacherName,
+        classroomId: c.classroomId,
+        classroomName: c.classroomName,
+        conflicts: [],
+        locked: false,
+        studentGroupId: c.studentGroupId,
+        studentGroupName: c.studentGroupName,
+        change: c.label,
+        gone: c.gone,
+      })),
+    ];
+  });
 
   /** Periods with at least one entry this week — empty columns are hidden,
    * except while editing, where every period must stay clickable to add an
@@ -530,6 +583,15 @@ export class TimetablePage {
       this.route.queryParamMap
         .pipe(takeUntilDestroyed())
         .subscribe((params) => {
+          const day = params.get('day');
+          if (day) {
+            this.router.navigate([], { queryParams: {}, replaceUrl: true });
+            this.weekStart.set(mondayOf(new Date(`${day}T00:00:00`)));
+            if (this.entriesLoaded()) {
+              this.reloadIfVersionChanged();
+              this.loadChanges();
+            }
+          }
           const version = Number(params.get('version'));
           if (version && params.get('change') === 'start') {
             this.router.navigate([], { queryParams: {}, replaceUrl: true });
@@ -819,6 +881,7 @@ export class TimetablePage {
     d.setDate(d.getDate() - 7);
     this.weekStart.set(d);
     this.reloadIfVersionChanged();
+    this.loadChanges();
   }
 
   protected nextWeek(): void {
@@ -826,11 +889,13 @@ export class TimetablePage {
     d.setDate(d.getDate() + 7);
     this.weekStart.set(d);
     this.reloadIfVersionChanged();
+    this.loadChanges();
   }
 
   protected thisWeek(): void {
     this.weekStart.set(mondayOf(new Date()));
     this.reloadIfVersionChanged();
+    this.loadChanges();
     this.scrollToCurrentPeriodAfterRender();
   }
 
@@ -925,7 +990,8 @@ export class TimetablePage {
     const conflicts = this.canManageTimetable()
       ? entry.conflicts.map((c) => `\n⚠ ${c}`).join('')
       : '';
-    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}${conflicts}`;
+    const change = entry.change ? `\n${entry.change}` : '';
+    return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}${change}${conflicts}`;
   }
 
   protected dropStatus(day: DayOfWeek, period: number): string | null {
@@ -1371,6 +1437,7 @@ export class TimetablePage {
     if (this.selection && !this.selection.loaded()) {
       return;
     }
+    this.loadChanges();
     const selected = this.selectedVersionId() ?? this.onlyDraft()?.id ?? null;
     const query =
       selected === null
@@ -1439,6 +1506,34 @@ export class TimetablePage {
           },
         });
     }
+  }
+
+  private loadChanges(): void {
+    if (this.editor) {
+      return;
+    }
+    const mode = this.viewMode();
+    const scope =
+      mode === 'class'
+        ? { schoolClassId: this.selectedClassId() }
+        : mode === 'teacher'
+          ? { teacherId: this.selectedTeacherId() }
+          : { studentId: this.selectedStudentId() };
+    const request = ++this.changesRequest;
+    if (Object.values(scope).every((v) => v === null)) {
+      this.weekChanges.set([]);
+      return;
+    }
+    this.substitutionsApi
+      .getWeek(toDateOnly(this.weekStart()), scope)
+      .subscribe({
+        next: (changes) => {
+          if (request === this.changesRequest) {
+            this.weekChanges.set(changes);
+          }
+        },
+        error: (err) => console.error('getWeek failed', err),
+      });
   }
 
   private setEntries(entries: GridEntry[]): void {

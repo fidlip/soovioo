@@ -1,4 +1,4 @@
-@if (selection.options().length > 0) {
+@if (selection.options().length > 0 && activeSection() !== 'substitutions') {
 <div class="mb-4">
   <app-float-field label="Verze rozvrhu" for="teachingVersion">
     <p-select
@@ -472,6 +472,12 @@
         } }
         <app-rvp-panel [overview]="o" (changed)="show($event)" />
       </div>
+      }
+    </p-tabpanel>
+
+    <p-tabpanel value="substitutions">
+      @if (activeSection() === 'substitutions') {
+      <app-substitutions-panel />
       }
     </p-tabpanel>
 

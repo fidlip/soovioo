@@ -42,13 +42,13 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         var isAdmin = await User.HasPermissionAsync(db, Permission.Administration);
         var isTeacher = isStaff && !isAdmin;
         var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
-        var today = DateOnly.FromDateTime(DateTime.Today).DayOfWeek;
+        var today = db.Today.DayOfWeek;
 
         var todayLessons = new List<TimetableEntryDto>();
         string? todayLessonsContext = null;
         if (isTeacher)
         {
-            todayLessons = await TodayLessonsForTeacherAsync(userId, today);
+            todayLessons = await WithChangesAsync(await TodayLessonsForTeacherAsync(userId, today), new LessonScope(TeacherId: userId));
         }
         else if (!isAdmin)
         {
@@ -206,7 +206,29 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 e.StudentGroupId, e.StudentGroup == null ? null : e.StudentGroup.Name))
             .ToListAsync();
 
+        var groups = await db.StudentGroupMembers.Where(m => m.StudentId == student.Id).Select(m => m.StudentGroupId).ToListAsync();
+        lessons = await WithChangesAsync(lessons, new LessonScope(ClassId: student.SchoolClassId, GroupIds: groups.ToHashSet()));
         return (lessons, $"{student.FirstName} {student.LastName} ({student.SchoolClassName})");
+    }
+
+    /// <summary>Today's published changes of the lessons.</summary>
+    private async Task<List<TimetableEntryDto>> WithChangesAsync(List<TimetableEntryDto> lessons, LessonScope scope)
+    {
+        var effective = await LessonChanges.OnAsync(db, db.Today, db.Today);
+        var views = LessonChangeViews.For(effective, scope, await LessonNames.LoadAsync(db, effective));
+        if (views.Count == 0)
+        {
+            return lessons;
+        }
+        static bool Same(TimetableEntryDto e, LessonChangeDto v) => e.PeriodNumber == v.PeriodNumber
+            && (v.StudentGroupId is { } g ? e.StudentGroupId == g : e.StudentGroupId == null && e.SchoolClassId == v.SchoolClassId);
+        var id = 0;
+        return [.. lessons.Where(e => !views.Any(v => v.Replaces && Same(e, v)))
+            .Concat(views.Select(v => new TimetableEntryDto(
+                --id, v.SchoolClassId ?? 0, v.SubjectId, v.SubjectName, v.SubjectAbbreviation, v.DayOfWeek, v.PeriodNumber,
+                WeekParity.Every, v.TeacherId, v.TeacherName, v.ClassroomId, v.ClassroomName, [], false,
+                v.StudentGroupId, v.StudentGroupName, v.Label, v.Gone)))
+            .OrderBy(e => e.PeriodNumber)];
     }
 
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

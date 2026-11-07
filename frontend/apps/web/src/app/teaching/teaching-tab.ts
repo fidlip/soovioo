@@ -49,6 +49,7 @@ import { TimetablePage } from '../timetable-page/timetable-page';
 import { TimetableVersionSelection } from '../timetable-page/timetable-version-selection';
 import { RvpPanel } from './rvp-panel';
 import { StudentGroupsPanel } from './student-groups';
+import { SubstitutionsPanel } from './substitutions-panel';
 
 const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
 
@@ -73,6 +74,7 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
     RvpPanel,
     Select,
     StudentGroupsPanel,
+    SubstitutionsPanel,
     TableModule,
     Tab,
     TabList,
@@ -121,7 +123,10 @@ export class TeachingTab {
         ]
       : []),
     ...(this.authApi.can('Timetable')
-      ? [{ value: 'settings', label: 'Nastavení' }]
+      ? [
+          { value: 'substitutions', label: 'Suplování' },
+          { value: 'settings', label: 'Nastavení' },
+        ]
       : []),
   ]);
   protected readonly activeSection = computed(() => {

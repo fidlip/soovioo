@@ -30,6 +30,10 @@ export interface TimetableEntry {
   /** A lesson of a group; null = the whole class. */
   studentGroupId?: number | null;
   studentGroupName?: string | null;
+  /** Today's change of the lesson (on Home), e.g. "Zástup". */
+  change?: string | null;
+  /** With `change`: not taught today. */
+  gone?: boolean;
 }
 
 export interface CreateTimetableEntryRequest {

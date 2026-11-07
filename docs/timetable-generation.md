@@ -108,8 +108,7 @@ TimetableEntry
 - **Zveřejnění k datu**: `Published` s `ValidFrom` v budoucnu; předchozí verzi se nastaví
   `ValidTo = ValidFrom − 1 den`. Žádný plánovač není potřeba — rozhoduje datum.
 - **Docházka** (zameškané hodiny) a **Home „dnes“** čtou verzi platnou k danému dni.
-- **Suplování** později jako samostatná vrstva „výjimek“ nad verzí (den × hodina ×
-  třída → náhradní učitel/předmět/učebna/odpadá), verze se nemění.
+- **Suplování** (#215) je samostatná vrstva změn nad verzí, verze se nemění, viz níže.
 
 ## Úvazky — návrh modelu (vstup generátoru)
 
@@ -287,6 +286,22 @@ Administrace → Výuka → Rozvrh → koncept verze (`TimetableBoardController`
 - **Neumístěné hodiny** (jen pohled na třídu) nejsou uložené: je to rozdíl plánu a rozvrhu, po celých hodinách, 0,5 h jako lichý týden. Hodina z nich dostane učitele podle přidělení. Přetažení z rozvrhu do nich hodinu smaže; hodinu navíc oproti plánu to odmítne, protože by mezi nimi nebyla.
 - **Hodnocení rozvrhu** pod rozvrhem: tytéž řádky jako výsledek generování a kontrola před zveřejněním, načtené znovu po každé změně.
 
+## Suplování (#215)
+
+- **Nepřítomnost učitele** od–do, celé dny nebo tytéž hodiny každý den. Jeho hodiny
+  bez zástupu agenda (Administrace → Výuka → Suplování) ukáže jako „Chybí zástup“.
+- **Změna hodiny** (den × hodina × třída nebo skupina): jiný učitel, předmět, učebna,
+  odpadá, přesun na jinou hodinu téhož týdne, spojení s hodinou jiné třídy či skupiny
+  ve stejný čas, mimořádná hodina navíc. Upravit jde i jednotlivou hodinu bez nepřítomnosti.
+- **Nabídka zástupu**: volní a přítomní (ne „nemůže“), nejdřív s aprobací, pak ti, kdo
+  ten den učí, pak s nejméně suplováními v měsíci. „Doplnit zástupy“ dá každé hodině
+  prvního nabídnutého; nezveřejňuje.
+- **Zveřejnění dne**: změny se připravují a ostatní je vidí (rozvrh, Domů) až po
+  zveřejnění dne, které uloží jejich stav. Upozornění dostanou učitelé, žáci a rodiče,
+  jimž se hodiny oproti dříve zveřejněnému liší, se všemi změnami dne, které se jich
+  týkají; minulé dny se zveřejňují bez upozornění.
+- Docházka a přístup k třídám dál čtou verzi rozvrhu, změny je zatím neovlivňují.
+
 ## Navržené fáze
 
 1. **Verze rozvrhu** (model, migrace, výběr verze podle týdne, koncept + zveřejnění).
@@ -296,7 +311,7 @@ Administrace → Výuka → Rozvrh → koncept verze (`TimetableBoardController`
 3. **Generátor CP-SAT** pro koncept verze: tvrdá omezení → první použitelná verze;
    pak měkká omezení a váhy nastavitelné školou; výsledek vždy jen jako koncept.
 4. **Dostupnost učitelů a přání**, bloky (#162); skupiny žáků samostatně (#166).
-5. (Samostatně) **Suplování** nad verzemi.
+5. (Samostatně) **Suplování** nad verzemi (#215).
 
 ## Rizika a otevřené otázky
 
