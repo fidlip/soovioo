@@ -22,6 +22,9 @@ public enum NotificationType
 
     /// <summary>A published version changes the user's (or their child's) lessons.</summary>
     TimetableChange,
+
+    /// <summary>A published day changes the user's (or their child's) lessons.</summary>
+    Substitution,
 }
 
 /// <summary>One item under the bell — something new for one user, with a

@@ -22,11 +22,18 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   Photo: 'pi-image',
   Timetable: 'pi-cog',
   TimetableChange: 'pi-table',
+  Substitution: 'pi-user-edit',
 };
 
 /** The bell's popover with the notifications — a click opens the thing
  * it's about. The buttons that open it are the app shell's (sidebar, phone
  * top bar), they call `toggle`. */
+/** A day's notification is about yyyyMMdd. */
+function dayOfTarget(target: number): string {
+  const text = `${target}`;
+  return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+}
+
 @Component({
   selector: 'app-notification-bell',
   imports: [DateFormatPipe, Button, Loading, Popover],
@@ -86,7 +93,7 @@ export class NotificationBell {
     if (
       notification.page === 'timetable' &&
       notification.targetId &&
-      notification.type !== 'TimetableChange'
+      notification.type === 'Timetable'
     ) {
       this.router.navigate(this.schoolContext.link('admin'), {
         queryParams: {
@@ -104,7 +111,9 @@ export class NotificationBell {
           ? { conversation: notification.targetId }
           : notification.type === 'TimetableChange' && notification.targetId
             ? { version: notification.targetId, change: 'start' }
-            : {},
+            : notification.type === 'Substitution' && notification.targetId
+              ? { day: dayOfTarget(notification.targetId) }
+              : {},
     });
   }
 

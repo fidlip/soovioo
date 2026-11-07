@@ -109,7 +109,8 @@ public class NotificationDigestJob(
                     ? ""
                     : item.Page == "messages"
                         ? $"?conversation={id}"
-                        : item.Type == NotificationType.TimetableChange ? $"?version={id}&change=start" : "";
+                        : item.Type == NotificationType.TimetableChange ? $"?version={id}&change=start"
+                        : item.Type == NotificationType.Substitution ? $"?day={id / 10000:D4}-{id / 100 % 100:D2}-{id % 100:D2}" : "";
                 title = $"""<a href="{origin}/{item.Page}{query}">{title}</a>""";
             }
             html.Append($"<li><strong>{title}</strong>");

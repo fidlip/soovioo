@@ -37,6 +37,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<StudentGroupMember> StudentGroupMembers => Set<StudentGroupMember>();
     public DbSet<TimetableGroupChange> TimetableGroupChanges => Set<TimetableGroupChange>();
     public DbSet<TimetableGeneration> TimetableGenerations => Set<TimetableGeneration>();
+    public DbSet<TeacherAbsence> TeacherAbsences => Set<TeacherAbsence>();
+    public DbSet<LessonChange> LessonChanges => Set<LessonChange>();
+    public DbSet<SubstitutionDay> SubstitutionDays => Set<SubstitutionDay>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
@@ -363,6 +366,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<TimetableEntry>()
             .HasOne(t => t.StudentGroup).WithMany()
             .HasForeignKey(t => t.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<TeacherAbsence>(e =>
+        {
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.SchoolId, x.DateFrom });
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<LessonChange>(e =>
+        {
+            e.HasOne(x => x.SchoolClass).WithMany().HasForeignKey(x => x.SchoolClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.StudentGroup).WithMany().HasForeignKey(x => x.StudentGroupId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Classroom).WithMany().HasForeignKey(x => x.ClassroomId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.SchoolId, x.Date });
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<SubstitutionDay>(e =>
+        {
+            e.HasIndex(x => new { x.SchoolId, x.Date }).IsUnique();
+            e.Property(x => x.Changes).HasColumnType("jsonb").HasConversion(
+                c => System.Text.Json.JsonSerializer.Serialize(c, (System.Text.Json.JsonSerializerOptions?)null),
+                s => System.Text.Json.JsonSerializer.Deserialize<List<LessonChangeData>>(s, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<LessonChangeData>(),
+                new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<LessonChangeData>>(
+                    (a, b) => a!.SequenceEqual(b!),
+                    a => a.Aggregate(0, (h, c) => HashCode.Combine(h, c)),
+                    a => a.ToList()));
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<TimetableGeneration>(e =>
         {
             e.HasOne(x => x.TimetableVersion).WithMany()

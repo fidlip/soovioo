@@ -463,7 +463,11 @@ public record TimetableEntryDto(
     IReadOnlyList<string> Conflicts,
     bool Locked = false,
     int? StudentGroupId = null,
-    string? StudentGroupName = null);
+    string? StudentGroupName = null,
+    /// <summary>Today's change of the lesson (on Home), e.g. "Zástup".</summary>
+    string? Change = null,
+    /// <summary>With <see cref="Change"/>: not taught today.</summary>
+    bool Gone = false);
 
 /// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
 /// each entry belongs to — needed here (unlike the class-scoped DTO above)

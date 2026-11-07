@@ -214,7 +214,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         {
             return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Timetable))];
         }
-        return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, .. timetable];
+        return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, .. timetable];
     }
 
     private async Task<NotificationSettingsDto> SettingsOfAsync(User user)

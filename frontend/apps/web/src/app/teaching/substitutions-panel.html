@@ -1,0 +1,461 @@
+<div class="flex flex-col gap-4 pt-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <p-button
+      icon="pi pi-chevron-left"
+      severity="secondary"
+      [outlined]="true"
+      ariaLabel="Předchozí den"
+      (onClick)="step(-1)"
+    />
+    <p-datePicker
+      inputId="substitutionDay"
+      ariaLabel="Den"
+      [ngModel]="date()"
+      (ngModelChange)="goTo($event)"
+      [showIcon]="true"
+      [disabledDays]="[0, 6]"
+      appendTo="body"
+    />
+    <p-button
+      icon="pi pi-chevron-right"
+      severity="secondary"
+      [outlined]="true"
+      ariaLabel="Další den"
+      (onClick)="step(1)"
+    />
+    <span class="font-semibold" data-testid="substitution-day">
+      {{ dateLabel() }}
+    </span>
+    @if (status(); as s) {
+    <p-tag
+      [value]="s.label"
+      [severity]="s.severity"
+      data-testid="substitution-status"
+    />
+    }
+  </div>
+
+  @if (day(); as d) { @if (!d.hasTimetable) {
+  <p-message severity="info">Na tento den není zveřejněný rozvrh.</p-message>
+  } @else {
+  <div class="flex flex-wrap gap-2">
+    <p-button
+      label="Nepřítomnost učitele"
+      icon="pi pi-user-minus"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="newAbsence()"
+    />
+    <p-button
+      label="Mimořádná hodina"
+      icon="pi pi-plus"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="newExtra()"
+    />
+    <p-button
+      label="Doplnit zástupy"
+      icon="pi pi-bolt"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy() || needCover() === 0"
+      (onClick)="fill()"
+    />
+    <p-button
+      label="Zveřejnit den"
+      icon="pi pi-send"
+      [disabled]="busy() || (d.publishedAt !== null && !d.unpublished)"
+      (onClick)="publish()"
+    />
+  </div>
+
+  @if (d.problems.length > 0) {
+  <p-message severity="warn" data-testid="substitution-problems">
+    <ul class="m-0 pl-4">
+      @for (p of d.problems; track $index) {
+      <li>{{ p }}</li>
+      }
+    </ul>
+  </p-message>
+  }
+
+  <section aria-label="Nepřítomní učitelé">
+    <h3 class="mb-2 text-base">Nepřítomní učitelé</h3>
+    @if (d.absences.length === 0) {
+    <p class="m-0 text-sm text-surface-500">Nikdo.</p>
+    } @else {
+    <ul class="m-0 flex list-none flex-wrap gap-2 p-0">
+      @for (a of d.absences; track a.id) {
+      <li
+        class="flex items-center gap-1 rounded border border-surface-300 py-1 pl-3 pr-1 text-sm dark:border-surface-600"
+        data-testid="teacher-absence"
+      >
+        <span class="font-medium">{{ a.teacherName }}</span>
+        <span class="text-surface-500">{{ absenceTime(a) }}</span>
+        <p-button
+          icon="pi pi-times"
+          [text]="true"
+          size="small"
+          severity="secondary"
+          [ariaLabel]="'Smazat nepřítomnost ' + a.teacherName"
+          [disabled]="busy()"
+          (onClick)="deleteAbsence(a.id)"
+        />
+      </li>
+      }
+    </ul>
+    }
+  </section>
+
+  <section aria-label="Hodiny dne">
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <h3 class="m-0 text-base">
+        Hodiny @if (needCover() > 0) {
+        <p-tag
+          [value]="'Bez zástupu: ' + needCover()"
+          severity="danger"
+          styleClass="ml-2"
+        />
+        }
+      </h3>
+      <label class="flex items-center gap-2 text-sm">
+        <p-checkbox
+          [binary]="true"
+          inputId="allLessons"
+          [ngModel]="showAllLessons()"
+          (ngModelChange)="showAllLessons.set($event)"
+        />
+        Všechny hodiny dne
+      </label>
+    </div>
+    @if (lessons().length === 0) {
+    <p class="m-0 text-sm text-surface-500">Žádné změny.</p>
+    } @else {
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="text-left text-surface-500">
+            <th class="p-2">Hodina</th>
+            <th class="p-2">Třída</th>
+            <th class="p-2">Předmět</th>
+            <th class="p-2">Učitel</th>
+            <th class="p-2">Učebna</th>
+            <th class="p-2">Změna</th>
+            <th class="p-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of lessons(); track $index) {
+          <tr
+            class="border-t border-surface-200 dark:border-surface-700"
+            [class.bg-red-50]="l.needsCover"
+            [class.dark:bg-red-950]="l.needsCover"
+            data-testid="substitution-lesson"
+          >
+            <td class="p-2">{{ l.periodNumber }}.</td>
+            <td class="p-2">{{ l.who }}</td>
+            <td class="p-2" [class.line-through]="l.gone">{{ l.subject }}</td>
+            <td class="p-2" [class.line-through]="l.gone">
+              {{ l.teacher ?? '—' }} @if (l.originalTeacherId !== null &&
+              l.originalTeacherId !== l.teacherId && !l.gone) {
+              <span class="text-surface-500"
+                >(za {{ teacherName(l.originalTeacherId) }})</span
+              >
+              }
+            </td>
+            <td class="p-2">{{ l.classroom ?? '—' }}</td>
+            <td class="p-2">
+              @if (l.needsCover) {
+              <p-tag value="Chybí zástup" severity="danger" />
+              } @else if (l.label) {
+              <span class="font-medium">{{ l.label }}</span>
+              }
+            </td>
+            <td class="whitespace-nowrap p-2 text-right">
+              <p-button
+                icon="pi pi-pencil"
+                [text]="true"
+                size="small"
+                severity="secondary"
+                [ariaLabel]="'Upravit ' + l.periodNumber + '. hodinu ' + l.who"
+                [disabled]="busy()"
+                (onClick)="edit(l)"
+              />
+              @if (l.changeId !== null) {
+              <p-button
+                icon="pi pi-undo"
+                [text]="true"
+                size="small"
+                severity="secondary"
+                [ariaLabel]="'Podle rozvrhu ' + l.periodNumber + '. hodinu ' + l.who"
+                title="Zpět podle rozvrhu"
+                [disabled]="busy()"
+                (onClick)="revert(l)"
+              />
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </section>
+  } } @else {
+  <app-loading />
+  }
+</div>
+
+<p-dialog
+  [visible]="absenceForm() !== null"
+  (visibleChange)="!$event && absenceForm.set(null)"
+  header="Nepřítomnost učitele"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (absenceForm(); as form) {
+  <form class="flex flex-col gap-4 pt-2" (ngSubmit)="saveAbsence(form)">
+    <app-float-field label="Učitel" for="absenceTeacher">
+      <p-select
+        inputId="absenceTeacher"
+        ariaLabel="Učitel"
+        name="absenceTeacher"
+        [options]="teacherOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.teacherId"
+        [filter]="true"
+        appendTo="body"
+        required
+      />
+    </app-float-field>
+    <div class="grid grid-cols-2 gap-4">
+      <app-float-field label="Od" for="absenceFrom">
+        <p-datePicker
+          inputId="absenceFrom"
+          name="absenceFrom"
+          [(ngModel)]="form.dateFrom"
+          appendTo="body"
+          required
+        />
+      </app-float-field>
+      <app-float-field label="Do" for="absenceTo">
+        <p-datePicker
+          inputId="absenceTo"
+          name="absenceTo"
+          [(ngModel)]="form.dateTo"
+          appendTo="body"
+          required
+        />
+      </app-float-field>
+      <app-float-field label="Od hodiny" for="absencePeriodFrom">
+        <p-select
+          inputId="absencePeriodFrom"
+          ariaLabel="Od hodiny"
+          name="absencePeriodFrom"
+          [options]="periodOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="form.periodFrom"
+          [showClear]="true"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Do hodiny" for="absencePeriodTo">
+        <p-select
+          inputId="absencePeriodTo"
+          ariaLabel="Do hodiny"
+          name="absencePeriodTo"
+          [options]="periodOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="form.periodTo"
+          [showClear]="true"
+          appendTo="body"
+        />
+      </app-float-field>
+    </div>
+    <p class="m-0 text-sm text-surface-500">
+      Bez hodin celé dny; s hodinami tytéž hodiny každý den.
+    </p>
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zrušit"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="absenceForm.set(null)"
+      />
+      <p-button
+        type="submit"
+        label="Uložit"
+        [disabled]="busy() || form.teacherId === null"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="lessonForm() !== null"
+  (visibleChange)="!$event && lessonForm.set(null)"
+  [header]="lessonForm()?.lesson ? lessonForm()!.lesson!.periodNumber + '. hodina — ' + lessonForm()!.lesson!.who : 'Mimořádná hodina'"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (lessonForm(); as form) {
+  <form class="flex flex-col gap-4 pt-2" (ngSubmit)="saveLesson(form)">
+    @if (form.lesson) {
+    <p class="m-0 text-sm text-surface-500">
+      Podle rozvrhu: {{ form.lesson.subject }}, {{
+      teacherName(form.lesson.originalTeacherId) }} @if
+      (form.lesson.originalTeacherAbsent) { — nepřítomný }
+    </p>
+    @if (!form.lesson.change?.extra) {
+    <app-float-field label="Co se mění" for="changeKind">
+      <p-select
+        inputId="changeKind"
+        ariaLabel="Co se mění"
+        name="changeKind"
+        [options]="kindOptions"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.kind"
+        appendTo="body"
+      />
+    </app-float-field>
+    } } @else {
+    <div class="grid grid-cols-2 gap-4">
+      <app-float-field label="Třída" for="extraClass">
+        <p-select
+          inputId="extraClass"
+          ariaLabel="Třída"
+          name="extraClass"
+          [options]="classOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="form.schoolClassId"
+          (ngModelChange)="extraChanged(form)"
+          appendTo="body"
+          required
+        />
+      </app-float-field>
+      <app-float-field label="Hodina" for="extraPeriod">
+        <p-select
+          inputId="extraPeriod"
+          ariaLabel="Hodina"
+          name="extraPeriod"
+          [options]="periodOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="form.periodNumber"
+          (ngModelChange)="extraChanged(form)"
+          appendTo="body"
+          required
+        />
+      </app-float-field>
+    </div>
+    } @if (form.kind === 'cover') {
+    <app-float-field label="Učitel" for="changeTeacher">
+      <p-select
+        inputId="changeTeacher"
+        ariaLabel="Učitel"
+        name="changeTeacher"
+        [options]="substituteOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.teacherId"
+        [filter]="true"
+        appendTo="body"
+        emptyMessage="Nikdo volný"
+      />
+    </app-float-field>
+    <p class="-mt-2 m-0 text-xs text-surface-500">
+      Nabízí volné učitele: nejdřív s aprobací, pak ty, kdo ten den učí, pak s
+      nejméně suplováními v měsíci.
+    </p>
+    <app-float-field label="Předmět" for="changeSubject">
+      <p-select
+        inputId="changeSubject"
+        ariaLabel="Předmět"
+        name="changeSubject"
+        [options]="subjectOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.subjectId"
+        (ngModelChange)="form.lesson === null && extraChanged(form)"
+        [filter]="true"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Učebna" for="changeRoom">
+      <p-select
+        inputId="changeRoom"
+        ariaLabel="Učebna"
+        name="changeRoom"
+        [options]="roomOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.classroomId"
+        [filter]="true"
+        appendTo="body"
+      />
+    </app-float-field>
+    } @else if (form.kind === 'move') {
+    <div class="grid grid-cols-2 gap-4">
+      <app-float-field label="Den" for="moveDate">
+        <p-datePicker
+          inputId="moveDate"
+          name="moveDate"
+          [(ngModel)]="form.moveDate"
+          [disabledDays]="[0, 6]"
+          appendTo="body"
+          required
+        />
+      </app-float-field>
+      <app-float-field label="Hodina" for="movePeriod">
+        <p-select
+          inputId="movePeriod"
+          ariaLabel="Hodina"
+          name="movePeriod"
+          [options]="periodOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="form.movePeriod"
+          appendTo="body"
+          required
+        />
+      </app-float-field>
+    </div>
+    <p class="-mt-2 m-0 text-xs text-surface-500">
+      Jen v rámci týdne. Jindy hodinu zrušte a přidejte mimořádnou.
+    </p>
+    } @else if (form.kind === 'merge') {
+    <app-float-field label="Spojit s" for="mergeWith">
+      <p-select
+        inputId="mergeWith"
+        ariaLabel="Spojit s"
+        name="mergeWith"
+        [options]="mergeOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="form.mergeWith"
+        appendTo="body"
+        emptyMessage="V tu dobu jiná hodina není"
+        required
+      />
+    </app-float-field>
+    }
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zrušit"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="lessonForm.set(null)"
+      />
+      <p-button type="submit" label="Uložit" [disabled]="busy()" />
+    </div>
+  </form>
+  }
+</p-dialog>
