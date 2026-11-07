@@ -310,17 +310,22 @@ test('admin arranges a draft by dragging lessons', async ({
   await expect(lessons).toHaveCount(startLessons);
   await expect(unplaced).toHaveCount(startUnplaced);
 
-  // A locked lesson stays.
-  await lessons.first().getByRole('button', { name: 'Upravit hodinu' }).click();
-  const edit = page.getByRole('dialog', { name: 'Upravit hodinu' });
-  await edit.getByLabel('Zamčená').check();
-  await edit.getByRole('button', { name: 'Uložit' }).click();
-  await expect(edit).toBeHidden();
-  const locked = lessons.filter({ has: page.getByLabel('Zamčená') }).first();
-  await expect(locked).toBeVisible();
-  await grab(locked);
+  // The lock on the lesson: a locked one stays, unlocked it moves again.
+  const lesson = lessons.first();
+  const lock = lesson.getByTestId('lesson-lock');
+  await expect(lock).toHaveAttribute('aria-pressed', 'false');
+  await lock.click();
+  await expect(lock).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await grab(lesson);
   await page.mouse.move(10, 10, { steps: 3 });
   await expect(page.locator('td[data-drop]')).toHaveCount(0);
+  await page.mouse.up();
+  await lock.click();
+  await expect(lock).toHaveAttribute('aria-pressed', 'false');
+  await grab(lesson);
+  await expect(page.locator('td[data-drop]').first()).toBeVisible();
+  await page.mouse.move(10, 10, { steps: 3 });
   await page.mouse.up();
   await archive(admin, id);
 });
