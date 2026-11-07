@@ -1234,6 +1234,25 @@ export class TimetablePage {
     });
   }
 
+  protected toggleLock(entry: GridEntry): void {
+    this.timetableApi
+      .updateEntry(entry.schoolClassId, entry.id, {
+        subjectId: entry.subjectId,
+        dayOfWeek: entry.dayOfWeek,
+        periodNumber: entry.periodNumber,
+        weekParity: entry.weekParity,
+        teacherId: entry.teacherId,
+        classroomId: entry.classroomId,
+        timetableVersionId: this.shownVersion()?.id ?? null,
+        locked: !entry.locked,
+        studentGroupId: entry.studentGroupId ?? null,
+      })
+      .subscribe({
+        next: () => this.reload(),
+        error: (err) => this.notify.actionFailed('toggleLock failed', err),
+      });
+  }
+
   /** The cross on a cell in edit mode — asks first, the dialog isn't open. */
   protected confirmDeleteEntry(entry: GridEntry): void {
     this.confirmation.confirm({

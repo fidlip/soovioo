@@ -283,6 +283,7 @@ Administrace → Výuka → Rozvrh → koncept verze (`TimetableBoardController`
 - Hodina se táhne myší, na dotykové obrazovce po podržení, takže krátké přejetí dál roluje. Zamčená hodina přetáhnout nejde a přetažení hodinu nezamyká. Hodina skupiny jde ve všech jejích třídách a dělení se všemi skupinami; dvouhodinovka po jedné hodině.
 - Při tažení se vyhodnotí každé pole bez spouštění generátoru. *Nedostupné* (drop nejde, server to ověří znovu): třída nemá volno, tedy jiná hodina, kde se potkají žáci, učitel učí, učitel nemůže. *Nevhodné*: „raději ne“, nad denním maximem učitele, nultá hodina, nové okno třídy v daném dni. Dopad na celý rozvrh ukáže až hodnocení.
 - Učebna zůstane, když je v novém čase volná; jinak první volná ze seznamu předmětu, do které se žáci vejdou, jinak žádná a hodnocení to hlásí.
+- **Zámek** je přímo na políčku hodiny (#209): nevýrazný otevřený, výrazný zavřený, kliknutím se přepne.
 - **Neumístěné hodiny** (jen pohled na třídu) nejsou uložené: je to rozdíl plánu a rozvrhu, po celých hodinách, 0,5 h jako lichý týden. Hodina z nich dostane učitele podle přidělení. Přetažení z rozvrhu do nich hodinu smaže; hodinu navíc oproti plánu to odmítne, protože by mezi nimi nebyla.
 - **Hodnocení rozvrhu** pod rozvrhem: tytéž řádky jako výsledek generování a kontrola před zveřejněním, načtené znovu po každé změně.
 
