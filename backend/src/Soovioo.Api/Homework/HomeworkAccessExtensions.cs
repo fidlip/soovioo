@@ -65,10 +65,11 @@ public static class HomeworkAccessExtensions
         {
             PermissionScope.School => true,
             PermissionScope.MyClasses => await db.TimetableEntriesOn().AnyAsync(t =>
-                t.TeacherId == user.UserId() && t.StudentGroupId != null
-                && (t.StudentGroupId == group.Id
-                    || (t.SubjectId == group.SubjectId && t.StudentGroup!.Members.Any(m =>
-                        db.StudentGroupMembers.Any(o => o.StudentGroupId == group.Id && o.StudentId == m.StudentId))))),
+                    t.TeacherId == user.UserId() && t.StudentGroupId != null
+                    && (t.StudentGroupId == group.Id
+                        || (t.SubjectId == group.SubjectId && t.StudentGroup!.Members.Any(m =>
+                            db.StudentGroupMembers.Any(o => o.StudentGroupId == group.Id && o.StudentId == m.StudentId)))))
+                || (await db.SubstitutingTodayAsync(user.UserId())).Any(l => l.Key.GroupId == group.Id),
             PermissionScope.ClassTeacher => await db.StudentGroupClasses.Where(c => c.StudentGroupId == group.Id)
                 .AllAsync(c => c.SchoolClass!.ClassTeacherId == user.UserId()),
             _ => false,

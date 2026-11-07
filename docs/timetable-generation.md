@@ -290,9 +290,15 @@ Administrace → Výuka → Rozvrh → koncept verze (`TimetableBoardController`
 
 - **Nepřítomnost učitele** od–do, celé dny nebo tytéž hodiny každý den. Jeho hodiny
   bez zástupu agenda (Administrace → Výuka → Suplování) ukáže jako „Chybí zástup“.
+- **Agenda** je mřížka dne: řádky třídy (nebo učitelé), sloupce hodiny, pod nimi
+  „Volní“ — jménem ti, kdo v tu hodinu mají okno (učí před ní i po ní), ostatní počtem.
+  Klik na hodinu ji upraví, na prázdné místo třídy přidá hodinu navíc.
 - **Změna hodiny** (den × hodina × třída nebo skupina): jiný učitel, předmět, učebna,
   odpadá, přesun na jinou hodinu téhož týdne, spojení s hodinou jiné třídy či skupiny
-  ve stejný čas, mimořádná hodina navíc. Upravit jde i jednotlivou hodinu bez nepřítomnosti.
+  ve stejný čas, hodina navíc. Upravit jde i jednotlivou hodinu bez nepřítomnosti.
+- **Zobrazení**: změněný údaj přeškrtnutý a vedle nový (~~Aj~~ M), štítek jen druh změny —
+  „Supl“, „Odpadá“, „Přesun na/z …“, „Spojeno s …“, „Navíc“. Stejně v rozvrhu, v editoru
+  (jen u zveřejněné verze platné v daném týdnu, jen ke čtení), na Domů i v upozornění.
 - **Nabídka zástupu**: volní a přítomní (ne „nemůže“), nejdřív s aprobací, pak ti, kdo
   ten den učí, pak s nejméně suplováními v měsíci. „Doplnit zástupy“ dá každé hodině
   prvního nabídnutého; nezveřejňuje.
@@ -300,7 +306,12 @@ Administrace → Výuka → Rozvrh → koncept verze (`TimetableBoardController`
   zveřejnění dne, které uloží jejich stav. Upozornění dostanou učitelé, žáci a rodiče,
   jimž se hodiny oproti dříve zveřejněnému liší, se všemi změnami dne, které se jich
   týkají; minulé dny se zveřejňují bez upozornění.
-- Docházka a přístup k třídám dál čtou verzi rozvrhu, změny je zatím neovlivňují.
+- **Přístup**: kdo v daný den zveřejněně supluje (nebo k jeho hodině je spojená jiná třída),
+  má ten den třídu či skupinu jako „svou“ — docházka, známky, úkoly, chování, zprávy.
+  Původnímu učiteli přístup zůstává. Adresáře a „kdo učí mé dítě“ zůstávají podle rozvrhu.
+- **Rozhraní verzí**: změna si pamatuje předmět a učitele hodiny, pro kterou vznikla. Má-li
+  nová verze v tu dobu jinou hodinu, změna se nepoužije a agenda ji ukáže jako problém
+  (lze ji zrušit). Zveřejnění verze upozorní na dny se suplováním od jejího začátku.
 
 ## Navržené fáze
 

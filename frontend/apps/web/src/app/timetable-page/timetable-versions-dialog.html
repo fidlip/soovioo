@@ -160,6 +160,13 @@
   </p-message>
   } } @else {
   <app-loading text="Kontroluji rozvrh…" />
+  } @if (publishChangedDays().length > 0) {
+  <p-message
+    severity="info"
+    styleClass="mt-3 w-full"
+    data-testid="publish-substitutions"
+    >{{ changedDaysMessage(publishChangedDays()) }}</p-message
+  >
   } @if (publishNotifyOptions().length > 1) {
   <div class="mt-4">
     <app-float-field label="Upozornit dotčené" for="publishNotify">

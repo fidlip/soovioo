@@ -64,6 +64,18 @@ public class SubstitutionsController(
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<SubstitutionDayDto>> GetDay(DateOnly date) => Ok(await DayAsync(date));
 
+    /// <summary>The days from <paramref name="from"/> on with changes prepared
+    /// or published — what another version of the timetable would concern.</summary>
+    [HttpGet("changed-days")]
+    [RequirePermission(Permission.Timetable)]
+    public async Task<ActionResult<IEnumerable<DateOnly>>> GetChangedDays([FromQuery] DateOnly from)
+    {
+        var prepared = await db.LessonChanges.Where(c => c.Date >= from).Select(c => c.Date).Distinct().ToListAsync();
+        var published = (await db.SubstitutionDays.Where(d => d.Date >= from).ToListAsync())
+            .Where(d => d.Changes.Count > 0).Select(d => d.Date);
+        return Ok(prepared.Union(published).Order());
+    }
+
     [HttpPost("absences")]
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<SubstitutionDayDto>> AddAbsence(TeacherAbsenceRequest request)
@@ -205,11 +217,10 @@ public class SubstitutionsController(
             request.Extra ? request.TeacherId : Differs(request.TeacherId, original!.TeacherId),
             request.Extra ? request.SubjectId : Differs(request.SubjectId, original!.SubjectId),
             request.Extra ? request.ClassroomId : Differs(request.ClassroomId, original!.ClassroomId),
-            movedTo?.Date, movedTo?.Period, mergedWith?.ClassId, mergedWith?.GroupId);
+            movedTo?.Date, movedTo?.Period, mergedWith?.ClassId, mergedWith?.GroupId,
+            original?.SubjectId, original?.TeacherId);
         var row = await FindAsync(key);
-        var unchanged = change == new LessonChangeData(
-            key.Date, key.Period, key.ClassId, key.GroupId, false, false, null, null, null, null, null, null, null);
-        if (unchanged)
+        if (change.Empty)
         {
             if (row is not null)
             {
@@ -248,6 +259,8 @@ public class SubstitutionsController(
         row.MovedToPeriod = data.MovedToPeriod;
         row.MergedWithClassId = data.MergedWithClassId;
         row.MergedWithGroupId = data.MergedWithGroupId;
+        row.OfSubjectId = data.OfSubjectId;
+        row.OfTeacherId = data.OfTeacherId;
     }
 
     [HttpDelete("changes/{id:int}")]
@@ -361,12 +374,16 @@ public class SubstitutionsController(
             }
             var key = next.Change?.Key ?? next.Key;
             var row = await FindAsync(key);
+            var fresh = row is null;
             if (row is null)
             {
                 row = new LessonChange { SchoolId = currentSchool.SchoolId!.Value };
-                Set(row, new LessonChangeData(key.Date, key.Period, key.ClassId, key.GroupId, false, false,
-                    null, null, null, null, null, null, null));
                 db.LessonChanges.Add(row);
+            }
+            if (fresh || next.Original is { } original && !row.Data().Fits(original))
+            {
+                Set(row, new LessonChangeData(key.Date, key.Period, key.ClassId, key.GroupId, false, false,
+                    null, null, null, null, null, null, null, next.Original?.SubjectId, next.Original?.TeacherId));
             }
             row.TeacherId = candidate.TeacherId;
             await db.SaveChangesAsync();
@@ -429,15 +446,17 @@ public class SubstitutionsController(
         var absentNames = await db.Users.Where(u => absences.Select(a => a.TeacherId).Contains(u.Id))
             .Select(u => new { u.Id, u.Person, u.Username }).ToListAsync();
 
-        var problems = new List<string>();
+        var problems = new List<SubstitutionProblemDto>();
+        void Problem(string text, LessonKey? change = null) =>
+            problems.Add(new SubstitutionProblemDto(text, change is null ? null : ids.GetValueOrDefault(change)));
         var taught = lessons.Where(l => !l.Gone && l.MergedInto is null).ToList();
         foreach (var clash in taught.Where(l => l.TeacherId is not null).GroupBy(l => (l.Key.Period, l.TeacherId)).Where(g => g.Count() > 1))
         {
-            problems.Add($"{clash.Key.Period}. hodina: {names.Teacher(clash.Key.TeacherId)} učí zároveň {string.Join(" a ", clash.Select(l => names.Who(l.Key)))}.");
+            Problem($"{clash.Key.Period}. hodina: {names.Teacher(clash.Key.TeacherId)} učí zároveň {string.Join(" a ", clash.Select(l => names.Who(l.Key)))}.");
         }
         foreach (var clash in taught.Where(l => l.ClassroomId is not null).GroupBy(l => (l.Key.Period, l.ClassroomId)).Where(g => g.Count() > 1))
         {
-            problems.Add($"{clash.Key.Period}. hodina: v učebně {names.Classrooms.GetValueOrDefault(clash.Key.ClassroomId!.Value)} jsou zároveň {string.Join(" a ", clash.Select(l => names.Who(l.Key)))}.");
+            Problem($"{clash.Key.Period}. hodina: v učebně {names.Classrooms.GetValueOrDefault(clash.Key.ClassroomId!.Value)} jsou zároveň {string.Join(" a ", clash.Select(l => names.Who(l.Key)))}.");
         }
         foreach (var slot in lessons.Where(l => !l.Gone).GroupBy(l => l.Key.Period))
         {
@@ -446,18 +465,40 @@ public class SubstitutionsController(
                 var of = slot.Where(l => l.ClassIds.Contains(classId)).ToList();
                 if (of.Count > 1 && of.Any(l => l.Key.GroupId is null))
                 {
-                    problems.Add($"{slot.Key}. hodina: {names.Classes.GetValueOrDefault(classId)} má zároveň {string.Join(" a ", of.Select(l => names.Subject(l.SubjectId)))}.");
+                    Problem($"{slot.Key}. hodina: {names.Classes.GetValueOrDefault(classId)} má zároveň {string.Join(" a ", of.Select(l => names.Subject(l.SubjectId)))}.");
                 }
             }
         }
         foreach (var orphan in prepared.Where(c => !c.Extra && !lessons.Any(l => l.Change?.Key == c.Key && !l.MovedIn)))
         {
-            problems.Add($"{orphan.Period}. hodina {names.Who(orphan.Key)}: změna se týká hodiny, která v rozvrhu není.");
+            Problem(lessons.Any(l => l.Original?.Key == orphan.Key)
+                ? $"{orphan.Period}. hodina {names.Who(orphan.Key)}: v rozvrhu je teď jiná hodina, než pro jakou je změna. Zkontrolujte ji."
+                : $"{orphan.Period}. hodina {names.Who(orphan.Key)}: změna se týká hodiny, která v rozvrhu není.", orphan.Key);
         }
         foreach (var lesson in lessons.Where(l => l.Change?.MergedWith is not null && l.MergedInto is null && !l.Gone && !l.MovedIn))
         {
-            problems.Add($"{lesson.Key.Period}. hodina {names.Who(lesson.Key)}: hodina, s níž je spojená, v tu dobu není.");
+            Problem($"{lesson.Key.Period}. hodina {names.Who(lesson.Key)}: hodina, s níž je spojená, v tu dobu není.", lesson.Key);
         }
+
+        var periods = await db.SchoolPeriods.OrderBy(p => p.PeriodNumber).Select(p => p.PeriodNumber).ToListAsync();
+        var teachers = await db.Users
+            .Where(u => u.Roles.Any(r => r.BuiltIn == UserRole.Teacher) && u.DeactivatedAt == null)
+            .Select(u => new { u.Id, u.Person, u.Username, Profile = u.Person!.TeacherProfile })
+            .ToListAsync();
+        var collator = StringComparer.Create(new System.Globalization.CultureInfo("cs-CZ"), false);
+        var periodsOf = taught.Where(l => l.TeacherId is not null).ToLookup(l => l.TeacherId!.Value, l => l.Key.Period);
+        var free = periods.Select(period =>
+        {
+            var names = teachers
+                .Where(t => !taught.Any(l => l.Key.Period == period && l.TeacherId == t.Id)
+                    && !absences.Any(a => a.TeacherId == t.Id && a.Covers(date, period))
+                    && AvailabilitySlot.At(t.Profile?.Availability ?? [], date.DayOfWeek, period) != AvailabilityKind.Unavailable)
+                .ToList();
+            var atSchool = names.Where(t => periodsOf[t.Id].Any(p => p < period) && periodsOf[t.Id].Any(p => p > period))
+                .Select(t => PersonNames.Display(t.Person, t.Username)).Order(collator).ToList();
+            return new FreeTeachersDto(period, atSchool, names.Count - atSchool.Count);
+        }).ToList();
+        var classes = await db.SchoolClasses.Select(c => new DayClassDto(c.Id, c.Name)).ToListAsync();
 
         return new SubstitutionDayDto(
             date,
@@ -472,16 +513,22 @@ public class SubstitutionsController(
             {
                 var subject = names.Subjects.GetValueOrDefault(l.SubjectId);
                 var original = l.Original;
+                var shown = original is not null && !l.Gone;
                 return new SubstitutionLessonDto(
                     l.Key.Period, l.Key.ClassId, l.Key.GroupId, names.Who(l.Key),
                     l.SubjectId, subject.Abbreviation ?? subject.Name ?? "", l.TeacherId, l.TeacherId is null ? null : names.Teacher(l.TeacherId),
                     l.ClassroomId, l.ClassroomId is { } room ? names.Classrooms.GetValueOrDefault(room) : null,
                     original?.SubjectId, original?.TeacherId,
                     original?.TeacherId is { } t && absences.Any(a => a.TeacherId == t && a.Covers(original.Key.Date, original.Key.Period)),
-                    NeedsCover(l, absences), l.Gone, l.Changed ? LessonChangeViews.Label(l, names) : null,
-                    l.Change is { } change ? ids.GetValueOrDefault(change.Key) : null, l.Change, l.MovedIn);
+                    NeedsCover(l, absences), l.Gone, l.Changed && LessonChangeViews.Label(l, names) is { Length: > 0 } label ? label : null,
+                    l.Change is { } change ? ids.GetValueOrDefault(change.Key) : null, l.Change, l.MovedIn,
+                    l.ClassIds, l.Key.GroupId is { } g && names.Groups.TryGetValue(g, out var group) ? group.Name : null,
+                    shown && original!.SubjectId != l.SubjectId ? names.Subject(original.SubjectId) : null,
+                    shown && original!.TeacherId != l.TeacherId && original.TeacherId is not null ? names.Teacher(original.TeacherId) : null,
+                    shown && original!.ClassroomId != l.ClassroomId && original.ClassroomId is { } was
+                        ? names.Classrooms.GetValueOrDefault(was) : null);
             })],
-            problems);
+            problems, periods, [.. classes.OrderBy(c => c.Name, collator)], free);
     }
 }
 
@@ -503,7 +550,16 @@ public record LessonChangeRequest(
 /// <param name="Unpublished">The prepared changes differ from those published (or none were yet).</param>
 public record SubstitutionDayDto(
     DateOnly Date, bool HasTimetable, DateTimeOffset? PublishedAt, bool Unpublished,
-    IReadOnlyList<TeacherAbsenceDto> Absences, IReadOnlyList<SubstitutionLessonDto> Lessons, IReadOnlyList<string> Problems);
+    IReadOnlyList<TeacherAbsenceDto> Absences, IReadOnlyList<SubstitutionLessonDto> Lessons, IReadOnlyList<SubstitutionProblemDto> Problems,
+    IReadOnlyList<int> Periods, IReadOnlyList<DayClassDto> Classes, IReadOnlyList<FreeTeachersDto> Free);
+
+public record DayClassDto(int Id, string Name);
+
+/// <summary>Who's free at the period: those teaching before and after it (in school) by name, the others counted.</summary>
+public record FreeTeachersDto(int Period, IReadOnlyList<string> AtSchool, int Others);
+
+/// <param name="ChangeId">The change it's about, to undo it.</param>
+public record SubstitutionProblemDto(string Text, int? ChangeId);
 
 /// <summary>A lesson of the day as prepared; a moved one at its new period
 /// (<paramref name="MovedIn"/>) as well as gone from the old one.</summary>
@@ -514,7 +570,10 @@ public record SubstitutionLessonDto(
     int PeriodNumber, int? SchoolClassId, int? StudentGroupId, string Who,
     int SubjectId, string Subject, int? TeacherId, string? Teacher, int? ClassroomId, string? Classroom,
     int? OriginalSubjectId, int? OriginalTeacherId, bool OriginalTeacherAbsent, bool NeedsCover, bool Gone,
-    string? Label, int? ChangeId, LessonChangeData? Change, bool MovedIn);
+    string? Label, int? ChangeId, LessonChangeData? Change, bool MovedIn,
+    IReadOnlyList<int> ClassIds, string? GroupName,
+    /// <summary>The timetable's subject when another is taught; likewise the teacher and the classroom.</summary>
+    string? WasSubject, string? WasTeacher, string? WasClassroom);
 
 public record SubstituteDto(int TeacherId, string Name, bool Qualified, bool TeachesThatDay, int SubstitutionsThisMonth);
 

@@ -54,7 +54,7 @@ public static class LessonChanges
         var result = new List<EffectiveLesson>();
         foreach (var lesson in lessons)
         {
-            var change = byKey.GetValueOrDefault(lesson.Key) is { Extra: false } c ? c : null;
+            var change = byKey.GetValueOrDefault(lesson.Key) is { Extra: false } c && c.Fits(lesson) ? c : null;
             result.Add(new EffectiveLesson
             {
                 Key = lesson.Key, ClassIds = lesson.ClassIds, Original = lesson, Change = change,
@@ -170,6 +170,20 @@ public static class LessonChanges
         var lessons = await BaseLessonsAsync(db, weekFrom, weekTo);
         return [.. Apply(lessons, changes, await GroupClassesAsync(db, changes))
             .Where(l => l.Key.Date >= from && l.Key.Date <= to)];
+    }
+
+    /// <summary>The published lessons a teacher teaches on the day other than
+    /// the timetable has it — substituting, or a class merged into theirs.</summary>
+    public static async Task<List<EffectiveLesson>> SubstitutingAsync(AppDbContext db, int teacherId, DateOnly day)
+    {
+        var monday = MondayOf(day);
+        var changes = await PublishedAsync(db, monday, monday.AddDays(6));
+        if (!changes.Any(c => c.Date == day || c.MovedToDate == day))
+        {
+            return [];
+        }
+        return [.. (await OnAsync(db, day, day))
+            .Where(l => !l.Gone && l.TeacherId == teacherId && l.Original?.TeacherId != teacherId)];
     }
 }
 

@@ -16,6 +16,7 @@ import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
+  SubstitutionsApiService,
   TimetableVersion,
   TimetableVersionsApiService,
   formatDate,
@@ -93,6 +94,7 @@ function noticeDay(version: TimetableVersion, daysBefore: number): string {
 })
 export class TimetableVersionsDialog {
   private readonly versionsApi = inject(TimetableVersionsApiService);
+  private readonly substitutionsApi = inject(SubstitutionsApiService);
   private readonly confirmation = inject(ConfirmationService);
   private readonly notify = inject(NotifyService);
 
@@ -210,6 +212,8 @@ export class TimetableVersionsDialog {
    * while that loads). */
   protected readonly publishing = signal<TimetableVersion | null>(null);
   protected readonly publishProblems = signal<string[] | null>(null);
+  /** Days of suplování the version would apply to. */
+  protected readonly publishChangedDays = signal<string[]>([]);
   protected publishNotifyDaysBefore: number | null = null;
   /** Only the days still ahead. */
   protected readonly publishNotifyOptions = computed(() => {
@@ -225,6 +229,11 @@ export class TimetableVersionsDialog {
     this.publishing.set(version);
     this.publishProblems.set(null);
     this.publishNotifyDaysBefore = null;
+    this.publishChangedDays.set([]);
+    this.substitutionsApi.getChangedDays(version.validFrom).subscribe({
+      next: (days) => this.publishChangedDays.set(days),
+      error: (err) => console.error('getChangedDays failed', err),
+    });
     this.versionsApi.getProblems(version.id).subscribe({
       next: (problems) => this.publishProblems.set(problems),
       error: (err) => {
@@ -237,6 +246,12 @@ export class TimetableVersionsDialog {
   protected publishMessage(version: TimetableVersion): string {
     const replaced = timetableVersionOn(this.versions(), version.validFrom);
     return `Zveřejnit „${version.name}“? Od ${formatDate(version.validFrom, 'date')} ji uvidí všichni${replaced ? ` a nahradí verzi „${replaced.name}“` : ''}.`;
+  }
+
+  protected changedDaysMessage(days: string[]): string {
+    const n = days.length;
+    const count = `${n} ${n === 1 ? 'den' : n < 5 ? 'dny' : 'dní'}`;
+    return `Od ${formatDate(days[0], 'date')} je připravené nebo zveřejněné suplování (${count}). Po zveřejnění ho zkontrolujte v Suplování: změny hodin, které nová verze nemá, se nepoužijí.`;
   }
 
   protected confirmPublish(version: TimetableVersion): void {

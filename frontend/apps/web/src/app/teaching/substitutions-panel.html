@@ -48,14 +48,6 @@
       (onClick)="newAbsence()"
     />
     <p-button
-      label="Mimořádná hodina"
-      icon="pi pi-plus"
-      severity="secondary"
-      [outlined]="true"
-      [disabled]="busy()"
-      (onClick)="newExtra()"
-    />
-    <p-button
       label="Doplnit zástupy"
       icon="pi pi-bolt"
       severity="secondary"
@@ -73,9 +65,19 @@
 
   @if (d.problems.length > 0) {
   <p-message severity="warn" data-testid="substitution-problems">
-    <ul class="m-0 pl-4">
+    <ul class="m-0 flex flex-col gap-1 pl-4">
       @for (p of d.problems; track $index) {
-      <li>{{ p }}</li>
+      <li>
+        {{ p.text }} @if (p.changeId !== null) {
+        <p-button
+          label="Zrušit změnu"
+          [text]="true"
+          size="small"
+          [disabled]="busy()"
+          (onClick)="revert(p.changeId)"
+        />
+        }
+      </li>
       }
     </ul>
   </p-message>
@@ -112,7 +114,7 @@
   <section aria-label="Hodiny dne">
     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <h3 class="m-0 text-base">
-        Hodiny @if (needCover() > 0) {
+        Hodiny dne @if (needCover() > 0) {
         <p-tag
           [value]="'Bez zástupu: ' + needCover()"
           severity="danger"
@@ -120,88 +122,160 @@
         />
         }
       </h3>
-      <label class="flex items-center gap-2 text-sm">
-        <p-checkbox
-          [binary]="true"
-          inputId="allLessons"
-          [ngModel]="showAllLessons()"
-          (ngModelChange)="showAllLessons.set($event)"
-        />
-        Všechny hodiny dne
-      </label>
+      <p-selectButton
+        [options]="viewByOptions"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+        [ngModel]="viewBy()"
+        (ngModelChange)="viewBy.set($event)"
+        ariaLabel="Řádky"
+      />
     </div>
-    @if (lessons().length === 0) {
-    <p class="m-0 text-sm text-surface-500">Žádné změny.</p>
-    } @else {
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse text-sm">
+    <div
+      class="overflow-x-auto rounded border border-surface-200 dark:border-surface-700"
+    >
+      <table
+        class="w-full border-collapse text-xs"
+        data-testid="substitution-grid"
+      >
         <thead>
-          <tr class="text-left text-surface-500">
-            <th class="p-2">Hodina</th>
-            <th class="p-2">Třída</th>
-            <th class="p-2">Předmět</th>
-            <th class="p-2">Učitel</th>
-            <th class="p-2">Učebna</th>
-            <th class="p-2">Změna</th>
-            <th class="p-2"></th>
+          <tr
+            class="bg-surface-50 text-surface-600 dark:bg-surface-800 dark:text-surface-300"
+          >
+            <th
+              class="sticky left-0 z-10 bg-surface-50 p-2 text-left dark:bg-surface-800"
+              scope="col"
+            >
+              {{ viewBy() === 'classes' ? 'Třída' : 'Učitel' }}
+            </th>
+            @for (period of d.periods; track period) {
+            <th class="min-w-28 p-2 text-center" scope="col">{{ period }}.</th>
+            }
           </tr>
         </thead>
         <tbody>
-          @for (l of lessons(); track $index) {
+          @for (row of rows(); track row.id) {
           <tr
             class="border-t border-surface-200 dark:border-surface-700"
-            [class.bg-red-50]="l.needsCover"
-            [class.dark:bg-red-950]="l.needsCover"
-            data-testid="substitution-lesson"
+            data-testid="substitution-row"
           >
-            <td class="p-2">{{ l.periodNumber }}.</td>
-            <td class="p-2">{{ l.who }}</td>
-            <td class="p-2" [class.line-through]="l.gone">{{ l.subject }}</td>
-            <td class="p-2" [class.line-through]="l.gone">
-              {{ l.teacher ?? '—' }} @if (l.originalTeacherId !== null &&
-              l.originalTeacherId !== l.teacherId && !l.gone) {
-              <span class="text-surface-500"
-                >(za {{ teacherName(l.originalTeacherId) }})</span
+            <th
+              class="sticky left-0 z-10 whitespace-nowrap bg-surface-0 p-2 text-left font-semibold dark:bg-surface-900"
+              scope="row"
+            >
+              {{ row.name }} @if (row.absent) {
+              <span
+                class="block text-xs font-normal text-red-700 dark:text-red-300"
+                >nepřítomen</span
               >
               }
+            </th>
+            @for (period of d.periods; track period) {
+            <td
+              class="border-l border-surface-200 p-1 align-top dark:border-surface-700"
+            >
+              <div class="flex flex-col gap-1">
+                @for (l of row.cells.get(period) ?? []; track $index) { @let
+                changed = l.changeId !== null || l.label !== null;
+                <button
+                  type="button"
+                  class="w-full rounded border px-1.5 py-1 text-left hover:border-primary disabled:cursor-default"
+                  [class.border-red-500]="l.needsCover"
+                  [class.bg-red-50]="l.needsCover"
+                  [class.dark:bg-red-950]="l.needsCover"
+                  [class.border-orange-400]="!l.needsCover && changed"
+                  [class.bg-orange-50]="!l.needsCover && changed"
+                  [class.dark:bg-orange-950]="!l.needsCover && changed"
+                  [class.border-surface-200]="!l.needsCover && !changed"
+                  [class.dark:border-surface-700]="!l.needsCover && !changed"
+                  [class.opacity-60]="l.gone"
+                  [attr.aria-label]="lessonLabel(l)"
+                  [disabled]="busy()"
+                  (click)="edit(l)"
+                  data-testid="substitution-lesson"
+                >
+                  <div class="font-semibold" [class.line-through]="l.gone">
+                    @if (l.wasSubject) {
+                    <s class="font-normal">{{ l.wasSubject }}</s>
+                    } {{ l.subject }} @if (viewBy() === 'teachers') {
+                    <span class="font-normal">{{ l.who }}</span>
+                    } @else if (l.groupName) {
+                    <span class="font-normal">{{ l.groupName }}</span>
+                    }
+                  </div>
+                  @if (viewBy() === 'classes' || l.wasTeacher) {
+                  <div [class.line-through]="l.gone && !l.wasTeacher">
+                    @if (l.wasTeacher) {
+                    <s class="text-surface-500">{{ l.wasTeacher }}</s>
+                    } {{ l.teacher ?? '—' }}
+                  </div>
+                  } @if (l.classroom || l.wasClassroom) {
+                  <div class="text-surface-500">
+                    @if (l.wasClassroom) {
+                    <s>{{ l.wasClassroom }}</s>
+                    } {{ l.classroom }}
+                  </div>
+                  } @if (l.needsCover) {
+                  <div class="font-semibold text-red-700 dark:text-red-300">
+                    Chybí zástup
+                  </div>
+                  } @else if (l.label) {
+                  <div
+                    class="font-semibold text-orange-800 dark:text-orange-300"
+                  >
+                    {{ l.label }}
+                  </div>
+                  }
+                </button>
+                } @if (viewBy() === 'classes' && !row.cells.get(period)?.length)
+                {
+                <button
+                  type="button"
+                  class="flex h-8 w-full items-center justify-center rounded text-surface-400 opacity-0 hover:bg-surface-100 hover:opacity-100 focus:opacity-100 dark:hover:bg-surface-800 [@media(hover:none)]:opacity-100"
+                  [attr.aria-label]="'Přidat hodinu navíc ' + row.name + ', ' + period + '. hodina'"
+                  [disabled]="busy()"
+                  (click)="newExtra(row.id, period)"
+                >
+                  <i class="pi pi-plus text-xs"></i>
+                </button>
+                }
+              </div>
             </td>
-            <td class="p-2">{{ l.classroom ?? '—' }}</td>
-            <td class="p-2">
-              @if (l.needsCover) {
-              <p-tag value="Chybí zástup" severity="danger" />
-              } @else if (l.label) {
-              <span class="font-medium">{{ l.label }}</span>
-              }
-            </td>
-            <td class="whitespace-nowrap p-2 text-right">
-              <p-button
-                icon="pi pi-pencil"
-                [text]="true"
-                size="small"
-                severity="secondary"
-                [ariaLabel]="'Upravit ' + l.periodNumber + '. hodinu ' + l.who"
-                [disabled]="busy()"
-                (onClick)="edit(l)"
-              />
-              @if (l.changeId !== null) {
-              <p-button
-                icon="pi pi-undo"
-                [text]="true"
-                size="small"
-                severity="secondary"
-                [ariaLabel]="'Podle rozvrhu ' + l.periodNumber + '. hodinu ' + l.who"
-                title="Zpět podle rozvrhu"
-                [disabled]="busy()"
-                (onClick)="revert(l)"
-              />
-              }
-            </td>
+            }
           </tr>
           }
+          <tr
+            class="border-t-2 border-surface-300 bg-surface-50 dark:border-surface-600 dark:bg-surface-800"
+            data-testid="substitution-free"
+          >
+            <th
+              class="sticky left-0 z-10 bg-surface-50 p-2 text-left font-semibold dark:bg-surface-800"
+              scope="row"
+            >
+              Volní
+            </th>
+            @for (period of d.periods; track period) { @let free =
+            freeByPeriod().get(period);
+            <td
+              class="border-l border-surface-200 p-2 align-top text-surface-600 dark:border-surface-700 dark:text-surface-300"
+            >
+              @for (name of free?.atSchool ?? []; track name) {
+              <div>{{ name }}</div>
+              } @if (free && free.others > 0) {
+              <div
+                class="text-surface-500"
+                title="Volní, kteří před touto hodinou nebo po ní neučí"
+              >
+                + {{ free.others }} {{ free.others < 5 ? 'další' : 'dalších' }}
+              </div>
+              }
+            </td>
+            }
+          </tr>
         </tbody>
       </table>
     </div>
-    }
   </section>
   } } @else {
   <app-loading />
@@ -300,7 +374,7 @@
 <p-dialog
   [visible]="lessonForm() !== null"
   (visibleChange)="!$event && lessonForm.set(null)"
-  [header]="lessonForm()?.lesson ? lessonForm()!.lesson!.periodNumber + '. hodina — ' + lessonForm()!.lesson!.who : 'Mimořádná hodina'"
+  [header]="lessonForm()?.lesson ? lessonForm()!.lesson!.periodNumber + '. hodina — ' + lessonForm()!.lesson!.who : 'Hodina navíc'"
   [modal]="true"
   styleClass="w-full max-w-xl"
 >
@@ -447,7 +521,18 @@
       />
     </app-float-field>
     }
-    <div class="flex justify-end gap-2">
+    <div class="flex flex-wrap justify-end gap-2">
+      @if (form.lesson?.changeId; as changeId) {
+      <p-button
+        label="Zpět podle rozvrhu"
+        icon="pi pi-undo"
+        severity="secondary"
+        [text]="true"
+        styleClass="mr-auto"
+        [disabled]="busy()"
+        (onClick)="revert(changeId)"
+      />
+      }
       <p-button
         label="Zrušit"
         severity="secondary"

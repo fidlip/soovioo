@@ -31,7 +31,9 @@ namespace Soovioo.Api.Migrations
                     MovedToDate = table.Column<DateOnly>(type: "date", nullable: true),
                     MovedToPeriod = table.Column<int>(type: "integer", nullable: true),
                     MergedWithClassId = table.Column<int>(type: "integer", nullable: true),
-                    MergedWithGroupId = table.Column<int>(type: "integer", nullable: true)
+                    MergedWithGroupId = table.Column<int>(type: "integer", nullable: true),
+                    OfSubjectId = table.Column<int>(type: "integer", nullable: true),
+                    OfTeacherId = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {

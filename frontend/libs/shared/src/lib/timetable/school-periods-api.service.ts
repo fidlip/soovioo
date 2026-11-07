@@ -13,11 +13,19 @@ export class SchoolPeriodsApiService {
     return this.http.get<SchoolPeriod[]>(`${this.baseUrl}/api/school-periods`);
   }
 
-  upsertPeriod(periodNumber: number, request: UpsertSchoolPeriodRequest): Observable<SchoolPeriod> {
-    return this.http.put<SchoolPeriod>(`${this.baseUrl}/api/school-periods/${periodNumber}`, request);
+  upsertPeriod(
+    periodNumber: number,
+    request: UpsertSchoolPeriodRequest,
+  ): Observable<SchoolPeriod> {
+    return this.http.put<SchoolPeriod>(
+      `${this.baseUrl}/api/school-periods/${periodNumber}`,
+      request,
+    );
   }
 
   deletePeriod(periodNumber: number): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/api/school-periods/${periodNumber}`);
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/school-periods/${periodNumber}`,
+    );
   }
 }

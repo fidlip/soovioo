@@ -71,9 +71,14 @@ public class LessonChange
     public int? MergedWithClassId { get; set; }
     public int? MergedWithGroupId { get; set; }
 
+    /// <summary>The timetable's lesson it was made for: once the timetable
+    /// has another one then, the change doesn't apply to it.</summary>
+    public int? OfSubjectId { get; set; }
+    public int? OfTeacherId { get; set; }
+
     public LessonChangeData Data() => new(
         Date, PeriodNumber, SchoolClassId, StudentGroupId, Extra, Cancelled, TeacherId, SubjectId, ClassroomId,
-        MovedToDate, MovedToPeriod, MergedWithClassId, MergedWithGroupId);
+        MovedToDate, MovedToPeriod, MergedWithClassId, MergedWithGroupId, OfSubjectId, OfTeacherId);
 }
 
 /// <summary>A day whose changes are published: the changes as they were
@@ -97,9 +102,18 @@ public record LessonKey(DateOnly Date, int Period, int? ClassId, int? GroupId);
 
 public record LessonChangeData(
     DateOnly Date, int Period, int? ClassId, int? GroupId, bool Extra, bool Cancelled, int? TeacherId, int? SubjectId,
-    int? ClassroomId, DateOnly? MovedToDate, int? MovedToPeriod, int? MergedWithClassId, int? MergedWithGroupId)
+    int? ClassroomId, DateOnly? MovedToDate, int? MovedToPeriod, int? MergedWithClassId, int? MergedWithGroupId,
+    int? OfSubjectId = null, int? OfTeacherId = null)
 {
     public LessonKey Key => new(Date, Period, ClassId, GroupId);
+
+    /// <summary>Made for this lesson of the timetable (or for whichever, from before that was known).</summary>
+    public bool Fits(BaseLesson lesson) =>
+        OfSubjectId is null || (OfSubjectId == lesson.SubjectId && OfTeacherId == lesson.TeacherId);
+
+    /// <summary>Changes nothing.</summary>
+    public bool Empty => this with { OfSubjectId = null, OfTeacherId = null }
+        == new LessonChangeData(Date, Period, ClassId, GroupId, false, false, null, null, null, null, null, null, null);
 
     public LessonKey? MovedTo => MovedToDate is { } date && MovedToPeriod is { } period
         ? new LessonKey(date, period, ClassId, GroupId)

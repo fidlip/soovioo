@@ -2318,6 +2318,12 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("MovedToPeriod")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("OfSubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OfTeacherId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("PeriodNumber")
                         .HasColumnType("integer");
 

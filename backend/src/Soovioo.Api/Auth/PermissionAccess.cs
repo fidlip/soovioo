@@ -141,8 +141,11 @@ public static class PermissionAccess
         }
 
         var teacherId = user.UserId();
-        var lessons = await db.TimetableEntriesOn().Where(t => t.TeacherId == teacherId)
-            .Select(t => new { t.SchoolClassId, t.SubjectId, t.StudentGroupId }).Distinct().ToListAsync();
+        var lessons = (await db.TimetableEntriesOn().Where(t => t.TeacherId == teacherId)
+                .Select(t => new { t.SchoolClassId, t.SubjectId, t.StudentGroupId }).Distinct().ToListAsync())
+            .Concat((await db.SubstitutingTodayAsync(teacherId)).SelectMany(l => l.ClassIds.Select(c =>
+                new { SchoolClassId = c, l.SubjectId, StudentGroupId = l.Key.GroupId })))
+            .Distinct().ToList();
         var groupIds = lessons.Where(l => l.StudentGroupId != null).Select(l => l.StudentGroupId!.Value).Distinct().ToList();
         var members = await db.StudentGroupMembers.Where(m => groupIds.Contains(m.StudentGroupId))
             .Select(m => new { m.StudentId, m.StudentGroupId }).ToListAsync();

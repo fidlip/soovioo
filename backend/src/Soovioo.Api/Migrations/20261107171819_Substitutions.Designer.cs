@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261107090713_Substitutions")]
+    [Migration("20261107171819_Substitutions")]
     partial class Substitutions
     {
         /// <inheritdoc />
@@ -2201,6 +2201,12 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("date");
 
                     b.Property<int?>("MovedToPeriod")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OfSubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OfTeacherId")
                         .HasColumnType("integer");
 
                     b.Property<int>("PeriodNumber")
