@@ -139,6 +139,15 @@
   <span data-testid="timetable-version-read-only"
     >Zveřejněná verze se neupravuje — změnu připravte v novém konceptu.</span
   >
+  } @if (editableFromDate(); as current) {
+  <p-button
+    label="Upravit od data"
+    icon="pi pi-calendar-plus"
+    severity="secondary"
+    [outlined]="true"
+    size="small"
+    (onClick)="editFromDateVersion.set(current)"
+  />
   }
 </p>
 } @if (viewMode() === 'teacher' && teachingSummary(); as summary) {
@@ -486,6 +495,12 @@
   (closed)="versionsDialogVisible.set(false)"
   (changed)="onVersionsChanged()"
   (show)="onShowVersion($event)"
+/>
+} @if (editor && canManageTimetable()) {
+<app-timetable-edit-from-date-dialog
+  [version]="editFromDateVersion()"
+  (closed)="editFromDateVersion.set(null)"
+  (opened)="onEditFromDate($event)"
 />
 } @if (editor && canGenerate()) {
 <app-timetable-generate-dialog

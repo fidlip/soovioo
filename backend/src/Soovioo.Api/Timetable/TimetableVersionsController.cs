@@ -67,17 +67,59 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             return BadRequest("Zadejte název verze.");
         }
 
-        var source = request.CopyFromVersionId is { } sourceId
-            ? await db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.ClassCurriculum)
-                .Include(v => v.Assignments).Include(v => v.Divisions)
-                .Include(v => v.Groups).ThenInclude(g => g.Classes).Include(v => v.Groups).ThenInclude(g => g.Members)
-                .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == sourceId)
-            : null;
+        var source = request.CopyFromVersionId is { } sourceId ? await WithContentAsync(sourceId) : null;
         if (request.CopyFromVersionId is not null && source is null)
         {
             return BadRequest("Neznámá verze rozvrhu.");
         }
 
+        var version = NewDraft(request.Name.Trim(), request.ValidFrom, source);
+        db.TimetableVersions.Add(version);
+        await db.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetVersions), null, ToDto(version));
+    }
+
+    /// <summary>The draft of a change to the version that applies, from a day
+    /// on: the one already waiting for that day, otherwise a new copy.</summary>
+    [HttpPost("{id:int}/edit-from-date")]
+    [RequirePermission(Permission.Timetable)]
+    public async Task<ActionResult<TimetableVersionDto>> EditFromDate(int id, EditFromDateRequest request)
+    {
+        var source = await WithContentAsync(id);
+        if (source is null)
+        {
+            return NotFound();
+        }
+        if (source.Status != TimetableVersionStatus.Published || source.ValidFrom > Today || source.ValidTo < Today)
+        {
+            return BadRequest("Od data jde upravit jen platná verze.");
+        }
+        if (await PublishErrorAsync(versionId: 0, request.ValidFrom) is { } error)
+        {
+            return BadRequest(error);
+        }
+
+        var version = await db.TimetableVersions.Include(v => v.Entries)
+            .Where(v => v.Status == TimetableVersionStatus.Draft && v.ValidFrom == request.ValidFrom)
+            .OrderByDescending(v => v.Id)
+            .FirstOrDefaultAsync();
+        if (version is null)
+        {
+            version = NewDraft($"Změna od {SchoolFormat.Date(request.ValidFrom)}", request.ValidFrom, source);
+            db.TimetableVersions.Add(version);
+            await db.SaveChangesAsync();
+        }
+        return Ok(ToDto(version));
+    }
+
+    private Task<TimetableVersion?> WithContentAsync(int id) =>
+        db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.ClassCurriculum)
+            .Include(v => v.Assignments).Include(v => v.Divisions)
+            .Include(v => v.Groups).ThenInclude(g => g.Classes).Include(v => v.Groups).ThenInclude(g => g.Members)
+            .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == id);
+
+    private TimetableVersion NewDraft(string name, DateOnly validFrom, TimetableVersion? source)
+    {
         var schoolId = currentSchool.SchoolId!.Value;
         var divisions = (source?.Divisions ?? []).ToDictionary(d => d.Id, d => new GroupDivision
         {
@@ -92,11 +134,11 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             Classes = [.. g.Classes.Select(c => new StudentGroupClass { SchoolId = schoolId, SchoolClassId = c.SchoolClassId })],
             Members = [.. g.Members.Select(m => new StudentGroupMember { SchoolId = schoolId, StudentId = m.StudentId })],
         });
-        var version = new TimetableVersion
+        return new TimetableVersion
         {
             SchoolId = schoolId,
-            Name = request.Name.Trim(),
-            ValidFrom = request.ValidFrom,
+            Name = name,
+            ValidFrom = validFrom,
             Status = TimetableVersionStatus.Draft,
             CreatedAt = clock.GetUtcNow(),
             CreatedByUserId = User.UserId(),
@@ -130,9 +172,6 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             Divisions = [.. divisions.Values],
             Groups = [.. groups.Values],
         };
-        db.TimetableVersions.Add(version);
-        await db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetVersions), null, ToDto(version));
     }
 
     /// <summary>The name always; the start only while the version doesn't
@@ -338,6 +377,8 @@ public record TimetableVersionDto(
 public record CreateTimetableVersionRequest(string Name, DateOnly ValidFrom, int? CopyFromVersionId = null);
 
 public record UpdateTimetableVersionRequest(string Name, DateOnly ValidFrom);
+
+public record EditFromDateRequest(DateOnly ValidFrom);
 
 /// <param name="NotifyDaysBefore">Null = at the end of today.</param>
 public record PublishTimetableVersionRequest(int? NotifyDaysBefore = null);

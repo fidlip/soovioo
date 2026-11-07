@@ -124,6 +124,7 @@ public static class AuditDescriptions
         ["Timetable.UpdateEntry"] = "Upravena hodina rozvrhu",
         ["Timetable.DeleteEntry"] = "Smazána hodina rozvrhu",
         ["TimetableVersions.CreateVersion"] = "Vytvořen koncept rozvrhu",
+        ["TimetableVersions.EditFromDate"] = "Otevřen koncept změny rozvrhu od data",
         ["TimetableVersions.UpdateVersion"] = "Upravena verze rozvrhu",
         ["TimetableVersions.PublishVersion"] = "Zveřejněna verze rozvrhu",
         ["TimetableVersions.ArchiveVersion"] = "Archivována verze rozvrhu",

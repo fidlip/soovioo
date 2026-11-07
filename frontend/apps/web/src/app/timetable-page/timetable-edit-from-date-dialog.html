@@ -1,0 +1,32 @@
+<p-dialog
+  [visible]="version() !== null"
+  (visibleChange)="!$event && closed.emit()"
+  header="Upravit od data"
+  [modal]="true"
+  styleClass="w-full max-w-md"
+>
+  @if (version(); as current) {
+  <form class="flex flex-col gap-3" #dateForm="ngForm" (ngSubmit)="save()">
+    <p class="m-0 text-sm text-surface-500">
+      Změny připravíte v konceptu, který vychází z verze „{{ current.name }}“.
+      Pro stejné datum se otevře už rozpracovaný koncept. Platit začne až po
+      zveřejnění.
+    </p>
+    <app-float-field label="Platí od" for="editFromDate">
+      <p-datePicker
+        inputId="editFromDate"
+        name="editFromDate"
+        required
+        [(ngModel)]="validFrom"
+        [minDate]="minDate"
+        [showIcon]="true"
+        [showOnFocus]="false"
+        appendTo="body"
+      />
+    </app-float-field>
+    <div class="flex justify-end">
+      <app-submit-button [form]="dateForm" label="Otevřít koncept" />
+    </div>
+  </form>
+  }
+</p-dialog>

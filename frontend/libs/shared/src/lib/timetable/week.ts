@@ -16,3 +16,13 @@ export function isoWeekNumber(date: Date): number {
 export function weekParityOf(date: Date): Exclude<WeekParity, 'Every'> {
   return isoWeekNumber(date) % 2 === 1 ? 'Odd' : 'Even';
 }
+
+/** The Monday of the week after `date`'s. */
+export function nextMonday(date: Date): Date {
+  const daysAhead = (8 - date.getDay()) % 7 || 7;
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + daysAhead,
+  );
+}
