@@ -9,6 +9,7 @@ using Soovioo.Api.Demo;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.People;
+using Soovioo.Api.ProductFeedback;
 using Soovioo.Api.Timetable;
 using Soovioo.Api.Timetable.Rvp;
 using Soovioo.Api.Tests.Auth;
@@ -547,16 +548,20 @@ public class DemoTests
         var mail = new FakeEmailSender();
         var service = Service(db, mail);
         var controller = new DemoController(db, service, new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())),
-            AuthTestServices.Sessions(db))
+            AuthTestServices.Sessions(db),
+            Feedback(db, mail))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
 
-        Assert.IsType<BadRequestObjectResult>(await controller.Feedback("demo-fb", new DemoFeedbackRequest(null, " ", null)));
-        Assert.IsType<NoContentResult>(await controller.Feedback("demo-fb", new DemoFeedbackRequest(4, "Líbí se mi rozvrh.", "a@example.com", Consent: false, Role: "Teacher")));
+        Assert.IsType<BadRequestObjectResult>(await controller.Feedback("demo-fb", new FeedbackRequest(null, " ", null)));
+        Assert.IsType<NoContentResult>(await controller.Feedback("demo-fb", new FeedbackRequest(4, "Líbí se mi rozvrh.", "a@example.com", Consent: false, Role: "Teacher")));
 
-        var feedback = await db.DemoFeedback.SingleAsync();
+        var feedback = await db.Feedback.SingleAsync();
         Assert.Equal(4, feedback.Rating);
+        Assert.Equal("demo-fb", feedback.DemoSlug);
+        Assert.Equal("Demo", feedback.SchoolName);
+        Assert.Null(feedback.UserId);
         Assert.Equal("feedback", (await db.DemoContacts.SingleAsync()).Source);
         var (to, subject, body) = Assert.Single(mail.Sent);
         Assert.Equal("info@soovioo.cz", to);
@@ -564,7 +569,7 @@ public class DemoTests
         Assert.Contains("Líbí se mi rozvrh.", body);
 
         await new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())).PurgeAsync(school.Id, deleteSchool: true);
-        var kept = await db.DemoFeedback.SingleAsync();
+        var kept = await db.Feedback.SingleAsync();
         Assert.Null(kept.Email);
         Assert.Null(kept.SchoolId);
         Assert.Empty(db.DemoContacts);
@@ -592,8 +597,11 @@ public class DemoTests
 
     private static DemoController Controller(AppDbContext db) =>
         new(db, Service(db, new FakeEmailSender()), new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())),
-            AuthTestServices.Sessions(db))
+            AuthTestServices.Sessions(db), Feedback(db, new FakeEmailSender()))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
+
+    private static FeedbackService Feedback(AppDbContext db, FakeEmailSender mail) =>
+        new(db, mail, Options.Create(new DemoOptions()), new FakeClock(Now), NullLogger<FeedbackService>.Instance);
 }
