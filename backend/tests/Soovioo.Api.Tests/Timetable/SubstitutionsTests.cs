@@ -226,11 +226,11 @@ public class SubstitutionsTests
         var day = Ok(await Controller().Publish(Monday));
         Assert.False(day.Unpublished);
         var view = Assert.Single(await WeekAsync(classA.Id));
-        Assert.Equal(("Zástup", true, false, horak.Id), (view.Label, view.Replaces, view.Gone, view.TeacherId));
+        Assert.Equal(("Supl", true, false, horak.Id), (view.Label, view.Replaces, view.Gone, view.TeacherId));
 
         day = await ChangeAsync(new(Monday, 1, classA.Id, Cancelled: true));
         Assert.True(day.Unpublished);
-        Assert.Equal("Zástup", Assert.Single(await WeekAsync(classA.Id)).Label);
+        Assert.Equal("Supl", Assert.Single(await WeekAsync(classA.Id)).Label);
         Ok(await Controller().Publish(Monday));
         Assert.Equal("Odpadá", Assert.Single(await WeekAsync(classA.Id)).Label);
     }
@@ -242,11 +242,11 @@ public class SubstitutionsTests
         Ok(await Controller().Publish(Monday));
 
         var original = Assert.Single(await WeekAsync(teacherId: novak.Id));
-        Assert.Equal(($"Zastupuje Horák Učitel", true, true), (original.Label, original.Replaces, original.Gone));
-        Assert.Equal(maths.Id, original.SubjectId);
+        Assert.Equal(("Supl", true, true), (original.Label, original.Replaces, original.Gone));
+        Assert.Equal((maths.Id, "Horák Učitel", "Novák Učitel"), (original.SubjectId, original.TeacherName, original.WasTeacher));
         var substitute = Assert.Single(await WeekAsync(teacherId: horak.Id));
-        Assert.Equal(("Zástup, v rozvrhu Novák Učitel", false, false, "5.A"),
-            (substitute.Label, substitute.Replaces, substitute.Gone, substitute.SchoolClassName));
+        Assert.Equal(("Supl", false, false, "5.A", "Novák Učitel"),
+            (substitute.Label, substitute.Replaces, substitute.Gone, substitute.SchoolClassName, substitute.WasTeacher));
     }
 
     [Fact]
@@ -269,7 +269,7 @@ public class SubstitutionsTests
 
         var views = await WeekAsync(classA.Id);
         Assert.Equal(
-            [(Monday, 2, true, true, "Přesunuto na út 3. 11., 4. hodinu"), (Tuesday, 4, false, false, "Přesunuto z po 2. 11., 2. hodiny")],
+            [(Monday, 2, true, true, "Přesun na út 3. 11., 4. h"), (Tuesday, 4, false, false, "Přesun z po 2. 11., 2. h")],
             views.Select(v => (v.Date, v.PeriodNumber, v.Replaces, v.Gone, v.Label)));
         Assert.Equal(mala.Id, views[1].TeacherId);
         Assert.Contains(Ok(await Controller().GetDay(Tuesday)).Lessons, l => l.MovedIn && l.PeriodNumber == 4);
@@ -312,11 +312,11 @@ public class SubstitutionsTests
             new(Monday, 1, classA.Id, Extra: true, SubjectId: maths.Id))).Result);
 
         var day = await ChangeAsync(new(Monday, 4, classA.Id, Extra: true, SubjectId: maths.Id, TeacherId: horak.Id));
-        Assert.Contains(day.Lessons, l => l.PeriodNumber == 4 && l.Label == "Mimořádná hodina");
+        Assert.Contains(day.Lessons, l => l.PeriodNumber == 4 && l.Label == "Navíc");
         Ok(await Controller().Publish(Monday));
 
         var view = Assert.Single(await WeekAsync(classA.Id));
-        Assert.Equal((4, false, "Mimořádná hodina"), (view.PeriodNumber, view.Replaces, view.Label));
+        Assert.Equal((4, false, "Navíc"), (view.PeriodNumber, view.Replaces, view.Label));
     }
 
     [Fact]
@@ -325,8 +325,8 @@ public class SubstitutionsTests
         var day = await ChangeAsync(new(Monday, 1, classA.Id, TeacherId: mala.Id, ClassroomId: room2.Id));
 
         Assert.Equal(2, day.Problems.Count);
-        Assert.Contains("Malá Učitel učí zároveň", day.Problems[0]);
-        Assert.Contains("v učebně 102", day.Problems[1]);
+        Assert.Contains("Malá Učitel učí zároveň", day.Problems[0].Text);
+        Assert.Contains("v učebně 102", day.Problems[1].Text);
     }
 
     [Fact]
@@ -352,8 +352,8 @@ public class SubstitutionsTests
         Assert.All(notifications, n => Assert.Equal(20261102, n.TargetId));
         var family = notifications.Single(n => n.UserId == parentJan.Id);
         Assert.Equal("Změny v rozvrhu na po 2. 11. — Jan Žák", family.Title);
-        Assert.Equal("1. h M: Zástup; 3. h Sbor Hv: Odpadá.", family.Body);
-        Assert.Equal("1. h 5.A M: Zastupuje Horák Učitel; 3. h Sbor (5.A, 5.B) Hv: Odpadá.",
+        Assert.Equal("1. h M: Supl, Horák Učitel místo Novák Učitel; 3. h Sbor Hv: Odpadá.", family.Body);
+        Assert.Equal("1. h 5.A M: Supl, Horák Učitel místo Novák Učitel; 3. h Sbor (5.A, 5.B) Hv: Odpadá.",
             notifications.Single(n => n.UserId == novak.Id).Body);
     }
 
@@ -404,6 +404,76 @@ public class SubstitutionsTests
         var lessons = Assert.IsType<DashboardDto>(Assert.IsType<OkObjectResult>((await dashboard.GetDashboard()).Result).Value).TodayLessons;
 
         var lesson = Assert.Single(lessons);
-        Assert.Equal((1, "Matematika", "Zástup, v rozvrhu Novák Učitel"), (lesson.PeriodNumber, lesson.SubjectName, lesson.Change));
+        Assert.Equal((1, "Matematika", "Supl", "Novák Učitel"), (lesson.PeriodNumber, lesson.SubjectName, lesson.Change, lesson.WasTeacher));
+    }
+
+    [Fact]
+    public async Task A_change_doesnt_apply_to_another_lesson_a_new_timetable_has_then_and_the_day_reports_it()
+    {
+        await ChangeAsync(new(Monday, 1, classA.Id, Cancelled: true));
+        Ok(await Controller().Publish(Monday));
+        Assert.Equal([Monday], Ok(await Controller().GetChangedDays(Monday)));
+        current.ValidTo = Monday.AddDays(-1);
+        var next = new TimetableVersion
+        {
+            SchoolId = SchoolId, Name = "Nový", ValidFrom = Monday, Status = TimetableVersionStatus.Published,
+        };
+        db.TimetableVersions.Add(next);
+        await db.SaveChangesAsync();
+        db.TimetableEntries.Add(new TimetableEntry
+        {
+            SchoolId = SchoolId, TimetableVersionId = next.Id, SchoolClassId = classA.Id, SubjectId = czech.Id,
+            DayOfWeek = DayOfWeek.Monday, PeriodNumber = 1, TeacherId = mala.Id,
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Empty(await WeekAsync(classA.Id));
+        var problem = Assert.Single(Ok(await Controller().GetDay(Monday)).Problems);
+        Assert.Contains("v rozvrhu je teď jiná hodina", problem.Text);
+        Assert.Equal((await db.LessonChanges.SingleAsync()).Id, problem.ChangeId);
+
+        await AbsentAsync(mala);
+        Ok(await Controller().Fill(Monday));
+        var filled = await db.LessonChanges.SingleAsync();
+        Assert.Equal((false, czech.Id, mala.Id), (filled.Cancelled, filled.OfSubjectId, filled.OfTeacherId));
+        Assert.NotNull(filled.TeacherId);
+    }
+
+    [Fact]
+    public async Task The_substitute_has_the_class_or_the_groups_pupils_for_the_day_once_published()
+    {
+        await ChangeAsync(new(Monday, 1, classA.Id, TeacherId: horak.Id));
+        await ChangeAsync(new(Monday, 3, StudentGroupId: Choir.Id, TeacherId: horak.Id));
+        Assert.Empty(await db.GetTeacherClassIdsAsync(horak.Id));
+
+        Ok(await Controller().Publish(Monday));
+
+        Assert.Equal([classA.Id], await db.GetTeacherClassIdsAsync(horak.Id));
+        Assert.True(await db.TeachesClassInSubjectAsync(horak.Id, classA.Id, maths.Id));
+        Assert.False(await db.TeachesClassInSubjectAsync(horak.Id, classA.Id, czech.Id));
+        Assert.True(await db.TeachesStudentInSubjectAsync(horak.Id, jan.Id, music.Id));
+        Assert.Equal(new[] { jan.Id }, await db.GetTeacherStudentIdsAsync(horak.Id));
+        Assert.Equal([classA.Id], await db.GetTeacherClassIdsAsync(novak.Id));
+
+        db.Today = Tuesday;
+        Assert.Empty(await db.GetTeacherClassIdsAsync(horak.Id));
+    }
+
+    [Fact]
+    public async Task The_day_names_who_is_free_at_each_period_of_those_teaching_before_and_after_and_counts_the_others()
+    {
+        var day = Ok(await Controller().GetDay(Monday));
+
+        Assert.Equal([1, 2, 3, 4, 5, 6], day.Periods);
+        Assert.Equal(["5.A", "5.B"], day.Classes.Select(c => c.Name));
+        // Novák teaches the 1st and the 3rd, Malá the 1st and the 2nd.
+        var second = day.Free.Single(f => f.Period == 2);
+        Assert.Equal(["Novák Učitel"], second.AtSchool);
+        Assert.Equal(2, second.Others);
+        Assert.Empty(day.Free.Single(f => f.Period == 4).AtSchool);
+        Assert.Equal(4, day.Free.Single(f => f.Period == 4).Others);
+
+        day = await AbsentAsync(novak);
+        Assert.Empty(day.Free.Single(f => f.Period == 2).AtSchool);
     }
 }
