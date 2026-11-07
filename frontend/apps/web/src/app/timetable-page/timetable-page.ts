@@ -146,10 +146,14 @@ interface GridEntry {
   locked: boolean;
   studentGroupId?: number | null;
   studentGroupName?: string | null;
-  /** A published change of the day, e.g. "Zástup". */
+  /** A published change of the day, e.g. "Supl". */
   change?: string | null;
-  /** With `change`: not taught then. */
+  /** Not taught then. */
   gone?: boolean;
+  /** The timetable's subject when another is taught then; likewise the teacher and the classroom. */
+  wasSubject?: string | null;
+  wasTeacher?: string | null;
+  wasClassroom?: string | null;
 }
 
 /** What's being dragged: a lesson of the timetable or one of the unplaced. */
@@ -428,8 +432,8 @@ export class TimetablePage {
     })),
   );
 
-  /** The published changes of the shown week (suplování); only on the
-   * page on its own — the editor edits the timetable itself. */
+  /** The published changes of the shown week (suplování), over the
+   * version valid then — in the editor read only, like that version. */
   private readonly weekChanges = signal<LessonChange[]>([]);
   private changesRequest = 0;
 
@@ -446,7 +450,10 @@ export class TimetablePage {
     const changes = this.weekChanges().filter(
       (c) => c.date >= from && c.date < to,
     );
-    if (changes.length === 0) {
+    if (
+      changes.length === 0 ||
+      this.shownVersion()?.id !== this.weekVersion()?.id
+    ) {
       return lessons;
     }
     const same = (e: GridEntry, c: LessonChange) =>
@@ -476,8 +483,11 @@ export class TimetablePage {
         locked: false,
         studentGroupId: c.studentGroupId,
         studentGroupName: c.studentGroupName,
-        change: c.label,
+        change: c.label || null,
         gone: c.gone,
+        wasSubject: c.wasSubject,
+        wasTeacher: c.wasTeacher,
+        wasClassroom: c.wasClassroom,
       })),
     ];
   });
@@ -990,7 +1000,13 @@ export class TimetablePage {
     const conflicts = this.canManageTimetable()
       ? entry.conflicts.map((c) => `\n⚠ ${c}`).join('')
       : '';
-    const change = entry.change ? `\n${entry.change}` : '';
+    const was = [
+      entry.change,
+      entry.wasSubject && `v rozvrhu ${entry.wasSubject}`,
+      entry.wasTeacher && `v rozvrhu ${entry.wasTeacher}`,
+      entry.wasClassroom && `v rozvrhu učebna ${entry.wasClassroom}`,
+    ].filter((x) => x);
+    const change = was.length > 0 ? `\n${was.join(', ')}` : '';
     return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}${change}${conflicts}`;
   }
 
@@ -1509,9 +1525,6 @@ export class TimetablePage {
   }
 
   private loadChanges(): void {
-    if (this.editor) {
-      return;
-    }
     const mode = this.viewMode();
     const scope =
       mode === 'class'

@@ -227,7 +227,8 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .Concat(views.Select(v => new TimetableEntryDto(
                 --id, v.SchoolClassId ?? 0, v.SubjectId, v.SubjectName, v.SubjectAbbreviation, v.DayOfWeek, v.PeriodNumber,
                 WeekParity.Every, v.TeacherId, v.TeacherName, v.ClassroomId, v.ClassroomName, [], false,
-                v.StudentGroupId, v.StudentGroupName, v.Label, v.Gone)))
+                v.StudentGroupId, v.StudentGroupName, v.Label.Length > 0 ? v.Label : null, v.Gone,
+                v.WasSubject, v.WasTeacher, v.WasClassroom)))
             .OrderBy(e => e.PeriodNumber)];
     }
 

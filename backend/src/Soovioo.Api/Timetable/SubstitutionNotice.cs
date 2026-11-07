@@ -39,10 +39,16 @@ public class SubstitutionNotice(AppDbContext db, Notifier notifier)
                 .OrderBy(v => v.Date).ThenBy(v => v.PeriodNumber)
                 .Select(v => $"{(v.Date == date ? "" : $"{LessonChangeViews.Day(v.Date)} ")}{v.PeriodNumber}. h"
                     + $"{(who ? $" {v.SchoolClassName}" : v.StudentGroupName is null ? "" : $" {v.StudentGroupName}")}"
-                    + $" {v.SubjectAbbreviation ?? v.SubjectName}: {v.Label}")
+                    + $" {v.SubjectAbbreviation ?? v.SubjectName}{(v.WasSubject is null ? "" : $" místo {v.WasSubject}")}: {What(v)}")
                 .ToList();
             return lines.Count > 0 ? string.Join("; ", lines) + "." : "Hodiny jsou zase podle rozvrhu.";
         }
+        static string What(LessonChangeDto v) => string.Join(", ", new[]
+        {
+            v.Label,
+            v.WasTeacher is null ? "" : $"{v.TeacherName} místo {v.WasTeacher}",
+            v.WasClassroom is null ? "" : $"učebna {v.ClassroomName} místo {v.WasClassroom}",
+        }.Where(p => p.Length > 0));
 
         var drafts = changed.SelectMany(l => new[] { l.TeacherId, l.Original?.TeacherId })
             .Where(t => t is not null).Select(t => t!.Value).Distinct()

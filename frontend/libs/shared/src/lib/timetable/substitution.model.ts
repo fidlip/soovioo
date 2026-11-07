@@ -12,6 +12,7 @@ export interface LessonChange {
   replaces: boolean;
   /** Not taught (to them) then. */
   gone: boolean;
+  /** "Supl", "Odpadá", …; empty when the values tell it all. */
   label: string;
   subjectId: number;
   subjectName: string;
@@ -22,6 +23,10 @@ export interface LessonChange {
   classroomName: string | null;
   schoolClassName: string;
   studentGroupName: string | null;
+  /** The timetable's subject when another is taught; likewise the teacher and the classroom. */
+  wasSubject: string | null;
+  wasTeacher: string | null;
+  wasClassroom: string | null;
 }
 
 export interface LessonChangeData {
@@ -38,6 +43,8 @@ export interface LessonChangeData {
   movedToPeriod: number | null;
   mergedWithClassId: number | null;
   mergedWithGroupId: number | null;
+  ofSubjectId: number | null;
+  ofTeacherId: number | null;
 }
 
 export interface TeacherAbsence {
@@ -82,6 +89,26 @@ export interface SubstitutionLesson {
   changeId: number | null;
   change: LessonChangeData | null;
   movedIn: boolean;
+  /** The classes it's of — several for a group. */
+  classIds: number[];
+  groupName: string | null;
+  /** The timetable's subject when another is taught; likewise the teacher and the classroom. */
+  wasSubject: string | null;
+  wasTeacher: string | null;
+  wasClassroom: string | null;
+}
+
+export interface SubstitutionProblem {
+  text: string;
+  /** The change it's about, to undo it. */
+  changeId: number | null;
+}
+
+/** Who's free at the period: those teaching that day by name, the others counted. */
+export interface FreeTeachers {
+  period: number;
+  atSchool: string[];
+  others: number;
 }
 
 export interface SubstitutionDay {
@@ -92,7 +119,10 @@ export interface SubstitutionDay {
   unpublished: boolean;
   absences: TeacherAbsence[];
   lessons: SubstitutionLesson[];
-  problems: string[];
+  problems: SubstitutionProblem[];
+  periods: number[];
+  classes: { id: number; name: string }[];
+  free: FreeTeachers[];
 }
 
 export interface LessonChangeRequest {

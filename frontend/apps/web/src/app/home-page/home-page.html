@@ -58,15 +58,22 @@
     <ul class="m-0 flex list-none flex-col p-0 gap-1.5">
       @for (lesson of d.todayLessons; track lesson.id) {
       <li class="flex items-center justify-between gap-2 text-sm">
-        <span [class.line-through]="lesson.gone"
-          >{{ lesson.periodNumber }}. {{ lesson.subjectName }}</span
+        <span
+          [class.line-through]="lesson.gone && !lesson.wasSubject && !lesson.wasTeacher"
+          [class.opacity-60]="lesson.gone"
+          >{{ lesson.periodNumber }}. @if (lesson.wasSubject) {
+          <s>{{ lesson.wasSubject }}</s>
+          } {{ lesson.subjectName }}</span
         >
         @if (lesson.change) {
         <span class="font-medium text-orange-700 dark:text-orange-300"
           >{{ lesson.change }}</span
         >
         } @if (lesson.teacherName) {
-        <span class="text-surface-500">{{ lesson.teacherName }}</span>
+        <span class="text-surface-500"
+          >@if (lesson.wasTeacher) { <s>{{ lesson.wasTeacher }}</s> } {{
+          lesson.teacherName }}</span
+        >
         }
       </li>
       }

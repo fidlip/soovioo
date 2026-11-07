@@ -322,7 +322,7 @@
                   [class.ring-red-600]="hasConflict"
                   [class.ring-offset-2]="hasConflict"
                   [class.opacity-60]="entry.gone"
-                  [class.line-through]="entry.gone"
+                  [class.line-through]="entry.gone && !entry.wasSubject && !entry.wasTeacher && !entry.wasClassroom"
                   [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
                   [title]="cellTitle(entry)"
                   [class.cursor-grab]="canDrag() && !entry.locked"
@@ -389,7 +389,11 @@
                     class="font-semibold text-surface-900"
                     [class.pr-5]="editable"
                   >
-                    {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
+                    @if (entry.wasSubject) {
+                    <s class="font-normal" data-testid="lesson-was"
+                      >{{ entry.wasSubject }}</s
+                    >
+                    } {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
                     (entry.schoolClassName) {
                     <span class="font-normal"
                       >({{ entry.schoolClassName }})</span
@@ -400,10 +404,18 @@
                     >
                     }
                   </div>
-                  @if (entry.teacherName) {
-                  <div class="text-surface-700">{{ entry.teacherName }}</div>
-                  } @if (entry.classroomName) {
-                  <div class="text-surface-600">{{ entry.classroomName }}</div>
+                  @if (entry.teacherName || entry.wasTeacher) {
+                  <div class="text-surface-700">
+                    @if (entry.wasTeacher) {
+                    <s data-testid="lesson-was">{{ entry.wasTeacher }}</s>
+                    } {{ entry.teacherName }}
+                  </div>
+                  } @if (entry.classroomName || entry.wasClassroom) {
+                  <div class="text-surface-600">
+                    @if (entry.wasClassroom) {
+                    <s data-testid="lesson-was">{{ entry.wasClassroom }}</s>
+                    } {{ entry.classroomName }}
+                  </div>
                   } @if (entry.weekParity !== 'Every') {
                   <div class="text-surface-600">
                     {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}

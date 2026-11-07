@@ -464,10 +464,14 @@ public record TimetableEntryDto(
     bool Locked = false,
     int? StudentGroupId = null,
     string? StudentGroupName = null,
-    /// <summary>Today's change of the lesson (on Home), e.g. "Zástup".</summary>
+    /// <summary>Today's change of the lesson (on Home), e.g. "Supl".</summary>
     string? Change = null,
-    /// <summary>With <see cref="Change"/>: not taught today.</summary>
-    bool Gone = false);
+    /// <summary>Not taught today.</summary>
+    bool Gone = false,
+    /// <summary>The timetable's subject when another is taught today; likewise the teacher and the classroom.</summary>
+    string? WasSubject = null,
+    string? WasTeacher = null,
+    string? WasClassroom = null);
 
 /// <summary>Same shape as <see cref="TimetableEntryDto"/>, plus which class
 /// each entry belongs to — needed here (unlike the class-scoped DTO above)

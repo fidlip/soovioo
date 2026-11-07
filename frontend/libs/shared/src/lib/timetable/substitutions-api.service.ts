@@ -34,6 +34,13 @@ export class SubstitutionsApiService {
     return this.http.get<LessonChange[]>(this.url('week'), { params });
   }
 
+  /** Days from `from` on with changes prepared or published. */
+  getChangedDays(from: string): Observable<string[]> {
+    return this.http.get<string[]>(this.url('changed-days'), {
+      params: new HttpParams().set('from', from),
+    });
+  }
+
   getDay(date: string): Observable<SubstitutionDay> {
     return this.http.get<SubstitutionDay>(this.url(`days/${date}`));
   }

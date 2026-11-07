@@ -4,12 +4,15 @@ namespace Soovioo.Api.Timetable;
 /// <param name="SchoolClassId">With <paramref name="StudentGroupId"/> which lesson of the timetable it is.</param>
 /// <param name="Replaces">Shown instead of that lesson; otherwise besides the timetable's.</param>
 /// <param name="Gone">The lesson isn't taught (to them) then.</param>
+/// <param name="Label">"Supl", "Odpadá", …; empty when the values tell it all.</param>
+/// <param name="WasSubject">The timetable's subject, when another is taught; likewise the teacher and the classroom.</param>
 public record LessonChangeDto(
     DateOnly Date, DayOfWeek DayOfWeek, int PeriodNumber, int? SchoolClassId, int? StudentGroupId,
     bool Replaces, bool Gone, string Label,
     int SubjectId, string SubjectName, string? SubjectAbbreviation,
     int? TeacherId, string? TeacherName, int? ClassroomId, string? ClassroomName,
-    string SchoolClassName, string? StudentGroupName);
+    string SchoolClassName, string? StudentGroupName,
+    string? WasSubject = null, string? WasTeacher = null, string? WasClassroom = null);
 
 /// <summary>A class (all its groups' lessons), a pupil (the class and their
 /// <see cref="GroupIds"/>) or a teacher.</summary>
@@ -23,10 +26,11 @@ public static class LessonChangeViews
     public static string Day(DateOnly date) => $"{Days[(int)date.DayOfWeek]} {date.Day}. {date.Month}.";
 
     private static string At(LessonKey to, DateOnly from) =>
-        to.Date == from ? $"{to.Period}. hodinu" : $"{Day(to.Date)}, {to.Period}. hodinu";
+        to.Date == from ? $"{to.Period}. h" : $"{Day(to.Date)}, {to.Period}. h";
 
-    /// <param name="substituteFor">Of the teacher substituting.</param>
-    public static string Label(EffectiveLesson lesson, LessonNames names, bool substituteFor = false)
+    /// <summary>"Supl", "Odpadá", "Přesun na 3. h", "Spojeno s 5.B", "Navíc";
+    /// a changed subject or classroom alone shows by the values.</summary>
+    public static string Label(EffectiveLesson lesson, LessonNames names)
     {
         if (lesson.Change is { Cancelled: true })
         {
@@ -34,7 +38,7 @@ public static class LessonChangeViews
         }
         if (lesson.Gone)
         {
-            return $"Přesunuto na {At(lesson.Change!.MovedTo!, lesson.Key.Date)}";
+            return $"Přesun na {At(lesson.Change!.MovedTo!, lesson.Key.Date)}";
         }
         if (lesson.MergedInto is { } target)
         {
@@ -43,35 +47,21 @@ public static class LessonChangeViews
         var parts = new List<string>();
         if (lesson.MovedIn)
         {
-            var from = lesson.Original!.Key;
-            parts.Add(from.Date == lesson.Key.Date
-                ? $"Přesunuto z {from.Period}. hodiny"
-                : $"Přesunuto z {Day(from.Date)}, {from.Period}. hodiny");
+            parts.Add($"Přesun z {At(lesson.Original!.Key, lesson.Key.Date)}");
         }
         if (lesson.Original is null)
         {
-            parts.Add("Mimořádná hodina");
+            parts.Add("Navíc");
         }
         if (lesson.MergedFrom.Count > 0)
         {
             parts.Add($"Spojeno s {string.Join(", ", lesson.MergedFrom.Select(m => names.Who(m.Key)))}");
         }
-        if (lesson.Original is { } original)
+        if (lesson.Original is { } original && lesson.TeacherId != original.TeacherId)
         {
-            if (lesson.TeacherId != original.TeacherId)
-            {
-                parts.Add(substituteFor && original.TeacherId is not null ? $"Zástup, v rozvrhu {names.Teacher(original.TeacherId)}" : "Zástup");
-            }
-            if (lesson.SubjectId != original.SubjectId)
-            {
-                parts.Add("Jiný předmět");
-            }
-            if (lesson.ClassroomId != original.ClassroomId)
-            {
-                parts.Add("Jiná učebna");
-            }
+            parts.Add("Supl");
         }
-        return parts.Count > 0 ? string.Join(", ", parts) : "Změna";
+        return string.Join(", ", parts);
     }
 
     public static List<LessonChangeDto> For(IEnumerable<EffectiveLesson> lessons, LessonScope scope, LessonNames names)
@@ -93,12 +83,11 @@ public static class LessonChangeViews
                 {
                     var own = lesson.Original is null || original == teacher;
                     views.Add(Dto(lesson, own && lesson.Original is not null && !lesson.MovedIn, lesson.Gone,
-                        Label(lesson, names, substituteFor: !own), names));
+                        Label(lesson, names), names));
                 }
                 else if (original == teacher && !lesson.MovedIn)
                 {
-                    views.Add(Dto(lesson, true, true,
-                        lesson.Gone ? Label(lesson, names) : $"Zastupuje {names.Teacher(lesson.TeacherId)}", names, asOriginal: true));
+                    views.Add(Dto(lesson, true, true, Label(lesson, names), names, asOriginal: lesson.Gone));
                 }
             }
             else if (scope.ClassId is { } classId && lesson.ClassIds.Contains(classId)
@@ -113,15 +102,23 @@ public static class LessonChangeViews
     private static LessonChangeDto Dto(
         EffectiveLesson lesson, bool replaces, bool gone, string label, LessonNames names, bool asOriginal = false)
     {
-        var subjectId = asOriginal ? lesson.Original!.SubjectId : lesson.SubjectId;
-        var teacherId = asOriginal ? lesson.Original!.TeacherId : lesson.TeacherId;
-        var classroomId = asOriginal ? lesson.Original!.ClassroomId : lesson.ClassroomId;
+        var original = lesson.Original;
+        var subjectId = asOriginal ? original!.SubjectId : lesson.SubjectId;
+        var teacherId = asOriginal ? original!.TeacherId : lesson.TeacherId;
+        var classroomId = asOriginal ? original!.ClassroomId : lesson.ClassroomId;
         var subject = names.Subjects.GetValueOrDefault(subjectId);
+        var shown = !asOriginal && original is not null && !lesson.Gone;
         return new LessonChangeDto(
             lesson.Key.Date, lesson.Key.Date.DayOfWeek, lesson.Key.Period, lesson.Key.ClassId ?? lesson.ClassIds.FirstOrDefault(),
             lesson.Key.GroupId, replaces, gone, label, subjectId, subject.Name ?? "", subject.Abbreviation,
             teacherId, teacherId is null ? null : names.Teacher(teacherId),
-            classroomId, classroomId is { } room ? names.Classrooms.GetValueOrDefault(room) : null,
-            names.Who(lesson.Key), lesson.Key.GroupId is { } g && names.Groups.TryGetValue(g, out var group) ? group.Name : null);
+            classroomId, Classroom(classroomId, names),
+            names.Who(lesson.Key), lesson.Key.GroupId is { } g && names.Groups.TryGetValue(g, out var group) ? group.Name : null,
+            shown && original!.SubjectId != subjectId ? names.Subject(original.SubjectId) : null,
+            shown && original!.TeacherId != teacherId && original.TeacherId is not null ? names.Teacher(original.TeacherId) : null,
+            shown && original!.ClassroomId != classroomId ? Classroom(original.ClassroomId, names) : null);
     }
+
+    private static string? Classroom(int? id, LessonNames names) =>
+        id is { } room ? names.Classrooms.GetValueOrDefault(room) : null;
 }

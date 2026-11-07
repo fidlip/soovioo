@@ -3,11 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
-import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
+import { SelectButton } from '@openng/optimus-ui/selectbutton';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   SchoolClass,
@@ -31,6 +31,16 @@ import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 
 type ChangeKind = 'cover' | 'cancel' | 'move' | 'merge';
+
+type ViewBy = 'classes' | 'teachers';
+
+/** A row of the day's grid: a class or a teacher, its lessons by period. */
+interface GridRow {
+  id: number;
+  name: string;
+  absent: boolean;
+  cells: Map<number, SubstitutionLesson[]>;
+}
 
 interface LessonForm {
   lesson: SubstitutionLesson | null;
@@ -78,13 +88,13 @@ function today(): Date {
   return d.getDay() === 0 || d.getDay() === 6 ? nextSchoolDay(d, 1) : d;
 }
 
-/** Administrace → Výuka → Suplování: a day's absent teachers and the
- * lessons that change, with substitutes offered, published when ready. */
+/** Administrace → Výuka → Suplování: a day's absent teachers and its
+ * lessons in a grid of classes (or teachers) by periods, with substitutes
+ * offered, published when ready. */
 @Component({
   selector: 'app-substitutions-panel',
   imports: [
     Button,
-    Checkbox,
     DatePicker,
     Dialog,
     FloatField,
@@ -93,6 +103,7 @@ function today(): Date {
     Loading,
     Message,
     Select,
+    SelectButton,
     Tag,
   ],
   templateUrl: './substitutions-panel.html',
@@ -108,7 +119,11 @@ export class SubstitutionsPanel {
   );
   protected readonly day = signal<SubstitutionDay | null>(null);
   protected readonly busy = signal(false);
-  protected readonly showAllLessons = signal(false);
+  protected readonly viewBy = signal<ViewBy>('classes');
+  protected readonly viewByOptions = [
+    { label: 'Třídy', value: 'classes' },
+    { label: 'Učitelé', value: 'teachers' },
+  ];
 
   protected readonly teachers = signal<Teacher[]>([]);
   protected readonly subjects = signal<Subject[]>([]);
@@ -134,14 +149,60 @@ export class SubstitutionsPanel {
           severity: 'success' as const,
         };
   });
-  protected readonly lessons = computed(() => {
-    const lessons = this.day()?.lessons ?? [];
-    return this.showAllLessons()
-      ? lessons
-      : lessons.filter(
-          (l) => l.needsCover || l.label !== null || l.originalTeacherAbsent,
-        );
+  /** Classes, or the teachers teaching that day or away, with their lessons. */
+  protected readonly rows = computed<GridRow[]>(() => {
+    const day = this.day();
+    if (!day) {
+      return [];
+    }
+    const absent = new Set(day.absences.map((a) => a.teacherId));
+    const row = (
+      id: number,
+      name: string,
+      of: (l: SubstitutionLesson) => boolean,
+    ): GridRow => {
+      const cells = new Map<number, SubstitutionLesson[]>();
+      for (const lesson of day.lessons.filter(of)) {
+        cells.set(lesson.periodNumber, [
+          ...(cells.get(lesson.periodNumber) ?? []),
+          lesson,
+        ]);
+      }
+      return {
+        id,
+        name,
+        absent: this.viewBy() === 'teachers' && absent.has(id),
+        cells,
+      };
+    };
+    if (this.viewBy() === 'classes') {
+      return day.classes.map((c) =>
+        row(c.id, c.name, (l) => l.classIds.includes(c.id)),
+      );
+    }
+    const ids = new Set<number>(absent);
+    for (const l of day.lessons) {
+      for (const id of [l.teacherId, l.originalTeacherId]) {
+        if (id !== null) {
+          ids.add(id);
+        }
+      }
+    }
+    return [...ids]
+      .map((id) =>
+        row(
+          id,
+          this.teacherName(id),
+          (l) =>
+            (l.teacherId === id && !l.gone) ||
+            (l.originalTeacherId === id && (l.teacherId !== id || l.gone)),
+        ),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
   });
+  protected readonly freeByPeriod = computed(
+    () => new Map((this.day()?.free ?? []).map((f) => [f.period, f])),
+  );
   protected readonly needCover = computed(
     () => this.day()?.lessons.filter((l) => l.needsCover).length ?? 0,
   );
@@ -159,7 +220,7 @@ export class SubstitutionsPanel {
     this.classes().map((c) => ({ value: c.id, label: c.name })),
   );
   protected readonly kindOptions = [
-    { value: 'cover', label: 'Zástup, jiný předmět nebo učebna' },
+    { value: 'cover', label: 'Supl, jiný předmět nebo učebna' },
     { value: 'cancel', label: 'Odpadá' },
     { value: 'move', label: 'Přesun na jinou hodinu' },
     { value: 'merge', label: 'Spojení s jinou třídou nebo skupinou' },
@@ -403,13 +464,12 @@ export class SubstitutionsPanel {
     this.loadCandidates(lesson.periodNumber, lesson, null);
   }
 
-  protected newExtra(): void {
-    this.candidates.set(null);
-    this.lessonForm.set({
+  protected newExtra(schoolClassId: number, periodNumber: number): void {
+    const form: LessonForm = {
       lesson: null,
       date: this.dateOnly(),
-      periodNumber: null,
-      schoolClassId: null,
+      periodNumber,
+      schoolClassId,
       studentGroupId: null,
       kind: 'cover',
       teacherId: null,
@@ -418,7 +478,9 @@ export class SubstitutionsPanel {
       moveDate: null,
       movePeriod: null,
       mergeWith: null,
-    });
+    };
+    this.lessonForm.set(form);
+    this.extraChanged(form);
   }
 
   /** An extra lesson's teachers and classrooms once it's clear when and what. */
@@ -477,10 +539,13 @@ export class SubstitutionsPanel {
     );
   }
 
-  protected revert(lesson: SubstitutionLesson): void {
-    if (lesson.changeId !== null) {
-      this.run(this.api.deleteChange(lesson.changeId));
-    }
+  protected revert(changeId: number): void {
+    this.run(this.api.deleteChange(changeId), () => this.lessonForm.set(null));
+  }
+
+  /** "3. hodina 5.A M, Novák" */
+  protected lessonLabel(l: SubstitutionLesson): string {
+    return `${l.periodNumber}. hodina ${l.who} ${l.subject}${l.teacher ? `, ${l.teacher}` : ''}`;
   }
 
   protected fill(): void {
