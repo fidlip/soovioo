@@ -242,6 +242,89 @@ function inDays(days: number): string {
 // A version goes through its life: the admin prepares a draft as a copy,
 // a parent doesn't see it, the admin publishes it far ahead and archives it
 // again — so the timetable that applies stays as it was.
+test('admin arranges a draft by dragging lessons', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await login(page, 'admin', 'admin123');
+  const admin = await versionsApi(page, request);
+  const id = await draftCopy(admin, `E2E tahání ${Date.now()}`, 9000);
+  // The plan as the timetable has it: what's taken out is what's missing.
+  await request.post(`${admin.api}/timetable-versions/${id}/teaching/import`, {
+    headers: admin.headers,
+  });
+  await page.goto(
+    `/skola/admin?group=teaching&section=timetable&version=${id}`,
+  );
+
+  const lessons = page.getByTestId('timetable-lesson');
+  const unplaced = page.getByTestId('unplaced-lesson');
+  const stack = page.getByTestId('unplaced-lessons');
+  await expect(lessons.first()).toBeVisible();
+  await expect(page.getByTestId('timetable-assessment')).toContainText(
+    'Okna učitelů',
+  );
+  const startLessons = await lessons.count();
+  const startUnplaced = await unplaced.count();
+
+  /** Starts dragging, waits for the slots to show. */
+  async function grab(from: import('@playwright/test').Locator): Promise<void> {
+    const box = (await from.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2, {
+      steps: 3,
+    });
+  }
+  async function release(
+    over: import('@playwright/test').Locator,
+  ): Promise<void> {
+    await over.scrollIntoViewIfNeeded();
+    const box = (await over.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
+      steps: 8,
+    });
+    await page.mouse.up();
+  }
+
+  // Back among the unplaced.
+  await grab(lessons.first());
+  await expect(page.locator('td[data-drop]').first()).toBeVisible();
+  await release(stack);
+  await expect(lessons).toHaveCount(startLessons - 1);
+  await expect(unplaced).toHaveCount(startUnplaced + 1);
+
+  // Where the class has a lesson it can't go.
+  await grab(unplaced.first());
+  await expect(page.locator('td[data-drop="Blocked"]').first()).toBeVisible();
+  await release(page.locator('td[data-drop="Blocked"]').first());
+  await expect(page.locator('td[data-drop]')).toHaveCount(0);
+  await expect(lessons).toHaveCount(startLessons - 1);
+
+  // Into a free slot.
+  await grab(unplaced.first());
+  const free = page.locator('td[data-drop="Free"], td[data-drop="Unsuitable"]');
+  await expect(free.first()).toBeVisible();
+  await release(free.first());
+  await expect(lessons).toHaveCount(startLessons);
+  await expect(unplaced).toHaveCount(startUnplaced);
+
+  // A locked lesson stays.
+  await lessons.first().getByRole('button', { name: 'Upravit hodinu' }).click();
+  const edit = page.getByRole('dialog', { name: 'Upravit hodinu' });
+  await edit.getByLabel('Zamčená').check();
+  await edit.getByRole('button', { name: 'Uložit' }).click();
+  await expect(edit).toBeHidden();
+  const locked = lessons.filter({ has: page.getByLabel('Zamčená') }).first();
+  await expect(locked).toBeVisible();
+  await grab(locked);
+  await page.mouse.move(10, 10, { steps: 3 });
+  await expect(page.locator('td[data-drop]')).toHaveCount(0);
+  await page.mouse.up();
+  await archive(admin, id);
+});
+
 test.describe.serial('timetable version', () => {
   const name = `E2E verze ${Date.now()}`;
 
