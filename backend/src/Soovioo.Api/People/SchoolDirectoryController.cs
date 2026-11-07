@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -69,9 +68,9 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
             people.AddRange(await ParentsAsync(visibility, myClassIds, pupils));
         }
 
-        var folded = string.IsNullOrWhiteSpace(search) ? null : Fold(search.Trim());
+        var folded = string.IsNullOrWhiteSpace(search) ? null : TextSearch.Fold(search.Trim());
         var matching = people
-            .Where(p => folded is null || Fold(p.Dto.Name).Contains(folded))
+            .Where(p => folded is null || TextSearch.Fold(p.Dto.Name).Contains(folded))
             .Where(p => classId is null || p.ClassIds.Contains(classId.Value))
             .OrderBy(p => p.SortName, StringComparer.Create(CultureInfo.GetCultureInfo("cs-CZ"), true))
             .ToList();
@@ -224,21 +223,6 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
 
     private static string SortKey(string? lastName, string? firstName, string fallback) =>
         string.IsNullOrWhiteSpace(lastName) && string.IsNullOrWhiteSpace(firstName) ? fallback : $"{lastName} {firstName}";
-
-    /// <summary>Lower case without diacritics — "Šalda" and "salda" match.</summary>
-    public static string Fold(string text)
-    {
-        var decomposed = text.Normalize(NormalizationForm.FormD);
-        var result = new StringBuilder(decomposed.Length);
-        foreach (var c in decomposed)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-            {
-                result.Append(char.ToLowerInvariant(c));
-            }
-        }
-        return result.ToString();
-    }
 }
 
 /// <param name="Notes">Staff: classes they lead and subjects; pupils: their class.</param>

@@ -1,5 +1,4 @@
-using System.Globalization;
-using System.Text;
+using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Timetable.Rvp;
 
@@ -53,18 +52,7 @@ public static class RvpSubjects
         .SelectMany(k => new[] { k.Name, k.Abbreviation }.Concat(k.Aliases).Select(n => (Key: Normalize(n), k)))
         .ToDictionary(x => x.Key, x => x.k);
 
-    public static string Normalize(string text)
-    {
-        var builder = new StringBuilder();
-        foreach (var c in text.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(c);
-            }
-        }
-        return builder.ToString();
-    }
+    public static string Normalize(string text) => TextSearch.Fold(text.Trim());
 
     public static Known? Recognize(string name, string? abbreviation) =>
         ByNormalized.GetValueOrDefault(Normalize(name))
