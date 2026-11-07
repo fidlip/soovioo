@@ -12,6 +12,14 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import {
+  CdkDrag,
+  CdkDragDrop,
+  CdkDragPlaceholder,
+  CdkDropList,
+  CdkDropListGroup,
+} from '@angular/cdk/drag-drop';
+import { CdkScrollable } from '@angular/cdk/scrolling';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -39,8 +47,11 @@ import {
   TeachersApiService,
   TeachingApiService,
   TimetableApiService,
+  TimetableAssessment,
+  TimetableDropSlot,
   TimetableVersion,
   TimetableVersionsApiService,
+  UnplacedLesson,
   WeekParity,
   formatDate,
   formatHours,
@@ -134,6 +145,14 @@ interface GridEntry {
   studentGroupName?: string | null;
 }
 
+/** What's being dragged: a lesson of the timetable or one of the unplaced. */
+type DragLesson = { entry: GridEntry } | { unplaced: UnplacedLesson };
+
+/** A slot of the grid to drop on; null = the unplaced lessons. */
+type DropCell = { day: DayOfWeek; period: number } | null;
+
+const DRAG_START_DELAY = { touch: 300, mouse: 0 };
+
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
 function toInputTime(value: string): string {
   return value.slice(0, 5);
@@ -169,6 +188,11 @@ function formatShortDate(date: Date): string {
     Loading,
     TermPipe,
     AppIcon,
+    CdkDrag,
+    CdkDragPlaceholder,
+    CdkDropList,
+    CdkDropListGroup,
+    CdkScrollable,
     FormsModule,
     Button,
     Checkbox,
@@ -419,6 +443,20 @@ export class TimetablePage {
     }
     return grid;
   });
+
+  /** What the plan wants and the shown class's timetable lacks. */
+  protected readonly unplaced = signal<UnplacedLesson[]>([]);
+  protected readonly assessment = signal<TimetableAssessment | null>(null);
+  /** Lessons can be moved around in a draft once it exists. */
+  protected readonly canDrag = computed(
+    () => this.editMode() && this.shownVersion() !== undefined,
+  );
+  protected readonly dragStartDelay = DRAG_START_DELAY;
+  protected readonly dragging = signal(false);
+  /** Where the dragged lesson can go, "Monday:3" -> its slot. */
+  private readonly dropSlots = signal(new Map<string, TimetableDropSlot>());
+  /** A drag ends with a click on what it ended over. */
+  private justDragged = false;
 
   /** The shown version's groups — for a group's lesson added by hand. */
   private readonly groups = signal<StudentGroup[]>([]);
@@ -863,9 +901,121 @@ export class TimetablePage {
     return `${entry.subjectName}${className}${entry.teacherName ? ' — ' + entry.teacherName : ''}${classroom}${parity}${conflicts}`;
   }
 
+  protected dropStatus(day: DayOfWeek, period: number): string | null {
+    return this.dropSlots().get(`${day}:${period}`)?.status ?? null;
+  }
+
+  protected dropReasons(day: DayOfWeek, period: number): string {
+    return this.dropSlots().get(`${day}:${period}`)?.reasons.join(' ') ?? '';
+  }
+
+  /** Blocked slots don't take it; the server checks again on the drop. */
+  protected readonly dropAllowed = (
+    drag: CdkDrag<DragLesson>,
+    list: CdkDropList,
+  ): boolean => {
+    const cell: DropCell = list.data;
+    return cell
+      ? this.dropStatus(cell.day, cell.period) !== 'Blocked'
+      : 'entry' in drag.data;
+  };
+
+  protected onDragStarted(lesson: DragLesson): void {
+    const versionId = this.shownVersion()?.id;
+    const classId = this.selectedClassId();
+    this.dragging.set(true);
+    this.dropSlots.set(new Map());
+    if (versionId === undefined) {
+      return;
+    }
+    const request =
+      'entry' in lesson
+        ? { entryId: lesson.entry.id }
+        : {
+            schoolClassId: classId ?? 0,
+            subjectId: lesson.unplaced.subjectId,
+            groupId: lesson.unplaced.groupId,
+            weekParity: lesson.unplaced.weekParity,
+          };
+    this.versionsApi.getDropSlots(versionId, request).subscribe({
+      next: (slots) => {
+        if (this.dragging()) {
+          this.dropSlots.set(
+            new Map(slots.map((s) => [`${s.day}:${s.period}`, s])),
+          );
+        }
+      },
+      error: (err) => console.error('getDropSlots failed', err),
+    });
+  }
+
+  protected onDragEnded(): void {
+    this.dragging.set(false);
+    this.dropSlots.set(new Map());
+    this.justDragged = true;
+    setTimeout(() => (this.justDragged = false));
+  }
+
+  protected onDropped(event: CdkDragDrop<unknown>, cell: DropCell): void {
+    const versionId = this.shownVersion()?.id;
+    const classId = this.selectedClassId();
+    const lesson: DragLesson = event.item.data;
+    if (
+      versionId === undefined ||
+      event.container === event.previousContainer
+    ) {
+      return;
+    }
+    const done = {
+      next: () => this.reload(),
+      error: (err: unknown) => this.notify.actionFailed('move failed', err),
+    };
+    if ('entry' in lesson) {
+      (cell
+        ? this.versionsApi.moveLesson(
+            versionId,
+            lesson.entry.id,
+            cell.day,
+            cell.period,
+          )
+        : this.versionsApi.unplaceLesson(versionId, lesson.entry.id)
+      ).subscribe(done);
+    } else if (cell && classId !== null) {
+      this.versionsApi
+        .placeLesson(versionId, classId, lesson.unplaced, cell.day, cell.period)
+        .subscribe(done);
+    }
+  }
+
+  private loadBoard(): void {
+    const versionId = this.shownVersion()?.id;
+    const classId = this.viewMode() === 'class' ? this.selectedClassId() : null;
+    if (!this.canDrag() || versionId === undefined) {
+      this.unplaced.set([]);
+      this.assessment.set(null);
+      return;
+    }
+    this.versionsApi.getAssessment(versionId).subscribe({
+      next: (assessment) => this.assessment.set(assessment),
+      error: (err) => console.error('getAssessment failed', err),
+    });
+    if (classId === null) {
+      this.unplaced.set([]);
+      return;
+    }
+    this.versionsApi.getUnplaced(versionId, classId).subscribe({
+      next: (unplaced) => {
+        if (this.selectedClassId() === classId) {
+          this.unplaced.set(unplaced);
+        }
+      },
+      error: (err) => console.error('getUnplaced failed', err),
+    });
+  }
+
   /** An empty slot: a new lesson; one lesson: that one. */
   protected onCellClick(day: DayOfWeek, periodNumber: number): void {
-    if (!this.editMode() || !this.canManageTimetable()) {
+    if (!this.editMode() || !this.canManageTimetable() || this.justDragged) {
       return;
     }
     const entries = this.entryGrid().get(day)?.get(periodNumber) ?? [];
@@ -1215,5 +1365,6 @@ export class TimetablePage {
     this.entries.set(entries);
     this.entriesLoaded.set(true);
     this.scrollToCurrentPeriodAfterRender();
+    this.loadBoard();
   }
 }

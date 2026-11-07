@@ -164,187 +164,279 @@
 </p-message>
 }
 
-<!-- Two tables sharing one fixed column layout: the header lives outside the
+<div cdkDropListGroup>
+  @if (canDrag() && viewMode() === 'class') {
+  <section
+    class="mb-4 rounded-lg border border-surface-200 p-3 dark:border-surface-700"
+    data-testid="unplaced-lessons"
+    cdkDropList
+    cdkDropListSortingDisabled
+    [cdkDropListData]="null"
+    [cdkDropListEnterPredicate]="dropAllowed"
+    (cdkDropListDropped)="onDropped($any($event), null)"
+  >
+    <div class="mb-2 text-sm font-semibold">Neumístěné hodiny</div>
+    <div class="flex flex-wrap gap-2">
+      @for (lesson of unplaced(); track $index) {
+      <div
+        class="cursor-grab rounded px-2 py-1 text-xs"
+        data-testid="unplaced-lesson"
+        [style.background-color]="subjectsById().get(lesson.subjectId)?.color ?? 'var(--p-surface-200)'"
+        [title]="lesson.subjectName"
+        cdkDrag
+        [cdkDragData]="{ unplaced: lesson }"
+        [cdkDragStartDelay]="dragStartDelay"
+        (cdkDragStarted)="onDragStarted({ unplaced: lesson })"
+        (cdkDragEnded)="onDragEnded()"
+      >
+        <div *cdkDragPlaceholder class="hidden"></div>
+        <div class="font-semibold text-surface-900">
+          {{ lesson.subjectShort }} @if (lesson.groupName) {
+          <span class="font-normal">({{ lesson.groupName }})</span>
+          }
+        </div>
+        @if (lesson.teacherName) {
+        <div class="text-surface-700">{{ lesson.teacherName }}</div>
+        } @if (lesson.weekParity !== 'Every') {
+        <div class="text-surface-600">lichý</div>
+        }
+      </div>
+      } @empty {
+      <p class="m-0 text-sm text-surface-500">
+        Všechny hodiny podle plánu jsou v rozvrhu.
+      </p>
+      }
+    </div>
+    <p class="mb-0 mt-2 text-xs text-surface-500">
+      Hodiny přetáhněte do rozvrhu. Hodina přetažená z rozvrhu sem se z rozvrhu
+      odebere. Při tažení zeleně vhodná místa, oranžově nevhodná a šedě ta, kam
+      hodina nemůže.
+    </p>
+  </section>
+  }
+
+  <!-- Two tables sharing one fixed column layout: the header lives outside the
      horizontally scrolling body so it can stick to the page (below the mobile
      top bar) on vertical scroll; its scrollLeft follows the body's. -->
-<div class="rounded-lg border border-surface-200 dark:border-surface-700">
-  <div
-    #headerScroller
-    class="sticky z-[5] overflow-hidden rounded-t-lg"
-    style="top: calc(var(--app-topbar-height) + var(--sticky-tabs-height, 0px))"
-  >
-    <table
-      class="w-full table-fixed border-collapse text-sm"
-      [style.min-width]="tableMinWidth()"
+  <div class="rounded-lg border border-surface-200 dark:border-surface-700">
+    <div
+      #headerScroller
+      class="sticky z-[5] overflow-hidden rounded-t-lg"
+      style="
+        top: calc(var(--app-topbar-height) + var(--sticky-tabs-height, 0px));
+      "
     >
-      <colgroup>
-        <col [style.width]="dayColumnWidth" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th
-            class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-left align-bottom dark:border-surface-700 dark:bg-surface-800"
-          ></th>
-          @for (period of displayedPeriods(); track period.periodNumber) {
-          <th
-            class="border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium leading-tight text-surface-600 last:border-r-0 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
-          >
-            <div class="font-semibold text-surface-900 dark:text-surface-0">
-              {{ period.periodNumber }}.
-            </div>
-            <div class="text-xs font-normal text-surface-500">
-              {{ period.startTime.slice(0, 5) }}
-            </div>
-            <div class="text-xs font-normal text-surface-500">
-              {{ period.endTime.slice(0, 5) }}
-            </div>
-          </th>
-          }
-        </tr>
-      </thead>
-    </table>
-  </div>
-  <div
-    #bodyScroller
-    class="overflow-x-auto rounded-b-lg"
-    (scroll)="syncHeaderScroll()"
-  >
-    <table
-      class="w-full table-fixed border-collapse text-sm"
-      [style.min-width]="tableMinWidth()"
+      <table
+        class="w-full table-fixed border-collapse text-sm"
+        [style.min-width]="tableMinWidth()"
+      >
+        <colgroup>
+          <col [style.width]="dayColumnWidth" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th
+              class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-left align-bottom dark:border-surface-700 dark:bg-surface-800"
+            ></th>
+            @for (period of displayedPeriods(); track period.periodNumber) {
+            <th
+              class="border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium leading-tight text-surface-600 last:border-r-0 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
+            >
+              <div class="font-semibold text-surface-900 dark:text-surface-0">
+                {{ period.periodNumber }}.
+              </div>
+              <div class="text-xs font-normal text-surface-500">
+                {{ period.startTime.slice(0, 5) }}
+              </div>
+              <div class="text-xs font-normal text-surface-500">
+                {{ period.endTime.slice(0, 5) }}
+              </div>
+            </th>
+            }
+          </tr>
+        </thead>
+      </table>
+    </div>
+    <div
+      #bodyScroller
+      cdkScrollable
+      class="overflow-x-auto rounded-b-lg"
+      (scroll)="syncHeaderScroll()"
     >
-      <colgroup>
-        <col [style.width]="dayColumnWidth" />
-      </colgroup>
-      <tbody>
-        @for (day of days; track day; let firstDay = $first) {
-        <tr>
-          <th
-            class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium text-surface-700 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200"
-            [title]="dayLabels[day]"
-          >
-            {{ dayShortLabels[day] }}
-          </th>
-          @for (period of displayedPeriods(); track period.periodNumber) { @let
-          entries = entryGrid().get(day)?.get(period.periodNumber) ?? []; @let
-          editable = editMode() && canManageTimetable();
-          <td
-            class="group relative border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
-            [class.h-14]="editable"
-            [attr.data-period]="period.periodNumber"
-            [class.cursor-pointer]="editMode() && canManageTimetable()"
-            [class.hover:bg-surface-100]="editMode() && canManageTimetable()"
-            [class.dark:hover:bg-surface-800]="editMode() && canManageTimetable()"
-            [title]="entries.length === 1 ? cellTitle(entries[0]) : ''"
-            (click)="onCellClick(day, period.periodNumber)"
-          >
-            <div class="flex flex-col gap-1">
-              @for (entry of entries; track entry.id) { @let hasConflict =
-              canManageTimetable() && entry.conflicts.length > 0;
-              <div
-                class="relative rounded px-2 py-1 text-xs"
-                [class.ring-2]="hasConflict"
-                [class.ring-red-600]="hasConflict"
-                [class.ring-offset-2]="hasConflict"
-                [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
-                [title]="cellTitle(entry)"
-              >
-                @if (hasConflict) {
-                <i
-                  class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
-                  role="img"
-                  aria-label="Kolize"
-                ></i>
-                } @else if (entry.locked && canManageTimetable()) {
-                <i
-                  class="pi pi-lock absolute right-1 top-1 text-xs text-surface-700"
-                  role="img"
-                  aria-label="Zamčená"
-                  title="Zamčená — generátor ji nepřesune"
-                ></i>
-                }
-                <div class="font-semibold text-surface-900">
-                  {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
-                  (entry.schoolClassName) {
-                  <span class="font-normal">({{ entry.schoolClassName }})</span>
-                  } @else if (entry.studentGroupName) {
-                  <span class="font-normal"
-                    >({{ entry.studentGroupName }})</span
+      <table
+        class="w-full table-fixed border-collapse text-sm"
+        [style.min-width]="tableMinWidth()"
+      >
+        <colgroup>
+          <col [style.width]="dayColumnWidth" />
+        </colgroup>
+        <tbody>
+          @for (day of days; track day; let firstDay = $first) {
+          <tr>
+            <th
+              class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium text-surface-700 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200"
+              [title]="dayLabels[day]"
+            >
+              {{ dayShortLabels[day] }}
+            </th>
+            @for (period of displayedPeriods(); track period.periodNumber) {
+            @let entries = entryGrid().get(day)?.get(period.periodNumber) ?? [];
+            @let editable = editMode() && canManageTimetable();
+            <td
+              class="group relative border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
+              [class.h-14]="editable"
+              [attr.data-period]="period.periodNumber"
+              [attr.data-day]="day"
+              [attr.data-drop]="dropStatus(day, period.periodNumber)"
+              [class.bg-green-100]="dropStatus(day, period.periodNumber) === 'Free'"
+              [class.bg-amber-100]="dropStatus(day, period.periodNumber) === 'Unsuitable'"
+              [class.bg-surface-300]="dropStatus(day, period.periodNumber) === 'Blocked'"
+              [class.opacity-50]="dropStatus(day, period.periodNumber) === 'Blocked'"
+              cdkDropList
+              cdkDropListSortingDisabled
+              [cdkDropListDisabled]="!canDrag()"
+              [cdkDropListData]="{ day: day, period: period.periodNumber }"
+              [cdkDropListEnterPredicate]="dropAllowed"
+              (cdkDropListDropped)="onDropped($any($event), { day: day, period: period.periodNumber })"
+              [class.cursor-pointer]="editMode() && canManageTimetable()"
+              [class.hover:bg-surface-100]="editMode() && canManageTimetable()"
+              [class.dark:hover:bg-surface-800]="editMode() && canManageTimetable()"
+              [title]="dragging() ? dropReasons(day, period.periodNumber) : entries.length === 1 ? cellTitle(entries[0]) : ''"
+              (click)="onCellClick(day, period.periodNumber)"
+            >
+              <div class="flex flex-col gap-1">
+                @for (entry of entries; track entry.id) { @let hasConflict =
+                canManageTimetable() && entry.conflicts.length > 0;
+                <div
+                  class="relative rounded px-2 py-1 text-xs"
+                  [class.ring-2]="hasConflict"
+                  [class.ring-red-600]="hasConflict"
+                  [class.ring-offset-2]="hasConflict"
+                  [style.background-color]="subjectsById().get(entry.subjectId)?.color ?? 'var(--p-surface-200)'"
+                  [title]="cellTitle(entry)"
+                  [class.cursor-grab]="canDrag() && !entry.locked"
+                  data-testid="timetable-lesson"
+                  cdkDrag
+                  [cdkDragDisabled]="!canDrag() || entry.locked"
+                  [cdkDragData]="{ entry: entry }"
+                  [cdkDragStartDelay]="dragStartDelay"
+                  (cdkDragStarted)="onDragStarted({ entry: entry })"
+                  (cdkDragEnded)="onDragEnded()"
+                >
+                  <div *cdkDragPlaceholder class="hidden"></div>
+                  @if (hasConflict) {
+                  <i
+                    class="pi pi-exclamation-triangle absolute right-1 top-1 rounded-full bg-white p-1 text-xs text-red-600 shadow"
+                    role="img"
+                    aria-label="Kolize"
+                  ></i>
+                  } @else if (entry.locked && canManageTimetable()) {
+                  <i
+                    class="pi pi-lock absolute right-1 top-1 text-xs text-surface-700"
+                    role="img"
+                    aria-label="Zamčená"
+                    title="Zamčená — generátor ji nepřesune"
+                  ></i>
+                  }
+                  <div class="font-semibold text-surface-900">
+                    {{ entry.subjectAbbreviation ?? entry.subjectName }} @if
+                    (entry.schoolClassName) {
+                    <span class="font-normal"
+                      >({{ entry.schoolClassName }})</span
+                    >
+                    } @else if (entry.studentGroupName) {
+                    <span class="font-normal"
+                      >({{ entry.studentGroupName }})</span
+                    >
+                    }
+                  </div>
+                  @if (entry.teacherName) {
+                  <div class="text-surface-700">{{ entry.teacherName }}</div>
+                  } @if (entry.classroomName) {
+                  <div class="text-surface-600">{{ entry.classroomName }}</div>
+                  } @if (entry.weekParity !== 'Every') {
+                  <div class="text-surface-600">
+                    {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
+                  </div>
+                  } @if (editable) {
+                  <div
+                    class="absolute bottom-1 right-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   >
+                    <button
+                      type="button"
+                      class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-surface-700 shadow hover:text-primary"
+                      aria-label="Upravit hodinu"
+                      title="Upravit"
+                      (click)="$event.stopPropagation(); onEntryClick(entry)"
+                    >
+                      <i class="pi pi-pencil text-xs"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow hover:bg-red-50"
+                      aria-label="Smazat hodinu"
+                      title="Smazat"
+                      (click)="$event.stopPropagation(); confirmDeleteEntry(entry)"
+                    >
+                      <i class="pi pi-times text-xs"></i>
+                    </button>
+                  </div>
                   }
                 </div>
-                @if (entry.teacherName) {
-                <div class="text-surface-700">{{ entry.teacherName }}</div>
-                } @if (entry.classroomName) {
-                <div class="text-surface-600">{{ entry.classroomName }}</div>
-                } @if (entry.weekParity !== 'Every') {
-                <div class="text-surface-600">
-                  {{ entry.weekParity === 'Odd' ? 'lichý' : 'sudý' }}
-                </div>
-                } @if (editable) {
-                <div
-                  class="absolute bottom-1 right-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                } @if (editable && canAddGroupLesson(entries)) {
+                <button
+                  type="button"
+                  class="self-center rounded-full border border-dashed border-surface-400 px-2 text-xs text-surface-500 hover:border-primary hover:text-primary"
+                  aria-label="Hodina jiné skupiny"
+                  title="Přidat hodinu jiné skupiny"
+                  (click)="$event.stopPropagation(); addToCell(day, period.periodNumber)"
                 >
-                  <button
-                    type="button"
-                    class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-surface-700 shadow hover:text-primary"
-                    aria-label="Upravit hodinu"
-                    title="Upravit"
-                    (click)="$event.stopPropagation(); onEntryClick(entry)"
-                  >
-                    <i class="pi pi-pencil text-xs"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-red-600 shadow hover:bg-red-50"
-                    aria-label="Smazat hodinu"
-                    title="Smazat"
-                    (click)="$event.stopPropagation(); confirmDeleteEntry(entry)"
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-                </div>
+                  <i class="pi pi-plus text-xs"></i>
+                </button>
                 }
               </div>
-              } @if (editable && canAddGroupLesson(entries)) {
+              @if (entries.length === 0 && editable && canAddEntries()) {
               <button
                 type="button"
-                class="self-center rounded-full border border-dashed border-surface-400 px-2 text-xs text-surface-500 hover:border-primary hover:text-primary"
-                aria-label="Hodina jiné skupiny"
-                title="Přidat hodinu jiné skupiny"
-                (click)="$event.stopPropagation(); addToCell(day, period.periodNumber)"
+                class="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-400 text-surface-500 opacity-0 transition-opacity hover:border-primary hover:text-primary focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                aria-label="Přidat hodinu"
+                title="Přidat hodinu"
+                (click)="$event.stopPropagation(); onCellClick(day, period.periodNumber)"
               >
-                <i class="pi pi-plus text-xs"></i>
+                <i class="pi pi-plus text-sm"></i>
               </button>
               }
-            </div>
-            @if (entries.length === 0 && editable && canAddEntries()) {
-            <button
-              type="button"
-              class="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-surface-400 text-surface-500 opacity-0 transition-opacity hover:border-primary hover:text-primary focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-              aria-label="Přidat hodinu"
-              title="Přidat hodinu"
-              (click)="$event.stopPropagation(); onCellClick(day, period.periodNumber)"
+            </td>
+            } @empty { @if (firstDay) {
+            <td
+              class="border-b border-surface-200 p-4 text-center text-surface-500 dark:border-surface-700"
+              [attr.rowspan]="days.length"
             >
-              <i class="pi pi-plus text-sm"></i>
-            </button>
-            }
-          </td>
-          } @empty { @if (firstDay) {
-          <td
-            class="border-b border-surface-200 p-4 text-center text-surface-500 dark:border-surface-700"
-            [attr.rowspan]="days.length"
-          >
-            V tomto týdnu nejsou žádné hodiny.
-          </td>
-          } }
-        </tr>
-        }
-      </tbody>
-    </table>
+              V tomto týdnu nejsou žádné hodiny.
+            </td>
+            } }
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
-} @else {
+@if (assessment(); as result) {
+<section
+  class="mt-4 rounded-lg border border-surface-200 p-3 dark:border-surface-700"
+  data-testid="timetable-assessment"
+>
+  <div class="mb-2 text-sm font-semibold">Hodnocení rozvrhu</div>
+  <ul class="m-0 list-disc pl-5 text-sm">
+    @for (note of result.notes; track $index) {
+    <li>{{ note }}</li>
+    } @for (problem of result.problems; track $index) {
+    <li class="text-red-700 dark:text-red-400">{{ problem }}</li>
+    }
+  </ul>
+</section>
+} } @else {
 <app-loading />
 } @if (editor && canSeeVersions()) {
 <app-timetable-versions-dialog

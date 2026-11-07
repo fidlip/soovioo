@@ -5,9 +5,12 @@ import { API_BASE_URL } from '../api-base-url.token';
 import {
   CreateTimetableVersionRequest,
   TimetableGeneration,
+  TimetableAssessment,
+  TimetableDropSlot,
   TimetableGenerationMode,
   TimetableUpdateMismatches,
   TimetableUpdateMoves,
+  UnplacedLesson,
   TimetableVersion,
   UpdateTimetableVersionRequest,
 } from './timetable-version.model';
@@ -59,6 +62,71 @@ export class TimetableVersionsApiService {
   }
 
   /** The user saw how the latest run ended — its notification is read. */
+  getUnplaced(id: number, schoolClassId: number): Observable<UnplacedLesson[]> {
+    return this.http.get<UnplacedLesson[]>(`${this.url}/${id}/board/unplaced`, {
+      params: { schoolClassId },
+    });
+  }
+
+  /** Where a lesson in the timetable, or one of the unplaced, can go. */
+  getDropSlots(
+    id: number,
+    lesson:
+      | { entryId: number }
+      | {
+          schoolClassId: number;
+          subjectId: number;
+          groupId: number | null;
+          weekParity: WeekParity;
+        },
+  ): Observable<TimetableDropSlot[]> {
+    const params = Object.fromEntries(
+      Object.entries(lesson).filter(([, value]) => value !== null),
+    ) as Record<string, string | number>;
+    return this.http.get<TimetableDropSlot[]>(`${this.url}/${id}/board/slots`, {
+      params,
+    });
+  }
+
+  moveLesson(
+    id: number,
+    entryId: number,
+    day: DayOfWeek,
+    period: number,
+  ): Observable<void> {
+    return this.http.post<void>(
+      `${this.url}/${id}/board/lessons/${entryId}/move`,
+      { day, period },
+    );
+  }
+
+  placeLesson(
+    id: number,
+    schoolClassId: number,
+    lesson: UnplacedLesson,
+    day: DayOfWeek,
+    period: number,
+  ): Observable<void> {
+    return this.http.post<void>(`${this.url}/${id}/board/lessons`, {
+      schoolClassId,
+      subjectId: lesson.subjectId,
+      groupId: lesson.groupId,
+      weekParity: lesson.weekParity,
+      day,
+      period,
+    });
+  }
+
+  unplaceLesson(id: number, entryId: number): Observable<void> {
+    return this.http.delete<void>(`${this.url}/${id}/board/lessons/${entryId}`);
+  }
+
+  getAssessment(id: number): Observable<TimetableAssessment> {
+    return this.http.get<TimetableAssessment>(
+      `${this.url}/${id}/board/assessment`,
+    );
+  }
+
   generationSeen(id: number): Observable<void> {
     return this.http.post<void>(`${this.url}/${id}/generation/seen`, {});
   }

@@ -7,6 +7,8 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Timetable;
 
+public record RoomInfo(int Id, string Name, ClassroomType? Type, int? Capacity);
+
 /// <summary>Runs a <see cref="TimetableGeneration"/> (a Hangfire job): what
 /// the version's plan and přidělení want and its timetable lacks goes to
 /// <see cref="TimetableGenerator"/>, the result into the version.</summary>
@@ -91,7 +93,7 @@ public class TimetableGenerationJob(
             periods = [.. Enumerable.Range(1, 8)];
         }
         var subjects = await db.Subjects.ToDictionaryAsync(s => s.Id);
-        var rooms = await db.Classrooms.OrderBy(r => r.Id).Select(r => new { r.Id, r.Name, r.Type, r.Capacity }).ToListAsync();
+        var rooms = await RoomsAsync(db);
         var homerooms = await db.SchoolClasses.Where(c => c.HomeroomId != null)
             .ToDictionaryAsync(c => c.Id, c => c.HomeroomId!.Value);
         var classSizes = await db.Students.GroupBy(s => s.SchoolClassId)
@@ -101,15 +103,7 @@ public class TimetableGenerationJob(
         // Classrooms it can have, first choice first, that the pupils fit in.
         List<int> RoomsFor(Subject subject, int? fixedRoom, int? homeroom, int size, string who, bool group = false)
         {
-            var wanted = fixedRoom is { } roomId ? [new SubjectClassroom { ClassroomId = roomId }]
-                : subject.Classrooms.Count > 0
-                    ? subject.Classrooms.OrderBy(c => c.Position).ToList()
-                    : [new SubjectClassroom { Type = ClassroomType.Homeroom }];
-            var listed = wanted
-                .SelectMany(c => c.ClassroomId is { } id ? rooms.Where(r => r.Id == id)
-                    : c.Type == ClassroomType.Homeroom ? rooms.Where(r => r.Id == homeroom)
-                    : rooms.Where(r => r.Type == c.Type))
-                .DistinctBy(r => r.Id).ToList();
+            var listed = ListedRooms(subject, fixedRoom, homeroom, rooms);
             var fitting = listed.Where(r => r.Capacity is null || r.Capacity >= size).Select(r => r.Id).ToList();
             if (fixedRoom is null && subject.Classrooms.Count > 0 && listed.Count == 0)
             {
@@ -329,21 +323,13 @@ public class TimetableGenerationJob(
         messages.AddRange(LateBecauseOfTeachers(lessons, kept, demands, teachers, classNames, teacherNames, first));
         generation.Placed = changes?.Count ?? result.Placements.Count;
         generation.Messages = [.. messages.Distinct()];
-        generation.Notes = [.. changes?.Notes ?? [], .. Notes(lessons, classNames, first)];
-        if (ElectivesInside(kept.Concat(added), electives, classNames) is { } inside)
-        {
-            generation.Notes.Add(inside);
-        }
-        if (Unmet(lessons, teachers, teacherNames) is { } unmet)
-        {
-            generation.Notes.Add(unmet);
-        }
+        generation.Notes = [.. changes?.Notes ?? [], .. Assess([.. kept, .. added], electives, classNames, teachers, teacherNames, first)];
     }
 
     /// <summary>Groups and the classes not all of whose pupils are in them or,
     /// in a division, in any of its groups. A group on its own with no pupils
     /// yet counts; a division with none says nothing yet.</summary>
-    private static async Task<HashSet<(int GroupId, int ClassId)>> ElectivesAsync(
+    internal static async Task<HashSet<(int GroupId, int ClassId)>> ElectivesAsync(
         AppDbContext db, List<TeachingGroupDto> groups, Dictionary<int, int> classSizes)
     {
         var ids = groups.Select(g => g.Id).ToList();
@@ -364,6 +350,45 @@ public class TimetableGenerationJob(
             }
         }
         return electives;
+    }
+
+    /// <summary>How a timetable looks: gaps and late starts, electives left
+    /// in between, wishes not met.</summary>
+    internal static List<string> Assess(
+        IReadOnlyCollection<TimetableEntry> entries, HashSet<(int GroupId, int ClassId)> electives,
+        Dictionary<int, string> classNames, Dictionary<int, TimetableGenerator.Teacher> teachers,
+        Dictionary<int, string> teacherNames, int first)
+    {
+        var lessons = entries.Select(e => (e.SchoolClassId, e.TeacherId, e.DayOfWeek, e.PeriodNumber)).Distinct().ToList();
+        var notes = Notes(lessons, classNames, first);
+        if (ElectivesInside(entries, electives, classNames) is { } inside)
+        {
+            notes.Add(inside);
+        }
+        if (Unmet(lessons, teachers, teacherNames) is { } unmet)
+        {
+            notes.Add(unmet);
+        }
+        return notes;
+    }
+
+    /// <summary>The school's classrooms, as the generator chooses from them.</summary>
+    public static Task<List<RoomInfo>> RoomsAsync(AppDbContext db) =>
+        db.Classrooms.OrderBy(r => r.Id).Select(r => new RoomInfo(r.Id, r.Name, r.Type, r.Capacity)).ToListAsync();
+
+    /// <summary>The classrooms a lesson can have, first choice first: a
+    /// group's own, the subject's list, or else the class's homeroom.</summary>
+    public static List<RoomInfo> ListedRooms(Subject subject, int? fixedRoom, int? homeroom, IReadOnlyList<RoomInfo> rooms)
+    {
+        var wanted = fixedRoom is { } roomId ? [new SubjectClassroom { ClassroomId = roomId }]
+            : subject.Classrooms.Count > 0
+                ? subject.Classrooms.OrderBy(c => c.Position).ToList()
+                : [new SubjectClassroom { Type = ClassroomType.Homeroom }];
+        return wanted
+            .SelectMany(c => c.ClassroomId is { } id ? rooms.Where(r => r.Id == id)
+                : c.Type == ClassroomType.Homeroom ? rooms.Where(r => r.Id == homeroom)
+                : rooms.Where(r => r.Type == c.Type))
+            .DistinctBy(r => r.Id).ToList();
     }
 
     /// <summary>"Volitelné předměty uprostřed dne: 9.A st, 9.B pá."</summary>
