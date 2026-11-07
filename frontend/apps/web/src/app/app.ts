@@ -182,29 +182,28 @@ export class App {
         this.drawerOpen.set(false);
         // Sidebar "Zprávy" badge and the bell — cheap enough to re-check
         // per navigation.
-        if (this.showsBadges()) {
-          this.unread.refresh();
-        }
+        this.refreshBadges();
       });
     // Also while someone stays on one page.
     interval(60_000)
       .pipe(
-        filter(
-          () => this.showsBadges() && document.visibilityState === 'visible',
-        ),
+        filter(() => document.visibilityState === 'visible'),
         takeUntilDestroyed(),
       )
-      .subscribe(() => this.unread.refresh());
+      .subscribe(() => this.refreshBadges());
   }
 
   protected title = 'Soovioo';
 
-  private showsBadges(): boolean {
-    return (
-      this.authApi.isLoggedIn() &&
-      !this.authApi.isSuperAdmin() &&
-      !this.hideHeader()
-    );
+  private refreshBadges(): void {
+    if (!this.authApi.isLoggedIn() || this.hideHeader()) {
+      return;
+    }
+    if (this.authApi.isSuperAdmin()) {
+      this.unread.refreshFeedback();
+    } else {
+      this.unread.refresh();
+    }
   }
 
   protected toggleBell(event: Event): void {

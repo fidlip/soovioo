@@ -91,9 +91,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public bool IncludeFormerStudents { get; set; }
 
     // Not tenant-scoped: SuperAdmin-only lists, and the rows may outlive
-    // their demo school (see the classes).
+    // their school (see the classes).
     public DbSet<Demo.DemoContact> DemoContacts => Set<Demo.DemoContact>();
-    public DbSet<Demo.DemoFeedback> DemoFeedback => Set<Demo.DemoFeedback>();
+    public DbSet<ProductFeedback.Feedback> Feedback => Set<ProductFeedback.Feedback>();
+    public DbSet<ProductFeedback.FeedbackReply> FeedbackReplies => Set<ProductFeedback.FeedbackReply>();
 
     // Global matrika reference data (RAST/RAOR/RAUJ) — not tenant-scoped,
     // shared by every school. Seeded once from CSV at startup; see
@@ -467,7 +468,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Demo.DemoEmail>().HasIndex(x => x.SchoolId);
         modelBuilder.Entity<Demo.DemoContact>().HasIndex(x => x.SchoolId);
-        modelBuilder.Entity<Demo.DemoFeedback>().HasIndex(x => x.CreatedAt);
+        modelBuilder.Entity<ProductFeedback.Feedback>().HasIndex(x => x.CreatedAt);
 
         modelBuilder.Entity<StudentProfile>().Property(s => s.LeaveReason).HasConversion<string>();
         modelBuilder.Entity<StudentProfile>().PrimitiveCollection(s => s.ErasedCategories).ElementType().HasConversion<string>();

@@ -122,7 +122,7 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         {
             contact.SchoolId = null;
         }
-        foreach (var feedback in await db.DemoFeedback.Where(f => f.SchoolId == schoolId).ToListAsync())
+        foreach (var feedback in await db.Feedback.Where(f => f.SchoolId == schoolId).ToListAsync())
         {
             feedback.SchoolId = null;
             if (!feedback.Consent)

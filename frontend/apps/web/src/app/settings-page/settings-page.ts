@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
+import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
@@ -13,6 +14,8 @@ import { Subject, catchError, concatMap, of } from 'rxjs';
 import {
   AuthApiService,
   EventsApiService,
+  FeedbackApiService,
+  FeedbackRequest,
   MyProfile,
   MyProfileApiService,
   DIGEST_TIMES,
@@ -44,11 +47,14 @@ import { PhotoEditor } from '../photo-editor/photo-editor';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
 import { Loading } from '../loading/loading';
+import { FeedbackForm } from '../feedback/feedback-form';
 @Component({
   selector: 'app-settings-page',
   imports: [
     FloatField,
     ...FORM_FIELDS,
+    Dialog,
+    FeedbackForm,
     InfoHint,
     FormsModule,
     Button,
@@ -105,6 +111,14 @@ export class SettingsPage {
   // has no "Kalendář" nav link for either, see app.html.
   protected readonly showCalendarFeed = !this.authApi.isSuperAdmin();
   protected readonly feedUrl = signal<string | null>(null);
+
+  /** "Zpětná vazba" to the Soovioo team — a school's own users only. */
+  protected readonly feedbackOpen = signal(false);
+  protected readonly showFeedback =
+    !this.authApi.isSuperAdmin() && !this.authApi.getSupportInfo();
+  private readonly feedbackApi = inject(FeedbackApiService);
+  protected readonly sendFeedback = (request: FeedbackRequest) =>
+    this.feedbackApi.send(request);
   protected readonly feedUrlCopied = signal(false);
 
   /** A person's own accounts: not for the SuperAdmin, support mode or a

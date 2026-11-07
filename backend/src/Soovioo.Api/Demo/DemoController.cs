@@ -8,6 +8,7 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
+using Soovioo.Api.ProductFeedback;
 
 namespace Soovioo.Api.Demo;
 
@@ -18,7 +19,8 @@ namespace Soovioo.Api.Demo;
 [AllowAnonymous]
 [ApiController]
 [Route("api/public/demo")]
-public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchoolPurger purger, AuthSessionService sessions)
+public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchoolPurger purger, AuthSessionService sessions,
+    FeedbackService feedback)
     : ControllerBase
 {
     public const string CreateRateLimit = "demo-create";
@@ -177,44 +179,19 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         return NoContent();
     }
 
-    /// <summary>The demo's feedback dialog. Stored (SuperAdmin overview)
-    /// and mailed to <see cref="DemoOptions.FeedbackEmail"/>.</summary>
+    /// <summary>The demo's feedback dialog (see <see cref="FeedbackService"/>).</summary>
     [HttpPost("{slug}/feedback")]
-    public async Task<IActionResult> Feedback(string slug, DemoFeedbackRequest request)
+    public async Task<IActionResult> Feedback(string slug, FeedbackRequest request)
     {
         if (await DemoSchoolAsync(slug) is not { } school)
         {
             return NotFound();
         }
-        if (request.Rating is < 1 or > 5)
-        {
-            return this.FieldError("rating", "Hodnocení je 1 až 5.");
-        }
-        var text = string.IsNullOrWhiteSpace(request.Text) ? null : request.Text.Trim();
-        if (text?.Length > 4000)
-        {
-            return this.FieldError("text", "Text je moc dlouhý.");
-        }
-        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
-        if (email is not null && (!email.Contains('@') || email.Length > 254))
-        {
-            return this.FieldError("email", "Neplatný e-mail.");
-        }
-        if (request.Rating is null && text is null)
-        {
-            return this.FieldError("text", "Napište nám aspoň pár slov, nebo vyberte hodnocení.");
-        }
         AuditContext.Of(HttpContext).SchoolId = school.Id;
-        await demos.SaveFeedbackAsync(school, new DemoFeedback
+        if (await feedback.SaveAsync(school, null, request) is { } error)
         {
-            SchoolId = school.Id,
-            DemoSlug = school.Slug,
-            Rating = request.Rating,
-            Text = text,
-            Email = email,
-            Consent = request.Consent,
-            Role = request.Role,
-        });
+            return this.FieldError(error.Field, error.Message);
+        }
         return NoContent();
     }
 
@@ -244,6 +221,3 @@ public record DemoUserDto(int Id, string Name, string Role, string Detail, bool 
 public record DemoClearedDto(int AdminUserId);
 
 public record DemoLoginRequest(int UserId, bool UseCookie = false);
-
-/// <param name="Role">Which role the visitor was looking through.</param>
-public record DemoFeedbackRequest(int? Rating, string? Text, string? Email, bool Consent = false, string? Role = null);
