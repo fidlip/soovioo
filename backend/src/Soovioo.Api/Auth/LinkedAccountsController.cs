@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -38,21 +37,19 @@ public class LinkedAccountsController(
     [Authorize]
     public async Task<ActionResult<IReadOnlyList<LinkableSchoolDto>>> SearchSchools(string? search = null)
     {
-        var term = Folded(search ?? "");
+        var term = TextSearch.Fold((search ?? "").Trim());
         if (term.Length < MinSearchLength)
         {
             return Ok(Array.Empty<LinkableSchoolDto>());
         }
         var mine = int.TryParse(User.FindFirstValue("schoolId"), out var id) ? id : (int?)null;
-        var schools = await db.Schools.IgnoreQueryFilters()
+        return Ok(await db.Schools.IgnoreQueryFilters()
             .Where(s => !s.IsDemo && s.Id != mine)
+            .Where(s => TextSearch.Fold(s.Name).Contains(term) || TextSearch.Fold(s.Slug).Contains(term))
             .OrderBy(s => s.Name)
-            .Select(s => new LinkableSchoolDto(s.Name, s.Slug))
-            .ToListAsync();
-        return Ok(schools
-            .Where(s => Folded(s.Name).Contains(term) || Folded(s.SchoolSlug).Contains(term))
             .Take(MaxSearchResults)
-            .ToList());
+            .Select(s => new LinkableSchoolDto(s.Name, s.Slug))
+            .ToListAsync());
     }
 
     /// <summary>Web, step 1 of linking: the other school's own login page
@@ -269,13 +266,6 @@ public class LinkedAccountsController(
         var found = await db.AccountLinkRequests.FirstOrDefaultAsync(r => r.CodeHash == hash);
         return found is null || found.ExpiresAt < clock.GetUtcNow() ? null : found;
     }
-
-    /// <summary>Lower case without diacritics: "Základní" is found by "zakladni".</summary>
-    private static string Folded(string text) =>
-        new string(text.Trim().Normalize(NormalizationForm.FormD)
-                .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                .ToArray())
-            .ToLowerInvariant();
 
     /// <summary>Takes a linked account out of the caller's accounts.</summary>
     [HttpDelete("api/linked-accounts/{userId:int}")]
