@@ -152,6 +152,8 @@ type DragLesson = { entry: GridEntry } | { unplaced: UnplacedLesson };
 type DropCell = { day: DayOfWeek; period: number } | null;
 
 const DRAG_START_DELAY = { touch: 300, mouse: 0 };
+/** As far as a drag has to go to start, in pixels. */
+const LOCKED_PULL_DISTANCE = 5;
 
 /** "HH:mm:ss" (backend TimeOnly) -> "HH:mm" (<input type="time">). */
 function toInputTime(value: string): string {
@@ -455,6 +457,8 @@ export class TimetablePage {
   protected readonly dragging = signal(false);
   /** Where the dragged lesson can go, "Monday:3" -> its slot. */
   private readonly dropSlots = signal(new Map<string, TimetableDropSlot>());
+  /** The locked lesson someone is trying to drag. */
+  protected readonly lockedAttempt = signal<number | null>(null);
   /** A drag ends with a click on what it ended over. */
   private justDragged = false;
 
@@ -952,6 +956,10 @@ export class TimetablePage {
   protected onDragEnded(): void {
     this.dragging.set(false);
     this.dropSlots.set(new Map());
+    this.afterDrag();
+  }
+
+  private afterDrag(): void {
     this.justDragged = true;
     setTimeout(() => (this.justDragged = false));
   }
@@ -1232,6 +1240,36 @@ export class TimetablePage {
       },
       error: (err) => this.notify.actionFailed('saveEntry failed', err),
     });
+  }
+
+  /** A locked lesson being pulled: it says why it doesn't move until let go. */
+  protected onLessonPress(press: PointerEvent, entry: GridEntry): void {
+    if (
+      !entry.locked ||
+      !this.canDrag() ||
+      (press.target as Element).closest('button')
+    ) {
+      return;
+    }
+    const moves = (move: PointerEvent) => {
+      if (
+        Math.hypot(move.x - press.x, move.y - press.y) >= LOCKED_PULL_DISTANCE
+      ) {
+        this.lockedAttempt.set(entry.id);
+      }
+    };
+    const ends = () => {
+      window.removeEventListener('pointermove', moves);
+      window.removeEventListener('pointerup', ends);
+      window.removeEventListener('pointercancel', ends);
+      if (this.lockedAttempt() !== null) {
+        this.lockedAttempt.set(null);
+        this.afterDrag();
+      }
+    };
+    window.addEventListener('pointermove', moves);
+    window.addEventListener('pointerup', ends);
+    window.addEventListener('pointercancel', ends);
   }
 
   protected toggleLock(entry: GridEntry): void {
