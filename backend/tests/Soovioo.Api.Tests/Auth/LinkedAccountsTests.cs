@@ -374,11 +374,175 @@ public class LinkedAccountsTests
 
     [Theory]
     [InlineData(nameof(LinkedAccountsController.Link))]
+    [InlineData(nameof(LinkedAccountsController.StartRequest))]
+    [InlineData(nameof(LinkedAccountsController.PreviewRequest))]
+    [InlineData(nameof(LinkedAccountsController.ApproveRequest))]
+    [InlineData(nameof(LinkedAccountsController.CompleteRequest))]
     [InlineData(nameof(LinkedAccountsController.Unlink))]
     [InlineData(nameof(LinkedAccountsController.Switch))]
     public void LinkingAndSwitchingStayOutOfTheSchoolsLog(string action) =>
         Assert.NotNull(typeof(LinkedAccountsController).GetMethod(action)!
             .GetCustomAttributes(typeof(CrossSchoolAuditAttribute), false).SingleOrDefault());
+
+    private async Task<string> StartAsync(User me, string slug) =>
+        Assert.IsType<LinkRequestDto>(Assert.IsType<OkObjectResult>(
+            (await Controller(me).StartRequest(new StartLinkRequest(slug))).Result).Value).Code;
+
+    private async Task<string> ApproveAsync(User me, string code) =>
+        Assert.IsType<LinkRequestDto>(Assert.IsType<OkObjectResult>(
+            (await Controller(me).ApproveRequest(new LinkCodeRequest(code))).Result).Value).Code;
+
+    private async Task<IReadOnlyList<LinkableSchoolDto>> SearchAsync(User me, string? search) =>
+        Assert.IsAssignableFrom<IReadOnlyList<LinkableSchoolDto>>(Assert.IsType<OkObjectResult>(
+            (await Controller(me).SearchSchools(search)).Result).Value);
+
+    [Fact]
+    public async Task ThereAtTheOtherSchoolAndBackLinksTheTwoAccounts()
+    {
+        var code = await StartAsync(inA, "udoli");
+        Assert.Empty(DbOf(SchoolA).AccountLinks);
+
+        var preview = Assert.IsType<LinkRequestPreviewDto>(Assert.IsType<OkObjectResult>(
+            (await Controller().PreviewRequest(new LinkCodeRequest(code))).Result).Value);
+        Assert.Equal(new LinkRequestPreviewDto("rodic", "ZŠ Kopec", "kopec"), preview);
+
+        var back = Assert.IsType<LinkRequestDto>(Assert.IsType<OkObjectResult>(
+            (await Controller(inB).ApproveRequest(new LinkCodeRequest(code))).Result).Value);
+        Assert.Equal("kopec", back.SchoolSlug);
+        Assert.NotEqual(code, back.Code);
+        Assert.Empty(DbOf(SchoolA).AccountLinks);
+
+        Assert.IsType<NoContentResult>(await Controller(inA).CompleteRequest(new LinkCodeRequest(back.Code)));
+
+        Assert.Equal(inB.Id, Assert.Single((await LinkedOfAsync(inA))!).UserId);
+        Assert.Empty(DbOf(SchoolA).AccountLinkRequests);
+    }
+
+    /// <summary>Someone sends their own request to a victim, who logs in at
+    /// the victim's school and says yes.</summary>
+    [Fact]
+    public async Task WhoeverStartedARequestCantFinishItWithoutTheBrowserThatSaidYes()
+    {
+        var attackersCode = await StartAsync(inA, "udoli");
+        var victimsBrowserCode = await ApproveAsync(inB, attackersCode);
+
+        // With the code they already have.
+        Assert.Equal(LinkedAccountsController.BadRequestCode, ErrorOf(
+            await Controller(inA).CompleteRequest(new LinkCodeRequest(attackersCode))));
+        // The victim's browser, sent back to the attacker's school, isn't
+        // logged in as the attacker.
+        Assert.Equal(LinkedAccountsController.BadRequestCode, ErrorOf(
+            await Controller(inB).CompleteRequest(new LinkCodeRequest(victimsBrowserCode))));
+
+        Assert.Empty(DbOf(SchoolA).AccountLinks);
+    }
+
+    [Fact]
+    public async Task AnAccountOfAnotherSchoolCantSayYes()
+    {
+        var code = await StartAsync(inA, "udoli");
+
+        ErrorOf((await Controller(inC).ApproveRequest(new LinkCodeRequest(code))).Result!);
+
+        Assert.Null((await DbOf(SchoolA).AccountLinkRequests.SingleAsync()).ApprovedUserId);
+    }
+
+    [Fact]
+    public async Task ARequestRunsOut()
+    {
+        var code = await StartAsync(inA, "udoli");
+        var back = await ApproveAsync(inB, code);
+
+        clock.Now += LinkedAccountsController.RequestLength + TimeSpan.FromSeconds(1);
+
+        ErrorOf((await Controller().PreviewRequest(new LinkCodeRequest(code))).Result!);
+        ErrorOf((await Controller(inB).ApproveRequest(new LinkCodeRequest(code))).Result!);
+        ErrorOf(await Controller(inA).CompleteRequest(new LinkCodeRequest(back)));
+        Assert.Empty(DbOf(SchoolA).AccountLinks);
+    }
+
+    [Fact]
+    public async Task ANewRequestReplacesTheOlderOneAndClearsTheExpired()
+    {
+        var older = await StartAsync(inA, "udoli");
+        var someoneElses = await StartAsync(inC, "udoli");
+        clock.Now += LinkedAccountsController.RequestLength + TimeSpan.FromSeconds(1);
+
+        await StartAsync(inA, "udoli");
+
+        ErrorOf((await Controller().PreviewRequest(new LinkCodeRequest(older))).Result!);
+        ErrorOf((await Controller().PreviewRequest(new LinkCodeRequest(someoneElses))).Result!);
+        Assert.Single(DbOf(SchoolA).AccountLinkRequests);
+    }
+
+    [Fact]
+    public async Task ARequestCompletesOnlyOnce()
+    {
+        var back = await ApproveAsync(inB, await StartAsync(inA, "udoli"));
+        await Controller(inA).CompleteRequest(new LinkCodeRequest(back));
+
+        ErrorOf(await Controller(inA).CompleteRequest(new LinkCodeRequest(back)));
+    }
+
+    [Theory]
+    [InlineData("nikde")]
+    [InlineData("demo-1")]
+    [InlineData("kopec")]
+    public async Task ARequestNeedsAnotherRealSchool(string slug) =>
+        ErrorOf((await Controller(inA).StartRequest(new StartLinkRequest(slug))).Result!);
+
+    [Fact]
+    public async Task ADemoAccountStartsNoRequest() =>
+        ErrorOf((await Controller(inDemo).StartRequest(new StartLinkRequest("kopec"))).Result!);
+
+    [Fact]
+    public async Task AnAdminAssignedPasswordCantSayYes()
+    {
+        var code = await StartAsync(inA, "udoli");
+        var db = DbOf(SchoolB);
+        var other = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == inB.Id);
+        other.MustChangePassword = true;
+        await db.SaveChangesAsync();
+
+        ErrorOf((await Controller(inB).ApproveRequest(new LinkCodeRequest(code))).Result!);
+    }
+
+    [Fact]
+    public async Task AnAccountDeactivatedMeanwhileDoesntLink()
+    {
+        var back = await ApproveAsync(inB, await StartAsync(inA, "udoli"));
+        var db = DbOf(SchoolB);
+        var other = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == inB.Id);
+        other.DeactivatedAt = clock.Now;
+        await db.SaveChangesAsync();
+
+        Assert.Equal(AuthController.DeactivatedMessage, ErrorOf(await Controller(inA).CompleteRequest(new LinkCodeRequest(back))));
+        Assert.Empty(DbOf(SchoolA).AccountLinks);
+    }
+
+    [Theory]
+    [InlineData("zs ", 0)]
+    [InlineData("udoli", 1)]
+    [InlineData("ÚDOLÍ", 1)]
+    [InlineData("gymnazium", 1)]
+    [InlineData("kopec", 0)]
+    [InlineData("ukazka", 0)]
+    [InlineData("ud", 0)]
+    public async Task SchoolsAreFoundWithoutDiacriticsButNotOnesOwnOrADemo(string search, int found) =>
+        Assert.Equal(found, (await SearchAsync(inA, search)).Count);
+
+    [Fact]
+    public async Task TheSearchGivesOnlyAFewSchools()
+    {
+        var db = DbOf(SchoolA);
+        for (var i = 0; i < LinkedAccountsController.MaxSearchResults + 5; i++)
+        {
+            db.Schools.Add(new School { Name = $"Střední škola {i}", Slug = $"stredni-{i}" });
+        }
+        await db.SaveChangesAsync();
+
+        Assert.Equal(LinkedAccountsController.MaxSearchResults, (await SearchAsync(inA, "stredni")).Count);
+    }
 
     [Fact]
     public async Task AdminResettingThePasswordEndsTheLink()
