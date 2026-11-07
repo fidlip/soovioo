@@ -132,6 +132,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("unaccent");
+        modelBuilder.HasDbFunction(typeof(TextSearch).GetMethod(nameof(TextSearch.Fold))!)
+            .HasName("fold_for_search")
+            .HasParameter("text").PropagatesNullability();
         // SetNull: a Person is a record of its own (Administrace → Osoby)
         // and outlives its account.
         modelBuilder.Entity<Person>()
