@@ -92,3 +92,14 @@ test.describe.serial('school events', () => {
     }
   });
 });
+
+test('recipient filters ignore case and diacritics', async ({ page }) => {
+  await login(page, 'admin', 'admin123');
+  await page.getByRole('button', { name: 'Nová akce' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nová akce' });
+  await dialog.locator('#eventAudience').click();
+  await page.getByRole('option', { name: 'Výběr', exact: true }).click();
+
+  await dialog.getByLabel('Hledat žáka').fill('jan novak');
+  await expect(dialog.getByText('Jan Novák')).toBeVisible();
+});

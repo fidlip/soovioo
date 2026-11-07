@@ -124,6 +124,26 @@ public class SchoolsControllerTests
     }
 
     [Fact]
+    public async Task GetSchoolsSearchesNameAndSlugIgnoringCaseAndDiacritics()
+    {
+        using var db = NewDb();
+        db.Schools.AddRange(
+            new School { Name = "ZŠ Plzeň, Úslavská", Slug = "zs-uslavska" },
+            new School { Name = "Gymnázium Luďka Pika", Slug = "gym-pika" },
+            new School { Name = "ZŠ Praha", Slug = "zs-praha" });
+        await db.SaveChangesAsync();
+        var controller = new SchoolsController(db);
+
+        async Task<IEnumerable<string>> Search(string search) =>
+            Assert.IsType<Soovioo.Api.Common.PagedResult<SchoolDto>>(Assert.IsType<OkObjectResult>(
+                (await controller.GetSchools(search: search)).Result).Value).Items.Select(s => s.Slug);
+
+        Assert.Equal(["zs-uslavska"], await Search("plzen"));
+        Assert.Equal(["gym-pika"], await Search("GYMNAZIUM ludka"));
+        Assert.Equal(["zs-praha"], await Search("S-PRA"));
+    }
+
+    [Fact]
     public async Task GetSchoolsKeepsDemosApart()
     {
         using var db = NewDb();

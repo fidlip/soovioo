@@ -221,6 +221,10 @@ public class AuditTests
         // Typed text also finds the subject inside the description.
         Assert.Equal("Vytvořen uživatel Karel Nový",
             Assert.Single((await Entries(new AuditLogFilter(ActionSearch: "karel"))).Items).Description);
+        // Case and diacritics don't matter.
+        Assert.Equal(["Smazána učebna", "Vytvořena učebna"], await Actions(new AuditLogFilter(), "UCEBNA"));
+        Assert.Equal("Vytvořena učebna 101",
+            Assert.Single((await Entries(new AuditLogFilter(ActionSearch: "vytvorena ucebna 1"))).Items).Description);
     }
 
     [Fact]
