@@ -1,6 +1,6 @@
 <ScrollView orientation="horizontal">
   <StackLayout orientation="horizontal" class="p-2">
-    @if (linked().length > 0) {
+    @if (schoolName) {
       <Button [text]="'Škola: ' + schoolName" (tap)="chooseAccount()"></Button>
     }
     <Button

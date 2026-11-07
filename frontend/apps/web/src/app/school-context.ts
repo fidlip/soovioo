@@ -30,7 +30,10 @@ export function isPathBasedTenant(
  * domain turns out to have (`soovioo.cloud` vs e.g. `soovioo.co.uk`). A hostname that
  * doesn't end in `mainDomain` at all (misconfiguration, or mid-migration to
  * a new domain) fails closed to "no tenant" rather than guessing. */
-export function subdomainSlug(hostname: string, mainDomain: string = environment.mainDomain): string | null {
+export function subdomainSlug(
+  hostname: string,
+  mainDomain: string = environment.mainDomain,
+): string | null {
   const suffix = `.${mainDomain}`;
   if (!hostname.endsWith(suffix)) {
     return null;
@@ -62,13 +65,20 @@ export function isDemoSlug(slug: string | null): boolean {
 }
 
 /** Subdomain mode on `demo.<mainDomain>` — the whole app is the entry page. */
-export function isDemoEntryHost(hostname: string = window.location.hostname): boolean {
-  return !isPathBasedTenant(hostname) && subdomainSlug(hostname) === DEMO_ENTRY_SLUG;
+export function isDemoEntryHost(
+  hostname: string = window.location.hostname,
+): boolean {
+  return (
+    !isPathBasedTenant(hostname) && subdomainSlug(hostname) === DEMO_ENTRY_SLUG
+  );
 }
 
 /** Absolute URL of the demo entry page, e.g. `…?reset=demo-abc`. */
 export function demoEntryUrl(query = ''): string {
-  return schoolUrl(DEMO_ENTRY_SLUG, query ? `?${query}` : '').replace('/?', '?');
+  return schoolUrl(DEMO_ENTRY_SLUG, query ? `?${query}` : '').replace(
+    '/?',
+    '?',
+  );
 }
 
 /** Absolute URL of a page in the SuperAdmin area (`/superadmin…` on the
@@ -115,7 +125,11 @@ export class SchoolContextService {
 
   /** Builds an absolute router link that stays within the current school. */
   link(path: string): string[] {
-    return this.isPathBased ? ['/', this.slugSignal() ?? DEFAULT_DEV_SLUG, path] : ['/', path];
+    // During the very first navigation the signal doesn't know yet.
+    const slug = this.slugSignal() ?? currentSchoolSlugFromUrl();
+    return this.isPathBased
+      ? ['/', slug ?? DEFAULT_DEV_SLUG, path]
+      : ['/', path];
   }
 
   private deepestSlugParam(): string | null {

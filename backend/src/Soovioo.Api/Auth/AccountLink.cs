@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Auth;
 
@@ -23,6 +24,32 @@ public class AccountLink
 
     /// <summary>The session switching here is a "Zůstat přihlášen" one.</summary>
     public bool SwitchPersistent { get; set; }
+}
+
+/// <summary>Linking on the web, under way: the account that started it goes
+/// to the other school's login page and comes back. Only the same account can
+/// finish it, so a code sent to somebody else links nothing.</summary>
+public class AccountLinkRequest
+{
+    public int Id { get; set; }
+
+    /// <summary>SHA-256 of the code the browser carries to the other school.</summary>
+    public required string CodeHash { get; set; }
+
+    public int InitiatorUserId { get; set; }
+    public User? InitiatorUser { get; set; }
+
+    public int TargetSchoolId { get; set; }
+    public School? TargetSchool { get; set; }
+
+    /// <summary>The account that said yes at that school; null until then.</summary>
+    public int? ApprovedUserId { get; set; }
+
+    /// <summary>SHA-256 of the code the browser that said yes carries back;
+    /// nobody else has it, not even whoever started the request.</summary>
+    public string? CompletionCodeHash { get; set; }
+
+    public DateTimeOffset ExpiresAt { get; set; }
 }
 
 /// <param name="Unread">Unread notifications under that account's bell.</param>

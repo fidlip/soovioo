@@ -9,7 +9,13 @@ import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Password } from '@openng/optimus-ui/password';
-import { AuthApiService, DemoApiService, PublicSchool } from '@soovioo/shared';
+import {
+  AuthApiService,
+  DemoApiService,
+  PublicSchool,
+  LinkRequestPreview,
+  LinkedAccountsApiService,
+} from '@soovioo/shared';
 import { environment } from '../../environments/environment';
 import { DemoUserPicker } from '../demo/demo-user-picker';
 import { SchoolContextService, isDemoSlug } from '../school-context';
@@ -72,6 +78,22 @@ export class LoginPage {
 
   protected readonly schoolName = computed(() => this.school()?.name ?? null);
 
+  /** Came to log in for linking this account with another school's
+   * (`?link=1#code=…`, from AccountLinkPage), which it goes back to. */
+  private readonly linkFragment = this.route.snapshot.queryParamMap.has('link')
+    ? (this.route.snapshot.fragment ?? '')
+    : null;
+  protected readonly linkRequest = toSignal(
+    this.linkFragment === null
+      ? of(null)
+      : inject(LinkedAccountsApiService)
+          .previewRequest(
+            new URLSearchParams(this.linkFragment).get('code') ?? '',
+          )
+          .pipe(catchError(() => of(null))),
+    { initialValue: null as LinkRequestPreview | null },
+  );
+
   /** The demo wizard sends the visitor here with `?user=<id>` — log in
    * straight away; the picker shows meanwhile (and if that fails). */
   protected readonly autoLoginPending = signal(false);
@@ -111,6 +133,13 @@ export class LoginPage {
       })
       .subscribe({
         next: (response) => {
+          if (this.linkFragment !== null) {
+            this.router.navigate(
+              [...this.schoolContext.link('account'), 'link'],
+              { fragment: this.linkFragment },
+            );
+            return;
+          }
           if (this.authApi.mustChangePassword()) {
             this.router.navigate(
               response.role === 'SuperAdmin'
