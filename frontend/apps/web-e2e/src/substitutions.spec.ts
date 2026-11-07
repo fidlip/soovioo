@@ -95,14 +95,13 @@ test("an absent teacher's lesson is cancelled in Suplování and once the day is
       'Jana Učitelová',
     );
     const lesson = page
-      .getByTestId('substitution-lesson')
-      .filter({ hasText: who })
-      .filter({
-        has: page.getByRole('cell', { name: `${period}.`, exact: true }),
-      });
+      .locator(
+        `[data-testid="substitution-lesson"][aria-label^="${period}. hodina ${who} "]`,
+      )
+      .first();
     await expect(lesson).toContainText('Chybí zástup');
 
-    await lesson.getByRole('button', { name: /^Upravit/ }).click();
+    await lesson.click();
     const edit = page.getByRole('dialog');
     await edit.getByRole('combobox', { name: 'Co se mění' }).click();
     await page.getByRole('option', { name: 'Odpadá' }).click();

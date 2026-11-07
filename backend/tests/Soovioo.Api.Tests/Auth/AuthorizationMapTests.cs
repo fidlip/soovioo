@@ -204,6 +204,7 @@ public class AuthorizationMapTests
         ["Substitutions.DeleteChange"] = "authenticated + perm:Timetable",
         ["Substitutions.Fill"] = "authenticated + perm:Timetable",
         ["Substitutions.GetCandidates"] = "authenticated + perm:Timetable",
+        ["Substitutions.GetChangedDays"] = "authenticated + perm:Timetable",
         ["Substitutions.GetDay"] = "authenticated + perm:Timetable",
         ["Substitutions.GetWeek"] = "authenticated",
         ["Substitutions.Publish"] = "authenticated + perm:Timetable",
