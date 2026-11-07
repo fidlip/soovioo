@@ -42,6 +42,14 @@ export class TimetableVersionsApiService {
     return this.http.put<TimetableVersion>(`${this.url}/${id}`, request);
   }
 
+  /** The draft waiting for that day, or a new copy of the version. */
+  editFromDate(id: number, validFrom: string): Observable<TimetableVersion> {
+    return this.http.post<TimetableVersion>(
+      `${this.url}/${id}/edit-from-date`,
+      { validFrom },
+    );
+  }
+
   /** Classrooms taken at a slot of the version. */
   getBusyClassrooms(
     id: number,

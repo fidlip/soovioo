@@ -72,6 +72,7 @@ import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
 import { Loading } from '../loading/loading';
+import { TimetableEditFromDateDialog } from './timetable-edit-from-date-dialog';
 import { TimetableGenerateDialog } from './timetable-generate-dialog';
 import {
   TimetableVersionsDialog,
@@ -201,6 +202,7 @@ function formatShortDate(date: Date): string {
     Dialog,
     Message,
     Select,
+    TimetableEditFromDateDialog,
     TimetableGenerateDialog,
     TimetableVersionsDialog,
   ],
@@ -328,6 +330,21 @@ export class TimetablePage {
       readOnly: this.editor && version.status === 'Published',
     };
   });
+
+  /** The shown version, if it's the one that applies today. */
+  protected readonly editableFromDate = computed(() => {
+    const version = this.shownVersion();
+    return this.editor &&
+      this.canManageTimetable() &&
+      version &&
+      version.id ===
+        timetableVersionOn(this.versions(), toDateOnly(new Date()))?.id
+      ? version
+      : null;
+  });
+  protected readonly editFromDateVersion = signal<TimetableVersion | null>(
+    null,
+  );
 
   /** The shown teacher's přidělení výuky — for themselves, or for whoever
    * sees the whole school's. */
@@ -730,6 +747,12 @@ export class TimetablePage {
   protected onShowVersion(id: number): void {
     this.versionsDialogVisible.set(false);
     this.selectedVersionId.set(id);
+  }
+
+  protected onEditFromDate(draftId: number): void {
+    this.editFromDateVersion.set(null);
+    this.selectedVersionId.set(draftId);
+    this.onVersionsChanged();
   }
 
   /** Publishing or archiving moves where the other versions end. */
