@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261107171819_Substitutions")]
+    [Migration("20261107201831_Substitutions")]
     partial class Substitutions
     {
         /// <inheritdoc />
@@ -24,6 +24,7 @@ namespace Soovioo.Api.Migrations
                 .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "unaccent");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Soovioo.Api.Attendance.Absence", b =>
@@ -141,6 +142,80 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("UserId", "At");
 
                     b.ToTable("AuditLogEntries");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLink", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SwitchCodeExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SwitchCodeHash")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("SwitchPersistent")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("SwitchCodeHash")
+                        .IsUnique()
+                        .HasFilter("\"SwitchCodeHash\" IS NOT NULL");
+
+                    b.ToTable("AccountLinks");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLinkRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApprovedUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompletionCodeHash")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("InitiatorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetSchoolId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("CompletionCodeHash")
+                        .IsUnique()
+                        .HasFilter("\"CompletionCodeHash\" IS NOT NULL");
+
+                    b.HasIndex("InitiatorUserId");
+
+                    b.HasIndex("TargetSchoolId");
+
+                    b.ToTable("AccountLinkRequests");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>
@@ -493,46 +568,6 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("SchoolId");
 
                     b.ToTable("DemoEmails");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Demo.DemoFeedback", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Consent")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DemoSlug")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("Rating")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Role")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("SchoolId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Text")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.ToTable("DemoFeedback");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.Event", b =>
@@ -1878,6 +1913,89 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("VisibilityRules");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.ProductFeedback.Feedback", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Consent")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DemoSlug")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Flagged")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Role")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SchoolName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("SeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("Feedback");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.ProductFeedback.FeedbackReply", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FeedbackId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SentBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedbackId");
+
+                    b.ToTable("FeedbackReplies");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Reference.Country", b =>
                 {
                     b.Property<string>("Code")
@@ -2838,6 +2956,36 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLink", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "User")
+                        .WithOne()
+                        .HasForeignKey("Soovioo.Api.Auth.AccountLink", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Auth.AccountLinkRequest", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "InitiatorUser")
+                        .WithMany()
+                        .HasForeignKey("InitiatorUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.School", "TargetSchool")
+                        .WithMany()
+                        .HasForeignKey("TargetSchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InitiatorUser");
+
+                    b.Navigation("TargetSchool");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Auth.RefreshToken", b =>
                 {
                     b.HasOne("Soovioo.Api.Auth.User", "User")
@@ -3629,6 +3777,15 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.ProductFeedback.FeedbackReply", b =>
+                {
+                    b.HasOne("Soovioo.Api.ProductFeedback.Feedback", null)
+                        .WithMany("Replies")
+                        .HasForeignKey("FeedbackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Soovioo.Api.Reference.Municipality", b =>
                 {
                     b.HasOne("Soovioo.Api.Reference.District", "District")
@@ -4123,6 +4280,11 @@ namespace Soovioo.Api.Migrations
             modelBuilder.Entity("Soovioo.Api.People.TeacherProfile", b =>
                 {
                     b.Navigation("Qualifications");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.ProductFeedback.Feedback", b =>
+                {
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>
