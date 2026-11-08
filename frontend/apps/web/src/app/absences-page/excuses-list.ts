@@ -214,18 +214,18 @@ export const EXCUSE_STATUS_SEVERITY: Record<
               }
               @if (canReview() || (isFamily() && waiting(excuse))) {
                 <p-button
-                  label="Upravit"
                   icon="pi pi-pencil"
+                  ariaLabel="Upravit"
                   size="small"
-                  [outlined]="true"
+                  [text]="true"
                   (onClick)="edit.emit(excuse)"
                 />
                 <p-button
-                  label="Smazat"
                   icon="pi pi-trash"
+                  ariaLabel="Smazat"
                   size="small"
                   severity="danger"
-                  [outlined]="true"
+                  [text]="true"
                   (onClick)="remove(excuse)"
                 />
               }
