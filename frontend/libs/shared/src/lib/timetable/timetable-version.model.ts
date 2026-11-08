@@ -116,7 +116,8 @@ export interface TimetableGenerationProgress {
   total: number;
   withoutRoom: number;
   classGaps: number;
-  lateStarts: number;
+  /** Periods of classes' main blocks without a lesson for all pupils. */
+  mainBlockGaps: number;
   teacherGaps: number;
   /** 0–1 of the polish's time (it ends at its limit or when it stalls). */
   polishShare: number;

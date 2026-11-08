@@ -232,9 +232,19 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   ⌈týdenní hodiny / 5⌉ + 1 hodin denně.
 - Požadavky (váhy, porušení se hlásí místo nesplnitelného modelu): každá hodina umístěná
   (1000 za hodinu), volná učebna ze seznamu předmětu (200; souběžné hodiny ≤ volné učebny
-  každé skupiny učeben), den třídy začíná první hodinou (30 za každou ztracenou hodinu), každý den aspoň
-  ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící), třída bez oken (10), 0. hodina (8),
-  předmět nejvýš jednou denně (6, dvouhodinovka se počítá jednou).
+  každé skupiny učeben), plný hlavní výukový blok třídy (100 za každou hodinu bloku bez hodiny
+  pro celou třídu, viz níže), každý den aspoň ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící),
+  třída bez oken (10), 0. hodina (8), předmět nejvýš jednou denně (6, dvouhodinovka se počítá jednou).
+- Hlavní výukový blok (#225): hodiny od–do, kdy má třída každý den výuku. Škola ho má povinně
+  (výchozí 1.–4. hodina), ročník ho dědí ze školy, třída z ročníku, oba ho mohou přepsat
+  (Výuka → Nastavení; `School.MainBlockFrom/To`, `GradeMainBlock`, `SchoolClass.MainBlockFrom/To`,
+  globálně, ne per verze). Blok nahradil dřívější pravidlo „den začíná první hodinou“: den,
+  který začíná až blokem pozdější než 1. hodina, není porušení, a okno je jen volná hodina mezi
+  dvěma hodinami. Volitelná hodina (ne všichni žáci) blok nepokrývá, dělené skupiny ano. Váha 100
+  je nad všemi přáními učitelů a okny, pod chybějící učebnou (200) a neumístěnou hodinou (1000).
+  Má-li třída méně hodin pro celou třídu, než blok za týden potřebuje, výsledek to hlásí („5.A:
+  hodin pro celou třídu je 18 týdně, hlavní výukový blok (1.–4. hodina) jich potřebuje 20 …“)
+  a chybějící hodiny se za porušení nepočítají; dny s neplným blokem vypíše hodnocení rozvrhu.
 - Volitelné hodiny (#205): hodina samostatné skupiny nebo dělení, na kterou nechodí všichni žáci
   třídy (samostatná skupina zatím bez žáků se počítá), patří před hodiny pro všechny nebo za ně.
   Hodina pro všechny před ní i za ní stojí za každou takovou třídu 10, stejně jako okno třídy;
@@ -249,9 +259,9 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
 - Konec podle stavu, ne času: 1. hledání skončí, jakmile jsou splněné všechny požadavky
   (penalizace 0), když solver dokáže, že líp to nejde, nebo když se 30 s nezlepší
   (nesplnitelná data, např. málo tělocvičen nebo třídní učitelka, která nemůže 1. hodinu —
-  dokázat, že líp to nejde, trvá déle než limit). Třídu, která kvůli dostupnosti učitelů
-  nemůže začínat první hodinou, výsledek vysvětlí („1.A: první hodinu může mít jen 1 den
-  v týdnu, … ji učit nemůže“). 2. hledání pak se zachováním požadavků snižuje okna učitelů (2 za blok);
+  dokázat, že líp to nejde, trvá déle než limit). Třídu, jejíž blok kvůli dostupnosti učitelů
+  nemůže začínat včas, výsledek vysvětlí („1.A: 1. hodinu může mít jen 1 den
+  v týdnu, … ji učit nemůže; hlavní výukový blok proto začíná později 4 dny“). 2. hledání pak se zachováním požadavků snižuje okna učitelů (2 za blok);
   skončí, když se 10 s nezlepší, nejpozději po 60 s. Limit 5 min je jen pojistka: jeho
   vypršení se loguje jako chyba a výsledek to hlásí. Na 2 jádrech trvá demo škola (18 tříd)
   zhruba 70–80 s.
@@ -262,8 +272,8 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
 - Dialog průběhu (stav se zjišťuje jen, dokud je otevřený): ve frontě — počet běhů před námi
   (všech škol) a odhad čekání z průměru posledních běhů, údaj chybí, když fronta není; krok 1
   (hledání, neurčitý bar) a krok 2 (doladění oken učitelů, bar podle času) s průběžnými
-  čísly nejlepšího dosud nalezeného rozvrhu (umístěné hodiny, bez učebny, okna tříd, pozdní
-  začátky, okna učitelů; `TimetableGeneration.Progress`, job je zapisuje každé 2 s). Po
+  čísly nejlepšího dosud nalezeného rozvrhu (umístěné hodiny, bez učebny, okna tříd, hodiny
+  hlavního výukového bloku bez výuky, okna učitelů; `TimetableGeneration.Progress`, job je zapisuje každé 2 s). Po
   doběhnutí ukáže v tomtéž dialogu výsledek: co upravit a jak rozvrh vypadá.
 - Kdo generování spustil, dostane notifikaci (druh „Dokončená generování rozvrhu“, jen pro
   role s oprávněním Rozvrh); klik otevře Rozvrh se správnou verzí a výsledek. Když výsledek

@@ -88,6 +88,10 @@ public class School
     public int? TeacherMaxLessonsPerDay { get; set; }
     public int? TeacherMaxGapsPerDay { get; set; }
 
+    /// <summary>The school's <see cref="Timetable.MainBlock"/>, periods from–to.</summary>
+    public int MainBlockFrom { get; set; } = 1;
+    public int MainBlockTo { get; set; } = 4;
+
     /// <summary>The built-in four (<see cref="Auth.RoleSeeder.AddMissing"/>)
     /// and the school's own.</summary>
     public List<Auth.Role> Roles { get; set; } = [];

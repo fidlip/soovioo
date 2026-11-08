@@ -9,11 +9,11 @@ namespace Soovioo.Api.Timetable;
 /// block of two lessons in a row, at most a balanced number of lessons a day
 /// for a class. Required, but reported rather than forced when impossible
 /// (weighted): every lesson placed, a free classroom for each, lessons every
-/// day, no gaps for classes (a day starts with the first lesson), a subject
-/// at most once a day, no 0. hodina, elective lessons outside the lessons for
-/// everyone; then the teachers' wishes (raději ne,
-/// free days, lessons and gaps a day); then no longer days than the class's
-/// hours need. The search stops once those all hold
+/// day, the class's main block (<see cref="MainBlock"/>) full of lessons
+/// for all its pupils, no gaps for classes, a subject at most once a day,
+/// no 0. hodina, elective lessons outside the lessons for everyone; then
+/// the teachers' wishes (raději ne, free days, lessons and gaps a day); then
+/// no longer days than the class's hours need. The search stops once those all hold
 /// (or can't get better), then a short second one cuts teachers' gaps
 /// without giving any of them up. A group's lesson takes all its classes;
 /// the groups of a division are placed together, each with its teacher and
@@ -22,7 +22,11 @@ public static class TimetableGenerator
 {
     private const int MissingWeight = 1000;
     private const int NoRoomWeight = 200;
-    private const int LateStartWeight = 30;
+
+    /// <summary>A period of a class's <see cref="Timetable.MainBlock"/>
+    /// without a lesson for all its pupils: above every wish and gap, below
+    /// a lesson without a classroom.</summary>
+    private const int MainBlockWeight = 100;
     private const int ClassGapWeight = 10;
 
     /// <summary>The pupils not in an elective lesson have a gap: per class,
@@ -121,6 +125,11 @@ public static class TimetableGenerator
         /// <summary>Gets the latest solution's figures as the search goes —
         /// from the solver's threads, at most about once a second.</summary>
         public Action<Progress>? OnProgress { get; init; }
+
+        /// <summary>Each class's main block; missing = <see cref="Timetable.MainBlock.Default"/>.</summary>
+        public IReadOnlyDictionary<int, MainBlock> MainBlocks { get; init; } = new Dictionary<int, MainBlock>();
+
+        public MainBlock MainBlock(int classId) => MainBlocks.GetValueOrDefault(classId) ?? Timetable.MainBlock.Default;
     }
 
     public enum Phase
@@ -137,7 +146,7 @@ public static class TimetableGenerator
     /// <param name="PolishShare">0–1 of the second search's time — it ends
     /// at its limit, or earlier when it stalls.</param>
     public record Progress(
-        Phase Phase, int Lessons, int Total, int WithoutRoom, int ClassGaps, int LateStarts, int TeacherGaps,
+        Phase Phase, int Lessons, int Total, int WithoutRoom, int ClassGaps, int MainBlockGaps, int TeacherGaps,
         double PolishShare = 0);
 
     /// <param name="GroupId">A group's lesson, for all its classes; <paramref name="ClassId"/> is the first.</param>
@@ -156,7 +165,14 @@ public static class TimetableGenerator
     /// <paramref name="Bound"/> the least possible as far as the solver got.</param>
     public record Result(
         bool Solved, IReadOnlyList<Placement> Placements, IReadOnlyList<Unplaced> Unplaced,
-        bool TimedOut = false, double Penalty = 0, double Bound = 0);
+        bool TimedOut = false, double Penalty = 0, double Bound = 0)
+    {
+        public IReadOnlyList<ShortBlock> ShortBlocks { get; init; } = [];
+    }
+
+    /// <summary>A class with fewer lessons for all its pupils than its main
+    /// block's periods in the week.</summary>
+    public record ShortBlock(int ClassId, int Lessons, int Needed);
 
     /// <param name="Length">Lessons in a row: 2 for a block.</param>
     private record Unit(Demand Demand, WeekParity Parity, int Count, int Length = 1);
@@ -289,7 +305,9 @@ public static class TimetableGenerator
         var keptElective = kept.Where(k => k.Elective).Select(k => (k.ClassId, k.Day, k.Period)).ToHashSet();
         var keptForAll = kept.Where(k => !k.Elective).Select(k => (k.ClassId, k.Day, k.Period)).ToHashSet();
 
-        // A class at most once at a time, gaps and the first lesson.
+        // A class at most once at a time, gaps and the main block.
+        var blockGaps = new List<IntVar>();
+        var shortBlocks = new List<ShortBlock>();
         foreach (var (classId, unitIndexes) in byClass)
         {
             var keptCount = keptSlots.Where(k => k.ClassId == classId).Select(k => (k.Day, k.Period)).Distinct().Count();
@@ -297,10 +315,22 @@ public static class TimetableGenerator
             var perDay = (int)Math.Ceiling(weekly / (double)days.Count) + 1;
             var minPerDay = weekly / days.Count;
             objective.Add(-UnavoidableLongDays(weekly, days.Count, periods));
+            var electiveUnits = unitIndexes.Where(u => units[u].Demand.ElectiveClasses.Contains(classId)).ToList();
+            var forAllUnits = unitIndexes.Except(electiveUnits).ToList();
+            var block = input.MainBlock(classId).Periods.Where(periods.Contains).ToList();
+            var forAll = forAllUnits.Sum(u => units[u].Count * units[u].Length)
+                + keptForAll.Count(k => k.ClassId == classId && block.Contains(k.Period));
+            // What too few lessons leave empty is reported, not a breach to cut.
+            if (forAll < block.Count * days.Count)
+            {
+                shortBlocks.Add(new ShortBlock(classId, forAll, block.Count * days.Count));
+                objective.Add(-MainBlockWeight * (block.Count * days.Count - forAll));
+            }
             foreach (var day in days)
             {
                 var daySum = LinearExpr.NewBuilder();
-                var earlier = new List<LinearExpr>();
+                LinearExpr? previous = null;
+                BoolVar? before = null;
                 foreach (var period in periods)
                 {
                     var busy = classBusy.Contains((classId, day, period)) ? 1 : 0;
@@ -308,19 +338,30 @@ public static class TimetableGenerator
                     model.Add(occupied <= 1);
                     daySum.Add(occupied);
                     objective.AddTerm(occupied, LongDayWeight(period));
-                    if (period >= 1 && period != periods.First(p => p >= 1))
+                    if (previous is not null)
                     {
-                        // A lesson starting a new block after a free period.
-                        var start = model.NewBoolVar($"cs{classId}_{day}_{period}");
-                        model.Add(start >= occupied - earlier[^1]);
-                        objective.AddTerm(start, ClassGapWeight);
-                        // ...or the day's first lesson, later than the first
-                        // period: the more periods lost, the worse.
-                        var late = model.NewBoolVar($"late{classId}_{day}_{period}");
-                        model.Add(late >= occupied - LinearExpr.Sum(earlier));
-                        objective.AddTerm(late, LateStartWeight * periods.Count(p => p >= 1 && p < period));
+                        // A lesson after a free period, with one before it.
+                        var gap = model.NewBoolVar($"cs{classId}_{day}_{period}");
+                        model.Add(gap >= occupied - previous + before! - 1);
+                        objective.AddTerm(gap, ClassGapWeight);
                     }
-                    earlier.Add(occupied);
+                    // A lesson so far today.
+                    var any = model.NewBoolVar($"cb{classId}_{day}_{period}");
+                    model.Add(any >= occupied);
+                    if (before is not null)
+                    {
+                        model.Add(any >= before);
+                    }
+                    if (block.Contains(period))
+                    {
+                        // An elective lesson leaves some pupils without one.
+                        var uncovered = model.NewBoolVar($"mb{classId}_{day}_{period}");
+                        model.Add(uncovered >= 1 - Occupied(forAllUnits, day, period, keptForAll.Contains((classId, day, period)) ? 1 : 0));
+                        objective.AddTerm(uncovered, MainBlockWeight);
+                        blockGaps.Add(uncovered);
+                    }
+                    previous = occupied;
+                    before = any;
                 }
                 // Lessons that stay can already take more.
                 model.Add(daySum <= Math.Max(perDay, periods.Count(p => classBusy.Contains((classId, day, p)))));
@@ -330,10 +371,8 @@ public static class TimetableGenerator
             }
 
             // An elective lesson with a lesson for everyone before and after it.
-            var electiveUnits = unitIndexes.Where(u => units[u].Demand.ElectiveClasses.Contains(classId)).ToList();
             if (electiveUnits.Count > 0 || keptElective.Any(k => k.ClassId == classId))
             {
-                var forAllUnits = unitIndexes.Except(electiveUnits).ToList();
                 foreach (var day in days)
                 {
                     var before = new BoolVar[periods.Count];
@@ -516,7 +555,6 @@ public static class TimetableGenerator
         }
 
         var total = units.Sum(u => u.Count * u.Length) + kept.Count;
-        var first = periods.Where(p => p >= 1).DefaultIfEmpty(periods[0]).Min();
         Progress Measure(CpSolverSolutionCallback at, Phase phase)
         {
             var lessons = x.Where(p => at.BooleanValue(p.Value))
@@ -530,7 +568,7 @@ public static class TimetableGenerator
             return new Progress(
                 phase, placedCount, total, (int)overs.Sum(at.Value),
                 classDays.Sum(d => Holes(d.Select(l => l.Period))),
-                classDays.Count(d => d.Min(l => l.Period) > first),
+                (int)blockGaps.Sum(at.Value),
                 lessons.Where(l => l.TeacherId is not null).GroupBy(l => (l.TeacherId, l.Day)).Sum(d => Holes(d.Select(l => l.Period))));
         }
 
@@ -573,7 +611,10 @@ public static class TimetableGenerator
         var placed = x1.Where(p => p.Value).Select(p => (p.Key.Unit, p.Key.Day, Covered(units[p.Key.Unit], p.Key.Period))).ToList();
         return new Result(true, AssignRooms(placed, units, input, roomBusy),
             Missing(units, u => units[u].Count - (int)missing1[u]),
-            timedOut && penalty > 0 && penalty > bound, penalty, bound);
+            timedOut && penalty > 0 && penalty > bound, penalty, bound)
+        {
+            ShortBlocks = shortBlocks,
+        };
     }
 
     /// <summary>The long days' weight of a class's week at best: as even as

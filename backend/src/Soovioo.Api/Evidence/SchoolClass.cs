@@ -37,4 +37,10 @@ public class SchoolClass
     /// <summary>The RVP the class is taught by, a code of
     /// <see cref="Timetable.Rvp.RvpCatalog"/>; null = its plan isn't checked.</summary>
     public string? RvpProgramCode { get; set; }
+
+    /// <summary>The class's own <see cref="Timetable.MainBlock"/>; null = as its grade's.</summary>
+    [JsonIgnore]
+    public int? MainBlockFrom { get; set; }
+    [JsonIgnore]
+    public int? MainBlockTo { get; set; }
 }
