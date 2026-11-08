@@ -54,4 +54,9 @@ export const OPTIMUS_TRANSLATION: Translation = {
   today: 'Dnes',
   clear: 'Vymazat',
   weekHeader: 'Týd',
+  selectionMessage: '{0} vybráno',
+  emptySelectionMessage: 'Nic nevybráno',
+  emptyMessage: 'Nic nenalezeno',
+  emptyFilterMessage: 'Nic nenalezeno',
+  emptySearchMessage: 'Nic nenalezeno',
 };
