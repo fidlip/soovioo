@@ -365,7 +365,7 @@ test.describe.serial('timetable version', () => {
     // Typed key by key — the DatePicker ignores a pasted value.
     await dialog
       .getByLabel('Platí od')
-      .pressSequentially(inDays(400 + Math.floor(Math.random() * 300)));
+      .pressSequentially(inDays(10000 + Math.floor(Math.random() * 900)));
     await dialog.getByRole('button', { name: 'Vytvořit koncept' }).click();
 
     // The new draft is what the page shows now.

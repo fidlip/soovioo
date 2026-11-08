@@ -75,7 +75,9 @@ test('a parent hears about a timetable change when it is due and the link opens 
   const admin = await tokenOf(request, api, 'admin', 'admin123');
   const parent = await tokenOf(request, api, 'rodic', 'rodic123');
   const name = `E2E změna ${Date.now()}`;
-  const validFrom = isoInDays(20 + Math.floor(Math.random() * 40));
+  // Its own thousand of days ahead (see draftCopy): published, it would
+  // otherwise take over the days other tests change.
+  const validFrom = isoInDays(8000 + Math.floor(Math.random() * 900));
 
   const notices = async () =>
     (
