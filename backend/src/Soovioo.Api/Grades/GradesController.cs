@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.Timetable;
 
@@ -64,6 +65,33 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         return Ok(new PagedResult<GradeDto>(grades, total, page, pageSize));
     }
 
+    /// <summary>One grade the caller sees — whether a notification's grade,
+    /// maybe not on the list's first page, is still there.</summary>
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<GradeDto>> GetGrade(int id)
+    {
+        var allowedStudentIds = await User.StudentIdsAsync(db, Permission.GradesRead);
+        var query = db.Grades.Where(g => g.Id == id);
+        if (allowedStudentIds is not null)
+        {
+            query = query.Where(g => allowedStudentIds.Contains(g.StudentId));
+        }
+        var grade = await query
+            .Select(g => new GradeDto(
+                g.Id,
+                g.StudentId,
+                g.Student!.Person!.FirstName + " " + g.Student.Person!.LastName,
+                g.SubjectId,
+                g.Subject!.Name,
+                g.Value,
+                g.Weight,
+                g.Note,
+                g.GradedOn,
+                g.CreatedAt))
+            .FirstOrDefaultAsync();
+        return grade is null ? NotFound() : Ok(grade);
+    }
+
     [HttpPost]
     [RequirePermission(Permission.GradesWrite)]
     public async Task<ActionResult<GradeDto>> AddGrade(CreateGradeRequest request)
@@ -102,11 +130,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
         var student = await db.Students.FindAsync(grade.StudentId);
         var subject = await db.Subjects.FindAsync(grade.SubjectId);
-        await notifier.NotifyAsync(
-            grade.SchoolId, await notifier.FamilyAsync(grade.StudentId), NotificationType.Grade,
-            $"Nová známka — {subject!.Name}",
-            $"{student!.Person!.FullName}: {grade.Value}" + (grade.Weight != 1 ? $" (váha {grade.Weight})" : ""),
-            "grades", grade.Id, grade.StudentId);
+        await notifier.AddAsync(grade.SchoolId, Drafts(grade, student!, subject!, await notifier.FamilyAsync(grade.StudentId), NewTitle(subject!)));
         await db.SaveChangesAsync();
         var dto = new GradeDto(
             grade.Id,
@@ -148,6 +172,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
             return Forbid();
         }
 
+        var before = (grade.StudentId, grade.SubjectId, grade.Value, grade.Weight, grade.Note, grade.GradedOn);
         grade.StudentId = request.StudentId;
         grade.SubjectId = request.SubjectId;
         grade.Value = request.Value;
@@ -156,6 +181,12 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         if (request.GradedOn is { } gradedOn)
         {
             grade.GradedOn = gradedOn;
+        }
+        if (before != (grade.StudentId, grade.SubjectId, grade.Value, grade.Weight, grade.Note, grade.GradedOn))
+        {
+            var family = await notifier.FamilyAsync(grade.StudentId);
+            await notifier.ChangedAsync(grade.SchoolId, grade.Id, [NotificationType.Grade], family,
+                Drafts(grade, student, subject, family, $"Změna známky — {subject.Name}"), NewTitle(subject));
         }
         await db.SaveChangesAsync();
 
@@ -183,6 +214,16 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    private static string NewTitle(Subject subject) => $"Nová známka — {subject.Name}";
+
+    private static List<NotificationDraft> Drafts(
+        Grade grade, StudentProfile student, Subject subject, IEnumerable<int> family, string title) =>
+        family.Select(userId => new NotificationDraft(
+                userId, NotificationType.Grade, title,
+                $"{student.Person!.FullName}: {grade.Value}" + (grade.Weight != 1 ? $" (váha {grade.Weight})" : ""),
+                "grades", grade.Id, grade.StudentId))
+            .ToList();
 
     /// <summary>The pupil and the subject within the caller's
     /// <see cref="Permission.GradesWrite"/> (by default: a teacher grades

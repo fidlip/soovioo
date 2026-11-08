@@ -17,7 +17,12 @@ import {
   Subject,
   SubjectsApiService,
 } from '@soovioo/shared';
-import { HIGHLIGHT_STYLES, Highlight, onLinkedItem } from '../../linked-item';
+import {
+  HIGHLIGHT_STYLES,
+  Highlight,
+  linkedItemGone,
+  onLinkedItem,
+} from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
@@ -79,12 +84,17 @@ export class HomeComponent {
     this.gradesApi.getGrades({ pageSize: 100 }).subscribe({
       next: (result) => {
         this.grades.set(result.items);
-        if (linkedId) {
-          this.highlight.show(
-            this.list()?.nativeElement,
-            result.items.map((g) => g.id),
-            linkedId,
-          );
+        if (!linkedId) {
+          return;
+        }
+        const ids = result.items.map((g) => g.id);
+        if (ids.includes(linkedId)) {
+          this.highlight.show(this.list()?.nativeElement, ids, linkedId);
+        } else {
+          // Maybe just further down than the list goes.
+          this.gradesApi
+            .getGrade(linkedId)
+            .subscribe({ error: () => linkedItemGone() });
         }
       },
       error: (err) => console.error('getGrades failed', err),

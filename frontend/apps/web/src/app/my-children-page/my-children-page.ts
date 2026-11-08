@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { Card } from '@openng/optimus-ui/card';
 import {
+  LINKED_ITEM_GONE,
   MyChild,
   MyChildrenApiService,
   PhotosApiService,
@@ -28,12 +29,19 @@ export class MyChildrenPage {
 
   protected readonly children = signal<MyChild[] | null>(null);
   private readonly photos = signal<StudentPhotoState[]>([]);
+  private linkedId: number | null = null;
 
   constructor() {
     // ?student= — a photo waiting for approval, from a notification.
-    onLinkedItem('student', (id) => highlightElement(`child-${id}`));
+    onLinkedItem('student', (id) => {
+      this.linkedId = id;
+      this.showLinked();
+    });
     this.myChildrenApi.getMyChildren().subscribe({
-      next: (children) => this.children.set(children),
+      next: (children) => {
+        this.children.set(children);
+        this.showLinked();
+      },
       error: (err) => {
         console.error('getMyChildren failed', err);
         this.children.set([]);
@@ -43,6 +51,20 @@ export class MyChildrenPage {
       next: (states) => this.photos.set(states),
       error: (err) => console.error('getOwnStudents failed', err),
     });
+  }
+
+  private showLinked(): void {
+    const children = this.children();
+    const id = this.linkedId;
+    if (!children || !id) {
+      return;
+    }
+    this.linkedId = null;
+    if (children.some((c) => c.studentId === id)) {
+      highlightElement(`child-${id}`);
+    } else {
+      this.notify.warn(LINKED_ITEM_GONE);
+    }
   }
 
   protected photoOf(studentId: number): StudentPhotoState | undefined {

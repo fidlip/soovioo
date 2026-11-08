@@ -1,7 +1,8 @@
 import { inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import type { ListView } from '@nativescript/core';
+import { Dialogs, type ListView } from '@nativescript/core';
+import { LINKED_ITEM_GONE } from '@soovioo/shared';
 
 /** Pages of the app a notification opens, each with the query parameter
  * naming its thing (the web's, see NotificationLinks on the API). The other
@@ -88,4 +89,9 @@ export class Highlight {
       this.timer = setTimeout(() => this.id.set(null), HIGHLIGHT_MS);
     });
   }
+}
+
+/** A notification's thing that's gone or no longer the user's to see. */
+export function linkedItemGone(): void {
+  Dialogs.alert({ message: LINKED_ITEM_GONE, okButtonText: 'OK' });
 }

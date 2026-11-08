@@ -57,8 +57,10 @@ test('a message to the family shows under the parent’s bell and opens the conv
   ).toBeVisible();
 });
 
-/** A new grade for Jan Novák (the parent `rodic`'s child), its id. */
-async function addGrade(page: Page, request: APIRequestContext) {
+/** A new grade for Jan Novák (the parent `rodic`'s child) in the school's
+ * first subject, or another one so that tests running alongside don't take
+ * its notification for theirs. */
+async function addGrade(page: Page, request: APIRequestContext, subject = 0) {
   const api = apiUrl(page);
   const { token } = await (
     await request.post(`${api}/auth/login`, {
@@ -80,14 +82,14 @@ async function addGrade(page: Page, request: APIRequestContext) {
     headers,
     data: {
       studentId,
-      subjectId: subjects[0].id,
+      subjectId: subjects[subject].id,
       value: 2,
       weight: 1,
       note: `E2E ${Date.now()}`,
     },
   });
   expect(response.ok()).toBe(true);
-  return ((await response.json()) as { id: number }).id;
+  return (await response.json()) as { id: number; subjectName: string };
 }
 
 async function logInAsParent(page: Page) {
@@ -101,7 +103,7 @@ test('a grade’s notification opens the grade itself and marks it', async ({
   request,
 }) => {
   await page.goto('/skola/login');
-  const gradeId = await addGrade(page, request);
+  const { id: gradeId, subjectName } = await addGrade(page, request);
   await logInAsParent(page);
   await expect(page).toHaveURL(/\/skola\/home$/);
 
@@ -110,7 +112,7 @@ test('a grade’s notification opens the grade itself and marks it', async ({
     .click();
   await page
     .getByRole('region', { name: 'Upozornění' })
-    .getByRole('button', { name: /^Nová známka/ })
+    .getByRole('button', { name: `Nová známka — ${subjectName}` })
     .first()
     .click();
 
@@ -118,12 +120,84 @@ test('a grade’s notification opens the grade itself and marks it', async ({
   await expect(page.locator(`#grade-${gradeId}`)).toHaveClass(/app-highlight/);
 });
 
+/** The parent's notifications about this grade. */
+async function parentsAbout(
+  page: Page,
+  request: APIRequestContext,
+  gradeId: number,
+) {
+  const api = apiUrl(page);
+  const { token } = await (
+    await request.post(`${api}/auth/login`, {
+      data: { username: 'rodic', password: 'rodic123', schoolSlug: 'skola' },
+    })
+  ).json();
+  const { items } = await (
+    await request.get(`${api}/notifications`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  ).json();
+  return (
+    items as { type: string; targetId: number; title: string; read: boolean }[]
+  ).filter((n) => n.type === 'Grade' && n.targetId === gradeId);
+}
+
+async function adminHeaders(page: Page, request: APIRequestContext) {
+  const { token } = await (
+    await request.post(`${apiUrl(page)}/auth/login`, {
+      data: { username: 'admin', password: 'admin123', schoolSlug: 'skola' },
+    })
+  ).json();
+  return { Authorization: `Bearer ${token}` };
+}
+
+test.describe('a grade that changed or went', () => {
+  // Asking for the deleted grade answers 404.
+  test.use({ allowedConsoleMessages: [/status of 404/] });
+
+  test('its notification tells the change, then goes with it, and its link says so', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/skola/login');
+    const grade = await addGrade(page, request, 1);
+    const gradeId = grade.id;
+    const api = apiUrl(page);
+    const headers = await adminHeaders(page, request);
+
+    expect(
+      (
+        await request.put(`${api}/grades/${gradeId}`, {
+          headers,
+          data: { ...grade, value: 3 },
+        })
+      ).ok(),
+    ).toBe(true);
+    const changed = await parentsAbout(page, request, gradeId);
+    expect(changed.map((n) => n.title)).toEqual([
+      `Změna známky — ${grade.subjectName}`,
+    ]);
+
+    expect(
+      (await request.delete(`${api}/grades/${gradeId}`, { headers })).ok(),
+    ).toBe(true);
+    expect(await parentsAbout(page, request, gradeId)).toEqual([]);
+
+    await logInAsParent(page);
+    await expect(page).toHaveURL(/\/skola\/home$/);
+    await page.goto(`/skola/grades?grade=${gradeId}`);
+    await expect(
+      page.getByText('Tato položka už neexistuje nebo ji nevidíte.'),
+    ).toBeVisible();
+  });
+});
+
 test('a link from the daily e-mail leads back to the thing after logging in', async ({
   page,
   request,
 }) => {
   await page.goto('/skola/login');
-  const gradeId = await addGrade(page, request);
+  const { id: gradeId } = await addGrade(page, request);
 
   await page.goto(`/skola/grades?grade=${gradeId}`);
   await expect(page).toHaveURL(/\/skola\/login\?returnUrl=/);

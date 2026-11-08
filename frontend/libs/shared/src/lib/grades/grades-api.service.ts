@@ -22,6 +22,11 @@ export class GradesApiService {
     });
   }
 
+  /** 404 when it's gone or the caller doesn't see it. */
+  getGrade(id: number): Observable<Grade> {
+    return this.http.get<Grade>(`${this.baseUrl}/api/grades/${id}`);
+  }
+
   addGrade(request: CreateGradeRequest): Observable<Grade> {
     return this.http.post<Grade>(`${this.baseUrl}/api/grades`, request);
   }

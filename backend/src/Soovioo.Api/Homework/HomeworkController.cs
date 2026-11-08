@@ -167,13 +167,7 @@ public class HomeworkController(
         await db.SaveChangesAsync();
 
         var targetIds = await db.TargetStudentIdsAsync(target.SchoolClassId, target.StudentGroupId, target.StudentIds);
-        var families = await notifier.FamiliesAsync(targetIds);
-        await notifier.AddAsync(schoolId, families
-            .SelectMany(f => f.Value.Select(userId => new NotificationDraft(
-                userId, NotificationType.Homework, $"Nový domácí úkol — {target.Subject.Name}",
-                Notifier.Preview($"{homework.Text} (do {SchoolFormat.Date(homework.DueDate)})"),
-                "homework", homework.Id, f.Key)))
-            .ToList());
+        await notifier.AddAsync(schoolId, Drafts(homework, await notifier.FamiliesAsync(targetIds), NewTitle(target.Subject)));
         await db.SaveChangesAsync();
 
         var dto = new HomeworkDto(
@@ -218,6 +212,8 @@ public class HomeworkController(
         }
 
         var studentIds = target.StudentIds;
+        var before = (homework.SchoolClassId, homework.StudentGroupId, homework.SubjectId, homework.Text, homework.DueDate,
+            homework.RequiresCompletion, string.Join(",", homework.Students.Select(hs => hs.StudentId).Order()));
         homework.SchoolClassId = target.SchoolClassId;
         homework.StudentGroupId = target.StudentGroupId;
         homework.SubjectId = target.Subject.Id;
@@ -235,6 +231,14 @@ public class HomeworkController(
         var targetIds = await db.TargetStudentIdsAsync(target.SchoolClassId, target.StudentGroupId, studentIds);
         homework.Completions.RemoveAll(c => !targetIds.Contains(c.StudentId) || !request.RequiresCompletion);
 
+        if (before != (homework.SchoolClassId, homework.StudentGroupId, homework.SubjectId, homework.Text, homework.DueDate,
+                homework.RequiresCompletion, string.Join(",", studentIds.Order())))
+        {
+            var families = await notifier.FamiliesAsync(targetIds);
+            await notifier.ChangedAsync(homework.SchoolId, homework.Id, [NotificationType.Homework],
+                families.Values.SelectMany(f => f).ToList(),
+                Drafts(homework, families, $"Změna úkolu — {target.Subject.Name}"), NewTitle(target.Subject));
+        }
         await db.SaveChangesAsync();
 
         return Ok(new HomeworkDto(
@@ -245,6 +249,16 @@ public class HomeworkController(
             homework.Completions.Select(c => c.StudentId).ToList(),
             homework.StudentGroupId, target.ClassIds));
     }
+
+    private static string NewTitle(Subject subject) => $"Nový domácí úkol — {subject.Name}";
+
+    private static List<NotificationDraft> Drafts(Homework homework, Dictionary<int, List<int>> families, string title) =>
+        families
+            .SelectMany(f => f.Value.Select(userId => new NotificationDraft(
+                userId, NotificationType.Homework, title,
+                Notifier.Preview($"{homework.Text} (do {SchoolFormat.Date(homework.DueDate)})"),
+                "homework", homework.Id, f.Key)))
+            .ToList();
 
     /// <summary>A separate step after CreateHomework, same reasoning as
     /// MessagesController.UploadAttachment — multipart/form-data stays out

@@ -16,7 +16,12 @@ import {
   Student,
   StudentsApiService,
 } from '@soovioo/shared';
-import { HIGHLIGHT_STYLES, Highlight, onLinkedItem } from '../../linked-item';
+import {
+  HIGHLIGHT_STYLES,
+  Highlight,
+  linkedItemGone,
+  onLinkedItem,
+} from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
@@ -89,12 +94,14 @@ export class AbsencesComponent {
     this.absencesApi.getAbsences().subscribe({
       next: (absences) => {
         this.absences.set(absences);
-        if (linkedId) {
-          this.highlight.show(
-            this.list()?.nativeElement,
-            absences.map((a) => a.id),
-            linkedId,
-          );
+        if (!linkedId) {
+          return;
+        }
+        const ids = absences.map((a) => a.id);
+        if (ids.includes(linkedId)) {
+          this.highlight.show(this.list()?.nativeElement, ids, linkedId);
+        } else {
+          linkedItemGone();
         }
       },
       error: (err) => console.error('getAbsences failed', err),

@@ -183,6 +183,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             return Forbid();
         }
 
+        var before = Snapshot(@event);
         @event.Title = request.Title;
         @event.Description = request.Description;
         @event.Location = request.Location;
@@ -192,7 +193,12 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         @event.Color = request.Color;
         @event.Audience = request.Audience;
         SetRecipients(@event, request);
-        await NotifyAudienceAsync(@event, "Změna akce");
+        if (Snapshot(@event) != before)
+        {
+            var audience = await db.AudienceUserIdsAsync(@event);
+            await notifier.ChangedAsync(@event.SchoolId, @event.Id, [NotificationType.Event], [.. audience, CurrentUserId()],
+                Drafts(@event, audience, "Změna akce"), Title(@event, "Nová akce"));
+        }
         await db.SaveChangesAsync();
 
         return Ok(ToDto(@event));
@@ -318,14 +324,29 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
         }
     }
 
-    private async Task NotifyAudienceAsync(Event @event, string what)
+    private async Task NotifyAudienceAsync(Event @event, string what) =>
+        await notifier.AddAsync(@event.SchoolId, Drafts(@event, await db.AudienceUserIdsAsync(@event), what));
+
+    /// <summary>To the audience but whoever made the change.</summary>
+    private List<NotificationDraft> Drafts(Event @event, IEnumerable<int> audience, string what)
     {
         var when = @event.AllDay ? SchoolFormat.Date(@event.StartAt) : SchoolFormat.DateTime(@event.StartAt);
-        await notifier.NotifyAsync(
-            @event.SchoolId, await db.AudienceUserIdsAsync(@event), NotificationType.Event,
-            $"{what}: {@event.Title}", string.IsNullOrWhiteSpace(@event.Location) ? when : $"{when}, {@event.Location}",
-            "events", @event.Id, exceptUserId: CurrentUserId());
+        return audience
+            .Where(userId => userId != CurrentUserId())
+            .Select(userId => new NotificationDraft(
+                userId, NotificationType.Event, Title(@event, what),
+                string.IsNullOrWhiteSpace(@event.Location) ? when : $"{when}, {@event.Location}", "events", @event.Id))
+            .ToList();
     }
+
+    private static string Title(Event @event, string what) => $"{what}: {@event.Title}";
+
+    private static string Snapshot(Event e) => string.Join("|",
+        e.Title, e.Description, e.Location, e.StartAt.ToString("O"), e.EndAt.ToString("O"), e.AllDay, e.Color, e.Audience,
+        string.Join(",", e.SchoolClasses.Select(c => c.SchoolClassId).Order()),
+        string.Join(",", e.Teachers.Select(t => t.UserId).Order()),
+        string.Join(",", e.Parents.Select(p => p.UserId).Order()),
+        string.Join(",", e.Students.Select(x => x.StudentId).Order()));
 
     /// <summary>Any event with the whole school in reach, otherwise one's own.</summary>
     private async Task<bool> MayChangeAsync(Event @event) =>

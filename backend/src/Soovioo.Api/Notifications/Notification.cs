@@ -48,7 +48,8 @@ public class Notification
     public required string Page { get; set; }
 
     /// <summary>The row it's about on that page (a conversation, an event…).
-    /// A newer notification about the same one replaces an unread one.</summary>
+    /// A newer notification about the same one replaces an unread one, a
+    /// change of the thing any (<see cref="Notifier.ChangedAsync"/>).</summary>
     public int? TargetId { get; set; }
 
     /// <summary>The pupil it's about — erasing the pupil takes it along.</summary>

@@ -200,6 +200,144 @@ public class NotificationsTests
         Assert.Empty(await Of(db, w.Teacher));
     }
 
+    private static async Task<User> AdminAsync(AppDbContext db)
+    {
+        var admin = new User { Username = "reditel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+        return admin;
+    }
+
+    [Fact]
+    public async Task EditedGradeReplacesItsNotificationReadOrNotAndSavingItUnchangedDoesNothing()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var created = await Grades(db, w.Teacher).AddGrade(new CreateGradeRequest(w.Student.Id, w.Subject.Id, 3, 1, null));
+        var grade = (GradeDto)((CreatedAtActionResult)created.Result!).Value!;
+        var first = Assert.Single(await Of(db, w.Parent));
+        await Bell(db, w.Parent).MarkRead(first.Id);
+
+        await Grades(db, w.Teacher).UpdateGrade(grade.Id, new CreateGradeRequest(w.Student.Id, w.Subject.Id, 2, 1, null, grade.GradedOn));
+
+        var changed = Assert.Single(await Of(db, w.Parent));
+        Assert.True(changed.Id > first.Id);
+        Assert.Equal("Změna známky — Matematika", changed.Title);
+        Assert.Equal("Jan Novák: 2", changed.Body);
+        Assert.Null(changed.ReadAt);
+        Assert.Equal(grade.Id, changed.TargetId);
+        Assert.Equal("Změna známky — Matematika", Assert.Single(await Of(db, w.StudentUser)).Title);
+
+        await Grades(db, w.Teacher).UpdateGrade(grade.Id, new CreateGradeRequest(w.Student.Id, w.Subject.Id, 2, 1, null, grade.GradedOn));
+        Assert.Equal(changed.Id, Assert.Single(await Of(db, w.Parent)).Id);
+    }
+
+    [Fact]
+    public async Task GradeGivenToAnotherPupilLeavesTheFamilyItNoLongerConcerns()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var admin = await AdminAsync(db);
+        var created = await Grades(db, admin).AddGrade(new CreateGradeRequest(w.Student.Id, w.Subject.Id, 1, 1, null));
+        var grade = (GradeDto)((CreatedAtActionResult)created.Result!).Value!;
+
+        await Grades(db, admin).UpdateGrade(grade.Id, new CreateGradeRequest(w.OtherStudent.Id, w.Subject.Id, 1, 1, null));
+
+        Assert.Empty(await Of(db, w.Parent));
+        Assert.Empty(await Of(db, w.StudentUser));
+        var theirs = Assert.Single(await Of(db, w.OtherParent));
+        Assert.Equal("Nová známka — Matematika", theirs.Title);
+        Assert.Equal("Eva Malá: 1", theirs.Body);
+        Assert.Equal(w.OtherStudent.Id, theirs.StudentId);
+    }
+
+    [Fact]
+    public async Task GradeOpensOnlyWhileItIsThereAndTheCallerSeesIt()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var created = await Grades(db, w.Teacher).AddGrade(new CreateGradeRequest(w.Student.Id, w.Subject.Id, 1, 1, null));
+        var id = ((GradeDto)((CreatedAtActionResult)created.Result!).Value!).Id;
+
+        Assert.Equal(1, Assert.IsType<GradeDto>(Assert.IsType<OkObjectResult>((await Grades(db, w.Parent).GetGrade(id)).Result).Value).Value);
+        Assert.IsType<NotFoundResult>((await Grades(db, w.OtherParent).GetGrade(id)).Result);
+        await Grades(db, w.Teacher).DeleteGrade(id);
+        Assert.IsType<NotFoundResult>((await Grades(db, w.Parent).GetGrade(id)).Result);
+    }
+
+    [Fact]
+    public async Task EditedAbsenceLeavesOneNotificationInsteadOfTheAbsenceAndTheExcuse()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var absences = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+            { ControllerContext = ContextOf(w.Teacher) };
+        var created = await absences.AddAbsence(new CreateAbsenceRequest(w.Student.Id, new DateOnly(2026, 10, 5), [1]));
+        var id = ((AbsenceDto)((CreatedAtActionResult)created.Result!).Value!).Id;
+        await absences.ReviewAbsence(id, new ReviewAbsenceRequest(false));
+        Assert.Equal(2, (await Of(db, w.Parent)).Count);
+
+        await absences.UpdateAbsence(id, new CreateAbsenceRequest(w.Student.Id, new DateOnly(2026, 10, 6), [1]));
+
+        var changed = Assert.Single(await Of(db, w.Parent));
+        Assert.Equal(NotificationType.Absence, changed.Type);
+        Assert.Equal("Změna absence", changed.Title);
+        Assert.Equal("Jan Novák — 6. 10. 2026, hodiny 1", changed.Body);
+    }
+
+    [Fact]
+    public async Task HomeworkMovedToAnotherClassLeavesTheOldOneAndIsNewToTheOther()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var admin = await AdminAsync(db);
+        var homework = new Soovioo.Api.Homework.HomeworkController(
+            db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()),
+            new Notifier(db, TimeProvider.System)) { ControllerContext = ContextOf(admin) };
+        var due = new DateOnly(2026, 11, 20);
+        var created = await homework.CreateHomework(new Soovioo.Api.Homework.CreateHomeworkRequest(w.Class.Id, w.Subject.Id, "Str. 12", due, false));
+        var id = ((Soovioo.Api.Homework.HomeworkDto)((CreatedAtActionResult)created.Result!).Value!).Id;
+        Assert.Equal("Nový domácí úkol — Matematika", Assert.Single(await Of(db, w.Parent)).Title);
+
+        await homework.UpdateHomework(id, new Soovioo.Api.Homework.CreateHomeworkRequest(w.Class.Id, w.Subject.Id, "Str. 13", due, false));
+        var changed = Assert.Single(await Of(db, w.Parent));
+        Assert.Equal("Změna úkolu — Matematika", changed.Title);
+        Assert.Equal("Str. 13 (do 20. 11. 2026)", changed.Body);
+
+        await homework.UpdateHomework(id, new Soovioo.Api.Homework.CreateHomeworkRequest(w.OtherClass.Id, w.Subject.Id, "Str. 13", due, false));
+        Assert.Empty(await Of(db, w.Parent));
+        Assert.Empty(await Of(db, w.StudentUser));
+        Assert.Equal("Nový domácí úkol — Matematika", Assert.Single(await Of(db, w.OtherParent)).Title);
+    }
+
+    [Fact]
+    public async Task EditedEventReachesItsNewAudienceAndLeavesTheOneLeftOut()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var admin = await AdminAsync(db);
+        var start = new DateTimeOffset(2026, 11, 3, 8, 0, 0, TimeSpan.Zero);
+        CreateEventRequest Request(string title, params int[] classIds) => new(
+            title, null, null, start, start.AddHours(4), false, EventAudience.Selected, SchoolClassIds: classIds);
+        EventsController Events(User user) => new(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+            { ControllerContext = ContextOf(user) };
+        var created = await Events(w.Teacher).CreateEvent(Request("Exkurze", w.Class.Id));
+        var id = ((EventDto)((CreatedAtActionResult)created.Result!).Value!).Id;
+        var first = Assert.Single(await Of(db, w.Parent));
+
+        await Events(w.Teacher).UpdateEvent(id, Request("Exkurze", w.Class.Id));
+        Assert.Equal(first.Id, Assert.Single(await Of(db, w.Parent)).Id);
+
+        await Events(admin).UpdateEvent(id, Request("Exkurze do muzea", w.OtherClass.Id));
+        Assert.Empty(await Of(db, w.Parent));
+        Assert.Equal("Nová akce: Exkurze do muzea", Assert.Single(await Of(db, w.OtherParent)).Title);
+
+        await Events(admin).UpdateEvent(id, Request("Exkurze do muzea", w.Class.Id, w.OtherClass.Id));
+        Assert.Equal("Změna akce: Exkurze do muzea", Assert.Single(await Of(db, w.OtherParent)).Title);
+        Assert.Equal("Nová akce: Exkurze do muzea", Assert.Single(await Of(db, w.Parent)).Title);
+        Assert.Empty(await Of(db, admin));
+    }
+
     private static async Task<int> UnreadAsync(NotificationsController bell) =>
         Assert.IsType<UnreadCountsDto>(Assert.IsType<OkObjectResult>((await bell.GetUnreadCounts()).Result).Value).Notifications;
 

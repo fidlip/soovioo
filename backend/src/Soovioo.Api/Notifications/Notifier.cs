@@ -13,7 +13,9 @@ public record NotificationDraft(
 /// <summary>Where the agendas send what's new. Adds the notifications;
 /// the caller saves. Leaves out deactivated accounts and the kinds a user
 /// switched off under the bell, in the e-mail and for push; an unread notification about the same thing is updated
-/// instead of adding another one (and pushed again).</summary>
+/// instead of adding another one (and pushed again). A deleted thing takes
+/// its notifications along (a database trigger, see the migration
+/// NotificationsOfDeletedThings).</summary>
 public class Notifier(AppDbContext db, TimeProvider clock)
 {
     public const int PreviewLength = 140;
@@ -71,7 +73,30 @@ public class Notifier(AppDbContext db, TimeProvider clock)
         return AddAsync(schoolId, drafts);
     }
 
-    public async Task AddAsync(int schoolId, IReadOnlyCollection<NotificationDraft> drafts)
+    /// <summary>The thing changed: whoever no longer sees it (outside
+    /// <paramref name="audience"/>) loses its notifications of these kinds,
+    /// read or not, and the drafts replace the others' — one new notification
+    /// each, unread, on top, pushed and e-mailed again. A draft for someone
+    /// who had none gets <paramref name="newTitle"/> instead of its own.</summary>
+    public async Task ChangedAsync(
+        int schoolId, int targetId, IReadOnlyCollection<NotificationType> types, IReadOnlyCollection<int> audience,
+        IReadOnlyCollection<NotificationDraft> drafts, string newTitle)
+    {
+        var existing = await db.Notifications.IgnoreQueryFilters()
+            .Where(n => n.SchoolId == schoolId && n.TargetId == targetId && types.Contains(n.Type))
+            .ToListAsync();
+        var told = existing.Select(n => n.UserId).ToHashSet();
+        var drafted = drafts.Select(d => d.UserId).ToHashSet();
+        db.Notifications.RemoveRange(existing.Where(n => !audience.Contains(n.UserId) || drafted.Contains(n.UserId)));
+        await AddAsync(schoolId,
+            drafts.Select(d => told.Contains(d.UserId) ? d : d with { Title = newTitle }).ToList(),
+            mergeUnread: false);
+    }
+
+    public Task AddAsync(int schoolId, IReadOnlyCollection<NotificationDraft> drafts) =>
+        AddAsync(schoolId, drafts, mergeUnread: true);
+
+    private async Task AddAsync(int schoolId, IReadOnlyCollection<NotificationDraft> drafts, bool mergeUnread)
     {
         if (drafts.Count == 0)
         {
@@ -116,7 +141,7 @@ public class Notifier(AppDbContext db, TimeProvider clock)
 
         var targets = wanted.Where(x => x.Draft.TargetId != null).Select(x => x.Draft.TargetId!.Value).Distinct().ToList();
         var types = wanted.Select(x => x.Draft.Type).Distinct().ToList();
-        List<Notification> unread = targets.Count == 0
+        List<Notification> unread = targets.Count == 0 || !mergeUnread
             ? []
             : await db.Notifications.IgnoreQueryFilters()
                 .Where(n => n.SchoolId == schoolId && n.ReadAt == null && n.TargetId != null
