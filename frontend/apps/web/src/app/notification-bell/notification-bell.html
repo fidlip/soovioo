@@ -4,10 +4,19 @@
     role="region"
     aria-label="Upozornění"
   >
-    <div class="flex items-center justify-between gap-2">
-      <span class="font-medium text-surface-700 dark:text-surface-200"
-        >Upozornění</span
+    <div class="flex min-h-8 items-center justify-between gap-2">
+      <label
+        class="flex cursor-pointer items-center gap-2 pl-2 text-sm text-surface-700 select-none dark:text-surface-200"
       >
+        <p-checkbox
+          [binary]="true"
+          size="small"
+          inputId="notificationsUnreadOnly"
+          [ngModel]="unreadOnly()"
+          (ngModelChange)="setUnreadOnly($event)"
+        />
+        Pouze nepřečtené
+      </label>
       @if (unread.notifications() > 0) {
       <p-button
         label="Označit vše jako přečtené"
@@ -18,15 +27,6 @@
       />
       }
     </div>
-    <label class="flex items-center gap-2 text-sm">
-      <p-checkbox
-        [binary]="true"
-        inputId="notificationsUnreadOnly"
-        [ngModel]="unreadOnly()"
-        (ngModelChange)="setUnreadOnly($event)"
-      />
-      Pouze nepřečtené
-    </label>
     <ul class="m-0 flex max-h-[60vh] list-none flex-col overflow-y-auto p-0">
       @for (n of items(); track n.id) {
       <li>
