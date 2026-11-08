@@ -2,162 +2,187 @@
   <h1 class="mb-0 flex items-center gap-3">
     <app-icon name="absences" />Docházka
   </h1>
-  @if (canManageAbsences()) {
+  @if (tab() === 'absence' && canManageAbsences()) {
   <p-button
     label="Zapsat absenci"
     icon="pi pi-plus"
     (onClick)="openAddAbsenceDialog()"
   />
+  } @else if (tab() === 'omluvenky' && canExcuse()) {
+  <p-button label="Omluvit" icon="pi pi-plus" (onClick)="openExcuseDialog()" />
   }
 </div>
 
-<div class="mb-3 flex flex-wrap items-end gap-3">
-  <app-float-field [label]="'Žák' | term" for="filterStudent">
-    <p-select
-      [ariaLabel]="'Žák' | term"
-      inputId="filterStudent"
-      [options]="studentOptions()"
-      optionLabel="label"
-      optionValue="id"
-      [(ngModel)]="filterStudentId"
-      [showClear]="true"
-      name="filterStudent"
-      appendTo="body"
-      styleClass="w-52"
-    />
-  </app-float-field>
-  <app-float-field label="Stav" for="filterStatus">
-    <p-select
-      ariaLabel="Stav"
-      inputId="filterStatus"
-      [options]="statusFilterOptions"
-      optionLabel="label"
-      optionValue="value"
-      [(ngModel)]="filterStatus"
-      [showClear]="true"
-      name="filterStatus"
-      appendTo="body"
-      styleClass="w-48"
-    />
-  </app-float-field>
-  @if (filterStudentId !== null || filterStatus !== null) {
-  <app-clear-filters (cleared)="clearFilters()" />
-  }
-</div>
-
-@if (missedSummary(); as summary) { @if (summary.total > 0 || summary.wholeDays
-> 0) {
-<p class="mb-3 mt-0 text-sm text-surface-600 dark:text-surface-300">
-  Zameškáno hodin: <strong>{{ summary.total }}</strong> (omluveno {{
-  summary.excused }}, neomluveno {{ summary.unexcused }}) @if (summary.wholeDays
-  > 0) { + {{ summary.wholeDays }}× celý den bez rozpisu }
-</p>
-} }
-
-<p-table [value]="filteredAbsences()" dataKey="id" styleClass="rounded-border">
-  <ng-template pTemplate="header">
-    <tr>
-      <th>{{ 'Žák' | term }}</th>
-      <th>Datum</th>
-      <th>Hodiny</th>
-      <th>Stav</th>
-      <th>Omluvenka</th>
-      <th><span class="sr-only">Akce</span></th>
-      @if (canManageAbsences()) {
-      <th><span class="sr-only">Akce</span></th>
-      }
-    </tr>
-  </ng-template>
-  <ng-template pTemplate="body" let-absence>
-    <tr [id]="'absence-' + absence.id">
-      <td>{{ absence.studentName }}</td>
-      <td>{{ absence.date | dateFormat: 'date' }}</td>
-      <td class="text-surface-600 dark:text-surface-300">
-        {{ formatPeriods(absence.periods) }}
-      </td>
-      <td>
-        <p-tag
-          [value]="statusLabel(absence.status)"
-          [severity]="statusSeverity(absence.status)"
-        />
-      </td>
-      <td class="text-surface-500">{{ absence.excuseReason }}</td>
-      <td>
-        @if (absence.status === 'Unexcused' && canSubmitExcuse()) {
-        <div class="flex items-center gap-2">
-          <app-float-field
-            label="Důvod omluvenky"
-            [for]="'excuse-' + absence.id"
-          >
-            <input
-              pInputText
-              type="text"
-              [id]="'excuse-' + absence.id"
-              class="w-48"
-              [(ngModel)]="excuseDrafts[absence.id]"
-              [ngModelOptions]="{ standalone: true }"
-            />
-          </app-float-field>
-          <p-button
-            label="Omluvit"
-            size="small"
-            [outlined]="true"
-            (onClick)="submitExcuse(absence)"
+<p-tabs [value]="tab()" (valueChange)="setTab($any($event))">
+  <p-tablist>
+    <p-tab value="absence">Absence</p-tab>
+    <p-tab value="omluvenky">Omluvenky</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <p-tabpanel value="absence">
+      <div class="mb-3 flex flex-wrap items-end gap-3">
+        <app-float-field [label]="'Žák' | term" for="filterStudent">
+          <p-select
+            [ariaLabel]="'Žák' | term"
+            inputId="filterStudent"
+            [options]="studentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            [(ngModel)]="filterStudentId"
+            [showClear]="true"
+            name="filterStudent"
+            appendTo="body"
+            styleClass="w-52"
           />
-        </div>
-        } @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
-        <div class="flex gap-2">
-          <p-button
-            label="Schválit"
-            icon="pi pi-check"
-            size="small"
-            severity="success"
-            (onClick)="review(absence, true)"
+        </app-float-field>
+        <app-float-field label="Stav" for="filterStatus">
+          <p-select
+            ariaLabel="Stav"
+            inputId="filterStatus"
+            [options]="statusFilterOptions"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="filterStatus"
+            [showClear]="true"
+            name="filterStatus"
+            appendTo="body"
+            styleClass="w-48"
           />
-          <p-button
-            label="Zamítnout"
-            icon="pi pi-times"
-            size="small"
-            severity="danger"
-            [outlined]="true"
-            (onClick)="review(absence, false)"
-          />
-        </div>
+        </app-float-field>
+        @if (filterStudentId !== null || filterStatus !== null) {
+        <app-clear-filters (cleared)="clearFilters()" />
         }
-      </td>
-      @if (canManageAbsences()) {
-      <td>
-        <div class="flex justify-end gap-1">
-          <p-button
-            icon="pi pi-pencil"
-            ariaLabel="Upravit"
-            size="small"
-            [text]="true"
-            (onClick)="startEditAbsence(absence)"
-          />
-          <p-button
-            icon="pi pi-trash"
-            ariaLabel="Smazat"
-            size="small"
-            severity="danger"
-            [text]="true"
-            (onClick)="deleteAbsence(absence)"
-          />
-        </div>
-      </td>
-      }
-    </tr>
-  </ng-template>
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="7" class="py-6 text-center text-surface-500">
-        @if (absences()) { Žádné záznamy. } @else {
-        <app-loading class="justify-center" />
-        }
-      </td>
-    </tr>
-  </ng-template>
-</p-table>
+      </div>
+
+      @if (missedSummary(); as summary) { @if (summary.total > 0 ||
+      summary.wholeDays > 0) {
+      <p class="mb-3 mt-0 text-sm text-surface-600 dark:text-surface-300">
+        Zameškáno hodin: <strong>{{ summary.total }}</strong> (omluveno {{
+        summary.excused }}, neomluveno {{ summary.unexcused }}) @if
+        (summary.wholeDays > 0) { + {{ summary.wholeDays }}× celý den bez
+        rozpisu }
+      </p>
+      } }
+
+      <p-table
+        [value]="filteredAbsences()"
+        dataKey="id"
+        styleClass="rounded-border"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'Žák' | term }}</th>
+            <th>Datum</th>
+            <th>Hodiny</th>
+            <th>Stav</th>
+            <th>Omluvenka</th>
+            <th><span class="sr-only">Akce</span></th>
+            @if (canManageAbsences()) {
+            <th><span class="sr-only">Akce</span></th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-absence>
+          <tr [id]="'absence-' + absence.id">
+            <td>{{ absence.studentName }}</td>
+            <td>{{ absence.date | dateFormat: 'date' }}</td>
+            <td class="text-surface-600 dark:text-surface-300">
+              {{ formatPeriods(absence.periods) }}
+            </td>
+            <td>
+              <p-tag
+                [value]="statusLabel(absence.status)"
+                [severity]="statusSeverity(absence.status)"
+              />
+            </td>
+            <td class="text-surface-500">
+              {{ absence.excuseReason }} @if (absence.reviewNote) {
+              <div class="text-xs text-red-700 dark:text-red-300">
+                {{ absence.reviewNote }}
+              </div>
+              }
+            </td>
+            <td>
+              @if (absence.status === 'Unexcused' && canExcuse()) {
+              <p-button
+                label="Omluvit"
+                size="small"
+                [outlined]="true"
+                (onClick)="openExcuseDialog(absence)"
+              />
+              } @if (absence.status === 'PendingExcuse' && canManageAbsences())
+              {
+              <div class="flex gap-2">
+                <span
+                  [pTooltip]="
+                    approvable(absence)
+                      ? ''
+                      : 'Schválit jde nejdříve v den absence.'
+                  "
+                >
+                  <p-button
+                    label="Schválit"
+                    icon="pi pi-check"
+                    size="small"
+                    severity="success"
+                    [disabled]="!approvable(absence)"
+                    (onClick)="approve(absence)"
+                  />
+                </span>
+                <p-button
+                  label="Zamítnout"
+                  icon="pi pi-times"
+                  size="small"
+                  severity="danger"
+                  [outlined]="true"
+                  (onClick)="reject(absence)"
+                />
+              </div>
+              }
+            </td>
+            @if (canManageAbsences()) {
+            <td>
+              <div class="flex justify-end gap-1">
+                <p-button
+                  icon="pi pi-pencil"
+                  ariaLabel="Upravit"
+                  size="small"
+                  [text]="true"
+                  (onClick)="startEditAbsence(absence)"
+                />
+                <p-button
+                  icon="pi pi-trash"
+                  ariaLabel="Smazat"
+                  size="small"
+                  severity="danger"
+                  [text]="true"
+                  (onClick)="deleteAbsence(absence)"
+                />
+              </div>
+            </td>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="py-6 text-center text-surface-500">
+              @if (absences()) { Žádné záznamy. } @else {
+              <app-loading class="justify-center" />
+              }
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-tabpanel>
+    <p-tabpanel value="omluvenky">
+      <app-excuses-list
+        [excuses]="excuses()"
+        (edit)="editExcuse($event)"
+        (changed)="reload()"
+      />
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>
 
 <p-dialog
   [visible]="absenceDialogVisible()"
@@ -171,6 +196,9 @@
     #absenceForm="ngForm"
     (ngSubmit)="saveAbsence()"
   >
+    @if (excuseReason(); as reason) {
+    <p class="m-0 text-sm">Den má omluvenku: {{ reason }}</p>
+    }
     <app-float-field [label]="'Žák' | term" for="absenceStudent">
       <p-select
         [ariaLabel]="'Žák' | term"
@@ -212,33 +240,15 @@
           (onClick)="selectLessonPeriods()"
         />
       </div>
-      @if (dayPeriods().length === 0) {
+      @if (dayPeriods.periods().length === 0) {
       <span class="text-sm text-surface-500"
         >Škola nemá nastavené časy hodin — absence se zapíše na celý den.</span
       >
       } @else {
-      <div
-        class="flex flex-wrap gap-1.5"
-        role="group"
-        aria-label="Zameškané hodiny"
-      >
-        @for (period of dayPeriods(); track period.number) {
-        <button
-          type="button"
-          class="flex min-w-12 flex-col items-center rounded-border border px-2 py-1 text-sm transition-colors"
-          [class.border-primary]="isPeriodSelected(period.number)"
-          [class.bg-primary]="isPeriodSelected(period.number)"
-          [class.text-primary-contrast]="isPeriodSelected(period.number)"
-          [class.border-surface-300]="!isPeriodSelected(period.number)"
-          [class.text-surface-500]="!isPeriodSelected(period.number) && !period.lesson"
-          [attr.aria-pressed]="isPeriodSelected(period.number)"
-          (click)="togglePeriod(period.number)"
-        >
-          <span class="font-semibold">{{ period.number }}.</span>
-          <span class="text-xs">{{ period.lesson ?? '—' }}</span>
-        </button>
-        }
-      </div>
+      <app-period-chips
+        [periods]="dayPeriods.periods()"
+        [(selected)]="newPeriods"
+      />
       @if (newPeriods().length === 0) {
       <span class="text-xs text-surface-500"
         >Bez vybraných hodin se absence zapíše na celý den.</span
@@ -254,3 +264,6 @@
     />
   </form>
 </p-dialog>
+
+<app-excuse-dialog (saved)="reload()" />
+<app-reject-dialog />

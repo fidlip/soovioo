@@ -10,7 +10,8 @@ export type NotificationType =
   | 'Photo'
   | 'Timetable'
   | 'TimetableChange'
-  | 'Substitution';
+  | 'Substitution'
+  | 'NewExcuse';
 
 export interface AppNotification {
   id: number;
@@ -121,6 +122,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   Timetable: 'Dokončená generování rozvrhu',
   TimetableChange: 'Změny rozvrhu',
   Substitution: 'Suplování',
+  NewExcuse: 'Nové omluvenky ke schválení',
 };
 
 /** Times offered for the daily e-mail, `HH:mm` every half hour. */

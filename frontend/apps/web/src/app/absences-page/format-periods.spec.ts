@@ -1,4 +1,4 @@
-import { formatPeriods } from './absences-page';
+import { formatPeriods } from './excuse-days';
 
 describe('formatPeriods', () => {
   it('collapses consecutive periods into ranges', () => {

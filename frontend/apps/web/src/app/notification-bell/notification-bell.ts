@@ -25,6 +25,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   Timetable: 'pi-cog',
   TimetableChange: 'pi-table',
   Substitution: 'pi-user-edit',
+  NewExcuse: 'pi-file-check',
 };
 
 const UNREAD_ONLY_STORAGE_KEY = 'soovioo-notifications-unread-only';

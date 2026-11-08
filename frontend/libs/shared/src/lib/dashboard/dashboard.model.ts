@@ -1,4 +1,4 @@
-import { Absence } from '../attendance/absence.model';
+import { Absence, Excuse } from '../attendance/absence.model';
 import { BehaviorRecord } from '../behavior/behavior.model';
 import { Grade } from '../grades/grade.model';
 import { ConversationSummary } from '../messaging/message.model';
@@ -29,6 +29,8 @@ export interface Dashboard {
   todayLessonsContext: string | null;
   recentGrades: Grade[];
   pendingAbsences: Absence[];
+  /** Up to 5 omluvenky with days still waiting for approval. */
+  pendingExcuses: Excuse[];
   unreadMessageCount: number;
   /** Up to 5 most recent of the unreadMessageCount conversations. */
   unreadConversations: ConversationSummary[];
