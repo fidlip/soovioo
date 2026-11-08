@@ -17,7 +17,10 @@ namespace Soovioo.Api.Tests.Dashboard;
 public class DashboardControllerTests
 {
     private const int SchoolId = 1;
-    private static readonly DayOfWeek Today = DateOnly.FromDateTime(DateTime.Today).DayOfWeek;
+    // The school's day, which the dashboard goes by: in UTC it's still
+    // yesterday for an hour or two after midnight.
+    private static readonly DateOnly TodayDate = Api.Common.SchoolClock.Today(TimeProvider.System);
+    private static readonly DayOfWeek Today = TodayDate.DayOfWeek;
     private static readonly DayOfWeek NotToday = (DayOfWeek)(((int)Today + 1) % 7);
 
     private static AppDbContext NewDb()
@@ -25,7 +28,7 @@ public class DashboardControllerTests
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
+        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId)) { Today = TodayDate };
     }
 
     private static DashboardController NewController(AppDbContext db, int currentUserId, string role)
@@ -82,9 +85,9 @@ public class DashboardControllerTests
             new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = NotToday, PeriodNumber = 2, TeacherId = teacher.Id },
             new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 3, TeacherId = otherTeacher.Id });
         db.Absences.AddRange(
-            new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.PendingExcuse },
-            new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Unexcused },
-            new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Excused });
+            new Absence { StudentId = student.Id, Date = TodayDate, SchoolId = SchoolId, Status = AbsenceStatus.PendingExcuse },
+            new Absence { StudentId = student.Id, Date = TodayDate, SchoolId = SchoolId, Status = AbsenceStatus.Unexcused },
+            new Absence { StudentId = student.Id, Date = TodayDate, SchoolId = SchoolId, Status = AbsenceStatus.Excused });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, teacher.Id, "Teacher").GetDashboard();
@@ -120,9 +123,9 @@ public class DashboardControllerTests
             new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = Today, PeriodNumber = 1 },
             new TimetableEntry { TimetableVersion = db.CurrentTimetableVersion(SchoolId), SchoolId = SchoolId, SchoolClassId = schoolClass.Id, SubjectId = subject.Id, DayOfWeek = NotToday, PeriodNumber = 2 });
         db.Absences.AddRange(
-            new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Unexcused },
-            new Absence { StudentId = student.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Excused },
-            new Absence { StudentId = otherStudent.Id, Date = DateOnly.FromDateTime(DateTime.Today), SchoolId = SchoolId, Status = AbsenceStatus.Unexcused });
+            new Absence { StudentId = student.Id, Date = TodayDate, SchoolId = SchoolId, Status = AbsenceStatus.Unexcused },
+            new Absence { StudentId = student.Id, Date = TodayDate, SchoolId = SchoolId, Status = AbsenceStatus.Excused },
+            new Absence { StudentId = otherStudent.Id, Date = TodayDate, SchoolId = SchoolId, Status = AbsenceStatus.Unexcused });
         await db.SaveChangesAsync();
 
         var result = await NewController(db, parent.Id, "Parent").GetDashboard();
