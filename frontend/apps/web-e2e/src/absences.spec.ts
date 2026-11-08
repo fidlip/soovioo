@@ -43,7 +43,10 @@ test.describe.serial('absence excuse workflow', () => {
     await login(page, 'ucitel', 'ucitel123');
 
     await page.getByRole('button', { name: 'Zapsat absenci' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Zapsat absenci' });
+    // "Upravit absenci" while the preselected pupil's today has an omluvenka.
+    const dialog = page.getByRole('dialog', {
+      name: /^(Zapsat|Upravit) absenci$/,
+    });
     // Focused by the dialog once its open animation ends — wait for it, so
     // it can't move focus away while the date is typed below.
     await expect(dialog.locator('#absenceStudent')).toBeFocused();
@@ -145,7 +148,8 @@ async function typeDate(
 ) {
   await input.selectText();
   await input.pressSequentially(value);
-  await input.press('Escape');
+  // Tab, not Escape: with the calendar already closed, Escape closes the dialog.
+  await input.press('Tab');
 }
 
 /** The parent writes an omluvenka for two days on Omluvenky. */
