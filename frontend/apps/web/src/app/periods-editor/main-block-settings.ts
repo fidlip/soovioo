@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -27,6 +27,9 @@ export class MainBlockSettings {
   private readonly api = inject(MainBlockApiService);
   private readonly notify = inject(NotifyService);
 
+  /** The grades and classes that inherit it have it too. */
+  readonly saved = output<void>();
+
   protected from: number | null = 1;
   protected to: number | null = 4;
 
@@ -50,7 +53,10 @@ export class MainBlockSettings {
       return;
     }
     this.api.set({ from: this.from, to: this.to }).subscribe({
-      next: () => this.notify.success('Uloženo.'),
+      next: () => {
+        this.notify.success('Uloženo.');
+        this.saved.emit();
+      },
       error: (err) => this.notify.actionFailed('set main block failed', err),
     });
   }

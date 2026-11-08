@@ -353,6 +353,13 @@ export class TeachingTab {
     }
   }
 
+  /** Učební plán and Třídy show the grades and classes that inherit it. */
+  protected schoolMainBlockSaved(): void {
+    if (this.canSeeOverview) {
+      this.reloadOverview();
+    }
+  }
+
   protected show(overview: TeachingOverview): void {
     this.overview.set(overview);
     this.plan = Object.fromEntries(
