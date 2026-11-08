@@ -110,16 +110,20 @@ test.describe.serial('teaching', () => {
     // Chosen in Rozvrh, then here in Třídy.
     await openTeaching(page, version);
     await expect(button).toContainText(version);
+    // Against the page heading: the page may be scrolled differently.
+    const heading = page.getByRole('heading', { name: 'Administrace' });
     const place = async () => {
       const box = await button.boundingBox();
-      return { x: box?.x, y: box?.y };
+      const top = await heading.boundingBox();
+      return box && top ? { x: box.x - top.x, y: box.y - top.y } : null;
     };
     const row = await place();
+    expect(row).not.toBeNull();
 
     await page.getByRole('tab', { name: 'Učitelé' }).click();
     await pickVersion(page, 'Platí');
-    const label = await button.getAttribute('aria-label');
-    const seeded = label!.replace('Verze rozvrhu: ', '');
+    const label = (await button.getAttribute('aria-label')) ?? '';
+    const seeded = label.replace('Verze rozvrhu: ', '');
     await page.getByRole('tab', { name: 'Rozvrh' }).click();
     await expect(page.getByTestId('timetable-version-info')).toContainText(
       seeded,
