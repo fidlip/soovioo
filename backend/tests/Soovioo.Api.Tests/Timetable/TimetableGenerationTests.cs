@@ -56,6 +56,10 @@ public class TimetableGenerationTests
         db.CurriculumItems.AddRange(
             new CurriculumItem { SchoolId = SchoolId, TimetableVersionId = draft.Id, Grade = 5, SubjectId = maths.Id, HoursPerWeek = 4 },
             new CurriculumItem { SchoolId = SchoolId, TimetableVersionId = draft.Id, Grade = 5, SubjectId = pe.Id, HoursPerWeek = 2 });
+        // The few hours of these classes fill a main block of one period.
+        db.GradeMainBlocks.AddRange(
+            new GradeMainBlock { SchoolId = SchoolId, Grade = 5, From = 1, To = 1 },
+            new GradeMainBlock { SchoolId = SchoolId, Grade = 6, From = 1, To = 1 });
         db.SaveChanges();
     }
 
@@ -284,7 +288,32 @@ public class TimetableGenerationTests
     }
 
     [Fact]
-    public async Task AClassStartingLateBecauseItsTeacherCannotTeachTheFirstPeriodIsExplained()
+    public async Task TooFewLessonsForTheMainBlockAreReportedAndTheDaysItIsNotFull()
+    {
+        var block = db.GradeMainBlocks.Single(g => g.Grade == 5);
+        block.To = 2;
+        db.SaveChanges();
+
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.Equal(
+            "5.A: hodin pro celou třídu je 6 týdně, hlavní výukový blok (1.–2. hodina) jich potřebuje 10. Upravte blok třídy nebo ročníku.",
+            Assert.Single(generation.Messages));
+        // 6 lessons fill the block one day, the other four days have one of two.
+        Assert.Contains(generation.Notes, n => n.StartsWith("Hlavní výukový blok není plný: ") && n.Split(',').Length == 4);
+        Assert.Equal(6, db.TimetableEntries.Count(e => e.PeriodNumber <= 2));
+    }
+
+    [Fact]
+    public async Task AFullMainBlockIsNoted()
+    {
+        var generation = await Generate(TimetableGenerationMode.All);
+
+        Assert.Contains("Všechny třídy mají plný hlavní výukový blok.", generation.Notes);
+    }
+
+    [Fact]
+    public async Task AMainBlockStartingLateBecauseTheTeacherCannotTeachItsFirstPeriodIsExplained()
     {
         var profile = db.TeacherProfiles.Single();
         profile.Availability = [.. TeacherProfile.Weekdays.Select(d => new AvailabilitySlot(d, 1, AvailabilityKind.Unavailable))];
@@ -292,7 +321,7 @@ public class TimetableGenerationTests
 
         var generation = await Generate(TimetableGenerationMode.All);
 
-        Assert.StartsWith("5.A: první hodinu nemůže mít ani jeden den v týdnu, Jan Novák (6 h z 6 h) ji učit nemůže; začíná proto později ",
+        Assert.Equal("5.A: 1. hodinu nemůže mít ani jeden den v týdnu, Jan Novák (6 h z 6 h) ji učit nemůže; hlavní výukový blok proto začíná později 5 dní.",
             Assert.Single(generation.Messages, m => m.StartsWith("5.A")));
         Assert.DoesNotContain(db.TimetableEntries, e => e.PeriodNumber == 1);
     }
@@ -572,13 +601,13 @@ public class TimetableGenerationTests
         Assign(pe, other);
         var withoutTeacher = Lesson(maths, DayOfWeek.Monday, 1);
         withoutTeacher.TeacherId = null;
-        var withoutRoom = Lesson(pe, DayOfWeek.Monday, 2);
+        var withoutRoom = Lesson(pe, DayOfWeek.Tuesday, 1);
         withoutRoom.TeacherId = other.Id;
         db.SaveChanges();
 
         var generation = await Update(TimetableUpdateMoves.AffectedOnly, TimetableUpdateMismatches.Leave);
 
-        var lessons = db.TimetableEntries.OrderBy(e => e.PeriodNumber).ToList();
+        var lessons = db.TimetableEntries.OrderBy(e => e.DayOfWeek).ToList();
         Assert.Equal((withoutTeacher.Id, other.Id), (lessons[0].Id, lessons[0].TeacherId!.Value));
         Assert.Equal((withoutRoom.Id, (int?)gym.Id), (lessons[1].Id, lessons[1].ClassroomId));
         Assert.Contains("Změněn učitel: 1 h (5.A M).", generation.Notes);
