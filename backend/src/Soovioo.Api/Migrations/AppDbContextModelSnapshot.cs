@@ -1508,6 +1508,8 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("TargetId");
+
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_Notifications_PushPending")
                         .HasFilter("\"Push\" AND \"PushedAt\" IS NULL");

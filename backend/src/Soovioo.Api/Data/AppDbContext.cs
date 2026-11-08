@@ -572,6 +572,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.Property(x => x.Type).HasConversion<string>();
             e.HasIndex(x => new { x.UserId, x.Id });
             e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.TargetId);
             e.HasIndex(x => x.UserId).HasDatabaseName("IX_Notifications_PushPending")
                 .HasFilter("\"Push\" AND \"PushedAt\" IS NULL");
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);

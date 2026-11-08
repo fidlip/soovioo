@@ -41,6 +41,7 @@ import {
   CreateEventRequest,
   EventAudience,
   EventsApiService,
+  LINKED_ITEM_GONE,
   RecipientOptions,
   SchoolEvent,
 } from '@soovioo/shared';
@@ -220,6 +221,7 @@ export class EventsPage {
 
   /** ?event= — opened from a notification, shown once the events are here. */
   private linkedEventId: number | null = null;
+  private eventsLoaded = false;
 
   // Written both from template ngModel bindings and from FullCalendar's own
   // click handling (select/eventClick) — the latter runs outside any
@@ -523,9 +525,14 @@ export class EventsPage {
 
   /** The calendar moves to the event's day and marks it. */
   private showLinked(): void {
+    if (!this.eventsLoaded || !this.linkedEventId) {
+      return;
+    }
     const event = this.events().find((e) => e.id === this.linkedEventId);
     const calendar = this.calendar();
     if (!event) {
+      this.linkedEventId = null;
+      this.notify.warn(LINKED_ITEM_GONE);
       return;
     }
     if (!calendar) {
@@ -541,6 +548,7 @@ export class EventsPage {
     this.eventsApi.getEvents().subscribe({
       next: (events) => {
         this.events.set(events);
+        this.eventsLoaded = true;
         this.showLinked();
       },
       error: (err) => console.error('getEvents failed', err),

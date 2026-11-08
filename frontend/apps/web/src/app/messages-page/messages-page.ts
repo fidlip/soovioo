@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
@@ -25,6 +26,7 @@ import {
   Conversation,
   ConversationSummary,
   DateFormatPipe,
+  LINKED_ITEM_GONE,
   Message,
   MessageAttachment,
   MessagesApiService,
@@ -313,7 +315,12 @@ export class MessagesPage {
           });
         }
       },
-      error: (err) => console.error('getConversation failed', err),
+      error: (err) => {
+        console.error('getConversation failed', err);
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          this.notify.warn(LINKED_ITEM_GONE);
+        }
+      },
     });
   }
 

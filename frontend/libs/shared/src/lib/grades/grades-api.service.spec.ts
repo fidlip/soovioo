@@ -45,6 +45,13 @@ describe('GradesApiService', () => {
     req.flush({ items: [], totalCount: 0, page: 2, pageSize: 20 });
   });
 
+  it('fetches one grade by id', () => {
+    service.getGrade(12).subscribe();
+    const req = httpMock.expectOne('http://test/api/grades/12');
+    expect(req.request.method).toBe('GET');
+    req.flush({});
+  });
+
   it('posts a new grade to the configured base URL', () => {
     service.addGrade({ studentId: 1, subjectId: 1, value: 1 }).subscribe();
     const req = httpMock.expectOne('http://test/api/grades');

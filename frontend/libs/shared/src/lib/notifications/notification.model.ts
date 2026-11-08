@@ -134,3 +134,7 @@ export const DIGEST_TIMES: string[] = Array.from(
 export function digestTimeLabel(time: string): string {
   return time.slice(0, 5);
 }
+
+/** A notification's link to a thing that's gone (deleted after the push or
+ * e-mail went out) or that the user no longer sees. */
+export const LINKED_ITEM_GONE = 'Tato položka už neexistuje nebo ji nevidíte.';

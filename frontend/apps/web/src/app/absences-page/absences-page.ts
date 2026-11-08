@@ -19,6 +19,7 @@ import {
   AbsenceStatus,
   AbsencesApiService,
   AuthApiService,
+  LINKED_ITEM_GONE,
   DateFormatPipe,
   DayOfWeek,
   SchoolPeriod,
@@ -116,6 +117,8 @@ export class AbsencesPage {
   private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
 
   protected readonly absences = signal<Absence[] | null>(null);
+  private readonly changes = inject(ChangeDetectorRef);
+  private linkedId: number | null = null;
   protected readonly students = signal<Student[]>([]);
 
   /** p-select's optionLabel only takes a property path, not a function. */
@@ -218,16 +221,9 @@ export class AbsencesPage {
   constructor() {
     this.reload();
     // ?absence= — opened from a notification.
-    const changes = inject(ChangeDetectorRef);
     onLinkedItem('absence', (id) => {
-      if (
-        this.absences() &&
-        !this.filteredAbsences().some((a) => a.id === id)
-      ) {
-        this.clearFilters();
-        changes.markForCheck();
-      }
-      highlightElement(`absence-${id}`);
+      this.linkedId = id;
+      this.showLinked();
     });
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
@@ -420,9 +416,31 @@ export class AbsencesPage {
     return `${year}-${month}-${day}`;
   }
 
+  /** The absence a notification opened, once the list is there. */
+  private showLinked(): void {
+    const absences = this.absences();
+    const id = this.linkedId;
+    if (!absences || !id) {
+      return;
+    }
+    this.linkedId = null;
+    if (!absences.some((a) => a.id === id)) {
+      this.notify.warn(LINKED_ITEM_GONE);
+      return;
+    }
+    if (!this.filteredAbsences().some((a) => a.id === id)) {
+      this.clearFilters();
+      this.changes.markForCheck();
+    }
+    highlightElement(`absence-${id}`);
+  }
+
   private reload(): void {
     this.absencesApi.getAbsences().subscribe({
-      next: (absences) => this.absences.set(absences),
+      next: (absences) => {
+        this.absences.set(absences);
+        this.showLinked();
+      },
       error: (err) => {
         console.error('getAbsences failed', err);
         this.absences.set([]);

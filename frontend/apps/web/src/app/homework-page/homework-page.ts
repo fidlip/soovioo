@@ -32,6 +32,7 @@ import {
   SubjectsApiService,
   TeacherTimetableEntry,
   TimetableApiService,
+  LINKED_ITEM_GONE,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { highlightElement, onLinkedItem } from '../highlight';
@@ -284,11 +285,16 @@ export class HomeworkPage {
 
   /** Past its due date it's in the archive; a filter may hide it too. */
   private showLinked(): void {
-    const item = this.homeworkItems()?.find((h) => h.id === this.linkedId);
-    if (!item) {
+    const items = this.homeworkItems();
+    if (!items || !this.linkedId) {
       return;
     }
+    const item = items.find((h) => h.id === this.linkedId);
     this.linkedId = null;
+    if (!item) {
+      this.notify.warn(LINKED_ITEM_GONE);
+      return;
+    }
     if (!this.filteredHomework().includes(item)) {
       this.clearFilters();
       if (item.dueDate < this.toDateOnlyString(new Date())) {

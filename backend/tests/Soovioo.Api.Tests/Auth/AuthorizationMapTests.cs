@@ -79,6 +79,7 @@ public class AuthorizationMapTests
         ["FeedbackAdmin.Update"] = "roles:SuperAdmin",
         ["Grades.AddGrade"] = "authenticated + perm:GradesWrite",
         ["Grades.DeleteGrade"] = "authenticated + perm:GradesWrite",
+        ["Grades.GetGrade"] = "authenticated",
         ["Grades.GetGrades"] = "authenticated",
         ["Grades.UpdateGrade"] = "authenticated + perm:GradesWrite",
         ["Homework.CreateHomework"] = "authenticated + perm:HomeworkWrite",

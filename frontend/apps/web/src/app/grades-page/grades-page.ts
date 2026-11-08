@@ -15,6 +15,7 @@ import {
   DateFormatPipe,
   Grade,
   GradesApiService,
+  LINKED_ITEM_GONE,
   ReportCardApiService,
   Student,
   StudentReach,
@@ -187,13 +188,18 @@ export class GradesPage {
     // ?grade= — opened from a notification; a new grade is on the first
     // page unless a filter hides it.
     onLinkedItem('grade', (id) => {
-      const grades = this.grades();
-      if (grades && !grades.some((g) => g.id === id)) {
-        this.filterStudentId.set(null);
-        this.filterSubjectId.set(null);
-        this.onFilterChange();
-      }
-      highlightElement(`grade-${id}`);
+      this.gradesApi.getGrade(id).subscribe({
+        next: () => {
+          const grades = this.grades();
+          if (grades && !grades.some((g) => g.id === id)) {
+            this.filterStudentId.set(null);
+            this.filterSubjectId.set(null);
+            this.onFilterChange();
+          }
+          highlightElement(`grade-${id}`);
+        },
+        error: () => this.notify.warn(LINKED_ITEM_GONE),
+      });
     });
     this.studentsApi.getStudents().subscribe({
       next: (students) => {

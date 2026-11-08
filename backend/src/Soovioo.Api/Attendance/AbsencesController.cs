@@ -69,7 +69,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
-        await NotifyFamilyAsync(absence, student, NotificationType.Absence, "Zapsaná absence");
+        await NotifyFamilyAsync(absence, student, NotificationType.Absence, NewTitle);
         await db.SaveChangesAsync();
 
         var dto = new AbsenceDto(
@@ -122,13 +122,20 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         return NoContent();
     }
 
-    private async Task NotifyFamilyAsync(Absence absence, StudentProfile student, NotificationType type, string title)
+    private const string NewTitle = "Zapsaná absence";
+
+    private async Task NotifyFamilyAsync(Absence absence, StudentProfile student, NotificationType type, string title) =>
+        await notifier.AddAsync(absence.SchoolId, Drafts(absence, student, type, title, await notifier.FamilyAsync(student.Id)));
+
+    private static List<NotificationDraft> Drafts(
+        Absence absence, StudentProfile student, NotificationType type, string title, IEnumerable<int> family)
     {
         var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
-        await notifier.NotifyAsync(
-            absence.SchoolId, await notifier.FamilyAsync(student.Id), type, title,
-            $"{student.Person!.FullName} — {SchoolFormat.Date(absence.Date)}{periods}",
-            "absences", absence.Id, student.Id);
+        return family
+            .Select(userId => new NotificationDraft(
+                userId, type, title, $"{student.Person!.FullName} — {SchoolFormat.Date(absence.Date)}{periods}",
+                "absences", absence.Id, student.Id))
+            .ToList();
     }
 
     /// <summary>Direct correction of a record (e.g. a teacher logged the
@@ -161,9 +168,16 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             return this.FieldError("periods", "Neplatné číslo hodiny.");
         }
 
+        var changed = absence.StudentId != request.StudentId || absence.Date != request.Date || !absence.Periods.SequenceEqual(periods);
         absence.StudentId = request.StudentId;
         absence.Date = request.Date;
         absence.Periods = periods;
+        if (changed)
+        {
+            var family = await notifier.FamilyAsync(student.Id);
+            await notifier.ChangedAsync(absence.SchoolId, absence.Id, [NotificationType.Absence, NotificationType.Excuse], family,
+                Drafts(absence, student, NotificationType.Absence, "Změna absence", family), NewTitle);
+        }
         await db.SaveChangesAsync();
 
         var dto = new AbsenceDto(
