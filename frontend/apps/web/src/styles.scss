@@ -133,19 +133,25 @@ body {
   @tailwind utilities;
 }
 
-/* The thing a notification opened, for a moment (app/highlight.ts). */
+/* The thing a notification opened, for a moment (app/highlight.ts): it
+ * blinks three times, stays, then fades. */
 .app-highlight,
 .app-highlight > .p-card {
-  animation: app-highlight 3s ease-in;
+  animation: app-highlight 5s ease-in-out;
 }
 
 @keyframes app-highlight {
   from,
-  60% {
-    box-shadow: inset 0 0 0 2px var(--p-primary-color);
-  }
+  12%,
+  24%,
   to {
     box-shadow: inset 0 0 0 2px transparent;
+  }
+  6%,
+  18%,
+  30%,
+  70% {
+    box-shadow: inset 0 0 0 2px var(--p-primary-color);
   }
 }
 
