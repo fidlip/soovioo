@@ -98,7 +98,7 @@ public class TimetableGenerationJob(
             .ToDictionaryAsync(c => c.Id, c => c.HomeroomId!.Value);
         var classSizes = await db.Students.GroupBy(s => s.SchoolClassId)
             .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count);
-        var blocks = await MainBlock.ForClassesAsync(db, version.SchoolId);
+        var blocks = await MainBlock.ForClassesAsync(db, version);
         var messages = new List<string>();
 
         // Classrooms it can have, first choice first, that the pupils fit in.

@@ -236,15 +236,19 @@ vždy jen jeden rozvrh najednou; CP-SAT paralelně 8–16 vláken, na méně já
   pro celou třídu, viz níže), každý den aspoň ⌊týdenní hodiny / 5⌋ hodin (20 za chybějící),
   třída bez oken (10), 0. hodina (8), předmět nejvýš jednou denně (6, dvouhodinovka se počítá jednou).
 - Hlavní výukový blok (#225): hodiny od–do, kdy má třída každý den výuku. Škola ho má povinně
-  (výchozí 1.–4. hodina), ročník ho dědí ze školy, třída z ročníku, oba ho mohou přepsat
-  (Výuka → Nastavení; `School.MainBlockFrom/To`, `GradeMainBlock`, `SchoolClass.MainBlockFrom/To`,
-  globálně, ne per verze). Blok nahradil dřívější pravidlo „den začíná první hodinou“: den,
+  (výchozí 1.–4. hodina, Výuka → Nastavení, `School.MainBlockFrom/To`), ročník ho dědí ze školy,
+  třída z ročníku, oba ho mohou přepsat — ve verzi rozvrhu jako učební plán: ročník v Učebním
+  plánu (řádek pod „Celkem“, ukládá se s plánem, `GradeMainBlock`), třída ve Třídách
+  (`ClassMainBlock`). Kopie verze je přebírá, prázdná verze jede podle školy. Blok nahradil
+  dřívější pravidlo „den začíná první hodinou“: den,
   který začíná až blokem pozdější než 1. hodina, není porušení, a okno je jen volná hodina mezi
   dvěma hodinami. Volitelná hodina (ne všichni žáci) blok nepokrývá, dělené skupiny ano. Váha 100
   je nad všemi přáními učitelů a okny, pod chybějící učebnou (200) a neumístěnou hodinou (1000).
   Má-li třída méně hodin pro celou třídu, než blok za týden potřebuje, výsledek to hlásí („5.A:
   hodin pro celou třídu je 18 týdně, hlavní výukový blok (1.–4. hodina) jich potřebuje 20 …“)
   a chybějící hodiny se za porušení nepočítají; dny s neplným blokem vypíše hodnocení rozvrhu.
+  Už před generováním to ukazují Třídy (problém třídy „Ke kontrole“; dělení se počítá, samostatná
+  skupina ne) a Učební plán (⚠ u „Celkem“ ročníku, jen odhad z hodin plánu).
 - Volitelné hodiny (#205): hodina samostatné skupiny nebo dělení, na kterou nechodí všichni žáci
   třídy (samostatná skupina zatím bez žáků se počítá), patří před hodiny pro všechny nebo za ně.
   Hodina pro všechny před ní i za ní stojí za každou takovou třídu 10, stejně jako okno třídy;

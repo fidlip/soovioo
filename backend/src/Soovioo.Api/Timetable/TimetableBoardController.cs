@@ -251,7 +251,7 @@ public class TimetableBoardController(AppDbContext db, ICurrentSchoolContext cur
         var notes = TimetableGenerationJob.Assess(
             lessons, electives, plan.Classes.ToDictionary(c => c.Id, c => c.Name), teachers,
             plan.Teachers.ToDictionary(t => t.Id, t => t.Name),
-            await MainBlock.ForClassesAsync(db, version.SchoolId), periods);
+            await MainBlock.ForClassesAsync(db, version), periods);
         return new TimetableAssessmentDto(notes, problems);
     }
 

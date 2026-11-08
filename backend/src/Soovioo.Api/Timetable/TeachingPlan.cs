@@ -13,6 +13,8 @@ public record TeachingPlan(
 {
     public List<TeachingGroupDto> Groups { get; init; } = [];
 
+    public required VersionMainBlocks MainBlocks { get; init; }
+
     public static async Task<TeachingPlan> LoadAsync(AppDbContext db, TimetableVersion version)
     {
         var classes = await db.SchoolClasses.OrderBy(c => c.Name)
@@ -67,9 +69,39 @@ public record TeachingPlan(
         var (classDtos, teacherDtos, groupDtos) = TeachingPlanner.PlanWithGroups(new TeachingPlanner.Input(
             classes, subjects, teachers, curriculum, classCurriculum, assignments, lessons, groups));
 
+        var blocks = await VersionMainBlocks.LoadAsync(db, version);
+        var periods = await db.SchoolPeriods.Select(p => p.PeriodNumber).ToListAsync();
+        if (periods.Count == 0)
+        {
+            periods = [.. Enumerable.Range(1, 8)];
+        }
+        classDtos = [.. classDtos.Select(c => WithMainBlock(c, blocks, groupDtos, periods))];
+
         var grades = classes.Where(c => c.Grade is not null).Select(c => c.Grade!.Value)
             .Concat(curriculum.Select(c => c.Grade)).Distinct().Order().ToList();
-        return new TeachingPlan(classDtos, teacherDtos, grades, curriculum) { Groups = groupDtos };
+        return new TeachingPlan(classDtos, teacherDtos, grades, curriculum) { Groups = groupDtos, MainBlocks = blocks };
+    }
+
+    /// <summary>The class's block, and a problem when its plan has fewer hours
+    /// for all its pupils than the block needs: a division counts, a group on
+    /// its own doesn't (see <see cref="TimetableGenerationJob.ElectivesAsync"/>).</summary>
+    private static TeachingClassDto WithMainBlock(
+        TeachingClassDto c, VersionMainBlocks blocks, List<TeachingGroupDto> groups, List<int> periods)
+    {
+        var block = blocks.Of(c.Id, c.Grade);
+        var needed = block.Periods.Count(periods.Contains) * TeacherProfile.Weekdays.Length;
+        var hours = c.Rows.Where(r => r.Groups.Count == 0).Sum(r => r.PlanHours ?? 0)
+            + groups.Where(g => g.DivisionId is not null && g.ClassIds.Contains(c.Id))
+                .DistinctBy(g => g.DivisionId).Sum(g => g.PlanHours);
+        return c with
+        {
+            MainBlock = block,
+            InheritedMainBlock = blocks.OfGrade(c.Grade),
+            OwnMainBlock = blocks.Classes.ContainsKey(c.Id),
+            Problems = hours > 0 && hours < needed
+                ? [.. c.Problems, $"Hodin pro celou třídu je {hours.ToString("0.#", SchoolFormat.Culture)} týdně, hlavní výukový blok ({block}) jich potřebuje {needed}."]
+                : c.Problems,
+        };
     }
 
     public static async Task<List<TeachingPlanner.GroupInput>> GroupsAsync(AppDbContext db, int versionId) =>

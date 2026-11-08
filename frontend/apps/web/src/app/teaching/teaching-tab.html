@@ -1,4 +1,5 @@
-@if (selection.options().length > 0 && activeSection() !== 'substitutions') {
+@if (selection.options().length > 0 && activeSection() !== 'substitutions' &&
+activeSection() !== 'settings') {
 <div class="mb-4">
   <app-float-field label="Verze rozvrhu" for="teachingVersion">
     <p-select
@@ -161,6 +162,55 @@
             />
             }
           </h2>
+          <div
+            class="mb-2 flex flex-wrap items-center gap-2 text-sm"
+            role="group"
+            [attr.aria-label]="'Hlavní výukový blok — ' + c.name"
+          >
+            <span>Hlavní výukový blok:</span>
+            @if (o.canEdit) {
+            <div
+              class="flex items-center gap-1"
+              (focusout)="leaveClassMainBlock(c, $event)"
+            >
+              <p-inputNumber
+                [(ngModel)]="classMainBlocks[c.id].from"
+                placeholder="{{ c.inheritedMainBlock.from }}"
+                [ariaLabel]="'Od hodiny — ' + c.name"
+                [min]="0"
+                [max]="15"
+                [disabled]="busy()"
+                (keydown.enter)="$any($event.target).blur()"
+                inputStyleClass="w-12 text-center"
+              />
+              –
+              <p-inputNumber
+                [(ngModel)]="classMainBlocks[c.id].to"
+                placeholder="{{ c.inheritedMainBlock.to }}"
+                [ariaLabel]="'Do hodiny — ' + c.name"
+                [min]="0"
+                [max]="15"
+                [disabled]="busy()"
+                (keydown.enter)="$any($event.target).blur()"
+                inputStyleClass="w-12 text-center"
+              />
+              @if (c.ownMainBlock) {
+              <p-button
+                icon="pi pi-undo"
+                [text]="true"
+                size="small"
+                severity="secondary"
+                [ariaLabel]="(c.grade === null ? 'Podle školy — ' : 'Podle ročníku — ') + c.name"
+                [pTooltip]="(c.grade === null ? 'Podle školy: ' : 'Podle ročníku: ') + mainBlockText(c.inheritedMainBlock)"
+                (onClick)="setClassMainBlock(c, null, null)"
+              />
+              }
+            </div>
+            } @else {
+            <span>{{ mainBlockText(c.mainBlock) }}</span>
+            }
+            <span class="text-surface-500">{{ classMainBlockNote(c) }}</span>
+          </div>
           @for (problem of c.problems; track $index) {
           <p class="mb-2 text-sm text-orange-600 dark:text-orange-400">
             {{ problem }}
@@ -391,7 +441,9 @@
           Hodiny týdně podle ročníků — šablona pro jejich třídy. Kde se třída
           liší (jiný jazyk, předmět navíc), změní se jí plán v záložce Třídy.
           „2×“ = dvouhodinovky (bloky po dvou hodinách za sebou), výchozí podle
-          předmětu. Ročník třídy se zadává v Administraci → Škola → Třídy.
+          předmětu. Hlavní výukový blok = hodiny, ve kterých má třída každý den
+          výuku pro celou třídu; prázdný = podle školy (Nastavení). Ročník třídy
+          se zadává v Administraci → Škola → Třídy.
         </p>
         @if (o.grades.length === 0) {
         <p class="text-surface-500">Žádná třída nemá zadaný ročník.</p>
@@ -452,8 +504,60 @@
               >
                 <td class="p-2">Celkem</td>
                 @for (g of o.grades; track g) {
-                <td class="p-2 text-center">
-                  {{ formatHours(gradeTotal(g)) }}
+                <td class="whitespace-nowrap p-2 text-center">
+                  {{ formatHours(gradeTotal(g)) }} @if (gradeMainBlockShort(o,
+                  g); as needed) {
+                  <i
+                    class="pi pi-exclamation-triangle text-orange-500"
+                    role="img"
+                    [attr.aria-label]="'Hlavní výukový blok potřebuje ' + needed + ' h'"
+                    [pTooltip]="'Hlavní výukový blok (' + mainBlockText(gradeMainBlock(o, g)) + ') potřebuje ' + needed + ' h týdně pro celou třídu.'"
+                  ></i>
+                  }
+                </td>
+                }
+              </tr>
+              <tr class="border-t border-surface-200 dark:border-surface-700">
+                <td class="p-2 font-medium">Hlavní výukový blok</td>
+                @for (g of o.grades; track g) {
+                <td class="p-1 text-center">
+                  @if (o.canEdit) {
+                  <div class="flex items-center justify-center gap-0.5">
+                    <p-inputNumber
+                      [(ngModel)]="planMainBlocks[g].from"
+                      placeholder="{{ o.schoolMainBlock.from }}"
+                      [ariaLabel]="'Od hodiny — ' + g + '. ročník'"
+                      [min]="0"
+                      [max]="15"
+                      inputStyleClass="w-10 text-center"
+                    />
+                    –
+                    <p-inputNumber
+                      [(ngModel)]="planMainBlocks[g].to"
+                      placeholder="{{ o.schoolMainBlock.to }}"
+                      [ariaLabel]="'Do hodiny — ' + g + '. ročník'"
+                      [min]="0"
+                      [max]="15"
+                      inputStyleClass="w-10 text-center"
+                    />
+                  </div>
+                  } @else { {{ mainBlockText(gradeMainBlock(o, g)) }} }
+                  <div
+                    class="flex items-center justify-center text-xs text-surface-500"
+                  >
+                    @if (ownMainBlock(planMainBlocks[g])) { vlastní @if
+                    (o.canEdit) {
+                    <p-button
+                      icon="pi pi-undo"
+                      [text]="true"
+                      size="small"
+                      severity="secondary"
+                      [ariaLabel]="'Podle školy — ' + g + '. ročník'"
+                      [pTooltip]="'Podle školy: ' + mainBlockText(o.schoolMainBlock)"
+                      (onClick)="planMainBlocks[g] = { from: null, to: null }"
+                    />
+                    } } @else { podle školy }
+                  </div>
                 </td>
                 }
               </tr>
