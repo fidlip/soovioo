@@ -162,6 +162,13 @@ p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
   border-color: var(--p-red-400);
 }
 
+/* Every picked value stays in view: chips that don't fit wrap onto
+ * another line (with [maxSelectedLabels]="null" on the multiselect). */
+.p-multiselect-display-chip .p-multiselect-label {
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
 /* A float label sticks out above its field — room for it at the top of a
  * dialog's scrolling content, which would clip it. */
 .p-dialog-content:has(.p-floatlabel) {
