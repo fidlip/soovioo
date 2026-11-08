@@ -7,7 +7,8 @@ namespace Soovioo.Api.Migrations
     /// <summary>A deleted grade, absence, homework, event or conversation
     /// takes its notifications along, however it goes — on its own, with its
     /// pupil, subject or class, or in bulk. The trigger's arguments are the
-    /// notification kinds about that table's rows.</summary>
+    /// notification kinds about that table's rows. Notifications of things
+    /// deleted before go too.</summary>
     public partial class NotificationsOfDeletedThings : Migration
     {
         private static readonly (string Table, string Types)[] Things =
@@ -42,6 +43,11 @@ namespace Soovioo.Api.Migrations
                     CREATE TRIGGER "{table}_notifications" AFTER DELETE ON "{table}"
                     REFERENCING OLD TABLE AS deleted
                     FOR EACH STATEMENT EXECUTE FUNCTION notifications_of_deleted({types});
+                    """);
+                migrationBuilder.Sql($"""
+                    DELETE FROM "Notifications" n
+                    WHERE n."Type" IN ({types}) AND n."TargetId" IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM "{table}" t WHERE t."Id" = n."TargetId" AND t."SchoolId" = n."SchoolId");
                     """);
             }
         }
