@@ -42,7 +42,7 @@ import {
   qualifiedFor,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
-import { FloatField } from '../forms';
+import { ClassPicker, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 
 interface DivisionForm {
@@ -82,6 +82,7 @@ interface GroupForm {
     FormsModule,
     InputNumber,
     InputText,
+    ClassPicker,
     MultiSelect,
     NgTemplateOutlet,
     Select,
@@ -129,9 +130,6 @@ export class StudentGroupsPanel {
   private readonly classrooms = signal<Classroom[]>([]);
   protected readonly busy = signal(false);
 
-  protected readonly classOptions = computed(() =>
-    this.classes().map((c) => ({ label: c.name, value: c.id })),
-  );
   protected readonly classroomOptions = computed(() => [
     { label: 'Podle předmětu', value: null as number | null },
     ...this.classrooms().map((r) => ({

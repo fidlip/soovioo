@@ -343,115 +343,64 @@
     <div
       class="flex flex-col gap-4 rounded-md border border-surface-200 p-3 dark:border-surface-700"
     >
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Třídy</span
-        >
-        <app-float-field label="Hledat třídu" for="paymentClassFilterName">
-          <input
-            id="paymentClassFilterName"
-            pInputText
-            type="text"
-            name="classFilterName"
-            class="max-w-40"
-            [(ngModel)]="classFilterName"
+      <app-class-picker
+        inputId="paymentClassFilterName"
+        [classes]="recipientOptions()?.classes ?? []"
+        [(selected)]="selectedClassIds"
+      />
+
+      <app-float-field label="Rodiče" for="paymentParents">
+        <p-multiselect
+          ariaLabel="Rodiče"
+          inputId="paymentParents"
+          name="parents"
+          [options]="recipientOptions()?.parents ?? []"
+          optionLabel="name"
+          optionValue="id"
+          [(ngModel)]="selectedParentIds"
+          display="chip"
+          [filter]="true"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </app-float-field>
+
+      <div class="flex flex-wrap gap-2">
+        <app-float-field label="Třída" for="paymentStudentClass">
+          <p-select
+            ariaLabel="Třída"
+            inputId="paymentStudentClass"
+            name="studentClass"
+            [options]="studentClassOptions()"
+            optionLabel="name"
+            optionValue="id"
+            [ngModel]="pickClassId()"
+            (ngModelChange)="pickClassId.set($event)"
+            [showClear]="true"
+            styleClass="w-32"
+            appendTo="body"
           />
         </app-float-field>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
-        >
-          @for (c of filteredClasses(); track c.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedClassIds.includes(c.id)"
-              (ngModelChange)="toggleClassId(c.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ c.name }}
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Rodiče</span
-        >
-        <app-float-field label="Hledat rodiče" for="paymentParentFilterName">
-          <input
-            id="paymentParentFilterName"
-            pInputText
-            type="text"
-            name="parentFilterName"
-            class="max-w-40"
-            [(ngModel)]="parentFilterName"
-          />
-        </app-float-field>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
-        >
-          @for (p of filteredParents(); track p.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedParentIds.includes(p.id)"
-              (ngModelChange)="toggleParentId(p.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ p.name }}
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >{{ 'Žáci' | term }}</span
-        >
         <app-float-field
-          [label]="'Hledat žáka' | term"
-          for="paymentStudentFilterName"
+          class="min-w-60 flex-1"
+          [label]="'Žáci' | term"
+          for="paymentStudents"
         >
-          <input
-            id="paymentStudentFilterName"
-            pInputText
-            type="text"
-            name="studentFilterName"
-            class="max-w-40"
-            [(ngModel)]="studentFilterName"
+          <p-multiselect
+            [ariaLabel]="'Žáci' | term"
+            inputId="paymentStudents"
+            name="students"
+            [options]="studentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            [ngModel]="selectedStudentIds()"
+            (ngModelChange)="selectedStudentIds.set($event)"
+            display="chip"
+            [filter]="true"
+            styleClass="w-full"
+            appendTo="body"
           />
         </app-float-field>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
-        >
-          @for (s of filteredStudents(); track s.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedStudentIds.includes(s.id)"
-              (ngModelChange)="toggleStudentId(s.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ s.firstName }} {{ s.lastName }}
-            <span class="text-surface-500 dark:text-surface-400"
-              >· {{ s.schoolClassName }}</span
-            >
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
       </div>
     </div>
     }

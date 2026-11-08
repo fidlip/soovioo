@@ -28,6 +28,7 @@ import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
+import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Popover } from '@openng/optimus-ui/popover';
@@ -40,16 +41,19 @@ import {
   CreateEventRequest,
   EventAudience,
   EventsApiService,
-  PersonOption,
   RecipientOptions,
-  SchoolClassOption,
   SchoolEvent,
-  StudentOption,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { FORM_FIELDS, FloatField } from '../forms';
+import {
+  ClassPicker,
+  FORM_FIELDS,
+  FloatField,
+  studentClasses,
+  studentPickOptions,
+} from '../forms';
 import { CALENDAR_LOCALE } from '../locale';
 import { Loading } from '../loading/loading';
 import { foldForSearch } from '../text-search';
@@ -127,7 +131,9 @@ function startOfDay(d: Date): Date {
     FloatField,
     ...FORM_FIELDS,
     Checkbox,
+    ClassPicker,
     Loading,
+    MultiSelect,
     TermPipe,
     AppIcon,
     AutoComplete,
@@ -237,15 +243,8 @@ export class EventsPage {
   protected readonly selectedStudentIds = signal<number[]>([]);
   protected readonly recipientOptions = signal<RecipientOptions | null>(null);
 
-  // Plain fields, not signals — read directly from the template via a
-  // method call, same filter pattern as admin-page.ts (ngModelChange's own
-  // event dispatch triggers change detection on this zoneless app regardless).
-  protected classFilterName = '';
-  protected classFilterRocnik: number | null = null;
-  protected studentFilterName = '';
-  protected studentFilterRocnik: number | null = null;
-  protected teacherFilterName = '';
-  protected parentFilterName = '';
+  /** Narrows the student list to one class. */
+  protected readonly studentClassId = signal<number | null>(null);
 
   /** Od→Do gap the form currently remembers — reapplied whenever Od changes
    * so Do tracks it, and updated whenever Do is edited directly. Plain
@@ -343,75 +342,16 @@ export class EventsPage {
     this.endAt.set(new Date(start.getTime() + this.durationMs));
   }
 
-  protected filteredClasses(): SchoolClassOption[] {
-    const name = foldForSearch(this.classFilterName.trim());
-    return (this.recipientOptions()?.classes ?? []).filter(
-      (c) =>
-        (!name || foldForSearch(c.name).includes(name)) &&
-        (this.classFilterRocnik === null ||
-          c.rocnik === this.classFilterRocnik),
-    );
-  }
-
-  protected filteredStudents(): StudentOption[] {
-    const name = foldForSearch(this.studentFilterName.trim());
-    return (this.recipientOptions()?.students ?? []).filter(
-      (s) =>
-        (!name ||
-          foldForSearch(`${s.firstName} ${s.lastName}`).includes(name)) &&
-        (this.studentFilterRocnik === null ||
-          s.rocnik === this.studentFilterRocnik),
-    );
-  }
-
-  protected filteredTeachers(): PersonOption[] {
-    const name = foldForSearch(this.teacherFilterName.trim());
-    return (this.recipientOptions()?.teachers ?? []).filter(
-      (t) => !name || foldForSearch(t.name).includes(name),
-    );
-  }
-
-  protected filteredParents(): PersonOption[] {
-    const name = foldForSearch(this.parentFilterName.trim());
-    return (this.recipientOptions()?.parents ?? []).filter(
-      (p) => !name || foldForSearch(p.name).includes(name),
-    );
-  }
-
-  /** Every ročník that actually occurs among the caller's pickable classes
-   * — drives the ročník filter dropdown's options, so it never offers a
-   * grade that would just empty the list. */
-  protected rocnikOptions(): number[] {
-    const classes = this.recipientOptions()?.classes ?? [];
-    const rocniky = new Set(
-      classes.map((c) => c.rocnik).filter((r): r is number => r != null),
-    );
-    return [...rocniky].sort((a, b) => a - b);
-  }
-
-  protected toggleClassId(id: number): void {
-    this.selectedClassIds.update((ids) =>
-      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-    );
-  }
-
-  protected toggleTeacherId(id: number): void {
-    this.selectedTeacherIds.update((ids) =>
-      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-    );
-  }
-
-  protected toggleParentId(id: number): void {
-    this.selectedParentIds.update((ids) =>
-      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-    );
-  }
-
-  protected toggleStudentId(id: number): void {
-    this.selectedStudentIds.update((ids) =>
-      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-    );
-  }
+  protected readonly studentClassOptions = computed(() =>
+    studentClasses(this.recipientOptions()?.students ?? []),
+  );
+  protected readonly studentOptions = computed(() =>
+    studentPickOptions(
+      this.recipientOptions()?.students ?? [],
+      this.studentClassId(),
+      this.selectedStudentIds(),
+    ),
+  );
 
   protected onDialogVisibleChange(visible: boolean): void {
     this.dialogVisible.set(visible);
@@ -571,12 +511,7 @@ export class EventsPage {
     this.selectedTeacherIds.set([]);
     this.selectedParentIds.set([]);
     this.selectedStudentIds.set([]);
-    this.classFilterName = '';
-    this.classFilterRocnik = null;
-    this.studentFilterName = '';
-    this.studentFilterRocnik = null;
-    this.teacherFilterName = '';
-    this.parentFilterName = '';
+    this.studentClassId.set(null);
   }
 
   private reload(): void {
