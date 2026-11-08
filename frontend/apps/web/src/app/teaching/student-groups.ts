@@ -42,7 +42,7 @@ import {
   qualifiedFor,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
-import { ClassPicker, FloatField } from '../forms';
+import { FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 
 interface DivisionForm {
@@ -82,7 +82,6 @@ interface GroupForm {
     FormsModule,
     InputNumber,
     InputText,
-    ClassPicker,
     MultiSelect,
     NgTemplateOutlet,
     Select,

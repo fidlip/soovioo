@@ -48,7 +48,6 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import {
-  ClassPicker,
   FORM_FIELDS,
   FloatField,
   studentClasses,
@@ -131,7 +130,6 @@ function startOfDay(d: Date): Date {
     FloatField,
     ...FORM_FIELDS,
     Checkbox,
-    ClassPicker,
     Loading,
     MultiSelect,
     TermPipe,

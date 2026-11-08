@@ -189,11 +189,21 @@
         required
       />
     </app-float-field>
-    <app-class-picker
-      inputId="divisionClasses"
-      [classes]="classes()"
-      [(selected)]="form.classIds"
-    />
+    <app-float-field label="Třídy" for="divisionClasses">
+      <p-multiselect
+        ariaLabel="Třídy"
+        inputId="divisionClasses"
+        name="divisionClasses"
+        [options]="classes()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="form.classIds"
+        display="chip"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
     <app-float-field label="Řádek učebního plánu" for="divisionCovers">
       <p-select
         ariaLabel="Řádek učebního plánu"
@@ -296,12 +306,22 @@
       />
     </app-float-field>
     @if (form.divisionId === null) {
-    <app-class-picker
-      inputId="groupClasses"
-      [classes]="classes()"
-      [selected]="form.classIds"
-      (selectedChange)="form.classIds = $event; onFormClassesChange(form)"
-    />
+    <app-float-field label="Třídy" for="groupClasses">
+      <p-multiselect
+        ariaLabel="Třídy"
+        inputId="groupClasses"
+        name="groupClasses"
+        [options]="classes()"
+        optionLabel="name"
+        optionValue="id"
+        [(ngModel)]="form.classIds"
+        (ngModelChange)="onFormClassesChange(form)"
+        display="chip"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
     <div class="flex flex-wrap items-center gap-4">
       <app-float-field label="Hodiny týdně" for="groupHours">
         <p-inputNumber
