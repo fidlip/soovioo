@@ -14,6 +14,7 @@
         <a
           pButton
           [routerLink]="schoolContext.link(widget.link)"
+          [queryParams]="widget.queryParams"
           icon="pi pi-arrow-up-right"
           size="small"
           severity="secondary"
@@ -87,48 +88,59 @@
       </li>
       }
     </ul>
-    } @case ('absences') {
+    } @case ('absences') { @if (authApi.isStaff()) {
     <ul class="m-0 flex list-none flex-col p-0 gap-2">
-      @for (absence of d.pendingAbsences; track absence.id) {
-      <li class="flex flex-col gap-1 text-sm">
-        <div class="flex items-center justify-between gap-2">
-          <span
-            >{{ absence.studentName }} — {{ absence.date | dateFormat: 'date'
-            }}</span
+      @for (excuse of d.pendingExcuses; track excuse.id) {
+      <li class="min-w-0 text-sm">
+        <a
+          [routerLink]="schoolContext.link('absences')"
+          [queryParams]="{ excuse: excuse.id }"
+          class="flex flex-col gap-0.5 text-inherit no-underline hover:underline"
+        >
+          <span class="font-semibold text-surface-900 dark:text-surface-0"
+            >{{ excuse.studentName }} — {{ excuseRange(excuse) }}</span
           >
-          <p-tag
-            [value]="absenceStatusLabel(absence.status)"
-            [severity]="absenceStatusSeverity(absence.status)"
-          />
-        </div>
-        @if (absence.status === 'Unexcused' && canSubmitExcuse()) {
-        <div class="flex items-center gap-2">
-          <app-float-field
-            class="min-w-0 flex-1"
-            label="Důvod omluvenky"
-            [for]="'excuse-' + absence.id"
-          >
-            <input
-              pInputText
-              type="text"
-              [id]="'excuse-' + absence.id"
-              class="w-full"
-              [(ngModel)]="excuseDrafts[absence.id]"
-              [ngModelOptions]="{ standalone: true }"
-            />
-          </app-float-field>
-          <p-button
-            label="Omluvit"
-            size="small"
-            [outlined]="true"
-            (onClick)="submitExcuse(absence.id)"
-          />
-        </div>
-        }
+          <span class="truncate text-surface-500">{{ excuse.reason }}</span>
+        </a>
       </li>
       }
     </ul>
-    } @case ('messages') {
+    } @else {
+    <ul class="m-0 flex list-none flex-col p-0 gap-2">
+      @for (absence of d.pendingAbsences; track absence.id) {
+      <li class="flex items-center justify-between gap-2 text-sm">
+        <span
+          >{{ absence.studentName }} — {{ absence.date | dateFormat: 'date'
+          }}</span
+        >
+        @if (absence.status === 'Unexcused' && isFamily()) {
+        <p-button
+          label="Omluvit"
+          size="small"
+          [outlined]="true"
+          (onClick)="openExcuseDialog(absence.studentId, absence.date)"
+        />
+        } @else {
+        <p-tag
+          [value]="absenceStatusLabel(absence.status)"
+          [severity]="absenceStatusSeverity(absence.status)"
+        />
+        }
+      </li>
+      } @empty {
+      <li class="text-sm text-surface-500">Nic nevyřízeného.</li>
+      }
+    </ul>
+    @if (isFamily()) {
+    <p-button
+      label="Omluvit"
+      icon="pi pi-plus"
+      size="small"
+      [outlined]="true"
+      styleClass="mt-3"
+      (onClick)="openExcuseDialog()"
+    />
+    } } } @case ('messages') {
     <p class="text-sm">
       <span class="text-2xl font-semibold text-surface-900 dark:text-surface-0"
         >{{ d.unreadMessageCount }}</span
@@ -205,6 +217,7 @@
   @for (widget of emptyWidgets(); track widget.id) {
   <a
     [routerLink]="schoolContext.link(widget.link)"
+    [queryParams]="widget.queryParams"
     class="inline-flex items-center gap-2 rounded-full border border-surface-200 bg-surface-0 px-3 py-1 text-sm text-surface-700 no-underline hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800"
     [title]="widget.linkLabel"
     ><app-icon [name]="widget.icon" />{{ widget.title }}</a
@@ -213,4 +226,6 @@
 </div>
 } } @else {
 <app-loading />
+} @if (isFamily()) {
+<app-excuse-dialog (saved)="reload()" />
 }

@@ -4,16 +4,25 @@ import {
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
-import { InputText } from '@openng/optimus-ui/inputtext';
 import { Select } from '@openng/optimus-ui/select';
 import { TableModule } from '@openng/optimus-ui/table';
+import {
+  Tabs,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+} from '@openng/optimus-ui/tabs';
 import { Tag } from '@openng/optimus-ui/tag';
+import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
   Absence,
   AbsenceStatus,
@@ -21,16 +30,11 @@ import {
   AuthApiService,
   LINKED_ITEM_GONE,
   DateFormatPipe,
-  DayOfWeek,
-  SchoolPeriod,
-  SchoolPeriodsApiService,
+  Excuse,
   Student,
   StudentReach,
   StudentsApiService,
-  TimetableApiService,
   reachesStudent,
-  TimetableEntry,
-  weekParityOf,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -38,6 +42,15 @@ import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 import { highlightElement, onLinkedItem } from '../highlight';
+import { formatPeriods, todayString } from './excuse-days';
+import { ExcuseDialog } from './excuse-dialog';
+import { ExcusesList } from './excuses-list';
+import { RejectDialog } from './reject-dialog';
+import {
+  PeriodChips,
+  StudentDayPeriods,
+  toDateOnlyString,
+} from './student-day-periods';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -56,36 +69,12 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
   Rejected: 'Zamítnuto',
 };
 
-const DAYS_BY_INDEX: DayOfWeek[] = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-];
+/** The tabs, as `?tab=` has them. */
+export type AbsencesTab = 'absence' | 'omluvenky';
 
-/** [1,2,3,5] -> "1.–3., 5."; [] -> "celý den". */
-export function formatPeriods(periods: number[]): string {
-  if (periods.length === 0) {
-    return 'celý den';
-  }
-  const ranges: string[] = [];
-  let start = periods[0];
-  let prev = periods[0];
-  for (const p of [...periods.slice(1), Number.NaN]) {
-    if (p === prev + 1) {
-      prev = p;
-      continue;
-    }
-    ranges.push(start === prev ? `${start}.` : `${start}.–${prev}.`);
-    start = p;
-    prev = p;
-  }
-  return ranges.join(', ');
-}
-
+/** Docházka: Absence (the days a pupil missed) and Omluvenky (why — the
+ * family's, approved by the teacher). Staff start on Absence, families on
+ * Omluvenky. */
 @Component({
   selector: 'app-absences-page',
   imports: [
@@ -100,11 +89,20 @@ export function formatPeriods(periods: number[]): string {
     Button,
     DatePicker,
     Dialog,
-    InputText,
+    ExcuseDialog,
+    ExcusesList,
+    PeriodChips,
     PrimeTemplate,
+    RejectDialog,
     Select,
+    Tab,
     TableModule,
+    TabList,
+    TabPanel,
+    TabPanels,
+    Tabs,
     Tag,
+    Tooltip,
   ],
   templateUrl: './absences-page.html',
 })
@@ -113,12 +111,25 @@ export class AbsencesPage {
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);
-  private readonly timetableApi = inject(TimetableApiService);
-  private readonly schoolPeriodsApi = inject(SchoolPeriodsApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly changes = inject(ChangeDetectorRef);
+  private readonly excuseDialog = viewChild.required(ExcuseDialog);
+  private readonly rejectDialog = viewChild.required(RejectDialog);
+  private readonly excusesList = viewChild(ExcusesList);
+
+  protected readonly tab = signal<AbsencesTab>(
+    this.route.snapshot.queryParamMap.get('tab') === 'absence' ||
+      this.route.snapshot.queryParamMap.get('tab') === 'omluvenky'
+      ? (this.route.snapshot.queryParamMap.get('tab') as AbsencesTab)
+      : this.authApi.isStaff()
+        ? 'absence'
+        : 'omluvenky',
+  );
 
   protected readonly absences = signal<Absence[] | null>(null);
-  private readonly changes = inject(ChangeDetectorRef);
-  private linkedId: number | null = null;
+  protected readonly excuses = signal<Excuse[] | null>(null);
+  private linked: { kind: 'absence' | 'excuse'; id: number } | null = null;
   protected readonly students = signal<Student[]>([]);
 
   /** p-select's optionLabel only takes a property path, not a function. */
@@ -136,8 +147,6 @@ export class AbsencesPage {
     this.studentOptions().filter((s) => reachesStudent(this.reach(), s.id)),
   );
 
-  protected excuseDrafts: Record<number, string> = {};
-
   /** null = "all" — separate from the dialog fields below, which drive the
    * add/edit-absence form, not what's shown in the table. */
   protected filterStudentId: number | null = null;
@@ -153,45 +162,16 @@ export class AbsencesPage {
   /** null = add mode, otherwise the absence being edited — same "new…
    * fields double as shared add/edit dialog state" pattern as admin-page.ts. */
   protected editingAbsenceId: number | null = null;
+  /** Editing picked from the list (not an excused day, which the add
+   * dialog switches to by itself). */
+  private editingPicked = false;
+  /** The omluvenka's reason when the dialog edits a day under one. */
+  protected readonly excuseReason = signal<string | null>(null);
   protected newStudentId: number | null = null;
   protected newDate = new Date();
-  /** Missed periods picked in the dialog (see `dayPeriods`). */
+  /** Missed periods picked in the dialog. */
   protected readonly newPeriods = signal<number[]>([]);
-  protected readonly schoolPeriods = signal<SchoolPeriod[]>([]);
-  /** Timetable of the dialog's student (their class's lessons and their
-   * groups') on the dialog's date (the version valid then), cached per
-   * student and date. */
-  private readonly studentTimetables = signal<Record<string, TimetableEntry[]>>(
-    {},
-  );
-  private readonly dialogStudentId = signal<number | null>(null);
-  private readonly dialogDate = signal(new Date());
-
-  /** The school's periods for the dialog's date, each with the lesson the
-   * student has then (by timetable, incl. odd/even weeks) — the
-   * chips to pick missed periods from. */
-  protected readonly dayPeriods = computed(() => {
-    const studentId = this.dialogStudentId();
-    const date = this.dialogDate();
-    const entries =
-      studentId !== null
-        ? (this.studentTimetables()[this.timetableKey(studentId, date)] ?? [])
-        : [];
-    const day = DAYS_BY_INDEX[date.getDay()];
-    const parity = weekParityOf(date);
-    return this.schoolPeriods().map((period) => {
-      const entry = entries.find(
-        (e) =>
-          e.dayOfWeek === day &&
-          e.periodNumber === period.periodNumber &&
-          (e.weekParity === 'Every' || e.weekParity === parity),
-      );
-      return {
-        number: period.periodNumber,
-        lesson: entry ? (entry.subjectAbbreviation ?? entry.subjectName) : null,
-      };
-    });
-  });
+  protected readonly dayPeriods = new StudentDayPeriods();
 
   protected readonly formatPeriods = formatPeriods;
 
@@ -220,9 +200,15 @@ export class AbsencesPage {
 
   constructor() {
     this.reload();
-    // ?absence= — opened from a notification.
+    // ?absence= / ?excuse= — opened from a notification.
     onLinkedItem('absence', (id) => {
-      this.linkedId = id;
+      this.linked = { kind: 'absence', id };
+      this.setTab('absence');
+      this.showLinked();
+    });
+    onLinkedItem('excuse', (id) => {
+      this.linked = { kind: 'excuse', id };
+      this.setTab('omluvenky');
       this.showLinked();
     });
     this.studentsApi.getStudents().subscribe({
@@ -234,79 +220,58 @@ export class AbsencesPage {
         next: (reach) => this.reach.set(reach),
         error: (err) => console.error('getReach failed', err),
       });
-      this.schoolPeriodsApi.getPeriods().subscribe({
-        next: (periods) => this.schoolPeriods.set(periods),
-        error: (err) => console.error('getPeriods failed', err),
-      });
     }
   }
 
-  protected isPeriodSelected(number: number): boolean {
-    return this.newPeriods().includes(number);
+  protected setTab(tab: AbsencesTab): void {
+    this.tab.set(tab);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      replaceUrl: true,
+    });
   }
 
-  protected togglePeriod(number: number): void {
-    this.newPeriods.update((periods) =>
-      periods.includes(number)
-        ? periods.filter((p) => p !== number)
-        : [...periods, number].sort((a, b) => a - b),
-    );
-  }
-
-  /** Student or date changed in the dialog: load their timetable if
-   * needed, then (unless editing) preselect every period with a lesson. */
+  /** Pupil or date changed in the dialog: a day under an omluvenka is
+   * edited instead of adding another record; otherwise (unless editing)
+   * every period with a lesson is preselected once the timetable is in. */
   protected onDialogStudentOrDateChange(preselect = true): void {
-    this.dialogStudentId.set(this.newStudentId);
-    this.dialogDate.set(this.newDate ?? new Date());
-    const student = this.students().find((s) => s.id === this.newStudentId);
-    if (!student) {
-      return;
-    }
-    const select = () => {
-      if (preselect) {
-        this.newPeriods.set(
-          this.dayPeriods()
-            .filter((p) => p.lesson !== null)
-            .map((p) => p.number),
-        );
+    const date = this.newDate ?? new Date();
+    if (!this.editingPicked) {
+      const excused = (this.absences() ?? []).find(
+        (a) =>
+          a.excuseId &&
+          a.studentId === this.newStudentId &&
+          a.date === toDateOnlyString(date),
+      );
+      this.editingAbsenceId = excused?.id ?? null;
+      this.excuseReason.set(excused?.excuseReason ?? null);
+      if (excused) {
+        this.newPeriods.set([...excused.periods]);
+        preselect = false;
       }
-    };
-    const date = this.dialogDate();
-    const key = this.timetableKey(student.id, date);
-    if (this.studentTimetables()[key]) {
-      select();
-      return;
     }
-    this.timetableApi
-      .getTimetable(student.schoolClassId, {
-        date: this.toDateOnlyString(date),
-        studentId: student.id,
-      })
-      .subscribe({
-        next: (entries) => {
-          this.studentTimetables.update((m) => ({
-            ...m,
-            [key]: entries,
-          }));
-          select();
-        },
-        error: (err) => console.error('getTimetable failed', err),
-      });
+    this.dayPeriods.show(
+      this.students().find((s) => s.id === this.newStudentId),
+      date,
+      () => {
+        if (preselect) {
+          this.selectLessonPeriods();
+        }
+      },
+    );
   }
 
   protected selectLessonPeriods(): void {
-    this.newPeriods.set(
-      this.dayPeriods()
-        .filter((p) => p.lesson !== null)
-        .map((p) => p.number),
-    );
+    this.newPeriods.set(this.dayPeriods.lessonPeriods());
   }
 
   protected canManageAbsences(): boolean {
     return this.authApi.can('AbsencesWrite');
   }
 
-  protected canSubmitExcuse(): boolean {
+  /** A parent, or a class teacher for their class. */
+  protected canExcuse(): boolean {
     return this.authApi.can('AbsencesExcuse');
   }
 
@@ -318,6 +283,11 @@ export class AbsencesPage {
 
   protected statusLabel(status: AbsenceStatus): string {
     return STATUS_LABEL[status];
+  }
+
+  /** A day is approved at the earliest that day. */
+  protected approvable(absence: Absence): boolean {
+    return absence.date <= todayString();
   }
 
   protected clearFilters(): void {
@@ -334,8 +304,20 @@ export class AbsencesPage {
     );
   }
 
+  protected openExcuseDialog(absence?: Absence): void {
+    this.excuseDialog().open(
+      absence ? { studentId: absence.studentId, date: absence.date } : {},
+    );
+  }
+
+  protected editExcuse(excuse: Excuse): void {
+    this.excuseDialog().open({ excuse });
+  }
+
   protected openAddAbsenceDialog(): void {
     this.editingAbsenceId = null;
+    this.editingPicked = false;
+    this.excuseReason.set(null);
     this.newStudentId = this.students()[0]?.id ?? null;
     this.newDate = new Date();
     this.newPeriods.set([]);
@@ -350,7 +332,7 @@ export class AbsencesPage {
     }
     const request = {
       studentId: this.newStudentId,
-      date: this.toDateOnlyString(this.newDate),
+      date: toDateOnlyString(this.newDate),
       periods: this.newPeriods(),
     };
     const result =
@@ -367,26 +349,28 @@ export class AbsencesPage {
     });
   }
 
-  protected submitExcuse(absence: Absence): void {
-    const reason = this.excuseDrafts[absence.id];
-    if (!reason) {
-      return;
-    }
-    this.absencesApi.submitExcuse(absence.id, reason).subscribe({
-      next: () => this.reload(),
-      error: (err) => this.notify.actionFailed('submitExcuse failed', err),
-    });
-  }
-
-  protected review(absence: Absence, approve: boolean): void {
-    this.absencesApi.reviewAbsence(absence.id, approve).subscribe({
+  protected approve(absence: Absence): void {
+    this.absencesApi.reviewAbsence(absence.id, true).subscribe({
       next: () => this.reload(),
       error: (err) => this.notify.actionFailed('reviewAbsence failed', err),
     });
   }
 
+  protected reject(absence: Absence): void {
+    this.rejectDialog().open(
+      `Zamítnout omluvenku — ${absence.studentName}`,
+      (note) =>
+        this.absencesApi.reviewAbsence(absence.id, false, note).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.notify.actionFailed('reviewAbsence failed', err),
+        }),
+    );
+  }
+
   protected startEditAbsence(absence: Absence): void {
     this.editingAbsenceId = absence.id;
+    this.editingPicked = true;
+    this.excuseReason.set(absence.excuseReason ?? null);
     this.newStudentId = absence.studentId;
     this.newDate = new Date(`${absence.date}T00:00:00`);
     this.newPeriods.set([...absence.periods]);
@@ -402,40 +386,28 @@ export class AbsencesPage {
     });
   }
 
-  private timetableKey(studentId: number, date: Date): string {
-    return `${studentId}|${this.toDateOnlyString(date)}`;
-  }
-
-  /** Local (not UTC) y-m-d — `toISOString().slice(0, 10)` converts through
-   * UTC first, which rolls local midnight back to the previous day in any
-   * timezone ahead of UTC (e.g. CET/CEST). */
-  private toDateOnlyString(date: Date): string {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  /** The absence a notification opened, once the list is there. */
+  /** What a notification opened, once its list is there. */
   private showLinked(): void {
-    const absences = this.absences();
-    const id = this.linkedId;
-    if (!absences || !id) {
+    const linked = this.linked;
+    const list = linked?.kind === 'excuse' ? this.excuses() : this.absences();
+    if (!linked || !list) {
       return;
     }
-    this.linkedId = null;
-    if (!absences.some((a) => a.id === id)) {
+    this.linked = null;
+    if (!list.some((item) => item.id === linked.id)) {
       this.notify.warn(LINKED_ITEM_GONE);
       return;
     }
-    if (!this.filteredAbsences().some((a) => a.id === id)) {
+    if (linked.kind === 'excuse') {
+      this.excusesList()?.showsAll(linked.id);
+    } else if (!this.filteredAbsences().some((a) => a.id === linked.id)) {
       this.clearFilters();
-      this.changes.markForCheck();
     }
-    highlightElement(`absence-${id}`);
+    this.changes.markForCheck();
+    highlightElement(`${linked.kind}-${linked.id}`);
   }
 
-  private reload(): void {
+  protected reload(): void {
     this.absencesApi.getAbsences().subscribe({
       next: (absences) => {
         this.absences.set(absences);
@@ -444,6 +416,16 @@ export class AbsencesPage {
       error: (err) => {
         console.error('getAbsences failed', err);
         this.absences.set([]);
+      },
+    });
+    this.absencesApi.getExcuses().subscribe({
+      next: (excuses) => {
+        this.excuses.set(excuses);
+        this.showLinked();
+      },
+      error: (err) => {
+        console.error('getExcuses failed', err);
+        this.excuses.set([]);
       },
     });
   }

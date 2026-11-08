@@ -1,9 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
-import { InputText } from '@openng/optimus-ui/inputtext';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   AbsenceStatus,
@@ -19,9 +18,10 @@ import {
 import { SchoolContextService } from '../school-context';
 import { AppIcon, AppIconName } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 import { Loading } from '../loading/loading';
+import { ExcuseDialog } from '../absences-page/excuse-dialog';
+import { excuseRange } from '../absences-page/excuse-days';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -78,6 +78,7 @@ interface Widget {
   icon: AppIconName;
   /** Agenda path (see SchoolContextService.link). */
   link: string;
+  queryParams?: Record<string, string>;
   linkLabel: string;
   /** False = nothing new/pending — the widget collapses into a chip. */
   hasContent: boolean;
@@ -92,7 +93,6 @@ interface Widget {
 @Component({
   selector: 'app-home-page',
   imports: [
-    FloatField,
     DateFormatPipe,
     Loading,
     TermPipe,
@@ -101,7 +101,7 @@ interface Widget {
     ButtonDirective,
     Card,
     FormsModule,
-    InputText,
+    ExcuseDialog,
     RouterLink,
     Tag,
   ],
@@ -117,7 +117,8 @@ export class HomePage {
 
   protected readonly dashboard = signal<Dashboard | null>(null);
   protected readonly loadError = signal(false);
-  protected excuseDrafts: Record<number, string> = {};
+  private readonly excuseDialog = viewChild(ExcuseDialog);
+  protected readonly excuseRange = excuseRange;
 
   /** Fixed order on purpose — every widget keeps its place, so the page can
    * be scanned by position. Only the empty ones move out of the grid (see
@@ -165,8 +166,11 @@ export class HomePage {
         title: isStaff ? 'Omluvenky ke schválení' : 'Nevyřízené absence',
         icon: 'absences',
         link: 'absences',
+        queryParams: { tab: isStaff ? 'omluvenky' : 'absence' },
         linkLabel: 'Celá docházka',
-        hasContent: d.pendingAbsences.length > 0,
+        hasContent: isStaff
+          ? d.pendingExcuses.length > 0
+          : d.pendingAbsences.length > 0 || this.isFamily(),
       },
       {
         id: 'messages',
@@ -207,26 +211,13 @@ export class HomePage {
     this.reload();
   }
 
-  /** Unlike Parent, a Student may never submit their own excuse — the
-   * backend rejects it too (AbsencesController.SubmitExcuse), this just
-   * keeps the button from appearing in the first place. Same check as
-   * absences-page.ts's canSubmitExcuse(). */
-  protected canSubmitExcuse(): boolean {
-    return !this.authApi.isStudent();
+  /** A parent writes omluvenky (see absences-page.ts). */
+  protected isFamily(): boolean {
+    return this.authApi.scope('AbsencesExcuse') === 'Own';
   }
 
-  protected submitExcuse(absenceId: number): void {
-    const reason = this.excuseDrafts[absenceId];
-    if (!reason) {
-      return;
-    }
-    this.absencesApi.submitExcuse(absenceId, reason).subscribe({
-      next: () => {
-        delete this.excuseDrafts[absenceId];
-        this.reload();
-      },
-      error: (err) => this.notify.actionFailed('submitExcuse failed', err),
-    });
+  protected openExcuseDialog(studentId?: number, date?: string): void {
+    this.excuseDialog()?.open({ studentId, date });
   }
 
   protected absenceStatusSeverity(
@@ -280,7 +271,7 @@ export class HomePage {
     });
   }
 
-  private reload(): void {
+  protected reload(): void {
     this.dashboardApi.getDashboard().subscribe({
       next: (dashboard) => this.dashboard.set(dashboard),
       error: (err) => {
