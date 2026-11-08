@@ -1,105 +1,134 @@
-<p-button
-  severity="secondary"
-  [outlined]="true"
-  [ariaLabel]="'Verze rozvrhu: ' + (current()?.name ?? 'žádná')"
-  aria-haspopup="dialog"
-  (onClick)="toggle($event)"
->
-  @if (current(); as version) { @let status = statusLabel(version, today);
-  <span class="font-semibold">{{ version.name }}</span>
-  <p-tag [value]="status.label" [severity]="status.severity" />
-  } @else {
-  <span>Žádná verze rozvrhu</span>
-  }
-  <i class="pi pi-chevron-down text-xs" aria-hidden="true"></i>
-</p-button>
+<!-- p-inputwrapper-filled: the label stays on the border, as on a select. -->
+<app-float-field label="Verze rozvrhu" for="timetableVersion">
+  <span class="p-inputwrapper-filled flex">
+    <button
+      pButton
+      type="button"
+      id="timetableVersion"
+      severity="secondary"
+      [outlined]="true"
+      [attr.aria-label]="'Verze rozvrhu: ' + (current()?.name ?? 'žádná')"
+      aria-haspopup="dialog"
+      (click)="toggle($event)"
+    >
+      @if (current(); as version) { @let status = statusLabel(version, today);
+      <span class="font-semibold">{{ version.name }}</span>
+      <p-tag [value]="status.label" [severity]="status.severity" />
+      } @else {
+      <span>Žádná verze rozvrhu</span>
+      }
+      <i class="pi pi-chevron-down text-xs" aria-hidden="true"></i>
+    </button>
+  </span>
+</app-float-field>
 
 <p-popover ariaLabel="Verze rozvrhu">
   <div class="flex w-[40rem] max-w-[calc(100vw-2rem)] flex-col gap-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <span class="font-semibold">Verze rozvrhu</span>
-      @if (canEdit()) {
-      <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
-      }
-    </div>
-    <ul
-      class="m-0 flex max-h-[60vh] list-none flex-col gap-2 overflow-y-auto p-0"
-    >
-      @for (version of versions(); track version.id) { @let status =
-      statusLabel(version, today); @let picked = version.id === current()?.id;
-      <li
-        class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3"
-        [class.border-primary]="picked"
-        [class.border-surface-200]="!picked"
-        [class.dark:border-surface-700]="!picked"
-        data-testid="timetable-version"
-      >
-        <button
-          type="button"
-          class="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left text-inherit"
-          [attr.aria-current]="picked ? 'true' : null"
-          (click)="pick(version)"
-        >
-          <span class="flex flex-wrap items-center gap-2 font-semibold">
-            @if (picked) {
-            <i class="pi pi-check text-primary" aria-hidden="true"></i>
-            } {{ version.name }}
-            <p-tag [value]="status.label" [severity]="status.severity" />
-          </span>
-          <span class="block text-sm text-surface-500">
-            {{ validity(version) }} · {{ version.entryCount }} h
-          </span>
-        </button>
-        @if (canEdit()) {
-        <div class="flex flex-wrap gap-1">
-          @if (version.status !== 'Archived') {
-          <p-button
-            label="Upravit"
-            severity="secondary"
-            [text]="true"
-            size="small"
-            (onClick)="startEdit(version)"
-          />
-          } @if (version.status === 'Draft') {
-          <p-button
-            label="Zveřejnit"
-            size="small"
-            (onClick)="publish(version)"
-          />
-          } @if (canUnpublish(version)) {
-          <p-button
-            label="Zrušit zveřejnění"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            (onClick)="unpublish(version)"
-          />
-          } @if (canArchive(version)) {
-          <p-button
-            label="Archivovat"
-            severity="danger"
-            [outlined]="true"
-            size="small"
-            (onClick)="archive(version)"
-          />
-          } @if (version.status === 'Archived') {
-          <p-button
-            label="Vrátit mezi koncepty"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            (onClick)="restore(version)"
-          />
-          }
-        </div>
-        }
-      </li>
-      } @empty {
-      <li class="text-surface-500">Škola zatím nemá žádnou verzi rozvrhu.</li>
-      }
-    </ul>
+    <ng-container *ngTemplateOutlet="head" />
+    <ng-container *ngTemplateOutlet="list" />
   </div>
 </p-popover>
+
+<p-drawer
+  [visible]="drawerVisible()"
+  (visibleChange)="drawerVisible.set($event)"
+  position="bottom"
+  [modal]="true"
+  [blockScroll]="true"
+  ariaCloseLabel="Zavřít"
+  styleClass="!h-auto max-h-[85vh]"
+>
+  <ng-template #header>
+    <ng-container *ngTemplateOutlet="head" />
+  </ng-template>
+  <div role="dialog" aria-label="Verze rozvrhu">
+    <ng-container *ngTemplateOutlet="list" />
+  </div>
+</p-drawer>
+
+<ng-template #head>
+  <div class="flex flex-1 flex-wrap items-center justify-between gap-2">
+    <span class="font-semibold">Verze rozvrhu</span>
+    @if (canEdit()) {
+    <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
+    }
+  </div>
+</ng-template>
+
+<ng-template #list>
+  <ul
+    class="m-0 flex max-h-[60vh] list-none flex-col gap-2 overflow-y-auto overscroll-contain p-0"
+  >
+    @for (version of versions(); track version.id) { @let status =
+    statusLabel(version, today); @let picked = version.id === current()?.id;
+    <li
+      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3"
+      [class.border-primary]="picked"
+      [class.border-surface-200]="!picked"
+      [class.dark:border-surface-700]="!picked"
+      data-testid="timetable-version"
+    >
+      <button
+        type="button"
+        class="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left text-inherit"
+        [attr.aria-current]="picked ? 'true' : null"
+        (click)="pick(version)"
+      >
+        <span class="flex flex-wrap items-center gap-2 font-semibold">
+          @if (picked) {
+          <i class="pi pi-check text-primary" aria-hidden="true"></i>
+          } {{ version.name }}
+          <p-tag [value]="status.label" [severity]="status.severity" />
+        </span>
+        <span class="block text-sm text-surface-500">
+          {{ validity(version) }} · {{ version.entryCount }} h
+        </span>
+      </button>
+      @if (canEdit()) {
+      <div class="flex flex-wrap gap-1">
+        @if (version.status !== 'Archived') {
+        <p-button
+          label="Upravit"
+          severity="secondary"
+          [text]="true"
+          size="small"
+          (onClick)="startEdit(version)"
+        />
+        } @if (version.status === 'Draft') {
+        <p-button label="Zveřejnit" size="small" (onClick)="publish(version)" />
+        } @if (canUnpublish(version)) {
+        <p-button
+          label="Zrušit zveřejnění"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="unpublish(version)"
+        />
+        } @if (canArchive(version)) {
+        <p-button
+          label="Archivovat"
+          severity="danger"
+          [outlined]="true"
+          size="small"
+          (onClick)="archive(version)"
+        />
+        } @if (version.status === 'Archived') {
+        <p-button
+          label="Vrátit mezi koncepty"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="restore(version)"
+        />
+        }
+      </div>
+      }
+    </li>
+    } @empty {
+    <li class="text-surface-500">Škola zatím nemá žádnou verzi rozvrhu.</li>
+    }
+  </ul>
+</ng-template>
 
 <p-dialog
   [visible]="form() !== null"

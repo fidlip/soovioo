@@ -8,6 +8,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
@@ -45,6 +46,7 @@ import {
 import { Observable } from 'rxjs';
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
+import { DESKTOP_QUERY, mediaQuery } from '../media-query';
 import { NotifyService } from '../notify.service';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
@@ -97,6 +99,7 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
     Tag,
     TeacherWishesDefaults,
     MainBlockSettings,
+    NgTemplateOutlet,
     TimetableGenerateDialog,
     TimetablePage,
     TimetableVersions,
@@ -164,6 +167,13 @@ export class TeachingTab {
         ?.versioned ?? false,
   );
   protected readonly canEditVersions = this.authApi.can('Timetable');
+  protected readonly versionControls = computed(
+    () =>
+      this.versioned() &&
+      (this.selection.versions().length > 0 || this.canEditVersions),
+  );
+  /** On a desktop the version sits in the tabs' bar, stuck on top with it. */
+  protected readonly desktop = mediaQuery(DESKTOP_QUERY);
   protected readonly canGenerate = computed(
     () => this.canEditVersions && this.selection.version()?.status === 'Draft',
   );

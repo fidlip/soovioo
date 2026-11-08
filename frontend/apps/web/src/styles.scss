@@ -69,7 +69,9 @@ body {
   --tabs-row-height: 3.25rem;
 }
 
-.p-tablist {
+/* .sticky-tabs-bar: a tab list with more beside it, stuck as a whole. */
+.p-tablist,
+.sticky-tabs-bar {
   position: sticky;
   top: var(--app-topbar-height);
   z-index: 6;
@@ -80,7 +82,8 @@ body {
   --sticky-tabs-height: var(--tabs-row-height);
 }
 
-.p-tabs .p-tabs .p-tablist {
+.p-tabs .p-tabs .p-tablist,
+.p-tabs .p-tabs .sticky-tabs-bar {
   top: calc(var(--app-topbar-height) + var(--tabs-row-height));
 }
 

@@ -3,31 +3,34 @@
   (valueChange)="section.set($any($event))"
   [scrollable]="true"
 >
-  <p-tablist>
-    @for (s of sections(); track s.value; let i = $index) { @if (i > 0 &&
-    !s.versioned && sections()[i - 1].versioned) {
-    <!-- data-p-disabled: arrow keys skip it like a disabled tab -->
-    <span
-      class="mx-2 my-2 w-px shrink-0 self-stretch bg-surface-300 dark:bg-surface-600"
-      aria-hidden="true"
-      data-p-disabled="true"
-      data-testid="teaching-sections-divider"
-    ></span>
+  <div class="sticky-tabs-bar flex items-stretch gap-3">
+    <p-tablist class="min-w-0 flex-1">
+      @for (s of sections(); track s.value; let i = $index) { @if (i > 0 &&
+      !s.versioned && sections()[i - 1].versioned) {
+      <!-- data-p-disabled: arrow keys skip it like a disabled tab -->
+      <span
+        class="mx-2 my-2 w-px shrink-0 self-stretch bg-surface-300 dark:bg-surface-600"
+        aria-hidden="true"
+        data-p-disabled="true"
+        data-testid="teaching-sections-divider"
+      ></span>
+      }
+      <p-tab [value]="s.value">{{ s.label }}</p-tab>
+      }
+    </p-tablist>
+    @if (desktop() && versionControls()) {
+    <div
+      class="ml-auto flex shrink-0 items-center gap-3 border-b border-[var(--p-tabs-tablist-border-color)]"
+    >
+      <ng-container *ngTemplateOutlet="version" />
+    </div>
     }
-    <p-tab [value]="s.value">{{ s.label }}</p-tab>
-    }
-  </p-tablist>
-  @if (versioned() && (selection.versions().length > 0 || canEditVersions)) {
+  </div>
+  @if ((!desktop() && versionControls()) || (showsOverview() && !loading() &&
+  overview()?.canEdit)) {
   <div class="my-4 flex flex-wrap items-center gap-3">
-    <app-timetable-versions [canEdit]="canEditVersions" />
-    @if (canGenerate()) {
-    <p-button
-      label="Generovat"
-      icon="pi pi-cog"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="generateVisible.set(true)"
-    />
+    @if (!desktop() && versionControls()) {
+    <ng-container *ngTemplateOutlet="version" />
     } @if (showsOverview() && !loading() && overview()?.canEdit) {
     <p-button
       label="Načíst z rozvrhu"
@@ -604,3 +607,17 @@
   (generated)="selection.changed()"
 />
 }
+
+<ng-template #version>
+  <!-- On a desktop at the bar's right edge, whether Generovat is there or not. -->
+  <app-timetable-versions class="md:order-1" [canEdit]="canEditVersions" />
+  @if (canGenerate()) {
+  <p-button
+    label="Generovat"
+    icon="pi pi-cog"
+    severity="secondary"
+    [outlined]="true"
+    (onClick)="generateVisible.set(true)"
+  />
+  }
+</ng-template>
