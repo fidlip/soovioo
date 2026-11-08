@@ -98,6 +98,7 @@ public class TimetableGenerationJob(
             .ToDictionaryAsync(c => c.Id, c => c.HomeroomId!.Value);
         var classSizes = await db.Students.GroupBy(s => s.SchoolClassId)
             .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count);
+        var blocks = await MainBlock.ForClassesAsync(db, version.SchoolId);
         var messages = new List<string>();
 
         // Classrooms it can have, first choice first, that the pupils fit in.
@@ -238,6 +239,7 @@ public class TimetableGenerationJob(
             teachers, timeLimit)
         {
             OnProgress = p => Volatile.Write(ref latest, p),
+            MainBlocks = blocks,
         }));
         // The best timetable so far, for the progress dialog.
         TimetableGenerator.Progress? written = null;
@@ -308,6 +310,8 @@ public class TimetableGenerationJob(
             .Where(p => p.ClassroomId is null && needsRoom.Contains((p.GroupId, p.ClassId, p.SubjectId)))
             .GroupBy(p => p.SubjectId)
             .Select(g => $"{subjects[g.Key].Abbreviation ?? subjects[g.Key].Name}: nedostatek učeben, {TeachingPlanner.FormatHours(g.Sum(p => p.Parity == WeekParity.Every ? 1m : 0.5m))} bez učebny ({string.Join(", ", g.Select(p => Who(p.ClassId, p.GroupId)).Distinct().Order())}) — doplňte ji ručně."));
+        messages.AddRange(result.ShortBlocks.OrderBy(b => classNames[b.ClassId]).Select(b =>
+            $"{classNames[b.ClassId]}: hodin pro celou třídu je {b.Lessons} týdně, hlavní výukový blok ({blocks.GetValueOrDefault(b.ClassId) ?? MainBlock.Default}) jich potřebuje {b.Needed}. Upravte blok třídy nebo ročníku."));
         if (demands.Any(d => d.Parts.Any(p => p.TeacherId is null)))
         {
             messages.Add("Některé předměty nemají učitele, jsou v rozvrhu bez něj.");
@@ -319,11 +323,10 @@ public class TimetableGenerationJob(
         var lessons = kept.Concat(added).Select(e => (e.SchoolClassId, e.TeacherId, e.DayOfWeek, e.PeriodNumber))
             .Distinct()
             .ToList();
-        var first = periods.Where(p => p >= 1).DefaultIfEmpty(periods.Min()).Min();
-        messages.AddRange(LateBecauseOfTeachers(lessons, kept, demands, teachers, classNames, teacherNames, first));
+        messages.AddRange(BlockStartsLateBecauseOfTeachers(lessons, kept, demands, teachers, classNames, teacherNames, blocks, periods));
         generation.Placed = changes?.Count ?? result.Placements.Count;
         generation.Messages = [.. messages.Distinct()];
-        generation.Notes = [.. changes?.Notes ?? [], .. Assess([.. kept, .. added], electives, classNames, teachers, teacherNames, first)];
+        generation.Notes = [.. changes?.Notes ?? [], .. Assess([.. kept, .. added], electives, classNames, teachers, teacherNames, blocks, periods)];
     }
 
     /// <summary>Groups and the classes not all of whose pupils are in them or,
@@ -352,15 +355,16 @@ public class TimetableGenerationJob(
         return electives;
     }
 
-    /// <summary>How a timetable looks: gaps and late starts, electives left
-    /// in between, wishes not met.</summary>
+    /// <summary>How a timetable looks: gaps and main blocks not full,
+    /// electives left in between, wishes not met.</summary>
     internal static List<string> Assess(
         IReadOnlyCollection<TimetableEntry> entries, HashSet<(int GroupId, int ClassId)> electives,
         Dictionary<int, string> classNames, Dictionary<int, TimetableGenerator.Teacher> teachers,
-        Dictionary<int, string> teacherNames, int first)
+        Dictionary<int, string> teacherNames, IReadOnlyDictionary<int, MainBlock> blocks, IReadOnlyCollection<int> periods)
     {
         var lessons = entries.Select(e => (e.SchoolClassId, e.TeacherId, e.DayOfWeek, e.PeriodNumber)).Distinct().ToList();
-        var notes = Notes(lessons, classNames, first);
+        var notes = Notes(lessons, classNames);
+        notes.Insert(1, BlocksNotFull(entries, electives, classNames, blocks, periods));
         if (ElectivesInside(entries, electives, classNames) is { } inside)
         {
             notes.Add(inside);
@@ -424,28 +428,35 @@ public class TimetableGenerationJob(
             : new TimetableGenerator.Teacher([], null, school));
     }
 
-    /// <summary>"1.A: první hodinu může mít jen 1 den v týdnu, Ivana Blažková
-    /// (19 h z 20 h) ji učit nemůže; začíná proto později 4 dny." — a class
-    /// starting late because its teachers can't teach the first period.</summary>
-    private static IEnumerable<string> LateBecauseOfTeachers(
+    /// <summary>"1.A: 1. hodinu může mít jen 1 den v týdnu, Ivana Blažková
+    /// (19 h z 20 h) ji učit nemůže; hlavní výukový blok proto začíná později
+    /// 4 dny." — a class whose block can't start in time because its teachers
+    /// can't teach then.</summary>
+    private static IEnumerable<string> BlockStartsLateBecauseOfTeachers(
         List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons, List<TimetableEntry> kept,
         List<TimetableGenerator.Demand> demands, Dictionary<int, TimetableGenerator.Teacher> teachers,
-        Dictionary<int, string> classNames, Dictionary<int, string> teacherNames, int first)
+        Dictionary<int, string> classNames, Dictionary<int, string> teacherNames,
+        IReadOnlyDictionary<int, MainBlock> blocks, IReadOnlyCollection<int> periods)
     {
         var days = TeacherProfile.Weekdays;
-        bool CanFirst(int teacherId, DayOfWeek day) =>
-            !teachers.TryGetValue(teacherId, out var t)
-            || AvailabilitySlot.At(t.Availability, day, first) != AvailabilityKind.Unavailable;
-        bool AllCanFirst(TimetableGenerator.Demand d, DayOfWeek day) => d.TeacherIds.All(t => CanFirst(t, day));
         foreach (var byClass in lessons.GroupBy(l => l.ClassId).OrderBy(g => classNames.GetValueOrDefault(g.Key)))
         {
-            var late = byClass.GroupBy(l => l.Day).Count(d => d.Min(l => l.Period) > first);
+            var first = (blocks.GetValueOrDefault(byClass.Key) ?? MainBlock.Default).From;
+            if (!periods.Contains(first))
+            {
+                continue;
+            }
+            bool CanFirst(int teacherId, DayOfWeek day) =>
+                !teachers.TryGetValue(teacherId, out var t)
+                || AvailabilitySlot.At(t.Availability, day, first) != AvailabilityKind.Unavailable;
+            bool AllCanFirst(TimetableGenerator.Demand d, DayOfWeek day) => d.TeacherIds.All(t => CanFirst(t, day));
+            var late = days.Count(day => !byClass.Any(l => l.Day == day && l.Period == first));
             var own = demands.Where(d => d.ClassIds.Contains(byClass.Key)).ToList();
             if (late == 0 || own.Count == 0)
             {
                 continue;
             }
-            // Each day needs one lesson in the first period of someone who can then.
+            // Each day needs one lesson in the block's first period of someone who can then.
             var startsKept = kept.Where(e => e.SchoolClassId == byClass.Key && e.PeriodNumber == first)
                 .Select(e => e.DayOfWeek).Distinct().Count();
             var possible = Math.Min(days.Length, startsKept + own.Sum(d => Math.Min(d.Weekly, days.Count(day => AllCanFirst(d, day)))));
@@ -457,9 +468,9 @@ public class TimetableGenerationJob(
             {
                 continue;
             }
-            yield return $"{classNames.GetValueOrDefault(byClass.Key)}: první hodinu "
+            yield return $"{classNames.GetValueOrDefault(byClass.Key)}: {first}. hodinu "
                 + (possible == 0 ? "nemůže mít ani jeden den" : $"může mít jen {DayCount(possible)}")
-                + $" v týdnu, {string.Join(", ", blocking)} ji učit {(blocking.Count == 1 ? "nemůže" : "nemohou")}; začíná proto později {DayCount(late)}.";
+                + $" v týdnu, {string.Join(", ", blocking)} ji učit {(blocking.Count == 1 ? "nemůže" : "nemohou")}; hlavní výukový blok proto začíná později {DayCount(late)}.";
         }
     }
 
@@ -510,26 +521,44 @@ public class TimetableGenerationJob(
         return unmet.Count == 0 ? null : $"Nesplněná přání učitelů: {string.Join("; ", unmet)}.";
     }
 
-    /// <summary>"Okna tříd: 1 (6.B út)" — gaps and late starts of classes,
-    /// gaps of teachers.</summary>
+    /// <summary>"Okna tříd: 1 (6.B út)" — gaps of classes and teachers.</summary>
     private static List<string> Notes(
-        List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons, Dictionary<int, string> classNames, int first)
+        List<(int ClassId, int? TeacherId, DayOfWeek Day, int Period)> lessons, Dictionary<int, string> classNames)
     {
-        string Where(IEnumerable<(int ClassId, DayOfWeek Day)> days) => string.Join(", ", days
-            .OrderBy(d => classNames.GetValueOrDefault(d.ClassId)).ThenBy(d => d.Day)
-            .Select(d => $"{classNames.GetValueOrDefault(d.ClassId)} {Short(d.Day)}"));
-
         var classDays = lessons.GroupBy(l => (l.ClassId, l.Day)).ToList();
         var gaps = classDays.Where(d => TimetableGenerator.Holes(d.Select(l => l.Period)) > 0).Select(d => d.Key).ToList();
-        var late = classDays.Where(d => d.Min(l => l.Period) > first).Select(d => d.Key).ToList();
         var teacherGaps = lessons.Where(l => l.TeacherId is not null).GroupBy(l => (l.TeacherId, l.Day))
             .Sum(d => TimetableGenerator.Holes(d.Select(l => l.Period)));
         return
         [
-            gaps.Count == 0 ? "Třídy nemají okna." : $"Okna tříd: {gaps.Count} ({Where(gaps)}).",
-            late.Count == 0 ? "Všechny třídy začínají první hodinou." : $"Později než první hodinou začíná: {Where(late)}.",
+            gaps.Count == 0 ? "Třídy nemají okna." : $"Okna tříd: {gaps.Count} ({Where(gaps, classNames)}).",
             $"Okna učitelů: {teacherGaps} h týdně.",
         ];
+    }
+
+    private static string Where(IEnumerable<(int ClassId, DayOfWeek Day)> days, Dictionary<int, string> classNames) =>
+        string.Join(", ", days
+            .OrderBy(d => classNames.GetValueOrDefault(d.ClassId)).ThenBy(d => d.Day)
+            .Select(d => $"{classNames.GetValueOrDefault(d.ClassId)} {Short(d.Day)}"));
+
+    /// <summary>"Hlavní výukový blok není plný: 6.B út, 7.A pá." — days of
+    /// classes with a period of the block without a lesson for all pupils.</summary>
+    private static string BlocksNotFull(
+        IReadOnlyCollection<TimetableEntry> entries, HashSet<(int GroupId, int ClassId)> electives,
+        Dictionary<int, string> classNames, IReadOnlyDictionary<int, MainBlock> blocks, IReadOnlyCollection<int> periods)
+    {
+        var forAll = entries
+            .Where(e => e.StudentGroupId is not { } g || !electives.Contains((g, e.SchoolClassId)))
+            .Select(e => (e.SchoolClassId, e.DayOfWeek, e.PeriodNumber))
+            .ToHashSet();
+        var notFull = entries.Select(e => e.SchoolClassId).Distinct()
+            .SelectMany(c => TeacherProfile.Weekdays.Select(day => (ClassId: c, Day: day)))
+            .Where(d => (blocks.GetValueOrDefault(d.ClassId) ?? MainBlock.Default).Periods
+                .Any(p => periods.Contains(p) && !forAll.Contains((d.ClassId, d.Day, p))))
+            .ToList();
+        return notFull.Count == 0
+            ? "Všechny třídy mají plný hlavní výukový blok."
+            : $"Hlavní výukový blok není plný: {Where(notFull, classNames)}.";
     }
 
     private static string Short(DayOfWeek day) => day switch

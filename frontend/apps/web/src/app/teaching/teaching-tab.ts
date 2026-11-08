@@ -45,6 +45,7 @@ import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
+import { MainBlockSettings } from '../periods-editor/main-block-settings';
 import { TimetablePage } from '../timetable-page/timetable-page';
 import { TimetableVersionSelection } from '../timetable-page/timetable-version-selection';
 import { RvpPanel } from './rvp-panel';
@@ -83,6 +84,7 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
     Tabs,
     Tag,
     TeacherWishesDefaults,
+    MainBlockSettings,
     TimetablePage,
     Tooltip,
   ],

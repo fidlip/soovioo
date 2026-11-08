@@ -1,0 +1,119 @@
+<p-card>
+  <ng-template #title
+    >Hlavní výukový blok<app-info-hint
+      text="Hodiny, ve kterých má třída každý den výuku. Generátor rozvrhu je zaplní hodinami pro celou třídu, volitelné předměty se nepočítají. Ročník přebírá blok školy, třída blok ročníku, oba mohou mít vlastní."
+  /></ng-template>
+  <form class="mb-6 flex flex-wrap items-end gap-2" (ngSubmit)="saveSchool()">
+    <app-float-field label="Škola od hodiny" for="mainBlockFrom">
+      <p-inputNumber
+        inputId="mainBlockFrom"
+        [(ngModel)]="schoolFrom"
+        name="mainBlockFrom"
+        [min]="0"
+        [max]="15"
+        styleClass="w-40"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
+    <app-float-field label="Škola do hodiny" for="mainBlockTo">
+      <p-inputNumber
+        inputId="mainBlockTo"
+        [(ngModel)]="schoolTo"
+        name="mainBlockTo"
+        [min]="0"
+        [max]="15"
+        styleClass="w-40"
+        inputStyleClass="w-full"
+      />
+    </app-float-field>
+    <p-button
+      type="submit"
+      label="Uložit"
+      severity="secondary"
+      [outlined]="true"
+    />
+  </form>
+
+  @for (table of [ { title: 'Ročníky', rows: grades(), back: 'Podle školy' }, {
+  title: 'Třídy', rows: classes(), back: 'Podle ročníku' } ]; track table.title)
+  { @if (table.rows.length > 0) {
+  <h3 class="mb-1 mt-4 text-base font-semibold">{{ table.title }}</h3>
+  <table class="w-full text-sm" [attr.aria-label]="table.title">
+    <tbody>
+      @for (row of table.rows; track row.key) {
+      <tr>
+        <td class="w-28 py-1">{{ row.label }}</td>
+        @if (editing() === row.key) {
+        <td class="py-1">
+          <div class="flex items-center gap-1">
+            <p-inputNumber
+              [(ngModel)]="editFrom"
+              [ariaLabel]="'Od hodiny — ' + row.label"
+              [min]="0"
+              [max]="15"
+              inputStyleClass="w-14 text-center"
+            />
+            –
+            <p-inputNumber
+              [(ngModel)]="editTo"
+              [ariaLabel]="'Do hodiny — ' + row.label"
+              [min]="0"
+              [max]="15"
+              inputStyleClass="w-14 text-center"
+            />
+          </div>
+        </td>
+        <td>
+          <div class="flex justify-end gap-1 py-1">
+            <p-button
+              icon="pi pi-check"
+              [ariaLabel]="'Uložit — ' + row.label"
+              size="small"
+              [text]="true"
+              (onClick)="saveEdit(row)"
+            />
+            <p-button
+              icon="pi pi-times"
+              [ariaLabel]="'Zrušit — ' + row.label"
+              size="small"
+              severity="secondary"
+              [text]="true"
+              (onClick)="editing.set(null)"
+            />
+          </div>
+        </td>
+        } @else {
+        <td class="py-1">
+          {{ text(row.block) }} @if (row.inherited) {
+          <span class="text-surface-500">({{ row.inherited }})</span>
+          }
+        </td>
+        <td>
+          <div class="flex justify-end gap-1 py-1">
+            <p-button
+              icon="pi pi-pencil"
+              [ariaLabel]="'Upravit — ' + row.label"
+              size="small"
+              [text]="true"
+              (onClick)="startEdit(row)"
+            />
+            @if (row.own) {
+            <p-button
+              icon="pi pi-undo"
+              [ariaLabel]="table.back + ' — ' + row.label"
+              [pTooltip]="table.back"
+              size="small"
+              severity="secondary"
+              [text]="true"
+              (onClick)="row.save(null)"
+            />
+            }
+          </div>
+        </td>
+        }
+      </tr>
+      }
+    </tbody>
+  </table>
+  } }
+</p-card>

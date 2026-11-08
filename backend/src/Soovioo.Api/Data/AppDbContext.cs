@@ -41,6 +41,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<LessonChange> LessonChanges => Set<LessonChange>();
     public DbSet<SubstitutionDay> SubstitutionDays => Set<SubstitutionDay>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
+    public DbSet<GradeMainBlock> GradeMainBlocks => Set<GradeMainBlock>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<Message> Messages => Set<Message>();
@@ -418,6 +419,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolPeriod>().HasQueryFilter(p =>
             currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
+        modelBuilder.Entity<GradeMainBlock>(e =>
+        {
+            e.HasIndex(x => new { x.SchoolId, x.Grade }).IsUnique();
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<Conversation>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<MessageBroadcast>().HasQueryFilter(b =>

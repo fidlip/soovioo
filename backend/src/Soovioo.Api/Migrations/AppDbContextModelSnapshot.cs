@@ -806,6 +806,12 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("Izo")
                         .HasColumnType("text");
 
+                    b.Property<int>("MainBlockFrom")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MainBlockTo")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -875,6 +881,8 @@ namespace Soovioo.Api.Migrations
                             ForcedEmailNotifications = new string[0],
                             IsDemo = false,
                             Izo = "308000048",
+                            MainBlockFrom = 1,
+                            MainBlockTo = 4,
                             Name = "Testovací škola",
                             ParentPhotos = false,
                             Phone = "+420 123 456 789",
@@ -902,6 +910,12 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("HomeroomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MainBlockFrom")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MainBlockTo")
                         .HasColumnType("integer");
 
                     b.Property<string>("Name")
@@ -2242,6 +2256,34 @@ namespace Soovioo.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("CurriculumItems");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.GradeMainBlock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("From")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Grade")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("To")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "Grade")
+                        .IsUnique();
+
+                    b.ToTable("GradeMainBlocks");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>

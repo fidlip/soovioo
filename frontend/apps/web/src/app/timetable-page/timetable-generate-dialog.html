@@ -76,7 +76,7 @@
       <li>Umístěno {{ p.lessons }} z {{ p.total }} hodin</li>
       <li>Bez učebny: {{ p.withoutRoom }}</li>
       <li>Okna tříd: {{ p.classGaps }}</li>
-      <li>Později než první hodinou začíná: {{ p.lateStarts }}</li>
+      <li>Hlavní výukový blok bez výuky: {{ p.mainBlockGaps }} h</li>
       <li>Okna učitelů: {{ p.teacherGaps }} h týdně</li>
     </ul>
     <div class="text-sm text-surface-500">Běží {{ elapsed(g) }}.</div>
@@ -92,8 +92,8 @@
   <p class="mt-0 text-sm text-surface-600 dark:text-surface-300">
     Generátor rozmístí hodiny podle učebního plánu a přidělení výuky této verze:
     třída, učitel ani učebna nejsou dvakrát najednou, učitel učí jen, kdy může,
-    dvouhodinovky jsou dvě hodiny za sebou, třídy mají co nejméně oken a přání
-    učitelů se splní, kde to jde.
+    dvouhodinovky jsou dvě hodiny za sebou, třídy mají plný hlavní výukový blok
+    a co nejméně oken a přání učitelů se splní, kde to jde.
   </p>
   <p-selectbutton
     class="flex-wrap"
