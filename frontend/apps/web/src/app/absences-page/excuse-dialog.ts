@@ -10,7 +10,9 @@ import {
   AbsenceStatus,
   AbsencesApiService,
   AuthApiService,
+  EXCUSE_CHANNEL_LABELS,
   Excuse,
+  ExcuseChannel,
   ExcuseAttachment,
   ExcuseResult,
   Student,
@@ -136,6 +138,23 @@ const SKIPPED_LABEL: Partial<Record<AbsenceStatus, string>> = {
           }
         }
 
+        @if (editingId === null && !isFamily()) {
+          <app-float-field label="Způsob předání" for="excuseChannel">
+            <p-select
+              ariaLabel="Způsob předání"
+              inputId="excuseChannel"
+              [options]="channelOptions"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="channel"
+              name="channel"
+              required
+              appendTo="body"
+              styleClass="w-full"
+            />
+          </app-float-field>
+        }
+
         <app-float-field label="Důvod" for="excuseReason">
           <textarea
             id="excuseReason"
@@ -231,6 +250,12 @@ export class ExcuseDialog {
       .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
   );
 
+  protected readonly channelOptions = Object.entries(EXCUSE_CHANNEL_LABELS).map(
+    ([value, label]) => ({ value: value as ExcuseChannel, label }),
+  );
+  /** How the family gave it — asked of staff only. */
+  protected channel: ExcuseChannel | null = null;
+
   protected readonly extentOptions = [
     { label: 'Celý den', value: true },
     { label: 'Jen některé hodiny', value: false },
@@ -267,6 +292,7 @@ export class ExcuseDialog {
     this.dateTo = to ? this.parse(to) : this.today();
     this.shownFrom = this.dateFrom;
     this.reason = excuse?.reason ?? '';
+    this.channel = null;
     this.periods.set(excuse ? [...excuse.periods] : []);
     this.wholeDay.set(!excuse || excuse.periods.length === 0);
     this.kept.set(excuse ? [...excuse.attachments] : []);
@@ -373,6 +399,7 @@ export class ExcuseDialog {
       dateTo: toDateOnlyString(this.dateTo),
       reason: this.reason.trim(),
       periods: this.oneDay() && !this.wholeDay() ? this.periods() : [],
+      channel: this.isFamily() ? null : this.channel,
     };
     const result =
       this.editingId === null
@@ -419,7 +446,7 @@ export class ExcuseDialog {
       this.notify.success(
         this.editingId !== null
           ? 'Omluvenka je upravená.'
-          : this.authApi.scope('AbsencesExcuse') === 'Own'
+          : this.isFamily()
             ? 'Omluvenka je odeslaná, čeká na schválení.'
             : 'Omluvenka je zapsaná.',
       );
@@ -436,6 +463,11 @@ export class ExcuseDialog {
         ? `Omluvenka už nemá žádný den. Vynechané dny: ${days}.`
         : `Omluveno, kromě dnů: ${days}.`,
     );
+  }
+
+  /** A parent; staff write down what the family gave them. */
+  protected isFamily(): boolean {
+    return this.authApi.scope('AbsencesExcuse') === 'Own';
   }
 
   private preselectStudent(studentId?: number): void {

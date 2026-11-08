@@ -101,9 +101,10 @@ public class ExcusesTests
         db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, clock), clock,
         new MessageAttachmentStorageService(new FakeWebHostEnvironment())), user);
 
-    private async Task<int> ExcuseAsync(DateOnly from, DateOnly to, string reason = "Nemoc", List<int>? periods = null, User? by = null)
+    private async Task<int> ExcuseAsync(
+        DateOnly from, DateOnly to, string reason = "Nemoc", List<int>? periods = null, User? by = null, ExcuseChannel? channel = null)
     {
-        var result = await Excuses(by ?? parent).CreateExcuse(new ExcuseRequest(jan.Id, from, to, reason, periods));
+        var result = await Excuses(by ?? parent).CreateExcuse(new ExcuseRequest(jan.Id, from, to, reason, periods, channel));
         return Assert.IsType<ExcuseResultDto>(Assert.IsType<OkObjectResult>(result.Result).Value).ExcuseId!.Value;
     }
 
@@ -171,12 +172,24 @@ public class ExcusesTests
     [Fact]
     public async Task TheClassTeachersExcuseIsApprovedUpToToday()
     {
-        var excuseId = await ExcuseAsync(Friday, Tuesday, "Rodiče volali", by: novak);
+        Assert.IsType<BadRequestObjectResult>((await Excuses(novak).CreateExcuse(
+            new ExcuseRequest(jan.Id, Friday, Tuesday, "Rodiče volali"))).Result);
+
+        var excuseId = await ExcuseAsync(Friday, Tuesday, "Rodiče volali", by: novak, channel: ExcuseChannel.Phone);
 
         Assert.Equal([AbsenceStatus.Excused, AbsenceStatus.Excused, AbsenceStatus.PendingExcuse],
             (await AbsencesAsync()).Select(a => a.Status));
         Assert.Empty(await NotifiedAsync(excuseId));
         Assert.Single(db.Notifications.Where(n => n.UserId == parent.Id && n.Type == NotificationType.Excuse && n.TargetId == excuseId));
+        Assert.Equal(ExcuseChannel.Phone, (await db.Excuses.FindAsync(excuseId))!.Channel);
+    }
+
+    [Fact]
+    public async Task TheFamilysOwnHasNoChannel()
+    {
+        var excuseId = await ExcuseAsync(Monday, Monday, channel: ExcuseChannel.Email);
+
+        Assert.Null((await db.Excuses.FindAsync(excuseId))!.Channel);
     }
 
     [Fact]
