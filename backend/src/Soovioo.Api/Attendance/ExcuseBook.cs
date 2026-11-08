@@ -22,29 +22,31 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
         : ExcuseStatus.PartlyApproved;
 
     /// <summary>Brings the omluvenka's days in line with its range: its days
-    /// waiting outside it are withdrawn, school days in it (weekends skipped)
-    /// are added, or joined when the teacher already recorded them. A day
-    /// already excused, rejected or under another omluvenka is skipped.
-    /// Returns the skipped days and the days the omluvenka now waits for.</summary>
+    /// waiting outside it are withdrawn, school days in it are added, or
+    /// joined when the teacher already recorded them (a weekend day only
+    /// then). A day already excused, rejected or under another omluvenka is
+    /// skipped.
+    /// Returns the skipped days and the days the omluvenka now waits for.
+    /// Staff withdraw decided days outside the range too.</summary>
     public async Task<(List<SkippedDayDto> Skipped, List<DateOnly> Days)> ApplyAsync(
-        Excuse excuse, StudentProfile student, int userId)
+        Excuse excuse, StudentProfile student, int userId, bool withdrawDecided = false)
     {
         var family = await FamilyAsync(student.Id);
-        var days = new List<DateOnly>();
-        for (var day = excuse.DateFrom; day <= excuse.DateTo; day = day.AddDays(1))
-        {
-            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
-            {
-                days.Add(day);
-            }
-        }
         var excuseId = excuse.Id;
         var records = await db.Absences
             .Where(a => a.StudentId == student.Id
                 && ((a.Date >= excuse.DateFrom && a.Date <= excuse.DateTo) || (excuseId != 0 && a.ExcuseId == excuseId)))
             .ToListAsync();
+        var days = new List<DateOnly>();
+        for (var day = excuse.DateFrom; day <= excuse.DateTo; day = day.AddDays(1))
+        {
+            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) || records.Any(a => a.Date == day))
+            {
+                days.Add(day);
+            }
+        }
         var mine = records.Where(a => excuseId != 0 && a.ExcuseId == excuseId).ToList();
-        foreach (var absence in mine.Where(a => a.Status == AbsenceStatus.PendingExcuse && !days.Contains(a.Date)))
+        foreach (var absence in mine.Where(a => (withdrawDecided || a.Status == AbsenceStatus.PendingExcuse) && !days.Contains(a.Date)))
         {
             Withdraw(absence, family);
         }
@@ -120,13 +122,18 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
 
     public async Task<HashSet<int>> FamilyAsync(int studentId) => (await notifier.FamilyAsync(studentId)).ToHashSet();
 
-    /// <summary>Approves the waiting days up to today (later ones only on
-    /// their day), or rejects all waiting days with the note. Returns the
+    /// <summary>Approves the days up to today (later ones only on their
+    /// day), or rejects them with the note. While days wait only those are
+    /// decided; on a decided omluvenka the decision changes. Returns the
     /// days decided.</summary>
     public static List<Absence> Decide(IEnumerable<Absence> days, bool approve, string? note, DateOnly today)
     {
-        var decided = days
-            .Where(a => a.Status == AbsenceStatus.PendingExcuse && (!approve || a.Date <= today))
+        var all = days.ToList();
+        var pool = all.Any(a => a.Status == AbsenceStatus.PendingExcuse)
+            ? all.Where(a => a.Status == AbsenceStatus.PendingExcuse)
+            : all;
+        var decided = pool
+            .Where(a => approve ? a.Status != AbsenceStatus.Excused && a.Date <= today : a.Status != AbsenceStatus.Unexcused)
             .OrderBy(a => a.Date)
             .ToList();
         foreach (var absence in decided)
@@ -137,20 +144,38 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
         return decided;
     }
 
-    /// <summary>Tells the family the teacher decided these days of the omluvenka.</summary>
-    public async Task TellFamilyAsync(Excuse excuse, IReadOnlyList<Absence> decided, bool approve, string? note, int exceptUserId)
+    /// <summary>The decided days wait again — the family may change the
+    /// omluvenka. Returns those days.</summary>
+    public static List<Absence> Reopen(IEnumerable<Absence> days)
     {
-        if (decided.Count == 0)
+        var reopened = days
+            .Where(a => a.Status is AbsenceStatus.Excused or AbsenceStatus.Rejected)
+            .OrderBy(a => a.Date)
+            .ToList();
+        foreach (var absence in reopened)
+        {
+            absence.Status = AbsenceStatus.PendingExcuse;
+            absence.ReviewNote = null;
+        }
+        return reopened;
+    }
+
+    public static string DecidedTitle(bool approve) => approve ? "Omluvenka schválena" : "Omluvenka zamítnuta";
+
+    /// <summary>Tells the family what the school did with these days of the
+    /// omluvenka.</summary>
+    public async Task TellFamilyAsync(Excuse excuse, IReadOnlyList<Absence> days, string title, string? note, int exceptUserId)
+    {
+        if (days.Count == 0)
         {
             return;
         }
         var name = await db.Students.Where(s => s.Id == excuse.StudentId)
             .Select(s => s.Person!.FirstName + " " + s.Person.LastName).FirstAsync();
-        var body = $"{name} — {Range(decided[0].Date, decided[^1].Date)}{(approve ? "" : $": {note}")}";
+        var body = $"{name} — {Range(days[0].Date, days[^1].Date)}{(note is null ? "" : $": {note}")}";
         await notifier.NotifyAsync(
             excuse.SchoolId, await notifier.FamilyAsync(excuse.StudentId), NotificationType.Excuse,
-            approve ? "Omluvenka schválena" : "Omluvenka zamítnuta", Notifier.Preview(body), "absences",
-            excuse.Id, excuse.StudentId, exceptUserId);
+            title, Notifier.Preview(body), "absences", excuse.Id, excuse.StudentId, exceptUserId);
     }
 
     /// <summary>Tells the class teacher of a new or changed omluvenka. On a

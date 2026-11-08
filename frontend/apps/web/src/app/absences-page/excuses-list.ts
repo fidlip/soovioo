@@ -26,6 +26,7 @@ import {
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
+import { DecisionMenu } from './decision-menu';
 import { excuseFileDownloader, formatFileSize } from './excuse-files';
 import { RejectDialog } from './reject-dialog';
 import { excuseRange, formatPeriods, todayString } from './excuse-days';
@@ -48,12 +49,14 @@ export const EXCUSE_STATUS_SEVERITY: Record<
 };
 
 /** The Omluvenky tab: who, which days, why, files, the teacher's decision.
- * The teacher approves or rejects a whole omluvenka here, the family edits
- * or deletes one while days of it wait. */
+ * The teacher approves or rejects a whole omluvenka here, changes the
+ * decision, edits or deletes it; the family edits or deletes one while days
+ * of it wait. */
 @Component({
   selector: 'app-excuses-list',
   imports: [
     ClearFilters,
+    DecisionMenu,
     FloatField,
     Loading,
     FormsModule,
@@ -199,7 +202,17 @@ export const EXCUSE_STATUS_SEVERITY: Record<
                   (onClick)="reject(excuse)"
                 />
               }
-              @if (isFamily() && waiting(excuse)) {
+              @if (canReview() && !waiting(excuse)) {
+                <app-decision-menu
+                  [approved]="has(excuse, 'Excused')"
+                  [rejected]="has(excuse, 'Rejected')"
+                  [approvable]="approvable(excuse)"
+                  (approve)="approve(excuse)"
+                  (reject)="reject(excuse)"
+                  (reopen)="reopen(excuse)"
+                />
+              }
+              @if (canReview() || (isFamily() && waiting(excuse))) {
                 <p-button
                   label="Upravit"
                   icon="pi pi-pencil"
@@ -311,12 +324,19 @@ export class ExcusesList {
     return excuse.days.some((d) => d.status === 'PendingExcuse');
   }
 
-  /** A day waits that has already come. */
+  /** A day to approve has already come — a waiting one while some wait. */
   protected approvable(excuse: Excuse): boolean {
     const today = todayString();
+    const waiting = this.waiting(excuse);
     return excuse.days.some(
-      (d) => d.status === 'PendingExcuse' && d.date <= today,
+      (d) =>
+        (waiting ? d.status === 'PendingExcuse' : d.status !== 'Excused') &&
+        d.date <= today,
     );
+  }
+
+  protected has(excuse: Excuse, status: AbsenceStatus): boolean {
+    return excuse.days.some((d) => d.status === status);
   }
 
   private readonly dayLabel: Record<AbsenceStatus, string> = {
@@ -365,6 +385,13 @@ export class ExcusesList {
           error: (err) => this.notify.actionFailed('reviewExcuse failed', err),
         }),
     );
+  }
+
+  protected reopen(excuse: Excuse): void {
+    this.absencesApi.reopenExcuse(excuse.id).subscribe({
+      next: () => this.changed.emit(),
+      error: (err) => this.notify.actionFailed('reopenExcuse failed', err),
+    });
   }
 
   protected remove(excuse: Excuse): void {

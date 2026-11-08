@@ -53,6 +53,10 @@ export class AbsencesApiService {
     });
   }
 
+  reopenAbsence(id: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/api/absences/${id}/reopen`, {});
+  }
+
   getExcuses(): Observable<Excuse[]> {
     return this.http.get<Excuse[]>(`${this.baseUrl}/api/excuses`);
   }
@@ -78,6 +82,10 @@ export class AbsencesApiService {
       approve,
       note,
     });
+  }
+
+  reopenExcuse(id: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/api/excuses/${id}/reopen`, {});
   }
 
   uploadExcuseAttachment(id: number, file: File): Observable<ExcuseAttachment> {

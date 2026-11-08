@@ -143,7 +143,7 @@ public class AbsencesController(
         {
             return invalid;
         }
-        if (absence.Excuse is not { } excuse || absence.Status != AbsenceStatus.PendingExcuse)
+        if (absence.Excuse is not { } excuse)
         {
             return BadRequest("Absence nemá omluvenku ke schválení.");
         }
@@ -152,9 +152,36 @@ public class AbsencesController(
         var decided = ExcuseBook.Decide([absence], request.Approve, request.Note?.Trim(), book.Today);
         if (decided.Count == 0)
         {
-            return BadRequest("Absenci jde omluvit nejdříve v její den.");
+            return BadRequest(absence.Status == AbsenceStatus.Excused
+                ? "Absence už je omluvená."
+                : "Absenci jde omluvit nejdříve v její den.");
         }
-        await book.TellFamilyAsync(excuse, decided, request.Approve, request.Note?.Trim(), User.UserId());
+        await book.TellFamilyAsync(
+            excuse, decided, ExcuseBook.DecidedTitle(request.Approve), request.Note?.Trim(), User.UserId());
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>The decided day waits again.</summary>
+    [HttpPost("{id:int}/reopen")]
+    [RequirePermission(Permission.AbsencesWrite)]
+    public async Task<ActionResult> ReopenAbsence(int id)
+    {
+        var absence = await db.Absences.Include(a => a.Excuse).FirstOrDefaultAsync(a => a.Id == id);
+        if (absence is null)
+        {
+            return NotFound();
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesWrite, absence.StudentId))
+        {
+            return Forbid();
+        }
+        if (absence.Excuse is not { } excuse || ExcuseBook.Reopen([absence]).Count == 0)
+        {
+            return BadRequest("Absence nemá vyřízenou omluvenku.");
+        }
+        await new ExcuseBook(db, notifier, clock).TellFamilyAsync(
+            excuse, [absence], "Omluvenka vrácena k posouzení", null, User.UserId());
         await db.SaveChangesAsync();
         return NoContent();
     }
