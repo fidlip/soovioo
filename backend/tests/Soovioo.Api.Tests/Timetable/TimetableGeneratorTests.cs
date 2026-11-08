@@ -11,9 +11,12 @@ public class TimetableGeneratorTests
 
     private static Result Run(
         IReadOnlyList<Demand> demands, IReadOnlyList<Kept>? kept = null,
-        Dictionary<int, Teacher>? teachers = null, int periods = 6) =>
+        Dictionary<int, Teacher>? teachers = null, int periods = 6, Dictionary<int, MainBlock>? blocks = null) =>
         Generate(new Input(Week, [.. Enumerable.Range(1, periods)], demands, kept ?? [],
-            teachers ?? [], TimeSpan.FromSeconds(5)));
+            teachers ?? [], TimeSpan.FromSeconds(5))
+        {
+            MainBlocks = blocks ?? [],
+        });
 
     private static Teacher DaysOff(params DayOfWeek[] days) =>
         new([.. days.Select(d => new AvailabilitySlot(d, null, AvailabilityKind.Unavailable))]);
@@ -414,5 +417,63 @@ public class TimetableGeneratorTests
 
         var monday = result.Placements.Where(p => p.Day == DayOfWeek.Monday).Select(p => p.Period).ToList();
         Assert.False(monday.Any(p => p < 2) && monday.Any(p => p > 2));
+    }
+
+    [Fact]
+    public void TheMainBlockIsFullEvenAgainstATeachersWish()
+    {
+        // The class teacher would rather not teach the first period.
+        var first = Week.Select(d => new AvailabilitySlot(d, 1, AvailabilityKind.Avoid)).ToList();
+
+        var result = Run([new Demand(1, 10, 100, 16, 0), new Demand(1, 11, 101, 4, 0)],
+            teachers: new() { [100] = new Teacher(first) });
+
+        Assert.Empty(result.ShortBlocks);
+        Assert.All(Week, day => Assert.Equal([1, 2, 3, 4], result.Placements.Where(p => p.Day == day).Select(p => p.Period).Order()));
+    }
+
+    [Fact]
+    public void AClassWithALaterBlockStartsWithIt()
+    {
+        var result = Run([new Demand(1, 10, 100, 20, 0), new Demand(2, 10, 101, 20, 0)],
+            blocks: new() { [1] = new MainBlock(2, 5) });
+
+        Assert.All(Week, day =>
+        {
+            Assert.Equal([2, 3, 4, 5], result.Placements.Where(p => p.ClassId == 1 && p.Day == day).Select(p => p.Period).Order());
+            Assert.Equal([1, 2, 3, 4], result.Placements.Where(p => p.ClassId == 2 && p.Day == day).Select(p => p.Period).Order());
+        });
+    }
+
+    [Fact]
+    public void AnElectiveLessonDoesNotFillTheBlockAndTooFewLessonsForAllAreReported()
+    {
+        // 18 lessons for all pupils and 2 electives a week, a block of 4 periods.
+        var elective = new Demand(1, 20, 101, 2, 0) { ElectiveClasses = [1], Key = 20 };
+
+        var result = Run([new Demand(1, 10, 100, 18, 0), elective]);
+
+        Assert.Equal(new ShortBlock(1, 18, 20), Assert.Single(result.ShortBlocks));
+        Assert.Empty(result.Unplaced);
+        // The block's periods without a lesson for all are the two the electives
+        // can't fill, each at the edge of its day.
+        Assert.All(result.Placements.Where(p => p.SubjectId == 20), e =>
+        {
+            var forAll = result.Placements.Where(p => p.SubjectId == 10 && p.Day == e.Day).Select(p => p.Period).ToList();
+            Assert.True(e.Period < forAll.Min() || e.Period > forAll.Max());
+        });
+        Assert.Equal(18, Week.Sum(day => result.Placements.Count(p => p.SubjectId == 10 && p.Day == day && p.Period <= 4)));
+    }
+
+    [Fact]
+    public void ALessonForAllPupilsInAKeptGroupOfADivisionFillsTheBlock()
+    {
+        // Mondays' 1st period is a division's: all pupils have a lesson then.
+        var kept = new Kept(1, 20, 100, null, DayOfWeek.Monday, 1, Key: -1_000_001, GroupId: 7);
+
+        var result = Run([new Demand(1, 10, 101, 19, 0)], [kept]);
+
+        Assert.Empty(result.ShortBlocks);
+        Assert.Equal([2, 3, 4], result.Placements.Where(p => p.Day == DayOfWeek.Monday).Select(p => p.Period).Order());
     }
 }
