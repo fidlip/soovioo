@@ -1,0 +1,58 @@
+@if (hasSeveralRoles()) {
+<button
+  type="button"
+  class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+  [attr.aria-label]="'Přepnout roli, teď: ' + activeRoleLabel()"
+  [title]="'Přepnout roli'"
+  (click)="roleMenu.toggle($event)"
+>
+  <i class="pi pi-users"></i>
+  <span class="app-nav-label truncate">Jako: {{ activeRoleLabel() }}</span>
+</button>
+<p-menu #roleMenu [popup]="true" [model]="roleMenuItems()" appendTo="body" />
+} @if (authApi.getSchoolName(); as schoolName) { @if (canLinkAccounts()) {
+<button
+  type="button"
+  class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+  [attr.aria-label]="'Přepnout účet, teď: ' + schoolName"
+  title="Přepnout účet"
+  (click)="accountMenu.toggle($event)"
+>
+  <i class="pi pi-building"></i>
+  <span class="app-nav-label truncate">Škola: {{ schoolName }}</span>@if
+  (linkedUnread() > 0) {<span class="app-nav-badge" aria-hidden="true"
+    >{{ linkedUnread() }}</span
+  >}
+</button>
+<p-menu
+  #accountMenu
+  [popup]="true"
+  [model]="accountMenuItems()"
+  appendTo="body"
+/>
+} @else {
+<span
+  class="app-nav-link text-surface-600 dark:text-surface-300"
+  [title]="schoolName"
+  ><i class="pi pi-building"></i
+  ><span class="app-nav-label truncate">Škola: {{ schoolName }}</span></span
+>
+} }
+<div class="app-user-row">
+  <span
+    class="app-nav-link app-user-name text-surface-700 dark:text-surface-200"
+    [title]="username() ?? ''"
+    ><i class="pi pi-user"></i
+    ><span class="app-nav-label truncate">{{ username() }}</span></span
+  >
+  <button
+    type="button"
+    class="app-icon-button text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+    aria-label="Odhlásit se"
+    pTooltip="Odhlásit se"
+    tooltipPosition="top"
+    (click)="sessionActions.logout()"
+  >
+    <i class="pi pi-sign-out"></i>
+  </button>
+</div>

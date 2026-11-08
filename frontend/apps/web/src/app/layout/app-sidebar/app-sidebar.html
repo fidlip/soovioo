@@ -1,0 +1,178 @@
+<!-- Mobile only (< md): thin top bar whose hamburger opens the sidebar as a
+     drawer. Hidden from md up, where the sidebar is always on screen. -->
+<header
+  class="app-topbar sticky top-0 z-10 flex items-center gap-3 border-b border-surface-200 bg-surface-0/90 px-4 py-2 backdrop-blur dark:border-surface-700 dark:bg-surface-900/90"
+>
+  <button
+    type="button"
+    class="app-icon-button text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
+    aria-label="Otevřít menu"
+    aria-controls="app-sidebar"
+    [attr.aria-expanded]="state.drawerOpen()"
+    (click)="state.drawerOpen.set(true)"
+  >
+    <i class="pi pi-bars"></i>
+  </button>
+  <img
+    src="/images/logo-inline.svg"
+    width="183"
+    height="24"
+    alt="Soovioo"
+    class="h-6 w-auto dark:brightness-0 dark:invert"
+  />
+  @if (!isSuperAdmin()) {
+  <button
+    type="button"
+    class="app-icon-button app-bell-icon ml-auto text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
+    [attr.aria-label]="bellLabel()"
+    (click)="toggleBell($event)"
+  >
+    <i class="pi pi-bell"></i>@if (unread.notifications() > 0) {<span
+      class="app-nav-badge"
+      aria-hidden="true"
+      >{{ unread.notifications() }}</span
+    >}
+  </button>
+  }
+</header>
+
+@if (state.drawerOpen()) {
+<div
+  class="app-backdrop"
+  aria-hidden="true"
+  (click)="state.drawerOpen.set(false)"
+></div>
+}
+
+<aside
+  id="app-sidebar"
+  class="app-sidebar border-r border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900"
+  [class.collapsed]="state.collapsed()"
+  [class.open]="state.drawerOpen()"
+>
+  <div class="app-sidebar-logo">
+    <img
+      src="/images/logo-inline.svg"
+      width="183"
+      height="24"
+      alt="Soovioo"
+      class="logo-full h-6 w-auto dark:brightness-0 dark:invert"
+    />
+    <img
+      src="/images/logo.svg"
+      width="34"
+      height="28"
+      alt="Soovioo"
+      class="logo-mark h-7 w-auto dark:brightness-0 dark:invert"
+    />
+    <button
+      type="button"
+      class="app-drawer-close app-icon-button text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Zavřít menu"
+      (click)="state.drawerOpen.set(false)"
+    >
+      <i class="pi pi-times"></i>
+    </button>
+  </div>
+
+  <nav class="app-sidebar-nav" aria-label="Hlavní navigace">
+    @if (isSuperAdmin()) {
+    <a
+      routerLink="/superadmin"
+      [routerLinkActiveOptions]="{ exact: true }"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Správa škol"
+      title="Správa škol"
+      ><app-icon name="school" /><span class="app-nav-label"
+        >Správa škol</span
+      ></a
+    >
+    <a
+      routerLink="/superadmin/logs"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Logy"
+      title="Logy"
+      ><app-icon name="logs" /><span class="app-nav-label">Logy</span></a
+    >
+    <a
+      routerLink="/superadmin/feedback"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Zpětná vazba"
+      title="Zpětná vazba"
+      ><app-icon name="feedback" /><span class="app-nav-label"
+        >Zpětná vazba</span
+      >@if (unread.feedback() > 0) {<span
+        class="app-nav-badge"
+        [attr.aria-label]="unread.feedback() + ' nových'"
+        >{{ unread.feedback() }}</span
+      >}</a
+    >
+    } @else {
+    <button
+      type="button"
+      class="app-nav-link app-bell-nav text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="bellLabel()"
+      title="Upozornění"
+      (click)="toggleBell($event)"
+    >
+      <i class="pi pi-bell"></i><span class="app-nav-label">Upozornění</span>@if
+      (unread.notifications() > 0) {<span
+        class="app-nav-badge"
+        aria-hidden="true"
+        >{{ unread.notifications() }}</span
+      >}
+    </button>
+    @for (item of navItems(); track item.icon) { @if (showsNavItem(item)) {
+    <a
+      [routerLink]="item.link"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="item.label"
+      [title]="item.label"
+      ><app-icon [name]="item.icon" /><span class="app-nav-label"
+        >{{ item.label }}</span
+      >@if (item.icon === 'messages' && unread.messages() > 0) {<span
+        class="app-nav-badge"
+        [attr.aria-label]="unread.messages() + ' nepřečtených'"
+        >{{ unread.messages() }}</span
+      >}</a
+    >
+    } } }
+  </nav>
+
+  <div
+    class="app-sidebar-footer border-t border-surface-200 dark:border-surface-700"
+  >
+    <button
+      type="button"
+      class="app-nav-link app-collapse-toggle text-surface-500 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800"
+      [attr.aria-label]="state.collapsed() ? 'Rozbalit menu' : 'Sbalit menu'"
+      [title]="state.collapsed() ? 'Rozbalit menu' : 'Sbalit menu'"
+      [attr.aria-expanded]="!state.collapsed()"
+      (click)="state.toggleCollapsed()"
+    >
+      <i
+        class="pi"
+        [class.pi-angle-double-left]="!state.collapsed()"
+        [class.pi-angle-double-right]="state.collapsed()"
+      ></i>
+      <span class="app-nav-label">Sbalit menu</span>
+    </button>
+    <a
+      [routerLink]="settingsLink()"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Nastavení"
+      title="Nastavení"
+      ><i class="pi pi-cog"></i><span class="app-nav-label">Nastavení</span></a
+    >
+    <app-sidebar-account-menu />
+  </div>
+</aside>
+
+@if (!isSuperAdmin()) {
+<app-notification-bell />
+}
