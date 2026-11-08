@@ -138,7 +138,7 @@ const SKIPPED_LABEL: Partial<Record<AbsenceStatus, string>> = {
           }
         }
 
-        @if (editingId === null && !isFamily()) {
+        @if (asksChannel()) {
           <app-float-field label="Způsob předání" for="excuseChannel">
             <p-select
               ariaLabel="Způsob předání"
@@ -292,7 +292,8 @@ export class ExcuseDialog {
     this.dateTo = to ? this.parse(to) : this.today();
     this.shownFrom = this.dateFrom;
     this.reason = excuse?.reason ?? '';
-    this.channel = null;
+    this.channel = excuse?.channel ?? null;
+    this.withChannel = !excuse || excuse.channel !== null;
     this.periods.set(excuse ? [...excuse.periods] : []);
     this.wholeDay.set(!excuse || excuse.periods.length === 0);
     this.kept.set(excuse ? [...excuse.attachments] : []);
@@ -399,7 +400,7 @@ export class ExcuseDialog {
       dateTo: toDateOnlyString(this.dateTo),
       reason: this.reason.trim(),
       periods: this.oneDay() && !this.wholeDay() ? this.periods() : [],
-      channel: this.isFamily() ? null : this.channel,
+      channel: this.asksChannel() ? this.channel : null,
     };
     const result =
       this.editingId === null
@@ -466,6 +467,13 @@ export class ExcuseDialog {
   }
 
   /** A parent; staff write down what the family gave them. */
+  /** A new or staff-written omluvenka: staff say how it came. */
+  private withChannel = true;
+
+  protected asksChannel(): boolean {
+    return !this.isFamily() && this.withChannel;
+  }
+
   protected isFamily(): boolean {
     return this.authApi.scope('AbsencesExcuse') === 'Own';
   }

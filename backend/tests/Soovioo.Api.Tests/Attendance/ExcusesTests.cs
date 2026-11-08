@@ -253,6 +253,91 @@ public class ExcusesTests
     }
 
     [Fact]
+    public async Task AWeekendDayTheTeacherRecordedCanBeExcused()
+    {
+        var saturday = Friday.AddDays(1);
+        db.Absences.Add(new Absence { SchoolId = SchoolId, StudentId = jan.Id, Date = saturday, CreatedById = novak.Id });
+        await db.SaveChangesAsync();
+
+        var excuseId = await ExcuseAsync(saturday, saturday);
+
+        Assert.Equal([(saturday, AbsenceStatus.PendingExcuse, (int?)excuseId)],
+            (await AbsencesAsync()).Select(a => (a.Date, a.Status, a.ExcuseId)));
+    }
+
+    [Fact]
+    public async Task TheTeacherChangesADecisionAndTheFamilyHears()
+    {
+        var excuseId = await ExcuseAsync(Friday, Monday);
+        await Excuses(novak).ReviewExcuse(excuseId, new ReviewAbsenceRequest(true));
+
+        Assert.IsType<NoContentResult>(await Excuses(novak).ReviewExcuse(excuseId, new ReviewAbsenceRequest(false, "Falešná zpráva")));
+        Assert.All(await AbsencesAsync(), a => Assert.Equal((AbsenceStatus.Rejected, "Falešná zpráva"), (a.Status, a.ReviewNote)));
+        Assert.Equal("Omluvenka zamítnuta",
+            Assert.Single(db.Notifications.Where(n => n.UserId == parent.Id && n.Type == NotificationType.Excuse)).Title);
+
+        var friday = (await AbsencesAsync()).First();
+        Assert.IsType<NoContentResult>(await Absences(novak).ReviewAbsence(friday.Id, new ReviewAbsenceRequest(true)));
+        Assert.Equal([AbsenceStatus.Excused, AbsenceStatus.Rejected], (await AbsencesAsync()).Select(a => a.Status));
+        Assert.IsType<BadRequestObjectResult>(await Absences(novak).ReviewAbsence(friday.Id, new ReviewAbsenceRequest(true)));
+        Assert.IsType<ForbidResult>(await Excuses(kral).ReopenExcuse(excuseId));
+    }
+
+    [Fact]
+    public async Task AReopenedOmluvenkaWaitsAndTheFamilyMayChangeItAgain()
+    {
+        var excuseId = await ExcuseAsync(Friday, Monday);
+        await Excuses(novak).ReviewExcuse(excuseId, new ReviewAbsenceRequest(false, "Bez zprávy"));
+        Assert.IsType<BadRequestObjectResult>(await Excuses(parent).DeleteExcuse(excuseId));
+
+        Assert.IsType<NoContentResult>(await Excuses(novak).ReopenExcuse(excuseId));
+
+        Assert.All(await AbsencesAsync(), a => Assert.Equal((AbsenceStatus.PendingExcuse, null), (a.Status, a.ReviewNote)));
+        Assert.Equal("Omluvenka vrácena k posouzení",
+            Assert.Single(db.Notifications.Where(n => n.UserId == parent.Id && n.Type == NotificationType.Excuse)).Title);
+        Assert.IsType<BadRequestObjectResult>(await Excuses(novak).ReopenExcuse(excuseId));
+        Assert.IsType<OkObjectResult>((await Excuses(parent).UpdateExcuse(excuseId,
+            new ExcuseRequest(jan.Id, Friday, Monday, "Nemoc, zpráva v příloze"))).Result);
+
+        var monday = (await AbsencesAsync()).Last();
+        await Excuses(novak).ReviewExcuse(excuseId, new ReviewAbsenceRequest(true));
+        Assert.IsType<NoContentResult>(await Absences(novak).ReopenAbsence(monday.Id));
+        Assert.Equal([AbsenceStatus.Excused, AbsenceStatus.PendingExcuse], (await AbsencesAsync()).Select(a => a.Status));
+    }
+
+    [Fact]
+    public async Task TheTeacherEditsADecidedOmluvenkaAndItsNewDaysAreApproved()
+    {
+        var excuseId = await ExcuseAsync(Monday, Tuesday);
+        await Excuses(novak).ReviewExcuse(excuseId, new ReviewAbsenceRequest(true));
+
+        var result = await Excuses(novak).UpdateExcuse(excuseId, new ExcuseRequest(jan.Id, Friday, Monday, "Nemoc"));
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal([(Friday, AbsenceStatus.Excused), (Monday, AbsenceStatus.Excused)],
+            (await AbsencesAsync()).Select(a => (a.Date, a.Status)));
+        Assert.Equal("Omluvenka upravena",
+            Assert.Single(db.Notifications.Where(n => n.UserId == parent.Id && n.Type == NotificationType.Excuse)).Title);
+        Assert.IsType<ForbidResult>((await Excuses(kral).UpdateExcuse(excuseId,
+            new ExcuseRequest(jan.Id, Friday, Monday, "Nemoc"))).Result);
+
+        Assert.IsType<NoContentResult>(await Excuses(novak).DeleteExcuse(excuseId));
+        Assert.Empty(db.Excuses);
+        Assert.Equal([(Friday, AbsenceStatus.Unexcused)], (await AbsencesAsync()).Select(a => (a.Date, a.Status)));
+    }
+
+    [Fact]
+    public async Task AStaffOmluvenkaKeepsNeedingAChannel()
+    {
+        var excuseId = await ExcuseAsync(Monday, Monday, by: novak, channel: ExcuseChannel.Phone);
+
+        Assert.IsType<BadRequestObjectResult>((await Excuses(novak).UpdateExcuse(excuseId,
+            new ExcuseRequest(jan.Id, Monday, Monday, "Nemoc"))).Result);
+        await Excuses(novak).UpdateExcuse(excuseId, new ExcuseRequest(jan.Id, Monday, Monday, "Nemoc", Channel: ExcuseChannel.Email));
+        Assert.Equal(ExcuseChannel.Email, (await db.Excuses.FindAsync(excuseId))!.Channel);
+    }
+
+    [Fact]
     public async Task DaysDecidedDifferentlyMakeItPartlyApproved()
     {
         var excuseId = await ExcuseAsync(Friday, Monday);
@@ -312,7 +397,7 @@ public class ExcusesTests
 
         Assert.IsType<OkObjectResult>((await Excuses(parent).UploadAttachment(excuseId, File("zprava.pdf"))).Result);
         Assert.IsType<BadRequestObjectResult>((await Excuses(parent).UploadAttachment(excuseId, File("virus.exe"))).Result);
-        Assert.IsType<ForbidResult>((await Excuses(mala).UploadAttachment(excuseId, File("zprava.pdf"))).Result);
+        Assert.IsType<ForbidResult>((await Excuses(kral).UploadAttachment(excuseId, File("zprava.pdf"))).Result);
 
         var dto = Assert.Single(Assert.IsType<OkObjectResult>((await Excuses(novak).GetExcuses()).Result).Value as IEnumerable<ExcuseDto>);
         Assert.Equal("zprava.pdf", Assert.Single(dto.Attachments).FileName);

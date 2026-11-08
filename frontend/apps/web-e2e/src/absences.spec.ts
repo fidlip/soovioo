@@ -236,6 +236,34 @@ test.describe.serial('parent writes an omluvenka', () => {
     ).toHaveCount(0);
   });
 
+  test('teacher changes the decision and returns it to the family', async ({
+    page,
+  }) => {
+    await login(page, 'ucitel', 'ucitel123');
+    await page.getByRole('tab', { name: 'Omluvenky' }).click();
+
+    const decide = async (item: string) => {
+      await excuse(page)
+        .getByRole('button', { name: 'Změnit rozhodnutí' })
+        .click();
+      await page.getByRole('menuitem', { name: item }).click();
+    };
+    await decide('Schválit');
+    await expect(excuse(page)).toContainText('Schválena');
+
+    await decide('Vrátit k posouzení');
+    await expect(excuse(page)).toContainText('Čeká na schválení');
+    await expect(
+      excuse(page).getByRole('button', { name: 'Upravit' }),
+    ).toBeVisible();
+
+    await page.context().clearCookies();
+    await login(page, 'rodic', 'rodic123');
+    await expect(
+      excuse(page).getByRole('button', { name: 'Upravit' }),
+    ).toBeVisible();
+  });
+
   test('teacher cleans up the days', async ({ page }) => {
     await login(page, 'ucitel', 'ucitel123');
     const rows = page

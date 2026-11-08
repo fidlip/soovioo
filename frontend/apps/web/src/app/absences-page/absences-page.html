@@ -152,6 +152,16 @@
                   (onClick)="reject(absence)"
                 />
               </div>
+              } @if (absence.excuseId && (absence.status === 'Excused' ||
+              absence.status === 'Rejected') && canManageAbsences()) {
+              <app-decision-menu
+                [approved]="absence.status === 'Excused'"
+                [rejected]="absence.status === 'Rejected'"
+                [approvable]="approvable(absence)"
+                (approve)="approve(absence)"
+                (reject)="reject(absence)"
+                (reopen)="reopen(absence)"
+              />
               }
             </td>
             @if (canManageAbsences()) {

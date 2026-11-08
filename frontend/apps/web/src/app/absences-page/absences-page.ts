@@ -43,6 +43,7 @@ import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { formatPeriods, todayString } from './excuse-days';
+import { DecisionMenu } from './decision-menu';
 import { ExcuseDialog } from './excuse-dialog';
 import { ExcusesList } from './excuses-list';
 import { RejectDialog } from './reject-dialog';
@@ -78,6 +79,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
 @Component({
   selector: 'app-absences-page',
   imports: [
+    DecisionMenu,
     ClearFilters,
     FloatField,
     DateFormatPipe,
@@ -376,6 +378,13 @@ export class AbsencesPage {
           error: (err) => this.notify.actionFailed('reviewAbsence failed', err),
         }),
     );
+  }
+
+  protected reopen(absence: Absence): void {
+    this.absencesApi.reopenAbsence(absence.id).subscribe({
+      next: () => this.reload(),
+      error: (err) => this.notify.actionFailed('reopenAbsence failed', err),
+    });
   }
 
   protected startEditAbsence(absence: Absence): void {

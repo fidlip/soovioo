@@ -12,7 +12,8 @@ namespace Soovioo.Api.Attendance;
 
 /// <summary>Omluvenky. The family writes them and may change or delete them
 /// while days of them wait; a class teacher may write one too (for a family
-/// that called) — its days up to today are approved at once.</summary>
+/// that called) — its days up to today are approved at once. Staff change,
+/// delete or re-decide one any time.</summary>
 [Authorize]
 [ApiController]
 [Route("api/excuses")]
@@ -80,13 +81,15 @@ public class ExcusesController(
         {
             var decided = ExcuseBook.Decide(
                 await db.Absences.Where(a => a.ExcuseId == excuse.Id).ToListAsync(), true, null, book.Today);
-            await book.TellFamilyAsync(excuse, decided, true, null, User.UserId());
+            await book.TellFamilyAsync(excuse, decided, ExcuseBook.DecidedTitle(true), null, User.UserId());
         }
         await db.SaveChangesAsync();
         return Ok(new ExcuseResultDto(excuse.Id, skipped));
     }
 
-    /// <summary>Changes the days still waiting; the decided ones stay.</summary>
+    /// <summary>The family changes the days still waiting, the decided ones
+    /// stay. Staff also drop decided days outside the range; days they add
+    /// up to today are approved at once.</summary>
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ExcuseResultDto>> UpdateExcuse(int id, ExcuseRequest request)
     {
@@ -94,7 +97,8 @@ public class ExcusesController(
         {
             return NotFound();
         }
-        if (await MayChangeAsync(excuse) is { } denied)
+        var (denied, staff) = await MayChangeAsync(excuse);
+        if (denied is not null)
         {
             return denied;
         }
@@ -102,23 +106,46 @@ public class ExcusesController(
         {
             return invalid;
         }
+        if (staff && excuse.Channel is not null)
+        {
+            if (request.Channel is null)
+            {
+                return this.FieldError("channel", "Vyberte, jak omluvenka přišla.");
+            }
+            excuse.Channel = request.Channel;
+        }
 
         var student = (await db.Students.FindAsync(excuse.StudentId))!;
+        var waitingBefore = await db.Absences
+            .Where(a => a.ExcuseId == excuse.Id && a.Status == AbsenceStatus.PendingExcuse)
+            .Select(a => a.Id)
+            .ToListAsync();
         Set(excuse, request);
         var book = Book;
-        var (skipped, days) = await book.ApplyAsync(excuse, student, User.UserId());
+        var (skipped, days) = await book.ApplyAsync(excuse, student, User.UserId(), withdrawDecided: staff);
         await db.SaveChangesAsync();
         if (await book.DropIfEmptyAsync(excuse.Id, storage))
         {
             return Ok(new ExcuseResultDto(null, skipped));
         }
-        await book.TellTeachersAsync(excuse, days, edited: true, User.UserId());
+        if (staff)
+        {
+            var all = await db.Absences.Where(a => a.ExcuseId == excuse.Id).OrderBy(a => a.Date).ToListAsync();
+            ExcuseBook.Decide(
+                all.Where(a => a.Status == AbsenceStatus.PendingExcuse && !waitingBefore.Contains(a.Id)),
+                true, null, book.Today);
+            await book.TellFamilyAsync(excuse, all, "Omluvenka upravena", null, User.UserId());
+        }
+        else
+        {
+            await book.TellTeachersAsync(excuse, days, edited: true, User.UserId());
+        }
         await db.SaveChangesAsync();
         return Ok(new ExcuseResultDto(excuse.Id, skipped));
     }
 
-    /// <summary>Takes back the days still waiting; with no day left the
-    /// omluvenka goes.</summary>
+    /// <summary>Takes back the days still waiting (staff: all days); with no
+    /// day left the omluvenka goes.</summary>
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteExcuse(int id)
     {
@@ -126,7 +153,8 @@ public class ExcusesController(
         {
             return NotFound();
         }
-        if (await MayChangeAsync(excuse) is { } denied)
+        var (denied, staff) = await MayChangeAsync(excuse);
+        if (denied is not null)
         {
             return denied;
         }
@@ -134,7 +162,8 @@ public class ExcusesController(
         var book = Book;
         var family = await book.FamilyAsync(excuse.StudentId);
         foreach (var absence in await db.Absences
-                     .Where(a => a.ExcuseId == excuse.Id && a.Status == AbsenceStatus.PendingExcuse).ToListAsync())
+                     .Where(a => a.ExcuseId == excuse.Id && (staff || a.Status == AbsenceStatus.PendingExcuse))
+                     .ToListAsync())
         {
             book.Withdraw(absence, family);
         }
@@ -144,7 +173,8 @@ public class ExcusesController(
     }
 
     /// <summary>Approves the waiting days up to today, or rejects all waiting
-    /// days — with a reason the family sees.</summary>
+    /// days — with a reason the family sees. On a decided omluvenka it
+    /// changes the decision of all its days.</summary>
     [HttpPost("{id:int}/review")]
     [RequirePermission(Permission.AbsencesWrite)]
     public async Task<ActionResult> ReviewExcuse(int id, ReviewAbsenceRequest request)
@@ -167,11 +197,36 @@ public class ExcusesController(
         var decided = ExcuseBook.Decide(days, request.Approve, request.Note?.Trim(), book.Today);
         if (decided.Count == 0)
         {
-            return BadRequest(request.Approve && days.Any(a => a.Status == AbsenceStatus.PendingExcuse)
+            return BadRequest(request.Approve && days.Any(a => a.Status != AbsenceStatus.Excused)
                 ? "Omluvenku jde schválit nejdříve v den absence."
                 : "Omluvenka nemá nic ke schválení.");
         }
-        await book.TellFamilyAsync(excuse, decided, request.Approve, request.Note?.Trim(), User.UserId());
+        await book.TellFamilyAsync(
+            excuse, decided, ExcuseBook.DecidedTitle(request.Approve), request.Note?.Trim(), User.UserId());
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>The decided days wait again — the family may change the
+    /// omluvenka, e.g. add a doctor's note.</summary>
+    [HttpPost("{id:int}/reopen")]
+    [RequirePermission(Permission.AbsencesWrite)]
+    public async Task<ActionResult> ReopenExcuse(int id)
+    {
+        if (await db.Excuses.FindAsync(id) is not { } excuse)
+        {
+            return NotFound();
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesWrite, excuse.StudentId))
+        {
+            return Forbid();
+        }
+        var reopened = ExcuseBook.Reopen(await db.Absences.Where(a => a.ExcuseId == excuse.Id).ToListAsync());
+        if (reopened.Count == 0)
+        {
+            return BadRequest("Omluvenka už čeká na posouzení.");
+        }
+        await Book.TellFamilyAsync(excuse, reopened, "Omluvenka vrácena k posouzení", null, User.UserId());
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -274,23 +329,30 @@ public class ExcusesController(
     private async Task<bool> IsFamilyAsync() =>
         await User.ScopeAsync(db, Permission.AbsencesExcuse) == PermissionScope.Own;
 
-    /// <summary>The family changes or deletes an omluvenka while days of it wait.</summary>
-    private async Task<ActionResult?> MayChangeAsync(Excuse excuse)
+    /// <summary>The family changes or deletes an omluvenka while days of it
+    /// wait; staff of the pupil any time. Staff: whether staff change it.</summary>
+    private async Task<(ActionResult? Denied, bool Staff)> MayChangeAsync(Excuse excuse)
     {
-        if (!await IsFamilyAsync() || !await User.ReachesStudentAsync(db, Permission.AbsencesExcuse, excuse.StudentId))
+        if (!await IsFamilyAsync())
         {
-            return Forbid();
+            return await User.ReachesStudentAsync(db, Permission.AbsencesWrite, excuse.StudentId)
+                ? (null, true)
+                : (Forbid(), true);
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.AbsencesExcuse, excuse.StudentId))
+        {
+            return (Forbid(), false);
         }
         return await db.Absences.AnyAsync(a => a.ExcuseId == excuse.Id && a.Status == AbsenceStatus.PendingExcuse)
-            ? null
-            : BadRequest("Omluvenka je vyřízená, už ji nejde změnit.");
+            ? (null, false)
+            : (BadRequest("Omluvenka je vyřízená, už ji nejde změnit."), false);
     }
 
     /// <summary>Files go with an omluvenka the user may change — or one they wrote.</summary>
     private async Task<ActionResult?> MayAttachAsync(Excuse excuse) =>
         excuse.CreatedById == User.UserId() && await User.ReachesStudentAsync(db, Permission.AbsencesExcuse, excuse.StudentId)
             ? null
-            : await MayChangeAsync(excuse);
+            : (await MayChangeAsync(excuse)).Denied;
 
     private ActionResult? Validate(ExcuseRequest request)
     {
