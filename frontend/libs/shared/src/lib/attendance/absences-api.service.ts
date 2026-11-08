@@ -54,7 +54,10 @@ export class AbsencesApiService {
   }
 
   reopenAbsence(id: number): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/api/absences/${id}/reopen`, {});
+    return this.http.post<void>(
+      `${this.baseUrl}/api/absences/${id}/reopen`,
+      {},
+    );
   }
 
   getExcuses(): Observable<Excuse[]> {
