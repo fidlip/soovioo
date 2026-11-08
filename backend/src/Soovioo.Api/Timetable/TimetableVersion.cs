@@ -39,6 +39,8 @@ public class TimetableVersion
     public List<TimetableEntry> Entries { get; set; } = [];
     public List<CurriculumItem> Curriculum { get; set; } = [];
     public List<ClassCurriculumItem> ClassCurriculum { get; set; } = [];
+    public List<GradeMainBlock> GradeMainBlocks { get; set; } = [];
+    public List<ClassMainBlock> ClassMainBlocks { get; set; } = [];
     public List<TeachingAssignment> Assignments { get; set; } = [];
     public List<StudentGroup> Groups { get; set; } = [];
     public List<GroupDivision> Divisions { get; set; } = [];

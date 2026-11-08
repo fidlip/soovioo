@@ -1,4 +1,5 @@
 import { formatNumberWithoutIntl } from '../common/date-format';
+import { GradeMainBlock, MainBlock } from './main-block.model';
 import { DayOfWeek } from './timetable-entry.model';
 
 /** Učební plán: hours a week of a subject in a grade (ročník). */
@@ -68,6 +69,11 @@ export interface TeachingClass {
   grade: number | null;
   problems: string[];
   rows: TeachingRow[];
+  /** Its own or `inheritedMainBlock`. */
+  mainBlock: MainBlock;
+  /** Its grade's, else the school's. */
+  inheritedMainBlock: MainBlock;
+  ownMainBlock: boolean;
 }
 
 export interface TeachingTeacher {
@@ -130,6 +136,9 @@ export interface TeachingOverview {
   isDraft: boolean;
   /** The plan against the RVPs of the classes; null = not for this user. */
   rvp: RvpCheck | null;
+  schoolMainBlock: MainBlock;
+  /** Grades' own main blocks, in place of the school's. */
+  gradeMainBlocks: GradeMainBlock[];
 }
 
 /** An RVP a class can be taught by. */

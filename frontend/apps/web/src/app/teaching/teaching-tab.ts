@@ -26,6 +26,7 @@ import {
 } from '@openng/optimus-ui/tabs';
 import {
   AuthApiService,
+  MainBlock,
   Subject,
   SubjectsApiService,
   Teacher,
@@ -35,6 +36,7 @@ import {
   TeachingOverview,
   TeachingRow,
   formatHours,
+  mainBlockText,
   qualifiedFor,
   taughtSummary,
   teachingDaysLabel,
@@ -48,6 +50,13 @@ import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults
 import { MainBlockSettings } from '../periods-editor/main-block-settings';
 import { TimetablePage } from '../timetable-page/timetable-page';
 import { TimetableVersionSelection } from '../timetable-page/timetable-version-selection';
+import {
+  MainBlockEdit,
+  classMainBlockNote,
+  mainBlockLessons,
+  ownMainBlock,
+  resolveMainBlock,
+} from './main-block';
 import { RvpPanel } from './rvp-panel';
 import { StudentGroupsPanel } from './student-groups';
 import { SubstitutionsPanel } from './substitutions-panel';
@@ -102,6 +111,9 @@ export class TeachingTab {
   protected readonly formatHours = formatHours;
   protected readonly taughtSummary = taughtSummary;
   protected readonly days = teachingDaysLabel;
+  protected readonly mainBlockText = mainBlockText;
+  protected readonly classMainBlockNote = classMainBlockNote;
+  protected readonly ownMainBlock = ownMainBlock;
 
   /** Opens filtered to the class or teacher (from Třídy, Osoby). */
   readonly focus = input<{ classId?: number; teacherId?: number } | null>(null);
@@ -159,6 +171,10 @@ export class TeachingTab {
   protected planBlocks: Record<string, boolean | null> = {};
   /** A class's hours being edited, by `classId-subjectId`. */
   protected classPlan: Record<string, number | null> = {};
+  /** Grades' main blocks being edited in Učební plán, by grade. */
+  protected planMainBlocks: Record<number, MainBlockEdit> = {};
+  /** Classes' main blocks being edited, by class id. */
+  protected classMainBlocks: Record<number, MainBlockEdit> = {};
 
   protected readonly classFilter = signal<number | null>(null);
   protected readonly teacherFilter = signal<number | null>(null);
@@ -356,6 +372,18 @@ export class TeachingTab {
         c.rows.map((r) => [`${c.id}-${r.subjectId}`, r.planHours]),
       ),
     );
+    this.planMainBlocks = Object.fromEntries(
+      overview.grades.map((g) => {
+        const own = overview.gradeMainBlocks.find((b) => b.grade === g);
+        return [g, { from: own?.from ?? null, to: own?.to ?? null }];
+      }),
+    );
+    this.classMainBlocks = Object.fromEntries(
+      overview.classes.map((c) => [
+        c.id,
+        c.ownMainBlock ? { ...c.mainBlock } : { from: null, to: null },
+      ]),
+    );
     this.loading.set(false);
   }
 
@@ -471,6 +499,47 @@ export class TeachingTab {
       blocks === subject.doubleLessons ? null : blocks;
   }
 
+  /** Saves the class's block once both its fields are left changed. */
+  protected leaveClassMainBlock(c: TeachingClass, event: FocusEvent): void {
+    const fields = event.currentTarget as HTMLElement;
+    if (fields.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+    const edited = this.classMainBlocks[c.id];
+    const saved = c.ownMainBlock ? c.mainBlock : { from: null, to: null };
+    if (this.busy() || (edited.from === saved.from && edited.to === saved.to)) {
+      return;
+    }
+    this.setClassMainBlock(c, edited.from, edited.to);
+  }
+
+  /** An end null = as its grade's block, both = none of its own. */
+  protected setClassMainBlock(
+    c: TeachingClass,
+    from: number | null,
+    to: number | null,
+  ): void {
+    const versionId = this.versionId();
+    if (versionId !== null) {
+      this.run(this.teachingApi.setClassMainBlock(versionId, c.id, from, to));
+    }
+  }
+
+  /** The grade's block as edited, its empty ends the school's. */
+  protected gradeMainBlock(o: TeachingOverview, grade: number): MainBlock {
+    return resolveMainBlock(this.planMainBlocks[grade], o.schoolMainBlock);
+  }
+
+  /** Lessons a week the grade's block needs when its plan has fewer. */
+  protected gradeMainBlockShort(
+    o: TeachingOverview,
+    grade: number,
+  ): number | null {
+    const needed = mainBlockLessons(this.gradeMainBlock(o, grade));
+    const total = this.gradeTotal(grade);
+    return total > 0 && total < needed ? needed : null;
+  }
+
   /** Subjects the class has nothing of yet. */
   protected addableSubjects(c: TeachingClass): Subject[] {
     return this.subjects().filter(
@@ -521,8 +590,11 @@ export class TeachingTab {
           doubleLessons: this.planBlocks[key] ?? null,
         };
       });
+    const mainBlocks = Object.entries(this.planMainBlocks)
+      .filter(([, block]) => ownMainBlock(block))
+      .map(([grade, block]) => ({ grade: Number(grade), ...block }));
     this.run(
-      this.teachingApi.saveCurriculum(versionId, items),
+      this.teachingApi.saveCurriculum(versionId, items, mainBlocks),
       'Učební plán je uložený.',
     );
   }

@@ -56,8 +56,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         return version is null ? NotFound() : Ok(await TimetableCheck.ProblemsAsync(db, version));
     }
 
-    /// <summary>A new draft, empty or with the lessons, učební plán, groups
-    /// and přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
+    /// <summary>A new draft, empty or with the lessons, učební plán (main
+    /// blocks too), groups and přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableVersionDto>> CreateVersion(CreateTimetableVersionRequest request)
@@ -114,7 +114,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
 
     private Task<TimetableVersion?> WithContentAsync(int id) =>
         db.TimetableVersions.Include(v => v.Entries).Include(v => v.Curriculum).Include(v => v.ClassCurriculum)
-            .Include(v => v.Assignments).Include(v => v.Divisions)
+            .Include(v => v.GradeMainBlocks).Include(v => v.ClassMainBlocks).Include(v => v.Assignments).Include(v => v.Divisions)
             .Include(v => v.Groups).ThenInclude(g => g.Classes).Include(v => v.Groups).ThenInclude(g => g.Members)
             .AsSplitQuery().FirstOrDefaultAsync(v => v.Id == id);
 
@@ -164,6 +164,14 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             {
                 SchoolId = schoolId, SchoolClassId = c.SchoolClassId, SubjectId = c.SubjectId, HoursPerWeek = c.HoursPerWeek,
                 DoubleLessons = c.DoubleLessons,
+            }).ToList() ?? [],
+            GradeMainBlocks = source?.GradeMainBlocks.Select(b => new GradeMainBlock
+            {
+                SchoolId = schoolId, Grade = b.Grade, From = b.From, To = b.To,
+            }).ToList() ?? [],
+            ClassMainBlocks = source?.ClassMainBlocks.Select(b => new ClassMainBlock
+            {
+                SchoolId = schoolId, SchoolClassId = b.SchoolClassId, From = b.From, To = b.To,
             }).ToList() ?? [],
             Assignments = source?.Assignments.Select(a => new TeachingAssignment
             {

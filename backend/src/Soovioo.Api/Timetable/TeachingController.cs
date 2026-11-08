@@ -53,7 +53,8 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             : NoContent();
     }
 
-    /// <summary>Replaces the version's whole učební plán.</summary>
+    /// <summary>Replaces the version's whole učební plán; with
+    /// <see cref="SaveCurriculumRequest.MainBlocks"/>, the grades' main blocks too.</summary>
     [HttpPut("curriculum")]
     [RequirePermission(Permission.Teaching)]
     public async Task<ActionResult<TeachingOverviewDto>> SaveCurriculum(int versionId, SaveCurriculumRequest request)
@@ -81,8 +82,38 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return BadRequest("Neznámý předmět.");
         }
-
         var schoolId = currentSchool.SchoolId!.Value;
+        var school = await MainBlock.OfSchoolAsync(db, schoolId);
+        var gradeBlocks = new List<GradeMainBlock>();
+        foreach (var wanted in request.MainBlocks ?? [])
+        {
+            if (wanted.Grade is < 1 or > 13)
+            {
+                return BadRequest("Ročník musí být od 1 do 13.");
+            }
+            var block = new MainBlock(wanted.From ?? school.From, wanted.To ?? school.To);
+            if (MainBlock.Error(block.From, block.To) is var (_, message))
+            {
+                return BadRequest($"Hlavní výukový blok {wanted.Grade}. ročníku: {message}");
+            }
+            if (gradeBlocks.Any(b => b.Grade == wanted.Grade))
+            {
+                return BadRequest("Ročník má hlavní výukový blok dvakrát.");
+            }
+            if (block != school)
+            {
+                gradeBlocks.Add(new GradeMainBlock
+                {
+                    SchoolId = schoolId, TimetableVersionId = version.Id, Grade = wanted.Grade, From = block.From, To = block.To,
+                });
+            }
+        }
+
+        if (request.MainBlocks is not null)
+        {
+            db.GradeMainBlocks.RemoveRange(await db.GradeMainBlocks.Where(b => b.TimetableVersionId == version.Id).ToListAsync());
+            db.GradeMainBlocks.AddRange(gradeBlocks);
+        }
         db.CurriculumItems.RemoveRange(await db.CurriculumItems.Where(c => c.TimetableVersionId == version.Id).ToListAsync());
         db.CurriculumItems.AddRange(items.Select(i => new CurriculumItem
         {
@@ -226,6 +257,51 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             c.TimetableVersionId == version.Id && c.SchoolClassId == schoolClass.Id && c.SubjectId == subject.Id);
         var blocks = request.DoubleLessons == gradeBlocks ? null : request.DoubleLessons;
         SetClassItem(version, schoolClass.Id, subject.Id, item, i => i.DoubleLessons = blocks);
+        await db.SaveChangesAsync();
+        return Ok(await OverviewAsync(version));
+    }
+
+    /// <summary>The class's own main block; a null end = as its grade's (or
+    /// the school's) block has, so both null = no block of its own.</summary>
+    [HttpPut("class-main-block")]
+    [RequirePermission(Permission.Teaching)]
+    public async Task<ActionResult<TeachingOverviewDto>> SetClassMainBlock(int versionId, SetClassMainBlockRequest request)
+    {
+        var (version, error) = await EditableVersionAsync(versionId);
+        if (version is null)
+        {
+            return error!;
+        }
+        var schoolClass = await db.SchoolClasses.FirstOrDefaultAsync(c => c.Id == request.SchoolClassId);
+        if (schoolClass is null)
+        {
+            return BadRequest("Neznámá třída.");
+        }
+        var inherited = (await VersionMainBlocks.LoadAsync(db, version)).OfGrade(schoolClass.Rocnik);
+        var block = new MainBlock(request.From ?? inherited.From, request.To ?? inherited.To);
+        if (MainBlock.Error(block.From, block.To) is var (_, message))
+        {
+            return BadRequest(message);
+        }
+
+        var own = await db.ClassMainBlocks.FirstOrDefaultAsync(b =>
+            b.TimetableVersionId == version.Id && b.SchoolClassId == schoolClass.Id);
+        if (block == inherited)
+        {
+            if (own is not null)
+            {
+                db.ClassMainBlocks.Remove(own);
+            }
+        }
+        else
+        {
+            own ??= db.ClassMainBlocks.Add(new ClassMainBlock
+            {
+                SchoolId = currentSchool.SchoolId!.Value, TimetableVersionId = version.Id, SchoolClassId = schoolClass.Id,
+            }).Entity;
+            own.From = block.From;
+            own.To = block.To;
+        }
         await db.SaveChangesAsync();
         return Ok(await OverviewAsync(version));
     }
@@ -464,7 +540,11 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             version.Id,
             mayEdit && version.Status == TimetableVersionStatus.Draft,
             grades, curriculum, classDtos, teacherDtos, groups, version.Status == TimetableVersionStatus.Draft, rvp,
-            mayEdit && version.Status != TimetableVersionStatus.Archived && !(version.ValidTo < SchoolClock.Today(clock)));
+            mayEdit && version.Status != TimetableVersionStatus.Archived && !(version.ValidTo < SchoolClock.Today(clock)))
+        {
+            SchoolMainBlock = plan.MainBlocks.School,
+            GradeMainBlocks = [.. plan.MainBlocks.Grades.OrderBy(g => g.Key).Select(g => new GradeMainBlockDto(g.Key, g.Value.From, g.Value.To))],
+        };
     }
 
     private Task<TeachingPlan> PlanAsync(TimetableVersion version) => TeachingPlan.LoadAsync(db, version);
@@ -486,14 +566,25 @@ public record TeachingOverviewDto(
     IReadOnlyList<TeachingGroupDto> Groups,
     bool IsDraft,
     RvpCheckDto? Rvp,
-    bool CanEditMembers = false);
+    bool CanEditMembers = false)
+{
+    public MainBlock SchoolMainBlock { get; init; } = MainBlock.Default;
+
+    /// <summary>The grades' own main blocks, in place of the school's.</summary>
+    public IReadOnlyList<GradeMainBlockDto> GradeMainBlocks { get; init; } = [];
+}
 
 public record TeacherTeachingDto(int VersionId, string VersionName, TeachingTeacherDto Teacher);
 
 /// <param name="Automatic">As the system recognises it; AreaKey is ignored.</param>
 public record SetRvpSubjectAreaRequest(string ProgramCode, int SubjectId, string? AreaKey, bool Automatic = false);
 
-public record SaveCurriculumRequest(IReadOnlyList<CurriculumItemDto> Items);
+/// <param name="MainBlocks">The grades' own main blocks, all of them; a
+/// grade's null end = as the school's block. Null = the blocks stay.</param>
+public record SaveCurriculumRequest(IReadOnlyList<CurriculumItemDto> Items, IReadOnlyList<GradeMainBlockDto>? MainBlocks = null);
+
+/// <param name="From">Null = as its grade's (or the school's) block.</param>
+public record SetClassMainBlockRequest(int SchoolClassId, int? From, int? To);
 
 /// <param name="HoursPerWeek">Null = as the class's grade has; 0 = not in the class.</param>
 public record SetClassCurriculumRequest(int SchoolClassId, int SubjectId, decimal? HoursPerWeek);

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +11,12 @@ namespace Soovioo.Api.Timetable;
 
 /// <summary>Hlavní výukový blok: the periods a class has lessons in every
 /// day. The school's, a grade's in place of it, a class's in place of its
-/// grade's.</summary>
+/// grade's; those two per timetable version, like the učební plán.</summary>
 public record MainBlock(int From, int To)
 {
     public static readonly MainBlock Default = new(1, 4);
 
+    [JsonIgnore]
     public IEnumerable<int> Periods => Enumerable.Range(From, To - From + 1);
 
     /// <summary>"1.–4. hodina".</summary>
@@ -33,27 +35,45 @@ public record MainBlock(int From, int To)
         return to < from ? ("to", "Blok nemůže končit dřív, než začíná.") : null;
     }
 
-    /// <summary>Each class's block, as inherited.</summary>
-    public static async Task<Dictionary<int, MainBlock>> ForClassesAsync(AppDbContext db, int schoolId)
-    {
-        var school = await db.Schools.Where(s => s.Id == schoolId)
+    public static async Task<MainBlock> OfSchoolAsync(AppDbContext db, int schoolId) =>
+        await db.Schools.Where(s => s.Id == schoolId)
             .Select(s => new MainBlock(s.MainBlockFrom, s.MainBlockTo)).FirstOrDefaultAsync() ?? Default;
-        var grades = await db.GradeMainBlocks.ToDictionaryAsync(g => g.Grade, g => new MainBlock(g.From, g.To));
-        var classes = await db.SchoolClasses
-            .Select(c => new { c.Id, c.Rocnik, c.MainBlockFrom, c.MainBlockTo }).ToListAsync();
-        return classes.ToDictionary(c => c.Id, c =>
-            c is { MainBlockFrom: { } from, MainBlockTo: { } to } ? new MainBlock(from, to)
-            : c.Rocnik is { } grade && grades.TryGetValue(grade, out var ofGrade) ? ofGrade
-            : school);
+
+    /// <summary>Each class's block in the version, as inherited.</summary>
+    public static async Task<Dictionary<int, MainBlock>> ForClassesAsync(AppDbContext db, TimetableVersion version)
+    {
+        var blocks = await VersionMainBlocks.LoadAsync(db, version);
+        return (await db.SchoolClasses.Select(c => new { c.Id, c.Rocnik }).ToListAsync())
+            .ToDictionary(c => c.Id, c => blocks.Of(c.Id, c.Rocnik));
     }
 }
 
-/// <summary>A grade's own <see cref="MainBlock"/>, in place of the school's.</summary>
+/// <summary>The school's block with the version's own of grades and classes.</summary>
+public record VersionMainBlocks(
+    MainBlock School, IReadOnlyDictionary<int, MainBlock> Grades, IReadOnlyDictionary<int, MainBlock> Classes)
+{
+    /// <summary>The grade's own, else the school's.</summary>
+    public MainBlock OfGrade(int? grade) => grade is { } g && Grades.TryGetValue(g, out var own) ? own : School;
+
+    public MainBlock Of(int classId, int? grade) => Classes.TryGetValue(classId, out var own) ? own : OfGrade(grade);
+
+    public static async Task<VersionMainBlocks> LoadAsync(AppDbContext db, TimetableVersion version) => new(
+        await MainBlock.OfSchoolAsync(db, version.SchoolId),
+        await db.GradeMainBlocks.Where(g => g.TimetableVersionId == version.Id)
+            .ToDictionaryAsync(g => g.Grade, g => new MainBlock(g.From, g.To)),
+        await db.ClassMainBlocks.Where(c => c.TimetableVersionId == version.Id)
+            .ToDictionaryAsync(c => c.SchoolClassId, c => new MainBlock(c.From, c.To)));
+}
+
+/// <summary>A grade's own <see cref="MainBlock"/> in a version, in place of the school's.</summary>
 public class GradeMainBlock
 {
     public int Id { get; set; }
 
     public int SchoolId { get; set; }
+
+    public int TimetableVersionId { get; set; }
+    public TimetableVersion? TimetableVersion { get; set; }
 
     public int Grade { get; set; }
 
@@ -61,35 +81,36 @@ public class GradeMainBlock
     public int To { get; set; }
 }
 
-/// <summary>The school's, grades' and classes' <see cref="MainBlock"/> —
-/// read by everyone who works on timetables, set with the bell schedule.</summary>
+/// <summary>A class's own <see cref="MainBlock"/> in a version, in place of its grade's.</summary>
+public class ClassMainBlock
+{
+    public int Id { get; set; }
+
+    public int SchoolId { get; set; }
+
+    public int TimetableVersionId { get; set; }
+    public TimetableVersion? TimetableVersion { get; set; }
+
+    public int SchoolClassId { get; set; }
+    public SchoolClass? SchoolClass { get; set; }
+
+    public int From { get; set; }
+    public int To { get; set; }
+}
+
+/// <summary>The school's <see cref="MainBlock"/> — read by everyone who
+/// works on timetables, set with the bell schedule.</summary>
 [Authorize]
 [ApiController]
-[Route("api/main-blocks")]
+[Route("api/main-block")]
 [RequirePermission(Permission.Timetable)]
-public class MainBlocksController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
+public class MainBlockController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<MainBlocksDto>> Get()
-    {
-        var school = await db.Schools.Where(s => s.Id == currentSchool.SchoolId!.Value)
-            .Select(s => new MainBlock(s.MainBlockFrom, s.MainBlockTo)).FirstOrDefaultAsync() ?? MainBlock.Default;
-        var own = await db.GradeMainBlocks.ToDictionaryAsync(g => g.Grade);
-        var classes = await db.SchoolClasses.OrderBy(c => c.Name)
-            .Select(c => new { c.Id, c.Name, c.Rocnik, c.MainBlockFrom, c.MainBlockTo }).ToListAsync();
-        var grades = classes.Where(c => c.Rocnik is not null).Select(c => c.Rocnik!.Value).Concat(own.Keys)
-            .Distinct().Order()
-            .Select(g => own.TryGetValue(g, out var block)
-                ? new GradeMainBlockDto(g, block.From, block.To)
-                : new GradeMainBlockDto(g, null, null))
-            .ToList();
-        return new MainBlocksDto(
-            school.From, school.To, grades,
-            [.. classes.Select(c => new ClassMainBlockDto(c.Id, c.Name, c.Rocnik, c.MainBlockFrom, c.MainBlockTo))]);
-    }
+    public async Task<ActionResult<MainBlock>> Get() => await MainBlock.OfSchoolAsync(db, currentSchool.SchoolId!.Value);
 
-    [HttpPut("school")]
-    public async Task<IActionResult> SetSchool(SetMainBlockRequest request)
+    [HttpPut]
+    public async Task<IActionResult> Set(MainBlock request)
     {
         if (MainBlock.Error(request.From, request.To) is var (field, message))
         {
@@ -101,67 +122,7 @@ public class MainBlocksController(AppDbContext db, ICurrentSchoolContext current
         await db.SaveChangesAsync();
         return NoContent();
     }
-
-    [HttpPut("grades/{grade:int}")]
-    public async Task<IActionResult> SetGrade(int grade, SetMainBlockRequest request)
-    {
-        if (grade is < 1 or > 13)
-        {
-            return BadRequest("Ročník může být 1 až 13.");
-        }
-        if (MainBlock.Error(request.From, request.To) is var (field, message))
-        {
-            return this.FieldError(field, message);
-        }
-        var block = await db.GradeMainBlocks.FirstOrDefaultAsync(g => g.Grade == grade);
-        if (block is null)
-        {
-            block = new GradeMainBlock { SchoolId = currentSchool.SchoolId!.Value, Grade = grade };
-            db.GradeMainBlocks.Add(block);
-        }
-        block.From = request.From;
-        block.To = request.To;
-        await db.SaveChangesAsync();
-        return NoContent();
-    }
-
-    /// <summary>Back to the school's.</summary>
-    [HttpDelete("grades/{grade:int}")]
-    public async Task<IActionResult> ClearGrade(int grade)
-    {
-        await db.DeleteAsync(db.GradeMainBlocks.Where(g => g.Grade == grade));
-        return NoContent();
-    }
-
-    [HttpPut("classes/{classId:int}")]
-    public Task<IActionResult> SetClass(int classId, SetMainBlockRequest request) =>
-        MainBlock.Error(request.From, request.To) is var (field, message)
-            ? Task.FromResult<IActionResult>(this.FieldError(field, message))
-            : SetClassAsync(classId, request);
-
-    /// <summary>Back to its grade's (or the school's).</summary>
-    [HttpDelete("classes/{classId:int}")]
-    public Task<IActionResult> ClearClass(int classId) => SetClassAsync(classId, null);
-
-    private async Task<IActionResult> SetClassAsync(int classId, SetMainBlockRequest? request)
-    {
-        if (await db.SchoolClasses.FirstOrDefaultAsync(c => c.Id == classId) is not { } schoolClass)
-        {
-            return NotFound();
-        }
-        schoolClass.MainBlockFrom = request?.From;
-        schoolClass.MainBlockTo = request?.To;
-        await db.SaveChangesAsync();
-        return NoContent();
-    }
 }
 
-public record SetMainBlockRequest(int From, int To);
-
-/// <param name="From">Null = as the school's.</param>
+/// <param name="From">Null = as the level above.</param>
 public record GradeMainBlockDto(int Grade, int? From, int? To);
-
-/// <param name="From">Null = as its grade's (or the school's).</param>
-public record ClassMainBlockDto(int Id, string Name, int? Grade, int? From, int? To);
-
-public record MainBlocksDto(int From, int To, List<GradeMainBlockDto> Grades, List<ClassMainBlockDto> Classes);

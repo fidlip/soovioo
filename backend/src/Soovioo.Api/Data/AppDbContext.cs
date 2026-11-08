@@ -42,6 +42,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<SubstitutionDay> SubstitutionDays => Set<SubstitutionDay>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<GradeMainBlock> GradeMainBlocks => Set<GradeMainBlock>();
+    public DbSet<ClassMainBlock> ClassMainBlocks => Set<ClassMainBlock>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<Message> Messages => Set<Message>();
@@ -421,7 +422,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<SchoolPeriod>().HasIndex(p => new { p.SchoolId, p.PeriodNumber }).IsUnique();
         modelBuilder.Entity<GradeMainBlock>(e =>
         {
-            e.HasIndex(x => new { x.SchoolId, x.Grade }).IsUnique();
+            e.HasIndex(x => new { x.TimetableVersionId, x.Grade }).IsUnique();
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.GradeMainBlocks)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<ClassMainBlock>(e =>
+        {
+            e.HasIndex(x => new { x.TimetableVersionId, x.SchoolClassId }).IsUnique();
+            e.HasOne(x => x.TimetableVersion).WithMany(v => v.ClassMainBlocks)
+                .HasForeignKey(x => x.TimetableVersionId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<Conversation>().HasQueryFilter(c =>

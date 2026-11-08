@@ -15,6 +15,7 @@ import {
   TeacherTeaching,
   TeachingOverview,
 } from './teaching.model';
+import { GradeMainBlock } from './main-block.model';
 
 /** Every change answers with the whole overview, checks recomputed. */
 @Injectable({ providedIn: 'root' })
@@ -41,15 +42,28 @@ export class TeachingApiService {
     return this.http.get<TeachingOverview>(`${this.url(versionId)}/teaching`);
   }
 
+  /** With `mainBlocks`, all the grades' own main blocks too. */
   saveCurriculum(
     versionId: number,
     items: CurriculumItem[],
+    mainBlocks?: GradeMainBlock[],
   ): Observable<TeachingOverview> {
     return this.http.put<TeachingOverview>(
       `${this.url(versionId)}/curriculum`,
-      {
-        items,
-      },
+      { items, mainBlocks },
+    );
+  }
+
+  /** An end null = as its grade's (or the school's) block, both = none of its own. */
+  setClassMainBlock(
+    versionId: number,
+    schoolClassId: number,
+    from: number | null,
+    to: number | null,
+  ): Observable<TeachingOverview> {
+    return this.http.put<TeachingOverview>(
+      `${this.url(versionId)}/class-main-block`,
+      { schoolClassId, from, to },
     );
   }
 

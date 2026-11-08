@@ -41,7 +41,7 @@ export * from './lib/timetable/teaching-api.service';
 export * from './lib/timetable/school-period.model';
 export * from './lib/timetable/school-periods-api.service';
 export * from './lib/timetable/main-block.model';
-export * from './lib/timetable/main-blocks-api.service';
+export * from './lib/timetable/main-block-api.service';
 export * from './lib/messaging/message.model';
 export * from './lib/messaging/messages-api.service';
 export * from './lib/notifications/notification.model';

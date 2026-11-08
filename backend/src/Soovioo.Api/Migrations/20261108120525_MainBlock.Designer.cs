@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261108081429_MainBlock")]
+    [Migration("20261108120525_MainBlock")]
     partial class MainBlock
     {
         /// <inheritdoc />
@@ -913,12 +913,6 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("HomeroomId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MainBlockFrom")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MainBlockTo")
                         .HasColumnType("integer");
 
                     b.Property<string>("Name")
@@ -2224,6 +2218,39 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("ClassCurriculumItems");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.ClassMainBlock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("From")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("To")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.HasIndex("TimetableVersionId", "SchoolClassId")
+                        .IsUnique();
+
+                    b.ToTable("ClassMainBlocks");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.CurriculumItem", b =>
                 {
                     b.Property<int>("Id")
@@ -2278,12 +2305,15 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("TimetableVersionId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("To")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SchoolId", "Grade")
+                    b.HasIndex("TimetableVersionId", "Grade")
                         .IsUnique();
 
                     b.ToTable("GradeMainBlocks");
@@ -3906,6 +3936,25 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("TimetableVersion");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Timetable.ClassMainBlock", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("ClassMainBlocks")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SchoolClass");
+
+                    b.Navigation("TimetableVersion");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Timetable.CurriculumItem", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
@@ -3921,6 +3970,17 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Subject");
+
+                    b.Navigation("TimetableVersion");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Timetable.GradeMainBlock", b =>
+                {
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "TimetableVersion")
+                        .WithMany("GradeMainBlocks")
+                        .HasForeignKey("TimetableVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("TimetableVersion");
                 });
@@ -4347,11 +4407,15 @@ namespace Soovioo.Api.Migrations
 
                     b.Navigation("ClassCurriculum");
 
+                    b.Navigation("ClassMainBlocks");
+
                     b.Navigation("Curriculum");
 
                     b.Navigation("Divisions");
 
                     b.Navigation("Entries");
+
+                    b.Navigation("GradeMainBlocks");
 
                     b.Navigation("Groups");
                 });

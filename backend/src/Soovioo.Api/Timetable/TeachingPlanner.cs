@@ -426,8 +426,11 @@ public record CurriculumItemDto(int Grade, int SubjectId, decimal HoursPerWeek, 
 public record ClassCurriculumItemDto(int SchoolClassId, int SubjectId, decimal? HoursPerWeek, bool? DoubleLessons = null);
 
 /// <param name="Grade">Ročník; null = the class has none, the plan doesn't apply.</param>
+/// <param name="MainBlock">Its own or <paramref name="InheritedMainBlock"/>.</param>
+/// <param name="InheritedMainBlock">Its grade's, else the school's.</param>
 public record TeachingClassDto(
-    int Id, string Name, int? Grade, IReadOnlyList<string> Problems, IReadOnlyList<TeachingRowDto> Rows);
+    int Id, string Name, int? Grade, IReadOnlyList<string> Problems, IReadOnlyList<TeachingRowDto> Rows,
+    MainBlock? MainBlock = null, MainBlock? InheritedMainBlock = null, bool OwnMainBlock = false);
 
 /// <param name="PlanHours">Hours a week by the class's učební plán; null = not in it.</param>
 /// <param name="GradeHours">What the grade's plan says; null = nothing.</param>
