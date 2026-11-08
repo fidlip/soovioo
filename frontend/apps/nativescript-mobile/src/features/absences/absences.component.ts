@@ -1,5 +1,13 @@
-import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  NO_ERRORS_SCHEMA,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
+import type { ListView } from '@nativescript/core';
 import {
   Absence,
   AbsencesApiService,
@@ -8,6 +16,7 @@ import {
   Student,
   StudentsApiService,
 } from '@soovioo/shared';
+import { HIGHLIGHT_STYLES, Highlight, onLinkedItem } from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
@@ -15,6 +24,7 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
   templateUrl: './absences.component.html',
   imports: [NativeScriptCommonModule, NavBarComponent, DateFormatPipe],
   schemas: [NO_ERRORS_SCHEMA],
+  styles: [HIGHLIGHT_STYLES],
 })
 export class AbsencesComponent {
   private readonly absencesApi = inject(AbsencesApiService);
@@ -24,6 +34,8 @@ export class AbsencesComponent {
   protected readonly absences = signal<Absence[]>([]);
   protected readonly students = signal<Student[]>([]);
   protected selectedStudentIndex = 0;
+  protected readonly highlight = new Highlight();
+  private readonly list = viewChild<ElementRef<ListView>>('list');
 
   constructor() {
     this.studentsApi.getStudents().subscribe({
@@ -31,6 +43,7 @@ export class AbsencesComponent {
       error: (err) => console.error('getStudents failed', err),
     });
     this.reload();
+    onLinkedItem('absence', (id) => this.reload(id));
   }
 
   protected canManageAbsences(): boolean {
@@ -71,9 +84,19 @@ export class AbsencesComponent {
     });
   }
 
-  private reload(): void {
+  /** `linkedId`: the absence a notification opened, shown once loaded. */
+  private reload(linkedId?: number): void {
     this.absencesApi.getAbsences().subscribe({
-      next: (absences) => this.absences.set(absences),
+      next: (absences) => {
+        this.absences.set(absences);
+        if (linkedId) {
+          this.highlight.show(
+            this.list()?.nativeElement,
+            absences.map((a) => a.id),
+            linkedId,
+          );
+        }
+      },
       error: (err) => console.error('getAbsences failed', err),
     });
   }

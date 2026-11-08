@@ -1,6 +1,14 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
-import { NativeScriptCommonModule, NativeScriptFormsModule } from '@nativescript/angular';
-import { Conversation, ConversationSummary, MessagesApiService } from '@soovioo/shared';
+import {
+  NativeScriptCommonModule,
+  NativeScriptFormsModule,
+} from '@nativescript/angular';
+import {
+  Conversation,
+  ConversationSummary,
+  MessagesApiService,
+} from '@soovioo/shared';
+import { onLinkedItem } from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 /** Conversations: list → detail with a reply box. Starting a new
@@ -20,18 +28,22 @@ export class MessagesComponent {
 
   constructor() {
     this.reload();
+    onLinkedItem('conversation', (id) => this.openConversation(id, true));
   }
 
   protected open(index: number): void {
     const summary = this.conversations()[index];
-    if (!summary) {
-      return;
+    if (summary) {
+      this.openConversation(summary.id, summary.unread);
     }
-    this.messagesApi.getConversation(summary.id).subscribe({
+  }
+
+  private openConversation(id: number, unread: boolean): void {
+    this.messagesApi.getConversation(id).subscribe({
       next: (conversation) => {
         this.selected.set(conversation);
-        if (summary.unread) {
-          this.messagesApi.markRead(summary.id).subscribe({
+        if (unread) {
+          this.messagesApi.markRead(id).subscribe({
             next: () => this.reload(),
             error: (err) => console.error('markRead failed', err),
           });

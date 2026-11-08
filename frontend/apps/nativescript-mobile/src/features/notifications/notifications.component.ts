@@ -1,4 +1,6 @@
 import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import {
   NativeScriptCommonModule,
   RouterExtensions,
@@ -8,11 +10,11 @@ import {
   DateFormatPipe,
   NotificationsApiService,
 } from '@soovioo/shared';
-import { MOBILE_PAGES } from '../../push.service';
+import { MOBILE_PAGES, notificationRoute } from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
-/** The notifications (the web's bell): tap reads it and opens its page
- * when the app has one. */
+/** The notifications (the web's bell): tap reads it and opens its thing
+ * when the app has the page. */
 @Component({
   selector: 'ns-notifications',
   templateUrl: './notifications.component.html',
@@ -27,7 +29,10 @@ export class NotificationsComponent {
   protected readonly hasMore = signal(false);
 
   constructor() {
-    this.load();
+    // Again when a push opens it while it's open.
+    inject(ActivatedRoute)
+      .queryParamMap.pipe(takeUntilDestroyed())
+      .subscribe(() => this.load());
   }
 
   protected load(beforeId?: number): void {
@@ -63,8 +68,12 @@ export class NotificationsComponent {
         error: (err) => console.error('markRead failed', err),
       });
     }
-    if (MOBILE_PAGES.includes(notification.page)) {
-      this.router.navigate([`/${notification.page}`]);
+    if (MOBILE_PAGES[notification.page]) {
+      const { commands, queryParams } = notificationRoute(
+        notification.page,
+        notification.targetId,
+      );
+      this.router.navigate(commands, { queryParams });
     }
   }
 

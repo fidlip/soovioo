@@ -9,10 +9,8 @@ import { Dialogs } from '@nativescript/core';
 import {
   AuthApiService,
   LinkedAccount,
-  LinkedAccountsApiService,
   NotificationsApiService,
 } from '@soovioo/shared';
-import { switchMap } from 'rxjs';
 import { PushService } from '../../push.service';
 
 const LINK_ACCOUNT = 'Propojit další účet';
@@ -27,7 +25,6 @@ export class NavBarComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(RouterExtensions);
   private readonly notificationsApi = inject(NotificationsApiService);
-  private readonly linkedAccountsApi = inject(LinkedAccountsApiService);
   private readonly push = inject(PushService);
 
   /** Unread notifications — the bar is on every page, so it's checked
@@ -83,29 +80,25 @@ export class NavBarComponent {
   /** The phone stays registered, now for the other account. Pages decide by
    * the account when they're created, and the router wouldn't recreate the
    * one already open. */
-  private switchTo(account: LinkedAccount): void {
-    this.linkedAccountsApi
-      .switchTo(account.userId)
-      .pipe(switchMap(({ code }) => this.authApi.redeemLoginCode(code)))
-      .subscribe({
-        next: () => {
-          this.push.enable();
-          this.router.navigate(
-            [
-              this.router.router.url === '/notifications'
-                ? '/grades'
-                : '/notifications',
-            ],
-            { clearHistory: true },
-          );
-        },
-        error: () =>
-          Dialogs.alert({
-            title: 'Přepnutí se nepovedlo',
-            message: 'Zkuste to prosím znovu.',
-            okButtonText: 'OK',
-          }),
+  private async switchTo(account: LinkedAccount): Promise<void> {
+    try {
+      await this.push.switchAccount(account.userId);
+    } catch {
+      Dialogs.alert({
+        title: 'Přepnutí se nepovedlo',
+        message: 'Zkuste to prosím znovu.',
+        okButtonText: 'OK',
       });
+      return;
+    }
+    this.router.navigate(
+      [
+        this.router.router.url.startsWith('/notifications')
+          ? '/grades'
+          : '/notifications',
+      ],
+      { clearHistory: true },
+    );
   }
 
   protected logout(): void {

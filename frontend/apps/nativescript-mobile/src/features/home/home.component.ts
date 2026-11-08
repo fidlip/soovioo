@@ -1,5 +1,13 @@
-import { Component, NO_ERRORS_SCHEMA, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  NO_ERRORS_SCHEMA,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { NativeScriptCommonModule } from '@nativescript/angular';
+import type { ListView } from '@nativescript/core';
 import {
   AuthApiService,
   Grade,
@@ -9,6 +17,7 @@ import {
   Subject,
   SubjectsApiService,
 } from '@soovioo/shared';
+import { HIGHLIGHT_STYLES, Highlight, onLinkedItem } from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
 
 @Component({
@@ -16,6 +25,7 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
   templateUrl: './home.component.html',
   imports: [NativeScriptCommonModule, NavBarComponent],
   schemas: [NO_ERRORS_SCHEMA],
+  styles: [HIGHLIGHT_STYLES],
 })
 export class HomeComponent {
   private readonly gradesApi = inject(GradesApiService);
@@ -24,11 +34,14 @@ export class HomeComponent {
   private readonly authApi = inject(AuthApiService);
 
   protected readonly grades = signal<Grade[]>([]);
+  protected readonly highlight = new Highlight();
+  private readonly list = viewChild<ElementRef<ListView>>('list');
   private firstStudent: Student | undefined;
   private firstSubject: Subject | undefined;
 
   constructor() {
     this.reload();
+    onLinkedItem('grade', (id) => this.reload(id));
     this.studentsApi.getStudents().subscribe({
       next: (students) => (this.firstStudent = students[0]),
       error: (err) => console.error('getStudents failed', err),
@@ -61,9 +74,19 @@ export class HomeComponent {
       });
   }
 
-  private reload(): void {
+  /** `linkedId`: the grade a notification opened, shown once loaded. */
+  private reload(linkedId?: number): void {
     this.gradesApi.getGrades({ pageSize: 100 }).subscribe({
-      next: (result) => this.grades.set(result.items),
+      next: (result) => {
+        this.grades.set(result.items);
+        if (linkedId) {
+          this.highlight.show(
+            this.list()?.nativeElement,
+            result.items.map((g) => g.id),
+            linkedId,
+          );
+        }
+      },
       error: (err) => console.error('getGrades failed', err),
     });
   }

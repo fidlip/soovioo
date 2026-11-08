@@ -99,11 +99,21 @@ public class PushJob(AppDbContext db, IPushSender sender, TimeProvider clock)
     }
 
     /// <summary>One notification as it is; more of them as their count and
-    /// the newest titles. Without the full text only the kind of event.</summary>
+    /// the newest titles. Without the full text only the kind of event. The
+    /// data name the account it's for (the phone may be logged in as a
+    /// linked one) and, for one notification, the notification itself.</summary>
     public static PushMessage MessageFor(IReadOnlyList<Notification> items, bool fullText)
     {
         var newest = items[^1];
-        var data = new Dictionary<string, string> { ["page"] = items.Count == 1 ? newest.Page : "notifications" };
+        var data = new Dictionary<string, string>
+        {
+            ["page"] = items.Count == 1 ? newest.Page : "notifications",
+            ["userId"] = newest.UserId.ToString(),
+        };
+        if (items.Count == 1)
+        {
+            data["notificationId"] = newest.Id.ToString();
+        }
         if (items.Count == 1 && newest.TargetId is { } targetId)
         {
             data["targetId"] = targetId.ToString();
