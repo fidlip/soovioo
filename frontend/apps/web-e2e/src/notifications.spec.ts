@@ -64,10 +64,14 @@ test('a message to the family shows under the parent’s bell and opens the conv
   ).toBeVisible();
 });
 
-/** A new grade for Jan Novák (the parent `rodic`'s child) in the school's
- * first subject, or another one so that tests running alongside don't take
- * its notification for theirs. */
-async function addGrade(page: Page, request: APIRequestContext, subject = 0) {
+/** A new grade for Jan Novák (the parent `rodic`'s child) in a seeded
+ * subject — each test its own, so that tests running alongside don't take
+ * its notification for theirs. By name: other specs add subjects. */
+async function addGrade(
+  page: Page,
+  request: APIRequestContext,
+  subject = 'Anglický jazyk',
+) {
   const api = apiUrl(page);
   const { token } = await (
     await request.post(`${api}/auth/login`, {
@@ -89,7 +93,7 @@ async function addGrade(page: Page, request: APIRequestContext, subject = 0) {
     headers,
     data: {
       studentId,
-      subjectId: subjects[subject].id,
+      subjectId: subjects.find((s: { name: string }) => s.name === subject).id,
       value: 2,
       weight: 1,
       note: `E2E ${Date.now()}`,
@@ -110,7 +114,11 @@ test('a grade’s notification opens the grade itself and marks it', async ({
   request,
 }) => {
   await page.goto('/skola/login');
-  const { id: gradeId, subjectName } = await addGrade(page, request);
+  const { id: gradeId, subjectName } = await addGrade(
+    page,
+    request,
+    'Český jazyk',
+  );
   await logInAsParent(page);
   await expect(page).toHaveURL(/\/skola\/home$/);
 
@@ -167,7 +175,7 @@ test.describe('a grade that changed or went', () => {
     request,
   }) => {
     await page.goto('/skola/login');
-    const grade = await addGrade(page, request, 1);
+    const grade = await addGrade(page, request, 'Matematika');
     const gradeId = grade.id;
     const api = apiUrl(page);
     const headers = await adminHeaders(page, request);
