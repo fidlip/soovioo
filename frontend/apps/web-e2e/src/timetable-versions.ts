@@ -90,8 +90,21 @@ export function unpublish(admin: VersionsApi, id: number) {
   return act(admin, id, 'unpublish');
 }
 
-export function archive(admin: VersionsApi, id: number) {
-  return act(admin, id, 'archive');
+/** Deleted, unpublished first if it's published. */
+export async function discard(admin: VersionsApi, id: number) {
+  const versions: { id: number; status: string }[] = await (
+    await admin.request.get(`${admin.api}/timetable-versions`, {
+      headers: admin.headers,
+    })
+  ).json();
+  if (versions.find((v) => v.id === id)?.status === 'Published') {
+    await unpublish(admin, id);
+  }
+  const response = await admin.request.delete(
+    `${admin.api}/timetable-versions/${id}`,
+    { headers: admin.headers },
+  );
+  expect(response.ok()).toBe(true);
 }
 
 /** The evening's job right now, through the Hangfire dashboard that answers
@@ -115,7 +128,7 @@ export function versionsButton(page: Page) {
   return page.getByRole('button', { name: /^Verze rozvrhu: / });
 }
 
-/** The button's popover with the versions (the archived ones behind Archiv). */
+/** The button's popover with the versions (the ones that applied behind Archiv). */
 export async function openVersions(page: Page) {
   await versionsButton(page).click();
   return page.getByRole('dialog', { name: 'Verze rozvrhu' });

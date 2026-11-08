@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
-  archive,
+  discard,
   draftCopy,
   openVersionWeek,
   pickVersion,
@@ -220,7 +220,7 @@ test.describe.serial('student groups', () => {
     // A period without lessons isn't shown at all: the whole grid then.
     await expect(page.locator('tbody td[data-period]').first()).toBeVisible();
     await expect(page.getByText(GROUP)).toHaveCount(0);
-    await archive(admin, versionId);
+    await discard(admin, versionId);
   });
 });
 
@@ -340,7 +340,7 @@ test('a division teaches a row of the učební plán', async ({
   await expect(
     page.getByRole('button', { name: 'Upravit dělení Volba e2e' }),
   ).toHaveCount(0);
-  await archive(admin, versionId);
+  await discard(admin, versionId);
 
   await page.getByRole('tab', { name: 'Škola' }).click();
   await page.getByRole('tab', { name: 'Předměty' }).click();

@@ -283,6 +283,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         {
             e.Property(x => x.Name).HasMaxLength(100);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.CopiedFromName).HasMaxLength(100);
+            e.HasOne(x => x.CopiedFromVersion).WithMany().HasForeignKey(x => x.CopiedFromVersionId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.SchoolId, x.Status, x.ValidFrom });
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });

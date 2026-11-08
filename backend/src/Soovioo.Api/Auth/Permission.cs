@@ -111,7 +111,7 @@ public static class PermissionCatalog
         new(Permission.MessagesBroadcastClass, "Zprávy", "Hromadná zpráva třídě", Classes, Own, NoneOnly),
         new(Permission.MessagesBroadcastSchool, "Zprávy", "Hromadná zpráva celé škole", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Timetable, "Rozvrh", "Upravit rozvrh a zvonění", SchoolOnly, NoneOnly, NoneOnly),
-        new(Permission.TimetableVersionsRead, "Rozvrh", "Vidět koncepty a archivované verze rozvrhu", SchoolOnly, NoneOnly, NoneOnly),
+        new(Permission.TimetableVersionsRead, "Rozvrh", "Vidět koncepty verzí rozvrhu", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.TeachingRead, "Rozvrh", "Vidět učební plán a přidělení výuky", OwnOrSchool, NoneOnly, NoneOnly),
         new(Permission.Teaching, "Rozvrh", "Upravit učební plán a přidělení výuky", SchoolOnly, NoneOnly, NoneOnly),
         new(Permission.Classes, "Škola", "Upravit třídy", SchoolOnly, NoneOnly, NoneOnly),

@@ -41,11 +41,8 @@ export function versionStatusLabel(
   version: TimetableVersion,
   today: string,
 ): { label: string; severity: Severity } {
-  switch (version.status) {
-    case 'Draft':
-      return { label: 'Koncept', severity: 'warn' };
-    case 'Archived':
-      return { label: 'Archivovaná', severity: 'secondary' };
+  if (version.status === 'Draft') {
+    return { label: 'Koncept', severity: 'warn' };
   }
   if (version.validFrom > today) {
     return { label: 'Naplánovaná', severity: 'info' };
@@ -56,6 +53,18 @@ export function versionStatusLabel(
   return { label: 'Platí', severity: 'success' };
 }
 
+/** It applied and doesn't any more: it's in the archive. */
+export function versionIsPast(
+  version: TimetableVersion,
+  today: string,
+): boolean {
+  return (
+    version.status === 'Published' &&
+    version.validTo !== null &&
+    version.validTo < today
+  );
+}
+
 export function versionValidity(version: TimetableVersion): string {
   const from = formatDate(version.validFrom, 'date');
   if (version.status !== 'Published') {
@@ -64,6 +73,23 @@ export function versionValidity(version: TimetableVersion): string {
   return version.validTo
     ? `${from} – ${formatDate(version.validTo, 'date')}`
     : `od ${from}`;
+}
+
+/** Which version it was copied from, by its name now; null for an empty one. */
+export function versionSource(
+  version: TimetableVersion,
+  versions: TimetableVersion[],
+): string | null {
+  if (version.copiedFromName === null) {
+    return null;
+  }
+  if (version.copiedFromVersionId === null) {
+    return `Vychází ze smazaného konceptu „${version.copiedFromName}“`;
+  }
+  const source = versions.find((v) => v.id === version.copiedFromVersionId);
+  return source
+    ? `Vychází z „${source.name}“`
+    : `Vychází z „${version.copiedFromName}“`;
 }
 
 const NOTIFY_OPTIONS: { label: string; value: number | null }[] = [
@@ -80,9 +106,10 @@ function noticeDay(version: TimetableVersion, daysBefore: number): string {
 }
 
 /** Administrace → Výuka: a button with the version its sections work with;
- * its popover (on a phone a panel from the bottom) picks another, and for whoever edits the timetable makes a new
- * draft (empty or a copy), changes its name and start, publishes, archives
- * and brings an archived one back. */
+ * its popover (on a phone a panel from the bottom) picks another, the ones
+ * that applied behind Archiv, and for whoever edits the timetable makes a new
+ * draft (empty or a copy of any version), changes its name and start,
+ * publishes, unpublishes and deletes a draft. */
 @Component({
   selector: 'app-timetable-versions',
   imports: [
@@ -119,13 +146,25 @@ export class TimetableVersions {
   protected readonly current = this.selection.version;
 
   protected readonly today = toDateOnly(new Date());
+  /** The popover lists the archive instead of the others. */
+  protected readonly archived = signal(false);
+  protected readonly listed = computed(() =>
+    this.versions().filter(
+      (v) => versionIsPast(v, this.today) === this.archived(),
+    ),
+  );
   protected readonly statusLabel = versionStatusLabel;
   protected readonly validity = versionValidity;
+  protected source(version: TimetableVersion): string | null {
+    return versionSource(version, this.versions());
+  }
 
   protected readonly desktop = mediaQuery(DESKTOP_QUERY);
   protected readonly drawerVisible = signal(false);
 
   protected toggle(event: Event): void {
+    const current = this.current();
+    this.archived.set(!!current && versionIsPast(current, this.today));
     if (this.desktop()) {
       this.popover().toggle(event);
     } else {
@@ -161,21 +200,15 @@ export class TimetableVersions {
 
   protected readonly copyOptions = computed(() => [
     { label: 'Prázdný rozvrh', value: null },
-    ...this.versions()
-      .filter((v) => v.status !== 'Archived')
-      .map((v) => ({ label: v.name, value: v.id as number | null })),
+    ...this.versions().map((v) => ({
+      label: v.name,
+      value: v.id as number | null,
+    })),
   ]);
 
   /** Published, but doesn't apply yet. */
   protected canUnpublish(version: TimetableVersion): boolean {
     return version.status === 'Published' && version.validFrom > this.today;
-  }
-
-  protected canArchive(version: TimetableVersion): boolean {
-    return (
-      version.status === 'Draft' ||
-      (version.status === 'Published' && version.validFrom > this.today)
-    );
   }
 
   /** The start of a version that already applies stays. */
@@ -190,16 +223,16 @@ export class TimetableVersions {
       : undefined;
   }
 
-  protected startNew(): void {
+  /** Copying `from`, or by default the chosen version. */
+  protected startNew(from?: TimetableVersion): void {
     this.close();
     this.form.set('new');
     this.formName = '';
     this.formValidFrom = null;
-    const current = this.current();
     this.formCopyFrom =
-      current && current.status !== 'Archived'
-        ? current.id
-        : (timetableVersionOn(this.versions(), this.today)?.id ?? null);
+      (from ?? this.current())?.id ??
+      timetableVersionOn(this.versions(), this.today)?.id ??
+      null;
     this.notify.clear();
   }
 
@@ -322,31 +355,25 @@ export class TimetableVersions {
     });
   }
 
-  protected archive(version: TimetableVersion): void {
+  protected remove(version: TimetableVersion): void {
     this.close();
     this.confirmation.confirm({
-      header: 'Archivovat verzi rozvrhu',
-      message: `Archivovat „${version.name}“? Nebude platit a zůstane jen k nahlédnutí, případně ji půjde vrátit mezi koncepty.${version.status === 'Published' ? ' Kdo už dostal upozornění na změnu, dostane večer oznámení o zrušení.' : ''}`,
+      header: 'Smazat koncept',
+      message: `Smazat „${version.name}“ natrvalo, i s hodinami, skupinami a učebním plánem?`,
       icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Archivovat',
+      acceptLabel: 'Smazat',
       rejectLabel: 'Zrušit',
       acceptButtonProps: { severity: 'danger' },
       rejectButtonProps: { severity: 'secondary', outlined: true },
       accept: () =>
-        this.run(
-          this.versionsApi.archiveVersion(version.id),
-          'archive',
-          'Verze rozvrhu je archivovaná.',
-        ),
+        this.versionsApi.deleteVersion(version.id).subscribe({
+          next: () => {
+            this.notify.success('Koncept je smazaný.');
+            this.selection.changed();
+          },
+          error: (err) => this.notify.actionFailed('deleteVersion failed', err),
+        }),
     });
-  }
-
-  protected restore(version: TimetableVersion): void {
-    this.run(
-      this.versionsApi.restoreVersion(version.id),
-      'restore',
-      'Verze rozvrhu je zpět mezi koncepty.',
-    );
   }
 
   private run(

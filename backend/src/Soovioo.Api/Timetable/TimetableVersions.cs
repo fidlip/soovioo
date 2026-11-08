@@ -27,7 +27,7 @@ public static class TimetableVersions
             && v.ValidFrom <= day
             && (v.ValidTo == null || v.ValidTo >= day));
 
-    /// <summary>Drafts and archived versions: whoever edits the timetable,
+    /// <summary>Drafts: whoever edits the timetable,
     /// or may just look at them.</summary>
     public static async Task<bool> SeesAllTimetableVersionsAsync(this ClaimsPrincipal user, AppDbContext db) =>
         await user.HasPermissionAsync(db, Permission.Timetable)
@@ -77,7 +77,7 @@ public static class TimetableVersions
     }
 
     /// <summary>Each published version ends the day before the next one
-    /// starts; the last one, drafts and archived ones have no end.</summary>
+    /// starts; the last one and drafts have no end.</summary>
     public static async Task RecomputeTimetableValidityAsync(this AppDbContext db)
     {
         var versions = await db.TimetableVersions.ToListAsync();

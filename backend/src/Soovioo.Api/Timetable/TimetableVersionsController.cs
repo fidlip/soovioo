@@ -8,8 +8,8 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Timetable;
 
 /// <summary>Versions of the school's timetable: a draft is prepared aside
-/// (empty or as a copy), published to start on a date, and thrown away by
-/// archiving. Which one applies on a day decides the date alone — see
+/// (empty or as a copy of any version), published to start on a date, and
+/// deleted while it's a draft. Which one applies on a day decides the date alone — see
 /// <see cref="TimetableVersions"/>.</summary>
 [Authorize]
 [ApiController]
@@ -21,7 +21,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
 
     private DateOnly Today => SchoolClock.Today(clock);
 
-    /// <summary>Drafts and archived versions only for whoever may edit the
+    /// <summary>Drafts only for whoever may edit the
     /// timetable or see its versions.</summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TimetableVersionDto>>> GetVersions()
@@ -31,7 +31,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             .Where(v => all || v.Status == TimetableVersionStatus.Published)
             .OrderByDescending(v => v.ValidFrom).ThenByDescending(v => v.Id)
             .Select(v => new TimetableVersionDto(
-                v.Id, v.Name, v.ValidFrom, v.ValidTo, v.Status, v.Entries.Count, v.CreatedAt, v.PublishedAt))
+                v.Id, v.Name, v.ValidFrom, v.ValidTo, v.Status, v.Entries.Count, v.CreatedAt, v.PublishedAt,
+                v.CopiedFromVersionId, v.CopiedFromName))
             .ToListAsync());
     }
 
@@ -140,6 +141,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
             Name = name,
             ValidFrom = validFrom,
             Status = TimetableVersionStatus.Draft,
+            CopiedFromVersionId = source?.Id,
+            CopiedFromName = source?.Name,
             CreatedAt = clock.GetUtcNow(),
             CreatedByUserId = User.UserId(),
             Entries = source?.Entries.Select(e => new TimetableEntry
@@ -265,7 +268,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     }
 
     /// <summary>A published version back among drafts — only while it doesn't
-    /// apply yet, like archiving.</summary>
+    /// apply yet.</summary>
     [HttpPost("{id:int}/unpublish")]
     [RequirePermission(Permission.Timetable)]
     public async Task<ActionResult<TimetableVersionDto>> UnpublishVersion(int id)
@@ -293,54 +296,30 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
         return Ok(ToDto(version));
     }
 
-    /// <summary>Throws the version away — a draft, or a published one that
-    /// doesn't apply yet. One that applies or applied stays: past attendance
-    /// refers to it.</summary>
-    [HttpPost("{id:int}/archive")]
+    /// <summary>A draft for good, with its lessons, groups and učební plán.
+    /// Who heard of it while it was published hears now that it's off.</summary>
+    [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Timetable)]
-    public async Task<ActionResult<TimetableVersionDto>> ArchiveVersion(int id)
+    public async Task<IActionResult> DeleteVersion(int id)
     {
-        var version = await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == id);
+        var version = await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == id);
         if (version is null)
         {
             return NotFound();
         }
-        if (version.Status == TimetableVersionStatus.Archived)
+        if (version.Status != TimetableVersionStatus.Draft)
         {
-            return BadRequest("Verze už je archivovaná.");
+            return BadRequest("Smazat jde jen koncept.");
         }
-        if (version.Status == TimetableVersionStatus.Published && version.ValidFrom <= Today)
+        if (await db.Homework.AnyAsync(h => h.StudentGroup!.TimetableVersionId == id))
         {
-            return BadRequest("Verzi, která už platí nebo platila, nejde archivovat.");
+            return BadRequest("Skupiny konceptu mají domácí úkoly, smazat ho nejde.");
         }
 
-        version.Status = TimetableVersionStatus.Archived;
-        await new TimetableChangeNotice(db, clock).WithdrawAsync(version);
-        await db.RecomputeTimetableValidityAsync();
+        await new TimetableChangeNotice(db, clock).SendDueAsync(version);
+        db.TimetableVersions.Remove(version);
         await db.SaveChangesAsync();
-        return Ok(ToDto(version));
-    }
-
-    /// <summary>An archived version back among drafts.</summary>
-    [HttpPost("{id:int}/restore")]
-    [RequirePermission(Permission.Timetable)]
-    public async Task<ActionResult<TimetableVersionDto>> RestoreVersion(int id)
-    {
-        var version = await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == id);
-        if (version is null)
-        {
-            return NotFound();
-        }
-        if (version.Status != TimetableVersionStatus.Archived)
-        {
-            return BadRequest("Vrátit mezi koncepty jde jen archivovanou verzi.");
-        }
-
-        version.Status = TimetableVersionStatus.Draft;
-        version.PublishedAt = null;
-        version.PublishedByUserId = null;
-        await db.SaveChangesAsync();
-        return Ok(ToDto(version));
+        return NoContent();
     }
 
     /// <summary>A version may start only after every published one that
@@ -369,7 +348,8 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     }
 
     private static TimetableVersionDto ToDto(TimetableVersion v) =>
-        new(v.Id, v.Name, v.ValidFrom, v.ValidTo, v.Status, v.Entries.Count, v.CreatedAt, v.PublishedAt);
+        new(v.Id, v.Name, v.ValidFrom, v.ValidTo, v.Status, v.Entries.Count, v.CreatedAt, v.PublishedAt,
+            v.CopiedFromVersionId, v.CopiedFromName);
 }
 
 public record TimetableVersionDto(
@@ -380,7 +360,9 @@ public record TimetableVersionDto(
     TimetableVersionStatus Status,
     int EntryCount,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? PublishedAt);
+    DateTimeOffset? PublishedAt,
+    int? CopiedFromVersionId,
+    string? CopiedFromName);
 
 public record CreateTimetableVersionRequest(string Name, DateOnly ValidFrom, int? CopyFromVersionId = null);
 

@@ -16,6 +16,8 @@ function version(
     entryCount: 0,
     createdAt: '2000-01-01T00:00:00Z',
     publishedAt: null,
+    copiedFromVersionId: null,
+    copiedFromName: null,
     ...overrides,
   };
 }

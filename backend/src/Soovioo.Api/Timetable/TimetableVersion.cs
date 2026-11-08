@@ -23,6 +23,14 @@ public class TimetableVersion
 
     public TimetableVersionStatus Status { get; set; }
 
+    /// <summary>The version this one was copied from; null once it's deleted
+    /// (only a draft can be), when <see cref="CopiedFromName"/> stays.</summary>
+    public int? CopiedFromVersionId { get; set; }
+    public TimetableVersion? CopiedFromVersion { get; set; }
+
+    /// <summary>Its name when copied.</summary>
+    public string? CopiedFromName { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public int? CreatedByUserId { get; set; }
 
@@ -50,8 +58,4 @@ public enum TimetableVersionStatus
 {
     Draft,
     Published,
-
-    /// <summary>Thrown away: never valid, kept only to look at or to bring
-    /// back as a draft.</summary>
-    Archived,
 }
