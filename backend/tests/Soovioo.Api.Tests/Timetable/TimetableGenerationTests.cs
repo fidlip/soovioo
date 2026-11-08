@@ -58,8 +58,8 @@ public class TimetableGenerationTests
             new CurriculumItem { SchoolId = SchoolId, TimetableVersionId = draft.Id, Grade = 5, SubjectId = pe.Id, HoursPerWeek = 2 });
         // The few hours of these classes fill a main block of one period.
         db.GradeMainBlocks.AddRange(
-            new GradeMainBlock { SchoolId = SchoolId, Grade = 5, From = 1, To = 1 },
-            new GradeMainBlock { SchoolId = SchoolId, Grade = 6, From = 1, To = 1 });
+            new GradeMainBlock { SchoolId = SchoolId, TimetableVersionId = draft.Id, Grade = 5, From = 1, To = 1 },
+            new GradeMainBlock { SchoolId = SchoolId, TimetableVersionId = draft.Id, Grade = 6, From = 1, To = 1 });
         db.SaveChanges();
     }
 

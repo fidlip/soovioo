@@ -1,97 +1,81 @@
-import { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { versionsApi } from './timetable-versions';
+import { archive, versionsApi } from './timetable-versions';
 
-/** An InputNumber takes typing, not fill() — that keeps what's there. */
-async function setNumber(field: Locator, value: string) {
-  await field.click();
-  await field.evaluate((input: HTMLInputElement) =>
-    input.setSelectionRange(input.value.length, input.value.length),
-  );
-  for (let i = 0; i < 3; i++) {
-    await field.press('Backspace');
-  }
-  await field.pressSequentially(value);
-  await expect(field).toHaveValue(value);
-}
-
-async function edit(
-  page: Page,
-  row: Locator,
-  label: string,
-  from: string,
-  to: string,
-) {
-  await row.getByRole('button', { name: `Upravit — ${label}` }).click();
-  await setNumber(
-    page.getByRole('spinbutton', { name: `Od hodiny — ${label}` }),
-    from,
-  );
-  await setNumber(
-    page.getByRole('spinbutton', { name: `Do hodiny — ${label}` }),
-    to,
-  );
-  await page.getByRole('button', { name: `Uložit — ${label}` }).click();
-}
-
-// A class of its own in a grade no other test uses: the school's block and
-// the other grades stay as they are.
-test('a grade takes the school’s main block, a class its grade’s, both can have their own', async ({
+// An empty draft of its own: the school's block stays as it is, the grade's
+// and the class's change only in that version.
+test('the school’s main block in Nastavení, a grade’s in Učební plán, a class’s in Třídy', async ({
   page,
   request,
 }) => {
-  const name = `Blok${Date.now()}`;
+  const version = `E2E blok ${Date.now()}`;
   await page.goto('/skola/login');
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('admin123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/skola\/home$/);
   const admin = await versionsApi(page, request);
-  const created = await request.post(`${admin.api}/school-classes`, {
+  const created = await request.post(`${admin.api}/timetable-versions`, {
     headers: admin.headers,
-    data: { name, rocnik: 12 },
+    data: { name: version, validFrom: '2099-09-01' },
   });
   expect(created.ok()).toBeTruthy();
   const { id } = await created.json();
   try {
     await page.goto('/skola/admin?group=teaching&section=settings');
-    const card = page.locator('p-card', { hasText: 'Hlavní výukový blok' });
+    const card = page.locator('p-card', {
+      hasText: 'Hlavní výukový blok školy',
+    });
+    await expect(card.getByRole('spinbutton', { name: 'Od hodiny' })).toHaveValue(
+      '1',
+    );
+    await expect(card.getByRole('spinbutton', { name: 'Do hodiny' })).toHaveValue(
+      '4',
+    );
     await expect(
-      card.getByRole('spinbutton', { name: 'Škola od hodiny' }),
+      page.getByRole('combobox', { name: 'Verze rozvrhu' }),
+    ).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'Učební plán' }).click();
+    await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
+    await page.getByRole('option', { name: version }).click();
+    const plan = page.getByRole('table', { name: 'Učební plán' });
+    const gradeTo = plan.getByRole('spinbutton', {
+      name: 'Do hodiny — 5. ročník',
+    });
+    await expect(gradeTo).toHaveValue('');
+    await expect(gradeTo).toHaveAttribute('placeholder', '4');
+    await gradeTo.fill('5');
+    await page.getByRole('button', { name: 'Uložit plán' }).click();
+    await expect(page.getByText('Učební plán je uložený.')).toBeVisible();
+    await expect(
+      plan.getByRole('spinbutton', { name: 'Od hodiny — 5. ročník' }),
     ).toHaveValue('1');
     await expect(
-      card.getByRole('spinbutton', { name: 'Škola do hodiny' }),
-    ).toHaveValue('4');
-    const grade = card
-      .getByRole('table', { name: 'Ročníky' })
-      .getByRole('row', { name: /^12\. ročník/ });
-    const schoolClass = card
-      .getByRole('table', { name: 'Třídy' })
-      .getByRole('row', { name: new RegExp(`^${name}`) });
-    await expect(grade).toContainText('1.–4. hodina (podle školy)');
-    await expect(schoolClass).toContainText('1.–4. hodina (podle školy)');
+      plan.getByRole('button', { name: 'Podle školy — 5. ročník' }),
+    ).toBeVisible();
 
-    await edit(page, grade, '12. ročník', '2', '5');
-    await expect(grade).toHaveText(/2\.–5\. hodina\s*$/);
-    await expect(schoolClass).toContainText('2.–5. hodina (podle ročníku)');
+    await page.getByRole('tab', { name: 'Třídy' }).click();
+    const block = page
+      .getByRole('region', { name: 'Třída 5.A' })
+      .getByRole('group', { name: 'Hlavní výukový blok — 5.A' });
+    const classFrom = block.getByRole('spinbutton', { name: 'Od hodiny — 5.A' });
+    await expect(classFrom).toHaveAttribute('placeholder', '1');
+    await expect(
+      block.getByRole('spinbutton', { name: 'Do hodiny — 5.A' }),
+    ).toHaveAttribute('placeholder', '5');
+    await expect(block).toContainText('podle ročníku');
 
-    await edit(page, schoolClass, name, '1', '3');
-    await expect(schoolClass).toHaveText(/1\.–3\. hodina\s*$/);
+    await classFrom.fill('2');
+    await classFrom.press('Enter');
+    await expect(block).toContainText('vlastní · ročník 1.–5. hodina');
+    await expect(
+      block.getByRole('spinbutton', { name: 'Do hodiny — 5.A' }),
+    ).toHaveValue('5');
 
-    await schoolClass
-      .getByRole('button', { name: `Podle ročníku — ${name}` })
-      .click();
-    await expect(schoolClass).toContainText('2.–5. hodina (podle ročníku)');
-    await grade
-      .getByRole('button', { name: 'Podle školy — 12. ročník' })
-      .click();
-    await expect(schoolClass).toContainText('1.–4. hodina (podle školy)');
+    await block.getByRole('button', { name: 'Podle ročníku — 5.A' }).click();
+    await expect(block).toContainText('podle ročníku');
+    await expect(classFrom).toHaveValue('');
   } finally {
-    await request.delete(`${admin.api}/school-classes/${id}`, {
-      headers: admin.headers,
-    });
-    await request.delete(`${admin.api}/main-blocks/grades/12`, {
-      headers: admin.headers,
-    });
+    await archive(admin, id);
   }
 });
