@@ -96,7 +96,21 @@
               />
             </td>
             <td class="text-surface-500">
-              {{ absence.excuseReason }} @if (absence.reviewNote) {
+              @if (absence.excuseId) {
+              <a
+                [routerLink]="[]"
+                [queryParams]="{ excuse: absence.excuseId }"
+                class="text-primary hover:underline"
+                title="Otevřít omluvenku"
+                >{{ absence.excuseReason }}</a
+              >
+              @if (excuseOf(absence)?.attachments?.length) {
+              <i
+                class="pi pi-paperclip ml-1 text-surface-500"
+                title="Omluvenka má přílohu"
+                aria-label="Omluvenka má přílohu"
+              ></i>
+              } } @if (absence.reviewNote) {
               <div class="text-xs text-red-700 dark:text-red-300">
                 {{ absence.reviewNote }}
               </div>

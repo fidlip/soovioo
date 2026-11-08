@@ -7,7 +7,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
@@ -94,6 +94,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
     PeriodChips,
     PrimeTemplate,
     RejectDialog,
+    RouterLink,
     Select,
     Tab,
     TableModule,
@@ -129,6 +130,10 @@ export class AbsencesPage {
 
   protected readonly absences = signal<Absence[] | null>(null);
   protected readonly excuses = signal<Excuse[] | null>(null);
+  /** The days' omluvenky, for whether they have files. */
+  private readonly excusesById = computed(
+    () => new Map((this.excuses() ?? []).map((e) => [e.id, e])),
+  );
   private linked: { kind: 'absence' | 'excuse'; id: number } | null = null;
   protected readonly students = signal<Student[]>([]);
 
@@ -283,6 +288,12 @@ export class AbsencesPage {
 
   protected statusLabel(status: AbsenceStatus): string {
     return STATUS_LABEL[status];
+  }
+
+  protected excuseOf(absence: Absence): Excuse | undefined {
+    return absence.excuseId
+      ? this.excusesById().get(absence.excuseId)
+      : undefined;
   }
 
   /** A day is approved at the earliest that day. */
