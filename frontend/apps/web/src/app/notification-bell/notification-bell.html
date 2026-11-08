@@ -18,6 +18,15 @@
       />
       }
     </div>
+    <label class="flex items-center gap-2 text-sm">
+      <p-checkbox
+        [binary]="true"
+        inputId="notificationsUnreadOnly"
+        [ngModel]="unreadOnly()"
+        (ngModelChange)="setUnreadOnly($event)"
+      />
+      Pouze nepřečtené
+    </label>
     <ul class="m-0 flex max-h-[60vh] list-none flex-col overflow-y-auto p-0">
       @for (n of items(); track n.id) {
       <li>
@@ -59,7 +68,8 @@
       <li class="px-2 py-4 text-sm text-surface-500">
         @if (loading()) {
         <app-loading />
-        } @else { Zatím žádná upozornění. }
+        } @else if (unreadOnly()) { Žádná nepřečtená upozornění. } @else { Zatím
+        žádná upozornění. }
       </li>
       }
     </ul>

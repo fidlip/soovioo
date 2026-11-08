@@ -1,6 +1,8 @@
 import { Component, inject, signal, viewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Popover } from '@openng/optimus-ui/popover';
 import {
   AppNotification,
@@ -25,12 +27,22 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   Substitution: 'pi-user-edit',
 };
 
+const UNREAD_ONLY_STORAGE_KEY = 'soovioo-notifications-unread-only';
+
+function readUnreadOnly(): boolean {
+  try {
+    return localStorage.getItem(UNREAD_ONLY_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 /** The bell's popover with the notifications — a click opens the thing
  * it's about. The buttons that open it are the app shell's (sidebar, phone
  * top bar), they call `toggle`. */
 @Component({
   selector: 'app-notification-bell',
-  imports: [DateFormatPipe, Button, Loading, Popover],
+  imports: [DateFormatPipe, Button, Checkbox, FormsModule, Loading, Popover],
   templateUrl: './notification-bell.html',
 })
 export class NotificationBell {
@@ -44,6 +56,7 @@ export class NotificationBell {
   protected readonly items = signal<AppNotification[]>([]);
   protected readonly hasMore = signal(false);
   protected readonly loading = signal(false);
+  protected readonly unreadOnly = signal(readUnreadOnly());
 
   protected readonly icons = TYPE_ICONS;
 
@@ -57,6 +70,18 @@ export class NotificationBell {
     this.fetch();
   }
 
+  protected setUnreadOnly(unreadOnly: boolean): void {
+    this.unreadOnly.set(unreadOnly);
+    try {
+      localStorage.setItem(UNREAD_ONLY_STORAGE_KEY, String(unreadOnly));
+    } catch {
+      // Blocked storage — the filter still works until a reload.
+    }
+    this.items.set([]);
+    this.hasMore.set(false);
+    this.fetch();
+  }
+
   protected loadMore(): void {
     const items = this.items();
     this.fetch(items[items.length - 1]?.id);
@@ -64,7 +89,7 @@ export class NotificationBell {
 
   private fetch(beforeId?: number): void {
     this.loading.set(true);
-    this.api.getNotifications(beforeId).subscribe({
+    this.api.getNotifications(beforeId, this.unreadOnly()).subscribe({
       next: (page) => {
         this.items.update((items) =>
           beforeId ? [...items, ...page.items] : page.items,

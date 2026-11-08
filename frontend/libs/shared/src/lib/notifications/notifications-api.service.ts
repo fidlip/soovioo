@@ -19,11 +19,20 @@ export class NotificationsApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  /** Newest first; `beforeId` continues below the last one shown. */
-  getNotifications(beforeId?: number): Observable<NotificationPage> {
+  /** Newest first; `beforeId` continues below the last one shown, `unread`
+   * leaves out the read ones. */
+  getNotifications(
+    beforeId?: number,
+    unread = false,
+  ): Observable<NotificationPage> {
     return this.http.get<NotificationPage>(
       `${this.baseUrl}/api/notifications`,
-      beforeId ? { params: { beforeId } } : {},
+      {
+        params: {
+          ...(beforeId ? { beforeId } : {}),
+          ...(unread ? { unread } : {}),
+        },
+      },
     );
   }
 

@@ -7,14 +7,12 @@ function apiUrl(page: Page): string {
   return `http://${url.hostname}:${Number(url.port || 4200) + 880}/api`;
 }
 
-test('a message to the family shows under the parent’s bell and opens the conversation', async ({
-  page,
-  request,
-}) => {
-  const subject = `E2E upozornění ${Date.now()}`;
-  await page.goto('/skola/login');
-
-  // The teacher writes to Jan Novák's family — straight through the API.
+/** The teacher writes to Jan Novák's family — straight through the API. */
+async function writeToFamily(
+  page: Page,
+  request: APIRequestContext,
+  subject: string,
+) {
   const api = apiUrl(page);
   const { token } = await (
     await request.post(`${api}/auth/login`, {
@@ -37,6 +35,15 @@ test('a message to the family shows under the parent’s bell and opens the conv
       })
     ).ok(),
   ).toBe(true);
+}
+
+test('a message to the family shows under the parent’s bell and opens the conversation', async ({
+  page,
+  request,
+}) => {
+  const subject = `E2E upozornění ${Date.now()}`;
+  await page.goto('/skola/login');
+  await writeToFamily(page, request, subject);
 
   await page.locator('#username').fill('rodic');
   await page.locator('#password').fill('rodic123');
@@ -205,4 +212,38 @@ test('a link from the daily e-mail leads back to the thing after logging in', as
 
   await expect(page).toHaveURL(/\/skola\/grades$/);
   await expect(page.locator(`#grade-${gradeId}`)).toHaveClass(/app-highlight/);
+});
+
+test('the bell can show only the unread notifications', async ({
+  page,
+  request,
+}) => {
+  const subject = `E2E nepřečtené ${Date.now()}`;
+  await page.goto('/skola/login');
+  await writeToFamily(page, request, subject);
+  await writeToFamily(page, request, `B ${subject}`);
+  await logInAsParent(page);
+  await expect(page).toHaveURL(/\/skola\/home$/);
+
+  const bellButton = page.getByRole('button', {
+    name: /^Upozornění, \d+ nepřečtených$/,
+  });
+  const bell = page.getByRole('region', { name: 'Upozornění' });
+  const item = bell.getByRole('button', { name: `Nová zpráva: ${subject}` });
+  const unreadOnly = bell.getByLabel('Pouze nepřečtené');
+  await bellButton.click();
+  await unreadOnly.check();
+  await item.click();
+  await expect(page).toHaveURL(/\/skola\/messages\?conversation=\d+$/);
+
+  // Remembered on this device: the read one is gone next time.
+  await page.reload();
+  await page.getByRole('button', { name: /^Upozornění/ }).click();
+  await expect(unreadOnly).toBeChecked();
+  await expect(
+    bell.getByRole('button', { name: `Nová zpráva: B ${subject}` }),
+  ).toBeVisible();
+  await expect(item).toHaveCount(0);
+  await unreadOnly.uncheck();
+  await expect(item).toBeVisible();
 });

@@ -380,6 +380,11 @@ public class NotificationsTests
         Assert.Equal(NotificationsController.PageSize + 2, (await UnreadAsync(bell)));
         await bell.MarkRead(page.Items[0].Id);
         Assert.Equal(NotificationsController.PageSize + 1, (await UnreadAsync(bell)));
+        var unread = Assert.IsType<NotificationPageDto>(Assert.IsType<OkObjectResult>((await bell.GetNotifications(null, unread: true)).Result).Value);
+        Assert.Equal($"Úkol {NotificationsController.PageSize}", unread.Items[0].Title);
+        Assert.All(unread.Items, n => Assert.False(n.Read));
+        var unreadRest = Assert.IsType<NotificationPageDto>(Assert.IsType<OkObjectResult>((await bell.GetNotifications(unread.Items[^1].Id, unread: true)).Result).Value);
+        Assert.Single(unreadRest.Items);
         Assert.IsType<NotFoundResult>(await bell.MarkRead((await Of(db, w.OtherParent)).Single().Id));
         await bell.MarkAllRead();
         Assert.Equal(0, (await UnreadAsync(bell)));

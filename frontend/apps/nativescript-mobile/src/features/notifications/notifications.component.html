@@ -1,16 +1,25 @@
 <ActionBar title="Soovioo — Upozornění"></ActionBar>
 
-<GridLayout rows="auto, auto, *">
+<GridLayout rows="auto, auto, auto, *">
   <ns-nav-bar row="0"></ns-nav-bar>
 
-  <StackLayout row="1" orientation="horizontal" class="p-2">
+  <GridLayout row="1" columns="*, auto" class="px-2">
+    <Label col="0" text="Pouze nepřečtené" verticalAlignment="center"></Label>
+    <Switch
+      col="1"
+      [checked]="unreadOnly()"
+      (checkedChange)="setUnreadOnly($any($event).value)"
+    ></Switch>
+  </GridLayout>
+
+  <StackLayout row="2" orientation="horizontal" class="p-2">
     <Button text="Označit vše jako přečtené" (tap)="markAllRead()"></Button>
     @if (hasMore()) {
       <Button text="Načíst starší" (tap)="loadMore()"></Button>
     }
   </StackLayout>
 
-  <ListView row="2" [items]="items()" (itemTap)="open($any($event).index)">
+  <ListView row="3" [items]="items()" (itemTap)="open($any($event).index)">
     <ng-template let-item="item">
       <StackLayout class="p-4">
         <Label
