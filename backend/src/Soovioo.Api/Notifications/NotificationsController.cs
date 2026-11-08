@@ -19,11 +19,15 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     public const int PageSize = 30;
 
     /// <summary>Newest first; <paramref name="beforeId"/> continues below
-    /// the last one shown.</summary>
+    /// the last one shown, <paramref name="unread"/> leaves out the read ones.</summary>
     [HttpGet]
-    public async Task<ActionResult<NotificationPageDto>> GetNotifications([FromQuery] int? beforeId)
+    public async Task<ActionResult<NotificationPageDto>> GetNotifications([FromQuery] int? beforeId, [FromQuery] bool unread = false)
     {
         var query = Mine();
+        if (unread)
+        {
+            query = query.Where(n => n.ReadAt == null);
+        }
         if (beforeId is { } before)
         {
             query = query.Where(n => n.Id < before);

@@ -5,6 +5,7 @@ import {
   NativeScriptCommonModule,
   RouterExtensions,
 } from '@nativescript/angular';
+import { ApplicationSettings } from '@nativescript/core';
 import {
   AppNotification,
   DateFormatPipe,
@@ -12,6 +13,8 @@ import {
 } from '@soovioo/shared';
 import { MOBILE_PAGES, notificationRoute } from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
+
+const UNREAD_ONLY_KEY = 'notificationsUnreadOnly';
 
 /** The notifications (the web's bell): tap reads it and opens its thing
  * when the app has the page. */
@@ -27,6 +30,9 @@ export class NotificationsComponent {
 
   protected readonly items = signal<AppNotification[]>([]);
   protected readonly hasMore = signal(false);
+  protected readonly unreadOnly = signal(
+    ApplicationSettings.getBoolean(UNREAD_ONLY_KEY, false),
+  );
 
   constructor() {
     // Again when a push opens it while it's open.
@@ -36,7 +42,7 @@ export class NotificationsComponent {
   }
 
   protected load(beforeId?: number): void {
-    this.api.getNotifications(beforeId).subscribe({
+    this.api.getNotifications(beforeId, this.unreadOnly()).subscribe({
       next: (page) => {
         this.items.update((items) =>
           beforeId ? [...items, ...page.items] : page.items,
@@ -45,6 +51,16 @@ export class NotificationsComponent {
       },
       error: (err) => console.error('getNotifications failed', err),
     });
+  }
+
+  protected setUnreadOnly(unreadOnly: boolean): void {
+    // The Switch also fires when it first renders.
+    if (unreadOnly === this.unreadOnly()) {
+      return;
+    }
+    this.unreadOnly.set(unreadOnly);
+    ApplicationSettings.setBoolean(UNREAD_ONLY_KEY, unreadOnly);
+    this.load();
   }
 
   protected loadMore(): void {
