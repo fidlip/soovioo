@@ -31,7 +31,6 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import {
-  ClassPicker,
   ClearFilters,
   FloatField,
   FORM_FIELDS,
@@ -98,7 +97,6 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
-    ClassPicker,
     Loading,
     MultiSelect,
     TermPipe,

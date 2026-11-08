@@ -1,7 +1,6 @@
 import { FieldErrorDirective } from './field-error.directive';
 import { SubmitButton } from './submit-button';
 
-export { ClassPicker } from './class-picker';
 export { ClearFilters } from './clear-filters';
 export { FloatField } from './float-field';
 export { studentClasses, studentPickOptions } from './student-pick';
