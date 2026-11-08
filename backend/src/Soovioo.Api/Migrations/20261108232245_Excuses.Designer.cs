@@ -13,7 +13,7 @@ using Soovioo.Api.Data;
 namespace Soovioo.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261108185753_Excuses")]
+    [Migration("20261108232245_Excuses")]
     partial class Excuses
     {
         /// <inheritdoc />
@@ -84,6 +84,10 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -3037,6 +3041,13 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateTimeOffset?>("ChangeNoticeSentAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CopiedFromName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("CopiedFromVersionId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -3069,6 +3080,8 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("date");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CopiedFromVersionId");
 
                     b.HasIndex("SchoolId", "Status", "ValidFrom");
 
@@ -4409,11 +4422,18 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Timetable.TimetableVersion", b =>
                 {
+                    b.HasOne("Soovioo.Api.Timetable.TimetableVersion", "CopiedFromVersion")
+                        .WithMany()
+                        .HasForeignKey("CopiedFromVersionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("CopiedFromVersion");
 
                     b.Navigation("School");
                 });
