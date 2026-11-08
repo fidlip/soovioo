@@ -142,15 +142,15 @@ body {
 
 @keyframes app-highlight {
   from,
-  12%,
-  24%,
+  18%,
+  36%,
   to {
     box-shadow: inset 0 0 0 2px transparent;
   }
-  6%,
-  18%,
-  30%,
-  70% {
+  9%,
+  27%,
+  45%,
+  75% {
     box-shadow: inset 0 0 0 2px var(--p-primary-color);
   }
 }
