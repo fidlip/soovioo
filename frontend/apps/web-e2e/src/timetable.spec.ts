@@ -254,6 +254,9 @@ test('admin arranges a draft by dragging lessons', async ({
   await request.post(`${admin.api}/timetable-versions/${id}/teaching/import`, {
     headers: admin.headers,
   });
+  // The whole board in the window: a drag near its edge scrolls the page,
+  // and the drop lists then stand elsewhere than where the mouse goes.
+  await page.setViewportSize({ width: 1280, height: 1600 });
   await page.goto(
     `/skola/admin?group=teaching&section=timetable&version=${id}`,
   );
@@ -280,7 +283,6 @@ test('admin arranges a draft by dragging lessons', async ({
   async function release(
     over: import('@playwright/test').Locator,
   ): Promise<void> {
-    await over.scrollIntoViewIfNeeded();
     const box = (await over.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
       steps: 8,
