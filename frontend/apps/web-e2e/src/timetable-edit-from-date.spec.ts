@@ -28,7 +28,7 @@ test('the version that applies is edited from a date: a copy, the same one again
   const admin = await versionsApi(page, request);
   await page.goto('/skola/admin?group=teaching&section=timetable');
 
-  const start = daysAhead(6000 + (Math.floor(Date.now() / 1000) % 1000));
+  const start = daysAhead(7000 + (Math.floor(Date.now() / 1000) % 1000));
   const name = `Změna od ${start.getDate()}. ${start.getMonth() + 1}. ${start.getFullYear()}`;
   const editFromDate = page.getByRole('button', { name: 'Upravit od data' });
   const dialog = page.getByRole('dialog', { name: 'Upravit od data' });
