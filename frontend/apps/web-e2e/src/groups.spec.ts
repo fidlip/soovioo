@@ -4,6 +4,7 @@ import {
   archive,
   draftCopy,
   openVersionWeek,
+  pickVersion,
   publishQuietly,
   runDayEndJob,
   showVersion,
@@ -31,8 +32,7 @@ async function openGroups(page: Page, version?: string) {
   await openNav(page, 'Administrace');
   await page.getByRole('tab', { name: 'Výuka' }).click();
   if (version) {
-    await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
-    await page.getByRole('option', { name: version }).click();
+    await pickVersion(page, version);
   }
   await page.getByRole('tab', { name: 'Skupiny' }).click();
   await expect(
@@ -309,8 +309,7 @@ test('a division teaches a row of the učební plán', async ({
   await expect(subjectDialog).toBeHidden();
 
   await page.getByRole('tab', { name: 'Výuka' }).click();
-  await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
-  await page.getByRole('option', { name: version }).click();
+  await pickVersion(page, version);
   await page.getByRole('tab', { name: 'Skupiny' }).click();
   await page.getByRole('button', { name: 'Nové dělení' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nové dělení' });

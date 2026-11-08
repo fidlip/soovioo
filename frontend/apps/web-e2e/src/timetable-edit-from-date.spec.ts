@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { archive, versionsApi } from './timetable-versions';
+import { archive, pickVersion, versionsApi } from './timetable-versions';
 
 function typed(date: Date): string {
   const pad = (n: number) => `${n}`.padStart(2, '0');
@@ -73,8 +73,7 @@ test('the version that applies is edited from a date: a copy, the same one again
   ).toBeAttached();
   const [draft] = await draftsNamed();
   try {
-    await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
-    await page.getByRole('option', { name: '(platí)' }).click();
+    await pickVersion(page, 'Platí');
     await expect(page.getByTestId('timetable-version-read-only')).toBeVisible();
 
     await openDraft();

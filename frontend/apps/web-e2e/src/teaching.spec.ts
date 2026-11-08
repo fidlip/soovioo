@@ -1,6 +1,12 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { archive, draftCopy, versionsApi } from './timetable-versions';
+import {
+  archive,
+  draftCopy,
+  pickVersion,
+  versionsApi,
+  versionsButton,
+} from './timetable-versions';
 
 async function login(page: Page, username: string, password: string) {
   await page.goto('/skola/login');
@@ -15,11 +21,6 @@ function openNav(page: Page, name: string) {
     .getByRole('navigation', { name: 'Hlavní navigace' })
     .getByRole('link', { name, exact: true })
     .click();
-}
-
-async function pickVersion(page: Page, version: string) {
-  await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
-  await page.getByRole('option', { name: version }).click();
 }
 
 async function openTeaching(page: Page, version: string) {
@@ -100,6 +101,41 @@ test.describe.serial('teaching', () => {
     await page.getByRole('button', { name: 'Uložit plán' }).click();
     await expect(page.getByText('Učební plán je uložený.')).toBeVisible();
     await expect(english).toHaveValue('3');
+  });
+
+  test('one version choice for the sections that belong to it', async ({
+    page,
+  }) => {
+    const button = versionsButton(page);
+    // Chosen in Rozvrh, then here in Třídy.
+    await openTeaching(page, version);
+    await expect(button).toContainText(version);
+    const place = async () => {
+      const box = await button.boundingBox();
+      return { x: box?.x, y: box?.y };
+    };
+    const row = await place();
+
+    await page.getByRole('tab', { name: 'Učitelé' }).click();
+    await pickVersion(page, 'Platí');
+    const label = await button.getAttribute('aria-label');
+    const seeded = label!.replace('Verze rozvrhu: ', '');
+    await page.getByRole('tab', { name: 'Rozvrh' }).click();
+    await expect(page.getByTestId('timetable-version-info')).toContainText(
+      seeded,
+    );
+    await expect(button).toContainText(seeded);
+    // In the same place in every section.
+    expect(await place()).toEqual(row);
+
+    await expect(page.getByTestId('teaching-sections-divider')).toBeVisible();
+    for (const global of ['Suplování', 'Nastavení']) {
+      await page.getByRole('tab', { name: global }).click();
+      await expect(button).toHaveCount(0);
+    }
+
+    await page.getByRole('tab', { name: 'Učební plán' }).click();
+    await expect(button).toContainText(seeded);
   });
 
   test('a class opened from Administrace gets its own plan and back', async ({

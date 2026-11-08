@@ -1,0 +1,234 @@
+<p-button
+  severity="secondary"
+  [outlined]="true"
+  [ariaLabel]="'Verze rozvrhu: ' + (current()?.name ?? 'žádná')"
+  aria-haspopup="dialog"
+  (onClick)="toggle($event)"
+>
+  @if (current(); as version) { @let status = statusLabel(version, today);
+  <span class="font-semibold">{{ version.name }}</span>
+  <p-tag [value]="status.label" [severity]="status.severity" />
+  } @else {
+  <span>Žádná verze rozvrhu</span>
+  }
+  <i class="pi pi-chevron-down text-xs" aria-hidden="true"></i>
+</p-button>
+
+<p-popover ariaLabel="Verze rozvrhu">
+  <div class="flex w-[40rem] max-w-[calc(100vw-2rem)] flex-col gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <span class="font-semibold">Verze rozvrhu</span>
+      @if (canEdit()) {
+      <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
+      }
+    </div>
+    <ul
+      class="m-0 flex max-h-[60vh] list-none flex-col gap-2 overflow-y-auto p-0"
+    >
+      @for (version of versions(); track version.id) { @let status =
+      statusLabel(version, today); @let picked = version.id === current()?.id;
+      <li
+        class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3"
+        [class.border-primary]="picked"
+        [class.border-surface-200]="!picked"
+        [class.dark:border-surface-700]="!picked"
+        data-testid="timetable-version"
+      >
+        <button
+          type="button"
+          class="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left text-inherit"
+          [attr.aria-current]="picked ? 'true' : null"
+          (click)="pick(version)"
+        >
+          <span class="flex flex-wrap items-center gap-2 font-semibold">
+            @if (picked) {
+            <i class="pi pi-check text-primary" aria-hidden="true"></i>
+            } {{ version.name }}
+            <p-tag [value]="status.label" [severity]="status.severity" />
+          </span>
+          <span class="block text-sm text-surface-500">
+            {{ validity(version) }} · {{ version.entryCount }} h
+          </span>
+        </button>
+        @if (canEdit()) {
+        <div class="flex flex-wrap gap-1">
+          @if (version.status !== 'Archived') {
+          <p-button
+            label="Upravit"
+            severity="secondary"
+            [text]="true"
+            size="small"
+            (onClick)="startEdit(version)"
+          />
+          } @if (version.status === 'Draft') {
+          <p-button
+            label="Zveřejnit"
+            size="small"
+            (onClick)="publish(version)"
+          />
+          } @if (canUnpublish(version)) {
+          <p-button
+            label="Zrušit zveřejnění"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            (onClick)="unpublish(version)"
+          />
+          } @if (canArchive(version)) {
+          <p-button
+            label="Archivovat"
+            severity="danger"
+            [outlined]="true"
+            size="small"
+            (onClick)="archive(version)"
+          />
+          } @if (version.status === 'Archived') {
+          <p-button
+            label="Vrátit mezi koncepty"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            (onClick)="restore(version)"
+          />
+          }
+        </div>
+        }
+      </li>
+      } @empty {
+      <li class="text-surface-500">Škola zatím nemá žádnou verzi rozvrhu.</li>
+      }
+    </ul>
+  </div>
+</p-popover>
+
+<p-dialog
+  [visible]="form() !== null"
+  (visibleChange)="!$event && closeForm()"
+  [header]="form() === 'new' ? 'Nový koncept' : 'Upravit verzi rozvrhu'"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (form() !== null) {
+  <form class="flex flex-col gap-3" #versionForm="ngForm" (ngSubmit)="save()">
+    <app-float-field label="Název" for="versionName">
+      <input
+        pInputText
+        id="versionName"
+        name="versionName"
+        required
+        maxlength="100"
+        [(ngModel)]="formName"
+        class="w-full"
+      />
+    </app-float-field>
+    @if (form() === 'new' || canMoveStart(editingVersion()!)) {
+    <app-float-field label="Platí od" for="versionValidFrom">
+      <p-datePicker
+        inputId="versionValidFrom"
+        name="versionValidFrom"
+        required
+        [(ngModel)]="formValidFrom"
+        [showIcon]="true"
+        [showOnFocus]="false"
+        appendTo="body"
+      />
+    </app-float-field>
+    } @if (form() === 'new') {
+    <app-float-field label="Vychází z" for="versionCopyFrom">
+      <p-select
+        ariaLabel="Vychází z"
+        inputId="versionCopyFrom"
+        name="versionCopyFrom"
+        [options]="copyOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="formCopyFrom"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <p class="m-0 text-sm text-surface-500">
+      Koncept uvidí jen ti, kdo smí upravovat rozvrh. Platit začne až po
+      zveřejnění.
+    </p>
+    }
+    <div class="mt-2 flex justify-end gap-2">
+      <p-button
+        type="button"
+        label="Zrušit"
+        severity="secondary"
+        [text]="true"
+        (onClick)="closeForm()"
+      />
+      <app-submit-button
+        [form]="versionForm"
+        [label]="form() === 'new' ? 'Vytvořit koncept' : 'Uložit'"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="publishing() !== null"
+  (visibleChange)="!$event && publishing.set(null)"
+  header="Zveřejnit verzi rozvrhu"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (publishing(); as version) {
+  <p class="mt-0">{{ publishMessage(version) }}</p>
+  @if (publishProblems(); as problems) { @if (problems.length > 0) {
+  <p-message severity="warn" styleClass="w-full">
+    <div class="flex flex-col gap-1" data-testid="publish-problems">
+      <div class="font-semibold">
+        V rozvrhu jsou problémy, zvažte jejich opravu před zveřejněním:
+      </div>
+      <ul class="m-0 list-disc pl-5 text-sm">
+        @for (problem of problems; track $index) {
+        <li>{{ problem }}</li>
+        }
+      </ul>
+    </div>
+  </p-message>
+  } } @else {
+  <app-loading text="Kontroluji rozvrh…" />
+  } @if (publishChangedDays().length > 0) {
+  <p-message
+    severity="info"
+    styleClass="mt-3 w-full"
+    data-testid="publish-substitutions"
+    >{{ changedDaysMessage(publishChangedDays()) }}</p-message
+  >
+  } @if (publishNotifyOptions().length > 1) {
+  <div class="mt-4">
+    <app-float-field label="Upozornit dotčené" for="publishNotify">
+      <p-select
+        ariaLabel="Upozornit dotčené"
+        inputId="publishNotify"
+        name="publishNotify"
+        [options]="publishNotifyOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="publishNotifyDaysBefore"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+  </div>
+  }
+  <div class="mt-4 flex justify-end gap-2">
+    <p-button
+      label="Zrušit"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="publishing.set(null)"
+    />
+    <p-button
+      [label]="publishProblems()?.length ? 'Přesto zveřejnit' : 'Zveřejnit'"
+      [disabled]="publishProblems() === null"
+      (onClick)="confirmPublish(version)"
+    />
+  </div>
+  }
+</p-dialog>

@@ -9,6 +9,7 @@ import {
   untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
@@ -48,8 +49,10 @@ import { NotifyService } from '../notify.service';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
 import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
 import { MainBlockSettings } from '../periods-editor/main-block-settings';
+import { TimetableGenerateDialog } from '../timetable-page/timetable-generate-dialog';
 import { TimetablePage } from '../timetable-page/timetable-page';
 import { TimetableVersionSelection } from '../timetable-page/timetable-version-selection';
+import { TimetableVersions } from '../timetable-page/timetable-versions';
 import {
   MainBlockEdit,
   classMainBlockNote,
@@ -94,7 +97,9 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
     Tag,
     TeacherWishesDefaults,
     MainBlockSettings,
+    TimetableGenerateDialog,
     TimetablePage,
+    TimetableVersions,
     Tooltip,
   ],
   providers: [TimetableVersionSelection],
@@ -107,6 +112,8 @@ export class TeachingTab {
   private readonly subjectsApi = inject(SubjectsApiService);
   private readonly notify = inject(NotifyService);
   protected readonly authApi = inject(AuthApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly formatHours = formatHours;
   protected readonly taughtSummary = taughtSummary;
@@ -126,20 +133,20 @@ export class TeachingTab {
   protected readonly sections = computed(() => [
     ...(this.authApi.can('Timetable') ||
     this.authApi.can('TimetableVersionsRead')
-      ? [{ value: 'timetable', label: 'Rozvrh' }]
+      ? [{ value: 'timetable', label: 'Rozvrh', versioned: true }]
       : []),
     ...(this.canSeeOverview
       ? [
-          { value: 'classes', label: 'Třídy' },
-          { value: 'teachers', label: 'Učitelé' },
-          { value: 'groups', label: 'Skupiny' },
-          { value: 'plan', label: 'Učební plán' },
+          { value: 'classes', label: 'Třídy', versioned: true },
+          { value: 'teachers', label: 'Učitelé', versioned: true },
+          { value: 'groups', label: 'Skupiny', versioned: true },
+          { value: 'plan', label: 'Učební plán', versioned: true },
         ]
       : []),
     ...(this.authApi.can('Timetable')
       ? [
-          { value: 'substitutions', label: 'Suplování' },
-          { value: 'settings', label: 'Nastavení' },
+          { value: 'substitutions', label: 'Suplování', versioned: false },
+          { value: 'settings', label: 'Nastavení', versioned: false },
         ]
       : []),
   ]);
@@ -150,6 +157,19 @@ export class TeachingTab {
       sections.find((s) => s.value === wanted)?.value ?? sections[0]?.value
     );
   });
+  /** Sections of the chosen version: the row with it above them. */
+  protected readonly versioned = computed(
+    () =>
+      this.sections().find((s) => s.value === this.activeSection())
+        ?.versioned ?? false,
+  );
+  protected readonly canEditVersions = this.authApi.can('Timetable');
+  protected readonly canGenerate = computed(
+    () => this.canEditVersions && this.selection.version()?.status === 'Draft',
+  );
+  protected readonly generateVisible = signal(false);
+  /** Opened from the "generated" notification: straight on the result. */
+  protected readonly generateShowResult = signal(false);
   protected readonly showsOverview = computed(() =>
     OVERVIEW_SECTIONS.includes(this.activeSection()),
   );
@@ -297,9 +317,11 @@ export class TeachingTab {
       }
     });
     this.selection.reload();
+    this.openGenerationResult();
     effect(() => {
       const versionId = this.versionId();
       const loaded = this.selection.loaded();
+      this.selection.revision();
       untracked(() => {
         if (versionId !== null && this.canSeeOverview) {
           this.loadOverview(versionId);
@@ -329,6 +351,25 @@ export class TeachingTab {
         error: (err) => console.error('getSubjects failed', err),
       });
     }
+  }
+
+  /** The "generated" notification: its version (Rozvrh picks it from the
+   * address) with the result. */
+  private openGenerationResult(): void {
+    const query = this.route.snapshot.queryParamMap;
+    if (!query.get('version') || query.get('generation') !== 'result') {
+      return;
+    }
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { generation: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    this.selection.reload(() => {
+      this.generateShowResult.set(true);
+      this.generateVisible.set(true);
+    });
   }
 
   private loadOverview(id: number): void {

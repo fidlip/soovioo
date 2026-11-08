@@ -1,6 +1,11 @@
 import { Locator } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { archive, versionsApi } from './timetable-versions';
+import {
+  archive,
+  pickVersion,
+  versionsApi,
+  versionsButton,
+} from './timetable-versions';
 
 /** An InputNumber takes typing, not fill() — that keeps what's there. */
 async function setNumber(field: Locator, value: string) {
@@ -39,8 +44,7 @@ test('the school’s main block in Nastavení, a grade’s in Učební plán, a 
   ).json();
   try {
     await page.goto('/skola/admin?group=teaching&section=plan');
-    await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
-    await page.getByRole('option', { name: version }).click();
+    await pickVersion(page, version);
     const plan = page.getByRole('table', { name: 'Učební plán' });
     const gradeTo = plan.getByRole('spinbutton', {
       name: 'Do hodiny — 5. ročník',
@@ -51,9 +55,7 @@ test('the school’s main block in Nastavení, a grade’s in Učební plán, a 
     // The school's block, without a version; the grades take it at once.
     for (const to of ['6', '4']) {
       await page.getByRole('tab', { name: 'Nastavení' }).click();
-      await expect(
-        page.getByRole('combobox', { name: 'Verze rozvrhu' }),
-      ).toHaveCount(0);
+      await expect(versionsButton(page)).toHaveCount(0);
       const card = page.locator('p-card', {
         hasText: 'Hlavní výukový blok školy',
       });

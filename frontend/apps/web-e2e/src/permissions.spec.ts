@@ -1,6 +1,11 @@
 import { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { archive, draftCopy, showVersion } from './timetable-versions';
+import {
+  archive,
+  draftCopy,
+  openVersions,
+  showVersion,
+} from './timetable-versions';
 
 // What every page offers follows the permissions of the active role: a
 // staff role of the school's own without any shows no tools, the same role
@@ -274,9 +279,16 @@ test('drafts to look at only: Rozvrh in Administrace, without editing', async ({
   await expect(page.getByRole('tab', { name: 'Rozvrh' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Učební plán' })).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'Nastavení' })).toHaveCount(0);
+  // Only to pick one.
+  const versions = await openVersions(page);
+  await expect(versions.getByTestId('timetable-version').first()).toBeVisible();
   await expect(
-    page.getByRole('combobox', { name: 'Verze rozvrhu' }),
-  ).toBeVisible();
+    versions.getByRole('button', { name: 'Nový koncept' }),
+  ).toHaveCount(0);
+  await expect(versions.getByRole('button', { name: 'Upravit' })).toHaveCount(
+    0,
+  );
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Přidat hodinu' })).toHaveCount(
     0,
   );

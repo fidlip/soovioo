@@ -1,23 +1,4 @@
-@if (editor) { @if (canSeeVersions()) {
-<div class="mb-4 flex flex-wrap gap-2">
-  <p-button
-    label="Verze rozvrhu"
-    icon="pi pi-history"
-    severity="secondary"
-    [outlined]="true"
-    (onClick)="versionsDialogVisible.set(true)"
-  />
-  @if (canGenerate()) {
-  <p-button
-    label="Generovat"
-    icon="pi pi-cog"
-    severity="secondary"
-    [outlined]="true"
-    (onClick)="generateDialogVisible.set(true)"
-  />
-  }
-</div>
-} } @else {
+@if (!editor) {
 <div class="mb-6 flex items-center justify-between gap-4">
   <h1 class="mb-0 flex items-center gap-3">
     <app-icon name="timetable" />Rozvrh
@@ -507,29 +488,11 @@
 </section>
 } } @else {
 <app-loading />
-} @if (editor && canSeeVersions()) {
-<app-timetable-versions-dialog
-  [visible]="versionsDialogVisible()"
-  [canEdit]="canManageTimetable()"
-  [versions]="versions()"
-  [shownVersionId]="shownVersion()?.id ?? null"
-  (closed)="versionsDialogVisible.set(false)"
-  (changed)="onVersionsChanged()"
-  (show)="onShowVersion($event)"
-/>
 } @if (editor && canManageTimetable()) {
 <app-timetable-edit-from-date-dialog
   [version]="editFromDateVersion()"
   (closed)="editFromDateVersion.set(null)"
   (opened)="onEditFromDate($event)"
-/>
-} @if (editor && canGenerate()) {
-<app-timetable-generate-dialog
-  [visible]="generateDialogVisible()"
-  [versionId]="shownVersion()!.id"
-  [showResult]="generateShowResult()"
-  (closed)="generateDialogVisible.set(false); generateShowResult.set(false)"
-  (generated)="onVersionsChanged()"
 />
 }
 

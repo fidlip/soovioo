@@ -110,9 +110,35 @@ export function openVersionWeek(page: Page, id: number) {
   return page.goto(`/skola/timetable?version=${id}&change=start`);
 }
 
-/** Administrace → Výuka's choice of a version. */
+/** Administrace → Výuka: the button with the chosen version. */
+export function versionsButton(page: Page) {
+  return page.getByRole('button', { name: /^Verze rozvrhu: / });
+}
+
+/** The button's popover with the versions (the archived ones behind Archiv). */
+export async function openVersions(page: Page) {
+  await versionsButton(page).click();
+  return page.getByRole('dialog', { name: 'Verze rozvrhu' });
+}
+
+export function versionItem(page: Page, name: string) {
+  return page
+    .getByRole('dialog', { name: 'Verze rozvrhu' })
+    .getByTestId('timetable-version')
+    .filter({ hasText: name });
+}
+
+/** Administrace → Výuka's choice of a version: by its name or status. */
+export async function pickVersion(page: Page, name: string) {
+  await openVersions(page);
+  await versionItem(page, name).getByRole('button').first().click();
+  await expect(
+    page.getByRole('dialog', { name: 'Verze rozvrhu' }),
+  ).toBeHidden();
+}
+
+/** Picked in Rozvrh, where the timetable shows it. */
 export async function showVersion(page: Page, name: string) {
-  await page.getByRole('combobox', { name: 'Verze rozvrhu' }).click();
-  await page.getByRole('option', { name }).click();
+  await pickVersion(page, name);
   await expect(page.getByTestId('timetable-version-info')).toContainText(name);
 }
