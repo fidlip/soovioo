@@ -10,11 +10,24 @@
     *ngIf="canAddGrade()"
   ></Button>
 
-  <ListView row="2" [items]="grades()">
+  <ListView #list row="2" [items]="grades()">
     <ng-template let-item="item">
-      <StackLayout class="p-4">
+      <StackLayout
+        class="p-4"
+        [class.app-highlight]="item.id === highlight.id()"
+      >
         <Label
-          [text]="item.studentName + ' — ' + item.subjectName + ': ' + item.value + ' (váha ' + item.weight + ')' + (item.note ? ' (' + item.note + ')' : '')"
+          [text]="
+            item.studentName +
+            ' — ' +
+            item.subjectName +
+            ': ' +
+            item.value +
+            ' (váha ' +
+            item.weight +
+            ')' +
+            (item.note ? ' (' + item.note + ')' : '')
+          "
           class="text-lg"
         ></Label>
       </StackLayout>

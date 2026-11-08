@@ -139,6 +139,8 @@ public class PushTests
         Assert.Equal("Nová zpráva: Výlet", full.Title);
         Assert.Equal("Jan Novák: 1", full.Body);
         Assert.Equal("8", full.Data["targetId"]);
+        Assert.Equal(parent.Id.ToString(), full.Data["userId"]);
+        Assert.Equal((await db.Notifications.SingleAsync(n => n.TargetId == 8)).Id.ToString(), full.Data["notificationId"]);
         Assert.Equal(6, sender.Sent.Count);
     }
 
@@ -164,6 +166,8 @@ public class PushTests
         Assert.Equal("2 nová upozornění", message.Title);
         Assert.Equal("Nová známka, Nový domácí úkol", message.Body);
         Assert.Equal("notifications", message.Data["page"]);
+        Assert.Equal(parent.Id.ToString(), message.Data["userId"]);
+        Assert.False(message.Data.ContainsKey("notificationId"));
         Assert.All(await db.Notifications.ToListAsync(), n => Assert.NotNull(n.PushedAt));
 
         await new PushJob(db, sender, clock).RunAsync();

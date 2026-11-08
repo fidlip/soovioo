@@ -5,6 +5,7 @@ import {
   AndroidActivityNewIntentEventData,
   AndroidApplication,
   Application,
+  Dialogs,
   Utils,
   isAndroid,
   isIOS,
@@ -12,11 +13,13 @@ import {
 import { firebase } from '@nativescript/firebase-core';
 import '@nativescript/firebase-messaging';
 import type { RemoteMessage } from '@nativescript/firebase-messaging';
-import { AuthApiService, NotificationsApiService } from '@soovioo/shared';
-import { Subject, filter, take } from 'rxjs';
-
-/** Pages of the app a notification can open — the others stay on the web. */
-export const MOBILE_PAGES = ['grades', 'absences', 'messages'];
+import {
+  AuthApiService,
+  LinkedAccountsApiService,
+  NotificationsApiService,
+} from '@soovioo/shared';
+import { Subject, filter, firstValueFrom, switchMap, take } from 'rxjs';
+import { notificationRoute } from './linked-item';
 
 const NOTIFICATION_PERMISSION = 'android.permission.POST_NOTIFICATIONS';
 
@@ -24,16 +27,18 @@ const NOTIFICATION_PERMISSION = 'android.permission.POST_NOTIFICATIONS';
  * the ones it shows itself (AndroidManifest.xml). */
 const CHANNEL_ID = 'upozorneni';
 
-/** The page a notification shown by the app itself opens. */
-const PAGE_EXTRA = 'cz.soovioo.app.page';
+/** The push's data (JSON) in a notification shown by the app itself. */
+const DATA_EXTRA = 'cz.soovioo.app.data';
 
 /** Push notifications: registers this phone for the logged-in account
  * (after logging in, at start, whenever FCM changes the token), removes it
- * when logging out, and opens the page a tapped push is about. */
+ * when logging out, and opens what a tapped push is about — under the
+ * account it's for, switching to that linked account first. */
 @Injectable({ providedIn: 'root' })
 export class PushService {
   private readonly api = inject(NotificationsApiService);
   private readonly auth = inject(AuthApiService);
+  private readonly linkedAccountsApi = inject(LinkedAccountsApiService);
   private readonly router = inject(RouterExtensions);
 
   /** Something new may have come (a push arrived, the app came back to
@@ -54,9 +59,9 @@ export class PushService {
       Application.android.on(
         AndroidApplication.activityNewIntentEvent,
         (args: AndroidActivityNewIntentEventData) => {
-          const page = args.intent?.getStringExtra(PAGE_EXTRA);
-          if (page) {
-            this.open({ page });
+          const data = args.intent?.getStringExtra(DATA_EXTRA);
+          if (data) {
+            this.open(JSON.parse(data));
           }
         },
       );
@@ -125,26 +130,58 @@ export class PushService {
       });
   }
 
-  private open(data: Record<string, string> | undefined): void {
-    const page = data?.['page'] ?? '';
-    const go = () => {
-      this.router.navigate([
-        MOBILE_PAGES.includes(page) ? `/${page}` : '/notifications',
-      ]);
-      this.changed.next();
-    };
+  /** Logs in to a linked account in place of this one; the phone stays
+   * registered, now for that account. */
+  async switchAccount(userId: number): Promise<void> {
+    await firstValueFrom(
+      this.linkedAccountsApi
+        .switchTo(userId)
+        .pipe(switchMap(({ code }) => this.auth.redeemLoginCode(code))),
+    );
+    this.enable();
+  }
+
+  private async open(data: Record<string, string> | undefined): Promise<void> {
     // A tap that started the app comes before its first page — which
     // would replace this one.
-    if (this.router.router.navigated) {
-      go();
-    } else {
-      this.router.router.events
-        .pipe(
+    if (!this.router.router.navigated) {
+      await firstValueFrom(
+        this.router.router.events.pipe(
           filter((e) => e instanceof NavigationEnd),
           take(1),
-        )
-        .subscribe(go);
+        ),
+      );
     }
+    const userId = Number(data?.['userId']);
+    // Pages decide by the account when they're created.
+    let clearHistory = false;
+    if (userId && this.auth.isLoggedIn() && userId !== this.auth.getUserId()) {
+      try {
+        await this.switchAccount(userId);
+        clearHistory = true;
+      } catch {
+        await Dialogs.alert({
+          title: 'Přepnutí se nepovedlo',
+          message: 'Upozornění je pro účet, na který se nedá přepnout.',
+          okButtonText: 'OK',
+        });
+        this.router.navigate(['/notifications']);
+        return;
+      }
+    }
+    const notificationId = Number(data?.['notificationId']);
+    if (notificationId && this.auth.isLoggedIn()) {
+      this.api.markRead(notificationId).subscribe({
+        next: () => this.changed.next(),
+        error: (err) => console.error('markRead failed', err),
+      });
+    }
+    const { commands, queryParams } = notificationRoute(
+      data?.['page'] ?? '',
+      Number(data?.['targetId']) || null,
+    );
+    this.router.navigate(commands, { queryParams, clearHistory });
+    this.changed.next();
   }
 }
 
@@ -191,7 +228,7 @@ function createChannel(): void {
 }
 
 /** A push that came while the app is open, as a notification of its own —
- * tapping it brings the app's activity a new intent with the page. */
+ * tapping it brings the app's activity a new intent with the push's data. */
 function showAndroidNotification(message: RemoteMessage): void {
   const context = Utils.android.getApplicationContext();
   const intent = context
@@ -200,7 +237,7 @@ function showAndroidNotification(message: RemoteMessage): void {
   if (!intent) {
     return;
   }
-  intent.putExtra(PAGE_EXTRA, message.data?.['page'] ?? '');
+  intent.putExtra(DATA_EXTRA, JSON.stringify(message.data ?? {}));
   intent.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
   const id = Date.now() % 2147483647;
   const tap = android.app.PendingIntent.getActivity(
