@@ -37,6 +37,69 @@ test('desktop sidebar collapses to icons and remembers it after reload', async (
   ).toBeVisible();
 });
 
+test.describe('deployed version', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/version.json', (route) =>
+      route.fulfill({
+        json: {
+          version: '2026.11.08-abc1234',
+          commit: 'abc123',
+          builtAt: '2026-11-08T20:00:00Z',
+          repository: 'https://github.com/fidlip/soovioo',
+          pullRequests: [
+            {
+              number: 244,
+              title: 'Split the app shell component (#72)',
+              mergedAt: '2026-11-08T19:37:30Z',
+            },
+          ],
+        },
+      }),
+    );
+  });
+
+  test('an admin sees it with its pull requests, not in the collapsed sidebar', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await login(page);
+
+    await page
+      .getByRole('button', { name: /^Verze 2026\.11\.08-abc1234/ })
+      .click();
+    const popover = page.getByRole('region', {
+      name: 'Verze 2026.11.08-abc1234',
+    });
+    await expect(
+      popover.getByRole('link', { name: /Split the app shell component/ }),
+    ).toHaveAttribute('href', 'https://github.com/fidlip/soovioo/pull/244');
+    await expect(
+      popover.getByRole('link', { name: 'Historie na GitHubu' }),
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/fidlip/soovioo/commits/abc123',
+    );
+
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Sbalit menu' }).click();
+    await expect(page.getByRole('button', { name: /^Verze/ })).toBeHidden();
+  });
+
+  test('a teacher does not see it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/skola/login');
+    await page.locator('#username').fill('ucitel');
+    await page.locator('#password').fill('ucitel123');
+    await page.getByRole('button', { name: 'Přihlásit se' }).click();
+    await expect(page).toHaveURL(/\/skola\/home$/);
+
+    await expect(
+      page.getByRole('button', { name: 'Sbalit menu' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Verze/ })).toBeHidden();
+  });
+});
+
 test('mobile drawer opens from the hamburger and closes after navigating', async ({
   page,
 }) => {

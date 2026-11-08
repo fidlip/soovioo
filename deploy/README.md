@@ -29,6 +29,10 @@ job `images` souběžně s testy postaví image `api` a `web` a nahraje je do GH
 `deploy` zkopíruje na server `docker-compose.yml`, `Caddyfile` a `deploy.sh` do
 `/opt/soovioo` a spustí `deploy.sh` (pull + restart). Ručně: Actions → CI → Run workflow.
 
+Verze je datum commitu a jeho zkrácený hash (`2026.11.08-13e982d`). Job `version`
+(`.github/scripts/version-json.sh`) ji spolu s posledními PR, které commit obsahuje,
+zapíše do `version.json` v image `web`. Admin a superadmin ji vidí dole v sidebaru.
+
 Na serveru se nic nebuilduje a není tam ani git checkout — jen `/opt/soovioo` s těmi
 třemi soubory a `.env`. Migrace DB se aplikují samy při startu `api`.
 

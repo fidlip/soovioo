@@ -170,6 +170,9 @@
       ><i class="pi pi-cog"></i><span class="app-nav-label">Nastavení</span></a
     >
     <app-sidebar-account-menu />
+    @if (seesDeployedVersion()) {
+    <app-deployed-version />
+    }
   </div>
 </aside>
 
