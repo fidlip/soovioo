@@ -1,16 +1,19 @@
 import {
   Component,
+  HostListener,
   computed,
   inject,
   input,
   signal,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Button } from '@openng/optimus-ui/button';
+import { Button, ButtonDirective } from '@openng/optimus-ui/button';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
+import { Drawer } from '@openng/optimus-ui/drawer';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message } from '@openng/optimus-ui/message';
 import { Popover } from '@openng/optimus-ui/popover';
@@ -27,6 +30,7 @@ import { Observable } from 'rxjs';
 import { toDateOnly } from '../departures/retention-labels';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
+import { DESKTOP_QUERY, mediaQuery } from '../media-query';
 import { NotifyService } from '../notify.service';
 import { TimetableVersionSelection } from './timetable-version-selection';
 
@@ -76,7 +80,7 @@ function noticeDay(version: TimetableVersion, daysBefore: number): string {
 }
 
 /** Administrace → Výuka: a button with the version its sections work with;
- * its popover picks another, and for whoever edits the timetable makes a new
+ * its popover (on a phone a panel from the bottom) picks another, and for whoever edits the timetable makes a new
  * draft (empty or a copy), changes its name and start, publishes, archives
  * and brings an archived one back. */
 @Component({
@@ -84,13 +88,16 @@ function noticeDay(version: TimetableVersion, daysBefore: number): string {
   imports: [
     ...FORM_FIELDS,
     Button,
+    ButtonDirective,
     DatePicker,
     Dialog,
+    Drawer,
     FloatField,
     FormsModule,
     InputText,
     Loading,
     Message,
+    NgTemplateOutlet,
     Popover,
     Select,
     Tag,
@@ -115,13 +122,35 @@ export class TimetableVersions {
   protected readonly statusLabel = versionStatusLabel;
   protected readonly validity = versionValidity;
 
+  protected readonly desktop = mediaQuery(DESKTOP_QUERY);
+  protected readonly drawerVisible = signal(false);
+
   protected toggle(event: Event): void {
-    this.popover().toggle(event);
+    if (this.desktop()) {
+      this.popover().toggle(event);
+    } else {
+      this.drawerVisible.set(true);
+    }
+  }
+
+  /** The button stays stuck on top with the tabs; left where it opened, the
+   * popover would slide with the page over them. */
+  @HostListener('window:scroll')
+  protected onScroll(): void {
+    const popover = this.popover();
+    if (popover.overlayVisible) {
+      popover.align();
+    }
+  }
+
+  private close(): void {
+    this.popover().hide();
+    this.drawerVisible.set(false);
   }
 
   protected pick(version: TimetableVersion): void {
     this.selection.versionId.set(version.id);
-    this.popover().hide();
+    this.close();
   }
 
   /** null = none; 'new' = a new draft; a number = editing that version. */
@@ -162,7 +191,7 @@ export class TimetableVersions {
   }
 
   protected startNew(): void {
-    this.popover().hide();
+    this.close();
     this.form.set('new');
     this.formName = '';
     this.formValidFrom = null;
@@ -175,7 +204,7 @@ export class TimetableVersions {
   }
 
   protected startEdit(version: TimetableVersion): void {
-    this.popover().hide();
+    this.close();
     this.form.set(version.id);
     this.formName = version.name;
     this.formValidFrom = new Date(`${version.validFrom}T00:00:00`);
@@ -234,7 +263,7 @@ export class TimetableVersions {
   });
 
   protected publish(version: TimetableVersion): void {
-    this.popover().hide();
+    this.close();
     this.publishing.set(version);
     this.publishProblems.set(null);
     this.publishNotifyDaysBefore = null;
@@ -276,7 +305,7 @@ export class TimetableVersions {
   }
 
   protected unpublish(version: TimetableVersion): void {
-    this.popover().hide();
+    this.close();
     this.confirmation.confirm({
       header: 'Zrušit zveřejnění verze rozvrhu',
       message: `Vrátit „${version.name}“ mezi koncepty? Od ${formatDate(version.validFrom, 'date')} platit nebude a uvidí ji jen ti, kdo připravují rozvrh. Kdo už dostal upozornění na změnu, dostane večer oznámení, pokud ji do té doby znovu nezveřejníte.`,
@@ -294,7 +323,7 @@ export class TimetableVersions {
   }
 
   protected archive(version: TimetableVersion): void {
-    this.popover().hide();
+    this.close();
     this.confirmation.confirm({
       header: 'Archivovat verzi rozvrhu',
       message: `Archivovat „${version.name}“? Nebude platit a zůstane jen k nahlédnutí, případně ji půjde vrátit mezi koncepty.${version.status === 'Published' ? ' Kdo už dostal upozornění na změnu, dostane večer oznámení o zrušení.' : ''}`,

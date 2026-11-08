@@ -3,6 +3,7 @@ import { expect, test } from './fixtures';
 import {
   archive,
   draftCopy,
+  openVersions,
   pickVersion,
   versionsApi,
   versionsButton,
@@ -115,7 +116,10 @@ test.describe.serial('teaching', () => {
     const place = async () => {
       const box = await button.boundingBox();
       const top = await heading.boundingBox();
-      return box && top ? { x: box.x - top.x, y: box.y - top.y } : null;
+      // Right-aligned: its width goes with the version's name.
+      return box && top
+        ? { right: box.x + box.width - top.x, y: box.y - top.y }
+        : null;
     };
     const row = await place();
     expect(row).not.toBeNull();
@@ -131,6 +135,34 @@ test.describe.serial('teaching', () => {
     await expect(button).toContainText(seeded);
     // In the same place in every section.
     expect(await place()).toEqual(row);
+
+    // Stuck on top with the tabs; the open versions hang from it, not over it.
+    await page.evaluate(() => {
+      // Content long enough to scroll; the bar sticks within its tabs.
+      const tabs =
+        document.querySelector<HTMLElement>('.sticky-tabs-bar')?.parentElement;
+      if (tabs) {
+        tabs.style.minHeight = '4000px';
+      }
+      window.scrollBy({ top: 1000, behavior: 'instant' });
+    });
+    const versions = await openVersions(page);
+    // Placed again as its opening ends.
+    await expect(versions).not.toHaveClass(/enter-active/);
+    const below = async () => {
+      const box = await button.boundingBox();
+      const list = await versions.boundingBox();
+      return box && list ? list.y >= box.y + box.height : null;
+    };
+    const scrolled = await page.evaluate(() => {
+      const before = window.scrollY;
+      window.scrollBy({ top: 300, behavior: 'instant' });
+      return window.scrollY - before;
+    });
+    expect(scrolled).toBe(300);
+    await expect.poll(below).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(versions).toBeHidden();
 
     await expect(page.getByTestId('teaching-sections-divider')).toBeVisible();
     for (const global of ['Suplování', 'Nastavení']) {
