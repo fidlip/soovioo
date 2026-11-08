@@ -14,8 +14,12 @@ import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
+  AbsenceStatus,
   AbsencesApiService,
+  ExcuseDay,
+  formatDate,
   AuthApiService,
+  EXCUSE_CHANNEL_LABELS,
   Excuse,
   ExcuseStatus,
 } from '@soovioo/shared';
@@ -131,7 +135,8 @@ export const EXCUSE_STATUS_SEVERITY: Record<
             }
             @if (excuse.createdByName) {
               <div class="text-xs text-surface-500">
-                Napsal(a) {{ excuse.createdByName }}
+                Napsal(a) {{ excuse.createdByName
+                }}{{ excuse.channel ? ' · ' + channelLabel(excuse) : '' }}
               </div>
             }
           </td>
@@ -140,10 +145,26 @@ export const EXCUSE_STATUS_SEVERITY: Record<
               [value]="statusLabel[status(excuse)]"
               [severity]="statusSeverity[status(excuse)]"
             />
-            @for (note of notes(excuse); track note) {
-              <div class="mt-1 text-xs text-red-700 dark:text-red-300">
-                {{ note }}
-              </div>
+            @if (mixed(excuse)) {
+              <ul class="m-0 mt-1 list-none p-0 text-xs">
+                @for (day of excuse.days; track day.absenceId) {
+                  <li
+                    [class]="
+                      day.status === 'Rejected'
+                        ? 'text-red-700 dark:text-red-300'
+                        : ''
+                    "
+                  >
+                    {{ dayText(day) }}
+                  </li>
+                }
+              </ul>
+            } @else {
+              @for (note of notes(excuse); track note) {
+                <div class="mt-1 text-xs text-red-700 dark:text-red-300">
+                  {{ note }}
+                </div>
+              }
             }
           </td>
           <td>
@@ -157,7 +178,9 @@ export const EXCUSE_STATUS_SEVERITY: Record<
                   "
                 >
                   <p-button
-                    label="Schválit"
+                    [label]="
+                      mixed(excuse) ? 'Schválit zbývající dny' : 'Schválit'
+                    "
                     icon="pi pi-check"
                     size="small"
                     severity="success"
@@ -166,7 +189,9 @@ export const EXCUSE_STATUS_SEVERITY: Record<
                   />
                 </span>
                 <p-button
-                  label="Zamítnout"
+                  [label]="
+                    mixed(excuse) ? 'Zamítnout zbývající dny' : 'Zamítnout'
+                  "
                   icon="pi pi-times"
                   size="small"
                   severity="danger"
@@ -271,6 +296,13 @@ export class ExcusesList {
     return this.authApi.scope('AbsencesExcuse') === 'Own';
   }
 
+  /** "telefonicky" — how the family gave it to whoever wrote it down. */
+  protected channelLabel(excuse: Excuse): string {
+    return excuse.channel
+      ? EXCUSE_CHANNEL_LABELS[excuse.channel].toLowerCase()
+      : '';
+  }
+
   protected status(excuse: Excuse): ExcuseStatus {
     return excuse.status;
   }
@@ -285,6 +317,26 @@ export class ExcusesList {
     return excuse.days.some(
       (d) => d.status === 'PendingExcuse' && d.date <= today,
     );
+  }
+
+  private readonly dayLabel: Record<AbsenceStatus, string> = {
+    Unexcused: 'neomluveno',
+    PendingExcuse: 'čeká na schválení',
+    Excused: 'omluveno',
+    Rejected: 'zamítnuto',
+  };
+
+  /** "6. 11. 2026: zamítnuto — Bez lékařské zprávy". */
+  protected dayText(day: ExcuseDay): string {
+    return `${formatDate(day.date, 'date')}: ${this.dayLabel[day.status]}${
+      day.reviewNote ? ` — ${day.reviewNote}` : ''
+    }`;
+  }
+
+  /** The teacher decided its days differently (or only some so far) —
+   * each day is listed with its state. */
+  protected mixed(excuse: Excuse): boolean {
+    return new Set(excuse.days.map((d) => d.status)).size > 1;
   }
 
   protected notes(excuse: Excuse): string[] {

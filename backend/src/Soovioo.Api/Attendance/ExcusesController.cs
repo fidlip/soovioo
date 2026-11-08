@@ -48,12 +48,18 @@ public class ExcusesController(
         {
             return invalid;
         }
+        var family = await IsFamilyAsync();
+        if (!family && request.Channel is null)
+        {
+            return this.FieldError("channel", "Vyberte, jak omluvenka přišla.");
+        }
 
         var excuse = new Excuse
         {
             SchoolId = currentSchool.SchoolId!.Value,
             StudentId = student.Id,
             CreatedById = User.UserId(),
+            Channel = family ? null : request.Channel,
         };
         Set(excuse, request);
         var book = Book;
@@ -66,7 +72,7 @@ public class ExcusesController(
         }
         db.Excuses.Add(excuse);
         await db.SaveChangesAsync();
-        if (await IsFamilyAsync())
+        if (family)
         {
             await book.TellTeachersAsync(excuse, days, edited: false, User.UserId());
         }
@@ -326,7 +332,7 @@ public class ExcusesController(
             .Select(e => new
             {
                 e.Id, e.StudentId, e.Student!.Person!.FirstName, e.Student.Person.LastName, e.DateFrom, e.DateTo, e.Periods,
-                e.Reason, e.CreatedAt, e.CreatedById,
+                e.Reason, e.Channel, e.CreatedAt, e.CreatedById,
                 Author = e.CreatedBy == null ? null : e.CreatedBy.Person,
                 AuthorUsername = e.CreatedBy == null ? null : e.CreatedBy.Username,
                 Days = e.Absences.OrderBy(a => a.Date)
@@ -336,14 +342,16 @@ public class ExcusesController(
             })
             .ToListAsync();
         return [.. rows.Select(r => new ExcuseDto(
-            r.Id, r.StudentId, $"{r.FirstName} {r.LastName}", r.DateFrom, r.DateTo, r.Periods, r.Reason,
+            r.Id, r.StudentId, $"{r.FirstName} {r.LastName}", r.DateFrom, r.DateTo, r.Periods, r.Reason, r.Channel,
             ExcuseBook.StatusOf([.. r.Days.Select(d => d.Status)]), r.Days, r.Attachments,
             r.AuthorUsername is null ? null : PersonNames.Display(r.Author, r.AuthorUsername), r.CreatedById, r.CreatedAt))];
     }
 }
 
 /// <summary>Periods: of a one-day omluvenka; null/empty = the whole day.</summary>
-public record ExcuseRequest(int StudentId, DateOnly DateFrom, DateOnly DateTo, string Reason, List<int>? Periods = null);
+/// <summary>Channel: how the family gave it — required when staff write it down.</summary>
+public record ExcuseRequest(
+    int StudentId, DateOnly DateFrom, DateOnly DateTo, string Reason, List<int>? Periods = null, ExcuseChannel? Channel = null);
 
 /// <summary>ExcuseId: null when no day of it is left.</summary>
 public record ExcuseResultDto(int? ExcuseId, IReadOnlyList<SkippedDayDto> Skipped);
@@ -363,6 +371,7 @@ public record ExcuseDto(
     DateOnly DateTo,
     IReadOnlyList<int> Periods,
     string Reason,
+    ExcuseChannel? Channel,
     ExcuseStatus Status,
     IReadOnlyList<ExcuseDayDto> Days,
     IReadOnlyList<ExcuseAttachmentDto> Attachments,

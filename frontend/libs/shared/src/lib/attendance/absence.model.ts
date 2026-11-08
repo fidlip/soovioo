@@ -23,6 +23,26 @@ export interface CreateAbsenceRequest {
   periods?: number[];
 }
 
+/** How the family gave an omluvenka to the teacher who wrote it down. */
+export type ExcuseChannel =
+  | 'Phone'
+  | 'InPerson'
+  | 'Email'
+  | 'Letter'
+  | 'DataBox'
+  | 'TextMessage'
+  | 'Other';
+
+export const EXCUSE_CHANNEL_LABELS: Record<ExcuseChannel, string> = {
+  Phone: 'Telefonicky',
+  InPerson: 'Osobně',
+  Email: 'E-mailem',
+  Letter: 'Písemně (omluvný list, žákovská knížka)',
+  DataBox: 'Datovou schránkou',
+  TextMessage: 'SMS',
+  Other: 'Jinak',
+};
+
 export type ExcuseStatus =
   'Pending' | 'Approved' | 'Rejected' | 'PartlyApproved';
 
@@ -51,6 +71,8 @@ export interface Excuse {
   /** Of a one-day omluvenka; empty = the whole day. */
   periods: number[];
   reason: string;
+  /** Null when the family wrote it here themselves. */
+  channel: ExcuseChannel | null;
   status: ExcuseStatus;
   days: ExcuseDay[];
   attachments: ExcuseAttachment[];
@@ -66,6 +88,8 @@ export interface ExcuseRequest {
   reason: string;
   /** Only for one day; empty = the whole day. */
   periods?: number[];
+  /** Required when staff write it down. */
+  channel?: ExcuseChannel | null;
 }
 
 export interface ExcuseResult {

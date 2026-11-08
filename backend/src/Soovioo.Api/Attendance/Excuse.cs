@@ -28,6 +28,11 @@ public class Excuse
     public List<int> Periods { get; set; } = [];
 
     public string Reason { get; set; } = "";
+
+    /// <summary>How the family gave it to the teacher who wrote it down;
+    /// null when the family wrote it here themselves.</summary>
+    public ExcuseChannel? Channel { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public List<Absence> Absences { get; set; } = [];
@@ -48,6 +53,20 @@ public class ExcuseAttachment
     public required string ContentType { get; set; }
     public long SizeBytes { get; set; }
     public required string StoragePath { get; set; }
+}
+
+/// <summary>Ways schools take omluvenky by their školní řád.</summary>
+public enum ExcuseChannel
+{
+    Phone,
+    InPerson,
+    Email,
+
+    /// <summary>On paper — the omluvný list, žákovská knížka, a letter.</summary>
+    Letter,
+    DataBox,
+    TextMessage,
+    Other,
 }
 
 public enum ExcuseStatus
