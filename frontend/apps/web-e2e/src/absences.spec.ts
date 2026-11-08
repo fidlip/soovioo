@@ -202,7 +202,19 @@ test.describe.serial('parent writes an omluvenka', () => {
 
   test('teacher rejects it only with a reason', async ({ page }) => {
     await login(page, 'ucitel', 'ucitel123');
-    await page.getByRole('tab', { name: 'Omluvenky' }).click();
+    // From a day on Absence, the reason leads to the omluvenka; the clip
+    // says it has a file.
+    const day = page
+      .locator('tr[id^="absence-"]')
+      .filter({ hasText: `Chřipka ${token}` })
+      .first();
+    await expect(day.getByLabel('Omluvenka má přílohu')).toBeVisible();
+    await day.getByRole('link', { name: `Chřipka ${token}` }).click();
+    await expect(page.getByRole('tab', { name: 'Omluvenky' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(excuse(page)).toBeVisible();
 
     await excuse(page).getByRole('button', { name: 'Zamítnout' }).click();
     const dialog = page.getByRole('dialog', { name: /^Zamítnout omluvenku/ });
