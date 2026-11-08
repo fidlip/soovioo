@@ -56,6 +56,7 @@ import {
 import { CALENDAR_LOCALE } from '../locale';
 import { Loading } from '../loading/loading';
 import { foldForSearch } from '../text-search';
+import { highlightElement, onLinkedItem } from '../highlight';
 
 type ViewOption = { value: string; label: string };
 
@@ -214,7 +215,11 @@ export class EventsPage {
     // selectable is on, with a real start/end either way.
     select: (arg: DateSelectArg) => this.onSelect(arg),
     eventClick: (arg: EventClickArg) => this.onEventClick(arg),
+    eventDidMount: (arg) => arg.el.setAttribute('id', `event-${arg.event.id}`),
   }));
+
+  /** ?event= — opened from a notification, shown once the events are here. */
+  private linkedEventId: number | null = null;
 
   // Written both from template ngModel bindings and from FullCalendar's own
   // click handling (select/eventClick) — the latter runs outside any
@@ -252,6 +257,10 @@ export class EventsPage {
 
   constructor() {
     this.reload();
+    onLinkedItem('event', (id) => {
+      this.linkedEventId = id;
+      this.showLinked();
+    });
     this.eventsApi.getCalendarFeedUrl().subscribe({
       next: (result) => this.feedUrl.set(result.feedUrl),
       error: (err) => console.error('getCalendarFeedUrl failed', err),
@@ -512,9 +521,28 @@ export class EventsPage {
     this.studentClassId.set(null);
   }
 
+  /** The calendar moves to the event's day and marks it. */
+  private showLinked(): void {
+    const event = this.events().find((e) => e.id === this.linkedEventId);
+    const calendar = this.calendar();
+    if (!event) {
+      return;
+    }
+    if (!calendar) {
+      requestAnimationFrame(() => this.showLinked());
+      return;
+    }
+    this.linkedEventId = null;
+    calendar.getApi().gotoDate(event.startAt);
+    highlightElement(`event-${event.id}`);
+  }
+
   private reload(): void {
     this.eventsApi.getEvents().subscribe({
-      next: (events) => this.events.set(events),
+      next: (events) => {
+        this.events.set(events);
+        this.showLinked();
+      },
       error: (err) => console.error('getEvents failed', err),
     });
   }

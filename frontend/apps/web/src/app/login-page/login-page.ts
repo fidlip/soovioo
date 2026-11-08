@@ -94,6 +94,22 @@ export class LoginPage {
     { initialValue: null as LinkRequestPreview | null },
   );
 
+  /** The school's page the visitor wanted before logging in (authGuard),
+   * e.g. from a link in the daily e-mail — only one of this school's. */
+  private readonly returnUrl = (() => {
+    const url = this.route.snapshot.queryParamMap.get('returnUrl');
+    const school = this.router
+      .serializeUrl(this.router.createUrlTree(this.schoolContext.link('home')))
+      .slice(0, -'home'.length);
+    return url &&
+      url.startsWith(school) &&
+      !url.startsWith('//') &&
+      !url.includes('\\') &&
+      !url.startsWith(`${school}login`)
+      ? url
+      : null;
+  })();
+
   /** The demo wizard sends the visitor here with `?user=<id>` — log in
    * straight away; the picker shows meanwhile (and if that fails). */
   protected readonly autoLoginPending = signal(false);
@@ -146,6 +162,10 @@ export class LoginPage {
                 ? ['/superadmin', 'settings']
                 : this.schoolContext.link('settings'),
             );
+            return;
+          }
+          if (response.role !== 'SuperAdmin' && this.returnUrl) {
+            this.router.navigateByUrl(this.returnUrl);
             return;
           }
           this.router.navigate(

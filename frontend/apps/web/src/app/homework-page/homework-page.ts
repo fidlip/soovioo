@@ -1,4 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
@@ -28,6 +34,7 @@ import {
   TimetableApiService,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
+import { highlightElement, onLinkedItem } from '../highlight';
 import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
@@ -217,8 +224,16 @@ export class HomeworkPage {
       .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` }));
   });
 
+  private readonly changes = inject(ChangeDetectorRef);
+  /** ?homework= — opened from a notification, shown once the list is here. */
+  private linkedId: number | null = null;
+
   constructor() {
     this.reload();
+    onLinkedItem('homework', (id) => {
+      this.linkedId = id;
+      this.showLinked();
+    });
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
@@ -265,6 +280,23 @@ export class HomeworkPage {
     this.filterPeriod = 'current';
     this.filterClassId = null;
     this.filterSubjectId = null;
+  }
+
+  /** Past its due date it's in the archive; a filter may hide it too. */
+  private showLinked(): void {
+    const item = this.homeworkItems()?.find((h) => h.id === this.linkedId);
+    if (!item) {
+      return;
+    }
+    this.linkedId = null;
+    if (!this.filteredHomework().includes(item)) {
+      this.clearFilters();
+      if (item.dueDate < this.toDateOnlyString(new Date())) {
+        this.filterPeriod = 'archive';
+      }
+      this.changes.markForCheck();
+    }
+    highlightElement(`homework-${item.id}`);
   }
 
   protected filteredHomework(): Homework[] {
@@ -528,7 +560,10 @@ export class HomeworkPage {
 
   private reload(): void {
     this.homeworkApi.getHomework().subscribe({
-      next: (homework) => this.homeworkItems.set(homework),
+      next: (homework) => {
+        this.homeworkItems.set(homework);
+        this.showLinked();
+      },
       error: (err) => {
         console.error('getHomework failed', err);
         this.homeworkItems.update((items) => items ?? []);

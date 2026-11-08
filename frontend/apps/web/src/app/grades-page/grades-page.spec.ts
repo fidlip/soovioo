@@ -5,6 +5,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import {
   API_BASE_URL,
   Grade,
@@ -35,6 +36,7 @@ describe('GradesPage', () => {
       providers: [
         MessageService,
         ConfirmationService,
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://test' },

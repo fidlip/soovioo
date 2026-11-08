@@ -289,6 +289,8 @@ export class TimetablePage {
   protected readonly selectedClassId = signal<number | null>(null);
   protected readonly selectedTeacherId = signal<number | null>(null);
   protected readonly selectedStudentId = signal<number | null>(null);
+  /** ?student= from a notification, picked once the students are here. */
+  private linkedStudentId: number | null = null;
 
   protected readonly weekStart = signal(mondayOf(new Date()));
   protected readonly editMode = computed(
@@ -593,6 +595,10 @@ export class TimetablePage {
       this.route.queryParamMap
         .pipe(takeUntilDestroyed())
         .subscribe((params) => {
+          const student = Number(params.get('student'));
+          if (student) {
+            this.showStudent(student);
+          }
           const day = params.get('day');
           if (day) {
             this.router.navigate([], { queryParams: {}, replaceUrl: true });
@@ -653,7 +659,12 @@ export class TimetablePage {
       this.studentsApi.getStudents().subscribe({
         next: (students) => {
           this.students.set(students);
-          this.selectedStudentId.set(students[0]?.id ?? null);
+          this.selectedStudentId.set(
+            students.find((s) => s.id === this.linkedStudentId)?.id ??
+              students[0]?.id ??
+              null,
+          );
+          this.linkedStudentId = null;
           this.reload();
         },
         error: (err) => console.error('getStudents failed', err),
@@ -879,6 +890,20 @@ export class TimetablePage {
   protected onTeacherSelected(id: number): void {
     this.selectedTeacherId.set(id);
     this.reload();
+  }
+
+  /** A parent's notification is about one of their children: their
+   * timetable, also when the students haven't come yet. */
+  private showStudent(id: number): void {
+    if (this.students().length === 0) {
+      this.linkedStudentId = id;
+    } else if (
+      this.viewMode() === 'student' &&
+      id !== this.selectedStudentId() &&
+      this.students().some((s) => s.id === id)
+    ) {
+      this.onStudentSelected(id);
+    }
   }
 
   protected onStudentSelected(id: number): void {

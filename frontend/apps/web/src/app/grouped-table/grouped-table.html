@@ -17,6 +17,7 @@
   <tbody>
     @for (item of groupedRows(); track rowKey()(item.row)) {
     <tr
+      [attr.id]="rowElementId()(item.row)"
       [class.border-t]="!$first && item.startsAnyGroup"
       [class]="
         item.starts[0] ?? true
@@ -91,6 +92,7 @@
          button inside the row (see #rowDetail), as on desktop. -->
     <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
     <li
+      [attr.id]="rowElementId()(row)"
       class="border-b border-surface-100 px-3 py-2 last:border-b-0 dark:border-surface-800"
       [class.cursor-pointer]="rowDetail()"
       (click)="onRowClick(row)"

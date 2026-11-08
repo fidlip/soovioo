@@ -133,6 +133,22 @@ body {
   @tailwind utilities;
 }
 
+/* The thing a notification opened, for a moment (app/highlight.ts). */
+.app-highlight,
+.app-highlight > .p-card {
+  animation: app-highlight 3s ease-in;
+}
+
+@keyframes app-highlight {
+  from,
+  60% {
+    box-shadow: inset 0 0 0 2px var(--p-primary-color);
+  }
+  to {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
 /* Forms (see app/forms): asterisk on labels of required fields, the short
  * error under a field the user left invalid, and the invalid border once a
  * field is touched (optimus-ui itself only reacts to `ng-dirty`). */

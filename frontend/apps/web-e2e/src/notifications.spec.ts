@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 /** The dev API runs 880 ports above the web dev server (see devApiPort). */
@@ -55,4 +55,80 @@ test('a message to the family shows under the parent’s bell and opens the conv
   await expect(
     page.getByText('Zítra s sebou přezůvky.', { exact: true }),
   ).toBeVisible();
+});
+
+/** A new grade for Jan Novák (the parent `rodic`'s child), its id. */
+async function addGrade(page: Page, request: APIRequestContext) {
+  const api = apiUrl(page);
+  const { token } = await (
+    await request.post(`${api}/auth/login`, {
+      data: { username: 'admin', password: 'admin123', schoolSlug: 'skola' },
+    })
+  ).json();
+  const headers = { Authorization: `Bearer ${token}` };
+  const students = await (
+    await request.get(`${api}/students`, { headers })
+  ).json();
+  const subjects = await (
+    await request.get(`${api}/subjects`, { headers })
+  ).json();
+  const studentId = students.find(
+    (s: { firstName: string; lastName: string }) =>
+      s.firstName === 'Jan' && s.lastName === 'Novák',
+  ).id;
+  const response = await request.post(`${api}/grades`, {
+    headers,
+    data: {
+      studentId,
+      subjectId: subjects[0].id,
+      value: 2,
+      weight: 1,
+      note: `E2E ${Date.now()}`,
+    },
+  });
+  expect(response.ok()).toBe(true);
+  return ((await response.json()) as { id: number }).id;
+}
+
+async function logInAsParent(page: Page) {
+  await page.locator('#username').fill('rodic');
+  await page.locator('#password').fill('rodic123');
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+}
+
+test('a grade’s notification opens the grade itself and marks it', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/skola/login');
+  const gradeId = await addGrade(page, request);
+  await logInAsParent(page);
+  await expect(page).toHaveURL(/\/skola\/home$/);
+
+  await page
+    .getByRole('button', { name: /^Upozornění, \d+ nepřečtených$/ })
+    .click();
+  await page
+    .getByRole('region', { name: 'Upozornění' })
+    .getByRole('button', { name: /^Nová známka/ })
+    .first()
+    .click();
+
+  await expect(page).toHaveURL(/\/skola\/grades$/);
+  await expect(page.locator(`#grade-${gradeId}`)).toHaveClass(/app-highlight/);
+});
+
+test('a link from the daily e-mail leads back to the thing after logging in', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/skola/login');
+  const gradeId = await addGrade(page, request);
+
+  await page.goto(`/skola/grades?grade=${gradeId}`);
+  await expect(page).toHaveURL(/\/skola\/login\?returnUrl=/);
+  await logInAsParent(page);
+
+  await expect(page).toHaveURL(/\/skola\/grades$/);
+  await expect(page.locator(`#grade-${gradeId}`)).toHaveClass(/app-highlight/);
 });

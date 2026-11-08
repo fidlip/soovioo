@@ -69,7 +69,7 @@
     </tr>
   </ng-template>
   <ng-template pTemplate="body" let-absence>
-    <tr>
+    <tr [id]="'absence-' + absence.id">
       <td>{{ absence.studentName }}</td>
       <td>{{ absence.date | dateFormat: 'date' }}</td>
       <td class="text-surface-600 dark:text-surface-300">

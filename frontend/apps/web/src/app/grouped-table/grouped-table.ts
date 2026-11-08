@@ -59,6 +59,8 @@ export class GroupedTable<T> {
   readonly rows = input.required<T[]>();
   readonly groups = input<GroupLevel<T>[]>([]);
   readonly rowKey = input.required<(row: T) => unknown>();
+  /** The rows' element ids, for `highlightElement`. */
+  readonly rowElementId = input<(row: T) => string | null>(() => null);
   readonly emptyMessage = input('Žádné záznamy.');
   /** The rows haven't arrived yet — "Načítání…" instead of `emptyMessage`. */
   readonly loading = input(false);

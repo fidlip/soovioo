@@ -28,11 +28,13 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         {
             query = query.Where(n => n.Id < before);
         }
-        var items = await query
-            .OrderByDescending(n => n.Id)
-            .Take(PageSize + 1)
-            .Select(n => new NotificationDto(n.Id, n.Type, n.Title, n.Body, n.Page, n.TargetId, n.CreatedAt, n.ReadAt != null))
-            .ToListAsync();
+        var items = (await query
+                .OrderByDescending(n => n.Id)
+                .Take(PageSize + 1)
+                .ToListAsync())
+            .Select(n => new NotificationDto(
+                n.Id, n.Type, n.Title, n.Body, n.Page, n.TargetId, NotificationLinks.For(n), n.CreatedAt, n.ReadAt != null))
+            .ToList();
         return Ok(new NotificationPageDto(items.Take(PageSize).ToList(), items.Count > PageSize));
     }
 
@@ -256,8 +258,9 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
 /// <param name="Page">The app's page without the school part, e.g. <c>grades</c>.</param>
 /// <param name="TargetId">What on that page — the conversation for <c>messages</c>.</param>
+/// <param name="Link">The page with the thing on it, see <see cref="NotificationLinks"/>.</param>
 public record NotificationDto(
-    int Id, NotificationType Type, string Title, string? Body, string Page, int? TargetId,
+    int Id, NotificationType Type, string Title, string? Body, string Page, int? TargetId, string Link,
     DateTimeOffset CreatedAt, bool Read);
 
 /// <param name="Messages">Conversations with something unread.</param>

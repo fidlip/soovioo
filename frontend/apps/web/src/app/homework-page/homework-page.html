@@ -63,7 +63,7 @@
 
 <div class="flex flex-col gap-3">
   @for (item of filteredHomework(); track item.id) {
-  <p-card>
+  <p-card [attr.id]="'homework-' + item.id">
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="flex items-center gap-2">
