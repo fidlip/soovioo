@@ -19,6 +19,17 @@ public class Absence
     /// tracked).</summary>
     public List<int> Periods { get; set; } = [];
     public AbsenceStatus Status { get; set; } = AbsenceStatus.Unexcused;
-    public string? ExcuseReason { get; set; }
+
+    /// <summary>Why the teacher rejected the omluvenka for this day.</summary>
+    public string? ReviewNote { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Who made the record; null for older records and once the
+    /// account is gone.</summary>
+    public int? CreatedById { get; set; }
+    public Auth.User? CreatedBy { get; set; }
+
+    /// <summary>The omluvenka the day belongs to.</summary>
+    public int? ExcuseId { get; set; }
+    public Excuse? Excuse { get; set; }
 }

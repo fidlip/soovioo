@@ -35,15 +35,22 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
-                    b.Property<string>("ExcuseReason")
-                        .HasColumnType("text");
+                    b.Property<int?>("ExcuseId")
+                        .HasColumnType("integer");
 
                     b.PrimitiveCollection<List<int>>("Periods")
                         .IsRequired()
                         .HasColumnType("integer[]");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
@@ -56,11 +63,95 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ExcuseId");
+
                     b.HasIndex("SchoolId");
 
                     b.HasIndex("StudentId");
 
                     b.ToTable("Absences");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Attendance.Excuse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("DateFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("DateTo")
+                        .HasColumnType("date");
+
+                    b.PrimitiveCollection<List<int>>("Periods")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("Excuses");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Attendance.ExcuseAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ExcuseId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExcuseId");
+
+                    b.ToTable("ExcuseAttachments");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Audit.AuditLogEntry", b =>
@@ -3019,6 +3110,16 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Attendance.Absence", b =>
                 {
+                    b.HasOne("Soovioo.Api.Auth.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Soovioo.Api.Attendance.Excuse", "Excuse")
+                        .WithMany("Absences")
+                        .HasForeignKey("ExcuseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
                         .WithMany()
                         .HasForeignKey("SchoolId")
@@ -3031,9 +3132,42 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Excuse");
+
                     b.Navigation("School");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Attendance.Excuse", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Attendance.ExcuseAttachment", b =>
+                {
+                    b.HasOne("Soovioo.Api.Attendance.Excuse", "Excuse")
+                        .WithMany("Attachments")
+                        .HasForeignKey("ExcuseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Excuse");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.AccountLink", b =>
@@ -4310,6 +4444,13 @@ namespace Soovioo.Api.Migrations
                         .HasForeignKey("UsersId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Attendance.Excuse", b =>
+                {
+                    b.Navigation("Absences");
+
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Auth.Role", b =>

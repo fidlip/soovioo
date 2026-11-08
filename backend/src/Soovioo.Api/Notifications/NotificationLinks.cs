@@ -17,7 +17,8 @@ public static class NotificationLinks
         {
             NotificationType.Message => $"messages?conversation={id}",
             NotificationType.Grade => $"grades?grade={id}",
-            NotificationType.Absence or NotificationType.Excuse => $"absences?absence={id}",
+            NotificationType.Absence => $"absences?absence={id}",
+            NotificationType.Excuse or NotificationType.NewExcuse => $"absences?excuse={id}",
             NotificationType.Homework => $"homework?homework={id}",
             NotificationType.Event => $"events?event={id}",
             NotificationType.Photo => $"my-children?student={id}",

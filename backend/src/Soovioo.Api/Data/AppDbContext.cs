@@ -25,6 +25,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Classroom> Classrooms => Set<Classroom>();
     public DbSet<Absence> Absences => Set<Absence>();
+    public DbSet<Excuse> Excuses => Set<Excuse>();
+    public DbSet<ExcuseAttachment> ExcuseAttachments => Set<ExcuseAttachment>();
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
     public DbSet<TimetableVersion> TimetableVersions => Set<TimetableVersion>();
     public DbSet<CurriculumItem> CurriculumItems => Set<CurriculumItem>();
@@ -274,6 +276,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || g.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Absence>().HasQueryFilter(a =>
             currentSchool.IsSuperAdmin || a.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<Absence>(e =>
+        {
+            e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Excuse).WithMany(r => r.Absences).HasForeignKey(x => x.ExcuseId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(x => x.ReviewNote).HasMaxLength(500);
+        });
+        modelBuilder.Entity<Excuse>(e =>
+        {
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById).OnDelete(DeleteBehavior.SetNull);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<ExcuseAttachment>(e =>
+        {
+            e.HasOne(x => x.Excuse).WithMany(x => x.Attachments).HasForeignKey(x => x.ExcuseId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
         modelBuilder.Entity<TimetableEntry>().HasQueryFilter(t =>
             currentSchool.IsSuperAdmin || t.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<TimetableEntry>()

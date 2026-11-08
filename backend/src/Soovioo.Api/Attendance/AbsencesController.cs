@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,13 +7,16 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Attendance;
 
 [Authorize]
 [ApiController]
 [Route("api/absences")]
-public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
+public class AbsencesController(
+    AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, TimeProvider clock,
+    Messaging.MessageAttachmentStorageService storage) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AbsenceDto>>> GetAbsences()
@@ -27,14 +31,7 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
 
         var absences = await query
             .OrderByDescending(a => a.Date)
-            .Select(a => new AbsenceDto(
-                a.Id,
-                a.StudentId,
-                a.Student!.Person!.FirstName + " " + a.Student.Person!.LastName,
-                a.Date,
-                a.Status,
-                a.ExcuseReason,
-                a.Periods))
+            .Select(AbsenceDto.Projection)
             .ToListAsync();
 
         return Ok(absences);
@@ -60,24 +57,33 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
             return this.FieldError("periods", "Neplatné číslo hodiny.");
         }
 
+        // The family already excused the day: the teacher's periods go to that record.
+        if (await db.Absences.FirstOrDefaultAsync(a => a.StudentId == student.Id && a.Date == request.Date && a.ExcuseId != null)
+            is { } reported)
+        {
+            reported.Periods = periods;
+            await db.SaveChangesAsync();
+            return Ok(await DtoAsync(reported.Id));
+        }
+
         var absence = new Absence
         {
             StudentId = request.StudentId,
             Date = request.Date,
             Periods = periods,
             SchoolId = currentSchool.SchoolId!.Value,
+            CreatedById = User.UserId(),
         };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
         await NotifyFamilyAsync(absence, student, NotificationType.Absence, NewTitle);
         await db.SaveChangesAsync();
 
-        var dto = new AbsenceDto(
-            absence.Id, absence.StudentId, student.Person!.FullName,
-            absence.Date, absence.Status, absence.ExcuseReason, absence.Periods);
-        return CreatedAtAction(nameof(GetAbsences), new { id = absence.Id }, dto);
+        return CreatedAtAction(nameof(GetAbsences), new { id = absence.Id }, await DtoAsync(absence.Id));
     }
 
+    /// <summary>A one-day omluvenka for the absence (what the mobile app
+    /// still sends).</summary>
     [HttpPost("{id}/excuse")]
     public async Task<ActionResult> SubmitExcuse(int id, SubmitExcuseRequest request)
     {
@@ -86,23 +92,45 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return NotFound();
         }
-
         if (!await User.ReachesStudentAsync(db, Permission.AbsencesExcuse, absence.StudentId))
         {
             return Forbid();
         }
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > 500)
+        {
+            return this.FieldError("reason", "Vyplňte důvod (nejvýš 500 znaků).");
+        }
+        if (absence.ExcuseId is not null || absence.Status != AbsenceStatus.Unexcused)
+        {
+            return BadRequest("Absence už je omluvená.");
+        }
 
-        absence.ExcuseReason = request.Reason;
-        absence.Status = AbsenceStatus.PendingExcuse;
+        var student = (await db.Students.FindAsync(absence.StudentId))!;
+        var excuse = new Excuse
+        {
+            SchoolId = absence.SchoolId,
+            StudentId = absence.StudentId,
+            CreatedById = User.UserId(),
+            DateFrom = absence.Date,
+            DateTo = absence.Date,
+            Reason = request.Reason.Trim(),
+        };
+        var book = new ExcuseBook(db, notifier, clock);
+        var (_, days) = await book.ApplyAsync(excuse, student, User.UserId());
+        db.Excuses.Add(excuse);
+        await db.SaveChangesAsync();
+        await book.TellTeachersAsync(excuse, days, edited: false, User.UserId());
         await db.SaveChangesAsync();
         return NoContent();
     }
 
+    /// <summary>Approves one day of an omluvenka — at the earliest that day —
+    /// or rejects it with a reason.</summary>
     [HttpPost("{id}/review")]
     [RequirePermission(Permission.AbsencesWrite)]
     public async Task<ActionResult> ReviewAbsence(int id, ReviewAbsenceRequest request)
     {
-        var absence = await db.Absences.FindAsync(id);
+        var absence = await db.Absences.Include(a => a.Excuse).FirstOrDefaultAsync(a => a.Id == id);
         if (absence is null)
         {
             return NotFound();
@@ -111,13 +139,22 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return Forbid();
         }
-
-        absence.Status = request.Approve ? AbsenceStatus.Excused : AbsenceStatus.Rejected;
-        if (await db.Students.FindAsync(absence.StudentId) is { } student)
+        if (ExcusesController.ReviewNoteError(this, request) is { } invalid)
         {
-            await NotifyFamilyAsync(absence, student, NotificationType.Excuse,
-                request.Approve ? "Omluvenka schválena" : "Omluvenka zamítnuta");
+            return invalid;
         }
+        if (absence.Excuse is not { } excuse || absence.Status != AbsenceStatus.PendingExcuse)
+        {
+            return BadRequest("Absence nemá omluvenku ke schválení.");
+        }
+
+        var book = new ExcuseBook(db, notifier, clock);
+        var decided = ExcuseBook.Decide([absence], request.Approve, request.Note?.Trim(), book.Today);
+        if (decided.Count == 0)
+        {
+            return BadRequest("Absenci jde omluvit nejdříve v její den.");
+        }
+        await book.TellFamilyAsync(excuse, decided, request.Approve, request.Note?.Trim(), User.UserId());
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -175,15 +212,12 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
         if (changed)
         {
             var family = await notifier.FamilyAsync(student.Id);
-            await notifier.ChangedAsync(absence.SchoolId, absence.Id, [NotificationType.Absence, NotificationType.Excuse], family,
+            await notifier.ChangedAsync(absence.SchoolId, absence.Id, [NotificationType.Absence], family,
                 Drafts(absence, student, NotificationType.Absence, "Změna absence", family), NewTitle);
         }
         await db.SaveChangesAsync();
 
-        var dto = new AbsenceDto(
-            absence.Id, absence.StudentId, student.Person!.FullName,
-            absence.Date, absence.Status, absence.ExcuseReason, absence.Periods);
-        return Ok(dto);
+        return Ok(await DtoAsync(absence.Id));
     }
 
     [HttpDelete("{id:int}")]
@@ -202,11 +236,18 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
 
         db.Absences.Remove(absence);
         await db.SaveChangesAsync();
+        if (absence.ExcuseId is { } excuseId)
+        {
+            await new ExcuseBook(db, notifier, clock).DropIfEmptyAsync(excuseId, storage);
+        }
         return NoContent();
     }
 
+    private async Task<AbsenceDto> DtoAsync(int id) =>
+        await db.Absences.Where(a => a.Id == id).Select(AbsenceDto.Projection).FirstAsync();
+
     /// <summary>Sorted, distinct; null when a number is outside 0–15.</summary>
-    private static List<int>? NormalizePeriods(List<int>? periods)
+    public static List<int>? NormalizePeriods(List<int>? periods)
     {
         var result = (periods ?? []).Distinct().Order().ToList();
         return result.Any(p => p is < 0 or > 15) ? null : result;
@@ -216,7 +257,8 @@ public class AbsencesController(AppDbContext db, ICurrentSchoolContext currentSc
 /// <summary>Periods: missed lesson numbers; null/empty = the whole day.</summary>
 public record CreateAbsenceRequest(int StudentId, DateOnly Date, List<int>? Periods = null);
 public record SubmitExcuseRequest(string Reason);
-public record ReviewAbsenceRequest(bool Approve);
+/// <summary>Note: why it's rejected — required then.</summary>
+public record ReviewAbsenceRequest(bool Approve, string? Note = null);
 
 public record AbsenceDto(
     int Id,
@@ -225,4 +267,18 @@ public record AbsenceDto(
     DateOnly Date,
     AbsenceStatus Status,
     string? ExcuseReason,
-    IReadOnlyList<int> Periods);
+    IReadOnlyList<int> Periods,
+    int? ExcuseId = null,
+    string? ReviewNote = null)
+{
+    public static readonly Expression<Func<Absence, AbsenceDto>> Projection = a => new AbsenceDto(
+        a.Id,
+        a.StudentId,
+        a.Student!.Person!.FirstName + " " + a.Student.Person!.LastName,
+        a.Date,
+        a.Status,
+        a.Excuse == null ? null : a.Excuse.Reason,
+        a.Periods,
+        a.ExcuseId,
+        a.ReviewNote);
+}

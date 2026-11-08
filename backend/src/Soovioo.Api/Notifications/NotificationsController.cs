@@ -204,7 +204,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     }
 
     /// <summary>The kinds that can reach this account — staff alone hear
-    /// only about messages, events and changes of their lessons (and generated
+    /// only about messages, events, changes of their lessons, new omluvenky (and generated
     /// timetables when they may edit the timetable), pupils' and parents' agendas are theirs.
     /// Needs the roles' permissions loaded.</summary>
     public static IReadOnlyList<NotificationType> TypesFor(IReadOnlyCollection<Role> roles)
@@ -214,13 +214,14 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
             : [];
         if (roles.Any(r => r.Kind == RoleKind.Parent))
         {
-            return [.. Enum.GetValues<NotificationType>().Where(t => t != NotificationType.Timetable), .. timetable];
+            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Timetable or NotificationType.NewExcuse)), .. timetable];
         }
         if (roles.Any(r => r.Kind == RoleKind.Student))
         {
-            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Timetable))];
+            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Timetable or NotificationType.NewExcuse))];
         }
-        return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, .. timetable];
+        return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution,
+            NotificationType.NewExcuse, .. timetable];
     }
 
     private async Task<NotificationSettingsDto> SettingsOfAsync(User user)

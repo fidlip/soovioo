@@ -85,7 +85,8 @@ public class ScopeTests
         As(new GradesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)), user);
 
     private AbsencesController Absences(ClaimsPrincipal user) =>
-        As(new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System)), user);
+        As(new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System), TimeProvider.System,
+            new MessageAttachmentStorageService(new FakeWebHostEnvironment())), user);
 
     private BehaviorController Behavior(ClaimsPrincipal user) =>
         As(new BehaviorController(db, new FakeCurrentSchoolContext(SchoolId)), user);
@@ -202,9 +203,9 @@ public class ScopeTests
 
     // ---- absences -------------------------------------------------------
 
-    private async Task<Absence> AbsenceOf(StudentProfile student)
+    private async Task<Absence> AbsenceOf(StudentProfile student, int day = 1)
     {
-        var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 10, 1), SchoolId = SchoolId };
+        var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 10, day), SchoolId = SchoolId };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
         return absence;
@@ -224,6 +225,7 @@ public class ScopeTests
         Assert.IsType<ForbidResult>(await Absences(Teacher).ReviewAbsence(otoAbsence.Id, new(true)));
         Assert.IsType<ForbidResult>(await Absences(Teacher).DeleteAbsence(otoAbsence.Id));
         Assert.IsType<CreatedAtActionResult>((await Absences(Teacher).AddAbsence(new(eva.Id, new DateOnly(2026, 10, 2)))).Result);
+        Assert.IsType<NoContentResult>(await Absences(Parent).SubmitExcuse(janAbsence.Id, new("nemoc")));
         Assert.IsType<NoContentResult>(await Absences(Teacher).ReviewAbsence(janAbsence.Id, new(true)));
     }
 
@@ -233,8 +235,10 @@ public class ScopeTests
         var janAbsence = await AbsenceOf(jan);
         var evaAbsence = await AbsenceOf(eva);
 
+        var janOther = await AbsenceOf(jan, 2);
+
         Assert.IsType<NoContentResult>(await Absences(Parent).SubmitExcuse(janAbsence.Id, new("nemoc")));
-        Assert.IsType<NoContentResult>(await Absences(Teacher).SubmitExcuse(janAbsence.Id, new("nemoc")));
+        Assert.IsType<NoContentResult>(await Absences(Teacher).SubmitExcuse(janOther.Id, new("nemoc")));
         // Teaches 6.B, but isn't its třídní.
         Assert.IsType<ForbidResult>(await Absences(Teacher).SubmitExcuse(evaAbsence.Id, new("nemoc")));
         Assert.IsType<ForbidResult>(await Absences(Parent).SubmitExcuse(evaAbsence.Id, new("nemoc")));

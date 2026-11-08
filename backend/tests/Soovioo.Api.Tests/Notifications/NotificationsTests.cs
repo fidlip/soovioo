@@ -163,18 +163,24 @@ public class NotificationsTests
     {
         using var db = NewDb();
         var w = await SeedAsync(db);
-        var absence = new Absence { StudentId = w.Student.Id, Date = new DateOnly(2026, 10, 5), Periods = [1, 2], SchoolId = SchoolId };
+        var excuse = new Excuse { StudentId = w.Student.Id, DateFrom = new DateOnly(2026, 10, 5), DateTo = new DateOnly(2026, 10, 5), Reason = "Nemoc", SchoolId = SchoolId };
+        var absence = new Absence
+        {
+            StudentId = w.Student.Id, Date = new DateOnly(2026, 10, 5), Periods = [1, 2], SchoolId = SchoolId,
+            Status = AbsenceStatus.PendingExcuse, Excuse = excuse,
+        };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
 
-        await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+        await new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System), TimeProvider.System,
+            new Soovioo.Api.Messaging.MessageAttachmentStorageService(new FakeWebHostEnvironment()))
             { ControllerContext = ContextOf(w.Teacher) }
             .ReviewAbsence(absence.Id, new ReviewAbsenceRequest(true));
 
         var notification = Assert.Single(await Of(db, w.Parent));
         Assert.Equal(NotificationType.Excuse, notification.Type);
         Assert.Equal("Omluvenka schválena", notification.Title);
-        Assert.Equal("Jan Novák — 5. 10. 2026, hodiny 1, 2", notification.Body);
+        Assert.Equal("Jan Novák — 5. 10. 2026", notification.Body);
     }
 
     [Fact]
@@ -266,16 +272,16 @@ public class NotificationsTests
     }
 
     [Fact]
-    public async Task EditedAbsenceLeavesOneNotificationInsteadOfTheAbsenceAndTheExcuse()
+    public async Task EditedAbsenceReplacesItsNotification()
     {
         using var db = NewDb();
         var w = await SeedAsync(db);
-        var absences = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+        var absences = new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System), TimeProvider.System,
+            new Soovioo.Api.Messaging.MessageAttachmentStorageService(new FakeWebHostEnvironment()))
             { ControllerContext = ContextOf(w.Teacher) };
         var created = await absences.AddAbsence(new CreateAbsenceRequest(w.Student.Id, new DateOnly(2026, 10, 5), [1]));
         var id = ((AbsenceDto)((CreatedAtActionResult)created.Result!).Value!).Id;
-        await absences.ReviewAbsence(id, new ReviewAbsenceRequest(false));
-        Assert.Equal(2, (await Of(db, w.Parent)).Count);
+        Assert.Single(await Of(db, w.Parent));
 
         await absences.UpdateAbsence(id, new CreateAbsenceRequest(w.Student.Id, new DateOnly(2026, 10, 6), [1]));
 
@@ -398,17 +404,18 @@ public class NotificationsTests
         var w = await SeedAsync(db);
 
         var teacher = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, w.Teacher).GetSettings()).Result).Value);
-        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution], teacher.Types.Select(t => t.Type));
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.NewExcuse], teacher.Types.Select(t => t.Type));
         var admin = new User { Username = "reditel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var adminSettings = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, admin).GetSettings()).Result).Value);
-        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.NewExcuse, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
 
         var result = await Bell(db, w.Parent).SetSettings(new NotificationSettingsRequest([NotificationType.Event, NotificationType.Event]));
         var parent = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal(Enum.GetValues<NotificationType>().Length - 1, parent.Types.Count);
+        Assert.Equal(Enum.GetValues<NotificationType>().Length - 2, parent.Types.Count);
         Assert.DoesNotContain(parent.Types, t => t.Type == NotificationType.Timetable);
+        Assert.DoesNotContain(parent.Types, t => t.Type == NotificationType.NewExcuse);
         Assert.False(parent.Types.Single(t => t.Type == NotificationType.Event).Enabled);
         Assert.True(parent.Types.Single(t => t.Type == NotificationType.Grade).Enabled);
         Assert.Equal([NotificationType.Event], (await db.Users.FindAsync(w.Parent.Id))!.MutedNotifications);

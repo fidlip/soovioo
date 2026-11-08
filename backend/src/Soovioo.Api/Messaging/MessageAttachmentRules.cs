@@ -42,7 +42,8 @@ public static class MessageAttachmentRules
             return "V ukázkové škole je limit 2 MB na soubor.";
         }
         var used = await db.MessageAttachments.IgnoreQueryFilters().Where(a => a.SchoolId == schoolId).SumAsync(a => a.SizeBytes)
-            + await db.HomeworkAttachments.IgnoreQueryFilters().Where(a => a.SchoolId == schoolId).SumAsync(a => a.SizeBytes);
+            + await db.HomeworkAttachments.IgnoreQueryFilters().Where(a => a.SchoolId == schoolId).SumAsync(a => a.SizeBytes)
+            + await db.ExcuseAttachments.IgnoreQueryFilters().Where(a => a.SchoolId == schoolId).SumAsync(a => a.SizeBytes);
         return used + sizeBytes > DemoMaxTotalBytes
             ? "Ukázková škola už má nahraný maximální objem souborů (50 MB)."
             : null;

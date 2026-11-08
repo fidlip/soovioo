@@ -92,7 +92,8 @@ public class GroupAgendasTests
         new(db, new FakeCurrentSchoolContext(SchoolId), Notifier()) { ControllerContext = TestRoles.Context(db, userId, UserRole.Teacher) };
 
     private AbsencesController Absences(int userId) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId), Notifier()) { ControllerContext = TestRoles.Context(db, userId, UserRole.Teacher) };
+        new(db, new FakeCurrentSchoolContext(SchoolId), Notifier(), TimeProvider.System,
+            new Soovioo.Api.Messaging.MessageAttachmentStorageService(new FakeWebHostEnvironment())) { ControllerContext = TestRoles.Context(db, userId, UserRole.Teacher) };
 
     private HomeworkController Homework(int userId, UserRole role = UserRole.Teacher) =>
         new(db, new FakeCurrentSchoolContext(SchoolId), new MessageAttachmentStorageService(new FakeWebHostEnvironment()), Notifier())
