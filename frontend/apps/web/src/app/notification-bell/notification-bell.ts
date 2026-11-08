@@ -28,12 +28,6 @@ const TYPE_ICONS: Record<NotificationType, string> = {
 /** The bell's popover with the notifications — a click opens the thing
  * it's about. The buttons that open it are the app shell's (sidebar, phone
  * top bar), they call `toggle`. */
-/** A day's notification is about yyyyMMdd. */
-function dayOfTarget(target: number): string {
-  const text = `${target}`;
-  return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
-}
-
 @Component({
   selector: 'app-notification-bell',
   imports: [DateFormatPipe, Button, Loading, Popover],
@@ -90,30 +84,9 @@ export class NotificationBell {
       this.markRead(notification);
     }
     this.popover().hide();
-    if (
-      notification.page === 'timetable' &&
-      notification.targetId &&
-      notification.type === 'Timetable'
-    ) {
-      this.router.navigate(this.schoolContext.link('admin'), {
-        queryParams: {
-          group: 'teaching',
-          section: 'timetable',
-          version: notification.targetId,
-          generation: 'result',
-        },
-      });
-      return;
-    }
-    this.router.navigate(this.schoolContext.link(notification.page), {
-      queryParams:
-        notification.targetId && notification.page === 'messages'
-          ? { conversation: notification.targetId }
-          : notification.type === 'TimetableChange' && notification.targetId
-            ? { version: notification.targetId, change: 'start' }
-            : notification.type === 'Substitution' && notification.targetId
-              ? { day: dayOfTarget(notification.targetId) }
-              : {},
+    const [page, query = ''] = notification.link.split('?');
+    this.router.navigate(this.schoolContext.link(page), {
+      queryParams: Object.fromEntries(new URLSearchParams(query)),
     });
   }
 

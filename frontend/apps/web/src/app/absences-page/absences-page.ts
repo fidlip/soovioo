@@ -1,4 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
@@ -30,6 +36,7 @@ import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
+import { highlightElement, onLinkedItem } from '../highlight';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -210,6 +217,18 @@ export class AbsencesPage {
 
   constructor() {
     this.reload();
+    // ?absence= — opened from a notification.
+    const changes = inject(ChangeDetectorRef);
+    onLinkedItem('absence', (id) => {
+      if (
+        this.absences() &&
+        !this.filteredAbsences().some((a) => a.id === id)
+      ) {
+        this.clearFilters();
+        changes.markForCheck();
+      }
+      highlightElement(`absence-${id}`);
+    });
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),

@@ -17,7 +17,7 @@ test('unauthenticated deep link redirects to login instead of the page', async (
   page,
 }) => {
   await page.goto('/skola/grades');
-  await expect(page).toHaveURL(/\/skola\/login$/);
+  await expect(page).toHaveURL(/\/skola\/login\?returnUrl=%2Fskola%2Fgrades$/);
 });
 
 test.describe('unknown school', () => {

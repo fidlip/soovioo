@@ -21,6 +21,9 @@ export interface AppNotification {
   page: string;
   /** What on that page — the conversation for `messages`. */
   targetId: number | null;
+  /** The page with the thing on it, without the school part, e.g.
+   * `grades?grade=12`. */
+  link: string;
   createdAt: string;
   read: boolean;
 }

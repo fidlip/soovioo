@@ -31,6 +31,7 @@ import { TermPipe } from '../term.pipe';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
+import { highlightElement, onLinkedItem } from '../highlight';
 
 /** "2026-10-18" (DateOnly) -> local Date, without the UTC shift
  * `new Date(string)` applies to date-only ISO strings. */
@@ -165,6 +166,7 @@ export class GradesPage {
   };
 
   protected readonly gradeId = (grade: Grade) => grade.id;
+  protected readonly gradeElementId = (grade: Grade) => `grade-${grade.id}`;
 
   protected readonly gradeDialogVisible = signal(false);
   /** null = add mode, otherwise the grade being edited — same "new… fields
@@ -182,6 +184,17 @@ export class GradesPage {
 
   constructor() {
     this.reload();
+    // ?grade= — opened from a notification; a new grade is on the first
+    // page unless a filter hides it.
+    onLinkedItem('grade', (id) => {
+      const grades = this.grades();
+      if (grades && !grades.some((g) => g.id === id)) {
+        this.filterStudentId.set(null);
+        this.filterSubjectId.set(null);
+        this.onFilterChange();
+      }
+      highlightElement(`grade-${id}`);
+    });
     this.studentsApi.getStudents().subscribe({
       next: (students) => {
         this.students.set(students);
