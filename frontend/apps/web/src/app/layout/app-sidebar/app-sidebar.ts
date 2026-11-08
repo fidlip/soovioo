@@ -12,6 +12,7 @@ import { NotificationBell } from '../../notification-bell/notification-bell';
 import { SchoolContextService } from '../../school-context';
 import { canSeeTeachingArea } from '../../teaching/teaching-area-access';
 import { UnreadCountsService } from '../../unread-counts.service';
+import { DeployedVersion } from '../deployed-version/deployed-version';
 import { SidebarAccountMenu } from '../sidebar-account-menu/sidebar-account-menu';
 import { SidebarStateService } from '../sidebar-state.service';
 import { checkOnNavigation } from '../check-on-navigation';
@@ -40,6 +41,7 @@ interface NavItem {
     AppIcon,
     NotificationBell,
     SidebarAccountMenu,
+    DeployedVersion,
   ],
   templateUrl: './app-sidebar.html',
   styleUrl: './app-sidebar.scss',
@@ -123,6 +125,10 @@ export class AppSidebar {
 
   protected isSuperAdmin(): boolean {
     return this.authApi.isSuperAdmin();
+  }
+
+  protected seesDeployedVersion(): boolean {
+    return this.authApi.isAdmin() || this.isSuperAdmin();
   }
 
   /** SuperAdmin lives outside the `:schoolSlug` route tree (see

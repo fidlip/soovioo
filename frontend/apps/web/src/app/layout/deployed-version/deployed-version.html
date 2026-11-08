@@ -1,0 +1,56 @@
+@if (info(); as info) {
+<button
+  type="button"
+  class="app-version-button text-surface-500 hover:bg-surface-100 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:text-surface-200"
+  [attr.aria-label]="'Verze ' + info.version + ', co obsahuje'"
+  (click)="popover.toggle($event)"
+>
+  Verze {{ info.version }}
+</button>
+<p-popover #popover appendTo="body">
+  <div
+    class="flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2"
+    role="region"
+    [attr.aria-label]="'Verze ' + info.version"
+  >
+    <div class="flex items-center justify-between gap-2">
+      <span class="flex flex-col">
+        <span class="font-medium text-surface-700 dark:text-surface-200"
+          >Verze {{ info.version }}</span
+        >
+        <span class="text-xs text-surface-500"
+          >{{ info.builtAt | dateFormat: 'dateTime' }}</span
+        >
+      </span>
+      <a
+        [href]="info.repository + '/commits/' + info.commit"
+        target="_blank"
+        rel="noopener"
+        class="app-version-github text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+        aria-label="Historie na GitHubu"
+        title="Historie na GitHubu"
+        ><i class="pi pi-github"></i
+      ></a>
+    </div>
+    <ul class="m-0 flex max-h-[60vh] list-none flex-col overflow-y-auto p-0">
+      @for (pr of info.pullRequests; track pr.number) {
+      <li>
+        <a
+          [href]="info.repository + '/pull/' + pr.number"
+          target="_blank"
+          rel="noopener"
+          class="flex flex-col gap-0.5 rounded-md px-2 py-2 no-underline hover:bg-surface-100 dark:hover:bg-surface-800"
+        >
+          <span class="text-sm text-surface-800 dark:text-surface-100"
+            >{{ pr.title }}</span
+          >
+          <span class="text-xs text-surface-500"
+            >#{{ pr.number }} · {{ pr.mergedAt | dateFormat: 'dateTime' }}</span
+          >
+        </a>
+      </li>
+      }
+    </ul>
+  </div>
+</p-popover>
+}
