@@ -351,7 +351,8 @@ public class ConversationsController(
     }
 
     /// <summary>Only the sender may delete a message (e.g. sent by mistake);
-    /// a conversation left without messages disappears with it.</summary>
+    /// a conversation left without messages disappears with it. Its notifications
+    /// go, read or not.</summary>
     [HttpDelete("{id:int}/messages/{messageId:int}")]
     public async Task<IActionResult> DeleteMessage(int id, int messageId)
     {
@@ -367,6 +368,12 @@ public class ConversationsController(
         await db.SaveChangesAsync();
 
         var conversation = await db.Conversations.Include(c => c.Messages).FirstAsync(c => c.Id == id);
+        // Its notifications are those since it was sent, until the next message.
+        var next = conversation.Messages.Where(m => m.SentAt > message.SentAt).Min(m => (DateTimeOffset?)m.SentAt);
+        db.Notifications.RemoveRange(await db.Notifications
+            .Where(n => n.Type == NotificationType.Message && n.TargetId == id
+                && n.CreatedAt >= message.SentAt && (next == null || n.CreatedAt < next))
+            .ToListAsync());
         if (conversation.Messages.Count == 0)
         {
             db.Conversations.Remove(conversation);

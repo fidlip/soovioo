@@ -197,6 +197,30 @@ public class ConversationsControllerTests
     }
 
     [Fact]
+    public async Task DeletedReplyTakesItsNotificationsReadOrNot()
+    {
+        using var db = NewDb();
+        var w = await SeedAsync(db);
+        var started = await As(db, w.Teacher).StartConversation(
+            new StartConversationRequest("Výlet", "Ve středu jedeme.", w.Student.Id));
+        var id = ((ConversationDto)((CreatedAtActionResult)started.Result!).Value!).Id;
+        var reply = (MessageDto)((OkObjectResult)(await As(db, w.Parent).Reply(id, new ReplyRequest("Nepojede."))).Result!).Value!;
+        foreach (var n in db.Notifications)
+        {
+            n.ReadAt = DateTimeOffset.UtcNow;
+        }
+        await db.SaveChangesAsync();
+        await As(db, w.Teacher).Reply(id, new ReplyRequest("Škoda."));
+
+        Assert.IsType<NoContentResult>(await As(db, w.Parent).DeleteMessage(id, reply.Id));
+
+        var left = db.Notifications.Where(n => n.TargetId == id).ToList();
+        Assert.Equal(new[] { w.Parent.Id, w.Parent.Id, w.StudentUser.Id }.Order(), left.Select(n => n.UserId).Order());
+        Assert.DoesNotContain(left, n => n.Body!.Contains("Nepojede"));
+        Assert.Contains(left, n => n.UserId == w.StudentUser.Id && n.Body!.Contains("Škoda"));
+    }
+
+    [Fact]
     public async Task ListShowsOwnConversationsWithUnreadFlag()
     {
         using var db = NewDb();
