@@ -70,3 +70,17 @@ export interface SetSchoolBankAccountRequest {
 export function formatIban(iban: string): string {
   return iban.replace(/\s/g, '').replace(/(.{4})(?=.)/g, '$1 ');
 }
+
+/** A Czech IBAN in the domestic form people in CZ expect
+ * ("CZ6508000000192000145399" -> "19-2000145399/0800"); any other IBAN
+ * stays an IBAN. */
+export function formatBankAccount(iban: string): string {
+  const czech = /^CZ\d{2}(\d{4})(\d{6})(\d{10})$/.exec(iban.replace(/\s/g, ''));
+  if (!czech) {
+    return formatIban(iban);
+  }
+  const [, bank, prefix, number] = czech;
+  const trimmedPrefix = prefix.replace(/^0+/, '');
+  const trimmedNumber = number.replace(/^0+/, '');
+  return `${trimmedPrefix ? `${trimmedPrefix}-` : ''}${trimmedNumber}/${bank}`;
+}

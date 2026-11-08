@@ -24,7 +24,7 @@ import {
   PaymentRecurrence,
   PaymentsApiService,
   formatAmount,
-  formatIban,
+  formatBankAccount,
   localizeStudentTerm,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
@@ -332,7 +332,7 @@ export class PaymentsPage {
 
   protected formattedBankAccount(): string | null {
     const account = this.bankAccountNumber();
-    return account ? formatIban(account) : null;
+    return account ? formatBankAccount(account) : null;
   }
 
   protected openDetail(payment: Payment, recipient: PaymentRecipient): void {
