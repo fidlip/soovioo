@@ -107,10 +107,10 @@ public class TimetableVersionsControllerTests
     }
 
     [Fact]
-    public async Task EditingFromADateGoesIntoADraftOfThatDateNotAnArchivedOne()
+    public async Task EditingFromADateGoesIntoANewDraftOnceTheOldOneIsDeleted()
     {
         var draft = await EditFrom(new DateOnly(2026, 11, 9));
-        await Versions().ArchiveVersion(draft.Id);
+        await Versions().DeleteVersion(draft.Id);
 
         Assert.NotEqual(draft.Id, (await EditFrom(new DateOnly(2026, 11, 9))).Id);
     }
@@ -218,23 +218,37 @@ public class TimetableVersionsControllerTests
     }
 
     [Fact]
-    public async Task ArchivingAFutureVersionGivesItsTimeBackToThePreviousOne()
+    public async Task OnlyADraftIsDeletedWithItsLessons()
     {
         var spring = await Draft("2. pololetí", new DateOnly(2027, 2, 1), current.Id);
         await Versions().PublishVersion(spring.Id);
 
-        Assert.IsType<BadRequestObjectResult>((await Versions().ArchiveVersion(current.Id)).Result);
-        Assert.IsType<OkObjectResult>((await Versions().ArchiveVersion(spring.Id)).Result);
-        Assert.Null(current.ValidTo);
+        Assert.IsType<BadRequestObjectResult>(await Versions().DeleteVersion(current.Id));
+        Assert.IsType<BadRequestObjectResult>(await Versions().DeleteVersion(spring.Id));
+
+        await Versions().UnpublishVersion(spring.Id);
+        Assert.IsType<NoContentResult>(await Versions().DeleteVersion(spring.Id));
+        db.ChangeTracker.Clear();
+        Assert.False(await db.TimetableVersions.AnyAsync(v => v.Id == spring.Id));
+        Assert.False(await db.TimetableEntries.AnyAsync(e => e.TimetableVersionId == spring.Id));
         Assert.Equal(["Matematika"], await SubjectsOn(new DateOnly(2027, 3, 1)));
+    }
 
-        var archived = await db.TimetableEntries.FirstAsync(e => e.TimetableVersionId == spring.Id);
-        Assert.IsType<BadRequestObjectResult>(
-            (await Timetable().UpdateEntry(schoolClass.Id, archived.Id, new(czech.Id, DayOfWeek.Monday, 1, WeekParity.Every))).Result);
 
-        var restored = Assert.IsType<TimetableVersionDto>(Assert.IsType<OkObjectResult>(
-            (await Versions().RestoreVersion(spring.Id)).Result).Value);
-        Assert.Equal(TimetableVersionStatus.Draft, restored.Status);
+    [Fact]
+    public async Task ACopyKnowsItsSourceAndKeepsItsNameOnceItsDeleted()
+    {
+        var draft = await Draft("Koncept", new DateOnly(2027, 2, 1), current.Id);
+        var copy = await Draft("Kopie", new DateOnly(2027, 3, 1), draft.Id);
+        Assert.Equal((current.Id, current.Name), (draft.CopiedFromVersionId, draft.CopiedFromName));
+        Assert.Null((await Draft("Prázdný", new DateOnly(2027, 4, 1))).CopiedFromName);
+
+        await Versions().DeleteVersion(draft.Id);
+        db.ChangeTracker.Clear();
+
+        var left = await db.TimetableVersions.FirstAsync(v => v.Id == copy.Id);
+        Assert.Null(left.CopiedFromVersionId);
+        Assert.Equal("Koncept", left.CopiedFromName);
     }
 
     [Fact]

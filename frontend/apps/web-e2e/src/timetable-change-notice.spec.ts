@@ -201,7 +201,10 @@ test('a parent hears about a timetable change when it is due and the link opens 
         .first(),
     ).toBeVisible();
   } finally {
-    await request.post(`${api}/timetable-versions/${version.id}/archive`, {
+    await request.post(`${api}/timetable-versions/${version.id}/unpublish`, {
+      headers: admin,
+    });
+    await request.delete(`${api}/timetable-versions/${version.id}`, {
       headers: admin,
     });
   }

@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
-  archive,
+  discard,
   draftCopy,
   openVersions,
   pickVersion,
@@ -212,7 +212,7 @@ test.describe.serial('teaching', () => {
     request,
   }) => {
     await login(page, 'ucitel', 'ucitel123');
-    await archive(await versionsApi(page, request), versionId);
+    await discard(await versionsApi(page, request), versionId);
     await openNav(page, 'Rozvrh');
     await expect(page.getByTestId('teacher-teaching')).toContainText(
       /Přiděleno .+ z 22 h nasmlouvaných: .*5\.A M/,

@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
 import {
-  archive,
+  discard,
   draftCopy,
   openVersionWeek,
   openVersions,
@@ -232,7 +232,7 @@ test.describe.serial('timetable lesson', () => {
         name: 'Přidat hodinu',
       }),
     ).toHaveCount(1);
-    await archive(admin, versionId);
+    await discard(admin, versionId);
   });
 });
 
@@ -337,7 +337,7 @@ test('admin arranges a draft by dragging lessons', async ({
   await expect(page.locator('td[data-drop]').first()).toBeVisible();
   await page.mouse.move(10, 10, { steps: 3 });
   await page.mouse.up();
-  await archive(admin, id);
+  await discard(admin, id);
 });
 
 test.describe.serial('timetable version', () => {
@@ -361,6 +361,9 @@ test.describe.serial('timetable version', () => {
     await versions.getByRole('button', { name: 'Nový koncept' }).click();
     await expect(versions).toBeHidden();
     const dialog = page.getByRole('dialog', { name: 'Nový koncept' });
+    // The dialog focuses Název once it's open; typed before, the date would
+    // partly land there.
+    await expect(dialog.getByLabel('Název')).toBeFocused();
     await dialog.getByLabel('Název').fill(name);
     // Typed key by key — the DatePicker ignores a pasted value.
     await dialog
@@ -407,7 +410,7 @@ test.describe.serial('timetable version', () => {
     await expect(versionsButton(page)).toHaveCount(0);
   });
 
-  test('admin publishes it ahead, unpublishes, publishes and archives it', async ({
+  test('admin publishes it ahead, unpublishes, publishes again, copies and deletes it', async ({
     page,
   }) => {
     await login(page, 'admin', 'admin123');
@@ -442,18 +445,46 @@ test.describe.serial('timetable version', () => {
     await publish();
     await expect(button).toContainText('Naplánovaná');
 
-    // Archived, still the chosen one.
-    await openVersions(page);
-    await version.getByRole('button', { name: 'Archivovat' }).click();
-    await page
-      .getByRole('alertdialog', { name: 'Archivovat verzi rozvrhu' })
-      .getByRole('button', { name: 'Archivovat' })
-      .click();
-    await expect(button).toContainText('Archivovaná');
-    await openVersions(page);
-    await expect(version).toContainText('Archivovaná');
+    // Not in the archive: it hasn't applied yet.
+    const versions = await openVersions(page);
+    await versions.getByRole('button', { name: 'Archiv', exact: true }).click();
+    await expect(version).toHaveCount(0);
     await expect(
-      version.getByRole('button', { name: 'Vrátit mezi koncepty' }),
-    ).toBeVisible();
+      versions.getByRole('button', { name: 'Nový koncept' }),
+    ).toHaveCount(0);
+    await versions.getByRole('button', { name: 'Zpět' }).click();
+    await expect(version).toBeVisible();
+
+    // Copied from the version that applied, it says so.
+    await expect(version.getByTestId('timetable-version-source')).toContainText(
+      'Vychází z „',
+    );
+
+    // Copied: the new draft's dialog comes from it.
+    await version.getByRole('button', { name: 'Kopírovat' }).click();
+    const draft = page.getByRole('dialog', { name: 'Nový koncept' });
+    await expect(draft.getByLabel('Vychází z')).toContainText(name);
+    await draft.getByRole('button', { name: 'Zrušit' }).click();
+
+    // Published it isn't deleted; back among drafts it is, for good.
+    await openVersions(page);
+    await expect(version.getByRole('button', { name: 'Smazat' })).toHaveCount(
+      0,
+    );
+    await version.getByRole('button', { name: 'Zrušit zveřejnění' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Zrušit zveřejnění verze rozvrhu' })
+      .getByRole('button', { name: 'Zrušit zveřejnění' })
+      .click();
+    await expect(button).toContainText('Koncept');
+    await openVersions(page);
+    await version.getByRole('button', { name: 'Smazat' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Smazat koncept' })
+      .getByRole('button', { name: 'Smazat' })
+      .click();
+    await expect(button).not.toContainText(name);
+    await openVersions(page);
+    await expect(version).toHaveCount(0);
   });
 });

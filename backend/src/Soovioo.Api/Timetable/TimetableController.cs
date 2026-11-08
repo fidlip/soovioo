@@ -398,12 +398,8 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
     }
 
     /// <summary>Lessons change only in a draft.</summary>
-    internal static string? LockedMessage(TimetableVersion version) => version.Status switch
-    {
-        TimetableVersionStatus.Draft => null,
-        TimetableVersionStatus.Archived => "Archivovanou verzi rozvrhu nejde upravovat.",
-        _ => TimetableVersions.PublishedReadOnly,
-    };
+    internal static string? LockedMessage(TimetableVersion version) =>
+        version.Status == TimetableVersionStatus.Draft ? null : TimetableVersions.PublishedReadOnly;
 
     private static bool ParityOverlaps(WeekParity a, WeekParity b) =>
         a == WeekParity.Every || b == WeekParity.Every || a == b;

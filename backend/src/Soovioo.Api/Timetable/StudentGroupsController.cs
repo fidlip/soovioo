@@ -204,10 +204,6 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
         {
             return NotFound();
         }
-        if (version.Status == TimetableVersionStatus.Archived)
-        {
-            return BadRequest("Archivovanou verzi rozvrhu nejde upravovat.");
-        }
         if (version.ValidTo < SchoolClock.Today(clock))
         {
             return BadRequest("Verzi rozvrhu, která už neplatí, nejde upravovat.");
@@ -498,7 +494,6 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
     {
         var version = await db.TimetableVersions.FindAsync(versionId);
         return version is null ? (null, NotFound())
-            : version.Status == TimetableVersionStatus.Archived ? (null, BadRequest("Archivovanou verzi rozvrhu nejde upravovat."))
             : version.Status == TimetableVersionStatus.Published ? (null, BadRequest(TimetableVersions.PublishedReadOnly))
             : (version, null);
     }

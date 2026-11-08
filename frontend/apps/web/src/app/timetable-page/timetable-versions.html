@@ -48,10 +48,31 @@
 
 <ng-template #head>
   <div class="flex flex-1 flex-wrap items-center justify-between gap-2">
-    <span class="font-semibold">Verze rozvrhu</span>
-    @if (canEdit()) {
-    <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
-    }
+    <span class="font-semibold"
+      >{{ archived() ? 'Archiv verzí rozvrhu' : 'Verze rozvrhu' }}</span
+    >
+    <div class="flex flex-wrap gap-2">
+      @if (archived()) {
+      <p-button
+        label="Zpět"
+        icon="pi pi-arrow-left"
+        severity="secondary"
+        [text]="true"
+        (onClick)="archived.set(false)"
+      />
+      } @else {
+      <p-button
+        label="Archiv"
+        ariaLabel="Archiv"
+        icon="pi pi-box"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="archived.set(true)"
+      />
+      @if (canEdit()) {
+      <p-button label="Nový koncept" icon="pi pi-plus" (onClick)="startNew()" />
+      } }
+    </div>
   </div>
 </ng-template>
 
@@ -59,7 +80,7 @@
   <ul
     class="m-0 flex max-h-[60vh] list-none flex-col gap-2 overflow-y-auto overscroll-contain p-0"
   >
-    @for (version of versions(); track version.id) { @let status =
+    @for (version of listed(); track version.id) { @let status =
     statusLabel(version, today); @let picked = version.id === current()?.id;
     <li
       class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3"
@@ -84,48 +105,63 @@
           {{ validity(version) }} · {{ version.entryCount }} h
         </span>
       </button>
-      @if (canEdit()) {
-      <div class="flex flex-wrap gap-1">
-        @if (version.status !== 'Archived') {
-        <p-button
-          label="Upravit"
-          severity="secondary"
-          [text]="true"
-          size="small"
-          (onClick)="startEdit(version)"
-        />
-        } @if (version.status === 'Draft') {
-        <p-button label="Zveřejnit" size="small" (onClick)="publish(version)" />
-        } @if (canUnpublish(version)) {
-        <p-button
-          label="Zrušit zveřejnění"
-          severity="secondary"
-          [outlined]="true"
-          size="small"
-          (onClick)="unpublish(version)"
-        />
-        } @if (canArchive(version)) {
-        <p-button
-          label="Archivovat"
-          severity="danger"
-          [outlined]="true"
-          size="small"
-          (onClick)="archive(version)"
-        />
-        } @if (version.status === 'Archived') {
-        <p-button
-          label="Vrátit mezi koncepty"
-          severity="secondary"
-          [outlined]="true"
-          size="small"
-          (onClick)="restore(version)"
-        />
+      @let copiedFrom = source(version); @if (copiedFrom || canEdit()) {
+      <div class="flex flex-col items-end gap-1">
+        @if (copiedFrom) {
+        <span
+          class="text-sm text-surface-500"
+          data-testid="timetable-version-source"
+          >{{ copiedFrom }}</span
+        >
+        } @if (canEdit()) {
+        <div class="flex flex-wrap justify-end gap-1">
+          <p-button
+            label="Upravit"
+            severity="secondary"
+            [text]="true"
+            size="small"
+            (onClick)="startEdit(version)"
+          />
+          <p-button
+            label="Kopírovat"
+            severity="secondary"
+            [text]="true"
+            size="small"
+            (onClick)="startNew(version)"
+          />
+          @if (version.status === 'Draft') {
+          <p-button
+            label="Zveřejnit"
+            size="small"
+            (onClick)="publish(version)"
+          />
+          } @if (canUnpublish(version)) {
+          <p-button
+            label="Zrušit zveřejnění"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            (onClick)="unpublish(version)"
+          />
+          } @if (version.status === 'Draft') {
+          <p-button
+            label="Smazat"
+            severity="danger"
+            [outlined]="true"
+            size="small"
+            (onClick)="remove(version)"
+          />
+          }
+        </div>
         }
       </div>
       }
     </li>
     } @empty {
-    <li class="text-surface-500">Škola zatím nemá žádnou verzi rozvrhu.</li>
+    <li class="text-surface-500">
+      {{ archived() ? 'V archivu zatím není žádná verze rozvrhu.' : 'Škola zatím
+      nemá žádnou verzi rozvrhu.' }}
+    </li>
     }
   </ul>
 </ng-template>

@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { archive, pickVersion, versionsApi } from './timetable-versions';
+import { discard, pickVersion, versionsApi } from './timetable-versions';
 
 function typed(date: Date): string {
   const pad = (n: number) => `${n}`.padStart(2, '0');
@@ -79,6 +79,6 @@ test('the version that applies is edited from a date: a copy, the same one again
     await openDraft();
     expect(await draftsNamed()).toEqual([draft]);
   } finally {
-    await archive(admin, draft.id);
+    await discard(admin, draft.id);
   }
 });

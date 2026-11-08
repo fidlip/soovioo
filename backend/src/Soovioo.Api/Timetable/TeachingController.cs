@@ -505,7 +505,6 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     {
         var version = await db.TimetableVersions.FindAsync(versionId);
         return version is null ? (null, NotFound())
-            : version.Status == TimetableVersionStatus.Archived ? (null, BadRequest("Archivovanou verzi rozvrhu nejde upravovat."))
             : version.Status == TimetableVersionStatus.Published ? (null, BadRequest(TimetableVersions.PublishedReadOnly))
             : (version, null);
     }
@@ -540,7 +539,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
             version.Id,
             mayEdit && version.Status == TimetableVersionStatus.Draft,
             grades, curriculum, classDtos, teacherDtos, groups, version.Status == TimetableVersionStatus.Draft, rvp,
-            mayEdit && version.Status != TimetableVersionStatus.Archived && !(version.ValidTo < SchoolClock.Today(clock)))
+            mayEdit && !(version.ValidTo < SchoolClock.Today(clock)))
         {
             SchoolMainBlock = plan.MainBlocks.School,
             GradeMainBlocks = [.. plan.MainBlocks.Grades.OrderBy(g => g.Key).Select(g => new GradeMainBlockDto(g.Key, g.Value.From, g.Value.To))],

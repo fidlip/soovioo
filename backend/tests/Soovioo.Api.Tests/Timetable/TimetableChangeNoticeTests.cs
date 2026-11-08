@@ -364,15 +364,14 @@ public class TimetableChangeNoticeTests
     }
 
     [Fact]
-    public async Task ArchivingTellsWhoHeard()
+    public async Task DeletingAWithdrawnVersionTellsWhoHeardRightAway()
     {
         var version = await ChangedAsync(Spring);
         await PublishAsync(version);
         await EveningAsync();
 
-        await Versions().ArchiveVersion(version.Id);
-
-        await EveningAsync();
+        await Versions().UnpublishVersion(version.Id);
+        Assert.IsType<NoContentResult>(await Versions().DeleteVersion(version.Id));
 
         Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
     }

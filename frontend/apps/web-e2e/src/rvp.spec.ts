@@ -61,8 +61,8 @@ async function setProgram(page: Page, program: string | null) {
 
 const REVISED = 'Základní vzdělávání (revidovaný RVP ZV)';
 
-// A draft far ahead gets its plan filled by 5.A's program and is archived
-// again, 5.A loses the program — so the shared data end as they started.
+// A draft far ahead gets its plan filled by 5.A's program and is deleted,
+// 5.A loses the program — so the shared data end as they started.
 test.describe.serial('RVP', () => {
   const name = `E2E RVP ${Date.now()}`;
 
@@ -97,6 +97,9 @@ test.describe.serial('RVP', () => {
     const versions = await openVersions(page);
     await versions.getByRole('button', { name: 'Nový koncept' }).click();
     const draft = page.getByRole('dialog', { name: 'Nový koncept' });
+    // The dialog focuses Název once it's open; typed before, the date would
+    // partly land there.
+    await expect(draft.getByLabel('Název')).toBeFocused();
     await draft.getByLabel('Název').fill(name);
     await draft
       .getByLabel('Platí od')
@@ -131,7 +134,7 @@ test.describe.serial('RVP', () => {
     await expect(panel).toContainText('chybí ročníky');
   });
 
-  test('a published version offers no filling and the draft is archived', async ({
+  test('a published version offers no filling and the draft is deleted', async ({
     page,
   }) => {
     await login(page);
@@ -149,13 +152,13 @@ test.describe.serial('RVP', () => {
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     await openVersions(page);
     const version = versionItem(page, name);
-    await version.getByRole('button', { name: 'Archivovat' }).click();
+    await version.getByRole('button', { name: 'Smazat' }).click();
     await page
-      .getByRole('alertdialog', { name: 'Archivovat verzi rozvrhu' })
-      .getByRole('button', { name: 'Archivovat' })
+      .getByRole('alertdialog', { name: 'Smazat koncept' })
+      .getByRole('button', { name: 'Smazat' })
       .click();
     await openVersions(page);
-    await expect(version).toContainText('Archivovaná');
+    await expect(version).toHaveCount(0);
     await page.reload();
 
     await setProgram(page, null);

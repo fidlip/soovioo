@@ -292,7 +292,7 @@ public class TeachingControllerTests
 
         Assert.Equal([new CurriculumItemDto(6, history.Id, 1.5m)], saved.Curriculum);
         Assert.IsType<BadRequestObjectResult>((await Controller().SaveCurriculum(version.Id, new([new(6, history.Id, 1.2m)]))).Result);
-        version.Status = TimetableVersionStatus.Archived;
+        version.Status = TimetableVersionStatus.Published;
         db.SaveChanges();
         Assert.IsType<BadRequestObjectResult>((await Controller().SaveCurriculum(version.Id, new([]))).Result);
     }

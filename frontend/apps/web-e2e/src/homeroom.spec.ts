@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
-  archive,
+  discard,
   draftCopy,
   showVersion,
   versionsApi,
@@ -66,7 +66,7 @@ test('a class’s homeroom is set in Administrace and fills in a new lesson', as
     room,
   );
   await lesson.getByRole('button', { name: 'Zrušit' }).click();
-  await archive(admin, versionId);
+  await discard(admin, versionId);
 
   await navigation
     .getByRole('link', { name: 'Administrace', exact: true })

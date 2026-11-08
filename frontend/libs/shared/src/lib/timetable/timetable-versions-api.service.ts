@@ -174,11 +174,7 @@ export class TimetableVersionsApiService {
     return this.http.post<TimetableVersion>(`${this.url}/${id}/unpublish`, {});
   }
 
-  archiveVersion(id: number): Observable<TimetableVersion> {
-    return this.http.post<TimetableVersion>(`${this.url}/${id}/archive`, {});
-  }
-
-  restoreVersion(id: number): Observable<TimetableVersion> {
-    return this.http.post<TimetableVersion>(`${this.url}/${id}/restore`, {});
+  deleteVersion(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.url}/${id}`);
   }
 }

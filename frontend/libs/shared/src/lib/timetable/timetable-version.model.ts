@@ -1,6 +1,6 @@
 import { DayOfWeek, WeekParity } from './timetable-entry.model';
 
-export type TimetableVersionStatus = 'Draft' | 'Published' | 'Archived';
+export type TimetableVersionStatus = 'Draft' | 'Published';
 
 export interface TimetableVersion {
   id: number;
@@ -14,6 +14,10 @@ export interface TimetableVersion {
   entryCount: number;
   createdAt: string;
   publishedAt: string | null;
+  /** Null for an empty one, or once the source (a draft) is deleted… */
+  copiedFromVersionId: number | null;
+  /** …when its name at the time of copying stays. */
+  copiedFromName: string | null;
 }
 
 export interface CreateTimetableVersionRequest {

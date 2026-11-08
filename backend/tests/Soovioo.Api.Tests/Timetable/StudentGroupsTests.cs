@@ -478,14 +478,9 @@ public class StudentGroupsTests
     }
 
     [Fact]
-    public async Task PupilsOfAVersionThatEndedOrWasArchivedStay()
+    public async Task PupilsOfAVersionThatEndedStay()
     {
         var (ended, group) = await PublishedGroupAsync(new DateOnly(2025, 9, 1), new DateOnly(2026, 6, 30));
-        Assert.IsType<BadRequestObjectResult>((await Groups().UpdateGroupMembers(ended.Id, group.Id, new([petr.Id]))).Result);
-
-        ended.ValidTo = null;
-        ended.Status = TimetableVersionStatus.Archived;
-        await db.SaveChangesAsync();
         Assert.IsType<BadRequestObjectResult>((await Groups().UpdateGroupMembers(ended.Id, group.Id, new([petr.Id]))).Result);
 
         Assert.Equal([anna.Id], group.Members.Select(m => m.StudentId));

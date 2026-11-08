@@ -1,7 +1,7 @@
 import { Locator } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
-  archive,
+  discard,
   pickVersion,
   versionsApi,
   versionsButton,
@@ -102,6 +102,6 @@ test('the school’s main block in Nastavení, a grade’s in Učební plán, a 
       headers: admin.headers,
       data: school,
     });
-    await archive(admin, id);
+    await discard(admin, id);
   }
 });
