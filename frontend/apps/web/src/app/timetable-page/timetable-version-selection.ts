@@ -5,7 +5,6 @@ import {
   timetableVersionOn,
 } from '@soovioo/shared';
 import { toDateOnly } from '../departures/retention-labels';
-import { versionStatusLabel } from './timetable-versions-dialog';
 
 /** Administrace → Výuka: the timetable version all its sections work with. */
 @Injectable()
@@ -15,13 +14,13 @@ export class TimetableVersionSelection {
   readonly versions = signal<TimetableVersion[]>([]);
   /** null while they aren't in, or for a school without a timetable. */
   readonly versionId = signal<number | null>(null);
-  readonly loaded = signal(false);
-  readonly options = computed(() =>
-    this.versions().map((v) => ({
-      label: `${v.name} (${versionStatusLabel(v, toDateOnly(new Date())).label.toLowerCase()})`,
-      value: v.id,
-    })),
+  readonly version = computed(() =>
+    this.versions().find((v) => v.id === this.versionId()),
   );
+  readonly loaded = signal(false);
+  /** Goes up once a version was created, changed, published or archived:
+   * whatever the sections loaded for it may be different now. */
+  readonly revision = signal(0);
 
   reload(then?: () => void): void {
     this.api.getVersions().subscribe({
@@ -39,5 +38,10 @@ export class TimetableVersionSelection {
         this.loaded.set(true);
       },
     });
+  }
+
+  /** After a change of the versions themselves. */
+  changed(): void {
+    this.reload(() => this.revision.update((n) => n + 1));
   }
 }

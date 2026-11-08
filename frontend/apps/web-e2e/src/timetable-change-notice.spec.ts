@@ -1,6 +1,6 @@
 import { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { runDayEndJob } from './timetable-versions';
+import { openVersions, runDayEndJob, versionItem } from './timetable-versions';
 
 /** The dev API runs 880 ports above the web dev server (see devApiPort). */
 function apiUrl(page: Page): string {
@@ -51,11 +51,8 @@ async function login(page: Page, username: string, password: string) {
 }
 
 async function publish(page: Page, name: string, when: string) {
-  await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
-  await dialog
-    .getByTestId('timetable-version')
-    .filter({ hasText: name })
+  await openVersions(page);
+  await versionItem(page, name)
     .getByRole('button', { name: 'Zveřejnit' })
     .click();
   const confirm = page.getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' });
@@ -64,9 +61,9 @@ async function publish(page: Page, name: string, when: string) {
   await confirm
     .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
     .click();
-  await expect(
-    dialog.getByTestId('timetable-version').filter({ hasText: name }),
-  ).toContainText('Naplánovaná');
+  await openVersions(page);
+  await expect(versionItem(page, name)).toContainText('Naplánovaná');
+  await page.keyboard.press('Escape');
 }
 
 test('a parent hears about a timetable change when it is due and the link opens its week', async ({

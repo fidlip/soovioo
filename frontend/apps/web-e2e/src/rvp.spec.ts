@@ -1,5 +1,10 @@
 import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import {
+  openVersions,
+  versionItem,
+  versionsButton,
+} from './timetable-versions';
 
 async function login(page: Page) {
   await page.goto('/skola/login');
@@ -89,23 +94,17 @@ test.describe.serial('RVP', () => {
 
     await openNav(page, 'Rozvrh');
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
-    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
-    const versions = page.getByRole('dialog', { name: 'Verze rozvrhu' });
+    const versions = await openVersions(page);
     await versions.getByRole('button', { name: 'Nový koncept' }).click();
-    await versions.getByLabel('Název').fill(name);
-    await versions
+    const draft = page.getByRole('dialog', { name: 'Nový koncept' });
+    await draft.getByLabel('Název').fill(name);
+    await draft
       .getByLabel('Platí od')
       .pressSequentially(inDays(800 + Math.floor(Math.random() * 300)));
-    await versions.getByRole('button', { name: 'Vytvořit koncept' }).click();
-    await expect(versions).toBeHidden();
-
-    await openNav(page, 'Administrace');
-    await page.getByRole('tab', { name: 'Výuka' }).click();
-    await pick(
-      page,
-      page.getByRole('combobox', { name: 'Verze rozvrhu' }),
-      name,
-    );
+    await draft.getByRole('button', { name: 'Vytvořit koncept' }).click();
+    await expect(draft).toBeHidden();
+    // The new draft is the chosen one.
+    await expect(versionsButton(page)).toContainText(name);
     await page.getByRole('tab', { name: 'Učební plán' }).click();
     const panel = page.getByRole('region', { name: 'Kontrola podle RVP' });
     await expect(panel).toContainText(REVISED);
@@ -148,16 +147,14 @@ test.describe.serial('RVP', () => {
 
     await openNav(page, 'Rozvrh');
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
-    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
-    const version = page
-      .getByRole('dialog', { name: 'Verze rozvrhu' })
-      .getByTestId('timetable-version')
-      .filter({ hasText: name });
+    await openVersions(page);
+    const version = versionItem(page, name);
     await version.getByRole('button', { name: 'Archivovat' }).click();
     await page
       .getByRole('alertdialog', { name: 'Archivovat verzi rozvrhu' })
       .getByRole('button', { name: 'Archivovat' })
       .click();
+    await openVersions(page);
     await expect(version).toContainText('Archivovaná');
     await page.reload();
 

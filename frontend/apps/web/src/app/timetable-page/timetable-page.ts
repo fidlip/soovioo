@@ -75,12 +75,7 @@ import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
 import { Loading } from '../loading/loading';
 import { TimetableEditFromDateDialog } from './timetable-edit-from-date-dialog';
-import { TimetableGenerateDialog } from './timetable-generate-dialog';
-import {
-  TimetableVersionsDialog,
-  versionStatusLabel,
-  versionValidity,
-} from './timetable-versions-dialog';
+import { versionStatusLabel, versionValidity } from './timetable-versions';
 
 const DAYS: DayOfWeek[] = [
   'Monday',
@@ -213,8 +208,6 @@ function formatShortDate(date: Date): string {
     Message,
     Select,
     TimetableEditFromDateDialog,
-    TimetableGenerateDialog,
-    TimetableVersionsDialog,
   ],
   templateUrl: './timetable-page.html',
 })
@@ -304,7 +297,6 @@ export class TimetablePage {
   /** null = the published version valid in the displayed week. */
   protected readonly selectedVersionId =
     this.selection?.versionId ?? signal<number | null>(null);
-  protected readonly versionsDialogVisible = signal(false);
   /** The version the entries were last loaded for — undefined while the
    * list of versions wasn't in yet. */
   private loadedVersionId: number | null | undefined;
@@ -677,8 +669,8 @@ export class TimetablePage {
     }
   }
 
-  /** What the page was showing when it sent here, or the "generated"
-   * notification's version with its result. */
+  /** What the page was showing when it sent here, or the notification's
+   * version. */
   private openFromAddress(selection: TimetableVersionSelection): void {
     const query = this.route.snapshot.queryParamMap;
     const week = query.get('week');
@@ -691,23 +683,12 @@ export class TimetablePage {
     if (version) {
       selection.versionId.set(version);
     }
-    if (version && query.get('generation') === 'result') {
-      this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: { generation: null },
-        queryParamsHandling: 'merge',
-        replaceUrl: true,
-      });
-      selection.reload(() => {
-        this.generateShowResult.set(true);
-        this.generateDialogVisible.set(true);
-      });
-    }
     // The list and the choice live above this page: its version changing
     // shows here.
     effect(() => {
       if (selection.loaded()) {
         selection.versionId();
+        selection.revision();
         untracked(() => this.reload());
       }
     });
@@ -772,14 +753,6 @@ export class TimetablePage {
     );
   }
 
-  protected readonly generateDialogVisible = signal(false);
-  /** Opened from the "generated" notification: straight on the result. */
-  protected readonly generateShowResult = signal(false);
-
-  protected canGenerate(): boolean {
-    return this.canManageTimetable() && this.shownVersion()?.status === 'Draft';
-  }
-
   /** Only a draft; a school without any version gets one with its first
    * lesson. */
   protected canEditShownVersion(): boolean {
@@ -825,11 +798,6 @@ export class TimetablePage {
     this.selectedVersionId.set(day >= 2 && day <= 5 ? versionId : null);
     this.versionShownForWeek = this.selectedVersionId() !== null;
     this.reload();
-  }
-
-  protected onShowVersion(id: number): void {
-    this.versionsDialogVisible.set(false);
-    this.selectedVersionId.set(id);
   }
 
   protected onEditFromDate(draftId: number): void {

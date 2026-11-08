@@ -3,10 +3,14 @@ import {
   archive,
   draftCopy,
   openVersionWeek,
+  openVersions,
+  pickVersion,
   publishQuietly,
   showVersion,
   unpublish,
+  versionItem,
   versionsApi,
+  versionsButton,
 } from './timetable-versions';
 
 async function login(
@@ -353,9 +357,10 @@ test.describe.serial('timetable version', () => {
       page.getByRole('button', { name: 'Verze rozvrhu' }),
     ).toHaveCount(0);
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
-    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
-    await dialog.getByRole('button', { name: 'Nový koncept' }).click();
+    const versions = await openVersions(page);
+    await versions.getByRole('button', { name: 'Nový koncept' }).click();
+    await expect(versions).toBeHidden();
+    const dialog = page.getByRole('dialog', { name: 'Nový koncept' });
     await dialog.getByLabel('Název').fill(name);
     // Typed key by key — the DatePicker ignores a pasted value.
     await dialog
@@ -399,7 +404,7 @@ test.describe.serial('timetable version', () => {
   test('a parent does not see the draft', async ({ page }) => {
     await login(page, 'rodic', 'rodic123');
     await expect(page.getByText(name)).toHaveCount(0);
-    await expect(page.getByRole('combobox', { name: /Verze/ })).toHaveCount(0);
+    await expect(versionsButton(page)).toHaveCount(0);
   });
 
   test('admin publishes it ahead, unpublishes, publishes and archives it', async ({
@@ -407,44 +412,45 @@ test.describe.serial('timetable version', () => {
   }) => {
     await login(page, 'admin', 'admin123');
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
-    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Verze rozvrhu' });
-    const version = dialog
-      .getByTestId('timetable-version')
-      .filter({ hasText: name });
-    const picker = page.getByRole('combobox', { name: 'Verze rozvrhu' });
+    const version = versionItem(page, name);
+    const button = versionsButton(page);
+    const publish = async () => {
+      await openVersions(page);
+      await version.getByRole('button', { name: 'Zveřejnit' }).click();
+      await page
+        .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
+        .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
+        .click();
+    };
 
     // Stays the chosen one, a draft or published.
-    await version.getByRole('button', { name: 'Zobrazit' }).click();
-    await expect(picker).toContainText(name);
-    await page.getByRole('button', { name: 'Verze rozvrhu' }).click();
-    await version.getByRole('button', { name: 'Zveřejnit' }).click();
-    await page
-      .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
-      .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
-      .click();
-    await expect(version).toContainText('Naplánovaná');
-    await expect(picker).toContainText(name);
+    await pickVersion(page, name);
+    await expect(button).toContainText(name);
+    await expect(button).toContainText('Koncept');
+    await publish();
+    await expect(button).toContainText(name);
+    await expect(button).toContainText('Naplánovaná');
 
     // Unpublished it's a draft again, and published once more.
+    await openVersions(page);
     await version.getByRole('button', { name: 'Zrušit zveřejnění' }).click();
     await page
       .getByRole('alertdialog', { name: 'Zrušit zveřejnění verze rozvrhu' })
       .getByRole('button', { name: 'Zrušit zveřejnění' })
       .click();
-    await expect(version).toContainText('Koncept');
-    await version.getByRole('button', { name: 'Zveřejnit' }).click();
-    await page
-      .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
-      .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
-      .click();
-    await expect(version).toContainText('Naplánovaná');
+    await expect(button).toContainText('Koncept');
+    await publish();
+    await expect(button).toContainText('Naplánovaná');
 
+    // Archived, still the chosen one.
+    await openVersions(page);
     await version.getByRole('button', { name: 'Archivovat' }).click();
     await page
       .getByRole('alertdialog', { name: 'Archivovat verzi rozvrhu' })
       .getByRole('button', { name: 'Archivovat' })
       .click();
+    await expect(button).toContainText('Archivovaná');
+    await openVersions(page);
     await expect(version).toContainText('Archivovaná');
     await expect(
       version.getByRole('button', { name: 'Vrátit mezi koncepty' }),

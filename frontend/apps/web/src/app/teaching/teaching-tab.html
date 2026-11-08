@@ -1,38 +1,34 @@
-@if (selection.options().length > 0 && activeSection() !== 'substitutions' &&
-activeSection() !== 'settings') {
-<div class="mb-4">
-  <app-float-field label="Verze rozvrhu" for="teachingVersion">
-    <p-select
-      ariaLabel="Verze rozvrhu"
-      inputId="teachingVersion"
-      [options]="selection.options()"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="versionId()"
-      (ngModelChange)="versionId.set($event)"
-      name="teachingVersion"
-      styleClass="w-72"
-      appendTo="body"
-    />
-  </app-float-field>
-</div>
-}
-
 <p-tabs
   [value]="activeSection()"
   (valueChange)="section.set($any($event))"
   [scrollable]="true"
 >
   <p-tablist>
-    @for (s of sections(); track s.value) {
+    @for (s of sections(); track s.value; let i = $index) { @if (i > 0 &&
+    !s.versioned && sections()[i - 1].versioned) {
+    <!-- data-p-disabled: arrow keys skip it like a disabled tab -->
+    <span
+      class="mx-2 my-2 w-px shrink-0 self-stretch bg-surface-300 dark:bg-surface-600"
+      aria-hidden="true"
+      data-p-disabled="true"
+      data-testid="teaching-sections-divider"
+    ></span>
+    }
     <p-tab [value]="s.value">{{ s.label }}</p-tab>
     }
   </p-tablist>
-  @if (showsOverview()) { @if (loading()) {
-  <app-loading />
-  } @else if (overview(); as o) {
-  <div class="mb-4 mt-4 flex flex-wrap items-end gap-3">
-    @if (o.canEdit) {
+  @if (versioned() && (selection.versions().length > 0 || canEditVersions)) {
+  <div class="my-4 flex flex-wrap items-center gap-3">
+    <app-timetable-versions [canEdit]="canEditVersions" />
+    @if (canGenerate()) {
+    <p-button
+      label="Generovat"
+      icon="pi pi-cog"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="generateVisible.set(true)"
+    />
+    } @if (showsOverview() && !loading() && overview()?.canEdit) {
     <p-button
       label="Načíst z rozvrhu"
       icon="pi pi-download"
@@ -51,6 +47,9 @@ activeSection() !== 'settings') {
     />
     }
   </div>
+  } @if (showsOverview()) { @if (loading()) {
+  <app-loading />
+  } @else if (overview(); as o) {
   <p class="mb-4 text-sm text-surface-500">
     Kde škola učitele nepřidělí, vybere ho systém z učitelů s aprobací pro
     předmět a ročník podle nasmlouvaných hodin. Hodina jen v lichém nebo sudém
@@ -140,9 +139,7 @@ activeSection() !== 'settings') {
   <p-tabpanels>
     <p-tabpanel value="timetable">
       @if (activeSection() === 'timetable') {
-      <div class="pt-4">
-        <app-timetable-page />
-      </div>
+      <app-timetable-page />
       }
     </p-tabpanel>
     <p-tabpanel value="classes">
@@ -598,3 +595,12 @@ activeSection() !== 'settings') {
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>
+@if (canGenerate()) {
+<app-timetable-generate-dialog
+  [visible]="generateVisible()"
+  [versionId]="versionId()!"
+  [showResult]="generateShowResult()"
+  (closed)="generateVisible.set(false); generateShowResult.set(false)"
+  (generated)="selection.changed()"
+/>
+}
