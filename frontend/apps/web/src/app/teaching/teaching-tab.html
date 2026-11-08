@@ -517,8 +517,10 @@ activeSection() !== 'settings') {
                 </td>
                 }
               </tr>
-              <tr class="border-t border-surface-200 dark:border-surface-700">
-                <td class="p-2 font-medium">Hlavní výukový blok</td>
+              <tr
+                class="border-t border-surface-200 align-top dark:border-surface-700"
+              >
+                <td class="p-2 pt-3 font-medium">Hlavní výukový blok</td>
                 @for (g of o.grades; track g) {
                 <td class="p-1 text-center">
                   @if (o.canEdit) {
