@@ -42,8 +42,10 @@ test.describe.serial('payment for one student', () => {
     await dialog.locator('#amount').pressSequentially('150');
     await dialog.locator('p-select[name="audience"]').click();
     await page.getByRole('option', { name: 'Výběr', exact: true }).click();
-    await dialog.getByLabel('Hledat žáka').fill('NOVAK');
-    await dialog.getByText('Jan Novák').click();
+    await dialog.locator('p-multiselect[name="students"]').click();
+    await page.getByRole('searchbox').fill('NOVAK');
+    await page.getByRole('option', { name: /^Jan Novák/ }).click();
+    await page.keyboard.press('Escape');
     await dialog.locator('button[type="submit"]').click();
     await expect(dialog).toBeHidden();
 

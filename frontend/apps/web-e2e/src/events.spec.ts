@@ -100,6 +100,7 @@ test('recipient filters ignore case and diacritics', async ({ page }) => {
   await dialog.locator('#eventAudience').click();
   await page.getByRole('option', { name: 'Výběr', exact: true }).click();
 
-  await dialog.getByLabel('Hledat žáka').fill('jan novak');
-  await expect(dialog.getByText('Jan Novák')).toBeVisible();
+  await dialog.locator('p-multiselect[name="students"]').click();
+  await page.getByRole('searchbox').fill('jan novak');
+  await expect(page.getByRole('option', { name: /^Jan Novák/ })).toBeVisible();
 });

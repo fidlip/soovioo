@@ -196,184 +196,85 @@
     <div
       class="flex flex-col gap-4 rounded-md border border-surface-200 p-3 dark:border-surface-700"
     >
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Třídy</span
-        >
-        <div class="flex flex-wrap gap-2">
-          <app-float-field label="Hledat třídu" for="eventClassFilterName">
-            <input
-              id="eventClassFilterName"
-              pInputText
-              type="text"
-              name="classFilterName"
-              class="max-w-40"
-              [(ngModel)]="classFilterName"
-            />
-          </app-float-field>
-          <app-float-field label="Ročník" for="eventClassFilterRocnik">
-            <p-select
-              ariaLabel="Ročník"
-              inputId="eventClassFilterRocnik"
-              [options]="rocnikOptions()"
-              [showClear]="true"
-              name="classFilterRocnik"
-              styleClass="w-28"
-              appendTo="body"
-              [(ngModel)]="classFilterRocnik"
-            />
-          </app-float-field>
-        </div>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
-        >
-          @for (c of filteredClasses(); track c.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedClassIds().includes(c.id)"
-              (ngModelChange)="toggleClassId(c.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ c.name }} @if (c.rocnik) {
-            <span class="text-surface-500 dark:text-surface-400"
-              >· {{ c.rocnik }}. ročník</span
-            >
-            }
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
-      </div>
+      <app-class-picker
+        inputId="eventClassFilterName"
+        [classes]="recipientOptions()?.classes ?? []"
+        [selected]="selectedClassIds()"
+        (selectedChange)="selectedClassIds.set($event)"
+      />
 
       @if (wholeSchool) {
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Učitelé</span
-        >
-        <app-float-field label="Hledat učitele" for="eventTeacherFilterName">
-          <input
-            id="eventTeacherFilterName"
-            pInputText
-            type="text"
-            name="teacherFilterName"
-            class="max-w-40"
-            [(ngModel)]="teacherFilterName"
-          />
-        </app-float-field>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
-        >
-          @for (t of filteredTeachers(); track t.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedTeacherIds().includes(t.id)"
-              (ngModelChange)="toggleTeacherId(t.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ t.name }}
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
-      </div>
+      <app-float-field label="Učitelé" for="eventTeachers">
+        <p-multiselect
+          ariaLabel="Učitelé"
+          inputId="eventTeachers"
+          name="teachers"
+          [options]="recipientOptions()?.teachers ?? []"
+          optionLabel="name"
+          optionValue="id"
+          [ngModel]="selectedTeacherIds()"
+          (ngModelChange)="selectedTeacherIds.set($event)"
+          display="chip"
+          [filter]="true"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </app-float-field>
       }
 
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >Rodiče</span
-        >
-        <app-float-field label="Hledat rodiče" for="eventParentFilterName">
-          <input
-            id="eventParentFilterName"
-            pInputText
-            type="text"
-            name="parentFilterName"
-            class="max-w-40"
-            [(ngModel)]="parentFilterName"
+      <app-float-field label="Rodiče" for="eventParents">
+        <p-multiselect
+          ariaLabel="Rodiče"
+          inputId="eventParents"
+          name="parents"
+          [options]="recipientOptions()?.parents ?? []"
+          optionLabel="name"
+          optionValue="id"
+          [ngModel]="selectedParentIds()"
+          (ngModelChange)="selectedParentIds.set($event)"
+          display="chip"
+          [filter]="true"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </app-float-field>
+
+      <div class="flex flex-wrap gap-2">
+        <app-float-field label="Třída" for="eventStudentClass">
+          <p-select
+            ariaLabel="Třída"
+            inputId="eventStudentClass"
+            name="studentClass"
+            [options]="studentClassOptions()"
+            optionLabel="name"
+            optionValue="id"
+            [ngModel]="studentClassId()"
+            (ngModelChange)="studentClassId.set($event)"
+            [showClear]="true"
+            styleClass="w-32"
+            appendTo="body"
           />
         </app-float-field>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
+        <app-float-field
+          class="min-w-60 flex-1"
+          [label]="'Žáci' | term"
+          for="eventStudents"
         >
-          @for (p of filteredParents(); track p.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedParentIds().includes(p.id)"
-              (ngModelChange)="toggleParentId(p.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ p.name }}
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-surface-600 dark:text-surface-300"
-          >{{ 'Žáci' | term }}</span
-        >
-        <div class="flex flex-wrap gap-2">
-          <app-float-field
-            [label]="'Hledat žáka' | term"
-            for="eventStudentFilterName"
-          >
-            <input
-              id="eventStudentFilterName"
-              pInputText
-              type="text"
-              name="studentFilterName"
-              class="max-w-40"
-              [(ngModel)]="studentFilterName"
-            />
-          </app-float-field>
-          <app-float-field label="Ročník" for="eventStudentFilterRocnik">
-            <p-select
-              ariaLabel="Ročník"
-              inputId="eventStudentFilterRocnik"
-              [options]="rocnikOptions()"
-              [showClear]="true"
-              name="studentFilterRocnik"
-              styleClass="w-28"
-              appendTo="body"
-              [(ngModel)]="studentFilterRocnik"
-            />
-          </app-float-field>
-        </div>
-        <div
-          class="flex max-h-32 flex-col gap-1 overflow-y-auto rounded border border-surface-200 p-2 dark:border-surface-700"
-        >
-          @for (s of filteredStudents(); track s.id) {
-          <label class="flex items-center gap-2 text-sm">
-            <p-checkbox
-              [binary]="true"
-              [ngModel]="selectedStudentIds().includes(s.id)"
-              (ngModelChange)="toggleStudentId(s.id)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-            {{ s.firstName }} {{ s.lastName }}
-            <span class="text-surface-500 dark:text-surface-400"
-              >· {{ s.schoolClassName }}</span
-            >
-          </label>
-          } @empty {
-          <span class="text-sm text-surface-500 dark:text-surface-400"
-            >Nic nenalezeno.</span
-          >
-          }
-        </div>
+          <p-multiselect
+            [ariaLabel]="'Žáci' | term"
+            inputId="eventStudents"
+            name="students"
+            [options]="studentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            [ngModel]="selectedStudentIds()"
+            (ngModelChange)="selectedStudentIds.set($event)"
+            display="chip"
+            [filter]="true"
+            styleClass="w-full"
+            appendTo="body"
+          />
+        </app-float-field>
       </div>
     </div>
     }

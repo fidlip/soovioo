@@ -87,9 +87,10 @@ test.describe.serial('student groups', () => {
       dialog.getByRole('combobox', { name: 'Předmět' }),
       'Anglický jazyk',
     );
-    await dialog.locator('p-multiselect[name="groupClasses"]').click();
-    await page.getByRole('option', { name: '5.A', exact: true }).click();
-    await page.keyboard.press('Escape');
+    await dialog
+      .getByRole('group', { name: 'Třídy' })
+      .getByRole('checkbox', { name: '5.A', exact: true })
+      .click();
     await dialog.locator('p-multiselect[name="groupStudents"]').click();
     await page.getByRole('option', { name: /^Novák Jan/ }).click();
     await page.keyboard.press('Escape');
@@ -315,9 +316,10 @@ test('a division teaches a row of the učební plán', async ({
   await page.getByRole('button', { name: 'Nové dělení' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nové dělení' });
   await dialog.getByLabel('Název').fill('Volba e2e');
-  await dialog.locator('p-multiselect[name="divisionClasses"]').click();
-  await page.getByRole('option', { name: '5.A', exact: true }).click();
-  await page.keyboard.press('Escape');
+  await dialog
+    .getByRole('group', { name: 'Třídy' })
+    .getByRole('checkbox', { name: '5.A', exact: true })
+    .click();
   const covers = dialog.getByRole('combobox', { name: 'Řádek učebního plánu' });
   await pick(page, covers, row);
   await dialog.getByRole('spinbutton', { name: 'Hodiny týdně' }).fill('1');

@@ -26,8 +26,8 @@
         [ngModel]="forcedEmail()"
         (ngModelChange)="forcedEmail.set($event)"
         name="forcedEmail"
-        [showToggleAll]="false"
-        [filter]="false"
+        display="chip"
+        [showHeader]="false"
         styleClass="w-72"
         appendTo="body"
       />

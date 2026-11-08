@@ -2,13 +2,13 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import QRCode from 'qrcode';
 import { Button } from '@openng/optimus-ui/button';
-import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Message as PMessage } from '@openng/optimus-ui/message';
+import { MultiSelect } from '@openng/optimus-ui/multiselect';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
 import { Textarea } from '@openng/optimus-ui/textarea';
@@ -19,12 +19,9 @@ import {
   Payment,
   PaymentAmountType,
   PaymentAudience,
-  PaymentPersonOption,
   PaymentRecipient,
   PaymentRecipientOptions,
   PaymentRecurrence,
-  PaymentSchoolClassOption,
-  PaymentStudentOption,
   PaymentsApiService,
   formatAmount,
   formatIban,
@@ -33,9 +30,15 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
-import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
+import {
+  ClassPicker,
+  ClearFilters,
+  FloatField,
+  FORM_FIELDS,
+  studentClasses,
+  studentPickOptions,
+} from '../forms';
 import { Loading } from '../loading/loading';
-import { foldForSearch } from '../text-search';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type PaidFilter = 'all' | 'unpaid' | 'paid';
@@ -95,8 +98,9 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
-    Checkbox,
+    ClassPicker,
     Loading,
+    MultiSelect,
     TermPipe,
     AppIcon,
     Button,
@@ -234,11 +238,9 @@ export class PaymentsPage {
     : 'Selected';
   protected selectedClassIds: number[] = [];
   protected selectedParentIds: number[] = [];
-  protected selectedStudentIds: number[] = [];
-
-  protected classFilterName = '';
-  protected studentFilterName = '';
-  protected parentFilterName = '';
+  protected readonly selectedStudentIds = signal<number[]>([]);
+  /** Narrows the student list to one class. */
+  protected readonly pickClassId = signal<number | null>(null);
 
   /** Set just before window.print() — the receipt block (print:block,
    * hidden otherwise) renders from this while everything else in the
@@ -357,45 +359,16 @@ export class PaymentsPage {
     return this.qrDataUrls()[recipientId] ?? null;
   }
 
-  protected filteredClasses(): PaymentSchoolClassOption[] {
-    const name = foldForSearch(this.classFilterName.trim());
-    return (this.recipientOptions()?.classes ?? []).filter(
-      (c) => !name || foldForSearch(c.name).includes(name),
-    );
-  }
-
-  protected filteredStudents(): PaymentStudentOption[] {
-    const name = foldForSearch(this.studentFilterName.trim());
-    return (this.recipientOptions()?.students ?? []).filter(
-      (s) =>
-        !name || foldForSearch(`${s.firstName} ${s.lastName}`).includes(name),
-    );
-  }
-
-  protected filteredParents(): PaymentPersonOption[] {
-    const name = foldForSearch(this.parentFilterName.trim());
-    return (this.recipientOptions()?.parents ?? []).filter(
-      (p) => !name || foldForSearch(p.name).includes(name),
-    );
-  }
-
-  protected toggleClassId(id: number): void {
-    this.selectedClassIds = this.selectedClassIds.includes(id)
-      ? this.selectedClassIds.filter((x) => x !== id)
-      : [...this.selectedClassIds, id];
-  }
-
-  protected toggleParentId(id: number): void {
-    this.selectedParentIds = this.selectedParentIds.includes(id)
-      ? this.selectedParentIds.filter((x) => x !== id)
-      : [...this.selectedParentIds, id];
-  }
-
-  protected toggleStudentId(id: number): void {
-    this.selectedStudentIds = this.selectedStudentIds.includes(id)
-      ? this.selectedStudentIds.filter((x) => x !== id)
-      : [...this.selectedStudentIds, id];
-  }
+  protected readonly studentClassOptions = computed(() =>
+    studentClasses(this.recipientOptions()?.students ?? []),
+  );
+  protected readonly studentOptions = computed(() =>
+    studentPickOptions(
+      this.recipientOptions()?.students ?? [],
+      this.pickClassId(),
+      this.selectedStudentIds(),
+    ),
+  );
 
   protected openCreateDialog(): void {
     this.formError.set(null);
@@ -409,10 +382,8 @@ export class PaymentsPage {
     this.newAudience = this.wholeSchool ? 'Everyone' : 'Selected';
     this.selectedClassIds = [];
     this.selectedParentIds = [];
-    this.selectedStudentIds = [];
-    this.classFilterName = '';
-    this.studentFilterName = '';
-    this.parentFilterName = '';
+    this.selectedStudentIds.set([]);
+    this.pickClassId.set(null);
     this.notify.clear();
     this.dialogVisible.set(true);
   }
@@ -441,7 +412,7 @@ export class PaymentsPage {
       audience: this.newAudience,
       schoolClassIds: this.selectedClassIds,
       parentUserIds: this.selectedParentIds,
-      studentIds: this.selectedStudentIds,
+      studentIds: this.selectedStudentIds(),
     };
 
     this.paymentsApi.addPayment(request).subscribe({
