@@ -80,6 +80,11 @@ public class StudentEraser(
                     break;
                 case RetentionCategory.Attendance:
                     await db.DeleteAsync(db.Absences.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
+                    var excuses = db.Excuses.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id);
+                    var excuseFiles = db.ExcuseAttachments.IgnoreQueryFilters().Where(a => excuses.Any(e => e.Id == a.ExcuseId));
+                    filesToDelete.AddRange(await excuseFiles.Select(a => a.StoragePath).ToListAsync());
+                    await db.DeleteAsync(excuseFiles);
+                    await db.DeleteAsync(excuses);
                     break;
                 case RetentionCategory.Grades:
                     await db.DeleteAsync(db.Grades.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
@@ -124,7 +129,7 @@ public class StudentEraser(
         RetentionCategory.Photos => [NotificationType.Photo],
         RetentionCategory.Messages => [NotificationType.Message],
         RetentionCategory.Homework => [NotificationType.Homework],
-        RetentionCategory.Attendance => [NotificationType.Absence, NotificationType.Excuse],
+        RetentionCategory.Attendance => [NotificationType.Absence, NotificationType.Excuse, NotificationType.NewExcuse],
         RetentionCategory.Grades => [NotificationType.Grade],
         _ => [],
     };

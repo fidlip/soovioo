@@ -9,7 +9,7 @@ public enum NotificationType
     Message,
     Absence,
 
-    /// <summary>An excuse was approved or rejected.</summary>
+    /// <summary>An omluvenka was approved or rejected.</summary>
     Excuse,
     Homework,
     Event,
@@ -25,6 +25,9 @@ public enum NotificationType
 
     /// <summary>A published day changes the user's (or their child's) lessons.</summary>
     Substitution,
+
+    /// <summary>A new omluvenka waits for the (class) teacher's approval.</summary>
+    NewExcuse,
 }
 
 /// <summary>One item under the bell — something new for one user, with a

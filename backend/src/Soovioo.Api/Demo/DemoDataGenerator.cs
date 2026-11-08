@@ -1373,29 +1373,27 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                     {
                         var length = rng.Next(1, 6);
                         var reason = Pick(SickReasons);
-                        for (var j = i; j < Math.Min(days.Count, i + length); j++)
-                        {
-                            var sickDay = days[j];
-                            AddAbsence(student, sickDay, Enumerable.Range(1, info.DayLengths[(int)sickDay.DayOfWeek - 1]).ToList(), reason, recent);
-                        }
+                        var sickDays = days.Skip(i).Take(length).ToList();
+                        AddAbsences(student, sickDays.Select(d => (d, Enumerable.Range(1, info.DayLengths[(int)d.DayOfWeek - 1]).ToList())).ToList(),
+                            reason, recent);
                         i += length;
                     }
                     else if (rng.NextDouble() < 0.006)
                     {
                         var start = rng.Next(1, Math.Max(2, dayLength - 1));
-                        AddAbsence(student, day, Enumerable.Range(start, Math.Min(2, dayLength - start + 1)).ToList(), Pick(PartialReasons), recent);
+                        AddAbsences(student, [(day, Enumerable.Range(start, Math.Min(2, dayLength - start + 1)).ToList())], Pick(PartialReasons), recent);
                     }
                 }
             }
         }
     }
 
-    private void AddAbsence(StudentInfo student, DateOnly day, List<int> periods, string reason, DateOnly recent)
+    /// <summary>The days of one absence, with the family's omluvenka unless it's unexcused.</summary>
+    private void AddAbsences(StudentInfo student, List<(DateOnly Day, List<int> Periods)> days, string reason, DateOnly recent)
     {
         AbsenceStatus status;
-        string? excuse = reason;
         var roll = rng.NextDouble();
-        if (day < recent)
+        if (days[0].Day < recent)
         {
             status = roll < 0.95 ? AbsenceStatus.Excused : roll < 0.98 ? AbsenceStatus.Unexcused : AbsenceStatus.Rejected;
         }
@@ -1403,20 +1401,35 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         {
             status = roll < 0.4 ? AbsenceStatus.PendingExcuse : roll < 0.75 ? AbsenceStatus.Unexcused : AbsenceStatus.Excused;
         }
-        if (status == AbsenceStatus.Unexcused)
+        var excuse = status == AbsenceStatus.Unexcused
+            ? null
+            : new Excuse
+            {
+                SchoolId = school.Id,
+                StudentId = student.Student.Id,
+                DateFrom = days[0].Day,
+                DateTo = days[^1].Day,
+                Reason = reason,
+                CreatedAt = At(days[0].Day, 7, 30),
+            };
+        if (excuse is not null)
         {
-            excuse = null;
+            db.Excuses.Add(excuse);
         }
-        db.Absences.Add(new Absence
+        foreach (var (day, periods) in days)
         {
-            SchoolId = school.Id,
-            StudentId = student.Student.Id,
-            Date = day,
-            Periods = periods,
-            Status = status,
-            ExcuseReason = excuse,
-            CreatedAt = At(day, 8, 10),
-        });
+            db.Absences.Add(new Absence
+            {
+                SchoolId = school.Id,
+                StudentId = student.Student.Id,
+                Date = day,
+                Periods = periods,
+                Status = status,
+                Excuse = excuse,
+                ReviewNote = status == AbsenceStatus.Rejected ? "Omluvenka přišla po lhůtě." : null,
+                CreatedAt = At(day, 8, 10),
+            });
+        }
     }
 
     private static readonly (BehaviorRecordType Type, double Chance, string[] Texts)[] BehaviorKinds =

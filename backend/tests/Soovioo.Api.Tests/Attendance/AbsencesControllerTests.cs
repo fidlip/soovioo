@@ -6,6 +6,7 @@ using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
@@ -26,7 +27,8 @@ public class AbsencesControllerTests
     private static AbsencesController NewControllerAs(AppDbContext db, int userId, UserRole role)
     {
         var principal = TestRoles.Principal(db, userId, role, SchoolId);
-        return new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System))
+        return new AbsencesController(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, TimeProvider.System), TimeProvider.System,
+            new MessageAttachmentStorageService(new FakeWebHostEnvironment()))
         {
             ControllerContext = new ControllerContext
             {
@@ -88,7 +90,7 @@ public class AbsencesControllerTests
             .SubmitExcuse(absence.Id, new SubmitExcuseRequest("Nemoc"));
 
         Assert.IsType<ForbidResult>(result);
-        Assert.Null((await db.Absences.FindAsync(absence.Id))!.ExcuseReason);
+        Assert.Empty(db.Excuses);
     }
 
     [Fact]
@@ -110,7 +112,9 @@ public class AbsencesControllerTests
             .SubmitExcuse(absence.Id, new SubmitExcuseRequest("Nemoc"));
 
         Assert.IsType<NoContentResult>(result);
-        Assert.Equal("Nemoc", (await db.Absences.FindAsync(absence.Id))!.ExcuseReason);
+        var excuse = Assert.Single(db.Excuses);
+        Assert.Equal(("Nemoc", excuse.Id, AbsenceStatus.PendingExcuse),
+            (excuse.Reason, (await db.Absences.FindAsync(absence.Id))!.ExcuseId, (await db.Absences.FindAsync(absence.Id))!.Status));
     }
 
     [Fact]

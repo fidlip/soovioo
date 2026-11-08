@@ -33,7 +33,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             // SuperAdmin isn't tied to a school and has no agenda pages to
             // summarize — same "nothing to show" stance as EventsController.
-            return Ok(new DashboardDto([], null, [], [], 0, [], [], [], null));
+            return Ok(new DashboardDto([], null, [], [], 0, [], [], [], null, []));
         }
 
         var schoolId = currentSchool.SchoolId.Value;
@@ -85,9 +85,14 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         var pendingAbsences = await absencesQuery
             .OrderByDescending(a => a.Date)
             .Take(5)
-            .Select(a => new AbsenceDto(
-                a.Id, a.StudentId, a.Student!.Person!.FirstName + " " + a.Student.Person!.LastName, a.Date, a.Status, a.ExcuseReason, a.Periods))
+            .Select(AbsenceDto.Projection)
             .ToListAsync();
+        var excusesQuery = db.Excuses.Where(e => e.Absences.Any(a => a.Status == AbsenceStatus.PendingExcuse));
+        if (await User.StudentIdsAsync(db, Permission.AbsencesRead) is { } excuseStudentIds)
+        {
+            excusesQuery = excusesQuery.Where(e => excuseStudentIds.Contains(e.StudentId));
+        }
+        var pendingExcuses = await ExcusesController.DtosAsync(excusesQuery.OrderByDescending(e => e.DateTo).Take(5));
 
         var unreadMessageCount = await db.CountUnreadConversationsAsync(userId);
         var unreadConversations = (await db.UnreadConversations(userId)
@@ -151,7 +156,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         return Ok(new DashboardDto(
             todayLessons, todayLessonsContext, recentGrades, pendingAbsences,
-            unreadMessageCount, unreadConversations, upcomingEvents, unreadBehaviorRecords, schoolCounts));
+            unreadMessageCount, unreadConversations, upcomingEvents, unreadBehaviorRecords, schoolCounts, pendingExcuses));
     }
 
     /// <summary>Filtered by day of week only, not <see cref="WeekParity"/> —
@@ -253,7 +258,9 @@ public record DashboardDto(
     /// <see cref="UnreadMessageCount"/> — see <see cref="BehaviorRecord.ReadAt"/>.</summary>
     IReadOnlyList<BehaviorRecordDto> UnreadBehaviorRecords,
     /// <summary>Admin only — null for every other role.</summary>
-    SchoolCountsDto? SchoolCounts);
+    SchoolCountsDto? SchoolCounts,
+    /// <summary>Up to 5 omluvenky with days still waiting for approval.</summary>
+    IReadOnlyList<ExcuseDto> PendingExcuses);
 
 public record UpcomingEventDto(int Id, string Title, DateTimeOffset StartAt, DateTimeOffset EndAt, bool AllDay);
 

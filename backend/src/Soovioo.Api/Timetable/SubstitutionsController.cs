@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -420,6 +421,11 @@ public class SubstitutionsController(
             await new SubstitutionNotice(db, notifier).AddAsync(currentSchool.SchoolId!.Value, date, before, after);
         }
         await db.SaveChangesAsync();
+        if (date >= SchoolClock.Today(clock))
+        {
+            await new ExcuseBook(db, notifier, clock).PublishedAsync(date);
+            await db.SaveChangesAsync();
+        }
         return Ok(await DayAsync(date));
     }
 

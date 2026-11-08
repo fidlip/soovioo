@@ -8,6 +8,7 @@ public static class AuditDescriptions
     private static readonly Dictionary<string, string> Areas = new()
     {
         ["Absences"] = "Docházka",
+        ["Excuses"] = "Docházka",
         ["Auth"] = "Přihlášení",
         ["Behavior"] = "Chování",
         ["CalendarToken"] = "Nastavení",
@@ -45,10 +46,16 @@ public static class AuditDescriptions
     private static readonly Dictionary<string, string> Actions = new()
     {
         ["Absences.AddAbsence"] = "Zapsána absence",
-        ["Absences.SubmitExcuse"] = "Omluvena absence",
-        ["Absences.ReviewAbsence"] = "Posouzena omluvenka",
+        ["Absences.SubmitExcuse"] = "Napsána omluvenka",
+        ["Absences.ReviewAbsence"] = "Posouzena omluvenka za den",
         ["Absences.UpdateAbsence"] = "Upravena absence",
         ["Absences.DeleteAbsence"] = "Smazána absence",
+        ["Excuses.CreateExcuse"] = "Napsána omluvenka",
+        ["Excuses.UpdateExcuse"] = "Upravena omluvenka",
+        ["Excuses.DeleteExcuse"] = "Smazána omluvenka",
+        ["Excuses.ReviewExcuse"] = "Posouzena omluvenka",
+        ["Excuses.UploadAttachment"] = "Přiložen soubor k omluvence",
+        ["Excuses.DeleteAttachment"] = "Odebrán soubor z omluvenky",
         ["Auth.Login"] = "Přihlášení",
         ["Auth.AcceptInvite"] = "Přijata pozvánka (nastaveno heslo)",
         ["Auth.Logout"] = "Odhlášení",
