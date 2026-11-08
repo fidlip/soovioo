@@ -1,0 +1,31 @@
+/* The links themselves (`.app-nav-link` …) are styled by `AppSidebar`. */
+
+:host {
+  display: contents;
+}
+
+/* Name with the logout button beside it. */
+.app-user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-user-name {
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+}
+
+/* Icon-only sidebar: just the logout button. */
+@media (min-width: 768px) {
+  :host-context(.app-sidebar.collapsed) {
+    .app-user-row {
+      justify-content: center;
+    }
+
+    .app-user-name {
+      display: none;
+    }
+  }
+}
