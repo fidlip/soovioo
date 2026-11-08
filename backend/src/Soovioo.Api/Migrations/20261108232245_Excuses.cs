@@ -45,6 +45,7 @@ namespace Soovioo.Api.Migrations
                     DateTo = table.Column<DateOnly>(type: "date", nullable: false),
                     Periods = table.Column<List<int>>(type: "integer[]", nullable: false),
                     Reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Channel = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
