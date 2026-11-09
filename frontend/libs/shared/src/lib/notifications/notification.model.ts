@@ -12,7 +12,9 @@ export type NotificationType =
   | 'TimetableChange'
   | 'Substitution'
   | 'NewExcuse'
-  | 'Nickname';
+  | 'Nickname'
+  | 'SupportTicket'
+  | 'SupportTicketUpdate';
 
 export interface AppNotification {
   id: number;
@@ -24,7 +26,8 @@ export interface AppNotification {
   /** What on that page — the conversation for `messages`. */
   targetId: number | null;
   /** The page with the thing on it, without the school part, e.g.
-   * `grades?grade=12`. */
+   * `grades?grade=12`; a SuperAdmin's outside any school, e.g.
+   * `superadmin?enter=3`. */
   link: string;
   createdAt: string;
   read: boolean;
@@ -125,6 +128,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   Substitution: 'Suplování',
   NewExcuse: 'Nové omluvenky ke schválení',
   Nickname: 'Přezdívky ke schválení',
+  SupportTicket: 'Požadavky škol na podporu',
+  SupportTicketUpdate: 'Vyřizování požadavků na podporu',
 };
 
 /** Times offered for the daily e-mail, `HH:mm` every half hour. */

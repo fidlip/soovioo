@@ -865,6 +865,7 @@
             <p-tab value="roles">Role</p-tab>
             <p-tab value="visibility">Viditelnost údajů</p-tab>
             <p-tab value="notifications">Upozornění</p-tab>
+            <p-tab value="support">Podpora</p-tab>
           </p-tablist>
           <p-tabpanels>
             <p-tabpanel value="users">
@@ -1089,6 +1090,14 @@
               <ng-template #content>
                 <div class="pt-4">
                   <app-school-notifications />
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="support">
+              <ng-template #content>
+                <div class="pt-4">
+                  <app-school-support />
                 </div>
               </ng-template>
             </p-tabpanel>

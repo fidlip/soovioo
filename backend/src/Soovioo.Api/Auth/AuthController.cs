@@ -129,6 +129,13 @@ public class AuthController(
         {
             return Ok(support);
         }
+        // Its support session is over (left, taken back by the school,
+        // expired) — the page doesn't go on as another session of the browser.
+        if (!string.IsNullOrEmpty(request?.SchoolSlug) && Support.SupportSessionService.CarriesCookie(Request))
+        {
+            supportSessions.ClearCookie(HttpContext);
+            return Unauthorized();
+        }
 
         if (await PresentedTokenAsync(request) is not { } presented)
         {

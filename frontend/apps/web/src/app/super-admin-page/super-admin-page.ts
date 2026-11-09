@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ConfirmationService, PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
@@ -20,7 +21,6 @@ import {
   SupportApiService,
   UpdateSchoolRequest,
 } from '@soovioo/shared';
-import { schoolUrl } from '../school-context';
 import { AppIcon } from '../app-icon';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
@@ -55,6 +55,7 @@ export class SuperAdminPage {
   protected readonly notify = inject(NotifyService);
   private readonly schoolsApi = inject(SchoolsApiService);
   private readonly supportApi = inject(SupportApiService);
+  private readonly router = inject(Router);
   private readonly authApi = inject(AuthApiService);
   private readonly confirmation = inject(ConfirmationService);
 
@@ -106,18 +107,10 @@ export class SuperAdminPage {
     this.reloadSuperAdmins();
   }
 
-  /** "Vstoupit do školy": an audited, 2-hour Admin session in that school
-   * (support mode); the own SuperAdmin session comes back on "Opustit". */
-  protected enterSchool(school: School): void {
-    this.supportApi.startSupportSession(school.id).subscribe({
-      next: (session) => {
-        // A full page load onto the school's page (its own subdomain in
-        // production) — the same path in every deployment. The one-time
-        // code rides in the fragment, which never reaches any server log.
-        window.location.href = `${schoolUrl(session.schoolSlug, 'support/enter')}#code=${session.code}`;
-      },
-      error: (err) =>
-        this.notify.actionFailed('startSupportSession failed', err),
+  /** Entering a school is for a ticket — its tickets, or a new one. */
+  protected schoolTickets(school: School): void {
+    this.router.navigate(['/superadmin/support'], {
+      queryParams: { school: school.id },
     });
   }
 

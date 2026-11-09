@@ -42,7 +42,9 @@ export class SchoolNotifications {
   protected readonly timeOptions = DIGEST_TIMES;
   protected readonly typeOptions = (
     Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[]
-  ).map((value) => ({ value, label: NOTIFICATION_TYPE_LABELS[value] }));
+  )
+    .filter((value) => value !== 'SupportTicket')
+    .map((value) => ({ value, label: NOTIFICATION_TYPE_LABELS[value] }));
 
   protected readonly digestTime = signal('17:00');
   protected readonly forcedEmail = signal<NotificationType[]>([]);

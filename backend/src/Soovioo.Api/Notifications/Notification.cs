@@ -31,6 +31,14 @@ public enum NotificationType
 
     /// <summary>A pupil's nickname waits for approval.</summary>
     Nickname,
+
+    /// <summary>Something new on a school's support ticket for the
+    /// SuperAdmins — its assignee, or all of them while it has none;
+    /// <see cref="Notification.SchoolId"/> is that school.</summary>
+    SupportTicket,
+
+    /// <summary>Something new on the school's support ticket for its admins.</summary>
+    SupportTicketUpdate,
 }
 
 /// <summary>One item under the bell — something new for one user, with a

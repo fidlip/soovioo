@@ -77,7 +77,7 @@ const GROUP_SECTIONS: Record<string, string[]> = {
     'classrooms',
     'people',
   ],
-  app: ['users', 'roles', 'visibility', 'notifications'],
+  app: ['users', 'roles', 'visibility', 'notifications', 'support'],
   class: ['students', 'parents'],
 };
 
@@ -127,6 +127,7 @@ import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
+import { SchoolSupportSection } from '../school-support/school-support';
 import { VisibilitySettings } from '../visibility-settings/visibility-settings';
 import { Departures } from '../departures/departures';
 import { TeachingTab } from '../teaching/teaching-tab';
@@ -168,6 +169,7 @@ import { Loading } from '../loading/loading';
     Loading,
     Checkbox,
     SchoolNotifications,
+    SchoolSupportSection,
     VisibilitySettings,
     Departures,
     PeopleTab,
