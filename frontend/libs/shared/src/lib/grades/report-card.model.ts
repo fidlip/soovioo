@@ -35,6 +35,8 @@ export interface ReportCardSubject {
   confirmed: boolean;
   confirmedByName: string | null;
   confirmedAt: string | null;
+  /** The caller grades the pupil in the subject, confirmed or not. */
+  mine: boolean;
   canEdit: boolean;
   canReopen: boolean;
 }

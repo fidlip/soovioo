@@ -74,6 +74,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                             visible && s.Confirmed,
                             visible ? s.Stored?.ConfirmedByName : null,
                             visible ? s.Stored?.ConfirmedAt : null,
+                            mayEdit,
                             mayEdit && !s.Confirmed,
                             mayReopen && s.Confirmed);
                     })]))
@@ -327,6 +328,8 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 /// card — changed, confirmed or the suggestion. Null without any, and for
 /// families until it is confirmed and issued.</param>
 /// <param name="Changed">Changed by a teacher, not confirmed yet.</param>
+/// <param name="Mine">The caller grades the pupil in the subject, confirmed
+/// or not.</param>
 public record ReportCardSubjectDto(
     int SubjectId,
     string SubjectName,
@@ -339,6 +342,7 @@ public record ReportCardSubjectDto(
     bool Confirmed,
     string? ConfirmedByName,
     DateTimeOffset? ConfirmedAt,
+    bool Mine,
     bool CanEdit,
     bool CanReopen);
 

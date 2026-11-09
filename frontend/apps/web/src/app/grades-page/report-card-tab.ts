@@ -148,7 +148,8 @@ export class ReportCardTab {
   protected readonly subjectId = signal<number | null>(null);
   protected readonly studentId = signal<number | null>(null);
 
-  protected readonly onlyToConfirm = signal(false);
+  protected readonly onlyMine = signal(false);
+  protected readonly onlyUnconfirmed = signal(false);
   /** A single class picked — its report cards go into one PDF. */
   protected readonly pickedClassId = computed(() => {
     const classId = this.classId();
@@ -189,17 +190,22 @@ export class ReportCardTab {
   protected readonly cards = signal<ReportCard[] | null>(null);
   private request?: Subscription;
 
-  /** With "Jen k potvrzení" only the unconfirmed subjects the caller may
-   * confirm, and the pupils with any. */
+  /** "Mé" — the subjects the caller grades; "Nepotvrzené" — not confirmed
+   * yet; both — what's left for the caller to confirm. Only the pupils with
+   * any. */
   protected readonly shownCards = computed(() => {
     const cards = this.cards();
-    if (!cards || !this.onlyToConfirm()) {
+    const mine = this.onlyMine();
+    const unconfirmed = this.onlyUnconfirmed();
+    if (!cards || (!mine && !unconfirmed)) {
       return cards;
     }
     return cards
       .map((card) => ({
         ...card,
-        subjects: card.subjects.filter((s) => s.canEdit),
+        subjects: card.subjects.filter(
+          (s) => (!mine || s.mine) && (!unconfirmed || !s.confirmed),
+        ),
       }))
       .filter((card) => card.subjects.length > 0);
   });
@@ -252,7 +258,8 @@ export class ReportCardTab {
   protected clearFilters(): void {
     this.subjectId.set(null);
     this.studentId.set(null);
-    this.onlyToConfirm.set(false);
+    this.onlyMine.set(false);
+    this.onlyUnconfirmed.set(false);
   }
 
   protected markKey(subject: ReportCardSubject): string | null {

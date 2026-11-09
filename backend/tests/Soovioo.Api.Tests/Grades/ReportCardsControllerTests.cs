@@ -96,9 +96,11 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Equal(2, inMaths.Value);
         Assert.False(inMaths.Changed);
         Assert.True(inMaths.CanEdit);
+        Assert.True(inMaths.Mine);
         var inCzech = In(card, czech);
         Assert.Null(inCzech.Kind);
         Assert.False(inCzech.CanEdit);
+        Assert.False(inCzech.Mine);
         Assert.Equal(["Český jazyk", "Matematika"], card.Subjects.Select(s => s.SubjectName));
     }
 
@@ -115,6 +117,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.True(confirmed.Confirmed);
         Assert.Equal(1, confirmed.Value);
         Assert.False(confirmed.CanEdit);
+        Assert.True(confirmed.Mine);
         Assert.False(confirmed.CanReopen);
         Assert.IsType<ConflictObjectResult>(await Set(teacher, maths, 3));
         Assert.IsType<ConflictObjectResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, Year, Half));
