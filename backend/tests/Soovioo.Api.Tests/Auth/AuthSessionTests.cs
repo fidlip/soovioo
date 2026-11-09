@@ -152,6 +152,23 @@ public class AuthSessionTests
     }
 
     [Fact]
+    public async Task APageWhoseSupportSessionIsOverDoesNotGoOnAsAnotherSession()
+    {
+        var token = await WebLoginAsync();
+        var http = CookieRequest(token);
+        // The support cookie of a session that's over (ended sessions lose their secret).
+        http.Request.Headers.Cookie = $"{Cookie}={token}; {Soovioo.Api.Support.SupportSessionService.CookieName}=stale";
+
+        var result = await Controller(http).Refresh(Page);
+
+        Assert.IsType<UnauthorizedResult>(result.Result);
+        Assert.StartsWith(Soovioo.Api.Support.SupportSessionService.CookieName + "=;",
+            http.Response.Headers.SetCookie.ToString());
+        // Without it, the same browser's own session refreshes as ever.
+        Assert.IsType<OkObjectResult>((await Controller(CookieRequest(token)).Refresh(Page)).Result);
+    }
+
+    [Fact]
     public async Task CookieWithoutTheCsrfHeaderIsIgnored()
     {
         var token = await WebLoginAsync();

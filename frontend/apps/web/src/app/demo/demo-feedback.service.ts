@@ -69,14 +69,18 @@ export class DemoFeedbackService {
   }
 
   private tick(): void {
-    if (this.document.visibilityState !== 'visible' || Date.now() - this.lastInput > IDLE_AFTER_MS) {
+    if (
+      this.document.visibilityState !== 'visible' ||
+      Date.now() - this.lastInput > IDLE_AFTER_MS
+    ) {
       return;
     }
     const state = this.read();
     state.activeSeconds += TICK_SECONDS;
-    const due = state.lastPromptAt === 0
-      ? state.activeSeconds >= FIRST_PROMPT_SECONDS
-      : state.activeSeconds - state.lastPromptAt >= NEXT_PROMPT_SECONDS;
+    const due =
+      state.lastPromptAt === 0
+        ? state.activeSeconds >= FIRST_PROMPT_SECONDS
+        : state.activeSeconds - state.lastPromptAt >= NEXT_PROMPT_SECONDS;
     if (due && !state.muted && !this.open()) {
       state.lastPromptAt = state.activeSeconds;
       this.open.set(true);
@@ -87,7 +91,12 @@ export class DemoFeedbackService {
   private exitIntent(): void {
     const state = this.read();
     // Not before the visitor has seen anything, nor twice per visit.
-    if (state.muted || this.open() || state.activeSeconds < 60 || sessionFlag()) {
+    if (
+      state.muted ||
+      this.open() ||
+      state.activeSeconds < 60 ||
+      sessionFlag()
+    ) {
       return;
     }
     setSessionFlag();
@@ -98,7 +107,12 @@ export class DemoFeedbackService {
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
-        return { activeSeconds: 0, lastPromptAt: 0, muted: false, ...JSON.parse(raw) };
+        return {
+          activeSeconds: 0,
+          lastPromptAt: 0,
+          muted: false,
+          ...JSON.parse(raw),
+        };
       }
     } catch {
       // Blocked or garbled storage — start over.

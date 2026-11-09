@@ -373,6 +373,7 @@
                     </form>
                   </p-card>
                   <app-report-card-settings />
+                  <app-support-access-settings />
                   <p-card>
                     <ng-template #title
                       >Údaje o škole<app-info-hint
@@ -884,6 +885,7 @@
             <p-tab value="roles">Role</p-tab>
             <p-tab value="visibility">Viditelnost údajů</p-tab>
             <p-tab value="notifications">Upozornění</p-tab>
+            <p-tab value="support">Podpora</p-tab>
             @if (canSeeLogs) {
             <p-tab value="logs">Logy</p-tab>
             }
@@ -1111,6 +1113,14 @@
               <ng-template #content>
                 <div class="pt-4">
                   <app-school-notifications />
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="support">
+              <ng-template #content>
+                <div class="pt-4">
+                  <app-school-support />
                 </div>
               </ng-template>
             </p-tabpanel>

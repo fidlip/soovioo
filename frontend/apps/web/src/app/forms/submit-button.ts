@@ -44,13 +44,16 @@ export class SubmitButton {
   readonly form = input.required<NgForm>();
   readonly label = input('Uložit');
   readonly icon = input('pi pi-check');
-  readonly severity = input<'primary' | 'secondary' | 'danger' | undefined>(undefined);
+  readonly severity = input<'primary' | 'secondary' | 'danger' | undefined>(
+    undefined,
+  );
   readonly styleClass = input('');
   readonly outlined = input(false);
   readonly fullWidth = input(false);
   readonly busy = input(false);
 
-  private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+  private readonly host = inject(ElementRef<HTMLElement>)
+    .nativeElement as HTMLElement;
   protected readonly hint = signal('');
   /** Mirrors the form's validity as a signal — the form's status changes
    * outside this component's own inputs, so a plain `form().invalid` in the
@@ -84,6 +87,10 @@ export class SubmitButton {
         return el ? fieldLabelText(el) : name;
       })
       .filter((label, i, all) => label && all.indexOf(label) === i);
-    this.hint.set(missing.length > 0 ? `Vyplňte: ${missing.join(', ')}` : 'Formulář není vyplněn správně.');
+    this.hint.set(
+      missing.length > 0
+        ? `Vyplňte: ${missing.join(', ')}`
+        : 'Formulář není vyplněn správně.',
+    );
   }
 }

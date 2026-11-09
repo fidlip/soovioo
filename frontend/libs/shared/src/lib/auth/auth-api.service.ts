@@ -108,6 +108,8 @@ export class AuthApiService {
         {
           refreshToken: this.tokenStorage.getRefreshToken(),
           schoolSlug: this.currentSchoolSlug(),
+          // Support mode goes on only as the session this tab is in.
+          supportSessionId: Number(this.getClaim('supportSessionId')) || null,
         },
         this.cookieOptions(),
       )

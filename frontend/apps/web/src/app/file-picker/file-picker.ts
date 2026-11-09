@@ -29,19 +29,20 @@ import { Button } from '@openng/optimus-ui/button';
       (onClick)="input.click()"
     />
     @if (fileName(); as name) {
-    <span class="min-w-0 truncate text-sm text-surface-700 dark:text-surface-200">{{
-      name
-    }}</span>
-    <p-button
-      type="button"
-      icon="pi pi-times"
-      severity="secondary"
-      [text]="true"
-      [rounded]="true"
-      size="small"
-      ariaLabel="Odebrat přílohu"
-      (onClick)="clear()"
-    />
+      <span
+        class="min-w-0 truncate text-sm text-surface-700 dark:text-surface-200"
+        >{{ name }}</span
+      >
+      <p-button
+        type="button"
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        size="small"
+        ariaLabel="Odebrat přílohu"
+        (onClick)="clear()"
+      />
     }
   `,
   host: { class: 'flex min-w-0 items-center gap-2' },
@@ -53,7 +54,8 @@ export class FilePicker {
   readonly fileSelected = output<Event>();
   readonly cleared = output<void>();
 
-  private readonly input = viewChild.required<ElementRef<HTMLInputElement>>('input');
+  private readonly input =
+    viewChild.required<ElementRef<HTMLInputElement>>('input');
 
   protected clear(): void {
     this.input().nativeElement.value = '';

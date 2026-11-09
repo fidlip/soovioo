@@ -1,0 +1,53 @@
+<div class="mb-1 flex justify-end gap-1 text-sm" role="tablist">
+  <button
+    type="button"
+    role="tab"
+    class="rounded px-2 py-0.5"
+    [class.bg-surface-200]="!preview()"
+    [class.dark:bg-surface-700]="!preview()"
+    [attr.aria-selected]="!preview()"
+    (click)="preview.set(false)"
+  >
+    Napsat
+  </button>
+  <button
+    type="button"
+    role="tab"
+    class="rounded px-2 py-0.5"
+    [class.bg-surface-200]="preview()"
+    [class.dark:bg-surface-700]="preview()"
+    [attr.aria-selected]="preview()"
+    (click)="preview.set(true)"
+  >
+    Náhled
+  </button>
+</div>
+@if (preview()) {
+<div
+  class="min-h-24 rounded-md border border-surface-300 px-3 py-2 dark:border-surface-600"
+  [attr.aria-label]="label() + ' – náhled'"
+>
+  @if (value().trim()) {
+  <app-markdown [text]="value()" />
+  } @else {
+  <span class="text-surface-500">Nic k náhledu.</span>
+  }
+</div>
+} @else {
+<app-float-field [label]="label()" [for]="inputId()">
+  <textarea
+    pTextarea
+    class="w-full"
+    [id]="inputId()"
+    [rows]="rows()"
+    [attr.maxlength]="maxlength()"
+    [value]="value()"
+    [disabled]="disabled()"
+    (input)="input($any($event.target).value)"
+    (blur)="onTouched()"
+  ></textarea>
+</app-float-field>
+<div class="mt-1 text-xs text-surface-500">
+  Formátování Markdown: **tučně**, _kurzíva_, - seznam, [odkaz](https://…)
+</div>
+}

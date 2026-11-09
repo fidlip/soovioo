@@ -20,6 +20,11 @@ public class SupportSession
     public int SchoolId { get; set; }
     public School? School { get; set; }
 
+    /// <summary>The support ticket it was entered for (null only for
+    /// sessions from before tickets).</summary>
+    public int? TicketId { get; set; }
+    public SupportTicket? Ticket { get; set; }
+
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>The support session can't outlive this (2 h from start).</summary>
@@ -36,6 +41,14 @@ public class SupportSession
     /// fresh support token. Null until redeemed.</summary>
     public string? RefreshSecretHash { get; set; }
 
+    /// <summary>The last request made with it (to the minute, see
+    /// <see cref="SupportSessionGuardMiddleware"/>) — a tab closed without
+    /// "Opustit" shows as idle since then.</summary>
+    public DateTimeOffset? LastSeenAt { get; set; }
+
     /// <summary>Set by "Opustit"; null = left by letting the token expire.</summary>
     public DateTimeOffset? EndedAt { get; set; }
+
+    /// <summary>What was done — the SuperAdmin may write it on "Opustit".</summary>
+    public string? Result { get; set; }
 }

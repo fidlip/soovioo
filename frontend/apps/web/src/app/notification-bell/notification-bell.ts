@@ -6,6 +6,7 @@ import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Popover } from '@openng/optimus-ui/popover';
 import {
   AppNotification,
+  AuthApiService,
   DateFormatPipe,
   NotificationType,
   NotificationsApiService,
@@ -27,6 +28,8 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   Substitution: 'pi-user-edit',
   NewExcuse: 'pi-file-check',
   Nickname: 'pi-id-card',
+  SupportTicket: 'pi-ticket',
+  SupportTicketUpdate: 'pi-ticket',
 };
 
 const UNREAD_ONLY_STORAGE_KEY = 'soovioo-notifications-unread-only';
@@ -52,6 +55,7 @@ export class NotificationBell {
   private readonly api = inject(NotificationsApiService);
   private readonly router = inject(Router);
   private readonly schoolContext = inject(SchoolContextService);
+  private readonly authApi = inject(AuthApiService);
 
   private readonly popover = viewChild.required(Popover);
 
@@ -112,7 +116,12 @@ export class NotificationBell {
     }
     this.popover().hide();
     const [page, query = ''] = notification.link.split('?');
-    this.router.navigate(this.schoolContext.link(page), {
+    // A SuperAdmin's lead outside any school; its page may have several
+    // segments (`superadmin/support`).
+    const target = this.authApi.isSuperAdmin()
+      ? ['/', ...page.split('/')]
+      : this.schoolContext.link(page);
+    this.router.navigate(target, {
       queryParams: Object.fromEntries(new URLSearchParams(query)),
     });
   }
