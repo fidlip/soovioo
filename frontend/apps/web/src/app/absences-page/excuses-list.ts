@@ -6,11 +6,10 @@ import {
   output,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Select } from '@openng/optimus-ui/select';
-import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
@@ -24,7 +23,7 @@ import {
   ExcuseStatus,
 } from '@soovioo/shared';
 import { ClearFilters, FloatField } from '../forms';
-import { Loading } from '../loading/loading';
+import { GroupedTable, GroupLevel } from '../grouped-table/grouped-table';
 import { NotifyService } from '../notify.service';
 import { DecisionMenu } from './decision-menu';
 import { excuseFileDownloader, formatFileSize } from './excuse-files';
@@ -58,196 +57,16 @@ export const EXCUSE_STATUS_SEVERITY: Record<
     ClearFilters,
     DecisionMenu,
     FloatField,
-    Loading,
+    GroupedTable,
     FormsModule,
+    NgTemplateOutlet,
     Button,
-    PrimeTemplate,
     RejectDialog,
     Select,
-    TableModule,
     Tag,
     Tooltip,
   ],
-  template: `
-    <div class="mb-3 flex flex-wrap items-end gap-3">
-      <app-float-field label="Žák" for="excuseFilterStudent">
-        <p-select
-          ariaLabel="Žák"
-          inputId="excuseFilterStudent"
-          [options]="studentOptions()"
-          optionLabel="label"
-          optionValue="id"
-          [(ngModel)]="filterStudentId"
-          [showClear]="true"
-          name="excuseFilterStudent"
-          appendTo="body"
-          styleClass="w-52"
-        />
-      </app-float-field>
-      <app-float-field label="Stav" for="excuseFilterStatus">
-        <p-select
-          ariaLabel="Stav"
-          inputId="excuseFilterStatus"
-          [options]="statusOptions"
-          optionLabel="label"
-          optionValue="value"
-          [(ngModel)]="filterStatus"
-          [showClear]="true"
-          name="excuseFilterStatus"
-          appendTo="body"
-          styleClass="w-48"
-        />
-      </app-float-field>
-      @if (filterStudentId !== null || filterStatus !== null) {
-        <app-clear-filters (cleared)="clearFilters()" />
-      }
-    </div>
-
-    <p-table [value]="filtered()" dataKey="id" styleClass="rounded-border">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Žák</th>
-          <th>Období</th>
-          <th>Důvod</th>
-          <th>Stav</th>
-          <th><span class="sr-only">Akce</span></th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-excuse>
-        <tr [id]="'excuse-' + excuse.id">
-          <td>{{ excuse.studentName }}</td>
-          <td class="whitespace-nowrap">
-            {{ range(excuse) }}
-            @if (excuse.periods.length > 0) {
-              <div class="text-xs text-surface-500">
-                {{ periods(excuse.periods) }} hodina
-              </div>
-            }
-          </td>
-          <td>
-            <div>{{ excuse.reason }}</div>
-            @for (file of excuse.attachments; track file.id) {
-              <p-button
-                [label]="file.fileName + ' (' + fileSize(file.sizeBytes) + ')'"
-                icon="pi pi-paperclip"
-                size="small"
-                [link]="true"
-                styleClass="px-0"
-                (onClick)="download(excuse.id, file)"
-              />
-            }
-            @if (excuse.createdByName) {
-              <div class="text-xs text-surface-500">
-                Napsal(a) {{ excuse.createdByName
-                }}{{ excuse.channel ? ' · ' + channelLabel(excuse) : '' }}
-              </div>
-            }
-          </td>
-          <td>
-            <p-tag
-              [value]="statusLabel[status(excuse)]"
-              [severity]="statusSeverity[status(excuse)]"
-            />
-            @if (mixed(excuse)) {
-              <ul class="m-0 mt-1 list-none p-0 text-xs">
-                @for (day of excuse.days; track day.absenceId) {
-                  <li
-                    [class]="
-                      day.status === 'Rejected'
-                        ? 'text-red-700 dark:text-red-300'
-                        : ''
-                    "
-                  >
-                    {{ dayText(day) }}
-                  </li>
-                }
-              </ul>
-            } @else {
-              @for (note of notes(excuse); track note) {
-                <div class="mt-1 text-xs text-red-700 dark:text-red-300">
-                  {{ note }}
-                </div>
-              }
-            }
-          </td>
-          <td>
-            <div class="flex flex-wrap justify-end gap-2">
-              @if (canReview() && waiting(excuse)) {
-                <span
-                  [pTooltip]="
-                    approvable(excuse)
-                      ? ''
-                      : 'Schválit jde nejdříve v den absence.'
-                  "
-                >
-                  <p-button
-                    [label]="
-                      mixed(excuse) ? 'Schválit zbývající dny' : 'Schválit'
-                    "
-                    icon="pi pi-check"
-                    size="small"
-                    severity="success"
-                    [disabled]="!approvable(excuse)"
-                    (onClick)="approve(excuse)"
-                  />
-                </span>
-                <p-button
-                  [label]="
-                    mixed(excuse) ? 'Zamítnout zbývající dny' : 'Zamítnout'
-                  "
-                  icon="pi pi-times"
-                  size="small"
-                  severity="danger"
-                  [outlined]="true"
-                  (onClick)="reject(excuse)"
-                />
-              }
-              @if (canReview() && !waiting(excuse)) {
-                <app-decision-menu
-                  [approved]="has(excuse, 'Excused')"
-                  [rejected]="has(excuse, 'Rejected')"
-                  [approvable]="approvable(excuse)"
-                  (approve)="approve(excuse)"
-                  (reject)="reject(excuse)"
-                  (reopen)="reopen(excuse)"
-                />
-              }
-              @if (canReview() || (isFamily() && waiting(excuse))) {
-                <p-button
-                  icon="pi pi-pencil"
-                  ariaLabel="Upravit"
-                  size="small"
-                  [text]="true"
-                  (onClick)="edit.emit(excuse)"
-                />
-                <p-button
-                  icon="pi pi-trash"
-                  ariaLabel="Smazat"
-                  size="small"
-                  severity="danger"
-                  [text]="true"
-                  (onClick)="remove(excuse)"
-                />
-              }
-            </div>
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="5" class="py-6 text-center text-surface-500">
-            @if (excuses()) {
-              Žádné omluvenky.
-            } @else {
-              <app-loading class="justify-center" />
-            }
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-
-    <app-reject-dialog />
-  `,
+  templateUrl: './excuses-list.html',
 })
 export class ExcusesList {
   private readonly absencesApi = inject(AbsencesApiService);
@@ -279,6 +98,31 @@ export class ExcusesList {
   protected readonly fileSize = formatFileSize;
   protected readonly periods = formatPeriods;
   protected readonly range = excuseRange;
+  protected readonly isStaff = computed(() => this.authApi.isStaff());
+  private readonly byStudent: GroupLevel<Excuse>[] = [
+    { label: 'Žák', key: (e) => e.studentId, text: (e) => e.studentName },
+  ];
+  protected readonly excuseId = (excuse: Excuse) => excuse.id;
+  protected readonly excuseElementId = (excuse: Excuse) =>
+    `excuse-${excuse.id}`;
+
+  /** As on Absence: a family with several children (unfiltered) sees one
+   * group per child, otherwise a flat list. */
+  protected groups(): GroupLevel<Excuse>[] {
+    return !this.isStaff() &&
+      this.filterStudentId === null &&
+      this.studentOptions().length > 1
+      ? this.byStudent
+      : [];
+  }
+
+  /** One child's omluvenky together, each child's still newest first. */
+  protected rows(): Excuse[] {
+    const rows = this.filtered();
+    return this.groups().length > 0
+      ? [...rows].sort((a, b) => a.studentName.localeCompare(b.studentName))
+      : rows;
+  }
 
   protected filtered(): Excuse[] {
     return (this.excuses() ?? []).filter(
