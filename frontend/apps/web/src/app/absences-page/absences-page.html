@@ -157,8 +157,13 @@
       </app-grouped-table>
 
       <ng-template #rowLabel let-absence>
-        @if (isStaff()) { {{ absence.studentName }} } @else { {{ absence.date |
-        dateFormat: 'date' }} }
+        @if (isStaff()) {
+        <app-person-name
+          [name]="absence.studentName"
+          [label]="absence.studentLabel"
+          layout="stacked"
+        />
+        } @else { {{ absence.date | dateFormat: 'date' }} }
       </ng-template>
 
       <ng-template #excuseInfo let-absence>

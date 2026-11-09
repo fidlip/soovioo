@@ -26,6 +26,7 @@ import {
   formatAmount,
   formatBankAccount,
   localizeStudentTerm,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -38,6 +39,7 @@ import {
   studentPickOptions,
 } from '../forms';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type PaidFilter = 'all' | 'unpaid' | 'paid';
@@ -93,6 +95,7 @@ const AMOUNT_TYPE_LABELS: Record<PaymentAmountType, string> = {
 @Component({
   selector: 'app-payments-page',
   imports: [
+    PersonName,
     ClearFilters,
     FloatField,
     DateFormatPipe,
@@ -162,7 +165,7 @@ export class PaymentsPage {
     const byId = new Map<number, string>();
     for (const payment of this.payments()) {
       for (const r of payment.recipients) {
-        byId.set(r.studentId, r.studentName);
+        byId.set(r.studentId, nameText(r.studentName, r.studentLabel));
       }
     }
     return [...byId]

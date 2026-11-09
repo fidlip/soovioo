@@ -52,7 +52,13 @@
 
   <ng-template #rowCells let-excuse>
     @if (isStaff()) {
-    <td class="px-4 py-2 align-middle">{{ excuse.studentName }}</td>
+    <td class="px-4 py-2 align-middle">
+      <app-person-name
+        [name]="excuse.studentName"
+        [label]="excuse.studentLabel"
+        layout="stacked"
+      />
+    </td>
     }
     <td class="whitespace-nowrap px-4 py-2 align-middle">
       {{ range(excuse) }} @if (excuse.periods.length > 0) {
@@ -90,8 +96,12 @@
   <ng-template #mobileRow let-excuse>
     <div class="flex items-center gap-3 text-sm">
       <span class="min-w-0 flex-1 font-medium">
-        @if (isStaff()) { {{ excuse.studentName }} } @else { {{ range(excuse) }}
-        }
+        @if (isStaff()) {
+        <app-person-name
+          [name]="excuse.studentName"
+          [label]="excuse.studentLabel"
+        />
+        } @else { {{ range(excuse) }} }
       </span>
       <ng-container
         *ngTemplateOutlet="editActions; context: { $implicit: excuse }"

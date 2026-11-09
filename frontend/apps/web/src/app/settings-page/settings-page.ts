@@ -41,6 +41,7 @@ import { SchoolContextService, isDemoSlug } from '../school-context';
 import { LinkedAccountsCard } from './linked-accounts-card/linked-accounts-card';
 
 import { InfoHint } from '../info-hint/info-hint';
+import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { PhotoEditor } from '../photo-editor/photo-editor';
@@ -56,6 +57,7 @@ import { FeedbackForm } from '../feedback/feedback-form';
     Dialog,
     FeedbackForm,
     InfoHint,
+    TermPipe,
     FormsModule,
     Button,
     Card,
@@ -100,6 +102,7 @@ export class SettingsPage {
    * Profil card filling in afterwards pushed the cards below it down. */
   protected readonly profileSettled = signal(false);
   protected phone = '';
+  protected nickname = '';
   protected email = '';
 
   protected currentPassword = '';
@@ -116,6 +119,8 @@ export class SettingsPage {
   protected readonly feedbackOpen = signal(false);
   protected readonly showFeedback =
     !this.authApi.isSuperAdmin() && !this.authApi.getSupportInfo();
+  protected readonly isStudent = this.authApi.isStudent();
+  protected readonly isStaffUser = this.authApi.isStaff();
   private readonly feedbackApi = inject(FeedbackApiService);
   protected readonly sendFeedback = (request: FeedbackRequest) =>
     this.feedbackApi.send(request);
@@ -212,6 +217,7 @@ export class SettingsPage {
         this.profile.set(profile);
         this.phone = profile.phone ?? '';
         this.email = profile.email ?? '';
+        this.nickname = profile.nicknameProposal ?? profile.nickname ?? '';
         this.profileSettled.set(true);
       },
       error: (err) => {
@@ -254,14 +260,48 @@ export class SettingsPage {
       .subscribe({
         next: (profile) => {
           this.profile.set(profile);
-          this.notify.success('Uloženo.');
           // Whether there's an address for the daily e-mail.
           if (!this.authApi.isSuperAdmin()) {
             this.loadNotificationSettings();
           }
+          if (this.nicknameChanged(profile)) {
+            this.saveNickname();
+          } else {
+            this.notify.success('Uloženo.');
+          }
         },
         error: (err) => this.notify.actionFailed('updateProfile failed', err),
       });
+  }
+
+  private nicknameChanged(profile: MyProfile): boolean {
+    return (
+      profile.canSetNickname &&
+      this.nickname.trim() !==
+        (profile.nicknameProposal ?? profile.nickname ?? '')
+    );
+  }
+
+  private saveNickname(): void {
+    this.profileApi.setNickname(this.nickname).subscribe({
+      next: (profile) => {
+        this.profile.set(profile);
+        this.nickname = profile.nicknameProposal ?? profile.nickname ?? '';
+        this.notify.success(
+          profile.nicknameProposal
+            ? 'Uloženo. Přezdívka platí, až ji schválí rodič.'
+            : 'Uloženo.',
+        );
+      },
+      error: (err) => this.notify.actionFailed('setNickname failed', err),
+    });
+  }
+
+  protected setShowNicknames(show: boolean): void {
+    this.profileApi.setShowNicknames(show).subscribe({
+      next: (profile) => this.profile.set(profile),
+      error: (err) => this.notify.actionFailed('setShowNicknames failed', err),
+    });
   }
 
   protected changePassword(): void {

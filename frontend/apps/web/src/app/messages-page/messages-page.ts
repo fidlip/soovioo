@@ -35,6 +35,7 @@ import {
   Student,
   StudentsApiService,
   localizeStudentTerm,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { Avatar } from '../avatar/avatar';
@@ -44,6 +45,7 @@ import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives
  * faster feedback, the server still enforces this for real. */
@@ -100,6 +102,7 @@ const READ_FILTER_OPTIONS: { value: ReadFilter; label: string }[] = [
 @Component({
   selector: 'app-messages-page',
   imports: [
+    PersonName,
     ClearFilters,
     FloatField,
     ...FORM_FIELDS,
@@ -194,7 +197,7 @@ export class MessagesPage {
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName} (${s.schoolClassName})`,
+      label: `${nameText(`${s.firstName} ${s.lastName}`, s.label)} (${s.schoolClassName})`,
     })),
   );
   protected readonly contactOptions = computed(() =>
@@ -503,7 +506,7 @@ export class MessagesPage {
   protected otherParticipants(conversation: Conversation): string {
     return conversation.participants
       .filter((p) => p.userId !== this.myUserId)
-      .map((p) => p.name)
+      .map((p) => nameText(p.name, p.label))
       .join(', ');
   }
 

@@ -23,4 +23,19 @@ export class MyChildrenApiService {
       request,
     );
   }
+
+  /** Applies right away, replacing a proposal of the child's. */
+  setNickname(studentId: number, nickname: string): Observable<MyChild[]> {
+    return this.http.put<MyChild[]>(
+      `${this.baseUrl}/api/my-children/${studentId}/nickname`,
+      { nickname },
+    );
+  }
+
+  decideNickname(studentId: number, approve: boolean): Observable<MyChild[]> {
+    return this.http.post<MyChild[]>(
+      `${this.baseUrl}/api/my-children/${studentId}/nickname/${approve ? 'approve' : 'reject'}`,
+      {},
+    );
+  }
 }

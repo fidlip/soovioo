@@ -1,3 +1,4 @@
+import { NameLabel } from './name-label.model';
 /** "Třída" for a parent or pupil — sections the school doesn't share come
  * back null, contacts it doesn't share null too. */
 export interface ClassDirectory {
@@ -7,6 +8,7 @@ export interface ClassDirectory {
   teachers: DirectoryTeacher[];
   classmates: Classmate[] | null;
   parents: DirectoryParent[] | null;
+  studentLabel?: NameLabel | null;
 }
 
 export interface DirectoryTeacher {
@@ -24,6 +26,7 @@ export interface DirectoryTeacher {
 export interface Classmate {
   studentId: number;
   name: string;
+  label?: NameLabel | null;
   /** Photo token, present only when the caller may see the photo. */
   photo?: string | null;
 }

@@ -36,6 +36,15 @@ export class StudentsApiService {
     );
   }
 
+  /** A pupil's proposed nickname, decided by the school when no parent of
+   * theirs uses the app. */
+  decideNickname(id: number, approve: boolean): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/students/${id}/nickname/${approve ? 'approve' : 'reject'}`,
+      {},
+    );
+  }
+
   /** Also removes the student's grades, absences, messages and parent
    * links — see StudentsController.DeleteStudent. */
   deleteStudent(id: number): Observable<void> {

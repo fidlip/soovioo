@@ -18,6 +18,7 @@ import { Subject, debounceTime } from 'rxjs';
 import { Avatar } from '../avatar/avatar';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 /** Lidé → Škola: everyone at the school as far as their "Viditelnost
  * údajů" reaches the viewer — the API leaves the rest out. Searched,
@@ -25,6 +26,7 @@ import { Loading } from '../loading/loading';
 @Component({
   selector: 'app-school-directory',
   imports: [
+    PersonName,
     ClearFilters,
     FloatField,
     ...FORM_FIELDS,

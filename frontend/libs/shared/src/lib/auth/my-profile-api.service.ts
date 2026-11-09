@@ -30,6 +30,20 @@ export class MyProfileApiService {
     return this.http.put<MyProfile>(`${this.baseUrl}/api/users/me`, request);
   }
 
+  /** A parent's applies right away, a pupil's waits for approval. */
+  setNickname(nickname: string): Observable<MyProfile> {
+    return this.http.put<MyProfile>(`${this.baseUrl}/api/users/me/nickname`, {
+      nickname,
+    });
+  }
+
+  setShowNicknames(show: boolean): Observable<MyProfile> {
+    return this.http.put<MyProfile>(
+      `${this.baseUrl}/api/users/me/show-nicknames`,
+      { show },
+    );
+  }
+
   getVisibility(): Observable<VisibilitySetting[]> {
     return this.http.get<VisibilitySetting[]>(
       `${this.baseUrl}/api/users/me/visibility`,

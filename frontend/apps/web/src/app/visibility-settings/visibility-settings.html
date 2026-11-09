@@ -42,6 +42,26 @@
         Fotky zaměstnanců jsou zapnuté vždy, kolegové se navzájem vidí.
       </p>
     </section>
+    <section class="flex flex-col gap-3">
+      <h3 class="m-0 text-base font-semibold">Přezdívky</h3>
+      <div class="flex items-center gap-3">
+        <p-toggleswitch
+          inputId="vis-staff-nicknames"
+          [ngModel]="staffSeeStudentNicknames()"
+          (ngModelChange)="staffSeeStudentNicknames.set($event)"
+        />
+        <label
+          for="vis-staff-nicknames"
+          class="text-sm text-surface-700 dark:text-surface-200"
+          >{{ 'Učitelé vidí přezdívky žáků' | term }}</label
+        ><app-info-hint
+          [text]="
+            'Výchozí stav, každý učitel si to v Nastavení může změnit. Přezdívku si žák navrhne a rodič schválí (bez rodiče v aplikaci třídní učitel). Kterým učitelům se ukáže, nastavují rodiče v rozsahu řádků Přezdívka níže. Vedení školy přezdívky nevidí, na vysvědčení a v exportech je vždy celé jméno.'
+              | term
+          "
+        />
+      </div>
+    </section>
     @for (g of groups(); track g.owner) {
     <section class="flex flex-col gap-2">
       <h3 class="m-0 text-base font-semibold">Údaje: {{ g.label | term }}</h3>

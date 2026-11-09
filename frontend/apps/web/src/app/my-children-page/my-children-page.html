@@ -20,6 +20,59 @@
         </div>
         <span class="text-sm text-surface-500">Třída {{ c.className }}</span>
       </div>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <app-float-field
+            class="min-w-0 flex-1"
+            label="Přezdívka"
+            [for]="'nickname-' + c.studentId"
+          >
+            <input
+              pInputText
+              [id]="'nickname-' + c.studentId"
+              maxlength="30"
+              [ngModel]="nicknameDraft(c)"
+              (ngModelChange)="drafts.set(c.studentId, $event)"
+            />
+          </app-float-field>
+          <p-button
+            label="Uložit"
+            size="small"
+            [outlined]="true"
+            [disabled]="nicknameDraft(c).trim() === (c.nickname ?? '')"
+            (onClick)="saveNickname(c)"
+          />
+          <app-visibility-control
+            [settings]="c.visibility"
+            field="Nickname"
+            (changed)="setVisibility(c, $event)"
+          />
+        </div>
+        @if (c.nicknameProposal) {
+        <div
+          class="flex flex-wrap items-center gap-2 rounded-border bg-surface-100 p-2 text-sm dark:bg-surface-800"
+        >
+          <span class="min-w-0 flex-1"
+            >Navrhuje přezdívku <strong>„{{ c.nicknameProposal }}“</strong>@if
+            (c.nickname) {, místo „{{ c.nickname }}“}.</span
+          >
+          <p-button
+            label="Schválit"
+            size="small"
+            icon="pi pi-check"
+            (onClick)="decideNickname(c, true)"
+          />
+          <p-button
+            label="Zamítnout"
+            size="small"
+            icon="pi pi-times"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="decideNickname(c, false)"
+          />
+        </div>
+        }
+      </div>
       @if (photoOf(c.studentId); as photo) { @if (photo.photosEnabled) {
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between gap-2">

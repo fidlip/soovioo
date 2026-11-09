@@ -11,18 +11,29 @@ import {
   PhotosApiService,
   Student,
   StudentsApiService,
+  nameText,
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 /** Lidé → Třída for parents and pupils: the class's teachers and — as far as
  * everyone's "Viditelnost údajů" shares them — their contacts, the class
  * list and the other parents. Sections the API leaves out aren't shown. */
 @Component({
   selector: 'app-class-page',
-  imports: [FloatField, Loading, FormsModule, Card, Select, Avatar, TermPipe],
+  imports: [
+    PersonName,
+    FloatField,
+    Loading,
+    FormsModule,
+    Card,
+    Select,
+    Avatar,
+    TermPipe,
+  ],
   templateUrl: './class-page.html',
 })
 export class ClassPage {
@@ -35,7 +46,7 @@ export class ClassPage {
   protected readonly students = signal<Student[]>([]);
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
-      label: `${s.firstName} ${s.lastName} (${s.schoolClassName})`,
+      label: `${nameText(`${s.firstName} ${s.lastName}`, s.label)} (${s.schoolClassName})`,
       value: s.id,
     })),
   );

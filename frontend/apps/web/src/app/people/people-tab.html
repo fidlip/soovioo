@@ -152,6 +152,13 @@
             <app-avatar [name]="person.name" [photoUrl]="photoUrl(person)" />{{
             person.name }}
           </div>
+          @if (person.student?.nicknameProposal; as proposal) {
+          <app-nickname-approval
+            [studentId]="person.student.id"
+            [proposal]="proposal"
+            (decided)="reload()"
+          />
+          }
         </td>
         <td>
           <div class="flex flex-wrap items-center gap-1">

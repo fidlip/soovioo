@@ -1,3 +1,4 @@
+import { NameLabel } from '../people/name-label.model';
 export type AbsenceStatus =
   'Unexcused' | 'PendingExcuse' | 'Excused' | 'Rejected';
 
@@ -5,6 +6,8 @@ export interface Absence {
   id: number;
   studentId: number;
   studentName: string;
+  /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
+  studentLabel?: NameLabel | null;
   date: string;
   status: AbsenceStatus;
   /** The reason of the omluvenka the day belongs to. */
@@ -66,6 +69,8 @@ export interface Excuse {
   id: number;
   studentId: number;
   studentName: string;
+  /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
+  studentLabel?: NameLabel | null;
   dateFrom: string;
   dateTo: string;
   /** Of a one-day omluvenka; empty = the whole day. */

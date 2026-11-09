@@ -1,4 +1,5 @@
 import { StudentLeaveReason } from '../retention/retention.model';
+import { NameLabel } from '../people/name-label.model';
 
 export type Gender = 'Male' | 'Female';
 
@@ -44,6 +45,11 @@ export interface Student {
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */
   photo?: string | null;
+  /** How the caller sees the pupil when not by the name — see `NameLabel`. */
+  label?: NameLabel | null;
+  /** Only for whoever decides it: the school, when no parent of the pupil
+   * uses the app. */
+  nicknameProposal?: string | null;
 }
 
 export interface CreateStudentRequest {

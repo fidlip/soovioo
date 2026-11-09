@@ -3,11 +3,13 @@
 export type VisibilityOwner = 'Staff' | 'Parent' | 'Student';
 
 /** `Name` = being on the list at all; the other fields never reach
- * further than the name. */
-export type VisibilityField = 'Name' | 'Phone' | 'Email' | 'Photo';
+ * further than the name. `Nickname` only decides whether the nickname
+ * shows instead of the name. */
+export type VisibilityField = 'Name' | 'Phone' | 'Email' | 'Photo' | 'Nickname';
 
-/** Who looks. Staff aren't an audience — that's a matter of permissions. */
-export type VisibilityAudience = 'Parents' | 'Students';
+/** Who looks. Staff are an audience only for a pupil's nickname
+ * (`Teachers`) — otherwise that's a matter of permissions. */
+export type VisibilityAudience = 'Parents' | 'Students' | 'Teachers';
 
 /** Ordered, a wider scope includes the narrower ones. */
 export type VisibilityScope = 'Nobody' | 'MyClasses' | 'School';
@@ -35,6 +37,8 @@ export interface VisibilityRules {
   studentPhotos: boolean;
   /** Parents may upload a photo of themselves. */
   parentPhotos: boolean;
+  /** Teachers see pupils' nicknames until they choose themselves. */
+  staffSeeStudentNicknames: boolean;
 }
 
 /** One of someone's settings as offered next to their data. */

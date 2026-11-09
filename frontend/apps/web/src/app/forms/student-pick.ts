@@ -1,9 +1,11 @@
+import { nameText, NameLabel } from '@soovioo/shared';
 export interface PickableStudent {
   id: number;
   firstName: string;
   lastName: string;
   schoolClassId: number;
   schoolClassName: string;
+  label?: NameLabel | null;
 }
 
 export interface StudentPickOption {
@@ -40,6 +42,6 @@ export function studentPickOptions(
     )
     .map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName} (${s.schoolClassName})`,
+      label: `${nameText(`${s.firstName} ${s.lastName}`, s.label)} (${s.schoolClassName})`,
     }));
 }

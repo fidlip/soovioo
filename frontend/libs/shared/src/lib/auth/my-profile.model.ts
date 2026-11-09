@@ -11,6 +11,14 @@ export interface MyProfile {
   /** Whether the account may have a photo at all (staff; parents where the
    * school has parents' photos on). */
   canUploadPhoto: boolean;
+  /** Parents and pupils have a nickname. */
+  canSetNickname: boolean;
+  nickname: string | null;
+  /** A pupil's own, waiting for approval. */
+  nicknameProposal: string | null;
+  /** Whether pupils' nicknames show to the caller; null = not their choice
+   * (pupils, the school's management). */
+  showNicknames: boolean | null;
 }
 
 export interface UpdateMyProfileRequest {

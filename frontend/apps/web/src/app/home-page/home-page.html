@@ -98,7 +98,11 @@
           class="flex flex-col gap-0.5 text-inherit no-underline hover:underline"
         >
           <span class="font-semibold text-surface-900 dark:text-surface-0"
-            >{{ excuse.studentName }} — {{ excuseRange(excuse) }}</span
+            ><app-person-name
+              [name]="excuse.studentName"
+              [label]="excuse.studentLabel"
+            />
+            — {{ excuseRange(excuse) }}</span
           >
           <span class="truncate text-surface-500">{{ excuse.reason }}</span>
         </a>
@@ -110,8 +114,11 @@
       @for (absence of d.pendingAbsences; track absence.id) {
       <li class="flex items-center justify-between gap-2 text-sm">
         <span
-          >{{ absence.studentName }} — {{ absence.date | dateFormat: 'date'
-          }}</span
+          ><app-person-name
+            [name]="absence.studentName"
+            [label]="absence.studentLabel"
+          />
+          — {{ absence.date | dateFormat: 'date' }}</span
         >
         @if (absence.status === 'Unexcused' && isFamily()) {
         <p-button
@@ -176,7 +183,10 @@
       @for (record of d.unreadBehaviorRecords; track record.id) {
       <li class="flex flex-col gap-1 text-sm">
         <div class="flex items-center justify-between gap-2">
-          <span>{{ record.studentName }}</span>
+          <app-person-name
+            [name]="record.studentName"
+            [label]="record.studentLabel"
+          />
           <p-tag
             [value]="recordTypeLabel(record.type)"
             [severity]="recordTypeSeverity(record.type)"

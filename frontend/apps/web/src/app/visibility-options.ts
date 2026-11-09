@@ -11,6 +11,7 @@ export const VISIBILITY_FIELDS: VisibilityField[] = [
   'Phone',
   'Email',
   'Photo',
+  'Nickname',
 ];
 
 export const VISIBILITY_FIELD_LABELS: Record<VisibilityField, string> = {
@@ -18,11 +19,13 @@ export const VISIBILITY_FIELD_LABELS: Record<VisibilityField, string> = {
   Phone: 'Telefon',
   Email: 'E-mail',
   Photo: 'Fotka',
+  Nickname: 'Přezdívka',
 };
 
 export const VISIBILITY_AUDIENCE_LABELS: Record<VisibilityAudience, string> = {
   Parents: 'Rodiče',
   Students: 'Žáci',
+  Teachers: 'Učitelé',
 };
 
 export const VISIBILITY_OWNER_LABELS: Record<VisibilityOwner, string> = {
@@ -56,6 +59,49 @@ export const VISIBILITY_SCOPE_ICONS: Record<VisibilityScope, string> = {
   MyClasses: 'pi pi-users',
   School: 'pi pi-building',
 };
+
+/** A pupil's nickname for teachers, a parent's for their children — their
+ * scopes read differently. */
+const NICKNAME_SCOPE_LABELS: Partial<
+  Record<VisibilityAudience, Partial<Record<VisibilityScope, string>>>
+> = {
+  Teachers: { MyClasses: 'Kdo žáka učí', School: 'Všichni učitelé' },
+  Students: { MyClasses: 'Moje děti' },
+};
+const NICKNAME_SCOPE_SHORT: Partial<
+  Record<VisibilityAudience, Partial<Record<VisibilityScope, string>>>
+> = {
+  Teachers: { MyClasses: 'Učitelé', School: 'Všichni' },
+  Students: { MyClasses: 'Děti' },
+};
+
+interface VisibilityKey {
+  field: VisibilityField;
+  audience: VisibilityAudience;
+}
+
+export function scopeLabel(key: VisibilityKey, scope: VisibilityScope): string {
+  return (
+    (key.field === 'Nickname'
+      ? NICKNAME_SCOPE_LABELS[key.audience]?.[scope]
+      : undefined) ?? VISIBILITY_SCOPE_LABELS[scope]
+  );
+}
+
+export function scopeShort(key: VisibilityKey, scope: VisibilityScope): string {
+  return (
+    (key.field === 'Nickname'
+      ? NICKNAME_SCOPE_SHORT[key.audience]?.[scope]
+      : undefined) ?? VISIBILITY_SCOPE_SHORT[scope]
+  );
+}
+
+/** A parent's nickname never reaches further than their own children. */
+export function widestScopeFor(key: VisibilityKey): VisibilityScope {
+  return key.field === 'Nickname' && key.audience === 'Students'
+    ? 'MyClasses'
+    : 'School';
+}
 
 export function scopeRank(scope: VisibilityScope): number {
   return VISIBILITY_SCOPES.indexOf(scope);

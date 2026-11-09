@@ -86,6 +86,44 @@
         <span><strong>Role:</strong> {{ p.role }}</span>
       </div>
 
+      @if (p.canSetNickname) {
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+          <app-float-field
+            class="min-w-0 flex-1"
+            label="Přezdívka"
+            for="nickname"
+          >
+            <input
+              pInputText
+              id="nickname"
+              name="nickname"
+              maxlength="30"
+              [(ngModel)]="nickname"
+            />
+          </app-float-field>
+          <app-info-hint
+            [text]="
+ isStudent
+                ? 'Ukáže se místo jména tam, kde to rodiče povolí. Novou přezdívku musí schválit rodič.'
+                : 'Uvidí ji místo vašeho jména vaše děti, pokud to škola povoluje.'
+            "
+          />
+          <app-visibility-control
+            [settings]="visibility()"
+            field="Nickname"
+            (changed)="setVisibility($event)"
+          />
+        </div>
+        @if (p.nicknameProposal) {
+        <span class="text-xs text-surface-500"
+          >Čeká na schválení@if (p.nickname) {, zatím platí „{{ p.nickname
+          }}“}.</span
+        >
+        }
+      </div>
+      }
+
       <div class="flex items-center gap-2">
         <app-float-field class="min-w-0 flex-1" label="Telefon" for="phone">
           <input pInputText id="phone" name="phone" [(ngModel)]="phone" />
@@ -213,6 +251,28 @@
         >Tmavý režim</label
       >
     </div>
+    @if (profile()?.showNicknames !== null && profile()?.showNicknames !==
+    undefined) {
+    <div class="mt-3 flex items-center gap-3">
+      <p-toggleswitch
+        inputId="showNicknamesSwitch"
+        [ngModel]="profile()?.showNicknames"
+        (ngModelChange)="setShowNicknames($event)"
+      />
+      <label
+        for="showNicknamesSwitch"
+        class="text-sm text-surface-700 dark:text-surface-200"
+        >{{ isStaffUser ? ('Ukazovat přezdívky žáků' | term) : 'Ukazovat
+        přezdívky dětí' }}</label
+      ><app-info-hint
+        [text]="
+          isStaffUser
+            ? ('Vypnuté: žáky uvidíte jen pod celým jménem. Týká se jen vás.' | term)
+            : 'Vypnuté: děti uvidíte pod křestním jménem. Týká se jen vás.'
+        "
+      />
+    </div>
+    }
   </p-card>
 
   @if (notificationSettings(); as settings) { @if (settings.types.length > 0) {

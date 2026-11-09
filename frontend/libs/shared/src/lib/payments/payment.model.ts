@@ -1,3 +1,4 @@
+import { NameLabel } from '../people/name-label.model';
 /** "Everyone": every student in the school. "Selected": the union of
  * whatever recipient ids are set — no "OnlyMe" (unlike EventAudience), a
  * payment always has an actual payer. */
@@ -35,6 +36,8 @@ export interface PaymentRecipient {
   id: number;
   studentId: number;
   studentName: string;
+  /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
+  studentLabel?: NameLabel | null;
   /** Frozen per-student amount, computed once at generation time. */
   amount: number;
   /** Per-payment override, or null = fall back to the student's own default. */
@@ -88,6 +91,7 @@ export interface PaymentStudentOption {
   lastName: string;
   schoolClassId: number;
   schoolClassName: string;
+  label?: NameLabel | null;
 }
 
 /** What the current caller (Teacher/Admin) may pick as payment recipients —

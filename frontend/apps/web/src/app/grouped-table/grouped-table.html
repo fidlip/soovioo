@@ -35,7 +35,13 @@
         <ng-container
           *ngTemplateOutlet="cell; context: { $implicit: item.row, level: i }"
         />
-        } @else { {{ level.text(item.row) }} } }
+        } @else {
+        <app-person-name
+          [name]="level.text(item.row)"
+          [label]="level.nameLabel?.(item.row)"
+          layout="stacked"
+        />
+        } }
       </td>
       }
       <ng-container
@@ -68,7 +74,7 @@
           : 'px-3 pt-1 text-sm font-semibold text-surface-700 dark:text-surface-200'
       "
     >
-      {{ node.text }}
+      <app-person-name [name]="node.text" [label]="node.nameLabel" />
     </div>
     @if (node.children.length > 0) {
     <div [class.pl-3]="depth > 0">

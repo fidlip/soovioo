@@ -15,6 +15,7 @@ import {
   DateFormatPipe,
   Student,
   StudentsApiService,
+  NameTextPipe,
 } from '@soovioo/shared';
 import {
   HIGHLIGHT_STYLES,
@@ -27,7 +28,12 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
 @Component({
   selector: 'ns-absences',
   templateUrl: './absences.component.html',
-  imports: [NativeScriptCommonModule, NavBarComponent, DateFormatPipe],
+  imports: [
+    NativeScriptCommonModule,
+    NavBarComponent,
+    DateFormatPipe,
+    NameTextPipe,
+  ],
   schemas: [NO_ERRORS_SCHEMA],
   styles: [HIGHLIGHT_STYLES],
 })

@@ -7,6 +7,7 @@ import {
   Conversation,
   ConversationSummary,
   MessagesApiService,
+  NameTextPipe,
 } from '@soovioo/shared';
 import { onLinkedItem } from '../../linked-item';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
@@ -16,7 +17,12 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
 @Component({
   selector: 'ns-messages',
   templateUrl: './messages.component.html',
-  imports: [NativeScriptCommonModule, NativeScriptFormsModule, NavBarComponent],
+  imports: [
+    NativeScriptCommonModule,
+    NativeScriptFormsModule,
+    NavBarComponent,
+    NameTextPipe,
+  ],
   schemas: [NO_ERRORS_SCHEMA],
 })
 export class MessagesComponent {

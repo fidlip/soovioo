@@ -1,5 +1,6 @@
 import { PagedResult } from '../common/paged-result.model';
 import { SchoolClassOption } from '../events/event.model';
+import { NameLabel } from './name-label.model';
 
 export type SchoolPersonKind = 'Staff' | 'Student' | 'Parent';
 
@@ -18,6 +19,8 @@ export interface SchoolPerson {
   userId: number | null;
   studentId: number | null;
   photo: string | null;
+  /** Pupils: how the caller sees them when not by `name`. */
+  label?: NameLabel | null;
 }
 
 export interface SchoolDirectory {

@@ -7,8 +7,9 @@
     <Label
       [text]="
         students()[selectedStudentIndex]?.firstName +
-        ' ' +
-        students()[selectedStudentIndex]?.lastName
+          ' ' +
+          students()[selectedStudentIndex]?.lastName
+          | nameText: students()[selectedStudentIndex]?.label
       "
     ></Label>
     <Button
@@ -26,7 +27,7 @@
       >
         <Label
           [text]="
-            item.studentName +
+            (item.studentName | nameText: item.studentLabel) +
             ' — ' +
             (item.date | dateFormat: 'date') +
             ' — ' +
