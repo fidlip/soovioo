@@ -176,6 +176,7 @@ public class AuthorizationMapTests
         ["Photos.UploadUserPhoto"] = "authenticated",
         ["PublicSchools.GetSchool"] = "anonymous",
         ["ReportCards.ConfirmGrades"] = "authenticated + perm:GradesWrite",
+        ["ReportCards.GetClasses"] = "authenticated",
         ["ReportCards.GetPdf"] = "authenticated",
         ["ReportCards.GetReportCards"] = "authenticated",
         ["ReportCards.ReopenGrade"] = "authenticated + perm:GradesWrite",

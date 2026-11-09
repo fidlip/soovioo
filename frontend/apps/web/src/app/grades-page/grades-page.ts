@@ -150,6 +150,14 @@ export class GradesPage {
     () => !this.authApi.isStudent() && this.students().length > 1,
   );
 
+  /** From Vysvědčení: the pupil's grades in the subject. */
+  protected showGrades(of: { studentId: number; subjectId: number }): void {
+    this.filterStudentId.set(of.studentId);
+    this.filterSubjectId.set(of.subjectId);
+    this.onFilterChange();
+    this.activeTab.set('grades');
+  }
+
   protected clearFilters(): void {
     this.filterStudentId.set(null);
     this.filterSubjectId.set(null);

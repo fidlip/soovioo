@@ -80,6 +80,27 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             .ToList());
     }
 
+    /// <summary>Classes whose report cards the caller sees, theirs as
+    /// třídní marked. <c>All</c> = the whole school (a class must then be
+    /// picked); otherwise all of them may be shown at once.</summary>
+    [HttpGet("classes")]
+    public async Task<ActionResult<ReportCardClassesDto>> GetClasses()
+    {
+        var allowed = await User.StudentIdsAsync(db, Permission.GradesRead);
+        var query = db.SchoolClasses.AsQueryable();
+        if (allowed is not null)
+        {
+            query = query.Where(c => c.Students.Any(s => allowed.Contains(s.Id)));
+        }
+        var userId = User.UserId();
+        var classes = await query
+            .Select(c => new ReportCardClassDto(c.Id, c.Name, c.ClassTeacherId == userId))
+            .ToListAsync();
+        return Ok(new ReportCardClassesDto(
+            allowed is null,
+            [.. classes.OrderBy(c => c.Name, StringComparer.Create(SchoolFormat.Culture, true))]));
+    }
+
     [HttpPut("grades")]
     [RequirePermission(Permission.GradesWrite)]
     public async Task<IActionResult> SetGrade(SetReportCardGradeRequest request)
@@ -340,6 +361,11 @@ public record SetReportCardGradeRequest(
     int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear, ReportCardGradeKind Kind, int? Value);
 
 public record ReportCardGradeRequest(int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear);
+
+/// <param name="Own">The caller is its třídní.</param>
+public record ReportCardClassDto(int Id, string Name, bool Own);
+
+public record ReportCardClassesDto(bool All, IReadOnlyList<ReportCardClassDto> Classes);
 
 public record ReportCardGradeKey(int StudentId, int SubjectId);
 

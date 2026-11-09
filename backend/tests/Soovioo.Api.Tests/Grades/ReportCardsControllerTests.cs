@@ -216,6 +216,23 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Equal("vysvedceni-5.A.pdf", file.FileDownloadName);
     }
 
+    [Fact]
+    public async Task ATeacherHasOnlyTheirClassesTheManagementTheWholeSchool()
+    {
+        var other = new SchoolClass { Name = "9.B", SchoolId = SchoolId };
+        db.SchoolClasses.Add(other);
+        jan.SchoolClass!.ClassTeacherId = 1;
+        await db.SaveChangesAsync();
+
+        var mine = (ReportCardClassesDto)Assert.IsType<OkObjectResult>((await As(teacher).GetClasses()).Result).Value!;
+        var all = (ReportCardClassesDto)Assert.IsType<OkObjectResult>((await As(management).GetClasses()).Result).Value!;
+
+        Assert.False(mine.All);
+        Assert.Equal([new ReportCardClassDto(jan.SchoolClassId, "5.A", true)], mine.Classes);
+        Assert.True(all.All);
+        Assert.Equal(["5.A", "9.B"], all.Classes.Select(c => c.Name));
+    }
+
     [Theory]
     [InlineData(new[] { 1, 2, 1 }, BehaviorClassificationValue.VelmiDobre, ReportCardResult.WithHonours)]
     [InlineData(new[] { 1, 2, 2 }, BehaviorClassificationValue.VelmiDobre, ReportCardResult.Passed)]
@@ -238,5 +255,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Equal(ReportCardResult.WithHonours, ReportCards.Result(exempt, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.First));
         Assert.Equal(ReportCardResult.NotAssessed, ReportCards.Result(notGraded, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.First));
         Assert.Equal(ReportCardResult.Failed, ReportCards.Result(notGraded, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.Second));
+        (ReportCardGradeKind, int?)[] failedAndNotGraded = [(ReportCardGradeKind.Graded, 5), (ReportCardGradeKind.NotGraded, null)];
+        Assert.Equal(ReportCardResult.Failed, ReportCards.Result(failedAndNotGraded, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.First));
     }
 }

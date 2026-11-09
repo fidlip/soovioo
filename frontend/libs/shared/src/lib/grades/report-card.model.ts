@@ -58,6 +58,20 @@ export interface ReportCardQuery {
   subjectId?: number | null;
 }
 
+export interface ReportCardClass {
+  id: number;
+  name: string;
+  /** The caller is its třídní. */
+  own: boolean;
+}
+
+/** `all` = the whole school (a class must be picked); otherwise all of
+ * `classes` may be shown at once. */
+export interface ReportCardClasses {
+  all: boolean;
+  classes: ReportCardClass[];
+}
+
 export interface ReportCardGradeKey {
   studentId: number;
   subjectId: number;
