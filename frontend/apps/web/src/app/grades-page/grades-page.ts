@@ -182,12 +182,17 @@ export class GradesPage {
       : [];
   });
 
+  /** Staff see pupils of many classes — with the class. */
   private readonly studentGroup: GroupLevel<Grade> = {
     ...STUDENT_GROUP,
     label: localizeStudentTerm(
       STUDENT_GROUP.label,
       this.authApi.getSchoolType(),
     ),
+    text: (g) =>
+      this.isStaff()
+        ? `${g.studentName} · ${g.schoolClassName}`
+        : g.studentName,
   };
 
   protected readonly gradeId = (grade: Grade) => grade.id;

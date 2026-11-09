@@ -54,6 +54,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
                 g.Id,
                 g.StudentId,
                 g.Student!.Person!.FirstName + " " + g.Student.Person!.LastName,
+                g.Student.SchoolClass!.Name,
                 g.SubjectId,
                 g.Subject!.Name,
                 g.Value,
@@ -83,6 +84,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
                 g.Id,
                 g.StudentId,
                 g.Student!.Person!.FirstName + " " + g.Student.Person!.LastName,
+                g.Student.SchoolClass!.Name,
                 g.SubjectId,
                 g.Subject!.Name,
                 g.Value,
@@ -141,6 +143,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
             grade.Id,
             grade.StudentId,
             student!.Person!.FullName,
+            await ClassNameAsync(student),
             grade.SubjectId,
             subject!.Name,
             grade.Value,
@@ -196,7 +199,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         await db.SaveChangesAsync();
 
         var dto = new GradeDto(
-            grade.Id, grade.StudentId, student.Person!.FullName,
+            grade.Id, grade.StudentId, student.Person!.FullName, await ClassNameAsync(student),
             grade.SubjectId, subject.Name, grade.Value, grade.Weight, grade.Note, grade.GradedOn, grade.CreatedAt);
         return Ok(dto);
     }
@@ -235,6 +238,9 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
     /// what they teach the pupil — in the class or the pupil's group).</summary>
     private const string CoveredSubject = "Předmět se učí ve skupinách — známku dejte z předmětu skupiny.";
 
+    private Task<string> ClassNameAsync(StudentProfile student) =>
+        db.SchoolClasses.Where(c => c.Id == student.SchoolClassId).Select(c => c.Name).FirstAsync();
+
     private Task<bool> MayGradeAsync(int studentId, int subjectId) =>
         User.ReachesStudentSubjectAsync(db, Permission.GradesWrite, studentId, subjectId);
 }
@@ -252,6 +258,7 @@ public record GradeDto(
     int Id,
     int StudentId,
     string StudentName,
+    string SchoolClassName,
     int SubjectId,
     string SubjectName,
     int Value,

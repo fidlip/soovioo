@@ -41,8 +41,17 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         var reach = family ? [] : await User.StudentReachAsync(db, Permission.GradesWrite);
         var mayReopen = !family && await User.ScopeAsync(db, Permission.GradesWrite) == PermissionScope.School;
 
+        var whole = await WholeAsync();
+
         bool MayEdit(int student, int subject) =>
             reach is null || reach.Any(r => r.StudentId == student && (r.SubjectIds is null || r.SubjectIds.Contains(subject)));
+
+        // Outside their own class a teacher sees only the subjects they grade.
+        cards = [.. cards
+            .Select(card => whole(card.Student)
+                ? card
+                : card with { Subjects = [.. card.Subjects.Where(s => MayEdit(card.Student.Id, s.SubjectId))] })
+            .Where(card => card.Subjects.Count > 0 || whole(card.Student))];
 
         return Ok(cards.Select(card => new ReportCardDto(
                 card.Student.Id,
@@ -53,9 +62,10 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                 card.Behavior,
                 card.ExcusedHours,
                 card.UnexcusedHours,
-                shown ? card.Result(halfYear) : null,
+                shown && whole(card.Student) ? card.Result(halfYear) : null,
                 issuedOn,
                 issued,
+                whole(card.Student),
                 [.. card.Subjects
                     .Where(s => subjectId is null || s.SubjectId == subjectId)
                     .Select(s =>
@@ -263,6 +273,11 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return NotFound();
         }
+        var whole = await WholeAsync();
+        if (!cards.All(c => whole(c.Student)))
+        {
+            return Forbid();
+        }
         var school = currentSchool.SchoolId is { } schoolId ? await db.Schools.FindAsync(schoolId) : null;
         var classIds = cards.Select(c => c.Student.SchoolClassId).Distinct().ToList();
         var classTeachers = await db.SchoolClasses
@@ -274,6 +289,19 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         var name = studentId is not null ? cards[0].Student.Person!.LastName : cards[0].Student.SchoolClass!.Name;
         var kind = halfYear == SchoolHalfYear.First ? "vypis-z-vysvedceni" : "podklady-k-vysvedceni";
         return File(pdf, "application/pdf", $"{kind}-{name}.pdf");
+    }
+
+    /// <summary>Whether the caller sees a pupil's whole report card: the
+    /// family, whoever sees grades of the whole school, the třídní; other
+    /// teachers only the subjects they grade.</summary>
+    private async Task<Func<StudentProfile, bool>> WholeAsync()
+    {
+        if (!User.IsStaff() || await User.ScopeAsync(db, Permission.GradesRead) == PermissionScope.School)
+        {
+            return _ => true;
+        }
+        var own = (await db.GetOwnClassIdsAsClassTeacherAsync(User.UserId())).ToHashSet();
+        return student => own.Contains(student.SchoolClassId);
     }
 
     private async Task<string> UserNameAsync()
@@ -347,7 +375,10 @@ public record ReportCardSubjectDto(
     bool CanReopen);
 
 /// <param name="Result">Once every subject is confirmed (for families once
-/// issued).</param>
+/// issued); not for <paramref name="Whole"/> false.</param>
+/// <param name="Whole">All the pupil's subjects are here — false for a
+/// teacher outside their own class, who sees only the subjects they grade
+/// and can't print the report card.</param>
 public record ReportCardDto(
     int StudentId,
     string StudentName,
@@ -360,6 +391,7 @@ public record ReportCardDto(
     ReportCardResult? Result,
     DateOnly IssuedOn,
     bool Issued,
+    bool Whole,
     IReadOnlyList<ReportCardSubjectDto> Subjects);
 
 public record SetReportCardGradeRequest(

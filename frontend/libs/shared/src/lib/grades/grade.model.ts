@@ -5,6 +5,7 @@ export interface Grade {
   studentName: string;
   /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
   studentLabel?: NameLabel | null;
+  schoolClassName: string;
   subjectId: number;
   subjectName: string;
   value: number;

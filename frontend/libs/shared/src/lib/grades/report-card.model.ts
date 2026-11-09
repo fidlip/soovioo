@@ -56,6 +56,10 @@ export interface ReportCard {
   issuedOn: string;
   /** The school's day has reached issuedOn. */
   issued: boolean;
+  /** All the pupil's subjects are here — false for a teacher outside
+   * their own class, who sees only the subjects they grade and can't print
+   * the report card. */
+  whole: boolean;
   subjects: ReportCardSubject[];
 }
 

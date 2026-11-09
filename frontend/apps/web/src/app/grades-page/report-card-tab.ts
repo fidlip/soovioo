@@ -150,10 +150,14 @@ export class ReportCardTab {
 
   protected readonly onlyMine = signal(false);
   protected readonly onlyUnconfirmed = signal(false);
-  /** A single class picked — its report cards go into one PDF. */
-  protected readonly pickedClassId = computed(() => {
+  /** A single class picked whose report cards the caller may print (their
+   * own, or any for who sees the whole school) — into one PDF. */
+  protected readonly printableClassId = computed(() => {
     const classId = this.classId();
-    return classId === ALL_CLASSES ? null : classId;
+    const reach = this.classes();
+    const printable =
+      reach?.all || reach?.classes.some((c) => c.id === classId && c.own);
+    return classId === ALL_CLASSES || !printable ? null : classId;
   });
 
   /** Staff: the classes whose report cards they see. */
