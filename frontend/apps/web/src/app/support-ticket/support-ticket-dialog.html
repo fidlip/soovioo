@@ -1,0 +1,530 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="setVisible($event)"
+  [header]="ticket()?.title ?? ''"
+  [modal]="true"
+  styleClass="w-full max-w-2xl max-h-[90vh]"
+  [contentStyle]="{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }"
+>
+  @if (ticket(); as ticket) {
+  <!-- The header and the writing stay, the thread scrolls between them. -->
+  <div class="flex min-h-0 flex-1 flex-col gap-4">
+    <!-- The ticket: its state and who takes care of it, with what can be
+      done about them. -->
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <p-tag
+        [value]="statusLabel(ticket.status)"
+        [severity]="severity(ticket.status)"
+      />
+      @if (bySupport()) {
+      <span class="font-medium">{{ ticket.schoolName }}</span>
+      }
+      <span class="text-surface-500"
+        >Řeší:
+        <span class="text-surface-700 dark:text-surface-200"
+          >{{ ticket.assigneeName ?? 'zatím nikdo' }}</span
+        ></span
+      >
+      <span
+        class="text-surface-500"
+        [class.text-red-600]="ticket.overdue"
+        [class.font-medium]="ticket.overdue"
+        >Termín {{ ticket.dueDate | dateFormat: 'date' }} ({{ ticket.planName
+        }})</span
+      >
+      @if (visitsTotal(); as total) {
+      <span class="text-surface-500" data-testid="ticket-visits-total"
+        >Ve škole celkem:
+        <span class="text-surface-700 dark:text-surface-200"
+          >{{ total }}</span
+        ></span
+      >
+      } @if (canManage()) {
+      <span class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        @if (side() === 'school') {
+        <p-button
+          label="Zrušit požadavek"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="busy()"
+          (onClick)="openCancel()"
+        />
+        } @else if (!ticket.assigneeUserId) {
+        <app-float-field label="Řešitel" for="ticketAssignee">
+          <p-select
+            ariaLabel="Řešitel"
+            inputId="ticketAssignee"
+            [options]="assigneeOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="assignee"
+            [disabled]="busy()"
+            styleClass="w-52"
+            appendTo="body"
+          />
+        </app-float-field>
+        <p-button
+          [label]="assignee ? 'Předat' : 'Převzít'"
+          [icon]="assignee ? 'pi pi-share-alt' : 'pi pi-user-plus'"
+          [disabled]="busy()"
+          (onClick)="assign()"
+        />
+        } @else if (mine()) { @for (action of statusActions(); track
+        action.status) {
+        <p-button
+          [label]="action.label"
+          [icon]="action.icon"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="busy()"
+          (onClick)="setStatus(action.status)"
+        />
+        }
+        <p-button
+          label="Přerušit práci"
+          icon="pi pi-pause"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="busy()"
+          (onClick)="openRelease()"
+        />
+        } @else {
+        <p-button
+          [label]="'Převzít od ' + ticket.assigneeName"
+          icon="pi pi-user-plus"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="busy()"
+          (onClick)="takeOver()"
+        />
+        }
+      </span>
+      }
+    </div>
+
+    <!-- Entering the school -->
+    @if (ticketOpen()) {
+    <div
+      class="flex flex-wrap items-center gap-2 rounded-md bg-surface-100 px-3 py-2 text-sm dark:bg-surface-800"
+      data-testid="ticket-access"
+    >
+      <i class="pi pi-sign-in text-surface-500"></i>
+      <span class="grow">
+        @switch (ticket.schoolAccess) { @case ('Never') { Škola vstup podpory
+        nepovoluje. } @case ('Always') { Podpora smí do školy vstoupit kdykoliv.
+        } @default { @if (ticket.accessUntil) { Vstup do školy povolen do {{
+        ticket.accessUntil | dateFormat: 'dateTime' }}. } @else if
+        (ticket.accessRequestedAt) { Podpora žádá o vstup do školy ({{
+        ticket.accessRequestedAt | dateFormat: 'dateTime' }}). } @else { Vstup
+        do školy není povolený. } } }
+      </span>
+      @if (side() === 'school' && !readOnly() && ticket.schoolAccess ===
+      'Approval') { @if (ticket.accessUntil) {
+      <p-button
+        label="Odebrat povolení"
+        icon="pi pi-ban"
+        size="small"
+        severity="danger"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="revokeAccess()"
+      />
+      } @else {
+      <p-button
+        label="Povolit vstup"
+        icon="pi pi-check"
+        size="small"
+        [disabled]="busy()"
+        (onClick)="grantAccess()"
+      />
+      } } @if (side() === 'support' && mine()) { @if (canEnter()) {
+      <p-button
+        label="Vstoupit do školy"
+        icon="pi pi-sign-in"
+        size="small"
+        [disabled]="busy()"
+        (onClick)="enter()"
+      />
+      } @else if (ticket.schoolAccess === 'Approval' &&
+      !ticket.accessRequestedAt) {
+      <p-button
+        label="Požádat o vstup"
+        icon="pi pi-send"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="requestAccess()"
+      />
+      } }
+    </div>
+    }
+
+    <!-- The thread -->
+    <div
+      #thread
+      class="-mx-1 flex min-h-32 flex-1 flex-col gap-4 overflow-y-auto px-1"
+      data-testid="ticket-thread"
+    >
+      @if (ticket.description) {
+      <app-markdown [text]="ticket.description" />
+      } @if (hasRequests()) {
+      <label
+        class="-mb-2 flex items-center justify-end gap-2 text-xs text-surface-500"
+      >
+        <p-toggleswitch
+          [ngModel]="showRequests()"
+          (ngModelChange)="setShowRequests($event)"
+          name="showRequests"
+        />
+        Volání API u změn
+      </label>
+      }
+      <ol class="m-0 flex list-none flex-col gap-3 p-0" aria-label="Vlákno">
+        @for (item of items(); track $index) { @if (item.visit; as visit) {
+        <li
+          class="flex flex-col gap-3 border-l-2 border-primary-200 pl-3 dark:border-primary-800"
+          data-kind="VisitGroup"
+        >
+          <div class="text-sm">
+            <button
+              type="button"
+              class="flex w-full cursor-pointer flex-wrap items-center gap-x-2 border-0 bg-transparent p-0 text-left text-sm text-surface-500"
+              [attr.aria-expanded]="isExpanded(visit)"
+              (click)="toggleVisit(visit)"
+            >
+              <i
+                class="pi text-xs"
+                [class.pi-chevron-down]="isExpanded(visit)"
+                [class.pi-chevron-right]="!isExpanded(visit)"
+              ></i>
+              <span class="font-medium text-surface-700 dark:text-surface-200"
+                >Vstup do školy</span
+              >
+              <span>· {{ visit.authorName }}</span>
+              <span>· {{ visitTime(visit) }}</span>
+              <span>· {{ changesLabel(visit.changes) }}</span>
+              @if (visitEndLabel(visit); as endLabel) {
+              <span
+                [class.text-amber-700]="visit.end === 'running'"
+                [class.dark:text-amber-300]="visit.end === 'running'"
+                >· {{ endLabel }}</span
+              >
+              }
+              <span class="ml-auto"
+                >{{ visit.from | dateFormat: 'dateTime' }} @if (visit.to) { – {{
+                visit.to | dateFormat: 'time' }} }</span
+              >
+            </button>
+            @if (visit.result) {
+            <div
+              class="mt-1 rounded-md border-l-4 border-surface-300 px-3 py-1 text-surface-700 dark:text-surface-200"
+            >
+              <app-markdown [text]="visit.result" />
+            </div>
+            }
+          </div>
+          @if (visitEntries(visit); as entries) { @if (entries.length) {
+          <ol class="m-0 flex list-none flex-col gap-3 p-0">
+            @for (entry of entries; track $index) {
+            <ng-container
+              *ngTemplateOutlet="entryRow; context: { $implicit: entry }"
+            />
+            }
+          </ol>
+          } }
+        </li>
+        } @else if (item.entry; as entry) {
+        <ng-container
+          *ngTemplateOutlet="entryRow; context: { $implicit: entry }"
+        />
+        } }
+      </ol>
+    </div>
+
+    <!-- Writing -->
+    @if (!readOnly() && (ticketOpen() || bySupport())) {
+    <form #messageForm="ngForm" class="flex flex-col gap-2" (ngSubmit)="send()">
+      <app-markdown-editor
+        [label]="internal ? 'Interní poznámka' : bySupport() ? 'Zpráva škole' : 'Zpráva podpoře'"
+        inputId="ticketMessage"
+        name="text"
+        [rows]="3"
+        maxlength="8000"
+        required
+        [(ngModel)]="text"
+      />
+      <div class="flex flex-wrap items-center justify-end gap-3">
+        @if (bySupport()) {
+        <label class="mr-auto flex items-center gap-2 text-sm">
+          <p-toggleswitch
+            name="internal"
+            [(ngModel)]="internal"
+            [disabled]="!ticketOpen()"
+          />
+          Interní poznámka (škola ji neuvidí)
+        </label>
+        }
+        <app-submit-button
+          [form]="messageForm"
+          [label]="internal || !ticketOpen() ? 'Uložit poznámku' : 'Odeslat'"
+          icon="pi pi-send"
+          [busy]="busy()"
+        />
+      </div>
+    </form>
+    }
+  </div>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="releasing()"
+  (visibleChange)="releasing.set($event)"
+  header="Přerušit práci"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form #releaseForm="ngForm" (ngSubmit)="release()">
+    <p class="mt-0 text-sm text-surface-500">
+      Požadavek se vrátí k převzetí ostatním superadminům. Shrnutí uvidí jen
+      oni.
+    </p>
+    <app-markdown-editor
+      label="Shrnutí dosavadní práce"
+      inputId="releaseSummary"
+      name="summary"
+      maxlength="8000"
+      required
+      [(ngModel)]="summary"
+    />
+    <div class="mt-4 flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="releasing.set(false)"
+      />
+      <app-submit-button
+        [form]="releaseForm"
+        label="Přerušit práci"
+        icon="pi pi-pause"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="cancelling()"
+  (visibleChange)="cancelling.set($event)"
+  header="Zrušit požadavek"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form #cancelForm="ngForm" (ngSubmit)="cancel()">
+    <p class="mt-0 text-sm text-surface-500">
+      Požadavek se uzavře a podpora do školy kvůli němu už nevstoupí. Napište
+      podpoře, proč ho rušíte.
+    </p>
+    <app-markdown-editor
+      label="Důvod zrušení"
+      inputId="cancelReason"
+      name="reason"
+      maxlength="8000"
+      required
+      [(ngModel)]="cancelReason"
+    />
+    <div class="mt-4 flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="cancelling.set(false)"
+      />
+      <app-submit-button
+        [form]="cancelForm"
+        label="Zrušit požadavek"
+        icon="pi pi-times"
+        severity="danger"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<!-- One entry of the thread, also inside a visit. -->
+<ng-template #entryRow let-entry>
+  @if (isText(entry)) {
+  <li
+    class="rounded-md border px-3 py-2"
+    [class.border-amber-300]="entry.internal"
+    [class.bg-amber-50]="entry.internal"
+    [class.dark:bg-amber-950]="entry.internal"
+    [class.dark:border-amber-700]="entry.internal"
+    [class.border-surface-200]="!entry.internal"
+    [class.dark:border-surface-700]="!entry.internal"
+    [class.bg-primary-50]="!entry.internal && entry.bySupport"
+    [class.dark:bg-surface-800]="!entry.internal && entry.bySupport"
+    [attr.data-kind]="entry.kind"
+  >
+    <div
+      class="mb-1 flex flex-wrap items-start gap-x-2 text-xs text-surface-500"
+    >
+      <span class="font-medium text-surface-700 dark:text-surface-200"
+        >{{ entry.authorName }}</span
+      >
+      @if (entry.bySupport) {
+      <span>podpora</span>
+      } @if (entry.internal) {
+      <span class="font-medium text-amber-700 dark:text-amber-300"
+        ><i class="pi pi-lock text-xs"></i> Interní poznámka</span
+      >
+      }
+      <span class="ml-auto flex flex-col items-end">
+        <span>{{ entry.at | dateFormat: 'dateTime' }}</span>
+        @if (entry.revisions?.length) {
+        <button
+          type="button"
+          class="cursor-pointer border-0 bg-transparent p-0 text-xs text-primary hover:underline"
+          [attr.aria-expanded]="changesShown().has(entry.id)"
+          (click)="toggleChanges(entry)"
+        >
+          {{ entry.deleted ? 'smazáno' : 'upraveno' }}
+        </button>
+        }
+      </span>
+      @if (hasEntryActions(entry)) {
+      <p-button
+        icon="pi pi-ellipsis-v"
+        size="small"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        ariaLabel="Upravit, smazat…"
+        [disabled]="busy()"
+        (onClick)="openEntryMenu($event, entry, entryMenu)"
+        styleClass="-my-1 h-6 w-6"
+      />
+      }
+    </div>
+    @if (entry.deleted) {
+    <p class="m-0 text-sm italic text-surface-500">
+      {{ entry.internal ? 'Poznámka smazána.' : 'Zpráva smazána.' }}
+    </p>
+    } @else if (editing() === entry.id) {
+    <form
+      #editForm="ngForm"
+      class="flex flex-col gap-2"
+      (ngSubmit)="saveEdit(entry)"
+    >
+      <app-markdown-editor
+        [label]="entry.internal ? 'Interní poznámka' : 'Zpráva'"
+        [inputId]="'entryEdit' + entry.id"
+        name="editText"
+        [rows]="3"
+        maxlength="8000"
+        required
+        [(ngModel)]="editText"
+      />
+      <div class="flex justify-end gap-2">
+        <p-button
+          label="Zpět"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="editing.set(null)"
+        />
+        <app-submit-button
+          [form]="editForm"
+          label="Uložit"
+          icon="pi pi-check"
+          [busy]="busy()"
+        />
+      </div>
+    </form>
+    } @else {
+    <app-markdown [text]="entry.text" />
+    } @if (changesShown().has(entry.id) && entry.revisions; as revisions) {
+    <ol
+      class="m-0 mt-2 flex list-none flex-col gap-2 border-t border-surface-200 p-0 pt-2 text-xs text-surface-500 dark:border-surface-700"
+      aria-label="Změny"
+    >
+      @for (revision of revisions; track $index) {
+      <li>
+        <div>
+          {{ revision.at | dateFormat: 'dateTime' }} · {{ revision.authorName }}
+          · {{ changeLabel(revision) }}
+        </div>
+        @if (changeText(revision); as text) {
+        <div
+          class="mt-1 border-l-2 border-surface-300 pl-2 text-surface-700 dark:text-surface-200"
+        >
+          <app-markdown [text]="text" />
+        </div>
+        }
+      </li>
+      }
+    </ol>
+    }
+  </li>
+  } @else if (entry.kind === 'SessionAction') {
+  <li class="-mt-2 pl-4 text-xs text-surface-500" [attr.data-kind]="entry.kind">
+    <div class="flex flex-wrap gap-x-2">
+      <span
+        [class.text-red-600]="(entry.statusCode ?? 0) >= 400"
+        [class.text-surface-700]="(entry.statusCode ?? 0) < 400"
+        [class.dark:text-surface-200]="(entry.statusCode ?? 0) < 400"
+        ><i class="pi pi-pencil text-xs"></i> {{ entry.text }}</span
+      >
+      @if ((entry.statusCode ?? 0) >= 400) {
+      <span class="text-red-600">nepovedlo se</span>
+      }
+      <span class="ml-auto"
+        >{{ entry.at | dateFormat: 'timeWithSeconds' }}</span
+      >
+    </div>
+    @if (showRequests() && entry.request) {
+    <div
+      class="break-all pl-4 font-mono text-[0.6875rem] text-surface-400"
+      data-testid="ticket-request"
+    >
+      {{ entry.request }} → {{ entry.statusCode }}
+    </div>
+    }
+  </li>
+  } @else {
+  <li class="text-sm text-surface-500" [attr.data-kind]="entry.kind">
+    <div class="flex flex-wrap gap-x-2">
+      <span class="text-surface-700 dark:text-surface-200"
+        >{{ entryLabel(entry) }}</span
+      >
+      @if (entry.until) {
+      <span>do {{ entry.until | dateFormat: 'dateTime' }}</span>
+      }
+      <span>· {{ entry.authorName }}</span>
+      <span class="ml-auto">{{ entry.at | dateFormat: 'dateTime' }}</span>
+    </div>
+    @if (entryText(entry); as text) {
+    <div
+      class="mt-1 rounded-md border-l-4 px-3 py-1 text-surface-700 dark:text-surface-200"
+      [class.border-amber-300]="entry.internal"
+      [class.border-surface-300]="!entry.internal"
+    >
+      @if (entry.internal) {
+      <div class="text-xs font-medium text-amber-700 dark:text-amber-300">
+        <i class="pi pi-lock text-xs"></i> Interní
+      </div>
+      }
+      <app-markdown [text]="text" />
+    </div>
+    }
+  </li>
+  }
+</ng-template>
+
+<p-menu #entryMenu [popup]="true" [model]="entryMenuItems()" appendTo="body" />

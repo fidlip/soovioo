@@ -70,8 +70,10 @@ public class SupportSessionService(
 
     /// <summary>A fresh support token when the request carries a live
     /// support cookie for <paramref name="schoolSlug"/>; null otherwise (the
-    /// caller then falls back to the normal session).</summary>
-    public async Task<LoginResponse?> RefreshAsync(HttpRequest request, string? schoolSlug)
+    /// caller then falls back to the normal session). A page in support
+    /// mode names its session (<paramref name="sessionId"/>) — the cookie
+    /// of another one, entered since in the same browser, doesn't continue it.</summary>
+    public async Task<LoginResponse?> RefreshAsync(HttpRequest request, string? schoolSlug, int? sessionId = null)
     {
         if (string.IsNullOrEmpty(schoolSlug)
             || !request.Cookies.TryGetValue(CookieName, out var secret) || string.IsNullOrEmpty(secret)
@@ -86,9 +88,15 @@ public class SupportSessionService(
             .FirstOrDefaultAsync(s => s.RefreshSecretHash == hash);
         return session is { EndedAt: null, SuperAdminUser: not null, School: not null }
                && session.ExpiresAt > now && session.School.Slug == schoolSlug
+               && (sessionId is null || session.Id == sessionId)
             ? await RespondAsync(session)
             : null;
     }
+
+    /// <summary>A support cookie came along — on a school's page, its
+    /// support session was there, whether it still runs or not.</summary>
+    public static bool CarriesCookie(HttpRequest request) =>
+        request.Cookies.TryGetValue(CookieName, out var secret) && !string.IsNullOrEmpty(secret);
 
     public void ClearCookie(HttpContext http) =>
         http.Response.Cookies.Delete(CookieName, CookieOptionsFor(null));

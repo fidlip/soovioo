@@ -24,12 +24,14 @@ import {
   SchoolsApiService,
   SupportApiService,
   SupportSession,
+  changesLabel,
   formatDate,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
+import { Markdown } from '../markdown/markdown';
 
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'superadmin',
@@ -57,6 +59,7 @@ const ROLE_LABELS: Record<string, string> = {
     FormsModule,
     GroupedTable,
     Loading,
+    Markdown,
     NgTemplateOutlet,
     Paginator,
     Select,
@@ -262,13 +265,7 @@ export class LogsPage {
     }
   }
 
-  protected changesLabel(count: number): string {
-    return count === 1
-      ? '1 změna'
-      : count >= 2 && count <= 4
-        ? `${count} změny`
-        : `${count} změn`;
-  }
+  protected readonly changesLabel = changesLabel;
 
   private loadFilterOptions(): void {
     this.auditApi.getFilterOptions(this.filterSchoolId).subscribe({

@@ -1,0 +1,33 @@
+<p-card>
+  <ng-template #title
+    >Vstup podpory do školy<app-info-hint
+      text="Podpora Soovioo může kvůli požadavku vstoupit do školy jako admin, aby pomohla s nastavením nebo vyřešila problém — vždy jen ten, kdo požadavek řeší. Každý vstup a všechny změny při něm jsou v Logech. „Po schválení“: vstup povolujete v požadavku, vždy na {{ duration() }}. Mění jen admin školy."
+  /></ng-template>
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
+    <app-float-field label="Superadmin smí vstoupit" for="supportAccess">
+      <p-select
+        ariaLabel="Superadmin smí vstoupit"
+        inputId="supportAccess"
+        [options]="accessOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="access()"
+        (ngModelChange)="access.set($event)"
+        name="supportAccess"
+        [disabled]="!support()?.canChange"
+        styleClass="w-56"
+        appendTo="body"
+      />
+    </app-float-field>
+    @if (support()?.canChange) {
+    <p-button
+      type="submit"
+      label="Uložit"
+      severity="secondary"
+      [outlined]="true"
+    />
+    } @else if (support()) {
+    <span class="pb-2 text-sm text-surface-500">Mění jen admin školy.</span>
+    }
+  </form>
+</p-card>

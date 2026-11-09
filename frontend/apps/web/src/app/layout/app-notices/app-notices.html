@@ -22,12 +22,45 @@
     support.schoolName }} · jako superadmin {{ support.by }} (změny se
     zaznamenávají)</span
   >
-  <button
-    type="button"
-    class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
-    (click)="sessionActions.leaveSupport()"
-  >
-    Opustit
-  </button>
+  <!-- Deferred: their Markdown editors are needed only in support mode. -->
+  @defer (on idle) {
+  <span class="ml-auto flex gap-2">
+    <button
+      type="button"
+      class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+      title="Otevře požadavek, kvůli kterému jste vstoupili — můžete k němu psát"
+      (click)="ticketDialog.open()"
+    >
+      <i class="pi pi-comments mr-1 text-xs" aria-hidden="true"></i>Detail
+      požadavku
+    </button>
+    <button
+      type="button"
+      class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+      (click)="leaveDialog.open()"
+    >
+      Opustit
+    </button>
+  </span>
+  <app-support-ticket-dialog #ticketDialog side="session" />
+  <app-support-leave-dialog #leaveDialog />
+  } @placeholder {
+  <span class="ml-auto flex gap-2">
+    <button
+      type="button"
+      class="rounded border border-amber-400 px-2 py-0.5 font-medium opacity-60"
+      disabled
+    >
+      Detail požadavku
+    </button>
+    <button
+      type="button"
+      class="rounded border border-amber-400 px-2 py-0.5 font-medium opacity-60"
+      disabled
+    >
+      Opustit
+    </button>
+  </span>
+  }
 </div>
 }

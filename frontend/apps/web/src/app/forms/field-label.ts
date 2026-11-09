@@ -5,8 +5,10 @@
  * "Vyplňte: …" hint on a disabled submit button. */
 export function labelElementFor(host: Element): HTMLLabelElement | null {
   const form = host.closest('form') ?? host.ownerDocument;
-  const ids = [host.id, ...Array.from(host.querySelectorAll('[id]'), (e) => e.id)]
-    .filter((id) => !!id);
+  const ids = [
+    host.id,
+    ...Array.from(host.querySelectorAll('[id]'), (e) => e.id),
+  ].filter((id) => !!id);
   for (const id of ids) {
     const label = form.querySelector<HTMLLabelElement>(
       `label[for="${cssEscape(id)}"]`,
@@ -27,7 +29,10 @@ export function fieldLabelText(host: Element): string {
     host.getAttribute('aria-label') ??
     host.getAttribute('name') ??
     '';
-  return text.replace(/\s*\*\s*$/, '').replace(/\s+/g, ' ').trim();
+  return text
+    .replace(/\s*\*\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** `CSS.escape` where available (browsers); a minimal fallback for test

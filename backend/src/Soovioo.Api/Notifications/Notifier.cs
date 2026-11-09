@@ -15,7 +15,8 @@ public record NotificationDraft(
 /// switched off under the bell, in the e-mail and for push; an unread notification about the same thing is updated
 /// instead of adding another one (and pushed again). A deleted thing takes
 /// its notifications along (a database trigger, see the migration
-/// NotificationsOfDeletedThings).</summary>
+/// NotificationsOfDeletedThings). A SuperAdmin (no school) gets them too,
+/// under the school they're about.</summary>
 public class Notifier(AppDbContext db, TimeProvider clock)
 {
     public const int PreviewLength = 140;
@@ -117,7 +118,8 @@ public class Notifier(AppDbContext db, TimeProvider clock)
         }
         var userIds = drafts.Select(d => d.UserId).Distinct().ToList();
         var users = (await db.Users.IgnoreQueryFilters()
-                .Where(u => userIds.Contains(u.Id) && u.SchoolId == schoolId && u.DeactivatedAt == null)
+                .Where(u => userIds.Contains(u.Id) && (u.SchoolId == schoolId || u.SchoolId == null && u.IsSuperAdmin)
+                    && u.DeactivatedAt == null)
                 .Select(u => new
                 {
                     u.Id, u.MutedNotifications, u.MutedEmailNotifications, u.MutedPushNotifications,

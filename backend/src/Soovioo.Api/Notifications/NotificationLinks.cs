@@ -5,7 +5,8 @@ namespace Soovioo.Api.Notifications;
 /// mobile app.</summary>
 public static class NotificationLinks
 {
-    /// <summary>Without the school part, e.g. <c>grades?grade=12</c>.</summary>
+    /// <summary>Without the school part, e.g. <c>grades?grade=12</c>; a
+    /// SuperAdmin's lead outside any school, e.g. <c>superadmin/support?ticket=3</c>.</summary>
     public static string For(Notification notification)
     {
         if (notification.TargetId is not { } id)
@@ -25,6 +26,8 @@ public static class NotificationLinks
             NotificationType.Nickname => notification.Page == "my-children" ? $"my-children?student={id}" : notification.Page,
             NotificationType.Timetable => $"admin?group=teaching&section=timetable&version={id}&generation=result",
             NotificationType.TimetableChange => $"timetable?version={id}&change=start{student}",
+            NotificationType.SupportTicket => $"superadmin/support?ticket={id}",
+            NotificationType.SupportTicketUpdate => $"admin?group=app&section=support&ticket={id}",
             NotificationType.Substitution => $"timetable?day={id / 10000:D4}-{id / 100 % 100:D2}-{id % 100:D2}{student}",
             _ => notification.Page,
         };

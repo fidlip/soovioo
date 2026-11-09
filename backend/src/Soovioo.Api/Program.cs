@@ -64,6 +64,9 @@ builder.Services.AddScoped<IEmailSender, Soovioo.Api.Demo.DemoAwareEmailSender>(
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<AppLinkOptions>(builder.Configuration.GetSection("App"));
 builder.Services.Configure<Soovioo.Api.Demo.DemoOptions>(builder.Configuration.GetSection("Demo"));
+builder.Services.Configure<Soovioo.Api.Support.SupportOptions>(builder.Configuration.GetSection("Support"));
+builder.Services.Configure<Soovioo.Api.Support.SupportPlanOptions>(builder.Configuration.GetSection("SupportPlans"));
+builder.Services.AddHttpClient<Soovioo.Api.Support.SupportPlanClient>(c => c.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoDataGenerator>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolPurger>();
 builder.Services.AddScoped<Soovioo.Api.Retention.AccountEraser>();
@@ -234,6 +237,7 @@ app.UseHttpsRedirection();
 app.UseCors(app.Environment.IsDevelopment() ? devCorsPolicy : prodCorsPolicy);
 
 app.UseAuthentication();
+app.UseMiddleware<Soovioo.Api.Support.SupportSessionGuardMiddleware>();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<Soovioo.Api.Audit.AuditMiddleware>();

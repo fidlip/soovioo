@@ -129,9 +129,22 @@ public class AuthController(
     {
         // On a school's page with a live support session for that school,
         // stay in support mode (see SupportSessionService).
-        if (await supportSessions.RefreshAsync(Request, request?.SchoolSlug) is { } support)
+        if (await supportSessions.RefreshAsync(Request, request?.SchoolSlug, request?.SupportSessionId) is { } support)
         {
             return Ok(support);
+        }
+        // The page's support session is over; the browser's cookie belongs
+        // to another one by now and stays for its page.
+        if (request?.SupportSessionId is not null)
+        {
+            return Unauthorized();
+        }
+        // Its support session is over (left, taken back by the school,
+        // expired) — the page doesn't go on as another session of the browser.
+        if (!string.IsNullOrEmpty(request?.SchoolSlug) && Support.SupportSessionService.CarriesCookie(Request))
+        {
+            supportSessions.ClearCookie(HttpContext);
+            return Unauthorized();
         }
 
         if (await PresentedTokenAsync(request) is not { } presented)
@@ -245,4 +258,5 @@ public record AcceptInviteRequest(string Token, string NewPassword, bool UseCook
 /// <param name="SchoolSlug">The school whose page asks (web) — picks that
 /// school's refresh cookie, refuses another school's session and lets a
 /// support-mode session continue there, see SupportSessionService.</param>
-public record RefreshRequest(string? RefreshToken = null, string? SchoolSlug = null);
+/// <param name="SupportSessionId">The support session the page is in, if any.</param>
+public record RefreshRequest(string? RefreshToken = null, string? SchoolSlug = null, int? SupportSessionId = null);
