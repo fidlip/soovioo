@@ -59,8 +59,8 @@ test.describe.serial('homework with completion', () => {
     await expect(
       card(page).getByRole('button', { name: 'Smazat úkol' }),
     ).toHaveCount(0);
-    await card(page).getByText('Jan Novák — nesplněno').click();
-    await expect(card(page)).toContainText('Jan Novák — splněno');
+    await card(page).getByText('Jan — nesplněno').click();
+    await expect(card(page)).toContainText('Jan — splněno');
   });
 
   test('teacher sees it done and deletes the homework', async ({ page }) => {

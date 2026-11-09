@@ -66,7 +66,7 @@ test.describe.serial('payment for one student', () => {
     ).toHaveCount(0);
 
     await card(page).getByText(title).click();
-    await expect(card(page)).toContainText('Jan Novák');
+    await expect(card(page)).toContainText('Jan');
     await expect(
       card(page).getByRole('button', {
         name: 'Označit jako zaplaceno',

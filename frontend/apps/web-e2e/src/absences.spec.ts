@@ -163,7 +163,7 @@ async function writeExcuse(
   // Focused once the open animation ends — wait, so it can't move focus
   // away while the dates are typed.
   await expect(dialog.locator('#excuseStudent')).toBeFocused();
-  await expect(dialog.locator('#excuseStudent')).toContainText('Jan Novák');
+  await expect(dialog.locator('#excuseStudent')).toContainText('Jan');
   await typeDate(dialog.locator('#excuseFrom'), from);
   // Do follows Od; typed over once it has.
   await expect(dialog.locator('#excuseTo')).toHaveValue(from);

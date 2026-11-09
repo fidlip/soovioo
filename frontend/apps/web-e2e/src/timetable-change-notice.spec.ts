@@ -166,7 +166,7 @@ test('a parent hears about a timetable change when it is due and the link opens 
     const item = page
       .getByRole('region', { name: 'Upozornění' })
       .getByRole('button', {
-        name: /(Změna rozvrhu|Nový rozvrh) od .* Jan Novák/,
+        name: /(Změna rozvrhu|Nový rozvrh) od .* Jan/,
       })
       .first();
     await item.click();
@@ -197,7 +197,7 @@ test('a parent hears about a timetable change when it is due and the link opens 
     await expect(
       page
         .getByRole('region', { name: 'Upozornění' })
-        .getByRole('button', { name: /Rozvrh od .* se ruší — Jan Novák/ })
+        .getByRole('button', { name: /Rozvrh od .* se ruší — Jan/ })
         .first(),
     ).toBeVisible();
   } finally {
