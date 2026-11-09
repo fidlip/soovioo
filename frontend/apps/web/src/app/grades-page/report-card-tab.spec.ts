@@ -180,13 +180,13 @@ describe('ReportCardTab', () => {
     ]);
   });
 
-  it("shows all of a teacher's classes at once, only the unconfirmed if asked", () => {
+  it("shows all of a teacher's classes at once, only what they confirm if asked", () => {
     const fixture = render([student(7, 2, '5.A')]);
     classes(fixture, false, [1, '4.B', false], [2, '5.A', false]);
     reportCardsRequest().flush([]);
     const component = fixture.componentInstance as unknown as {
       onClassChange(id: number): void;
-      onlyUnconfirmed: { set(value: boolean): void };
+      onlyToConfirm: { set(value: boolean): void };
     };
 
     component.onClassChange(0);
@@ -194,14 +194,23 @@ describe('ReportCardTab', () => {
     const request = reportCardsRequest();
     expect(request.request.params.has('schoolClassId')).toBe(false);
     const czech = { ...maths, subjectId: 2, subjectName: 'Český jazyk' };
-    request.flush([card([{ ...maths, confirmed: true }, czech])]);
-    component.onlyUnconfirmed.set(true);
+    const music = {
+      ...maths,
+      subjectId: 3,
+      subjectName: 'Hudební výchova',
+      canEdit: false,
+    };
+    request.flush([
+      card([{ ...maths, confirmed: true, canEdit: false }, czech, music]),
+    ]);
+    component.onlyToConfirm.set(true);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Český jazyk');
     expect(text).not.toContain('Matematika');
-    expect(text).not.toContain('Vysvědčení třídy');
+    expect(text).not.toContain('Hudební výchova');
+    expect(text).not.toContain('PDF za třídu');
   });
 
   it("opens the pupil's grades in the subject from the grade count", () => {

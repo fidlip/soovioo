@@ -122,6 +122,7 @@ const SUBJECT_COLOR_PALETTE = [
 ];
 
 import { InfoHint } from '../info-hint/info-hint';
+import { ReportCardSettings } from './report-card-settings';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { NotifyService } from '../notify.service';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
@@ -182,6 +183,7 @@ import { Loading } from '../loading/loading';
     UserPhotoDialog,
     ...FORM_FIELDS,
     InfoHint,
+    ReportCardSettings,
     TermPipe,
     AppIcon,
     FormsModule,

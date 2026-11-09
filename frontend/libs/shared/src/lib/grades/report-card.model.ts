@@ -4,6 +4,13 @@ import {
 } from '../behavior/behavior.model';
 import { Gender } from '../evidence/student.model';
 
+/** How a stupeň is written on the report card: "výborný" or "1". */
+export type ReportCardMarkFormat = 'Words' | 'Digits';
+
+export interface ReportCardSettings {
+  markFormat: ReportCardMarkFormat;
+}
+
 /** Graded = a stupeň 1–5; Exempt = uvolněn/a; NotGraded = nehodnocen/a. */
 export type ReportCardGradeKind = 'Graded' | 'Exempt' | 'NotGraded';
 

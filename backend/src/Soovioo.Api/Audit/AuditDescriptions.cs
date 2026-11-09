@@ -117,6 +117,7 @@ public static class AuditDescriptions
         ["MySchool.SetDetails"] = "Upraveny údaje o škole",
         ["MySchool.SetBankAccount"] = "Nastaven bankovní účet školy",
         ["MySchool.SetVisibility"] = "Změněna viditelnost údajů",
+        ["MySchool.SetReportCards"] = "Změněno nastavení vysvědčení",
         ["ParentStudents.AddLink"] = "Přiřazeno dítě rodiči",
         ["ParentStudents.RemoveLink"] = "Odebráno dítě rodiči",
         ["Payments.CreatePayment"] = "Vytvořena platba",

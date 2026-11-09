@@ -1,0 +1,28 @@
+<p-card>
+  <ng-template #title
+    >Vysvědčení<app-info-hint
+      text="Jak se na vysvědčení a výpisu z vysvědčení zapisují stupně prospěchu a chování — podle pravidel hodnocení ve školním řádu. Uvolnění a nehodnocení se píše vždy slovem."
+  /></ng-template>
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
+    <app-float-field label="Zápis stupně" for="reportCardMarkFormat">
+      <p-select
+        ariaLabel="Zápis stupně"
+        inputId="reportCardMarkFormat"
+        [options]="markFormatOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="markFormat()"
+        (ngModelChange)="markFormat.set($event)"
+        name="reportCardMarkFormat"
+        styleClass="w-56"
+        appendTo="body"
+      />
+    </app-float-field>
+    <p-button
+      type="submit"
+      label="Uložit"
+      severity="secondary"
+      [outlined]="true"
+    />
+  </form>
+</p-card>

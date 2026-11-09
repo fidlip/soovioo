@@ -213,6 +213,26 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(NotificationsOf(school));
     }
 
+    [HttpGet("report-cards")]
+    public async Task<ActionResult<ReportCardSettingsDto>> GetReportCards()
+    {
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
+        return Ok(new ReportCardSettingsDto(school.ReportCardMarkFormat));
+    }
+
+    [HttpPut("report-cards")]
+    public async Task<ActionResult<ReportCardSettingsDto>> SetReportCards(ReportCardSettingsDto request)
+    {
+        if (!Enum.IsDefined(request.MarkFormat))
+        {
+            return BadRequest("Neznámý zápis hodnocení.");
+        }
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
+        school.ReportCardMarkFormat = request.MarkFormat;
+        await db.SaveChangesAsync();
+        return Ok(new ReportCardSettingsDto(school.ReportCardMarkFormat));
+    }
+
     private static SchoolNotificationSettingsDto NotificationsOf(School school) =>
         new(school.DigestTime, school.ForcedEmailNotifications, school.PushFullText, school.PushQuietFrom, school.PushQuietTo);
 
@@ -225,6 +245,9 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
+
+/// <param name="MarkFormat">See <see cref="School.ReportCardMarkFormat"/>.</param>
+public record ReportCardSettingsDto(Grades.ReportCardMarkFormat MarkFormat);
 
 /// <param name="DigestTime">See <see cref="School.DigestTime"/>.</param>
 /// <param name="ForcedEmail">See <see cref="School.ForcedEmailNotifications"/>.</param>

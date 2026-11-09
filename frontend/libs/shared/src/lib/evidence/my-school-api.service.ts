@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
+import { ReportCardSettings } from '../grades/report-card.model';
 import { VisibilityRules } from '../people/visibility.model';
 import {
   School,
@@ -55,6 +56,21 @@ export class MySchoolApiService {
   setVisibility(request: VisibilityRules): Observable<VisibilityRules> {
     return this.http.put<VisibilityRules>(
       `${this.baseUrl}/api/my-school/visibility`,
+      request,
+    );
+  }
+
+  getReportCardSettings(): Observable<ReportCardSettings> {
+    return this.http.get<ReportCardSettings>(
+      `${this.baseUrl}/api/my-school/report-cards`,
+    );
+  }
+
+  setReportCardSettings(
+    request: ReportCardSettings,
+  ): Observable<ReportCardSettings> {
+    return this.http.put<ReportCardSettings>(
+      `${this.baseUrl}/api/my-school/report-cards`,
       request,
     );
   }

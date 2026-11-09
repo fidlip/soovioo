@@ -271,7 +271,8 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
         var pdf = ReportCardDocument.Generate(school, cards, classTeachers, schoolYearStartYear, halfYear);
         var name = studentId is not null ? cards[0].Student.Person!.LastName : cards[0].Student.SchoolClass!.Name;
-        return File(pdf, "application/pdf", $"vysvedceni-{name}.pdf");
+        var kind = halfYear == SchoolHalfYear.First ? "vypis-z-vysvedceni" : "podklady-k-vysvedceni";
+        return File(pdf, "application/pdf", $"{kind}-{name}.pdf");
     }
 
     private async Task<string> UserNameAsync()
