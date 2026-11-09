@@ -5,6 +5,7 @@ export * from './lib/common/date-format.pipe';
 export * from './lib/grades/grade.model';
 export * from './lib/grades/grades-api.service';
 export * from './lib/grades/report-card-api.service';
+export * from './lib/grades/report-card.model';
 export * from './lib/evidence/student.model';
 export * from './lib/evidence/student-reach';
 export * from './lib/evidence/subject.model';

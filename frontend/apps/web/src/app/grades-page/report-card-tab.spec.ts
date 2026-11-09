@@ -4,69 +4,185 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL } from '@soovioo/shared';
-import { ReportCardTab, StudentOption } from './report-card-tab';
+import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
+import {
+  API_BASE_URL,
+  AuthApiService,
+  ReportCard,
+  ReportCardSubject,
+  Student,
+  Subject,
+} from '@soovioo/shared';
+import { ReportCardTab, halfYearOf } from './report-card-tab';
+
+describe('halfYearOf', () => {
+  it('puts September to January in the first half, the rest in the second', () => {
+    expect(halfYearOf(new Date(2026, 8, 1))).toEqual({
+      schoolYearStartYear: 2026,
+      halfYear: 'First',
+    });
+    expect(halfYearOf(new Date(2027, 0, 31))).toEqual({
+      schoolYearStartYear: 2026,
+      halfYear: 'First',
+    });
+    expect(halfYearOf(new Date(2027, 1, 1))).toEqual({
+      schoolYearStartYear: 2026,
+      halfYear: 'Second',
+    });
+    expect(halfYearOf(new Date(2027, 7, 31))).toEqual({
+      schoolYearStartYear: 2026,
+      halfYear: 'Second',
+    });
+  });
+});
 
 describe('ReportCardTab', () => {
   let httpMock: HttpTestingController;
+  let staff: boolean;
+
+  const student = (id: number, classId: number, className: string) =>
+    ({
+      id,
+      firstName: 'Jan',
+      lastName: `Novák ${id}`,
+      schoolClassId: classId,
+      schoolClassName: className,
+    }) as Student;
+
+  const maths: ReportCardSubject = {
+    subjectId: 1,
+    subjectName: 'Matematika',
+    average: 1.5,
+    gradeCount: 2,
+    suggested: 2,
+    kind: 'Graded',
+    value: 2,
+    changed: false,
+    confirmed: false,
+    confirmedByName: null,
+    confirmedAt: null,
+    canEdit: true,
+    canReopen: false,
+  };
+
+  const card = (subjects: ReportCardSubject[], issued = true): ReportCard => ({
+    studentId: 7,
+    studentName: 'Jan Novák',
+    gender: 'Male',
+    schoolClassId: 2,
+    schoolClassName: '5.A',
+    behavior: 'VelmiDobre',
+    excusedHours: 3,
+    unexcusedHours: 1,
+    result: null,
+    issuedOn: '2027-01-31',
+    issued,
+    subjects,
+  });
 
   beforeEach(async () => {
+    staff = true;
     await TestBed.configureTestingModule({
       imports: [ReportCardTab],
       providers: [
+        MessageService,
+        ConfirmationService,
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: 'http://test' },
+        {
+          provide: AuthApiService,
+          useValue: { isStaff: () => staff, getSchoolType: () => 'Elementary' },
+        },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    // jsdom cannot follow the download link.
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
-      /* no navigation */
-    });
   });
 
-  afterEach(() => {
-    httpMock.verify();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => httpMock.verify());
 
-  const render = (students: StudentOption[]) => {
+  const render = (students: Student[]) => {
     const fixture = TestBed.createComponent(ReportCardTab);
     fixture.componentRef.setInput('students', students);
+    fixture.componentRef.setInput('subjects', [] as Subject[]);
     fixture.detectChanges();
     return fixture;
   };
 
-  const downloadButton = (element: HTMLElement) =>
-    [...element.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Stáhnout vysvědčení'),
-    ) as HTMLButtonElement;
+  const reportCardsRequest = () =>
+    httpMock.expectOne(
+      (r) => r.method === 'GET' && r.url === 'http://test/api/report-cards',
+    );
 
-  it('with one pupil downloads their report card without asking whose', () => {
-    const fixture = render([{ id: 7, label: 'Jan Novák' }]);
-    const element = fixture.nativeElement as HTMLElement;
+  it('shows staff the first class of the current half-year, with the suggestion to confirm', () => {
+    const fixture = render([student(7, 2, '5.A'), student(8, 1, '4.B')]);
 
-    expect(element.querySelector('#reportCardStudent')).toBeNull();
-    downloadButton(element).click();
+    const request = reportCardsRequest();
+    const current = halfYearOf(new Date());
+    expect(request.request.params.get('schoolClassId')).toBe('1');
+    expect(request.request.params.get('halfYear')).toBe(current.halfYear);
+    expect(request.request.params.get('schoolYearStartYear')).toBe(
+      `${current.schoolYearStartYear}`,
+    );
+    request.flush([card([maths])]);
+    fixture.detectChanges();
 
-    httpMock
-      .expectOne('http://test/api/students/7/report-card')
-      .flush(new Blob());
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('průměr 1,50 (počet známek: 2)');
+    expect(text).toContain('návrh z průměru');
+    expect(text).toContain('Potvrdit zobrazené');
+    expect(text).toContain('Celkové hodnocení: neuzavřeno');
   });
 
-  it('with several pupils offers a choice, the first one picked', () => {
-    const fixture = render([
-      { id: 7, label: 'Jan Novák' },
-      { id: 8, label: 'Eva Nováková' },
+  it('confirms a grade and shows the report cards again', () => {
+    const fixture = render([student(7, 2, '5.A')]);
+    reportCardsRequest().flush([card([maths])]);
+    fixture.detectChanges();
+
+    const confirm = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ].find(
+      (b) =>
+        b.getAttribute('aria-label') === 'Potvrdit – Matematika, Jan Novák',
+    );
+    confirm?.click();
+
+    const request = httpMock.expectOne(
+      'http://test/api/report-cards/grades/confirm',
+    );
+    expect(request.request.body.grades).toEqual([
+      { studentId: 7, subjectId: 1 },
     ]);
-    const element = fixture.nativeElement as HTMLElement;
+    request.flush({ confirmed: 1, skipped: 0 });
+    reportCardsRequest().flush([
+      card([{ ...maths, confirmed: true, canEdit: false }]),
+    ]);
+  });
 
-    expect(element.textContent).toContain('Vysvědčení pro');
-    downloadButton(element).click();
+  it('tells the family from when they see the report card', () => {
+    staff = false;
+    const fixture = render([student(7, 2, '5.A')]);
+    const request = reportCardsRequest();
+    expect(request.request.params.has('schoolClassId')).toBe(false);
+    request.flush([
+      card(
+        [
+          {
+            ...maths,
+            suggested: null,
+            kind: null,
+            value: null,
+            canEdit: false,
+          },
+        ],
+        false,
+      ),
+    ]);
+    fixture.detectChanges();
 
-    httpMock
-      .expectOne('http://test/api/students/7/report-card')
-      .flush(new Blob());
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Známky na vysvědčení uvidíte od');
+    expect(text).not.toContain('Celkové hodnocení');
+    expect(text).not.toContain('návrh z průměru');
   });
 });

@@ -171,7 +171,9 @@
       }
     </p-tabpanel>
     <p-tabpanel value="reportCard">
-      <app-report-card-tab [students]="studentOptions()" />
+      @if (activeTab() === 'reportCard') {
+      <app-report-card-tab [students]="students()" [subjects]="subjects()" />
+      }
     </p-tabpanel>
   </p-tabpanels>
 </p-tabs>
