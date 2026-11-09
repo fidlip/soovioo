@@ -122,24 +122,26 @@
 
         <ng-template #mobileRow let-absence>
           <div class="flex items-center gap-3 text-sm">
-            <span class="min-w-0 flex-1 truncate">
+            <span class="min-w-0 flex-1 font-medium">
               <ng-container
                 *ngTemplateOutlet="rowLabel; context: { $implicit: absence }"
               />
             </span>
-            <p-tag
-              [value]="statusLabel(absence.status)"
-              [severity]="statusSeverity(absence.status)"
-            />
             @if (canManageAbsences()) {
             <ng-container
               *ngTemplateOutlet="editActions; context: { $implicit: absence }"
             />
             }
           </div>
-          <div class="mt-0.5 text-xs text-surface-500">
-            @if (absence.periods.length > 0) { hodiny } {{
-            formatPeriods(absence.periods) }}
+          <div class="mt-1 flex items-center gap-2 text-xs text-surface-500">
+            <p-tag
+              [value]="statusLabel(absence.status)"
+              [severity]="statusSeverity(absence.status)"
+            />
+            <span
+              >@if (absence.periods.length > 0) { hodiny } {{
+              formatPeriods(absence.periods) }}</span
+            >
           </div>
           <div class="mt-1 text-sm text-surface-500 empty:hidden">
             <ng-container
