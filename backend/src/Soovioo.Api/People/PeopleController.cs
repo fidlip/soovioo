@@ -316,6 +316,10 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
                 User, people.Where(p => p.Student is not null).Select(p => p.Student!));
         }
 
+        // Admins decide a pupil's proposed nickname when no parent is in the app.
+        var schoolDecides = await Nicknames.WithoutParentsAsync(db, 
+            people.Where(p => p.Student is not null && p.NicknameProposal is not null).Select(p => p.Student!.Id));
+
         var result = new List<PersonDto>();
         foreach (var p in people)
         {
@@ -340,7 +344,12 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
                         .OrderBy(c => c.Name)
                         .ToList())
                     : null,
-                p.Student is { } s ? await StudentRecords.ToDtoAsync(db, s) : null));
+                p.Student is { } s
+                    ? await StudentRecords.ToDtoAsync(db, s) with
+                    {
+                        NicknameProposal = schoolDecides.Contains(s.Id) ? p.NicknameProposal : null,
+                    }
+                    : null));
         }
         return result;
     }

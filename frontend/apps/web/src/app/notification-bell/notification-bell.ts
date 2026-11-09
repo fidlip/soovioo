@@ -26,6 +26,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   TimetableChange: 'pi-table',
   Substitution: 'pi-user-edit',
   NewExcuse: 'pi-file-check',
+  Nickname: 'pi-id-card',
 };
 
 const UNREAD_ONLY_STORAGE_KEY = 'soovioo-notifications-unread-only';

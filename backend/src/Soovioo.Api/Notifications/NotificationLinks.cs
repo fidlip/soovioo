@@ -22,6 +22,7 @@ public static class NotificationLinks
             NotificationType.Homework => $"homework?homework={id}",
             NotificationType.Event => $"events?event={id}",
             NotificationType.Photo => $"my-children?student={id}",
+            NotificationType.Nickname => notification.Page == "my-children" ? $"my-children?student={id}" : notification.Page,
             NotificationType.Timetable => $"admin?group=teaching&section=timetable&version={id}&generation=result",
             NotificationType.TimetableChange => $"timetable?version={id}&change=start{student}",
             NotificationType.Substitution => $"timetable?day={id / 10000:D4}-{id / 100 % 100:D2}-{id % 100:D2}{student}",

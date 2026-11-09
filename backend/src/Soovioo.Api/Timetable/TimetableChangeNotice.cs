@@ -98,9 +98,9 @@ public class TimetableChangeNotice(AppDbContext db, TimeProvider clock)
 
         var memberships = await MembershipsAsync(version.Id, previous?.Id);
         var pupils = await db.Students.Where(s => s.SchoolId == version.SchoolId)
-            .Select(s => new { s.Id, s.SchoolClassId, Name = s.Person!.FirstName + " " + s.Person.LastName })
+            .Select(s => new { s.Id, s.SchoolClassId })
             .ToListAsync();
-        var changed = new List<(int StudentId, string Name, string Body)>();
+        var changed = new List<(int StudentId, string Body)>();
         foreach (var pupil in pupils)
         {
             var groups = memberships[pupil.Id].ToHashSet();
@@ -110,13 +110,14 @@ public class TimetableChangeNotice(AppDbContext db, TimeProvider clock)
                 [.. before.Where(Theirs).Select(ForPupil).Distinct()]);
             if (body is not null)
             {
-                changed.Add((pupil.Id, pupil.Name, body));
+                changed.Add((pupil.Id, body));
             }
         }
         var notifier = new Notifier(db, clock);
         var families = await notifier.FamiliesAsync(changed.Select(c => c.StudentId));
+        var named = await notifier.FamilyNamesAsync(changed.Select(c => c.StudentId));
         drafts.AddRange(changed.SelectMany(c => families.GetValueOrDefault(c.StudentId, []).Select(user => new NotificationDraft(
-            user, NotificationType.TimetableChange, $"{title} — {c.Name}", c.Body, "timetable", version.Id, c.StudentId))));
+            user, NotificationType.TimetableChange, $"{title} — {named(c.StudentId, user)}", c.Body, "timetable", version.Id, c.StudentId))));
 
         var hearing = drafts.Select(d => (d.UserId, d.StudentId)).ToHashSet();
         drafts.AddRange(await WithoutTargetAsync(
@@ -150,11 +151,10 @@ public class TimetableChangeNotice(AppDbContext db, TimeProvider clock)
     {
         var distinct = recipients.Distinct().ToList();
         var pupilIds = distinct.Where(r => r.StudentId != null).Select(r => r.StudentId!.Value).Distinct().ToList();
-        var names = await db.Students.Where(s => pupilIds.Contains(s.Id))
-            .ToDictionaryAsync(s => s.Id, s => s.Person!.FirstName + " " + s.Person.LastName);
+        var names = await new Notifier(db, clock).FamilyNamesAsync(pupilIds);
         return [.. distinct.Select(r => new NotificationDraft(
             r.UserId, NotificationType.TimetableChange,
-            r.StudentId is { } id && names.TryGetValue(id, out var name) ? $"{title} — {name}" : title,
+            r.StudentId is { } id && names(id, r.UserId) is { } name ? $"{title} — {name}" : title,
             body, "timetable", null, r.StudentId))];
     }
 
@@ -224,8 +224,6 @@ public class TimetableChangeNotice(AppDbContext db, TimeProvider clock)
         }
 
         var pupilIds = byPupil.Keys.ToList();
-        var names = await db.Students.Where(s => pupilIds.Contains(s.Id))
-            .ToDictionaryAsync(s => s.Id, s => s.Person!.FirstName + " " + s.Person.LastName);
         var unread = await db.Notifications
             .Where(n => n.Type == NotificationType.TimetableChange && n.TargetId == version.Id && n.ReadAt == null && n.StudentId != null)
             .ToListAsync();
@@ -234,11 +232,12 @@ public class TimetableChangeNotice(AppDbContext db, TimeProvider clock)
             : "Změna rozvrhu";
         var notifier = new Notifier(db, clock);
         var families = await notifier.FamiliesAsync(pupilIds);
+        var names = await notifier.FamilyNamesAsync(pupilIds);
         await notifier.AddAsync(version.SchoolId, [.. byPupil.SelectMany(c => families.GetValueOrDefault(c.Key, []).Select(user =>
         {
             var earlier = unread.FirstOrDefault(n => n.UserId == user && n.StudentId == c.Key);
             return new NotificationDraft(
-                user, NotificationType.TimetableChange, earlier?.Title ?? $"{title} — {names[c.Key]}",
+                user, NotificationType.TimetableChange, earlier?.Title ?? $"{title} — {names(c.Key, user)}",
                 earlier?.Body is { } body ? $"{body} {c.Value}" : c.Value, "timetable", version.Id, c.Key);
         }))]);
     }

@@ -67,6 +67,7 @@ public class SubstitutionNotice(AppDbContext db, Notifier notifier)
                 .Select(m => new { m.StudentId, m.StudentGroupId }).ToListAsync())
             .ToLookup(m => m.StudentId, m => m.StudentGroupId);
         var families = await notifier.FamiliesAsync(ids);
+        var pupilNames = await notifier.FamilyNamesAsync(ids);
         foreach (var student in students)
         {
             var scope = new LessonScope(ClassId: student.SchoolClassId, GroupIds: memberships[student.Id].ToHashSet());
@@ -76,7 +77,7 @@ public class SubstitutionNotice(AppDbContext db, Notifier notifier)
             }
             var body = Body(scope, false);
             drafts.AddRange(families.GetValueOrDefault(student.Id, []).Select(user => new NotificationDraft(
-                user, NotificationType.Substitution, $"{title} — {student.FirstName} {student.LastName}", body,
+                user, NotificationType.Substitution, $"{title} — {pupilNames(student.Id, user)}", body,
                 "timetable", Target(date), student.Id)));
         }
         await notifier.AddAsync(schoolId, drafts);

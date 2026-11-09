@@ -11,7 +11,8 @@ export type NotificationType =
   | 'Timetable'
   | 'TimetableChange'
   | 'Substitution'
-  | 'NewExcuse';
+  | 'NewExcuse'
+  | 'Nickname';
 
 export interface AppNotification {
   id: number;
@@ -123,6 +124,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   TimetableChange: 'Změny rozvrhu',
   Substitution: 'Suplování',
   NewExcuse: 'Nové omluvenky ke schválení',
+  Nickname: 'Přezdívky ke schválení',
 };
 
 /** Times offered for the daily e-mail, `HH:mm` every half hour. */

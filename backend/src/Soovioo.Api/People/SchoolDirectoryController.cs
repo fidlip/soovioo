@@ -83,9 +83,13 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
         var studentIds = items.Where(i => i.Kind == SchoolPersonKind.Student).Select(i => i.StudentId!.Value).ToList();
         var studentPhotos = await photoAccess.VisibleStudentPhotosAsync(
             User, await db.Students.Where(s => studentIds.Contains(s.Id)).ToListAsync());
+        var labels = await db.StudentLabelsAsync(User, studentIds);
         items = items.Select(i => i.Kind switch
         {
-            SchoolPersonKind.Student => i with { Photo = studentPhotos.GetValueOrDefault(i.StudentId!.Value) },
+            SchoolPersonKind.Student => i with
+            {
+                Photo = studentPhotos.GetValueOrDefault(i.StudentId!.Value), Label = labels.GetValueOrDefault(i.StudentId!.Value),
+            },
             SchoolPersonKind.Staff => i with { Photo = userPhotos.GetValueOrDefault(i.UserId!.Value) },
             // A parent's account id goes out only with a photo it's needed for.
             _ => userPhotos.GetValueOrDefault(i.UserId ?? 0) is { } photo ? i with { Photo = photo } : i with { UserId = null },
@@ -232,7 +236,7 @@ public class SchoolDirectoryController(AppDbContext db, ICurrentSchoolContext cu
 /// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
 public record SchoolPersonDto(
     SchoolPersonKind Kind, string Name, string Notes, IReadOnlyList<string> Children, string? Phone, string? Email,
-    int? UserId, int? StudentId, string? Photo);
+    int? UserId, int? StudentId, string? Photo, NameLabel? Label = null);
 
 public record DirectoryClassDto(int Id, string Name);
 

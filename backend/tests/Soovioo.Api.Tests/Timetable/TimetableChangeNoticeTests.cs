@@ -142,7 +142,7 @@ public class TimetableChangeNoticeTests
             (await RecipientsAsync()).Order());
 
         var parent = Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan Žák", parent.Title);
+        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan", parent.Title);
         Assert.Equal("Přibylo: Po 1. Čj (ucitelA). Ubylo: Po 1. M (ucitelA).", parent.Body);
         Assert.Equal("timetable", parent.Page);
         Assert.Equal(jan.Id, parent.StudentId);
@@ -249,7 +249,7 @@ public class TimetableChangeNoticeTests
             new[] { teacherA.Id, parentJan.Id, pupilJan.Id, parentEva.Id }.Order(),
             (await RecipientsAsync()).Order());
         var parent = Assert.Single(await OfAsync(parentEva));
-        Assert.Equal("Nový rozvrh od 1. 9. 2027 — Eva Žák", parent.Title);
+        Assert.Equal("Nový rozvrh od 1. 9. 2027 — Eva", parent.Title);
         Assert.Equal("Škola zveřejnila rozvrh „Změna“.", parent.Body);
     }
 
@@ -286,7 +286,7 @@ public class TimetableChangeNoticeTests
         await Job(new DateTimeOffset(2027, 1, 25, 6, 0, 0, TimeSpan.Zero)).RunAsync();
         db.ChangeTracker.Clear();
         var sent = Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan Žák", sent.Title);
+        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan", sent.Title);
 
         sent.ReadAt = Now;
         await db.SaveChangesAsync();
@@ -314,7 +314,7 @@ public class TimetableChangeNoticeTests
         var between = await ChangedAsync(new DateOnly(2027, 1, 4));
         await PublishAsync(between);
         await EveningAsync();
-        Assert.Equal("Změna rozvrhu od 4. 1. 2027 — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
+        Assert.Equal("Změna rozvrhu od 4. 1. 2027 — Jan", Assert.Single(await OfAsync(parentJan)).Title);
 
         await Job(new DateTimeOffset(2027, 1, 25, 6, 0, 0, TimeSpan.Zero)).RunAsync();
         db.ChangeTracker.Clear();
@@ -353,7 +353,7 @@ public class TimetableChangeNoticeTests
         await EveningAsync();
 
         var parent = Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan Žák", parent.Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan", parent.Title);
         Assert.Equal("Škola zrušila rozvrh „Změna“, který měl platit od 1. 2. 2027. Neřiďte se jím.", parent.Body);
         Assert.Null(parent.ReadAt);
         Assert.Equal(jan.Id, parent.StudentId);
@@ -373,7 +373,7 @@ public class TimetableChangeNoticeTests
         await Versions().UnpublishVersion(version.Id);
         Assert.IsType<NoContentResult>(await Versions().DeleteVersion(version.Id));
 
-        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan", Assert.Single(await OfAsync(parentJan)).Title);
     }
 
     [Fact]
@@ -395,15 +395,15 @@ public class TimetableChangeNoticeTests
         await PublishAsync(await db.TimetableVersions.FirstAsync(v => v.Id == version.Id));
         await EveningAsync();
 
-        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
-        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Eva Žák", Assert.Single(await OfAsync(parentEva)).Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan", Assert.Single(await OfAsync(parentJan)).Title);
+        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Eva", Assert.Single(await OfAsync(parentEva)).Title);
 
         // Withdrawn again: only who heard the second time hears it's off.
         await Versions().UnpublishVersion(version.Id);
         await EveningAsync();
 
         Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Eva Žák", Assert.Single(await OfAsync(parentEva)).Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Eva", Assert.Single(await OfAsync(parentEva)).Title);
     }
 
     [Fact]
@@ -462,7 +462,7 @@ public class TimetableChangeNoticeTests
         await EveningAsync();
 
         var parent = Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Změna rozvrhu — Jan Žák", parent.Title);
+        Assert.Equal("Změna rozvrhu — Jan", parent.Title);
         Assert.Equal("Zařazení do skupiny Nj. Přibylo: Po 3. Čj Nj (ucitelB).", parent.Body);
         Assert.Equal(current.Id, parent.TargetId);
         Assert.Equal(jan.Id, parent.StudentId);
@@ -590,11 +590,11 @@ public class TimetableChangeNoticeTests
         await EveningAsync(NextEvening);
 
         var parent = Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Rozvrh od 1. 2. 2027 se upravil — Jan Žák", parent.Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se upravil — Jan", parent.Title);
         Assert.Equal("Škola upravila rozvrh „Změna“. Proti dosavadnímu rozvrhu se vám nic nemění.", parent.Body);
         Assert.Null(parent.TargetId);
         Assert.Equal("Rozvrh od 1. 2. 2027 se upravil", Assert.Single(await OfAsync(teacherA)).Title);
-        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Eva Žák", Assert.Single(await OfAsync(parentEva)).Title);
+        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Eva", Assert.Single(await OfAsync(parentEva)).Title);
     }
 
     [Fact]
@@ -608,11 +608,11 @@ public class TimetableChangeNoticeTests
         await PublishAsync(version, 7);
         await EveningAsync(NextEvening);
 
-        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan", Assert.Single(await OfAsync(parentJan)).Title);
 
         await EveningAsync(new DateTimeOffset(2027, 1, 25, 19, 0, 0, TimeSpan.Zero));
 
-        Assert.Contains(await OfAsync(parentJan), n => n.Title == "Změna rozvrhu od 1. 2. 2027 — Jan Žák");
+        Assert.Contains(await OfAsync(parentJan), n => n.Title == "Změna rozvrhu od 1. 2. 2027 — Jan");
     }
 
     [Fact]
@@ -669,7 +669,7 @@ public class TimetableChangeNoticeTests
         await EveningAsync();
 
         var parent = Assert.Single(await OfAsync(parentJan));
-        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan Žák", parent.Title);
+        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan", parent.Title);
         Assert.Equal("Zařazení do skupiny Nj.", parent.Body);
     }
 
@@ -685,7 +685,7 @@ public class TimetableChangeNoticeTests
 
         await EveningAsync();
 
-        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
+        Assert.Equal("Změna rozvrhu od 1. 2. 2027 — Jan", Assert.Single(await OfAsync(parentJan)).Title);
     }
 
     [Fact]
@@ -721,7 +721,7 @@ public class TimetableChangeNoticeTests
 
         await EveningAsync();
 
-        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan Žák", Assert.Single(await OfAsync(parentJan)).Title);
+        Assert.Equal("Rozvrh od 1. 2. 2027 se ruší — Jan", Assert.Single(await OfAsync(parentJan)).Title);
     }
 
     [Fact]
@@ -740,7 +740,7 @@ public class TimetableChangeNoticeTests
         Assert.Equal("Změna rozvrhu od 1. 3. 2027", Assert.Single(await OfAsync(teacherA)).Title);
         var parent = Assert.Single(await OfAsync(parentJan));
         Assert.Null(parent.ReadAt);
-        Assert.Equal("Změna rozvrhu od 1. 3. 2027 — Jan Žák", parent.Title);
+        Assert.Equal("Změna rozvrhu od 1. 3. 2027 — Jan", parent.Title);
     }
 
     [Fact]

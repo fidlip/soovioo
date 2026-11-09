@@ -351,7 +351,7 @@ public class SubstitutionsTests
             notifications.Select(n => n.UserId).Order());
         Assert.All(notifications, n => Assert.Equal(20261102, n.TargetId));
         var family = notifications.Single(n => n.UserId == parentJan.Id);
-        Assert.Equal("Změny v rozvrhu na po 2. 11. — Jan Žák", family.Title);
+        Assert.Equal("Změny v rozvrhu na po 2. 11. — Jan", family.Title);
         Assert.Equal("1. h M: Supl, Horák Učitel místo Novák Učitel; 3. h Sbor Hv: Odpadá.", family.Body);
         Assert.Equal("1. h 5.A M: Supl, Horák Učitel místo Novák Učitel; 3. h Sbor (5.A, 5.B) Hv: Odpadá.",
             notifications.Single(n => n.UserId == novak.Id).Body);

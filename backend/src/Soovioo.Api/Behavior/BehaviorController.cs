@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Behavior;
 
@@ -32,7 +33,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
                 r.Type, r.Text, r.Date, r.RecordedByName, r.CreatedAt, r.ReadAt))
             .ToListAsync();
 
-        return Ok(records);
+        return Ok(await db.WithStudentLabelsAsync(User, records, r => r.StudentId, (r, label) => r with { StudentLabel = label }));
     }
 
     /// <summary>Same shared-per-record semantics as MessagesController.MarkRead
@@ -136,7 +137,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
                 c.SchoolYearStartYear, c.HalfYear, c.Value, c.SetByName, c.SetAt))
             .ToListAsync();
 
-        return Ok(classifications);
+        return Ok(await db.WithStudentLabelsAsync(User, classifications, c => c.StudentId, (c, label) => c with { StudentLabel = label }));
     }
 
     /// <summary>Upsert — setting it again for the same (student, year, half)
@@ -211,7 +212,8 @@ public record BehaviorRecordDto(
     DateOnly Date,
     string RecordedByName,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ReadAt);
+    DateTimeOffset? ReadAt,
+    NameLabel? StudentLabel = null);
 
 public record SetBehaviorClassificationRequest(
     int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, BehaviorClassificationValue Value);
@@ -223,4 +225,5 @@ public record BehaviorClassificationDto(
     SchoolHalfYear HalfYear,
     BehaviorClassificationValue Value,
     string SetByName,
-    DateTimeOffset SetAt);
+    DateTimeOffset SetAt,
+    NameLabel? StudentLabel = null);

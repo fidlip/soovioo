@@ -41,9 +41,9 @@ public class ConversationsController(
                 c.StudentId,
                 StudentName = c.Student == null ? null : c.Student.Person!.FirstName + " " + c.Student.Person!.LastName,
                 c.LastMessageAt,
-                Participants = c.Participants.Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
+                Participants = c.Participants.Select(p => new { p.UserId, Name = PersonNames.Display(p.User!.Person, p.User.Username) }).ToList(),
                 LastMessage = c.Messages.OrderByDescending(m => m.SentAt)
-                    .Select(m => new { m.SenderName, m.Body }).FirstOrDefault(),
+                    .Select(m => new { m.SenderName, m.SenderUserId, m.Body }).FirstOrDefault(),
                 Unread = c.Messages.Any(m =>
                     (m.SenderUserId == null || m.SenderUserId != me)
                     && c.Participants.Any(p => p.UserId == me && (p.LastReadAt == null || m.SentAt > p.LastReadAt))),
@@ -55,12 +55,16 @@ public class ConversationsController(
             })
             .ToListAsync();
 
+        var people = await db.UserLabelsAsync(User, conversations.SelectMany(c => c.Participants.Select(p => p.UserId)));
+        var pupils = await db.StudentLabelsAsync(User, conversations.Select(c => c.StudentId).OfType<int>());
         var result = new List<ConversationSummaryDto>();
         foreach (var c in conversations.Where(c => !(c.BroadcastId is not null && c.BroadcastIsMine)))
         {
             result.Add(new ConversationSummaryDto(
-                c.Id, c.Subject, c.StudentId, c.StudentName, c.Participants, c.LastMessageAt,
-                c.LastMessage?.SenderName, Preview(c.LastMessage?.Body), c.Unread));
+                c.Id, c.Subject, c.StudentId, c.StudentName,
+                c.Participants.Select(p => NameLabel.TextOf(people.GetValueOrDefault(p.UserId), p.Name)).ToList(), c.LastMessageAt,
+                SenderName(c.LastMessage?.SenderName, c.LastMessage?.SenderUserId, people), Preview(c.LastMessage?.Body), c.Unread,
+                StudentLabel: c.StudentId is { } sid ? pupils.GetValueOrDefault(sid) : null));
         }
         foreach (var group in conversations.Where(c => c.BroadcastId is not null && c.BroadcastIsMine).GroupBy(c => c.BroadcastId!.Value))
         {
@@ -68,7 +72,8 @@ public class ConversationsController(
             var latest = group.First();
             result.Add(new ConversationSummaryDto(
                 latest.Id, latest.BroadcastSubject ?? latest.Subject, null, latest.BroadcastAudience, [],
-                latest.LastMessageAt, latest.LastMessage?.SenderName, Preview(latest.LastMessage?.Body),
+                latest.LastMessageAt, SenderName(latest.LastMessage?.SenderName, latest.LastMessage?.SenderUserId, people),
+                Preview(latest.LastMessage?.Body),
                 group.Any(c => c.Unread),
                 BroadcastId: group.Key,
                 BroadcastConversationCount: group.Count(),
@@ -96,9 +101,10 @@ public class ConversationsController(
             .Select(c => new
             {
                 c.Id,
+                c.StudentId,
                 StudentName = c.Student == null ? null : c.Student.Person!.FirstName + " " + c.Student.Person!.LastName,
                 Participants = c.Participants.Where(p => p.UserId != me)
-                    .Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
+                    .Select(p => new { p.UserId, Name = PersonNames.Display(p.User!.Person, p.User.Username) }).ToList(),
                 ReplyCount = c.Messages.Count(m => m.SenderUserId == null || m.SenderUserId != me),
                 c.LastMessageAt,
                 Unread = c.Messages.Any(m =>
@@ -106,6 +112,9 @@ public class ConversationsController(
                     && c.Participants.Any(p => p.UserId == me && (p.LastReadAt == null || m.SentAt > p.LastReadAt))),
             })
             .ToListAsync();
+
+        var people = await db.UserLabelsAsync(User, conversations.SelectMany(c => c.Participants.Select(p => p.UserId)));
+        var pupils = await db.StudentLabelsAsync(User, conversations.Select(c => c.StudentId).OfType<int>());
 
         // The file attached to every copy — the same on each, list it once.
         var firstConversationId = conversations.Select(c => c.Id).DefaultIfEmpty().Min();
@@ -127,7 +136,10 @@ public class ConversationsController(
                 .ThenByDescending(c => c.ReplyCount > 0 ? c.LastMessageAt : DateTimeOffset.MinValue)
                 .ThenBy(c => c.StudentName)
                 .Select(c => new BroadcastConversationDto(
-                    c.Id, c.StudentName, c.Participants, c.ReplyCount, c.LastMessageAt, c.Unread))
+                    c.Id, c.StudentName,
+                    c.Participants.Select(p => NameLabel.TextOf(people.GetValueOrDefault(p.UserId), p.Name)).ToList(),
+                    c.ReplyCount, c.LastMessageAt, c.Unread,
+                    c.StudentId is { } sid ? pupils.GetValueOrDefault(sid) : null))
                 .ToList()));
     }
 
@@ -139,7 +151,7 @@ public class ConversationsController(
         {
             return NotFound();
         }
-        var dto = ToDto(conversation);
+        var dto = await LabelledDtoAsync(conversation);
         if (photoAccess is not null)
         {
             var photos = await photoAccess.VisibleUserPhotosAsync(
@@ -212,7 +224,7 @@ public class ConversationsController(
         await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetConversation), new { id = conversation.Id },
-            ToDto((await LoadForParticipantAsync(conversation.Id))!));
+            await LabelledDtoAsync((await LoadForParticipantAsync(conversation.Id))!));
     }
 
     [HttpPost("{id:int}/messages")]
@@ -478,6 +490,22 @@ public class ConversationsController(
             .FirstOrDefaultAsync(c => c.Id == id && c.Participants.Any(p => p.UserId == me));
     }
 
+    /// <summary>With the pupil, participants and senders as the caller sees them.</summary>
+    private async Task<ConversationDto> LabelledDtoAsync(Conversation conversation)
+    {
+        var dto = ToDto(conversation);
+        var people = await db.UserLabelsAsync(User,
+            conversation.Participants.Select(p => p.UserId).Concat(conversation.Messages.Select(m => m.SenderUserId).OfType<int>()));
+        return dto with
+        {
+            StudentLabel = dto.StudentId is { } sid ? (await db.StudentLabelsAsync(User, [sid])).GetValueOrDefault(sid) : null,
+            Participants = dto.Participants.Select(p => p with { Label = people.GetValueOrDefault(p.UserId) }).ToList(),
+            Messages = dto.Messages
+                .Select(m => m with { SenderLabel = m.SenderUserId is { } u ? people.GetValueOrDefault(u) : null })
+                .ToList(),
+        };
+    }
+
     private static ConversationDto ToDto(Conversation c) => new(
         c.Id,
         c.Subject,
@@ -489,6 +517,9 @@ public class ConversationsController(
     private static MessageDto ToDto(Message m) => new(
         m.Id, m.SenderUserId, m.SenderName, m.Body, m.SentAt,
         m.Attachments.Select(a => new MessageAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList());
+
+    private static string? SenderName(string? snapshot, int? senderUserId, Dictionary<int, NameLabel> labels) =>
+        senderUserId is { } id && labels.TryGetValue(id, out var label) ? label.Text : snapshot;
 
     internal static string? Preview(string? body) =>
         body is null ? null : body.Length <= 120 ? body : body[..120] + "…";
@@ -539,14 +570,14 @@ public record MessageAttachmentDto(int Id, string FileName, string ContentType, 
 
 public record MessageDto(
     int Id, int? SenderUserId, string SenderName, string Body, DateTimeOffset SentAt,
-    IReadOnlyList<MessageAttachmentDto> Attachments);
+    IReadOnlyList<MessageAttachmentDto> Attachments, NameLabel? SenderLabel = null);
 
 /// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
-public record ParticipantDto(int UserId, string Name, string? Photo = null);
+public record ParticipantDto(int UserId, string Name, string? Photo = null, NameLabel? Label = null);
 
 public record ConversationDto(
     int Id, string Subject, int? StudentId, string? StudentName,
-    IReadOnlyList<ParticipantDto> Participants, IReadOnlyList<MessageDto> Messages);
+    IReadOnlyList<ParticipantDto> Participants, IReadOnlyList<MessageDto> Messages, NameLabel? StudentLabel = null);
 
 /// <param name="BroadcastId">Set on the one row standing for a bulk send of
 /// the caller (then StudentName = who it went to, and the counts are set).</param>
@@ -554,13 +585,13 @@ public record ConversationSummaryDto(
     int Id, string Subject, int? StudentId, string? StudentName, IReadOnlyList<string> Participants,
     DateTimeOffset LastMessageAt, string? LastSenderName, string? LastMessagePreview, bool Unread,
     int? BroadcastId = null, int? BroadcastConversationCount = null, int? BroadcastRepliedCount = null,
-    int? BroadcastUnreadCount = null);
+    int? BroadcastUnreadCount = null, NameLabel? StudentLabel = null);
 
 public record BroadcastAttachmentDto(int ConversationId, int MessageId, MessageAttachmentDto Attachment);
 
 public record BroadcastConversationDto(
     int ConversationId, string? StudentName, IReadOnlyList<string> Participants, int ReplyCount,
-    DateTimeOffset LastMessageAt, bool Unread);
+    DateTimeOffset LastMessageAt, bool Unread, NameLabel? StudentLabel = null);
 
 public record BroadcastDto(
     int Id, string Subject, string Body, string AudienceLabel, bool StudentsOnly, DateTimeOffset CreatedAt,

@@ -28,6 +28,9 @@ public enum NotificationType
 
     /// <summary>A new omluvenka waits for the (class) teacher's approval.</summary>
     NewExcuse,
+
+    /// <summary>A pupil's nickname waits for approval.</summary>
+    Nickname,
 }
 
 /// <summary>One item under the bell — something new for one user, with a

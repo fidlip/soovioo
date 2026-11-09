@@ -107,7 +107,7 @@ public class NotificationsTests
         var notification = Assert.Single(await Of(db, w.Parent));
         Assert.Equal(NotificationType.Grade, notification.Type);
         Assert.Equal("Nová známka — Matematika", notification.Title);
-        Assert.Equal("Jan Novák: 1 (váha 2)", notification.Body);
+        Assert.Equal("Jan: 1 (váha 2)", notification.Body);
         Assert.Equal("grades", notification.Page);
         Assert.Equal(w.Student.Id, notification.StudentId);
         Assert.Empty(await Of(db, w.StudentUser));
@@ -180,7 +180,7 @@ public class NotificationsTests
         var notification = Assert.Single(await Of(db, w.Parent));
         Assert.Equal(NotificationType.Excuse, notification.Type);
         Assert.Equal("Omluvenka schválena", notification.Title);
-        Assert.Equal("Jan Novák — 5. 10. 2026", notification.Body);
+        Assert.Equal("Jan — 5. 10. 2026", notification.Body);
     }
 
     [Fact]
@@ -229,7 +229,7 @@ public class NotificationsTests
         var changed = Assert.Single(await Of(db, w.Parent));
         Assert.True(changed.Id > first.Id);
         Assert.Equal("Změna známky — Matematika", changed.Title);
-        Assert.Equal("Jan Novák: 2", changed.Body);
+        Assert.Equal("Jan: 2", changed.Body);
         Assert.Null(changed.ReadAt);
         Assert.Equal(grade.Id, changed.TargetId);
         Assert.Equal("Změna známky — Matematika", Assert.Single(await Of(db, w.StudentUser)).Title);
@@ -253,7 +253,7 @@ public class NotificationsTests
         Assert.Empty(await Of(db, w.StudentUser));
         var theirs = Assert.Single(await Of(db, w.OtherParent));
         Assert.Equal("Nová známka — Matematika", theirs.Title);
-        Assert.Equal("Eva Malá: 1", theirs.Body);
+        Assert.Equal("Eva: 1", theirs.Body);
         Assert.Equal(w.OtherStudent.Id, theirs.StudentId);
     }
 
@@ -288,7 +288,7 @@ public class NotificationsTests
         var changed = Assert.Single(await Of(db, w.Parent));
         Assert.Equal(NotificationType.Absence, changed.Type);
         Assert.Equal("Změna absence", changed.Title);
-        Assert.Equal("Jan Novák — 6. 10. 2026, hodiny 1", changed.Body);
+        Assert.Equal("Jan — 6. 10. 2026, hodiny 1", changed.Body);
     }
 
     [Fact]
@@ -404,12 +404,12 @@ public class NotificationsTests
         var w = await SeedAsync(db);
 
         var teacher = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, w.Teacher).GetSettings()).Result).Value);
-        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.NewExcuse], teacher.Types.Select(t => t.Type));
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.NewExcuse, NotificationType.Nickname], teacher.Types.Select(t => t.Type));
         var admin = new User { Username = "reditel", PasswordHash = "x", ActiveRole = db.Role(UserRole.Admin, SchoolId), SchoolId = SchoolId };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         var adminSettings = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>((await Bell(db, admin).GetSettings()).Result).Value);
-        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.NewExcuse, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
+        Assert.Equal([NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution, NotificationType.NewExcuse, NotificationType.Nickname, NotificationType.Timetable], adminSettings.Types.Select(t => t.Type));
 
         var result = await Bell(db, w.Parent).SetSettings(new NotificationSettingsRequest([NotificationType.Event, NotificationType.Event]));
         var parent = Assert.IsType<NotificationSettingsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);

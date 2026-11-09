@@ -97,7 +97,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
                 .OrderBy(s => s.Person!.LastName)
                 .Select(s => new StudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name, s.SchoolClass!.Rocnik))
                 .ToListAsync();
-            return Ok(new RecipientOptionsDto(classes, teachers, parents, students));
+            return Ok(new RecipientOptionsDto(classes, teachers, parents, await LabelledAsync(students)));
         }
 
         var myClasses = await db.SchoolClasses
@@ -119,8 +119,11 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
             .Select(u => new PersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();
 
-        return Ok(new RecipientOptionsDto(myClasses, [], myParents, myStudents));
+        return Ok(new RecipientOptionsDto(myClasses, [], myParents, await LabelledAsync(myStudents)));
     }
+
+    private Task<List<StudentOptionDto>> LabelledAsync(List<StudentOptionDto> students) =>
+        db.WithStudentLabelsAsync(User, students, s => s.Id, (s, label) => s with { Label = label });
 
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
     private static partial Regex HexColorPattern();
@@ -403,4 +406,5 @@ public record RecipientOptionsDto(
 
 public record SchoolClassOptionDto(int Id, string Name, int? Rocnik);
 public record PersonOptionDto(int Id, string Username, string Name);
-public record StudentOptionDto(int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName, int? Rocnik);
+public record StudentOptionDto(
+    int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName, int? Rocnik, NameLabel? Label = null);

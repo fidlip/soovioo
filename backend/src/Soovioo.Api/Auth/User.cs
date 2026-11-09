@@ -99,6 +99,11 @@ public class User
     public Retention.StaffLeaveReason? LeaveReason { get; set; }
     public string? LeaveNote { get; set; }
 
+    /// <summary>Pupils' nicknames shown to this teacher (their children's to
+    /// a parent) instead of plain names; null = staff by the school's
+    /// <see cref="School.StaffSeeStudentNicknames"/>, parents yes.</summary>
+    public bool? ShowStudentNicknames { get; set; }
+
     /// <summary>Kinds of notifications the user switched off in Nastavení —
     /// empty = all of them on.</summary>
     public List<Notifications.NotificationType> MutedNotifications { get; set; } = [];

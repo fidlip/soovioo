@@ -55,6 +55,8 @@ public class StudentEraser(
                     student.ContactEmail = null;
                     student.Person!.Phone = null;
                     student.Person.Email = null;
+                    student.Person.Nickname = null;
+                    student.Person.NicknameProposal = null;
                     break;
                 case RetentionCategory.Messages:
                     var conversations = db.Conversations.IgnoreQueryFilters()

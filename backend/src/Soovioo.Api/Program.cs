@@ -57,6 +57,8 @@ builder.Services.Configure<AuthCookieOptions>(builder.Configuration.GetSection("
 builder.Services.AddScoped<MessageAttachmentStorageService>();
 builder.Services.AddScoped<Soovioo.Api.People.PhotoStorage>();
 builder.Services.AddScoped<Soovioo.Api.People.PhotoAccess>();
+builder.Services.AddScoped<Soovioo.Api.People.NameLabels>();
+builder.Services.AddScoped<Soovioo.Api.People.Nicknames>();
 builder.Services.AddKeyedScoped<IEmailSender, SmtpEmailSender>(SmtpEmailSender.Key);
 builder.Services.AddScoped<IEmailSender, Soovioo.Api.Demo.DemoAwareEmailSender>();
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
