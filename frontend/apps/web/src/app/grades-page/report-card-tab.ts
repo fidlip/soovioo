@@ -4,11 +4,13 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Select } from '@openng/optimus-ui/select';
 import { Subscription } from 'rxjs';
 import {
@@ -19,6 +21,7 @@ import {
   HalfYearKey,
   ReportCard,
   ReportCardApiService,
+  ReportCardClasses,
   ReportCardGradeKind,
   ReportCardResult,
   ReportCardSubject,
@@ -42,6 +45,9 @@ export function halfYearOf(day: Date): HalfYearKey {
     ? { schoolYearStartYear: year - 1, halfYear: 'First' }
     : { schoolYearStartYear: year - 1, halfYear: 'Second' };
 }
+
+/** "Všechny moje třídy" — for staff who don't see the whole school. */
+const ALL_CLASSES = 0;
 
 const GRADE_WORDS = [
   'výborný',
@@ -87,6 +93,7 @@ function gendered(base: string, gender: Gender | null): string {
     FloatField,
     FormsModule,
     Button,
+    Checkbox,
     Loading,
     Select,
     TermPipe,
@@ -101,6 +108,8 @@ export class ReportCardTab {
 
   readonly students = input.required<Student[]>();
   readonly subjects = input.required<Subject[]>();
+  /** The pupil's grades in the subject, from its grade count. */
+  readonly showGrades = output<{ studentId: number; subjectId: number }>();
 
   protected readonly isStaff = computed(() => this.authApi.isStaff());
   protected readonly markOptions = MARK_OPTIONS;
@@ -139,30 +148,65 @@ export class ReportCardTab {
   protected readonly subjectId = signal<number | null>(null);
   protected readonly studentId = signal<number | null>(null);
 
+  protected readonly onlyUnconfirmed = signal(false);
+  /** A single class picked — its report cards go into one PDF. */
+  protected readonly pickedClassId = computed(() => {
+    const classId = this.classId();
+    return classId === ALL_CLASSES ? null : classId;
+  });
+
+  /** Staff: the classes whose report cards they see. */
+  private readonly classes = signal<ReportCardClasses | null>(null);
   protected readonly classOptions = computed(() => {
-    const classes = new Map<number, string>();
-    for (const s of this.students()) {
-      classes.set(s.schoolClassId, s.schoolClassName);
+    const reach = this.classes();
+    if (!reach) {
+      return [];
     }
-    return [...classes]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'cs', { numeric: true }));
+    const options = [...reach.classes]
+      .sort((a, b) => a.name.localeCompare(b.name, 'cs', { numeric: true }))
+      .map((c) => ({ id: c.id, label: c.own ? `${c.name} (moje)` : c.name }));
+    return !reach.all && options.length > 1
+      ? [{ id: ALL_CLASSES, label: 'Všechny moje třídy' }, ...options]
+      : options;
   });
   protected readonly subjectOptions = computed(() =>
     this.subjects().filter((s) => !s.coveredByDivisions),
   );
-  protected readonly studentOptions = computed(() =>
-    this.students()
-      .filter((s) => !this.isStaff() || s.schoolClassId === this.classId())
-      .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
-  );
+  protected readonly studentOptions = computed(() => {
+    const classId = this.classId();
+    const classIds = new Set(this.classOptions().map((c) => c.id));
+    return this.students()
+      .filter(
+        (s) =>
+          !this.isStaff() ||
+          (classId === ALL_CLASSES
+            ? classIds.has(s.schoolClassId)
+            : s.schoolClassId === classId),
+      )
+      .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` }));
+  });
 
   protected readonly cards = signal<ReportCard[] | null>(null);
   private request?: Subscription;
 
+  /** With "Jen nepotvrzené" only the unconfirmed subjects, and the pupils
+   * with any. */
+  protected readonly shownCards = computed(() => {
+    const cards = this.cards();
+    if (!cards || !this.onlyUnconfirmed()) {
+      return cards;
+    }
+    return cards
+      .map((card) => ({
+        ...card,
+        subjects: card.subjects.filter((s) => !s.confirmed),
+      }))
+      .filter((card) => card.subjects.length > 0);
+  });
+
   /** Unconfirmed grades shown that the caller may confirm — with a value. */
   protected readonly confirmable = computed(() =>
-    (this.cards() ?? []).flatMap((card) =>
+    (this.shownCards() ?? []).flatMap((card) =>
       card.subjects
         .filter((s) => s.canEdit && s.kind !== null)
         .map((s) => ({ studentId: card.studentId, subjectId: s.subjectId })),
@@ -176,12 +220,21 @@ export class ReportCardTab {
   });
 
   constructor() {
-    effect(() => {
-      const classes = this.classOptions();
-      if (this.isStaff() && this.classId() === null && classes.length > 0) {
-        this.classId.set(classes[0].id);
-      }
-    });
+    if (this.isStaff()) {
+      // Their own class (třídní) first.
+      this.api.getClasses().subscribe({
+        next: (reach) => {
+          this.classes.set(reach);
+          const own = reach.classes.find((c) => c.own);
+          const first = this.classOptions().find((c) => c.id !== ALL_CLASSES);
+          this.classId.set(own?.id ?? first?.id ?? null);
+        },
+        error: (err) => {
+          console.error('getClasses failed', err);
+          this.classes.set({ all: false, classes: [] });
+        },
+      });
+    }
     effect(() => {
       this.halfYear();
       this.classId();
@@ -199,6 +252,7 @@ export class ReportCardTab {
   protected clearFilters(): void {
     this.subjectId.set(null);
     this.studentId.set(null);
+    this.onlyUnconfirmed.set(false);
   }
 
   protected markKey(subject: ReportCardSubject): string | null {
@@ -303,7 +357,7 @@ export class ReportCardTab {
 
   protected downloadClassPdf(): void {
     const classId = this.classId();
-    const name = this.classOptions().find((c) => c.id === classId)?.name;
+    const name = this.classes()?.classes.find((c) => c.id === classId)?.name;
     if (classId !== null && name) {
       this.download({ schoolClassId: classId }, name);
     }
@@ -352,14 +406,14 @@ export class ReportCardTab {
   private reload(): void {
     const classId = this.classId();
     if (this.isStaff() && classId === null) {
-      this.cards.set(this.students().length === 0 ? null : []);
+      this.cards.set(this.classes() === null ? null : []);
       return;
     }
     this.request?.unsubscribe();
     this.request = this.api
       .getReportCards({
         ...this.halfYear(),
-        schoolClassId: this.isStaff() ? classId : null,
+        schoolClassId: classId === ALL_CLASSES ? null : classId,
         studentId: this.studentId(),
         subjectId: this.subjectId(),
       })

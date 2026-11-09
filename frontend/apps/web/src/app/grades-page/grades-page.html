@@ -172,7 +172,11 @@
     </p-tabpanel>
     <p-tabpanel value="reportCard">
       @if (activeTab() === 'reportCard') {
-      <app-report-card-tab [students]="students()" [subjects]="subjects()" />
+      <app-report-card-tab
+        [students]="students()"
+        [subjects]="subjects()"
+        (showGrades)="showGrades($event)"
+      />
       }
     </p-tabpanel>
   </p-tabpanels>

@@ -92,6 +92,8 @@ describe('GradesPage', () => {
       clearFilters(): void;
       onPageChange(state: { page: number; rows: number }): void;
       deleteGrade(grade: Grade): void;
+      showGrades(of: { studentId: number; subjectId: number }): void;
+      activeTab(): string;
     };
 
   it('renders grades loaded from the API', async () => {
@@ -181,6 +183,19 @@ describe('GradesPage', () => {
       expect(filtered.request.params.get('studentId')).toBe('7');
       expect(filtered.request.params.get('page')).toBe('1');
       filtered.flush(page(3, 1));
+    });
+
+    it("Vysvědčení's grade count shows the pupil's grades in the subject", () => {
+      const fixture = open();
+      gradesRequest().flush(page(1, 120));
+
+      component(fixture).showGrades({ studentId: 7, subjectId: 3 });
+
+      const filtered = gradesRequest();
+      expect(filtered.request.params.get('studentId')).toBe('7');
+      expect(filtered.request.params.get('subjectId')).toBe('3');
+      expect(component(fixture).activeTab()).toBe('grades');
+      filtered.flush(page(1, 1));
     });
 
     it('clearing the filters asks the server for everything again', () => {

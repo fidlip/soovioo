@@ -19,13 +19,13 @@
       ariaLabel="Třída"
       inputId="reportCardClass"
       [options]="classOptions()"
-      optionLabel="name"
+      optionLabel="label"
       optionValue="id"
       [ngModel]="classId()"
       (ngModelChange)="onClassChange($event)"
       name="reportCardClass"
       appendTo="body"
-      styleClass="w-32"
+      styleClass="w-48"
     />
   </app-float-field>
   }
@@ -61,7 +61,17 @@
       styleClass="w-52"
     />
   </app-float-field>
-  } @if (subjectId() !== null || studentId() !== null) {
+  } @if (isStaff()) {
+  <label class="flex items-center gap-2 pb-2 text-sm">
+    <p-checkbox
+      [binary]="true"
+      [ngModel]="onlyUnconfirmed()"
+      (ngModelChange)="onlyUnconfirmed.set($event)"
+      [ngModelOptions]="{ standalone: true }"
+    />
+    Jen nepotvrzené
+  </label>
+  } @if (subjectId() !== null || studentId() !== null || onlyUnconfirmed()) {
   <app-clear-filters (cleared)="clearFilters()" />
   }
 
@@ -72,7 +82,7 @@
       icon="pi pi-check"
       (onClick)="confirmShown()"
     />
-    } @if (isStaff() && classId() !== null) {
+    } @if (pickedClassId() !== null) {
     <p-button
       label="Vysvědčení třídy"
       icon="pi pi-download"
@@ -89,9 +99,12 @@
   Známky na vysvědčení uvidíte od {{ issuedOn | dateFormat: 'date' }}. Do té
   doby jsou tu průměry za pololetí.
 </p>
-} @if (cards(); as cards) { @if (cards.length === 0) {
-<p class="py-6 text-center text-surface-500">Žádná vysvědčení.</p>
-} @for (card of cards; track card.studentId) {
+} @if (shownCards(); as shown) { @if (shown.length === 0) {
+<p class="py-6 text-center text-surface-500">
+  {{ onlyUnconfirmed() && (cards()?.length ?? 0) > 0 ? 'Všechny známky jsou
+  potvrzené.' : 'Žádná vysvědčení.' }}
+</p>
+} @for (card of shown; track card.studentId) {
 <section
   class="mt-4 rounded-md border border-surface-200 dark:border-surface-700"
   [attr.aria-label]="card.studentName"
@@ -132,8 +145,18 @@
       <div>{{ subject.subjectName }}</div>
       <div class="text-xs text-surface-500">
         @if (subject.average !== null) { průměr {{
-        formatAverage(subject.average) }} (počet známek: {{ subject.gradeCount
-        }}) } @else { bez známek v pololetí }
+        formatAverage(subject.average) }} ·
+        <button
+          type="button"
+          class="cursor-pointer border-0 bg-transparent p-0 text-xs text-primary underline-offset-2 hover:underline"
+          [attr.aria-label]="
+            'Známky – ' + subject.subjectName + ', ' + card.studentName
+          "
+          (click)="showGrades.emit({ studentId: card.studentId, subjectId: subject.subjectId })"
+        >
+          počet známek: {{ subject.gradeCount }}
+        </button>
+        } @else { bez známek v pololetí }
       </div>
     </div>
     @if (subject.canEdit) {

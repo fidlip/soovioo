@@ -157,26 +157,28 @@ public static class ReportCards
             })];
     }
 
-    /// <summary>Celkové hodnocení: s vyznamenáním — nothing worse than 2, an
-    /// average of at most 1.5 and very good behaviour; prospěl/a — no 5;
-    /// nehodnocen/a in a subject leaves the first half not assessed and
-    /// fails the second. Exempt subjects don't count.</summary>
+    /// <summary>Celkové hodnocení (§ 16 odst. 3 and 4 of vyhláška 48/2005
+    /// Sb.): s vyznamenáním — nothing worse than 2, an average of at most 1.5
+    /// and very good behaviour; prospěl/a — no 5; a 5 fails; nehodnocen/a in a
+    /// subject leaves the first half not assessed and fails the second — a 5
+    /// together with nehodnocen/a fails either half (MŠMT's guidance on
+    /// report cards, 6.12). Exempt subjects don't count.</summary>
     public static ReportCardResult? Result(
         IEnumerable<(ReportCardGradeKind Kind, int? Value)> marks, BehaviorClassificationValue behavior, SchoolHalfYear half)
     {
         var list = marks.ToList();
+        var values = list.Where(m => m.Kind == ReportCardGradeKind.Graded).Select(m => m.Value!.Value).ToList();
+        if (values.Contains(5))
+        {
+            return ReportCardResult.Failed;
+        }
         if (list.Any(m => m.Kind == ReportCardGradeKind.NotGraded))
         {
             return half == SchoolHalfYear.First ? ReportCardResult.NotAssessed : ReportCardResult.Failed;
         }
-        var values = list.Where(m => m.Kind == ReportCardGradeKind.Graded).Select(m => m.Value!.Value).ToList();
         if (values.Count == 0)
         {
             return null;
-        }
-        if (values.Contains(5))
-        {
-            return ReportCardResult.Failed;
         }
         return values.Max() <= 2 && values.Average() <= 1.5 && behavior == BehaviorClassificationValue.VelmiDobre
             ? ReportCardResult.WithHonours

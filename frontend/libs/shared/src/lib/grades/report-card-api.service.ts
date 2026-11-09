@@ -6,6 +6,7 @@ import { SchoolHalfYear } from '../behavior/behavior.model';
 import {
   ConfirmReportCardGradesResult,
   ReportCard,
+  ReportCardClasses,
   ReportCardGradeKey,
   ReportCardGradeKind,
   ReportCardQuery,
@@ -25,6 +26,13 @@ export class ReportCardApiService {
     return this.http.get<ReportCard[]>(`${this.baseUrl}/api/report-cards`, {
       params: params({ ...query }),
     });
+  }
+
+  /** Classes whose report cards the caller sees. */
+  getClasses(): Observable<ReportCardClasses> {
+    return this.http.get<ReportCardClasses>(
+      `${this.baseUrl}/api/report-cards/classes`,
+    );
   }
 
   setGrade(

@@ -114,12 +114,30 @@ describe('ReportCardTab', () => {
       (r) => r.method === 'GET' && r.url === 'http://test/api/report-cards',
     );
 
-  it('shows staff the first class of the current half-year, with the suggestion to confirm', () => {
+  const classes = (
+    fixture: { detectChanges(): void },
+    all: boolean,
+    ...list: [number, string, boolean][]
+  ) => {
+    httpMock.expectOne('http://test/api/report-cards/classes').flush({
+      all,
+      classes: list.map(([id, name, own]) => ({ id, name, own })),
+    });
+    fixture.detectChanges();
+  };
+
+  const buttonLabelled = (element: HTMLElement, label: string) =>
+    [...element.querySelectorAll('button')].find(
+      (b) => b.getAttribute('aria-label') === label,
+    ) as HTMLButtonElement;
+
+  it("shows a teacher their own class's current half-year, with the suggestion to confirm", () => {
     const fixture = render([student(7, 2, '5.A'), student(8, 1, '4.B')]);
+    classes(fixture, false, [1, '4.B', false], [2, '5.A', true]);
 
     const request = reportCardsRequest();
     const current = halfYearOf(new Date());
-    expect(request.request.params.get('schoolClassId')).toBe('1');
+    expect(request.request.params.get('schoolClassId')).toBe('2');
     expect(request.request.params.get('halfYear')).toBe(current.halfYear);
     expect(request.request.params.get('schoolYearStartYear')).toBe(
       `${current.schoolYearStartYear}`,
@@ -127,8 +145,10 @@ describe('ReportCardTab', () => {
     request.flush([card([maths])]);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('průměr 1,50 (počet známek: 2)');
+    const text = (
+      (fixture.nativeElement as HTMLElement).textContent ?? ''
+    ).replace(/\s+/g, ' ');
+    expect(text).toContain('průměr 1,50 · počet známek: 2');
     expect(text).toContain('návrh z průměru');
     expect(text).toContain('Potvrdit zobrazené');
     expect(text).toContain('Celkové hodnocení: neuzavřeno');
@@ -136,6 +156,7 @@ describe('ReportCardTab', () => {
 
   it('confirms a grade and shows the report cards again', () => {
     const fixture = render([student(7, 2, '5.A')]);
+    classes(fixture, true, [2, '5.A', false]);
     reportCardsRequest().flush([card([maths])]);
     fixture.detectChanges();
 
@@ -157,6 +178,46 @@ describe('ReportCardTab', () => {
     reportCardsRequest().flush([
       card([{ ...maths, confirmed: true, canEdit: false }]),
     ]);
+  });
+
+  it("shows all of a teacher's classes at once, only the unconfirmed if asked", () => {
+    const fixture = render([student(7, 2, '5.A')]);
+    classes(fixture, false, [1, '4.B', false], [2, '5.A', false]);
+    reportCardsRequest().flush([]);
+    const component = fixture.componentInstance as unknown as {
+      onClassChange(id: number): void;
+      onlyUnconfirmed: { set(value: boolean): void };
+    };
+
+    component.onClassChange(0);
+    fixture.detectChanges();
+    const request = reportCardsRequest();
+    expect(request.request.params.has('schoolClassId')).toBe(false);
+    const czech = { ...maths, subjectId: 2, subjectName: 'Český jazyk' };
+    request.flush([card([{ ...maths, confirmed: true }, czech])]);
+    component.onlyUnconfirmed.set(true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Český jazyk');
+    expect(text).not.toContain('Matematika');
+    expect(text).not.toContain('Vysvědčení třídy');
+  });
+
+  it("opens the pupil's grades in the subject from the grade count", () => {
+    const fixture = render([student(7, 2, '5.A')]);
+    classes(fixture, true, [2, '5.A', false]);
+    reportCardsRequest().flush([card([maths])]);
+    fixture.detectChanges();
+    let shown: unknown;
+    fixture.componentInstance.showGrades.subscribe((of) => (shown = of));
+
+    buttonLabelled(
+      fixture.nativeElement,
+      'Známky – Matematika, Jan Novák',
+    ).click();
+
+    expect(shown).toEqual({ studentId: 7, subjectId: 1 });
   });
 
   it('tells the family from when they see the report card', () => {
