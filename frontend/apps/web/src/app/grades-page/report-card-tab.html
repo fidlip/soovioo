@@ -1,25 +1,204 @@
 <div class="flex flex-wrap items-end gap-3 pt-4">
-  @if (students().length > 1) {
-  <app-float-field label="Vysvědčení pro" for="reportCardStudent">
+  <app-float-field label="Pololetí" for="reportCardHalfYear">
     <p-select
-      ariaLabel="Vysvědčení pro"
+      ariaLabel="Pololetí"
+      inputId="reportCardHalfYear"
+      [options]="halfYearOptions"
+      optionLabel="label"
+      optionValue="key"
+      [ngModel]="halfYearKey()"
+      (ngModelChange)="halfYearKey.set($event)"
+      name="reportCardHalfYear"
+      appendTo="body"
+      styleClass="w-56"
+    />
+  </app-float-field>
+  @if (isStaff() && classOptions().length > 1) {
+  <app-float-field label="Třída" for="reportCardClass">
+    <p-select
+      ariaLabel="Třída"
+      inputId="reportCardClass"
+      [options]="classOptions()"
+      optionLabel="name"
+      optionValue="id"
+      [ngModel]="classId()"
+      (ngModelChange)="onClassChange($event)"
+      name="reportCardClass"
+      appendTo="body"
+      styleClass="w-32"
+    />
+  </app-float-field>
+  }
+  <app-float-field label="Předmět" for="reportCardSubject">
+    <p-select
+      ariaLabel="Předmět"
+      inputId="reportCardSubject"
+      [options]="subjectOptions()"
+      optionLabel="name"
+      optionValue="id"
+      [ngModel]="subjectId()"
+      (ngModelChange)="subjectId.set($event)"
+      [showClear]="true"
+      name="reportCardSubject"
+      appendTo="body"
+      styleClass="w-48"
+    />
+  </app-float-field>
+  @if (studentOptions().length > 1) {
+  <app-float-field [label]="'Žák' | term" for="reportCardStudent">
+    <p-select
+      [ariaLabel]="'Žák' | term"
       inputId="reportCardStudent"
-      [options]="students()"
+      [options]="studentOptions()"
       optionLabel="label"
       optionValue="id"
       [ngModel]="studentId()"
       (ngModelChange)="studentId.set($event)"
+      [showClear]="true"
+      [filter]="studentOptions().length > 10"
       name="reportCardStudent"
       appendTo="body"
       styleClass="w-52"
     />
   </app-float-field>
+  } @if (subjectId() !== null || studentId() !== null) {
+  <app-clear-filters (cleared)="clearFilters()" />
   }
-  <p-button
-    label="Stáhnout vysvědčení"
-    icon="pi pi-download"
-    severity="secondary"
-    [outlined]="true"
-    (onClick)="download()"
-  />
+
+  <div class="flex flex-wrap items-end gap-3 md:ml-auto">
+    @if (confirmable().length > 0) {
+    <p-button
+      label="Potvrdit zobrazené"
+      icon="pi pi-check"
+      (onClick)="confirmShown()"
+    />
+    } @if (isStaff() && classId() !== null) {
+    <p-button
+      label="Vysvědčení třídy"
+      icon="pi pi-download"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="downloadClassPdf()"
+    />
+    }
+  </div>
 </div>
+
+@if (notIssuedOn(); as issuedOn) {
+<p class="mb-0 mt-3 text-sm text-surface-500">
+  Známky na vysvědčení uvidíte od {{ issuedOn | dateFormat: 'date' }}. Do té
+  doby jsou tu průměry za pololetí.
+</p>
+} @if (cards(); as cards) { @if (cards.length === 0) {
+<p class="py-6 text-center text-surface-500">Žádná vysvědčení.</p>
+} @for (card of cards; track card.studentId) {
+<section
+  class="mt-4 rounded-md border border-surface-200 dark:border-surface-700"
+  [attr.aria-label]="card.studentName"
+>
+  <header
+    class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-t-md border-b border-surface-200 bg-surface-50 px-3 py-2 text-sm dark:border-surface-700 dark:bg-surface-800"
+  >
+    <span class="text-base font-semibold text-surface-900 dark:text-surface-0"
+      >{{ card.studentName }}</span
+    >
+    @if (isStaff()) {
+    <span class="text-surface-500">{{ card.schoolClassName }}</span>
+    }
+    <span>Chování: <strong>{{ behaviorText(card) }}</strong></span>
+    <span
+      >Zameškané hodiny:
+      <strong>{{ card.excusedHours + card.unexcusedHours }}</strong>
+      (neomluvených {{ card.unexcusedHours }})</span
+    >
+    @if (isStaff() || card.issued) {
+    <span>Celkové hodnocení: <strong>{{ resultText(card) }}</strong></span>
+    <p-button
+      class="ml-auto"
+      label="PDF"
+      icon="pi pi-download"
+      size="small"
+      [text]="true"
+      [ariaLabel]="'Stáhnout vysvědčení – ' + card.studentName"
+      (onClick)="downloadPdf(card)"
+    />
+    }
+  </header>
+  @for (subject of card.subjects; track subject.subjectId) {
+  <div
+    class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-surface-100 px-3 py-1.5 last:border-b-0 dark:border-surface-800"
+  >
+    <div class="min-w-40 flex-1">
+      <div>{{ subject.subjectName }}</div>
+      <div class="text-xs text-surface-500">
+        @if (subject.average !== null) { průměr {{
+        formatAverage(subject.average) }} (počet známek: {{ subject.gradeCount
+        }}) } @else { bez známek v pololetí }
+      </div>
+    </div>
+    @if (subject.canEdit) {
+    <p-select
+      [ariaLabel]="'Na vysvědčení – ' + subject.subjectName + ', ' + card.studentName"
+      [options]="markOptions"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="markKey(subject)"
+      (ngModelChange)="setMark(card, subject, $event)"
+      placeholder="—"
+      appendTo="body"
+      size="small"
+      styleClass="w-44"
+    />
+    } @else {
+    <span class="w-44 text-sm font-medium"
+      >{{ markText(subject, card.gender) }}</span
+    >
+    } @if (isStaff()) {
+    <div
+      class="flex w-full items-center justify-end gap-2 text-xs text-surface-500 sm:w-80"
+    >
+      @if (subject.confirmed) {
+      <span
+        ><i class="pi pi-check-circle text-green-600" aria-hidden="true"></i>
+        Potvrzeno: {{ subject.confirmedByName }}, {{ subject.confirmedAt |
+        dateFormat: 'date' }}</span
+      >
+      @if (subject.canReopen) {
+      <p-button
+        label="Otevřít"
+        size="small"
+        [text]="true"
+        [ariaLabel]="'Znovu otevřít – ' + subject.subjectName + ', ' + card.studentName"
+        (onClick)="reopen(card, subject)"
+      />
+      } } @else {
+      <span
+        >{{ subject.changed ? 'upraveno' : subject.kind ? 'návrh z průměru' :
+        'chybí' }}</span
+      >
+      @if (subject.canEdit && subject.changed) {
+      <p-button
+        icon="pi pi-undo"
+        size="small"
+        [text]="true"
+        severity="secondary"
+        [ariaLabel]="'Vrátit na návrh – ' + subject.subjectName + ', ' + card.studentName"
+        (onClick)="reset(card, subject)"
+      />
+      } @if (subject.canEdit && subject.kind) {
+      <p-button
+        label="Potvrdit"
+        size="small"
+        [outlined]="true"
+        [ariaLabel]="'Potvrdit – ' + subject.subjectName + ', ' + card.studentName"
+        (onClick)="confirmOne(card, subject)"
+      />
+      } }
+    </div>
+    }
+  </div>
+  }
+</section>
+} } @else {
+<app-loading class="justify-center py-6" />
+}

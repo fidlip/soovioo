@@ -156,6 +156,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.IsType<NoContentResult>(await Set(management, czech, 2));
 
         var before = await CardAs(pupil);
+        Assert.False(before.Issued);
         Assert.Equal(1, In(before, maths).Average);
         Assert.Null(In(before, maths).Kind);
         Assert.Null(In(before, maths).Suggested);
@@ -164,6 +165,7 @@ public class ReportCardsControllerTests : IDisposable
 
         db.Today = new DateOnly(2027, 1, 31);
         var after = await CardAs(pupil);
+        Assert.True(after.Issued);
         Assert.Equal(1, In(after, maths).Value);
         Assert.True(In(after, maths).Confirmed);
         Assert.Null(In(after, czech).Value);

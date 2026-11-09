@@ -510,7 +510,7 @@ export class MessagesPage {
       .join(', ');
   }
 
-  /** Same blob-download pattern as grades-page.ts's downloadReportCard —
+  /** Same blob-download pattern as report-card-tab.ts's download —
    * goes through HttpClient (so the auth interceptor attaches the bearer
    * token) rather than a plain <a href>. */
   protected downloadAttachment(

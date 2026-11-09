@@ -6,6 +6,7 @@ using Soovioo.Api.Behavior;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Grades;
@@ -35,7 +36,8 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         var cards = await ReportCards.BuildAsync(db, ids, schoolYearStartYear, halfYear);
         var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, halfYear);
         var family = !User.IsStaff();
-        var shown = !family || db.Today >= issuedOn;
+        var issued = db.Today >= issuedOn;
+        var shown = !family || issued;
         var reach = family ? [] : await User.StudentReachAsync(db, Permission.GradesWrite);
         var mayReopen = !family && await User.ScopeAsync(db, Permission.GradesWrite) == PermissionScope.School;
 
@@ -53,6 +55,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                 card.UnexcusedHours,
                 shown ? card.Result(halfYear) : null,
                 issuedOn,
+                issued,
                 [.. card.Subjects
                     .Where(s => subjectId is null || s.SubjectId == subjectId)
                     .Select(s =>
@@ -96,6 +99,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return Conflict(Confirmed);
         }
+        var userName = await UserNameAsync();
         if (grade is null)
         {
             grade = new ReportCardGrade
@@ -105,13 +109,13 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                 SchoolYearStartYear = request.SchoolYearStartYear,
                 HalfYear = request.HalfYear,
                 SchoolId = currentSchool.SchoolId!.Value,
-                SetByName = UserName,
+                SetByName = userName,
             };
             db.ReportCardGrades.Add(grade);
         }
         grade.Kind = request.Kind;
         grade.Value = request.Value;
-        grade.SetByName = UserName;
+        grade.SetByName = userName;
         grade.SetAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         return NoContent();
@@ -159,6 +163,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         var confirmed = 0;
         var skipped = 0;
         var now = DateTimeOffset.UtcNow;
+        var userName = await UserNameAsync();
         foreach (var key in request.Grades.Distinct())
         {
             var subject = cards.GetValueOrDefault(key.StudentId)?.Subjects.FirstOrDefault(s => s.SubjectId == key.SubjectId);
@@ -183,12 +188,12 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                     SchoolId = currentSchool.SchoolId!.Value,
                     Kind = kind,
                     Value = subject.Value,
-                    SetByName = UserName,
+                    SetByName = userName,
                     SetAt = now,
                 };
                 db.ReportCardGrades.Add(grade);
             }
-            grade.ConfirmedByName = UserName;
+            grade.ConfirmedByName = userName;
             grade.ConfirmedAt = now;
             confirmed++;
         }
@@ -248,7 +253,12 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         return File(pdf, "application/pdf", $"vysvedceni-{name}.pdf");
     }
 
-    private string UserName => User.Identity?.Name ?? "Neznámý uživatel";
+    private async Task<string> UserNameAsync()
+    {
+        var userId = User.UserId();
+        var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == userId);
+        return user is null ? User.Identity?.Name ?? "Neznámý uživatel" : PersonNames.Display(user);
+    }
 
     /// <summary>Pupils of the class / the pupil, as far as the caller sees
     /// grades; null when neither is given and the caller sees the whole
@@ -323,6 +333,7 @@ public record ReportCardDto(
     int UnexcusedHours,
     ReportCardResult? Result,
     DateOnly IssuedOn,
+    bool Issued,
     IReadOnlyList<ReportCardSubjectDto> Subjects);
 
 public record SetReportCardGradeRequest(

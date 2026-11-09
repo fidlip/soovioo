@@ -532,7 +532,7 @@ export class HomeworkPage {
     });
   }
 
-  /** Same blob-download pattern as grades-page.ts's downloadReportCard and
+  /** Same blob-download pattern as report-card-tab.ts's download and
    * messages-page.ts's downloadAttachment. */
   protected downloadAttachment(
     item: Homework,
