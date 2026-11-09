@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
 
@@ -96,6 +97,50 @@ public class MyProfileController(
         return Ok(new SwitchRoleResponse(await sessions.IssueAccessTokenAsync(user)));
     }
 
+    /// <summary>A parent's own nickname applies right away, a pupil's waits
+    /// for approval (<see cref="Nicknames"/>).</summary>
+    [HttpPut("nickname")]
+    public async Task<ActionResult<MyProfileDto>> SetNickname(SetNicknameRequest request, [FromServices] Nicknames nicknames)
+    {
+        var user = await CurrentUserAsync();
+        var (value, error) = Nicknames.Normalize(request.Nickname);
+        if (error is not null)
+        {
+            return this.FieldError("nickname", error);
+        }
+        if (user.ActiveRole?.Kind == RoleKind.Student && user.Person is not null
+            && await db.Students.FirstOrDefaultAsync(s => s.PersonId == user.Person.Id) is { } student)
+        {
+            await nicknames.ProposeAsync(student, value);
+        }
+        else if (user.ActiveRole?.Kind == RoleKind.Parent)
+        {
+            var person = await db.EnsurePersonAsync(user);
+            person.Nickname = value;
+        }
+        else
+        {
+            return BadRequest("Přezdívku si nastavují jen rodiče a žáci.");
+        }
+        await db.SaveChangesAsync();
+        return Ok(await ToDtoAsync(user));
+    }
+
+    /// <summary>Stored only where it differs from the default, so the
+    /// school's default keeps applying to everyone who didn't choose.</summary>
+    [HttpPut("show-nicknames")]
+    public async Task<ActionResult<MyProfileDto>> SetShowNicknames(SetShowNicknamesRequest request)
+    {
+        var user = await CurrentUserAsync();
+        if (!ChoosesNicknames(user))
+        {
+            return BadRequest("Tato volba se vás netýká.");
+        }
+        user.ShowStudentNicknames = request.Show == await DefaultShowNicknamesAsync(user) ? null : request.Show;
+        await db.SaveChangesAsync();
+        return Ok(await ToDtoAsync(user));
+    }
+
     /// <summary>Who sees the caller's own data ("Viditelnost údajů") —
     /// as staff and/or parent. A pupil gets their own settings read-only,
     /// those are their parents' call (Mé děti).</summary>
@@ -171,15 +216,36 @@ public class MyProfileController(
             canUploadPhoto = await db.Schools.AnyAsync(s =>
                 s.Id == schoolId && s.ParentPhotos);
         }
+        var kind = user.ActiveRole?.Kind;
         return new(user.Id, user.Username, PersonNames.Display(user), user.ActiveRole?.Name ?? nameof(UserRole.SuperAdmin), user.Person?.Phone, user.Person?.Email,
-            PhotoStorage.Token(user.Person?.PhotoKey), canUploadPhoto);
+            PhotoStorage.Token(user.Person?.PhotoKey), canUploadPhoto,
+            CanSetNickname: kind is RoleKind.Parent or RoleKind.Student,
+            Nickname: user.Person?.Nickname,
+            NicknameProposal: kind == RoleKind.Student ? user.Person?.NicknameProposal : null,
+            ShowNicknames: ChoosesNicknames(user) ? user.ShowStudentNicknames ?? await DefaultShowNicknamesAsync(user) : null);
     }
+
+    /// <summary>Teachers (not the school's management, who never see
+    /// nicknames) and parents choose whether pupils' nicknames show.</summary>
+    private static bool ChoosesNicknames(User user) =>
+        user.ActiveRole is { } role
+        && (role.Kind == RoleKind.Parent || (role.Kind == RoleKind.Staff && role.BuiltIn != UserRole.Admin));
+
+    private async Task<bool> DefaultShowNicknamesAsync(User user) =>
+        user.ActiveRole?.Kind != RoleKind.Staff
+        || await db.Schools.Where(s => s.Id == user.SchoolId).Select(s => s.StaffSeeStudentNicknames).FirstOrDefaultAsync();
 }
 
 /// <param name="Photo">Token for the own photo's URL, null = no photo.</param>
 /// <param name="CanUploadPhoto">Whether the account may have a photo at all.</param>
+/// <param name="NicknameProposal">A pupil's own, waiting for approval.</param>
+/// <param name="ShowNicknames">Whether pupils' nicknames show to the caller;
+/// null = not their choice (pupils, the school's management).</param>
 public record MyProfileDto(
-    int Id, string Username, string Name, string Role, string? Phone, string? Email, string? Photo, bool CanUploadPhoto);
+    int Id, string Username, string Name, string Role, string? Phone, string? Email, string? Photo, bool CanUploadPhoto,
+    bool CanSetNickname = false, string? Nickname = null, string? NicknameProposal = null, bool? ShowNicknames = null);
+
+public record SetShowNicknamesRequest(bool Show);
 
 public record SwitchRoleRequest(int RoleId);
 

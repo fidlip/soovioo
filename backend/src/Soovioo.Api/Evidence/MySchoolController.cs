@@ -157,10 +157,15 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return BadRequest("Výchozí viditelnost musí být mezi nejmenší a největší.");
         }
+        if (request.Rules.Any(r => r.Max > Visibility.Widest(new VisibilityKey(r.Owner, r.Field, r.Audience))))
+        {
+            return BadRequest("Přezdívku rodiče mohou vidět jen jeho děti.");
+        }
 
         var school = await db.Schools.FirstAsync(s => s.Id == schoolId);
         school.StudentPhotos = request.StudentPhotos;
         school.ParentPhotos = request.ParentPhotos;
+        school.StaffSeeStudentNicknames = request.StaffSeeStudentNicknames;
         var existing = await db.VisibilityRules.Where(r => r.SchoolId == schoolId).ToListAsync();
         db.VisibilityRules.RemoveRange(existing);
         db.VisibilityRules.AddRange(request.Rules
@@ -216,7 +221,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             .Select(visibility.Rule)
             .Select(r => new VisibilityRuleDto(r.Owner, r.Field, r.Audience, r.Min, r.Default, r.Max))
             .ToList(),
-            school.StudentPhotos, school.ParentPhotos);
+            school.StudentPhotos, school.ParentPhotos, school.StaffSeeStudentNicknames);
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
@@ -232,7 +237,10 @@ public record SchoolNotificationSettingsDto(
 /// <param name="Rules">One per <see cref="Visibility.Keys"/> entry.</param>
 /// <param name="StudentPhotos">See <see cref="School.StudentPhotos"/>.</param>
 /// <param name="ParentPhotos">See <see cref="School.ParentPhotos"/>.</param>
-public record VisibilityRulesDto(IReadOnlyList<VisibilityRuleDto> Rules, bool StudentPhotos = false, bool ParentPhotos = false);
+/// <param name="StaffSeeStudentNicknames">See <see cref="School.StaffSeeStudentNicknames"/>.</param>
+public record VisibilityRulesDto(
+    IReadOnlyList<VisibilityRuleDto> Rules, bool StudentPhotos = false, bool ParentPhotos = false,
+    bool StaffSeeStudentNicknames = true);
 
 public record VisibilityRuleDto(
     VisibilityOwner Owner, VisibilityField Field, VisibilityAudience Audience,

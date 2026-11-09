@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Evidence;
 
@@ -13,7 +14,8 @@ namespace Soovioo.Api.Evidence;
 public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents([FromServices] People.PhotoAccess? photoAccess = null)
+    public async Task<ActionResult<IEnumerable<StudentDto>>> GetStudents(
+        [FromServices] People.PhotoAccess? photoAccess = null)
     {
         var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
 
@@ -42,7 +44,49 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             var photos = await photoAccess.VisibleStudentPhotosAsync(User, withPhoto);
             students = students.Select(s => s with { Photo = photos.GetValueOrDefault(s.Id) }).ToList();
         }
+        students = await db.WithStudentLabelsAsync(User, students, s => s.Id, (s, label) => s with { Label = label });
+        if (User.IsStaff())
+        {
+            var proposals = await query.Where(s => s.Person!.NicknameProposal != null)
+                .Select(s => new { s.Id, s.Person!.NicknameProposal }).ToListAsync();
+            var schoolDecides = await Nicknames.WithoutParentsAsync(db, proposals.Select(p => p.Id));
+            var mine = new Dictionary<int, string>();
+            foreach (var p in proposals.Where(p => schoolDecides.Contains(p.Id)))
+            {
+                if (await User.ReachesStudentAsync(db, Permission.Students, p.Id))
+                {
+                    mine[p.Id] = p.NicknameProposal!;
+                }
+            }
+            students = students.Select(s => s with { NicknameProposal = mine.GetValueOrDefault(s.Id) }).ToList();
+        }
         return Ok(students);
+    }
+
+    /// <summary>A pupil's proposed nickname, decided by the school when no
+    /// parent of theirs uses the app (<see cref="People.Nicknames"/>).</summary>
+    [HttpPost("{id:int}/nickname/approve")]
+    public Task<IActionResult> ApproveNickname(int id, [FromServices] People.Nicknames nicknames) =>
+        DecideNicknameAsync(id, true, nicknames);
+
+    [HttpPost("{id:int}/nickname/reject")]
+    public Task<IActionResult> RejectNickname(int id, [FromServices] People.Nicknames nicknames) =>
+        DecideNicknameAsync(id, false, nicknames);
+
+    private async Task<IActionResult> DecideNicknameAsync(int id, bool approve, People.Nicknames nicknames)
+    {
+        var student = await db.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student?.Person!.NicknameProposal is null)
+        {
+            return NotFound();
+        }
+        if (!await nicknames.IsSchoolApproverAsync(User, id))
+        {
+            return Forbid();
+        }
+        await nicknames.DecideAsync(student, approve);
+        await db.SaveChangesAsync();
+        return NoContent();
     }
 
     /// <summary>Whom (and in which subjects) the caller's
@@ -205,4 +249,6 @@ public record StudentDto(
     StudentLeaveReason? LeaveReason = null,
     string? LeaveReasonDetail = null,
     string? LeaveNote = null,
-    string? Photo = null);
+    string? Photo = null,
+    People.NameLabel? Label = null,
+    string? NicknameProposal = null);

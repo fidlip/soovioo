@@ -487,6 +487,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.Property<bool?>("ShowStudentNicknames")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasColumnType("text");
@@ -936,6 +939,9 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("StaffSeeStudentNicknames")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Street")
                         .HasColumnType("text");
 
@@ -987,6 +993,7 @@ namespace Soovioo.Api.Migrations
                             PushQuietTo = new TimeOnly(7, 0, 0),
                             RedIzo = "700000089",
                             Slug = "skola",
+                            StaffSeeStudentNicknames = true,
                             Street = "Školní 8",
                             StudentPhotos = false,
                             Type = 0
@@ -1839,6 +1846,12 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<string>("LastName")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Nickname")
+                        .HasColumnType("text");
+
+                    b.Property<string>("NicknameProposal")
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")

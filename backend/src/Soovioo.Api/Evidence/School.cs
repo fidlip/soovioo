@@ -65,6 +65,10 @@ public class School
     /// <summary>Parents may upload a photo of themselves (voluntary).</summary>
     public bool ParentPhotos { get; set; }
 
+    /// <summary>Whether teachers see pupils' nicknames until they choose
+    /// themselves (<see cref="User.ShowStudentNicknames"/>).</summary>
+    public bool StaffSeeStudentNicknames { get; set; } = true;
+
     /// <summary>When the daily e-mail of new notifications goes out (Prague
     /// time) for everyone who didn't pick their own time.</summary>
     public TimeOnly DigestTime { get; set; } = new(17, 0);

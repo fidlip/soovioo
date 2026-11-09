@@ -23,15 +23,24 @@ public enum VisibilityField
     Phone,
     Email,
     Photo,
+
+    /// <summary>Only the nickname — the name itself is always there for
+    /// these audiences (<see cref="NameLabels"/>).</summary>
+    Nickname,
 }
 
-/// <summary>Who looks. Staff aren't one of them: what teachers and the
-/// school's management see is a matter of permissions, not of anyone's
-/// privacy settings.</summary>
+/// <summary>Who looks. Staff are one only for nicknames: what teachers and
+/// the school's management see is otherwise a matter of permissions, not of
+/// anyone's privacy settings.</summary>
 public enum VisibilityAudience
 {
     Parents,
     Students,
+
+    /// <summary>A pupil's nickname for their teachers: <see cref="VisibilityScope.MyClasses"/>
+    /// = those who teach them (class teacher included), <see cref="VisibilityScope.School"/>
+    /// = every teacher. The school's management never sees it.</summary>
+    Teachers,
 }
 
 /// <summary>How far data reaches within an audience, ordered — a wider
@@ -104,7 +113,16 @@ public static class Visibility
             [VisibilityAudience.Parents]),
         .. Combine(VisibilityOwner.Student, [VisibilityField.Name, VisibilityField.Photo],
             [VisibilityAudience.Students, VisibilityAudience.Parents]),
+        new(VisibilityOwner.Student, VisibilityField.Nickname, VisibilityAudience.Teachers),
+        new(VisibilityOwner.Parent, VisibilityField.Nickname, VisibilityAudience.Students),
     ];
+
+    /// <summary>A parent's nickname reaches only their own children
+    /// (<see cref="VisibilityScope.MyClasses"/>), never other pupils.</summary>
+    public static VisibilityScope Widest(VisibilityKey key) =>
+        key == new VisibilityKey(VisibilityOwner.Parent, VisibilityField.Nickname, VisibilityAudience.Students)
+            ? VisibilityScope.MyClasses
+            : VisibilityScope.School;
 
     /// <summary>The owners whose settings an account with
     /// <paramref name="roles"/> decides for itself — a pupil's are decided
@@ -136,7 +154,7 @@ public static class Visibility
             Default = key.Field == VisibilityField.Photo && key.Owner != VisibilityOwner.Staff
                 ? VisibilityScope.Nobody
                 : VisibilityScope.MyClasses,
-            Max = VisibilityScope.School,
+            Max = Widest(key),
         });
 
     public static async Task<SchoolVisibility> LoadAsync(AppDbContext db, int schoolId)

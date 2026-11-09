@@ -33,6 +33,17 @@ public class Person
     /// for everyone else.</summary>
     public PhotoStatus? PhotoStatus { get; set; }
 
+    /// <summary>A parent's or pupil's nickname, shown instead of the name
+    /// where they let it be seen (<see cref="VisibilityField.Nickname"/>,
+    /// <see cref="NameLabels"/>). A pupil's is approved; never on official
+    /// documents.</summary>
+    public string? Nickname { get; set; }
+
+    /// <summary>A nickname the pupil proposed, waiting for a parent's (or,
+    /// without parents in the app, the school's) approval —
+    /// <see cref="Nickname"/> applies until then.</summary>
+    public string? NicknameProposal { get; set; }
+
     /// <summary>The login account — one-to-one, null for someone who
     /// doesn't use the app. The Person outlives it: deleting the account
     /// leaves the record (Administrace → Osoby).</summary>

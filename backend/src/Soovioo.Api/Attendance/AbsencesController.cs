@@ -7,6 +7,7 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.People;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Attendance;
@@ -36,7 +37,7 @@ public class AbsencesController(
             .Select(AbsenceDto.Projection)
             .ToListAsync();
 
-        return Ok(absences);
+        return Ok(await db.WithStudentLabelsAsync(User, absences, a => a.StudentId, (a, label) => a with { StudentLabel = label }));
     }
 
     [HttpPost]
@@ -191,15 +192,16 @@ public class AbsencesController(
     private const string NewTitle = "Zapsaná absence";
 
     private async Task NotifyFamilyAsync(Absence absence, StudentProfile student, NotificationType type, string title) =>
-        await notifier.AddAsync(absence.SchoolId, Drafts(absence, student, type, title, await notifier.FamilyAsync(student.Id)));
+        await notifier.AddAsync(absence.SchoolId, await DraftsAsync(absence, student, type, title, await notifier.FamilyAsync(student.Id)));
 
-    private static List<NotificationDraft> Drafts(
+    private async Task<List<NotificationDraft>> DraftsAsync(
         Absence absence, StudentProfile student, NotificationType type, string title, IEnumerable<int> family)
     {
         var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
-        return family
-            .Select(userId => new NotificationDraft(
-                userId, type, title, $"{student.Person!.FullName} — {SchoolFormat.Date(absence.Date)}{periods}",
+        var names = await notifier.StudentNamesAsync(student.Id, family);
+        return names
+            .Select(n => new NotificationDraft(
+                n.Key, type, title, $"{n.Value} — {SchoolFormat.Date(absence.Date)}{periods}",
                 "absences", absence.Id, student.Id))
             .ToList();
     }
@@ -242,7 +244,7 @@ public class AbsencesController(
         {
             var family = await notifier.FamilyAsync(student.Id);
             await notifier.ChangedAsync(absence.SchoolId, absence.Id, [NotificationType.Absence], family,
-                Drafts(absence, student, NotificationType.Absence, "Změna absence", family), NewTitle);
+                await DraftsAsync(absence, student, NotificationType.Absence, "Změna absence", family), NewTitle);
         }
         await db.SaveChangesAsync();
 
@@ -273,7 +275,8 @@ public class AbsencesController(
     }
 
     private async Task<AbsenceDto> DtoAsync(int id) =>
-        await db.Absences.Where(a => a.Id == id).Select(AbsenceDto.Projection).FirstAsync();
+        (await db.WithStudentLabelsAsync(User, [await db.Absences.Where(a => a.Id == id).Select(AbsenceDto.Projection).FirstAsync()],
+            a => a.StudentId, (a, label) => a with { StudentLabel = label }))[0];
 
     /// <summary>Sorted, distinct; null when a number is outside 0–15.</summary>
     public static List<int>? NormalizePeriods(List<int>? periods)
@@ -298,7 +301,8 @@ public record AbsenceDto(
     string? ExcuseReason,
     IReadOnlyList<int> Periods,
     int? ExcuseId = null,
-    string? ReviewNote = null)
+    string? ReviewNote = null,
+    People.NameLabel? StudentLabel = null)
 {
     public static readonly Expression<Func<Absence, AbsenceDto>> Projection = a => new AbsenceDto(
         a.Id,

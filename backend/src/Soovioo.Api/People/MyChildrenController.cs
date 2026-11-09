@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.People;
@@ -41,6 +42,53 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
         return Ok(await ChildrenAsync());
     }
 
+    /// <summary>The parent's choice applies right away (and replaces a
+    /// proposal of the child's).</summary>
+    [HttpPut("{studentId:int}/nickname")]
+    public async Task<ActionResult<IReadOnlyList<MyChildDto>>> SetNickname(
+        int studentId, SetNicknameRequest request, [FromServices] Nicknames nicknames)
+    {
+        if (await ChildAsync(studentId) is not { } student)
+        {
+            return NotFound();
+        }
+        var (value, error) = Nicknames.Normalize(request.Nickname);
+        if (error is not null)
+        {
+            return this.FieldError("nickname", error);
+        }
+        await nicknames.SetAsync(student, value);
+        await db.SaveChangesAsync();
+        return Ok(await ChildrenAsync());
+    }
+
+    [HttpPost("{studentId:int}/nickname/approve")]
+    public Task<ActionResult<IReadOnlyList<MyChildDto>>> ApproveNickname(int studentId, [FromServices] Nicknames nicknames) =>
+        DecideAsync(studentId, true, nicknames);
+
+    [HttpPost("{studentId:int}/nickname/reject")]
+    public Task<ActionResult<IReadOnlyList<MyChildDto>>> RejectNickname(int studentId, [FromServices] Nicknames nicknames) =>
+        DecideAsync(studentId, false, nicknames);
+
+    private async Task<ActionResult<IReadOnlyList<MyChildDto>>> DecideAsync(int studentId, bool approve, Nicknames nicknames)
+    {
+        if (await ChildAsync(studentId) is not { } student)
+        {
+            return NotFound();
+        }
+        await nicknames.DecideAsync(student, approve);
+        await db.SaveChangesAsync();
+        return Ok(await ChildrenAsync());
+    }
+
+    private async Task<Evidence.StudentProfile?> ChildAsync(int studentId)
+    {
+        var me = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return await db.ChildIdsOf(me).ContainsAsync(studentId)
+            ? await db.Students.FirstOrDefaultAsync(s => s.Id == studentId)
+            : null;
+    }
+
     private async Task<IReadOnlyList<MyChildDto>> ChildrenAsync()
     {
         var me = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -48,7 +96,11 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
         var children = await db.Students
             .Where(s => childIds.Contains(s.Id))
             .OrderBy(s => s.Person!.FirstName)
-            .Select(s => new { s.Id, s.PersonId, Name = s.Person!.FirstName + " " + s.Person!.LastName, ClassName = s.SchoolClass!.Name })
+            .Select(s => new
+            {
+                s.Id, s.PersonId, Name = s.Person!.FirstName + " " + s.Person!.LastName, ClassName = s.SchoolClass!.Name,
+                s.Person.Nickname, s.Person.NicknameProposal,
+            })
             .ToListAsync();
         var personIds = children.Select(c => c.PersonId).ToList();
         var choices = await db.VisibilityChoices.Where(c => personIds.Contains(c.PersonId)).ToListAsync();
@@ -58,9 +110,13 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
             .Select(c => new MyChildDto(
                 c.Id, c.Name, c.ClassName,
                 VisibilitySettings.Of(
-                    visibility, [VisibilityOwner.Student], choices.Where(ch => ch.PersonId == c.PersonId).ToList(), editable: true)))
+                    visibility, [VisibilityOwner.Student], choices.Where(ch => ch.PersonId == c.PersonId).ToList(), editable: true),
+                c.Nickname, c.NicknameProposal))
             .ToList();
     }
 }
 
-public record MyChildDto(int StudentId, string Name, string ClassName, IReadOnlyList<VisibilitySettingDto> Visibility);
+/// <param name="NicknameProposal">The child's own, waiting for the parent's approval.</param>
+public record MyChildDto(
+    int StudentId, string Name, string ClassName, IReadOnlyList<VisibilitySettingDto> Visibility,
+    string? Nickname = null, string? NicknameProposal = null);

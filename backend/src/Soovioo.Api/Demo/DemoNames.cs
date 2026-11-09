@@ -5,6 +5,20 @@ namespace Soovioo.Api.Demo;
 /// (Novák / Nováková).</summary>
 public static class DemoNames
 {
+    /// <summary>What pupils go by, for the first names that have a usual one.</summary>
+    public static readonly IReadOnlyDictionary<string, string> Nicknames = new Dictionary<string, string>
+    {
+        ["Jan"] = "Honza", ["Jakub"] = "Kuba", ["Tomáš"] = "Tom", ["Matyáš"] = "Máťa", ["Filip"] = "Fíla",
+        ["Vojtěch"] = "Vojta", ["Ondřej"] = "Ondra", ["Lukáš"] = "Luky", ["Matěj"] = "Matty", ["Daniel"] = "Dan",
+        ["Martin"] = "Marťa", ["Šimon"] = "Šíma", ["Petr"] = "Péťa", ["Marek"] = "Mára", ["Josef"] = "Pepa",
+        ["Michal"] = "Míša", ["Kryštof"] = "Kryštůfek", ["Jiří"] = "Jirka", ["František"] = "Franta",
+        ["Václav"] = "Vašek", ["Karel"] = "Kája",
+        ["Eliška"] = "Eli", ["Anna"] = "Anička", ["Adéla"] = "Áďa", ["Tereza"] = "Terka", ["Natálie"] = "Nati",
+        ["Karolína"] = "Kája", ["Kristýna"] = "Týna", ["Barbora"] = "Bára", ["Klára"] = "Klárka", ["Lucie"] = "Lucka",
+        ["Veronika"] = "Verča", ["Zuzana"] = "Zuzka", ["Kateřina"] = "Kačka", ["Markéta"] = "Markét",
+        ["Michaela"] = "Míša", ["Alžběta"] = "Bětka", ["Johana"] = "Johy",
+    };
+
     public static readonly string[] MaleFirstNames =
     [
         "Jan", "Jakub", "Tomáš", "Adam", "Matyáš", "Filip", "Vojtěch", "Ondřej", "David", "Lukáš",

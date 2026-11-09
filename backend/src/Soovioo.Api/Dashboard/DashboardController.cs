@@ -92,10 +92,10 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             excusesQuery = excusesQuery.Where(e => excuseStudentIds.Contains(e.StudentId));
         }
-        var pendingExcuses = await ExcusesController.DtosAsync(excusesQuery.OrderByDescending(e => e.DateTo).Take(5));
+        var pendingExcuses = await ExcusesController.DtosAsync(excusesQuery.OrderByDescending(e => e.DateTo).Take(5), db, User);
 
         var unreadMessageCount = await db.CountUnreadConversationsAsync(userId);
-        var unreadConversations = (await db.UnreadConversations(userId)
+        var unreadRows = (await db.UnreadConversations(userId)
             .OrderByDescending(c => c.LastMessageAt)
             .Take(5)
             .Select(c => new
@@ -104,15 +104,23 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 c.Subject,
                 c.StudentId,
                 StudentName = c.Student == null ? null : c.Student.Person!.FirstName + " " + c.Student.Person!.LastName,
-                Participants = c.Participants.Select(p => PersonNames.Display(p.User!.Person, p.User.Username)).ToList(),
+                Participants = c.Participants.Select(p => new { p.UserId, Name = PersonNames.Display(p.User!.Person, p.User.Username) }).ToList(),
                 c.LastMessageAt,
                 LastMessage = c.Messages.OrderByDescending(m => m.SentAt)
-                    .Select(m => new { m.SenderName, m.Body }).FirstOrDefault(),
+                    .Select(m => new { m.SenderName, m.SenderUserId, m.Body }).FirstOrDefault(),
             })
-            .ToListAsync())
+            .ToListAsync());
+        var people = await db.UserLabelsAsync(User,
+            unreadRows.SelectMany(c => c.Participants.Select(p => p.UserId))
+                .Concat(unreadRows.Select(c => c.LastMessage?.SenderUserId).OfType<int>()));
+        var conversationPupils = await db.StudentLabelsAsync(User, unreadRows.Select(c => c.StudentId).OfType<int>());
+        var unreadConversations = unreadRows
             .Select(c => new ConversationSummaryDto(
-                c.Id, c.Subject, c.StudentId, c.StudentName, c.Participants, c.LastMessageAt,
-                c.LastMessage?.SenderName, ConversationsController.Preview(c.LastMessage?.Body), Unread: true))
+                c.Id, c.Subject, c.StudentId, c.StudentName,
+                c.Participants.Select(p => NameLabel.TextOf(people.GetValueOrDefault(p.UserId), p.Name)).ToList(), c.LastMessageAt,
+                c.LastMessage?.SenderUserId is { } sender && people.TryGetValue(sender, out var label) ? label.Text : c.LastMessage?.SenderName,
+                ConversationsController.Preview(c.LastMessage?.Body), Unread: true,
+                StudentLabel: c.StudentId is { } sid ? conversationPupils.GetValueOrDefault(sid) : null))
             .ToList();
 
         var behaviorRecordsQuery = db.BehaviorRecords.AsQueryable();
@@ -153,6 +161,11 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 await db.Users.CountAsync(u => u.Roles.Any(r => r.BuiltIn == UserRole.Teacher)),
                 await db.SchoolClasses.CountAsync());
         }
+
+        recentGrades = await db.WithStudentLabelsAsync(User, recentGrades, g => g.StudentId, (g, l) => g with { StudentLabel = l });
+        pendingAbsences = await db.WithStudentLabelsAsync(User, pendingAbsences, a => a.StudentId, (a, l) => a with { StudentLabel = l });
+        unreadBehaviorRecords = await db.WithStudentLabelsAsync(
+            User, unreadBehaviorRecords, r => r.StudentId, (r, l) => r with { StudentLabel = l });
 
         return Ok(new DashboardDto(
             todayLessons, todayLessonsContext, recentGrades, pendingAbsences,
@@ -213,7 +226,8 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         var groups = await db.StudentGroupMembers.Where(m => m.StudentId == student.Id).Select(m => m.StudentGroupId).ToListAsync();
         lessons = await WithChangesAsync(lessons, new LessonScope(ClassId: student.SchoolClassId, GroupIds: groups.ToHashSet()));
-        return (lessons, $"{student.FirstName} {student.LastName} ({student.SchoolClassName})");
+        var label = (await db.StudentLabelsAsync(User, [student.Id])).GetValueOrDefault(student.Id);
+        return (lessons, $"{NameLabel.TextOf(label, $"{student.FirstName} {student.LastName}")} ({student.SchoolClassName})");
     }
 
     /// <summary>Today's published changes of the lessons.</summary>

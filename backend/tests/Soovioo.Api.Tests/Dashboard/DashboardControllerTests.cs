@@ -134,7 +134,7 @@ public class DashboardControllerTests
         Assert.Single(dto.RecentGrades);
         Assert.Equal(student.Id, dto.RecentGrades[0].StudentId);
         Assert.Single(dto.TodayLessons);
-        Assert.Contains("Jan Novák", dto.TodayLessonsContext);
+        Assert.Equal("Jan (5.A)", dto.TodayLessonsContext);
         Assert.Contains("5.A", dto.TodayLessonsContext);
         Assert.Single(dto.PendingAbsences);
         Assert.Equal(student.Id, dto.PendingAbsences[0].StudentId);

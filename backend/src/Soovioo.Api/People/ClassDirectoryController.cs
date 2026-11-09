@@ -53,8 +53,9 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
                     new(VisibilityOwner.Student, VisibilityField.Name, audience), choices[p.PersonId], VisibilityScope.MyClasses))
                 .ToList();
             var photos = await photoAccess.VisibleStudentPhotosAsync(User, listed);
+            var labels = await db.StudentLabelsAsync(User, listed.Select(p => p.Id));
             classmates = listed
-                .Select(p => new ClassmateDto(p.Id, p.Person!.FullName, photos.GetValueOrDefault(p.Id)))
+                .Select(p => new ClassmateDto(p.Id, p.Person!.FullName, photos.GetValueOrDefault(p.Id), labels.GetValueOrDefault(p.Id)))
                 .ToList();
         }
 
@@ -66,7 +67,8 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
 
         return Ok(new ClassDirectoryDto(
             student.Id, student.Person!.FullName, student.SchoolClass.Name,
-            teachers, classmates, parents));
+            teachers, classmates, parents,
+            (await db.StudentLabelsAsync(User, [student.Id])).GetValueOrDefault(student.Id)));
     }
 
     /// <summary>Class teacher and everyone with a lesson of the pupil (the
@@ -180,7 +182,7 @@ public class ClassDirectoryController(AppDbContext db, ICurrentSchoolContext cur
 /// lets parents share their names with other parents.</param>
 public record ClassDirectoryDto(
     int StudentId, string StudentName, string ClassName, IReadOnlyList<DirectoryTeacherDto> Teachers,
-    IReadOnlyList<ClassmateDto>? Classmates, IReadOnlyList<DirectoryParentDto>? Parents);
+    IReadOnlyList<ClassmateDto>? Classmates, IReadOnlyList<DirectoryParentDto>? Parents, NameLabel? StudentLabel = null);
 
 /// <param name="Notes">"třídní učitel, Matematika, …".</param>
 /// <param name="Phone">Null when not shared with the caller.</param>
@@ -188,7 +190,7 @@ public record ClassDirectoryDto(
 public record DirectoryTeacherDto(int UserId, string Name, string Notes, string? Phone, string? Email, string? Photo);
 
 /// <param name="Photo">Photo token, when the caller may see it (see <see cref="PhotoAccess"/>).</param>
-public record ClassmateDto(int StudentId, string Name, string? Photo);
+public record ClassmateDto(int StudentId, string Name, string? Photo, NameLabel? Label = null);
 
 /// <param name="Children">Their children in the class — empty unless the
 /// class list is shared.</param>

@@ -35,6 +35,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .ToListAsync();
 
         var me = CurrentUserId();
+        var labels = await db.StudentLabelsAsync(User, payments.SelectMany(p => p.Recipients.Select(r => r.StudentId)));
         var result = new List<PaymentDto>();
         foreach (var payment in payments)
         {
@@ -46,7 +47,9 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 recipients = recipients.Where(r => allowedStudentIds.Contains(r.StudentId));
             }
 
-            var recipientDtos = recipients.OrderBy(r => r.InstallmentDueDate).Select(ToRecipientDto).ToList();
+            var recipientDtos = recipients.OrderBy(r => r.InstallmentDueDate)
+                .Select(r => ToRecipientDto(r) with { StudentLabel = labels.GetValueOrDefault(r.StudentId) })
+                .ToList();
             if (restricted && recipientDtos.Count == 0)
             {
                 // Nothing here is actually theirs — don't even show the
@@ -97,7 +100,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
                 .OrderBy(s => s.Person!.LastName)
                 .Select(s => new PaymentStudentOptionDto(s.Id, s.Person!.FirstName, s.Person!.LastName, s.SchoolClassId, s.SchoolClass!.Name))
                 .ToListAsync();
-            return Ok(new PaymentRecipientOptionsDto(classes, parents, students));
+            return Ok(new PaymentRecipientOptionsDto(classes, parents, await LabelledAsync(students)));
         }
 
         var myClasses = await db.SchoolClasses
@@ -119,8 +122,11 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
             .Select(u => new PaymentPersonOptionDto(u.Id, u.Username, PersonNames.Display(u.Person, u.Username)))
             .ToListAsync();
 
-        return Ok(new PaymentRecipientOptionsDto(myClasses, myParents, myStudents));
+        return Ok(new PaymentRecipientOptionsDto(myClasses, myParents, await LabelledAsync(myStudents)));
     }
+
+    private Task<List<PaymentStudentOptionDto>> LabelledAsync(List<PaymentStudentOptionDto> students) =>
+        db.WithStudentLabelsAsync(User, students, s => s.Id, (s, label) => s with { Label = label });
 
     [HttpPost]
     [RequirePermission(Permission.PaymentsWrite)]
@@ -402,7 +408,8 @@ public record PaymentRecipientDto(
     string EffectiveVariableSymbol,
     DateOnly InstallmentDueDate,
     bool Paid,
-    DateTimeOffset? PaidAt);
+    DateTimeOffset? PaidAt,
+    NameLabel? StudentLabel = null);
 
 public record PaymentRecipientOptionsDto(
     IEnumerable<PaymentSchoolClassOptionDto> Classes,
@@ -411,5 +418,6 @@ public record PaymentRecipientOptionsDto(
 
 public record PaymentSchoolClassOptionDto(int Id, string Name, int? Rocnik);
 public record PaymentPersonOptionDto(int Id, string Username, string Name);
-public record PaymentStudentOptionDto(int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName);
+public record PaymentStudentOptionDto(
+    int Id, string FirstName, string LastName, int SchoolClassId, string SchoolClassName, NameLabel? Label = null);
 public record PaymentBankAccountDto(string? BankAccountNumber);

@@ -393,8 +393,9 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         GenerateMessages(admin, classes, featured);
         GenerateEvents(admin.User, classes, elementary);
         GeneratePayments(admin.User, classes, elementary);
-        // Own generator: photos don't shift what the seed gives everything else.
+        // Own generators: photos and nicknames don't shift what the seed gives everything else.
         await GeneratePhotosAsync(new Random(seed + 1), admin.Person, teachers, classes, featured);
+        GenerateNicknames(new Random(seed + 2), classes, featured);
         await SaveAsync();
         return featured;
     }
@@ -456,6 +457,38 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                 person.PhotoKey = await Avatar(IsFemale(person.FirstName), adult: true);
             }
         }
+    }
+
+    /// <summary>About a third of the pupils with a usual nickname go by it,
+    /// the featured pupil included; a child of the featured parent proposed
+    /// one that waits for that parent's approval, and the featured parent
+    /// has one for their children.</summary>
+    private static void GenerateNicknames(Random nickRng, List<ClassInfo> classes, DemoFeaturedUsers featured)
+    {
+        var students = classes.SelectMany(c => c.Students).ToList();
+        var featuredStudent = students.First(s => s.Student.Person!.User?.Id == featured.StudentId);
+        var featuredFamily = students.First(s => s.Family.Parents.Any(p => p.User?.Id == featured.ParentId)).Family;
+        var proposing = featuredFamily.Children.FirstOrDefault(c => c != featuredStudent) ?? featuredFamily.Children[0];
+
+        foreach (var info in students)
+        {
+            var person = info.Student.Person!;
+            if (!DemoNames.Nicknames.TryGetValue(person.FirstName, out var nickname))
+            {
+                continue;
+            }
+            if (info == proposing && info != featuredStudent)
+            {
+                person.NicknameProposal = nickname;
+            }
+            else if (info == featuredStudent || nickRng.NextDouble() < 0.35)
+            {
+                person.Nickname = nickname;
+            }
+        }
+
+        var parent = featuredFamily.Parents.First(p => p.User?.Id == featured.ParentId).Person;
+        parent.Nickname = IsFemale(parent.FirstName) ? "Mamka" : "Taťka";
     }
 
     private static bool IsFemale(string firstName) =>

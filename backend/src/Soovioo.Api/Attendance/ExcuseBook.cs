@@ -170,12 +170,11 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
         {
             return;
         }
-        var name = await db.Students.Where(s => s.Id == excuse.StudentId)
-            .Select(s => s.Person!.FirstName + " " + s.Person.LastName).FirstAsync();
-        var body = $"{name} — {Range(days[0].Date, days[^1].Date)}{(note is null ? "" : $": {note}")}";
-        await notifier.NotifyAsync(
-            excuse.SchoolId, await notifier.FamilyAsync(excuse.StudentId), NotificationType.Excuse,
-            title, Notifier.Preview(body), "absences", excuse.Id, excuse.StudentId, exceptUserId);
+        var family = await notifier.FamilyAsync(excuse.StudentId);
+        var names = await notifier.StudentNamesAsync(excuse.StudentId, family.Where(id => id != exceptUserId));
+        var rest = $" — {Range(days[0].Date, days[^1].Date)}{(note is null ? "" : $": {note}")}";
+        await notifier.AddAsync(excuse.SchoolId, [.. names.Select(n => new NotificationDraft(
+            n.Key, NotificationType.Excuse, title, Notifier.Preview(n.Value + rest), "absences", excuse.Id, excuse.StudentId))]);
     }
 
     /// <summary>Tells the class teacher of a new or changed omluvenka. On a
@@ -245,11 +244,11 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
         {
             return;
         }
-        await notifier.NotifyAsync(
-            excuse.SchoolId, recipients, NotificationType.NewExcuse,
-            $"{(edited ? "Upravená omluvenka" : "Nová omluvenka")} — {student.FirstName} {student.LastName}",
+        var names = await notifier.StudentNamesAsync(excuse.StudentId, recipients.Where(id => id != exceptUserId));
+        await notifier.AddAsync(excuse.SchoolId, [.. names.Select(n => new NotificationDraft(
+            n.Key, NotificationType.NewExcuse, $"{(edited ? "Upravená omluvenka" : "Nová omluvenka")} — {n.Value}",
             Notifier.Preview($"{Range(excuse.DateFrom, excuse.DateTo)}: {excuse.Reason}"), "absences",
-            excuse.Id, excuse.StudentId, exceptUserId);
+            excuse.Id, excuse.StudentId))]);
     }
 
     /// <summary>An omluvenka with no day left goes, with its files. True when it went.</summary>

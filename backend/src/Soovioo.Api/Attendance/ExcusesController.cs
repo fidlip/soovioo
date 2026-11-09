@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,7 @@ public class ExcusesController(
         {
             query = query.Where(e => ids.Contains(e.StudentId));
         }
-        return Ok(await DtosAsync(query));
+        return Ok(await DtosAsync(query, db, User));
     }
 
     [HttpPost]
@@ -387,7 +388,7 @@ public class ExcusesController(
         excuse.Periods = request.DateFrom == request.DateTo ? AbsencesController.NormalizePeriods(request.Periods)! : [];
     }
 
-    public static async Task<List<ExcuseDto>> DtosAsync(IQueryable<Excuse> query)
+    public static async Task<List<ExcuseDto>> DtosAsync(IQueryable<Excuse> query, AppDbContext db, ClaimsPrincipal viewer)
     {
         var rows = await query
             .OrderByDescending(e => e.DateTo).ThenByDescending(e => e.Id)
@@ -403,10 +404,12 @@ public class ExcusesController(
                     .Select(a => new ExcuseAttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes)).ToList(),
             })
             .ToListAsync();
+        var labels = await db.StudentLabelsAsync(viewer, rows.Select(r => r.StudentId));
         return [.. rows.Select(r => new ExcuseDto(
             r.Id, r.StudentId, $"{r.FirstName} {r.LastName}", r.DateFrom, r.DateTo, r.Periods, r.Reason, r.Channel,
             ExcuseBook.StatusOf([.. r.Days.Select(d => d.Status)]), r.Days, r.Attachments,
-            r.AuthorUsername is null ? null : PersonNames.Display(r.Author, r.AuthorUsername), r.CreatedById, r.CreatedAt))];
+            r.AuthorUsername is null ? null : PersonNames.Display(r.Author, r.AuthorUsername), r.CreatedById, r.CreatedAt,
+            labels.GetValueOrDefault(r.StudentId)))];
     }
 }
 
@@ -439,4 +442,5 @@ public record ExcuseDto(
     IReadOnlyList<ExcuseAttachmentDto> Attachments,
     string? CreatedByName,
     int? CreatedById,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    NameLabel? StudentLabel = null);

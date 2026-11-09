@@ -27,6 +27,7 @@ public class PushJob(AppDbContext db, IPushSender sender, TimeProvider clock)
         NotificationType.TimetableChange => "Změna rozvrhu",
         NotificationType.Substitution => "Suplování",
         NotificationType.NewExcuse => "Nová omluvenka",
+        NotificationType.Nickname => "Přezdívka ke schválení",
         _ => "Nové upozornění",
     };
 

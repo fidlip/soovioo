@@ -64,6 +64,8 @@ public class AccountEraser(AppDbContext db, RefreshTokenService refreshTokens, P
             person.Phone = null;
             person.Email = null;
             person.PhotoKey = null;
+            person.Nickname = null;
+            person.NicknameProposal = null;
             if (person.TeacherProfile is not null)
             {
                 person.TeacherProfile.QualificationNote = null;

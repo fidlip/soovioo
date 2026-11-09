@@ -46,15 +46,25 @@ public class Notifier(AppDbContext db, TimeProvider clock)
             .ToDictionary(g => g.Key, g => g.Select(x => x.UserId).Distinct().ToList());
     }
 
+    /// <summary>The pupil's name as each of <paramref name="recipientIds"/>
+    /// reads it in a notification (<see cref="NameLabels"/>).</summary>
+    public Task<Dictionary<int, string>> StudentNamesAsync(int studentId, IEnumerable<int> recipientIds) =>
+        new NameLabels(db).StudentNameForAsync(studentId, recipientIds);
+
+    /// <summary>See <see cref="NameLabels.FamilyNamesAsync"/>.</summary>
+    public Task<Func<int, int, string?>> FamilyNamesAsync(IEnumerable<int> studentIds) =>
+        new NameLabels(db).FamilyNamesAsync(studentIds);
+
     public async Task<List<int>> FamilyAsync(int studentId) =>
         (await FamiliesAsync([studentId])).GetValueOrDefault(studentId) ?? [];
 
     /// <summary>The newest message of each conversation, to everyone in it
     /// but its sender. Call after saving — it needs the ids.</summary>
-    public Task MessagesAsync(IEnumerable<Conversation> conversations)
+    public async Task MessagesAsync(IEnumerable<Conversation> conversations)
     {
         var drafts = new List<NotificationDraft>();
         var schoolId = 0;
+        var labels = new NameLabels(db);
         foreach (var conversation in conversations)
         {
             var message = conversation.Messages.MaxBy(m => m.SentAt);
@@ -63,14 +73,17 @@ public class Notifier(AppDbContext db, TimeProvider clock)
                 continue;
             }
             schoolId = conversation.SchoolId;
-            drafts.AddRange(conversation.Participants
-                .Where(p => p.UserId != message.SenderUserId)
-                .Select(p => new NotificationDraft(
-                    p.UserId, NotificationType.Message, $"Nová zpráva: {conversation.Subject}",
-                    Preview($"{message.SenderName}: {message.Body}"), "messages", conversation.Id,
+            var recipients = conversation.Participants.Where(p => p.UserId != message.SenderUserId).Select(p => p.UserId).ToList();
+            var sender = message.SenderUserId is { } senderId
+                ? await labels.UserNameForAsync(senderId, message.SenderName, recipients)
+                : [];
+            drafts.AddRange(recipients
+                .Select(userId => new NotificationDraft(
+                    userId, NotificationType.Message, $"Nová zpráva: {conversation.Subject}",
+                    Preview($"{sender.GetValueOrDefault(userId, message.SenderName)}: {message.Body}"), "messages", conversation.Id,
                     conversation.StudentId)));
         }
-        return AddAsync(schoolId, drafts);
+        await AddAsync(schoolId, drafts);
     }
 
     /// <summary>The thing changed: whoever no longer sees it (outside
