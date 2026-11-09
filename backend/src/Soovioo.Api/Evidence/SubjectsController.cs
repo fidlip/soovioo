@@ -113,7 +113,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return NotFound();
         }
 
-        if (await db.Grades.AnyAsync(g => g.SubjectId == id))
+        if (await db.Grades.AnyAsync(g => g.SubjectId == id) || await db.ReportCardGrades.AnyAsync(g => g.SubjectId == id))
         {
             return BadRequest("Předmět má zapsané známky — nelze smazat.");
         }

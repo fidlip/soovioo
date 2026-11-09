@@ -65,7 +65,9 @@ public static class StudentRecords
         var ownId = student.Person!.UserId;
         var counts = new (int Count, string One, string Few, string Many)[]
         {
-            (await db.Grades.CountAsync(g => g.StudentId == id), "známku", "známky", "známek"),
+            (await db.Grades.CountAsync(g => g.StudentId == id)
+                + await db.ReportCardGrades.CountAsync(g => g.StudentId == id),
+                "známku", "známky", "známek"),
             (await db.Absences.CountAsync(a => a.StudentId == id), "absenci", "absence", "absencí"),
             (await db.BehaviorRecords.CountAsync(r => r.StudentId == id)
                 + await db.BehaviorClassifications.CountAsync(c => c.StudentId == id),

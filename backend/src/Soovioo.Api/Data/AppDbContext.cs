@@ -70,6 +70,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<HomeworkAttachment> HomeworkAttachments => Set<HomeworkAttachment>();
     public DbSet<BehaviorRecord> BehaviorRecords => Set<BehaviorRecord>();
     public DbSet<BehaviorClassification> BehaviorClassifications => Set<BehaviorClassification>();
+    public DbSet<ReportCardGrade> ReportCardGrades => Set<ReportCardGrade>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentRecipient> PaymentRecipients => Set<PaymentRecipient>();
     public DbSet<PaymentSchoolClass> PaymentSchoolClasses => Set<PaymentSchoolClass>();
@@ -194,6 +195,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
         modelBuilder.Entity<BehaviorClassification>()
             .HasKey(c => new { c.StudentId, c.SchoolYearStartYear, c.HalfYear });
+        modelBuilder.Entity<ReportCardGrade>()
+            .HasKey(g => new { g.StudentId, g.SubjectId, g.SchoolYearStartYear, g.HalfYear });
 
         // Audience recipient join tables — composite keys, same shape as
         // ParentStudent above. Everyone/OnlyMe events keep these empty;
@@ -485,6 +488,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || r.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<BehaviorClassification>().HasQueryFilter(c =>
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<ReportCardGrade>().HasQueryFilter(g =>
+            currentSchool.IsSuperAdmin || g.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Event>().HasQueryFilter(e =>
             currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<EventSchoolClass>().HasQueryFilter(x =>
