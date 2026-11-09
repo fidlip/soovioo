@@ -9,182 +9,172 @@
   }
 </div>
 
-<div class="mb-3 flex flex-wrap items-end gap-3">
-  @if (showStudentFilter()) {
-  <app-float-field [label]="'Žák' | term" for="filterStudent">
-    <p-select
-      [ariaLabel]="'Žák' | term"
-      inputId="filterStudent"
-      [options]="studentOptions()"
-      optionLabel="label"
-      optionValue="id"
-      [(ngModel)]="filterStudentId"
-      (ngModelChange)="onFilterChange()"
-      [showClear]="true"
-      name="filterStudent"
-      appendTo="body"
-      styleClass="w-52"
-    />
-  </app-float-field>
-  }
-  <app-float-field label="Předmět" for="filterSubject">
-    <p-select
-      ariaLabel="Předmět"
-      inputId="filterSubject"
-      [options]="subjects()"
-      optionLabel="name"
-      optionValue="id"
-      [(ngModel)]="filterSubjectId"
-      (ngModelChange)="onFilterChange()"
-      [showClear]="true"
-      name="filterSubject"
-      appendTo="body"
-      styleClass="w-48"
-    />
-  </app-float-field>
-  @if (filterStudentId() !== null || filterSubjectId() !== null) {
-  <app-clear-filters (cleared)="clearFilters()" />
-  }
-
-  <div class="flex flex-wrap items-end gap-3 md:ml-auto">
-    @if (students().length > 1) {
-    <app-float-field label="Vysvědčení pro" for="reportCardStudent">
-      <p-select
-        ariaLabel="Vysvědčení pro"
-        inputId="reportCardStudent"
-        [options]="studentOptions()"
-        optionLabel="label"
-        optionValue="id"
-        [(ngModel)]="reportCardStudentId"
-        name="reportCardStudent"
-        appendTo="body"
-        styleClass="w-52"
-      />
-    </app-float-field>
-    }
-    <p-button
-      label="Stáhnout vysvědčení"
-      icon="pi pi-download"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="downloadReportCard()"
-    />
-  </div>
-</div>
-
-<app-grouped-table
-  [rows]="grades() ?? []"
-  [groups]="groups()"
-  [rowKey]="gradeId"
-  [rowElementId]="gradeElementId"
-  [loading]="grades() === null"
-  emptyMessage="Zatím žádné známky."
->
-  <ng-template #headerCells>
-    @if (isStaff()) {
-    <th class="px-4 py-3 font-semibold">Předmět</th>
-    <th class="px-4 py-3 font-semibold">Známka</th>
-    <th class="px-4 py-3 font-semibold">Váha</th>
-    <th class="px-4 py-3"></th>
-    } @else {
-    <th class="px-4 py-3 font-semibold">Datum</th>
-    <th class="px-4 py-3 font-semibold">Předmět</th>
-    <th class="px-4 py-3 font-semibold">Známka</th>
-    }
-  </ng-template>
-
-  <ng-template #rowCells let-grade>
-    @if (!isStaff()) {
-    <td class="whitespace-nowrap px-4 py-2 align-middle">
-      {{ grade.gradedOn | dateFormat: 'date' }}
-    </td>
-    }
-    <td class="px-4 py-2 align-middle">
-      <div>{{ grade.subjectName }}</div>
-      @if (grade.note) {
-      <div class="text-xs text-surface-500">{{ grade.note }}</div>
-      }
-    </td>
-    <td class="px-4 py-2 align-middle">
-      <p-tag
-        [value]="grade.value + ''"
-        [severity]="gradeSeverity(grade.value)"
-        [rounded]="true"
-      />
-    </td>
-    @if (isStaff()) {
-    <td class="px-4 py-2 align-middle">{{ grade.weight }}</td>
-    <td class="px-4 py-1 align-middle">
-      <div class="flex justify-end gap-1">
-        <p-button
-          icon="pi pi-pencil"
-          size="small"
-          [text]="true"
-          ariaLabel="Upravit"
-          (onClick)="startEditGrade(grade)"
-        />
-        <p-button
-          icon="pi pi-trash"
-          size="small"
-          severity="danger"
-          [text]="true"
-          ariaLabel="Smazat"
-          (onClick)="deleteGrade(grade)"
-        />
+<p-tabs [(value)]="activeTab">
+  <p-tablist>
+    <p-tab value="grades">Známky</p-tab>
+    <p-tab value="reportCard">Vysvědčení</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <p-tabpanel value="grades">
+      <div class="mb-3 flex flex-wrap items-end gap-3 pt-4">
+        @if (showStudentFilter()) {
+        <app-float-field [label]="'Žák' | term" for="filterStudent">
+          <p-select
+            [ariaLabel]="'Žák' | term"
+            inputId="filterStudent"
+            [options]="studentOptions()"
+            optionLabel="label"
+            optionValue="id"
+            [(ngModel)]="filterStudentId"
+            (ngModelChange)="onFilterChange()"
+            [showClear]="true"
+            name="filterStudent"
+            appendTo="body"
+            styleClass="w-52"
+          />
+        </app-float-field>
+        }
+        <app-float-field label="Předmět" for="filterSubject">
+          <p-select
+            ariaLabel="Předmět"
+            inputId="filterSubject"
+            [options]="subjects()"
+            optionLabel="name"
+            optionValue="id"
+            [(ngModel)]="filterSubjectId"
+            (ngModelChange)="onFilterChange()"
+            [showClear]="true"
+            name="filterSubject"
+            appendTo="body"
+            styleClass="w-48"
+          />
+        </app-float-field>
+        @if (filterStudentId() !== null || filterSubjectId() !== null) {
+        <app-clear-filters (cleared)="clearFilters()" />
+        }
       </div>
-    </td>
-    }
-  </ng-template>
 
-  <ng-template #mobileRow let-grade>
-    <div class="flex items-center gap-3 text-sm">
-      @if (!isStaff()) {
-      <span class="whitespace-nowrap text-surface-500"
-        >{{ grade.gradedOn | dateFormat: 'date' }}</span
+      <app-grouped-table
+        [rows]="grades() ?? []"
+        [groups]="groups()"
+        [rowKey]="gradeId"
+        [rowElementId]="gradeElementId"
+        [loading]="grades() === null"
+        emptyMessage="Zatím žádné známky."
       >
-      }
-      <span class="min-w-0 flex-1 truncate">{{ grade.subjectName }}</span>
-      @if (isStaff()) {
-      <span class="text-xs text-surface-500">váha {{ grade.weight }}</span>
-      }
-      <p-tag
-        [value]="grade.value + ''"
-        [severity]="gradeSeverity(grade.value)"
-        [rounded]="true"
-      />
-      @if (isStaff()) {
-      <p-button
-        icon="pi pi-pencil"
-        size="small"
-        [text]="true"
-        ariaLabel="Upravit"
-        (onClick)="startEditGrade(grade)"
-      />
-      <p-button
-        icon="pi pi-trash"
-        size="small"
-        severity="danger"
-        [text]="true"
-        ariaLabel="Smazat"
-        (onClick)="deleteGrade(grade)"
-      />
-      }
-    </div>
-    @if (grade.note) {
-    <div class="mt-0.5 text-xs text-surface-500">{{ grade.note }}</div>
-    }
-  </ng-template>
-</app-grouped-table>
+        <ng-template #headerCells>
+          @if (isStaff()) {
+          <th class="px-4 py-3 font-semibold">Předmět</th>
+          <th class="px-4 py-3 font-semibold">Známka</th>
+          <th class="px-4 py-3 font-semibold">Váha</th>
+          <th class="px-4 py-3"></th>
+          } @else {
+          <th class="px-4 py-3 font-semibold">Datum</th>
+          <th class="px-4 py-3 font-semibold">Předmět</th>
+          <th class="px-4 py-3 font-semibold">Známka</th>
+          }
+        </ng-template>
 
-@if (totalCount() > 20) {
-<p-paginator
-  [first]="(page() - 1) * pageSize()"
-  [rows]="pageSize()"
-  [totalRecords]="totalCount()"
-  [rowsPerPageOptions]="[20, 50, 100]"
-  (onPageChange)="onPageChange($event)"
-/>
-}
+        <ng-template #rowCells let-grade>
+          @if (!isStaff()) {
+          <td class="whitespace-nowrap px-4 py-2 align-middle">
+            {{ grade.gradedOn | dateFormat: 'date' }}
+          </td>
+          }
+          <td class="px-4 py-2 align-middle">
+            <div>{{ grade.subjectName }}</div>
+            @if (grade.note) {
+            <div class="text-xs text-surface-500">{{ grade.note }}</div>
+            }
+          </td>
+          <td class="px-4 py-2 align-middle">
+            <p-tag
+              [value]="grade.value + ''"
+              [severity]="gradeSeverity(grade.value)"
+              [rounded]="true"
+            />
+          </td>
+          @if (isStaff()) {
+          <td class="px-4 py-2 align-middle">{{ grade.weight }}</td>
+          <td class="px-4 py-1 align-middle">
+            <div class="flex justify-end gap-1">
+              <p-button
+                icon="pi pi-pencil"
+                size="small"
+                [text]="true"
+                ariaLabel="Upravit"
+                (onClick)="startEditGrade(grade)"
+              />
+              <p-button
+                icon="pi pi-trash"
+                size="small"
+                severity="danger"
+                [text]="true"
+                ariaLabel="Smazat"
+                (onClick)="deleteGrade(grade)"
+              />
+            </div>
+          </td>
+          }
+        </ng-template>
+
+        <ng-template #mobileRow let-grade>
+          <div class="flex items-center gap-3 text-sm">
+            @if (!isStaff()) {
+            <span class="whitespace-nowrap text-surface-500"
+              >{{ grade.gradedOn | dateFormat: 'date' }}</span
+            >
+            }
+            <span class="min-w-0 flex-1 truncate">{{ grade.subjectName }}</span>
+            @if (isStaff()) {
+            <span class="text-xs text-surface-500"
+              >váha {{ grade.weight }}</span
+            >
+            }
+            <p-tag
+              [value]="grade.value + ''"
+              [severity]="gradeSeverity(grade.value)"
+              [rounded]="true"
+            />
+            @if (isStaff()) {
+            <p-button
+              icon="pi pi-pencil"
+              size="small"
+              [text]="true"
+              ariaLabel="Upravit"
+              (onClick)="startEditGrade(grade)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              size="small"
+              severity="danger"
+              [text]="true"
+              ariaLabel="Smazat"
+              (onClick)="deleteGrade(grade)"
+            />
+            }
+          </div>
+          @if (grade.note) {
+          <div class="mt-0.5 text-xs text-surface-500">{{ grade.note }}</div>
+          }
+        </ng-template>
+      </app-grouped-table>
+
+      @if (totalCount() > 20) {
+      <p-paginator
+        [first]="(page() - 1) * pageSize()"
+        [rows]="pageSize()"
+        [totalRecords]="totalCount()"
+        [rowsPerPageOptions]="[20, 50, 100]"
+        (onPageChange)="onPageChange($event)"
+      />
+      }
+    </p-tabpanel>
+    <p-tabpanel value="reportCard">
+      <app-report-card-tab [students]="studentOptions()" />
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>
 
 <p-dialog
   [visible]="gradeDialogVisible()"

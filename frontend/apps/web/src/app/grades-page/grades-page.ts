@@ -7,6 +7,13 @@ import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Paginator } from '@openng/optimus-ui/paginator';
 import { Select } from '@openng/optimus-ui/select';
+import {
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+} from '@openng/optimus-ui/tabs';
 import { Tag } from '@openng/optimus-ui/tag';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import { Subscription } from 'rxjs';
@@ -16,7 +23,6 @@ import {
   Grade,
   GradesApiService,
   LINKED_ITEM_GONE,
-  ReportCardApiService,
   Student,
   StudentReach,
   StudentsApiService,
@@ -34,6 +40,7 @@ import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
+import { ReportCardTab } from './report-card-tab';
 
 /** "2026-10-18" (DateOnly) -> local Date, without the UTC shift
  * `new Date(string)` applies to date-only ISO strings. */
@@ -80,7 +87,13 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
     InputNumber,
     InputText,
     Paginator,
+    ReportCardTab,
     Select,
+    Tab,
+    TabList,
+    TabPanel,
+    TabPanels,
+    Tabs,
     Tag,
   ],
   templateUrl: './grades-page.html',
@@ -90,8 +103,9 @@ export class GradesPage {
   private readonly gradesApi = inject(GradesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);
-  private readonly reportCardApi = inject(ReportCardApiService);
   private readonly authApi = inject(AuthApiService);
+
+  protected readonly activeTab = signal<'grades' | 'reportCard'>('grades');
 
   protected readonly grades = signal<Grade[] | null>(null);
   protected readonly students = signal<Student[]>([]);
@@ -181,9 +195,6 @@ export class GradesPage {
   protected newWeight = 1;
   protected newNote = '';
   protected newGradedOn = new Date();
-  /** Drives "Stáhnout vysvědčení" — separate from the dialog's newStudentId,
-   * which resets every time the dialog opens. */
-  protected reportCardStudentId: number | null = null;
 
   constructor() {
     this.reload();
@@ -192,6 +203,7 @@ export class GradesPage {
     onLinkedItem('grade', (id) => {
       this.gradesApi.getGrade(id).subscribe({
         next: () => {
+          this.activeTab.set('grades');
           const grades = this.grades();
           if (grades && !grades.some((g) => g.id === id)) {
             this.filterStudentId.set(null);
@@ -204,10 +216,7 @@ export class GradesPage {
       });
     });
     this.studentsApi.getStudents().subscribe({
-      next: (students) => {
-        this.students.set(students);
-        this.reportCardStudentId ??= students[0]?.id ?? null;
-      },
+      next: (students) => this.students.set(students),
       error: (err) => console.error('getStudents failed', err),
     });
     this.subjectsApi.getSubjects().subscribe({
@@ -235,7 +244,7 @@ export class GradesPage {
 
   protected openAddGradeDialog(): void {
     this.editingGradeId = null;
-    this.newStudentId = this.reportCardStudentId;
+    this.newStudentId = this.filterStudentId();
     this.onDialogSubjectChange(this.dialogSubjects()[0]?.id ?? null);
     this.newValue = 1;
     this.newWeight = 1;
@@ -303,23 +312,6 @@ export class GradesPage {
       return 'success';
     }
     return value === 3 ? 'warn' : 'danger';
-  }
-
-  protected downloadReportCard(): void {
-    if (!this.reportCardStudentId) {
-      return;
-    }
-    this.reportCardApi.downloadReportCard(this.reportCardStudentId).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'vysvedceni.pdf';
-        link.click();
-        URL.revokeObjectURL(url);
-      },
-      error: (err) => console.error('downloadReportCard failed', err),
-    });
   }
 
   protected onFilterChange(): void {

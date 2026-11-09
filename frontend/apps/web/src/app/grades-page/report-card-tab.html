@@ -1,0 +1,25 @@
+<div class="flex flex-wrap items-end gap-3 pt-4">
+  @if (students().length > 1) {
+  <app-float-field label="Vysvědčení pro" for="reportCardStudent">
+    <p-select
+      ariaLabel="Vysvědčení pro"
+      inputId="reportCardStudent"
+      [options]="students()"
+      optionLabel="label"
+      optionValue="id"
+      [ngModel]="studentId()"
+      (ngModelChange)="studentId.set($event)"
+      name="reportCardStudent"
+      appendTo="body"
+      styleClass="w-52"
+    />
+  </app-float-field>
+  }
+  <p-button
+    label="Stáhnout vysvědčení"
+    icon="pi pi-download"
+    severity="secondary"
+    [outlined]="true"
+    (onClick)="download()"
+  />
+</div>
