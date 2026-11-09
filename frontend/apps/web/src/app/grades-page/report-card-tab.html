@@ -62,24 +62,26 @@
     />
   </app-float-field>
   } @if (isStaff()) {
-  <label class="flex items-center gap-2 pb-2 text-sm">
-    <p-checkbox
-      [binary]="true"
-      [ngModel]="onlyMine()"
-      (ngModelChange)="onlyMine.set($event)"
-      [ngModelOptions]="{ standalone: true }"
-    />
-    Mé
-  </label>
-  <label class="flex items-center gap-2 pb-2 text-sm">
-    <p-checkbox
-      [binary]="true"
-      [ngModel]="onlyUnconfirmed()"
-      (ngModelChange)="onlyUnconfirmed.set($event)"
-      [ngModelOptions]="{ standalone: true }"
-    />
-    Nepotvrzené
-  </label>
+  <div class="flex shrink-0 items-center gap-4 pb-2 text-sm">
+    <label class="flex items-center gap-2 whitespace-nowrap">
+      <p-checkbox
+        [binary]="true"
+        [ngModel]="onlyMine()"
+        (ngModelChange)="onlyMine.set($event)"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Mé
+    </label>
+    <label class="flex items-center gap-2 whitespace-nowrap">
+      <p-checkbox
+        [binary]="true"
+        [ngModel]="onlyUnconfirmed()"
+        (ngModelChange)="onlyUnconfirmed.set($event)"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      Nepotvrzené
+    </label>
+  </div>
   } @if (subjectId() !== null || studentId() !== null || onlyMine() ||
   onlyUnconfirmed()) {
   <app-clear-filters (cleared)="clearFilters()" />
@@ -92,7 +94,7 @@
       icon="pi pi-check"
       (onClick)="confirmShown()"
     />
-    } @if (pickedClassId() !== null) {
+    } @if (printableClassId() !== null) {
     <p-button
       label="PDF za třídu"
       icon="pi pi-download"
@@ -134,7 +136,7 @@
       <strong>{{ card.excusedHours + card.unexcusedHours }}</strong>
       (neomluvených {{ card.unexcusedHours }})</span
     >
-    @if (isStaff() || card.issued) {
+    @if ((isStaff() || card.issued) && card.whole) {
     <span>Celkové hodnocení: <strong>{{ resultText(card) }}</strong></span>
     <p-button
       class="ml-auto"

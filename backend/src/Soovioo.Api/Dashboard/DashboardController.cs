@@ -66,7 +66,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
                 .Take(5)
                 .Select(g => new GradeDto(
                     g.Id, g.StudentId, g.Student!.Person!.FirstName + " " + g.Student.Person!.LastName,
-                    g.SubjectId, g.Subject!.Name, g.Value, g.Weight, g.Note, g.GradedOn, g.CreatedAt))
+                    g.Student.SchoolClass!.Name, g.SubjectId, g.Subject!.Name, g.Value, g.Weight, g.Note, g.GradedOn, g.CreatedAt))
                 .ToListAsync();
         }
 

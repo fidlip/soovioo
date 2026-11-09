@@ -82,6 +82,7 @@ public class ReportCardsControllerTests : IDisposable
     [Fact]
     public async Task SuggestsTheRoundedAverageOfTheHalfYearsGradesOnly()
     {
+        jan.SchoolClass!.ClassTeacherId = 1;
         Grade(maths, 1, new DateOnly(2026, 10, 1));
         Grade(maths, 2, new DateOnly(2026, 11, 1));
         Grade(maths, 5, new DateOnly(2026, 6, 1));
@@ -131,6 +132,30 @@ public class ReportCardsControllerTests : IDisposable
         Assert.False(reset.Confirmed);
         Assert.False(reset.Changed);
         Assert.Equal(2, reset.Value);
+    }
+
+    [Fact]
+    public async Task OutsideTheirOwnClassATeacherSeesOnlyTheirSubjects()
+    {
+        Grade(maths, 1, new DateOnly(2026, 10, 1));
+        Grade(czech, 1, new DateOnly(2026, 10, 1));
+        await Confirm(management, maths, czech);
+
+        var card = await CardAs(teacher);
+
+        Assert.Equal(["Matematika"], card.Subjects.Select(s => s.SubjectName));
+        Assert.False(card.Whole);
+        Assert.Null(card.Result);
+        Assert.IsType<ForbidResult>(await As(teacher).GetPdf(Year, Half, studentId: jan.Id));
+
+        jan.SchoolClass!.ClassTeacherId = 1;
+        await db.SaveChangesAsync();
+        var asClassTeacher = await CardAs(teacher);
+
+        Assert.Equal(2, asClassTeacher.Subjects.Count);
+        Assert.True(asClassTeacher.Whole);
+        Assert.Equal(ReportCardResult.WithHonours, asClassTeacher.Result);
+        Assert.IsType<FileContentResult>(await As(teacher).GetPdf(Year, Half, studentId: jan.Id));
     }
 
     [Fact]

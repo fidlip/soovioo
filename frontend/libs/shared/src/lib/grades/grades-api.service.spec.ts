@@ -60,6 +60,7 @@ describe('GradesApiService', () => {
       id: 1,
       studentId: 1,
       studentName: 'Jan Novák',
+      schoolClassName: '5.A',
       subjectId: 1,
       subjectName: 'Matematika',
       value: 1,

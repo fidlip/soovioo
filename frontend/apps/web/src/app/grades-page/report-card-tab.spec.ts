@@ -78,6 +78,7 @@ describe('ReportCardTab', () => {
     result: null,
     issuedOn: '2027-01-31',
     issued,
+    whole: true,
     subjects,
   });
 
@@ -222,6 +223,18 @@ describe('ReportCardTab', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'PDF za třídu',
     );
+  });
+
+  it("outside their own class a teacher can't print nor sees the overall result", () => {
+    const fixture = render([student(7, 2, '5.A')]);
+    classes(fixture, false, [2, '5.A', false]);
+    reportCardsRequest().flush([{ ...card([maths]), whole: false }]);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Matematika');
+    expect(text).not.toContain('Celkové hodnocení');
+    expect(text).not.toContain('PDF');
   });
 
   it("opens the pupil's grades in the subject from the grade count", () => {

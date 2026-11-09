@@ -21,7 +21,10 @@ public class GradesControllerTests
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
+        var db = new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
+        db.SchoolClasses.Add(new SchoolClass { Id = 1, Name = "5.A", SchoolId = SchoolId });
+        db.SaveChanges();
+        return db;
     }
 
     private static async Task<(StudentProfile student, Subject subject)> SeedStudentAndSubject(AppDbContext db)
@@ -51,6 +54,7 @@ public class GradesControllerTests
         Assert.Equal(1, dto.Value);
         Assert.Equal(3, dto.Weight);
         Assert.Equal("opravena", dto.Note);
+        Assert.Equal("5.A", dto.SchoolClassName);
     }
 
     [Fact]
