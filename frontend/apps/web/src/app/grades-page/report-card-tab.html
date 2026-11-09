@@ -65,13 +65,23 @@
   <label class="flex items-center gap-2 pb-2 text-sm">
     <p-checkbox
       [binary]="true"
-      [ngModel]="onlyToConfirm()"
-      (ngModelChange)="onlyToConfirm.set($event)"
+      [ngModel]="onlyMine()"
+      (ngModelChange)="onlyMine.set($event)"
       [ngModelOptions]="{ standalone: true }"
     />
-    Jen k potvrzení
+    Mé
   </label>
-  } @if (subjectId() !== null || studentId() !== null || onlyToConfirm()) {
+  <label class="flex items-center gap-2 pb-2 text-sm">
+    <p-checkbox
+      [binary]="true"
+      [ngModel]="onlyUnconfirmed()"
+      (ngModelChange)="onlyUnconfirmed.set($event)"
+      [ngModelOptions]="{ standalone: true }"
+    />
+    Nepotvrzené
+  </label>
+  } @if (subjectId() !== null || studentId() !== null || onlyMine() ||
+  onlyUnconfirmed()) {
   <app-clear-filters (cleared)="clearFilters()" />
   }
 
@@ -101,7 +111,7 @@
 </p>
 } @if (shownCards(); as shown) { @if (shown.length === 0) {
 <p class="py-6 text-center text-surface-500">
-  {{ onlyToConfirm() && (cards()?.length ?? 0) > 0 ? 'Nic k potvrzení.' : 'Žádná
+  {{ (cards()?.length ?? 0) > 0 ? 'Nic neodpovídá filtrům.' : 'Žádná
   vysvědčení.' }}
 </p>
 } @for (card of shown; track card.studentId) {

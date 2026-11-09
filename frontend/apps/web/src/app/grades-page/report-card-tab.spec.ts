@@ -61,6 +61,7 @@ describe('ReportCardTab', () => {
     confirmed: false,
     confirmedByName: null,
     confirmedAt: null,
+    mine: true,
     canEdit: true,
     canReopen: false,
   };
@@ -180,13 +181,14 @@ describe('ReportCardTab', () => {
     ]);
   });
 
-  it("shows all of a teacher's classes at once, only what they confirm if asked", () => {
+  it("shows all of a teacher's classes at once, filtered to theirs and the unconfirmed", () => {
     const fixture = render([student(7, 2, '5.A')]);
     classes(fixture, false, [1, '4.B', false], [2, '5.A', false]);
     reportCardsRequest().flush([]);
     const component = fixture.componentInstance as unknown as {
       onClassChange(id: number): void;
-      onlyToConfirm: { set(value: boolean): void };
+      onlyMine: { set(value: boolean): void };
+      onlyUnconfirmed: { set(value: boolean): void };
     };
 
     component.onClassChange(0);
@@ -198,19 +200,28 @@ describe('ReportCardTab', () => {
       ...maths,
       subjectId: 3,
       subjectName: 'Hudební výchova',
+      mine: false,
       canEdit: false,
     };
     request.flush([
       card([{ ...maths, confirmed: true, canEdit: false }, czech, music]),
     ]);
-    component.onlyToConfirm.set(true);
-    fixture.detectChanges();
+    const shown = (mine: boolean, unconfirmed: boolean) => {
+      component.onlyMine.set(mine);
+      component.onlyUnconfirmed.set(unconfirmed);
+      fixture.detectChanges();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      return ['Matematika', 'Český jazyk', 'Hudební výchova'].filter((name) =>
+        text.includes(name),
+      );
+    };
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Český jazyk');
-    expect(text).not.toContain('Matematika');
-    expect(text).not.toContain('Hudební výchova');
-    expect(text).not.toContain('PDF za třídu');
+    expect(shown(true, false)).toEqual(['Matematika', 'Český jazyk']);
+    expect(shown(false, true)).toEqual(['Český jazyk', 'Hudební výchova']);
+    expect(shown(true, true)).toEqual(['Český jazyk']);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'PDF za třídu',
+    );
   });
 
   it("opens the pupil's grades in the subject from the grade count", () => {
