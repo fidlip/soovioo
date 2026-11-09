@@ -6,14 +6,13 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { PrimeTemplate } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Select } from '@openng/optimus-ui/select';
-import { TableModule } from '@openng/optimus-ui/table';
 import {
   Tabs,
   Tab,
@@ -34,13 +33,15 @@ import {
   Student,
   StudentReach,
   StudentsApiService,
+  formatDate,
+  localizeStudentTerm,
   reachesStudent,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
-import { Loading } from '../loading/loading';
+import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { formatPeriods, todayString } from './excuse-days';
 import { DecisionMenu } from './decision-menu';
@@ -84,7 +85,8 @@ export type AbsencesTab = 'absence' | 'omluvenky';
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
-    Loading,
+    GroupedTable,
+    NgTemplateOutlet,
     TermPipe,
     AppIcon,
     FormsModule,
@@ -94,12 +96,10 @@ export type AbsencesTab = 'absence' | 'omluvenky';
     ExcuseDialog,
     ExcusesList,
     PeriodChips,
-    PrimeTemplate,
     RejectDialog,
     RouterLink,
     Select,
     Tab,
-    TableModule,
     TabList,
     TabPanel,
     TabPanels,
@@ -181,6 +181,48 @@ export class AbsencesPage {
   protected readonly dayPeriods = new StudentDayPeriods();
 
   protected readonly formatPeriods = formatPeriods;
+
+  protected readonly isStaff = computed(() => this.authApi.isStaff());
+
+  private readonly byDate: GroupLevel<Absence>[] = [
+    {
+      label: 'Datum',
+      key: (a) => a.date,
+      text: (a) => formatDate(a.date, 'date'),
+    },
+  ];
+  private readonly byStudent: GroupLevel<Absence>[] = [
+    {
+      label: localizeStudentTerm('Žák', this.authApi.getSchoolType()),
+      key: (a) => a.studentId,
+      text: (a) => a.studentName,
+    },
+  ];
+
+  /** Staff: one group per day, its pupils in the rows. Parent with several
+   * children (unfiltered): one group per child. Otherwise a flat list. The
+   * API sorts by date desc, then name. */
+  protected groups(): GroupLevel<Absence>[] {
+    if (this.isStaff()) {
+      return this.byDate;
+    }
+    return this.filterStudentId === null && this.students().length > 1
+      ? this.byStudent
+      : [];
+  }
+
+  /** A group is a run of consecutive rows — one child's days go together
+   * (the sort is stable, so each child keeps the date order). */
+  protected rows(): Absence[] {
+    const rows = this.filteredAbsences();
+    return this.groups() === this.byStudent
+      ? [...rows].sort((a, b) => a.studentName.localeCompare(b.studentName))
+      : rows;
+  }
+
+  protected readonly absenceId = (absence: Absence) => absence.id;
+  protected readonly absenceElementId = (absence: Absence) =>
+    `absence-${absence.id}`;
 
   /** Missed lessons over the filtered records; whole-day records (no
    * period detail) are counted separately. */
