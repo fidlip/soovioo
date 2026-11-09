@@ -213,7 +213,7 @@ public class ReportCardsControllerTests : IDisposable
         var result = await As(management).GetPdf(Year, Half, schoolClassId: jan.SchoolClassId);
 
         var file = Assert.IsType<FileContentResult>(result);
-        Assert.Equal("vysvedceni-5.A.pdf", file.FileDownloadName);
+        Assert.Equal("vypis-z-vysvedceni-5.A.pdf", file.FileDownloadName);
     }
 
     [Fact]
@@ -232,6 +232,35 @@ public class ReportCardsControllerTests : IDisposable
         Assert.True(all.All);
         Assert.Equal(["5.A", "9.B"], all.Classes.Select(c => c.Name));
     }
+
+    [Theory]
+    [InlineData(ReportCardMarkFormat.Words, "výborný")]
+    [InlineData(ReportCardMarkFormat.Digits, "1")]
+    public void AStupeňIsWrittenAsTheSchoolChose(ReportCardMarkFormat format, string expected)
+    {
+        Assert.Equal(expected, ReportCardDocument.Mark(ReportCardGradeKind.Graded, 1, false, format));
+        Assert.Equal("uvolněna", ReportCardDocument.Mark(ReportCardGradeKind.Exempt, null, true, format));
+    }
+
+    [Fact]
+    public async Task TheSchoolChoosesHowAStupeňIsWritten()
+    {
+        db.Schools.Add(new School { Id = SchoolId, Name = "ZŠ", Slug = "zs" });
+        await db.SaveChangesAsync();
+        var mySchool = new MySchoolController(db, new FakeCurrentSchoolContext(SchoolId))
+        {
+            ControllerContext = TestRoles.Context(management),
+        };
+
+        var saved = await mySchool.SetReportCards(new(ReportCardMarkFormat.Digits));
+
+        Assert.Equal(ReportCardMarkFormat.Digits, ((ReportCardSettingsDto)Assert.IsType<OkObjectResult>(saved.Result).Value!).MarkFormat);
+        Assert.Equal(ReportCardMarkFormat.Digits, (await db.Schools.FindAsync(SchoolId))!.ReportCardMarkFormat);
+    }
+
+    [Fact]
+    public void TheDateHasTheMonthAsAWord() =>
+        Assert.Equal("31. ledna 2027", ReportCardDocument.LongDate(new DateOnly(2027, 1, 31)));
 
     [Theory]
     [InlineData(new[] { 1, 2, 1 }, BehaviorClassificationValue.VelmiDobre, ReportCardResult.WithHonours)]

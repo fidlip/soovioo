@@ -935,6 +935,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("RedIzo")
                         .HasColumnType("text");
 
+                    b.Property<int>("ReportCardMarkFormat")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -992,6 +995,7 @@ namespace Soovioo.Api.Migrations
                             PushQuietFrom = new TimeOnly(21, 0, 0),
                             PushQuietTo = new TimeOnly(7, 0, 0),
                             RedIzo = "700000089",
+                            ReportCardMarkFormat = 0,
                             Slug = "skola",
                             StaffSeeStudentNicknames = true,
                             Street = "Školní 8",

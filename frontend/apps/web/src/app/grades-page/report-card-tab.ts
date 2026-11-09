@@ -148,7 +148,7 @@ export class ReportCardTab {
   protected readonly subjectId = signal<number | null>(null);
   protected readonly studentId = signal<number | null>(null);
 
-  protected readonly onlyUnconfirmed = signal(false);
+  protected readonly onlyToConfirm = signal(false);
   /** A single class picked — its report cards go into one PDF. */
   protected readonly pickedClassId = computed(() => {
     const classId = this.classId();
@@ -189,17 +189,17 @@ export class ReportCardTab {
   protected readonly cards = signal<ReportCard[] | null>(null);
   private request?: Subscription;
 
-  /** With "Jen nepotvrzené" only the unconfirmed subjects, and the pupils
-   * with any. */
+  /** With "Jen k potvrzení" only the unconfirmed subjects the caller may
+   * confirm, and the pupils with any. */
   protected readonly shownCards = computed(() => {
     const cards = this.cards();
-    if (!cards || !this.onlyUnconfirmed()) {
+    if (!cards || !this.onlyToConfirm()) {
       return cards;
     }
     return cards
       .map((card) => ({
         ...card,
-        subjects: card.subjects.filter((s) => !s.confirmed),
+        subjects: card.subjects.filter((s) => s.canEdit),
       }))
       .filter((card) => card.subjects.length > 0);
   });
@@ -252,7 +252,7 @@ export class ReportCardTab {
   protected clearFilters(): void {
     this.subjectId.set(null);
     this.studentId.set(null);
-    this.onlyUnconfirmed.set(false);
+    this.onlyToConfirm.set(false);
   }
 
   protected markKey(subject: ReportCardSubject): string | null {
@@ -386,12 +386,20 @@ export class ReportCardTab {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `vysvedceni-${name}.pdf`;
+        link.download = `${this.pdfKind()}-${name}.pdf`;
         link.click();
         URL.revokeObjectURL(url);
       },
       error: (err) => this.failed('downloadPdf failed', err),
     });
+  }
+
+  /** 1. pololetí: výpis z vysvědčení; 2. pololetí: the particulars for
+   * the official form (no výpis then). */
+  private pdfKind(): string {
+    return this.halfYear().halfYear === 'First'
+      ? 'vypis-z-vysvedceni'
+      : 'podklady-k-vysvedceni';
   }
 
   private key(card: ReportCard, subject: ReportCardSubject) {

@@ -3,6 +3,16 @@ using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Grades;
 
+/// <summary>A stupeň on the report card as the word or as the digit.</summary>
+public enum ReportCardMarkFormat
+{
+    /// <summary>"výborný", behaviour "velmi dobré".</summary>
+    Words,
+
+    /// <summary>"1", behaviour "1".</summary>
+    Digits,
+}
+
 public enum ReportCardGradeKind
 {
     /// <summary>A stupeň 1–5, <see cref="ReportCardGrade.Value"/>.</summary>
