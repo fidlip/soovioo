@@ -1,3 +1,4 @@
+import { NameLabel } from '../people/name-label.model';
 export type BehaviorRecordType =
   | 'Pochvala'
   | 'Poznamka'
@@ -15,6 +16,8 @@ export interface BehaviorRecord {
   id: number;
   studentId: number;
   studentName: string;
+  /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
+  studentLabel?: NameLabel | null;
   type: BehaviorRecordType;
   text: string;
   /** "YYYY-MM-DD" — DateOnly on the backend. */
@@ -35,6 +38,8 @@ export interface CreateBehaviorRecordRequest {
 export interface BehaviorClassification {
   studentId: number;
   studentName: string;
+  /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
+  studentLabel?: NameLabel | null;
   schoolYearStartYear: number;
   halfYear: SchoolHalfYear;
   value: BehaviorClassificationValue;

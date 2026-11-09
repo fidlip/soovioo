@@ -22,8 +22,10 @@
         <div>
           <div class="flex items-center gap-2">
             <strong class="text-surface-900 dark:text-surface-0"
-              >{{ record.studentName }}</strong
-            >
+              ><app-person-name
+                [name]="record.studentName"
+                [label]="record.studentLabel"
+            /></strong>
             <p-tag
               [value]="recordTypeLabel(record.type)"
               [severity]="recordTypeSeverity(record.type)"
@@ -91,8 +93,10 @@
         <div>
           <div class="flex items-center gap-2">
             <strong class="text-surface-900 dark:text-surface-0"
-              >{{ item.studentName }}</strong
-            >
+              ><app-person-name
+                [name]="item.studentName"
+                [label]="item.studentLabel"
+            /></strong>
             <span class="text-sm text-surface-500"
               >{{ item.schoolYearStartYear }}/{{ item.schoolYearStartYear + 1 }}
               — {{ halfYearLabel(item.halfYear) }}</span

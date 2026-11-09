@@ -33,6 +33,7 @@ import {
   TeacherTimetableEntry,
   TimetableApiService,
   LINKED_ITEM_GONE,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { highlightElement, onLinkedItem } from '../highlight';
@@ -40,6 +41,7 @@ import { FilePicker } from '../file-picker/file-picker';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused
  * for homework attachments too (see ROADMAP "Přílohy u zpráv"). */
@@ -76,6 +78,7 @@ function assignmentKey(
 @Component({
   selector: 'app-homework-page',
   imports: [
+    PersonName,
     ClearFilters,
     FloatField,
     DateFormatPipe,
@@ -222,7 +225,10 @@ export class HomeworkPage {
           ? inGroup.has(s.id)
           : s.schoolClassId === this.newSchoolClassId(),
       )
-      .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` }));
+      .map((s) => ({
+        id: s.id,
+        label: nameText(`${s.firstName} ${s.lastName}`, s.label),
+      }));
   });
 
   private readonly changes = inject(ChangeDetectorRef);

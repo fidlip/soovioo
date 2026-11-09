@@ -21,6 +21,7 @@ import {
   EXCUSE_CHANNEL_LABELS,
   Excuse,
   ExcuseStatus,
+  nameText,
 } from '@soovioo/shared';
 import { ClearFilters, FloatField } from '../forms';
 import { GroupedTable, GroupLevel } from '../grouped-table/grouped-table';
@@ -29,6 +30,7 @@ import { DecisionMenu } from './decision-menu';
 import { excuseFileDownloader, formatFileSize } from './excuse-files';
 import { RejectDialog } from './reject-dialog';
 import { excuseRange, formatPeriods, todayString } from './excuse-days';
+import { PersonName } from '../person-name/person-name';
 
 export const EXCUSE_STATUS_LABEL: Record<ExcuseStatus, string> = {
   Pending: 'Čeká na schválení',
@@ -54,6 +56,7 @@ export const EXCUSE_STATUS_SEVERITY: Record<
 @Component({
   selector: 'app-excuses-list',
   imports: [
+    PersonName,
     ClearFilters,
     DecisionMenu,
     FloatField,
@@ -91,7 +94,7 @@ export class ExcusesList {
   protected readonly studentOptions = computed(() => {
     const seen = new Map<number, string>();
     for (const e of this.excuses() ?? []) {
-      seen.set(e.studentId, e.studentName);
+      seen.set(e.studentId, nameText(e.studentName, e.studentLabel));
     }
     return [...seen].map(([id, label]) => ({ id, label }));
   });
@@ -100,7 +103,12 @@ export class ExcusesList {
   protected readonly range = excuseRange;
   protected readonly isStaff = computed(() => this.authApi.isStaff());
   private readonly byStudent: GroupLevel<Excuse>[] = [
-    { label: 'Žák', key: (e) => e.studentId, text: (e) => e.studentName },
+    {
+      label: 'Žák',
+      key: (e) => e.studentId,
+      text: (e) => e.studentName,
+      nameLabel: (e) => e.studentLabel,
+    },
   ];
   protected readonly excuseId = (excuse: Excuse) => excuse.id;
   protected readonly excuseElementId = (excuse: Excuse) =>
@@ -222,7 +230,7 @@ export class ExcusesList {
 
   protected reject(excuse: Excuse): void {
     this.rejectDialog().open(
-      `Zamítnout omluvenku — ${excuse.studentName}`,
+      `Zamítnout omluvenku — ${nameText(excuse.studentName, excuse.studentLabel)}`,
       (note) =>
         this.absencesApi.reviewExcuse(excuse.id, false, note).subscribe({
           next: () => this.changed.emit(),

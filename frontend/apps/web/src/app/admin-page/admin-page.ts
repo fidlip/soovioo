@@ -63,6 +63,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
+import { NicknameApproval } from '../nickname-approval/nickname-approval';
 import { foldForSearch, matchesContact } from '../text-search';
 
 /** The sections each group of Administrace shows itself; Výuka and Archiv
@@ -160,6 +161,7 @@ import { Loading } from '../loading/loading';
 @Component({
   selector: 'app-admin-page',
   imports: [
+    NicknameApproval,
     ClearFilters,
     FloatField,
     DateFormatPipe,

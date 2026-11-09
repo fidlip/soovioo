@@ -23,12 +23,14 @@ import {
   SchoolHalfYear,
   Student,
   StudentsApiService,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',
@@ -74,6 +76,7 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
 @Component({
   selector: 'app-behavior-page',
   imports: [
+    PersonName,
     FloatField,
     DateFormatPipe,
     ...FORM_FIELDS,
@@ -112,7 +115,7 @@ export class BehaviorPage {
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName}`,
+      label: nameText(`${s.firstName} ${s.lastName}`, s.label),
     })),
   );
   private readonly studentsById = computed(

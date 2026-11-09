@@ -64,6 +64,7 @@ import {
   localizeStudentTerm,
   timetableVersionOn,
   subjectClassroomIds,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { SchoolContextService } from '../school-context';
@@ -400,7 +401,7 @@ export class TimetablePage {
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName} (${s.schoolClassName})`,
+      label: `${nameText(`${s.firstName} ${s.lastName}`, s.label)} (${s.schoolClassName})`,
     })),
   );
 

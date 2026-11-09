@@ -51,7 +51,7 @@
     <app-avatar [name]="p.name" [photoUrl]="photoUrl(p)" [size]="44" />
     <div class="min-w-0">
       <div class="font-medium text-surface-900 dark:text-surface-0">
-        {{ p.name }}
+        <app-person-name [name]="p.name" [label]="p.label" />
       </div>
       <div class="text-sm text-surface-500">
         {{ kindLabel(p) }}@if (p.notes) { · {{ p.notes }} } @if

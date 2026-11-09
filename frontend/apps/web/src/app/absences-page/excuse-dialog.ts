@@ -20,6 +20,7 @@ import {
   StudentsApiService,
   formatDate,
   reachesStudent,
+  nameText,
 } from '@soovioo/shared';
 import { concat, last, Observable, of } from 'rxjs';
 import { FilePicker } from '../file-picker/file-picker';
@@ -247,7 +248,10 @@ export class ExcuseDialog {
   protected readonly studentOptions = computed(() =>
     (this.students() ?? [])
       .filter((s) => reachesStudent(this.reach(), s.id))
-      .map((s) => ({ id: s.id, label: `${s.firstName} ${s.lastName}` })),
+      .map((s) => ({
+        id: s.id,
+        label: nameText(`${s.firstName} ${s.lastName}`, s.label),
+      })),
   );
 
   protected readonly channelOptions = Object.entries(EXCUSE_CHANNEL_LABELS).map(

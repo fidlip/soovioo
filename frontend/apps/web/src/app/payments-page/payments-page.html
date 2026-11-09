@@ -158,8 +158,10 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <strong class="text-surface-900 dark:text-surface-0"
-                >{{ recipient.studentName }}</strong
-              >
+                ><app-person-name
+                  [name]="recipient.studentName"
+                  [label]="recipient.studentLabel"
+              /></strong>
               @if (classOfStudent(recipient.studentId); as className) {
               <span class="text-sm text-surface-500">{{ className }}</span>
               }
@@ -441,7 +443,12 @@
       <div class="font-semibold text-surface-900 dark:text-surface-0">
         {{ d.payment.title }}
       </div>
-      <div class="text-sm text-surface-500">{{ d.recipient.studentName }}</div>
+      <div class="text-sm text-surface-500">
+        <app-person-name
+          [name]="d.recipient.studentName"
+          [label]="d.recipient.studentLabel"
+        />
+      </div>
     </div>
     <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
       <dt class="text-surface-500">Částka</dt>
@@ -497,7 +504,13 @@
   @if (target.payment.description) {
   <p>{{ target.payment.description }}</p>
   }
-  <p>{{ 'Žák' | term }}: {{ target.recipient.studentName }}</p>
+  <p>
+    {{ 'Žák' | term }}:
+    <app-person-name
+      [name]="target.recipient.studentName"
+      [label]="target.recipient.studentLabel"
+    />
+  </p>
   <p>Částka: {{ target.recipient.amount }} Kč</p>
   @if (target.recipient.effectiveVariableSymbol) {
   <p>Variabilní symbol: {{ target.recipient.effectiveVariableSymbol }}</p>

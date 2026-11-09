@@ -26,6 +26,7 @@ import {
   SubjectsApiService,
   formatDate,
   localizeStudentTerm,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -59,6 +60,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
   label: 'Žák',
   key: (g) => g.studentId,
   text: (g) => g.studentName,
+  nameLabel: (g) => g.studentLabel,
 };
 
 @Component({
@@ -99,7 +101,7 @@ export class GradesPage {
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName}`,
+      label: nameText(`${s.firstName} ${s.lastName}`, s.label),
     })),
   );
 

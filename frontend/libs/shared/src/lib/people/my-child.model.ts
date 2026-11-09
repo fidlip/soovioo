@@ -6,4 +6,7 @@ export interface MyChild {
   name: string;
   className: string;
   visibility: VisibilitySetting[];
+  nickname: string | null;
+  /** The child's own, waiting for the parent's approval. */
+  nicknameProposal: string | null;
 }

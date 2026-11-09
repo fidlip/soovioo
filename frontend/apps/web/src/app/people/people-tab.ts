@@ -38,6 +38,7 @@ import { foldForSearch, matchesContact } from '../text-search';
 import { PersonDialog, PersonDialogTarget } from './person-dialog';
 import { personPhotoUrl } from './person-photo';
 import { Loading } from '../loading/loading';
+import { NicknameApproval } from '../nickname-approval/nickname-approval';
 
 type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';
 
@@ -56,6 +57,7 @@ function isInClass(person: Person, classId: number): boolean {
 @Component({
   selector: 'app-people-tab',
   imports: [
+    NicknameApproval,
     Avatar,
     Button,
     Card,

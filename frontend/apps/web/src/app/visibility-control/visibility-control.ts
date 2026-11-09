@@ -17,10 +17,11 @@ import {
   VISIBILITY_FIELD_LABELS,
   VISIBILITY_OWNER_ROLE_LABELS,
   VISIBILITY_SCOPE_ICONS,
-  VISIBILITY_SCOPE_LABELS,
-  VISIBILITY_SCOPE_SHORT,
+  scopeLabel,
   scopeRank,
+  scopeShort,
   widestScope,
+  widestScopeFor,
 } from '../visibility-options';
 
 interface ScopeOption {
@@ -75,15 +76,28 @@ export class VisibilityControl {
   protected readonly icon = computed(
     () => VISIBILITY_SCOPE_ICONS[this.scope()],
   );
-  protected readonly short = computed(
-    () => VISIBILITY_SCOPE_SHORT[this.scope()],
+  protected readonly short = computed(() =>
+    scopeShort(
+      { field: this.field(), audience: this.own()[0]?.audience ?? 'Parents' },
+      this.scope(),
+    ),
   );
+
+  /** Who sees regardless of the choice. */
+  protected readonly footnote = computed(() => {
+    if (this.field() !== 'Nickname') {
+      return 'Vedení školy a učitelé vidí podle svých oprávnění.';
+    }
+    return this.own().some((s) => s.owner === 'Student')
+      ? 'Rodiče přezdívku vidí vždy, vedení školy nikdy. Učitel si přezdívky může vypnout.'
+      : 'Přezdívku rodiče vidí nejvýš jeho děti.';
+  });
 
   /** "Rodiče: Moje třídy, Žáci: Nikdo" */
   protected readonly summary = computed(() => {
     const parts = this.own().map(
       (s) =>
-        `${VISIBILITY_AUDIENCE_LABELS[s.audience]}: ${VISIBILITY_SCOPE_LABELS[s.scope]}`,
+        `${VISIBILITY_AUDIENCE_LABELS[s.audience]}: ${scopeLabel(s, s.scope)}`,
     );
     return `${this.fieldLabel()} — vidí ${parts.join(', ')}`;
   });
@@ -135,14 +149,17 @@ export class VisibilityControl {
               s.audience === setting.audience &&
               s.field === 'Name',
           );
-    return VISIBILITY_SCOPES.map((value) => ({
-      label: VISIBILITY_SCOPE_LABELS[value],
-      value,
-      disabled:
-        !setting.editable ||
-        scopeRank(value) < scopeRank(setting.min) ||
-        scopeRank(value) > scopeRank(setting.max) ||
-        (name !== undefined && scopeRank(value) > scopeRank(name.scope)),
-    }));
+    const widest = scopeRank(widestScopeFor(setting));
+    return VISIBILITY_SCOPES.filter((value) => scopeRank(value) <= widest).map(
+      (value) => ({
+        label: scopeLabel(setting, value),
+        value,
+        disabled:
+          !setting.editable ||
+          scopeRank(value) < scopeRank(setting.min) ||
+          scopeRank(value) > scopeRank(setting.max) ||
+          (name !== undefined && scopeRank(value) > scopeRank(name.scope)),
+      }),
+    );
   }
 }

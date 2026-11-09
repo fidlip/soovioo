@@ -16,6 +16,7 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  NameTextPipe,
 } from '@soovioo/shared';
 import {
   HIGHLIGHT_STYLES,
@@ -28,7 +29,7 @@ import { NavBarComponent } from '../nav-bar/nav-bar.component';
 @Component({
   selector: 'ns-home',
   templateUrl: './home.component.html',
-  imports: [NativeScriptCommonModule, NavBarComponent],
+  imports: [NativeScriptCommonModule, NavBarComponent, NameTextPipe],
   schemas: [NO_ERRORS_SCHEMA],
   styles: [HIGHLIGHT_STYLES],
 })

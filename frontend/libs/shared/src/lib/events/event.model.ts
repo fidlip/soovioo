@@ -1,3 +1,4 @@
+import { NameLabel } from '../people/name-label.model';
 /** Named SchoolEvent, not Event — "Event" would shadow the DOM's global
  * Event type in every file that imports it. */
 export interface SchoolEvent {
@@ -62,6 +63,7 @@ export interface StudentOption {
   schoolClassId: number;
   schoolClassName: string;
   rocnik?: number;
+  label?: NameLabel | null;
 }
 
 /** What the current caller (Teacher/Admin) may pick as event recipients —

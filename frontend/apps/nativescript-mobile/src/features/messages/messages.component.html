@@ -17,7 +17,7 @@
         ></Label>
         <Label
           *ngIf="item.studentName"
-          [text]="item.studentName"
+          [text]="item.studentName | nameText: item.studentLabel"
           class="text-sm"
         ></Label>
         <Label
@@ -41,7 +41,10 @@
     <ListView row="1" [items]="conversation.messages">
       <ng-template let-message="item">
         <StackLayout class="p-4">
-          <Label [text]="message.senderName" class="font-bold text-sm"></Label>
+          <Label
+            [text]="message.senderName | nameText: message.senderLabel"
+            class="font-bold text-sm"
+          ></Label>
           <Label [text]="message.body" textWrap="true"></Label>
         </StackLayout>
       </ng-template>

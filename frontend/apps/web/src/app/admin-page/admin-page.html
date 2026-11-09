@@ -83,6 +83,13 @@
               />
               }
             </div>
+            @if (student.nicknameProposal) {
+            <app-nickname-approval
+              [studentId]="student.id"
+              [proposal]="student.nicknameProposal"
+              (decided)="reload()"
+            />
+            }
           </td>
           <td>{{ student.schoolClassName }}</td>
           <td>{{ student.dateOfBirth ?? '—' }}</td>

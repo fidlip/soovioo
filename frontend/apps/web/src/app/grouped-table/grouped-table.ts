@@ -10,7 +10,9 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { NameLabel } from '@soovioo/shared';
 import { Loading } from '../loading/loading';
+import { PersonName } from '../person-name/person-name';
 
 /** One grouping level — rows sharing the same `key` (and the same keys on
  * every level above) belong to one group. */
@@ -20,6 +22,8 @@ export interface GroupLevel<T> {
   key: (row: T) => string | number;
   /** Shown in the group column (desktop) / as the group heading (mobile). */
   text: (row: T) => string;
+  /** A pupil's group: how the caller sees them besides `text` (nickname). */
+  nameLabel?: (row: T) => NameLabel | null | undefined;
 }
 
 interface GroupedRow<T> {
@@ -33,6 +37,7 @@ interface GroupedRow<T> {
 interface GroupNode<T> {
   key: string | number;
   text: string;
+  nameLabel: NameLabel | null | undefined;
   children: GroupNode<T>[];
   rows: T[];
 }
@@ -52,7 +57,7 @@ const DESKTOP_QUERY = '(min-width: 768px)';
  * under a row while `isExpanded(row)`; rows then emit `rowClick`). */
 @Component({
   selector: 'app-grouped-table',
-  imports: [Loading, NgTemplateOutlet],
+  imports: [Loading, NgTemplateOutlet, PersonName],
   templateUrl: './grouped-table.html',
 })
 export class GroupedTable<T> {
@@ -136,7 +141,13 @@ export class GroupedTable<T> {
       const key = level.key(row);
       let node = nodes[nodes.length - 1];
       if (!node || node.key !== key) {
-        node = { key, text: level.text(row), children: [], rows: [] };
+        node = {
+          key,
+          text: level.text(row),
+          nameLabel: level.nameLabel?.(row),
+          children: [],
+          rows: [],
+        };
         nodes.push(node);
       }
       node.rows.push(row);

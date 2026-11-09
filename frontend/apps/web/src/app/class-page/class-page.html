@@ -57,8 +57,8 @@
         class="flex items-center gap-2 text-surface-700 dark:text-surface-200"
         [class.font-semibold]="c.studentId === d.studentId"
       >
-        <app-avatar [name]="c.name" [photoUrl]="classmatePhotoUrl(c)" />{{
-        c.name }}
+        <app-avatar [name]="c.name" [photoUrl]="classmatePhotoUrl(c)" />
+        <app-person-name [name]="c.name" [label]="c.label" />
       </li>
       }
     </ul>

@@ -65,6 +65,8 @@ export * from './lib/auth/teachers-api.service';
 export * from './lib/auth/parent.model';
 export * from './lib/auth/parents-api.service';
 export * from './lib/people/visibility.model';
+export * from './lib/people/name-label.model';
+export * from './lib/people/name-text.pipe';
 export * from './lib/people/person.model';
 export * from './lib/people/teacher-wishes-api.service';
 export * from './lib/people/people-api.service';

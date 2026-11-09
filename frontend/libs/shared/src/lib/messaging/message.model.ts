@@ -1,3 +1,4 @@
+import { NameLabel } from '../people/name-label.model';
 export interface MessageAttachment {
   id: number;
   fileName: string;
@@ -13,11 +14,14 @@ export interface Message {
   body: string;
   sentAt: string;
   attachments: MessageAttachment[];
+  /** How the caller sees the sender when not by `senderName`. */
+  senderLabel?: NameLabel | null;
 }
 
 export interface ConversationParticipant {
   userId: number;
   name: string;
+  label?: NameLabel | null;
   /** Photo token for `PhotosApiService` URLs — present only when the
    * caller may see the photo. */
   photo?: string | null;
@@ -42,6 +46,7 @@ export interface ConversationSummary {
   broadcastConversationCount?: number | null;
   broadcastRepliedCount?: number | null;
   broadcastUnreadCount?: number | null;
+  studentLabel?: NameLabel | null;
 }
 
 export interface BroadcastAttachment {
@@ -57,6 +62,7 @@ export interface BroadcastConversation {
   replyCount: number;
   lastMessageAt: string;
   unread: boolean;
+  studentLabel?: NameLabel | null;
 }
 
 /** A bulk send with every family's conversation (sender only). */
@@ -79,6 +85,7 @@ export interface Conversation {
   participants: ConversationParticipant[];
   /** Oldest first. */
   messages: Message[];
+  studentLabel?: NameLabel | null;
 }
 
 /** Staff: `studentId` = whose family to write to. Parent/pupil:

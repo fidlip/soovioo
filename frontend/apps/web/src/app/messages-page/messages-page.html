@@ -61,7 +61,9 @@
             ({{ c.broadcastUnreadCount }} nepřečtené) }
           </div>
           } @else if (c.studentName) {
-          <div class="text-xs text-surface-500">{{ c.studentName }}</div>
+          <div class="text-xs text-surface-500">
+            <app-person-name [name]="c.studentName" [label]="c.studentLabel" />
+          </div>
           }
           <div
             class="mt-1 flex items-center gap-2 text-xs text-surface-600 dark:text-surface-300"
@@ -120,8 +122,12 @@
         <div class="min-w-0">
           <h2 class="m-0 text-lg">{{ conversation.subject }}</h2>
           <div class="text-sm text-surface-500">
-            @if (conversation.studentName) { {{ conversation.studentName }} · }
-            {{ otherParticipants(conversation) }}
+            @if (conversation.studentName) {
+            <app-person-name
+              [name]="conversation.studentName"
+              [label]="conversation.studentLabel"
+            />
+            · } {{ otherParticipants(conversation) }}
           </div>
         </div>
       </div>
@@ -143,9 +149,10 @@
               >@if (!isMine(message)) {<app-avatar
                 [name]="message.senderName"
                 [photoUrl]="senderPhotoUrl(conversation, message)"
-                [size]="24"
-              />}{{ message.senderName }}</span
-            >
+                [size]="24" />}<app-person-name
+                [name]="message.senderName"
+                [label]="message.senderLabel"
+            /></span>
             <span class="flex items-center gap-1"
               >{{ message.sentAt | dateFormat: 'dateTime' }} @if
               (isMine(message)) {
@@ -291,7 +298,10 @@
               <span
                 class="block truncate text-sm text-surface-900 dark:text-surface-0"
                 [class.font-bold]="item.unread"
-                >{{ item.studentName ?? item.participants.join(', ') }}</span
+                >@if (item.studentName) {<app-person-name
+                  [name]="item.studentName"
+                  [label]="item.studentLabel"
+                />} @else { {{ item.participants.join(', ') }} }</span
               >
               <span class="block truncate text-xs text-surface-500"
                 >{{ item.participants.join(', ') }}</span

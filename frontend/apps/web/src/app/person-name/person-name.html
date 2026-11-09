@@ -1,0 +1,17 @@
+@if (label(); as l) { @if (l.secondary) {
+<span
+  [class]="
+    layout() === 'stacked'
+      ? 'inline-flex flex-col leading-tight'
+      : 'inline-flex flex-wrap items-baseline gap-x-1.5'
+  "
+  ><span>{{ l.primary }}</span
+  ><span class="text-xs font-normal text-surface-500 dark:text-surface-400"
+    >{{ l.secondary }}</span
+  ></span
+>
+} @else {
+<span>{{ l.primary }}</span>
+} } @else {
+<span>{{ name() }}</span>
+}

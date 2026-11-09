@@ -1,7 +1,10 @@
+import { NameLabel } from '../people/name-label.model';
 export interface Grade {
   id: number;
   studentId: number;
   studentName: string;
+  /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
+  studentLabel?: NameLabel | null;
   subjectId: number;
   subjectName: string;
   value: number;

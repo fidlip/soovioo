@@ -19,9 +19,10 @@ import {
   VISIBILITY_FIELDS,
   VISIBILITY_FIELD_LABELS,
   VISIBILITY_OWNER_LABELS,
-  VISIBILITY_SCOPE_LABELS,
+  scopeLabel,
   scopeRank,
   scopesBetween,
+  widestScopeFor,
 } from '../visibility-options';
 import { Loading } from '../loading/loading';
 
@@ -52,6 +53,7 @@ export class VisibilitySettings {
   protected readonly rules = signal<VisibilityRule[] | null>(null);
   protected readonly studentPhotos = signal(false);
   protected readonly parentPhotos = signal(false);
+  protected readonly staffSeeStudentNicknames = signal(true);
 
   protected readonly groups = computed(() => {
     const rules = this.rules();
@@ -100,9 +102,9 @@ export class VisibilitySettings {
     const scopes =
       bound === 'default'
         ? scopesBetween(rule.min, rule.max)
-        : scopesBetween('Nobody', 'School');
+        : scopesBetween('Nobody', widestScopeFor(rule));
     return scopes.map((value) => ({
-      label: VISIBILITY_SCOPE_LABELS[value],
+      label: scopeLabel(rule, value),
       value,
     }));
   }
@@ -137,6 +139,7 @@ export class VisibilitySettings {
         rules,
         studentPhotos: this.studentPhotos(),
         parentPhotos: this.parentPhotos(),
+        staffSeeStudentNicknames: this.staffSeeStudentNicknames(),
       })
       .subscribe({
         next: (saved) => {
@@ -151,5 +154,6 @@ export class VisibilitySettings {
     this.rules.set(settings.rules);
     this.studentPhotos.set(settings.studentPhotos);
     this.parentPhotos.set(settings.parentPhotos);
+    this.staffSeeStudentNicknames.set(settings.staffSeeStudentNicknames);
   }
 }

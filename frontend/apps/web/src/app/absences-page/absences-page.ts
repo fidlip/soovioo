@@ -36,6 +36,7 @@ import {
   formatDate,
   localizeStudentTerm,
   reachesStudent,
+  nameText,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -53,6 +54,7 @@ import {
   StudentDayPeriods,
   toDateOnlyString,
 } from './student-day-periods';
+import { PersonName } from '../person-name/person-name';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -80,6 +82,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
 @Component({
   selector: 'app-absences-page',
   imports: [
+    PersonName,
     DecisionMenu,
     ClearFilters,
     FloatField,
@@ -143,7 +146,7 @@ export class AbsencesPage {
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
       id: s.id,
-      label: `${s.firstName} ${s.lastName}`,
+      label: nameText(`${s.firstName} ${s.lastName}`, s.label),
     })),
   );
 
@@ -196,6 +199,7 @@ export class AbsencesPage {
       label: localizeStudentTerm('Žák', this.authApi.getSchoolType()),
       key: (a) => a.studentId,
       text: (a) => a.studentName,
+      nameLabel: (a) => a.studentLabel,
     },
   ];
 
@@ -413,7 +417,7 @@ export class AbsencesPage {
 
   protected reject(absence: Absence): void {
     this.rejectDialog().open(
-      `Zamítnout omluvenku — ${absence.studentName}`,
+      `Zamítnout omluvenku — ${nameText(absence.studentName, absence.studentLabel)}`,
       (note) =>
         this.absencesApi.reviewAbsence(absence.id, false, note).subscribe({
           next: () => this.reload(),

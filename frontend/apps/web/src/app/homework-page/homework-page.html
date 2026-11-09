@@ -134,8 +134,11 @@
           (ngModelChange)="markComplete(item, student.id)"
           [ngModelOptions]="{ standalone: true }"
         />
-        {{ student.firstName }} {{ student.lastName }} — {{ isCompletedBy(item,
-        student.id) ? 'splněno' : 'nesplněno' }}
+        <app-person-name
+          [name]="student.firstName + ' ' + student.lastName"
+          [label]="student.label"
+        />
+        — {{ isCompletedBy(item, student.id) ? 'splněno' : 'nesplněno' }}
       </label>
       }
     </div>
