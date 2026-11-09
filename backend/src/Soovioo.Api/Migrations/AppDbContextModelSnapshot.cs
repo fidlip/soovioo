@@ -1245,6 +1245,49 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("Grades");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Grades.ReportCardGrade", b =>
+                {
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolYearStartYear")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HalfYear")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConfirmedByName")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SetByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("Value")
+                        .HasColumnType("integer");
+
+                    b.HasKey("StudentId", "SubjectId", "SchoolYearStartYear", "HalfYear");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("ReportCardGrades");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Homework.Homework", b =>
                 {
                     b.Property<int>("Id")
@@ -3587,6 +3630,25 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("School");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Grades.ReportCardGrade", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Student");
 

@@ -89,6 +89,7 @@ public class StudentEraser(
                     await db.DeleteAsync(excuses);
                     break;
                 case RetentionCategory.Grades:
+                    await db.DeleteAsync(db.ReportCardGrades.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
                     await db.DeleteAsync(db.Grades.IgnoreQueryFilters().Where(x => x.SchoolId == schoolId && x.StudentId == id));
                     break;
                 case RetentionCategory.Payments:

@@ -193,12 +193,15 @@ public class ScopeTests
     public async Task AReportCardOnlyForPupilsWithinReach()
     {
         QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
-        var reportCard = (ClaimsPrincipal user) =>
-            As(new ReportCardController(db, new FakeCurrentSchoolContext(SchoolId)), user);
+        var reportCards = (ClaimsPrincipal user) =>
+            As(new ReportCardsController(db, new FakeCurrentSchoolContext(SchoolId)), user);
 
-        Assert.IsType<ForbidResult>(await reportCard(Teacher).GetReportCard(oto.Id));
-        Assert.IsType<ForbidResult>(await reportCard(Parent).GetReportCard(eva.Id));
-        Assert.IsNotType<ForbidResult>(await reportCard(Parent).GetReportCard(jan.Id));
+        Assert.IsType<NotFoundResult>(await reportCards(Teacher).GetPdf(2025, SchoolHalfYear.First, studentId: oto.Id));
+        Assert.IsType<NotFoundResult>(await reportCards(Parent).GetPdf(2025, SchoolHalfYear.First, studentId: eva.Id));
+        Assert.IsType<FileContentResult>(await reportCards(Parent).GetPdf(2025, SchoolHalfYear.First, studentId: jan.Id));
+        Assert.Empty(Ok(await reportCards(Teacher).GetReportCards(2025, SchoolHalfYear.First, studentId: oto.Id)));
+        Assert.IsType<ForbidResult>(await reportCards(Teacher).SetGrade(
+            new(oto.Id, maths.Id, 2025, SchoolHalfYear.First, ReportCardGradeKind.Graded, 1)));
     }
 
     // ---- absences -------------------------------------------------------
