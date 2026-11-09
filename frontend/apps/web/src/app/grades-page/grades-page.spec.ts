@@ -31,6 +31,21 @@ describe('GradesPage', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    // jsdom has none; the tabs watch their own size.
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {
+          /* unused */
+        }
+        unobserve() {
+          /* unused */
+        }
+        disconnect() {
+          /* unused */
+        }
+      },
+    );
     await TestBed.configureTestingModule({
       imports: [GradesPage],
       providers: [
@@ -47,7 +62,10 @@ describe('GradesPage', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    httpMock.verify();
+    vi.unstubAllGlobals();
+  });
 
   const gradesRequest = () =>
     httpMock.expectOne(
