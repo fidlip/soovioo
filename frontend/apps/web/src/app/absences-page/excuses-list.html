@@ -1,0 +1,221 @@
+<div class="mb-3 flex flex-wrap items-end gap-3">
+  <app-float-field label="Žák" for="excuseFilterStudent">
+    <p-select
+      ariaLabel="Žák"
+      inputId="excuseFilterStudent"
+      [options]="studentOptions()"
+      optionLabel="label"
+      optionValue="id"
+      [(ngModel)]="filterStudentId"
+      [showClear]="true"
+      name="excuseFilterStudent"
+      appendTo="body"
+      styleClass="w-52"
+    />
+  </app-float-field>
+  <app-float-field label="Stav" for="excuseFilterStatus">
+    <p-select
+      ariaLabel="Stav"
+      inputId="excuseFilterStatus"
+      [options]="statusOptions"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="filterStatus"
+      [showClear]="true"
+      name="excuseFilterStatus"
+      appendTo="body"
+      styleClass="w-48"
+    />
+  </app-float-field>
+  @if (filterStudentId !== null || filterStatus !== null) {
+  <app-clear-filters (cleared)="clearFilters()" />
+  }
+</div>
+
+<app-grouped-table
+  [rows]="rows()"
+  [groups]="groups()"
+  [rowKey]="excuseId"
+  [rowElementId]="excuseElementId"
+  [loading]="excuses() === null"
+  emptyMessage="Žádné omluvenky."
+>
+  <ng-template #headerCells>
+    @if (isStaff()) {
+    <th class="px-4 py-3 font-semibold">Žák</th>
+    }
+    <th class="px-4 py-3 font-semibold">Období</th>
+    <th class="px-4 py-3 font-semibold">Důvod</th>
+    <th class="px-4 py-3 font-semibold">Stav</th>
+    <th class="px-4 py-3"><span class="sr-only">Akce</span></th>
+  </ng-template>
+
+  <ng-template #rowCells let-excuse>
+    @if (isStaff()) {
+    <td class="px-4 py-2 align-middle">{{ excuse.studentName }}</td>
+    }
+    <td class="whitespace-nowrap px-4 py-2 align-middle">
+      {{ range(excuse) }} @if (excuse.periods.length > 0) {
+      <div class="text-xs text-surface-500">
+        {{ periods(excuse.periods) }} hodina
+      </div>
+      }
+    </td>
+    <td class="px-4 py-2 align-middle">
+      <ng-container
+        *ngTemplateOutlet="reasonInfo; context: { $implicit: excuse }"
+      />
+    </td>
+    <td class="px-4 py-2 align-middle">
+      <p-tag
+        [value]="statusLabel[status(excuse)]"
+        [severity]="statusSeverity[status(excuse)]"
+      />
+      <ng-container
+        *ngTemplateOutlet="dayDecisions; context: { $implicit: excuse }"
+      />
+    </td>
+    <td class="px-4 py-2 align-middle">
+      <div class="flex flex-wrap justify-end gap-2">
+        <ng-container
+          *ngTemplateOutlet="reviewActions; context: { $implicit: excuse }"
+        />
+        <ng-container
+          *ngTemplateOutlet="editActions; context: { $implicit: excuse }"
+        />
+      </div>
+    </td>
+  </ng-template>
+
+  <ng-template #mobileRow let-excuse>
+    <div class="flex items-center gap-3 text-sm">
+      <span class="min-w-0 flex-1 font-medium">
+        @if (isStaff()) { {{ excuse.studentName }} } @else { {{ range(excuse) }}
+        }
+      </span>
+      <ng-container
+        *ngTemplateOutlet="editActions; context: { $implicit: excuse }"
+      />
+    </div>
+    <div
+      class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-surface-500"
+    >
+      <p-tag
+        [value]="statusLabel[status(excuse)]"
+        [severity]="statusSeverity[status(excuse)]"
+      />
+      <span
+        >@if (isStaff()) { {{ range(excuse) }} } @if (excuse.periods.length > 0)
+        { · {{ periods(excuse.periods) }} hodina }</span
+      >
+    </div>
+    <ng-container
+      *ngTemplateOutlet="dayDecisions; context: { $implicit: excuse }"
+    />
+    <div class="mt-1 text-sm">
+      <ng-container
+        *ngTemplateOutlet="reasonInfo; context: { $implicit: excuse }"
+      />
+    </div>
+    <div class="mt-1.5 flex flex-wrap gap-2 empty:hidden">
+      <ng-container
+        *ngTemplateOutlet="reviewActions; context: { $implicit: excuse }"
+      />
+    </div>
+  </ng-template>
+</app-grouped-table>
+
+<ng-template #reasonInfo let-excuse>
+  <div>{{ excuse.reason }}</div>
+  @for (file of excuse.attachments; track file.id) {
+  <p-button
+    [label]="file.fileName + ' (' + fileSize(file.sizeBytes) + ')'"
+    icon="pi pi-paperclip"
+    size="small"
+    [link]="true"
+    styleClass="px-0"
+    (onClick)="download(excuse.id, file)"
+  />
+  } @if (excuse.createdByName) {
+  <div class="text-xs text-surface-500">
+    Napsal(a) {{ excuse.createdByName }}{{ excuse.channel ? ' · ' +
+    channelLabel(excuse) : '' }}
+  </div>
+  }
+</ng-template>
+
+<ng-template #dayDecisions let-excuse>
+  @if (mixed(excuse)) {
+  <ul class="m-0 mt-1 list-none p-0 text-xs">
+    @for (day of excuse.days; track day.absenceId) {
+    <li
+      [class]="day.status === 'Rejected' ? 'text-red-700 dark:text-red-300' : ''"
+    >
+      {{ dayText(day) }}
+    </li>
+    }
+  </ul>
+  } @else { @for (note of notes(excuse); track note) {
+  <div class="mt-1 text-xs text-red-700 dark:text-red-300">{{ note }}</div>
+  } }
+</ng-template>
+
+<ng-template #reviewActions let-excuse>
+  @if (canReview() && waiting(excuse)) {
+  <span
+    [pTooltip]="
+      approvable(excuse) ? '' : 'Schválit jde nejdříve v den absence.'
+    "
+  >
+    <p-button
+      [label]="mixed(excuse) ? 'Schválit zbývající dny' : 'Schválit'"
+      icon="pi pi-check"
+      size="small"
+      severity="success"
+      [disabled]="!approvable(excuse)"
+      (onClick)="approve(excuse)"
+    />
+  </span>
+  <p-button
+    [label]="mixed(excuse) ? 'Zamítnout zbývající dny' : 'Zamítnout'"
+    icon="pi pi-times"
+    size="small"
+    severity="danger"
+    [outlined]="true"
+    (onClick)="reject(excuse)"
+  />
+  } @if (canReview() && !waiting(excuse)) {
+  <app-decision-menu
+    [approved]="has(excuse, 'Excused')"
+    [rejected]="has(excuse, 'Rejected')"
+    [approvable]="approvable(excuse)"
+    (approve)="approve(excuse)"
+    (reject)="reject(excuse)"
+    (reopen)="reopen(excuse)"
+  />
+  }
+</ng-template>
+
+<ng-template #editActions let-excuse>
+  @if (canReview() || (isFamily() && waiting(excuse))) {
+  <div class="flex gap-1">
+    <p-button
+      icon="pi pi-pencil"
+      ariaLabel="Upravit"
+      size="small"
+      [text]="true"
+      (onClick)="edit.emit(excuse)"
+    />
+    <p-button
+      icon="pi pi-trash"
+      ariaLabel="Smazat"
+      size="small"
+      severity="danger"
+      [text]="true"
+      (onClick)="remove(excuse)"
+    />
+  </div>
+  }
+</ng-template>
+
+<app-reject-dialog />

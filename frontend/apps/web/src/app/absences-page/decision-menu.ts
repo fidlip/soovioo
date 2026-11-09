@@ -31,33 +31,29 @@ export class DecisionMenu {
   readonly reject = output<void>();
   readonly reopen = output<void>();
 
+  private readonly approveItem = computed<MenuItem>(() => ({
+    label: 'Schválit',
+    icon: 'pi pi-check',
+    disabled: !this.approvable(),
+    title: this.approvable()
+      ? undefined
+      : 'Schválit jde nejdříve v den absence.',
+    command: () => this.approve.emit(),
+  }));
+  private readonly rejectItem: MenuItem = {
+    label: 'Zamítnout',
+    icon: 'pi pi-times',
+    command: () => this.reject.emit(),
+  };
+  /** The same objects across decisions — the open menu keeps its items. */
+  private readonly reopenItem: MenuItem = {
+    label: 'Vrátit k posouzení',
+    icon: 'pi pi-undo',
+    command: () => this.reopen.emit(),
+  };
   protected readonly items = computed<MenuItem[]>(() => [
-    ...(this.rejected()
-      ? [
-          {
-            label: 'Schválit',
-            icon: 'pi pi-check',
-            disabled: !this.approvable(),
-            title: this.approvable()
-              ? undefined
-              : 'Schválit jde nejdříve v den absence.',
-            command: () => this.approve.emit(),
-          },
-        ]
-      : []),
-    ...(this.approved()
-      ? [
-          {
-            label: 'Zamítnout',
-            icon: 'pi pi-times',
-            command: () => this.reject.emit(),
-          },
-        ]
-      : []),
-    {
-      label: 'Vrátit k posouzení',
-      icon: 'pi pi-undo',
-      command: () => this.reopen.emit(),
-    },
+    ...(this.rejected() ? [this.approveItem()] : []),
+    ...(this.approved() ? [this.rejectItem] : []),
+    this.reopenItem,
   ]);
 }
