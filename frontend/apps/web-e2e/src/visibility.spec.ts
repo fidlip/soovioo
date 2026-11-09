@@ -57,7 +57,7 @@ test('the class list reaches parents only while the school shares it', async ({
       shared ? 1 : 0,
     );
     if (shared) {
-      await expect(parent.getByText('Jan Novák')).toBeVisible();
+      await expect(parent.getByText('Jan', { exact: true })).toBeVisible();
     }
     await parent.close();
   }

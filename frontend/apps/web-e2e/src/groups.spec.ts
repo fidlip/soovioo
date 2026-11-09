@@ -267,9 +267,7 @@ test('a pupil leaving a group of the valid version tells the family', async ({
     ).json();
     return items.find(
       (n: { title: string; body: string; read: boolean }) =>
-        n.title === 'Změna rozvrhu — Jan Novák' &&
-        n.body.includes(SEEDED) &&
-        !n.read,
+        n.title === 'Změna rozvrhu — Jan' && n.body.includes(SEEDED) && !n.read,
     );
   };
   // A rerun on the same data: what's unread from before would take this in.
