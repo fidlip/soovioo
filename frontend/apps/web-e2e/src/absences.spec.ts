@@ -321,9 +321,9 @@ test('the list says it is loading, not that there is nothing, until the absences
   });
   await login(page, 'ucitel', 'ucitel123');
 
-  const table = page.locator('table');
-  await expect(table.getByRole('status')).toHaveText('Načítání…');
-  await expect(table.getByText('Žádné záznamy.')).toHaveCount(0);
+  const list = page.locator('app-grouped-table');
+  await expect(list.getByRole('status')).toHaveText('Načítání…');
+  await expect(list.getByText('Žádné záznamy.')).toHaveCount(0);
   release();
-  await expect(table.getByRole('status')).toHaveCount(0);
+  await expect(list.getByRole('status')).toHaveCount(0);
 });

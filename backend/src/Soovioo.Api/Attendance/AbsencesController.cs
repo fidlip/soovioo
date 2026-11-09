@@ -31,6 +31,8 @@ public class AbsencesController(
 
         var absences = await query
             .OrderByDescending(a => a.Date)
+            .ThenBy(a => a.Student!.Person!.LastName)
+            .ThenBy(a => a.Student!.Person!.FirstName)
             .Select(AbsenceDto.Projection)
             .ToListAsync();
 

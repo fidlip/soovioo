@@ -64,139 +64,188 @@
       </p>
       } }
 
-      <p-table
-        [value]="filteredAbsences()"
-        dataKey="id"
-        styleClass="rounded-border"
+      <app-grouped-table
+        [rows]="rows()"
+        [groups]="groups()"
+        [rowKey]="absenceId"
+        [rowElementId]="absenceElementId"
+        [loading]="absences() === null"
       >
-        <ng-template pTemplate="header">
-          <tr>
-            <th>{{ 'Žák' | term }}</th>
-            <th>Datum</th>
-            <th>Hodiny</th>
-            <th>Stav</th>
-            <th>Omluvenka</th>
-            <th><span class="sr-only">Akce</span></th>
+        <ng-template #headerCells>
+          <th class="px-4 py-3 font-semibold">
+            @if (isStaff()) { {{ 'Žák' | term }} } @else { Datum }
+          </th>
+          <th class="px-4 py-3 font-semibold">Hodiny</th>
+          <th class="px-4 py-3 font-semibold">Stav</th>
+          <th class="px-4 py-3 font-semibold">Omluvenka</th>
+          <th class="px-4 py-3"><span class="sr-only">Akce</span></th>
+          @if (canManageAbsences()) {
+          <th class="px-4 py-3"><span class="sr-only">Akce</span></th>
+          }
+        </ng-template>
+
+        <ng-template #rowCells let-absence>
+          <td class="whitespace-nowrap px-4 py-2 align-middle">
+            <ng-container
+              *ngTemplateOutlet="rowLabel; context: { $implicit: absence }"
+            />
+          </td>
+          <td
+            class="px-4 py-2 align-middle text-surface-600 dark:text-surface-300"
+          >
+            {{ formatPeriods(absence.periods) }}
+          </td>
+          <td class="px-4 py-2 align-middle">
+            <p-tag
+              [value]="statusLabel(absence.status)"
+              [severity]="statusSeverity(absence.status)"
+            />
+          </td>
+          <td class="px-4 py-2 align-middle text-surface-500">
+            <ng-container
+              *ngTemplateOutlet="excuseInfo; context: { $implicit: absence }"
+            />
+          </td>
+          <td class="px-4 py-2 align-middle">
+            <ng-container
+              *ngTemplateOutlet="decisionActions; context: { $implicit: absence }"
+            />
+          </td>
+          @if (canManageAbsences()) {
+          <td class="px-4 py-1 align-middle">
+            <ng-container
+              *ngTemplateOutlet="editActions; context: { $implicit: absence }"
+            />
+          </td>
+          }
+        </ng-template>
+
+        <ng-template #mobileRow let-absence>
+          <div class="flex items-center gap-3 text-sm">
+            <span class="min-w-0 flex-1 truncate">
+              <ng-container
+                *ngTemplateOutlet="rowLabel; context: { $implicit: absence }"
+              />
+            </span>
+            <p-tag
+              [value]="statusLabel(absence.status)"
+              [severity]="statusSeverity(absence.status)"
+            />
             @if (canManageAbsences()) {
-            <th><span class="sr-only">Akce</span></th>
+            <ng-container
+              *ngTemplateOutlet="editActions; context: { $implicit: absence }"
+            />
             }
-          </tr>
+          </div>
+          <div class="mt-0.5 text-xs text-surface-500">
+            @if (absence.periods.length > 0) { hodiny } {{
+            formatPeriods(absence.periods) }}
+          </div>
+          <div class="mt-1 text-sm text-surface-500 empty:hidden">
+            <ng-container
+              *ngTemplateOutlet="excuseInfo; context: { $implicit: absence }"
+            />
+          </div>
+          <div class="mt-1.5 empty:hidden">
+            <ng-container
+              *ngTemplateOutlet="decisionActions; context: { $implicit: absence }"
+            />
+          </div>
         </ng-template>
-        <ng-template pTemplate="body" let-absence>
-          <tr [id]="'absence-' + absence.id">
-            <td>{{ absence.studentName }}</td>
-            <td>{{ absence.date | dateFormat: 'date' }}</td>
-            <td class="text-surface-600 dark:text-surface-300">
-              {{ formatPeriods(absence.periods) }}
-            </td>
-            <td>
-              <p-tag
-                [value]="statusLabel(absence.status)"
-                [severity]="statusSeverity(absence.status)"
-              />
-            </td>
-            <td class="text-surface-500">
-              @if (absence.excuseId) {
-              <a
-                [routerLink]="[]"
-                [queryParams]="{ excuse: absence.excuseId }"
-                class="text-primary hover:underline"
-                title="Otevřít omluvenku"
-                >{{ absence.excuseReason }}</a
-              >
-              @if (excuseOf(absence)?.attachments?.length) {
-              <i
-                class="pi pi-paperclip ml-1 text-surface-500"
-                title="Omluvenka má přílohu"
-                aria-label="Omluvenka má přílohu"
-              ></i>
-              } } @if (absence.reviewNote) {
-              <div class="text-xs text-red-700 dark:text-red-300">
-                {{ absence.reviewNote }}
-              </div>
-              }
-            </td>
-            <td>
-              @if (absence.status === 'Unexcused' && canExcuse()) {
-              <p-button
-                label="Omluvit"
-                size="small"
-                [outlined]="true"
-                (onClick)="openExcuseDialog(absence)"
-              />
-              } @if (absence.status === 'PendingExcuse' && canManageAbsences())
-              {
-              <div class="flex gap-2">
-                <span
-                  [pTooltip]="
-                    approvable(absence)
-                      ? ''
-                      : 'Schválit jde nejdříve v den absence.'
-                  "
-                >
-                  <p-button
-                    label="Schválit"
-                    icon="pi pi-check"
-                    size="small"
-                    severity="success"
-                    [disabled]="!approvable(absence)"
-                    (onClick)="approve(absence)"
-                  />
-                </span>
-                <p-button
-                  label="Zamítnout"
-                  icon="pi pi-times"
-                  size="small"
-                  severity="danger"
-                  [outlined]="true"
-                  (onClick)="reject(absence)"
-                />
-              </div>
-              } @if (absence.excuseId && (absence.status === 'Excused' ||
-              absence.status === 'Rejected') && canManageAbsences()) {
-              <app-decision-menu
-                [approved]="absence.status === 'Excused'"
-                [rejected]="absence.status === 'Rejected'"
-                [approvable]="approvable(absence)"
-                (approve)="approve(absence)"
-                (reject)="reject(absence)"
-                (reopen)="reopen(absence)"
-              />
-              }
-            </td>
-            @if (canManageAbsences()) {
-            <td>
-              <div class="flex justify-end gap-1">
-                <p-button
-                  icon="pi pi-pencil"
-                  ariaLabel="Upravit"
-                  size="small"
-                  [text]="true"
-                  (onClick)="startEditAbsence(absence)"
-                />
-                <p-button
-                  icon="pi pi-trash"
-                  ariaLabel="Smazat"
-                  size="small"
-                  severity="danger"
-                  [text]="true"
-                  (onClick)="deleteAbsence(absence)"
-                />
-              </div>
-            </td>
-            }
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="7" class="py-6 text-center text-surface-500">
-              @if (absences()) { Žádné záznamy. } @else {
-              <app-loading class="justify-center" />
-              }
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
+      </app-grouped-table>
+
+      <ng-template #rowLabel let-absence>
+        @if (isStaff()) { {{ absence.studentName }} } @else { {{ absence.date |
+        dateFormat: 'date' }} }
+      </ng-template>
+
+      <ng-template #excuseInfo let-absence>
+        @if (absence.excuseId) {
+        <a
+          [routerLink]="[]"
+          [queryParams]="{ excuse: absence.excuseId }"
+          class="text-primary hover:underline"
+          title="Otevřít omluvenku"
+          >{{ absence.excuseReason }}</a
+        >
+        @if (excuseOf(absence)?.attachments?.length) {
+        <i
+          class="pi pi-paperclip ml-1 text-surface-500"
+          title="Omluvenka má přílohu"
+          aria-label="Omluvenka má přílohu"
+        ></i>
+        } } @if (absence.reviewNote) {
+        <div class="text-xs text-red-700 dark:text-red-300">
+          {{ absence.reviewNote }}
+        </div>
+        }
+      </ng-template>
+
+      <ng-template #decisionActions let-absence>
+        @if (absence.status === 'Unexcused' && canExcuse()) {
+        <p-button
+          label="Omluvit"
+          size="small"
+          [outlined]="true"
+          (onClick)="openExcuseDialog(absence)"
+        />
+        } @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
+        <div class="flex gap-2">
+          <span
+            [pTooltip]="
+              approvable(absence) ? '' : 'Schválit jde nejdříve v den absence.'
+            "
+          >
+            <p-button
+              label="Schválit"
+              icon="pi pi-check"
+              size="small"
+              severity="success"
+              [disabled]="!approvable(absence)"
+              (onClick)="approve(absence)"
+            />
+          </span>
+          <p-button
+            label="Zamítnout"
+            icon="pi pi-times"
+            size="small"
+            severity="danger"
+            [outlined]="true"
+            (onClick)="reject(absence)"
+          />
+        </div>
+        } @if (absence.excuseId && (absence.status === 'Excused' ||
+        absence.status === 'Rejected') && canManageAbsences()) {
+        <app-decision-menu
+          [approved]="absence.status === 'Excused'"
+          [rejected]="absence.status === 'Rejected'"
+          [approvable]="approvable(absence)"
+          (approve)="approve(absence)"
+          (reject)="reject(absence)"
+          (reopen)="reopen(absence)"
+        />
+        }
+      </ng-template>
+
+      <ng-template #editActions let-absence>
+        <div class="flex justify-end gap-1">
+          <p-button
+            icon="pi pi-pencil"
+            ariaLabel="Upravit"
+            size="small"
+            [text]="true"
+            (onClick)="startEditAbsence(absence)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            ariaLabel="Smazat"
+            size="small"
+            severity="danger"
+            [text]="true"
+            (onClick)="deleteAbsence(absence)"
+          />
+        </div>
+      </ng-template>
     </p-tabpanel>
     <p-tabpanel value="omluvenky">
       <app-excuses-list
