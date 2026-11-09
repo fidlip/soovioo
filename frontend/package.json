@@ -31,7 +31,9 @@
     "@openng/icons": "^1.0.0",
     "@openng/optimus-ui": "^2.0.2",
     "@openng/optimus-ui-themes": "^2.0.2",
+    "dompurify": "3.4.17",
     "express": "^4.21.2",
+    "marked": "18.1.1",
     "qrcode": "^1.5.4",
     "rxjs": "~7.8.0",
     "zone.js": "0.16.2"

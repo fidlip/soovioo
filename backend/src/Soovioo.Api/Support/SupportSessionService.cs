@@ -90,6 +90,11 @@ public class SupportSessionService(
             : null;
     }
 
+    /// <summary>A support cookie came along — on a school's page, its
+    /// support session was there, whether it still runs or not.</summary>
+    public static bool CarriesCookie(HttpRequest request) =>
+        request.Cookies.TryGetValue(CookieName, out var secret) && !string.IsNullOrEmpty(secret);
+
     public void ClearCookie(HttpContext http) =>
         http.Response.Cookies.Delete(CookieName, CookieOptionsFor(null));
 

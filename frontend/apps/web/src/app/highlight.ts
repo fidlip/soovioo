@@ -7,11 +7,12 @@ const WAIT_MS = 5000;
 /** `?<name>=<id>` — what a notification's link opens on the page (see
  * NotificationLinks on the API). Calls `open` with the id each time one
  * comes, also while the page is already open, and drops the address's
- * query so a reload doesn't open it again and the same link works twice.
- * Call from a constructor. */
+ * query (but for `keep`, e.g. the page's own section) so a reload doesn't
+ * open it again and the same link works twice. Call from a constructor. */
 export function onLinkedItem(
   name: string,
   open: (id: number, params: ParamMap) => void,
+  keep: string[] = [],
 ): void {
   const route = inject(ActivatedRoute);
   const router = inject(Router);
@@ -22,7 +23,7 @@ export function onLinkedItem(
     }
     router.navigate([], {
       relativeTo: route,
-      queryParams: {},
+      queryParams: Object.fromEntries(keep.map((k) => [k, params.get(k)])),
       replaceUrl: true,
     });
     open(id, params);

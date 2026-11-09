@@ -1,0 +1,173 @@
+<div class="flex flex-col gap-6">
+  <p-card>
+    <ng-template #title
+      >Požadavky na podporu<app-info-hint
+        text="Požadavek dostane podpora Soovioo. Termín vyřízení se řídí support plánem školy. V požadavku si s podporou píšete a povolujete jí vstup do školy."
+    /></ng-template>
+    @if (!readOnly) {
+    <div class="mb-3 flex justify-end">
+      <p-button
+        label="Nový požadavek"
+        icon="pi pi-plus"
+        size="small"
+        (onClick)="openTicketDialog()"
+      />
+    </div>
+    }
+    <p-table [value]="tickets() ?? []" dataKey="id">
+      <ng-template #header>
+        <tr>
+          <th>Odesláno</th>
+          <th>Požadavek</th>
+          <th>Termín</th>
+          <th>Stav</th>
+          <th>Řeší</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-ticket>
+        <tr
+          [id]="'support-ticket-' + ticket.id"
+          class="cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800"
+          (click)="detail.open(ticket.id)"
+        >
+          <td class="whitespace-nowrap text-surface-500">
+            {{ ticket.createdAt | dateFormat: 'dateTime' }}
+            <div class="text-xs">
+              {{ ticket.createdByName }}@if (ticket.createdBySupport) {
+              (podpora) }
+            </div>
+          </td>
+          <td>
+            <button
+              type="button"
+              class="text-left font-medium hover:underline"
+              (click)="$event.stopPropagation(); detail.open(ticket.id)"
+            >
+              {{ ticket.title }}
+            </button>
+            @if (ticket.accessRequestedAt) {
+            <div class="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Podpora žádá o vstup do školy
+            </div>
+            } @else if (ticket.accessUntil) {
+            <div class="text-xs text-surface-500">
+              Vstup podpory povolen do {{ ticket.accessUntil | dateFormat:
+              'dateTime' }}
+            </div>
+            }
+          </td>
+          <td class="whitespace-nowrap">
+            {{ ticket.dueDate | dateFormat: 'date' }}
+            <div class="text-xs text-surface-500">{{ ticket.planName }}</div>
+          </td>
+          <td>
+            <p-tag
+              [value]="statusLabel(ticket.status)"
+              [severity]="severity(ticket.status)"
+            />
+          </td>
+          <td class="text-surface-500">{{ ticket.assigneeName ?? '—' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="5" class="py-6 text-center text-surface-500">
+            @if (tickets()) { Zatím žádné požadavky. } @else {
+            <app-loading class="justify-center" />
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+
+  <p-card>
+    <ng-template #title
+      >Vstup podpory do školy<app-info-hint
+        text="Podpora Soovioo může kvůli požadavku vstoupit do školy jako admin, aby pomohla s nastavením nebo vyřešila problém — vždy jen ten, kdo požadavek řeší. Každý vstup a všechny změny při něm jsou v Logech. „Po schválení“: vstup povolujete v požadavku, vždy na {{ duration() }}."
+    /></ng-template>
+    <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
+      <app-float-field label="Superadmin smí vstoupit" for="supportAccess">
+        <p-select
+          ariaLabel="Superadmin smí vstoupit"
+          inputId="supportAccess"
+          [options]="accessOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="access()"
+          (ngModelChange)="access.set($event)"
+          name="supportAccess"
+          [disabled]="readOnly"
+          styleClass="w-48"
+          appendTo="body"
+        />
+      </app-float-field>
+      @if (!readOnly) {
+      <p-button
+        type="submit"
+        label="Uložit"
+        severity="secondary"
+        [outlined]="true"
+      />
+      }
+    </form>
+  </p-card>
+</div>
+
+<app-support-ticket-dialog
+  #detail
+  side="school"
+  [readOnly]="readOnly"
+  (changed)="changed($event)"
+/>
+
+<p-dialog
+  [visible]="ticketDialogVisible()"
+  (visibleChange)="ticketDialogVisible.set($event)"
+  header="Nový požadavek na podporu"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form
+    class="flex flex-col gap-3"
+    #ticketForm="ngForm"
+    (ngSubmit)="createTicket()"
+  >
+    <app-float-field label="Nadpis" for="ticketTitle">
+      <input
+        pInputText
+        id="ticketTitle"
+        name="title"
+        required
+        maxlength="200"
+        class="w-full"
+        [(ngModel)]="ticketTitle"
+      />
+    </app-float-field>
+    <app-markdown-editor
+      label="Popis"
+      inputId="ticketDescription"
+      name="description"
+      maxlength="8000"
+      [(ngModel)]="ticketDescription"
+    />
+    @if (access() === 'Approval') {
+    <label class="flex items-center gap-2 text-sm">
+      <p-checkbox
+        inputId="ticketAllowAccess"
+        name="allowAccess"
+        [binary]="true"
+        [(ngModel)]="allowAccess"
+      />
+      Povolit podpoře vstup do školy na {{ duration() }}
+    </label>
+    }
+    <div class="flex justify-end">
+      <app-submit-button
+        [form]="ticketForm"
+        label="Odeslat"
+        icon="pi pi-send"
+      />
+    </div>
+  </form>
+</p-dialog>

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
@@ -11,46 +12,20 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Support;
 
-/// <summary>SuperAdmin support: entering a school as its admin (audited,
-/// see <see cref="SupportSession"/>) and managing the SuperAdmin accounts.</summary>
+/// <summary>SuperAdmin support: support sessions — redeeming the code,
+/// leaving, the log (entering is for a ticket, see
+/// <see cref="SupportTicketsController.Enter"/>) — and managing the
+/// SuperAdmin accounts.</summary>
 [ApiController]
-public class SupportController(AppDbContext db, SupportSessionService supportSessions, RefreshTokenService refreshTokens) : ControllerBase
+public class SupportController(
+    AppDbContext db, SupportSessionService supportSessions, RefreshTokenService refreshTokens, TimeProvider clock)
+    : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
 
     /// <summary>The built-in SuperAdmin account (seeded at startup) — can't be
     /// deleted or renamed by anyone, so there's always a way back in.</summary>
     public const string BuiltInUsername = "superadmin";
-
-    /// <summary>Starts an audited support session (2 h) and returns a
-    /// one-time code — the SuperAdmin's browser carries it to the school's
-    /// own page (its subdomain in production), which redeems it at
-    /// <see cref="Redeem"/>. The SuperAdmin's own session stays untouched.</summary>
-    [HttpPost("api/schools/{schoolId:int}/support-sessions")]
-    [Authorize(Roles = "SuperAdmin")]
-    public async Task<ActionResult<SupportSessionStartDto>> StartSupportSession(int schoolId)
-    {
-        var school = await db.Schools.FindAsync(schoolId);
-        var me = await db.Users.FindAsync(CurrentUserId());
-        if (school is null || me is null)
-        {
-            return NotFound();
-        }
-
-        var session = new SupportSession
-        {
-            SuperAdminUserId = me.Id,
-            SuperAdminUsername = me.Username,
-            SchoolId = school.Id,
-        };
-        var code = await supportSessions.StartAsync(session);
-        // A SuperAdmin token has no school — the school's admin sees this too.
-        var audit = AuditContext.Of(HttpContext);
-        audit.SchoolId = school.Id;
-        audit.SupportSessionId = session.Id;
-        audit.SupportBy = me.Username;
-        return Ok(new SupportSessionStartDto(session.Id, code, school.Slug, school.Name, session.ExpiresAt));
-    }
 
     /// <summary>One-time code → support access token + support cookie.
     /// Anonymous: on a school's subdomain there's no session yet.</summary>
@@ -64,11 +39,20 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
             : Ok(response);
     }
 
-    /// <summary>"Opustit" — called with the support token itself.</summary>
+    public const int MaxResultLength = SupportTicket.MaxTextLength;
+
+    /// <summary>"Opustit" — called with the support token itself, optionally
+    /// with what was done (Markdown), which goes to the ticket's thread.</summary>
     [HttpPost("api/support-sessions/current/end")]
     [Authorize]
-    public async Task<IActionResult> EndCurrentSession()
+    public async Task<IActionResult> EndCurrentSession(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] EndSupportSessionRequest? request = null)
     {
+        var result = request?.Result?.Trim();
+        if (result?.Length > MaxResultLength)
+        {
+            return this.FieldError("result", $"Nejvýš {MaxResultLength} znaků.");
+        }
         if (!int.TryParse(User.FindFirstValue(SupportClaims.SessionId), out var sessionId))
         {
             return BadRequest("Nejste v režimu podpory.");
@@ -76,8 +60,27 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
         var session = await db.SupportSessions.FindAsync(sessionId);
         if (session is not null && session.EndedAt is null)
         {
-            session.EndedAt = DateTimeOffset.UtcNow;
+            var now = clock.GetUtcNow();
+            session.EndedAt = now;
             session.RefreshSecretHash = null;
+            session.Result = string.IsNullOrEmpty(result) ? null : result;
+            if (session.TicketId is { } ticketId)
+            {
+                var author = await db.Users.IgnoreQueryFilters().Include(u => u.Person)
+                    .FirstOrDefaultAsync(u => u.Id == session.SuperAdminUserId);
+                db.SupportTicketEntries.Add(new SupportTicketEntry
+                {
+                    TicketId = ticketId,
+                    SchoolId = session.SchoolId,
+                    At = now,
+                    Kind = SupportTicketEntryKind.Visit,
+                    AuthorUserId = session.SuperAdminUserId,
+                    AuthorName = author is null ? session.SuperAdminUsername : PersonNames.Display(author),
+                    BySupport = true,
+                    Text = session.Result,
+                    SessionId = session.Id,
+                });
+            }
             await db.SaveChangesAsync();
         }
         supportSessions.ClearCookie(HttpContext);
@@ -99,6 +102,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
             .Take(50)
             .Select(s => new SupportSessionDto(
                 s.Id, s.SuperAdminUsername, s.SchoolId, s.School!.Name, s.StartedAt, s.EndedAt,
+                s.Ticket != null ? s.Ticket.Title : null, s.Result,
                 db.AuditLogEntries
                     // Entering and leaving aren't changes in the school.
                     .Where(a => a.SupportSessionId == s.Id && !a.Path.StartsWith("/api/support-sessions")
@@ -259,9 +263,13 @@ public record RedeemSupportCodeRequest(string Code);
 
 public record SupportActionDto(string Method, string Path, int StatusCode, DateTimeOffset At, string? Description);
 
+/// <param name="Purpose">The title of the ticket it was entered for.</param>
+/// <param name="Result">What was done, written on leaving.</param>
 public record SupportSessionDto(
     int Id, string SuperAdminUsername, int SchoolId, string SchoolName, DateTimeOffset StartedAt,
-    DateTimeOffset? EndedAt, IReadOnlyList<SupportActionDto> Actions);
+    DateTimeOffset? EndedAt, string? Purpose, string? Result, IReadOnlyList<SupportActionDto> Actions);
+
+public record EndSupportSessionRequest(string? Result);
 
 /// <param name="BuiltIn">The seeded "superadmin" account — not deletable or renamable.</param>
 public record SuperAdminDto(

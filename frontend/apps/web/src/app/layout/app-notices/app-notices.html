@@ -22,12 +22,24 @@
     support.schoolName }} · jako superadmin {{ support.by }} (změny se
     zaznamenávají)</span
   >
+  <!-- Deferred: its Markdown editor is needed only in support mode. -->
+  @defer (on idle) {
   <button
     type="button"
     class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
-    (click)="sessionActions.leaveSupport()"
+    (click)="leaveDialog.open()"
   >
     Opustit
   </button>
+  <app-support-leave-dialog #leaveDialog />
+  } @placeholder {
+  <button
+    type="button"
+    class="rounded border border-amber-400 px-2 py-0.5 font-medium opacity-60"
+    disabled
+  >
+    Opustit
+  </button>
+  }
 </div>
 }

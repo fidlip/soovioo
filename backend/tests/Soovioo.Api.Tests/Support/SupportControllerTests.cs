@@ -22,7 +22,7 @@ public class SupportControllerTests
     private static SupportSessionService Sessions(AppDbContext db) => AuthTestServices.SupportSessions(db);
 
     private static SupportController As(AppDbContext db, User user) =>
-        new(db, Sessions(db), AuthTestServices.RefreshTokens(db))
+        new(db, Sessions(db), AuthTestServices.RefreshTokens(db), TimeProvider.System)
         {
             ControllerContext = new ControllerContext
             {
@@ -37,6 +37,36 @@ public class SupportControllerTests
             },
         };
 
+    /// <summary>"Vstoupit do školy" on a ticket the SuperAdmin takes care of.</summary>
+    private static async Task<(SupportSessionStartDto Started, HttpContext Http)> EnterAsync(
+        AppDbContext db, User superAdmin, School school)
+    {
+        var ticket = new SupportTicket
+        {
+            SchoolId = school.Id, CreatedByName = "Ředitel", Title = "Rozvrh", Description = "", PlanName = "Free",
+            AssigneeUserId = superAdmin.Id, AssigneeName = superAdmin.Username, Status = SupportTicketStatus.Assigned,
+        };
+        db.SupportTickets.Add(ticket);
+        await db.SaveChangesAsync();
+        var controller = new SupportTicketsController(
+            db, new FakeCurrentSchoolContext(null, isSuperAdmin: true), new Soovioo.Api.Notifications.Notifier(db, TimeProvider.System),
+            null!, Sessions(db), Microsoft.Extensions.Options.Options.Create(new SupportOptions()), TimeProvider.System)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([
+                        new Claim(ClaimTypes.NameIdentifier, superAdmin.Id.ToString()),
+                    ])),
+                },
+            },
+        };
+        var started = Assert.IsType<SupportSessionStartDto>(
+            Assert.IsType<OkObjectResult>((await controller.Enter(ticket.Id)).Result).Value);
+        return (started, controller.HttpContext);
+    }
+
     private static async Task<User> SuperAdminAsync(AppDbContext db, string username = "superadmin")
     {
         var user = new User { Username = username, PasswordHash = "x", IsSuperAdmin = true, SchoolId = null };
@@ -50,17 +80,15 @@ public class SupportControllerTests
     {
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
-        var school = new School { Name = "ZŠ Test", Slug = "test" };
+        var school = new School { Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always };
         RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
-        var controller = As(db, superAdmin);
-        var started = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(
-            (await controller.StartSupportSession(school.Id)).Result).Value);
+        var (started, enterHttp) = await EnterAsync(db, superAdmin, school);
         Assert.Equal("test", started.SchoolSlug);
         // Logged under the school, so its admin sees it too.
-        var startAudit = Soovioo.Api.Audit.AuditContext.Of(controller.HttpContext);
+        var startAudit = Soovioo.Api.Audit.AuditContext.Of(enterHttp);
         Assert.Equal(school.Id, startAudit.SchoolId);
         Assert.Equal(started.SessionId, startAudit.SupportSessionId);
         Assert.NotEqual(started.Code, Assert.Single(db.SupportSessions).HandoffCodeHash);
@@ -130,12 +158,11 @@ public class SupportControllerTests
     {
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
-        var school = new School { Name = "ZŠ Test", Slug = "test" };
+        var school = new School { Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always };
         RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
-        var started = Assert.IsType<SupportSessionStartDto>(Assert.IsType<OkObjectResult>(
-            (await As(db, superAdmin).StartSupportSession(school.Id)).Result).Value);
+        var (started, _) = await EnterAsync(db, superAdmin, school);
         db.AuditLogEntries.AddRange(
             new Soovioo.Api.Audit.AuditLogEntry
             {

@@ -1,0 +1,273 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [header]="ticket()?.title ?? ''"
+  [modal]="true"
+  styleClass="w-full max-w-2xl"
+>
+  @if (ticket(); as ticket) {
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      <p-tag
+        [value]="statusLabel(ticket.status)"
+        [severity]="severity(ticket.status)"
+      />
+      @if (side() === 'support') {
+      <span class="font-medium">{{ ticket.schoolName }}</span>
+      }
+      <span class="text-surface-500"
+        >Řeší:
+        <span class="text-surface-700 dark:text-surface-200"
+          >{{ ticket.assigneeName ?? 'zatím nikdo' }}</span
+        ></span
+      >
+      <span
+        class="text-surface-500"
+        [class.text-red-600]="ticket.overdue"
+        [class.font-medium]="ticket.overdue"
+        >Termín {{ ticket.dueDate | dateFormat: 'date' }} ({{ ticket.planName
+        }})</span
+      >
+    </div>
+
+    @if (ticket.description) {
+    <app-markdown [text]="ticket.description" />
+    }
+
+    <!-- Entering the school -->
+    @if (ticketOpen()) {
+    <div
+      class="flex flex-wrap items-center gap-2 rounded-md bg-surface-100 px-3 py-2 text-sm dark:bg-surface-800"
+      data-testid="ticket-access"
+    >
+      <i class="pi pi-sign-in text-surface-500"></i>
+      <span class="grow">
+        @switch (ticket.schoolAccess) { @case ('Never') { Škola vstup podpory
+        nepovoluje. } @case ('Always') { Podpora smí do školy vstoupit kdykoliv.
+        } @default { @if (ticket.accessUntil) { Vstup do školy povolen do {{
+        ticket.accessUntil | dateFormat: 'dateTime' }}. } @else if
+        (ticket.accessRequestedAt) { Podpora žádá o vstup do školy ({{
+        ticket.accessRequestedAt | dateFormat: 'dateTime' }}). } @else { Vstup
+        do školy není povolený. } } }
+      </span>
+      @if (side() === 'school' && !readOnly() && ticket.schoolAccess ===
+      'Approval') { @if (ticket.accessUntil) {
+      <p-button
+        label="Odebrat povolení"
+        icon="pi pi-ban"
+        size="small"
+        severity="danger"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="revokeAccess()"
+      />
+      } @else {
+      <p-button
+        label="Povolit vstup"
+        icon="pi pi-check"
+        size="small"
+        [disabled]="busy()"
+        (onClick)="grantAccess()"
+      />
+      } } @if (side() === 'support' && mine()) { @if (canEnter()) {
+      <p-button
+        label="Vstoupit do školy"
+        icon="pi pi-sign-in"
+        size="small"
+        [disabled]="busy()"
+        (onClick)="enter()"
+      />
+      } @else if (ticket.schoolAccess === 'Approval' &&
+      !ticket.accessRequestedAt) {
+      <p-button
+        label="Požádat o vstup"
+        icon="pi pi-send"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="requestAccess()"
+      />
+      } }
+    </div>
+    }
+
+    <!-- The thread -->
+    <ol class="m-0 flex list-none flex-col gap-3 p-0" aria-label="Vlákno">
+      @for (entry of detail()!.entries; track entry.id) { @if (isText(entry)) {
+      <li
+        class="rounded-md border px-3 py-2"
+        [class.border-amber-300]="entry.internal"
+        [class.bg-amber-50]="entry.internal"
+        [class.dark:bg-amber-950]="entry.internal"
+        [class.dark:border-amber-700]="entry.internal"
+        [class.border-surface-200]="!entry.internal"
+        [class.dark:border-surface-700]="!entry.internal"
+        [class.bg-primary-50]="!entry.internal && entry.bySupport"
+        [class.dark:bg-surface-800]="!entry.internal && entry.bySupport"
+        [attr.data-kind]="entry.kind"
+      >
+        <div class="mb-1 flex flex-wrap gap-x-2 text-xs text-surface-500">
+          <span class="font-medium text-surface-700 dark:text-surface-200"
+            >{{ entry.authorName }}</span
+          >
+          @if (entry.bySupport) {
+          <span>podpora</span>
+          } @if (entry.internal) {
+          <span class="font-medium text-amber-700 dark:text-amber-300"
+            ><i class="pi pi-lock text-xs"></i> Interní poznámka</span
+          >
+          }
+          <span class="ml-auto">{{ entry.at | dateFormat: 'dateTime' }}</span>
+        </div>
+        <app-markdown [text]="entry.text" />
+      </li>
+      } @else {
+      <li class="text-sm text-surface-500" [attr.data-kind]="entry.kind">
+        <div class="flex flex-wrap gap-x-2">
+          <span class="text-surface-700 dark:text-surface-200"
+            >{{ entryLabel(entry) }}</span
+          >
+          @if (entry.until) {
+          <span>do {{ entry.until | dateFormat: 'dateTime' }}</span>
+          }
+          <span>· {{ entry.authorName }}</span>
+          <span class="ml-auto">{{ entry.at | dateFormat: 'dateTime' }}</span>
+        </div>
+        @if (entry.text) {
+        <div
+          class="mt-1 rounded-md border-l-4 px-3 py-1 text-surface-700 dark:text-surface-200"
+          [class.border-amber-300]="entry.internal"
+          [class.border-surface-300]="!entry.internal"
+        >
+          @if (entry.internal) {
+          <div class="text-xs font-medium text-amber-700 dark:text-amber-300">
+            <i class="pi pi-lock text-xs"></i> Interní
+          </div>
+          }
+          <app-markdown [text]="entry.text" />
+        </div>
+        }
+      </li>
+      } }
+    </ol>
+
+    <!-- Writing -->
+    @if (!readOnly() && (ticketOpen() || side() === 'support')) {
+    <form #messageForm="ngForm" class="flex flex-col gap-2" (ngSubmit)="send()">
+      <app-markdown-editor
+        [label]="internal ? 'Interní poznámka' : side() === 'support' ? 'Zpráva škole' : 'Zpráva podpoře'"
+        inputId="ticketMessage"
+        name="text"
+        [rows]="3"
+        maxlength="8000"
+        required
+        [(ngModel)]="text"
+      />
+      <div class="flex flex-wrap items-center justify-end gap-3">
+        @if (side() === 'support') {
+        <label class="mr-auto flex items-center gap-2 text-sm">
+          <p-toggleswitch
+            name="internal"
+            [(ngModel)]="internal"
+            [disabled]="!ticketOpen()"
+          />
+          Interní poznámka (škola ji neuvidí)
+        </label>
+        }
+        <app-submit-button
+          [form]="messageForm"
+          [label]="internal || !ticketOpen() ? 'Uložit poznámku' : 'Odeslat'"
+          icon="pi pi-send"
+          [busy]="busy()"
+        />
+      </div>
+    </form>
+    }
+
+    <!-- The ticket's actions -->
+    @if (ticketOpen() && !readOnly()) {
+    <div
+      class="flex flex-wrap items-end justify-end gap-2 border-t border-surface-200 pt-3 dark:border-surface-700"
+    >
+      @if (side() === 'school') {
+      <p-button
+        label="Zrušit požadavek"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="cancel()"
+      />
+      } @else if (!ticket.assigneeUserId) {
+      <p-button
+        label="Převzít"
+        icon="pi pi-user-plus"
+        [disabled]="busy()"
+        (onClick)="assign()"
+      />
+      } @else if (mine()) {
+      <p-button
+        label="Přerušit práci"
+        icon="pi pi-pause"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="openRelease()"
+      />
+      <app-float-field label="Stav" for="ticketStatus">
+        <p-select
+          ariaLabel="Stav"
+          inputId="ticketStatus"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="ticket.status"
+          (ngModelChange)="setStatus($event)"
+          [disabled]="busy()"
+          styleClass="w-44"
+          appendTo="body"
+        />
+      </app-float-field>
+      }
+    </div>
+    }
+  </div>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="releasing()"
+  (visibleChange)="releasing.set($event)"
+  header="Přerušit práci"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form #releaseForm="ngForm" (ngSubmit)="release()">
+    <p class="mt-0 text-sm text-surface-500">
+      Požadavek se vrátí k převzetí ostatním superadminům. Shrnutí uvidí jen
+      oni.
+    </p>
+    <app-markdown-editor
+      label="Shrnutí dosavadní práce"
+      inputId="releaseSummary"
+      name="summary"
+      maxlength="8000"
+      required
+      [(ngModel)]="summary"
+    />
+    <div class="mt-4 flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="releasing.set(false)"
+      />
+      <app-submit-button
+        [form]="releaseForm"
+        label="Přerušit práci"
+        icon="pi pi-pause"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+</p-dialog>

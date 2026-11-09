@@ -100,6 +100,9 @@ public class School
     public int MainBlockFrom { get; set; } = 1;
     public int MainBlockTo { get; set; } = 4;
 
+    /// <summary>When a SuperAdmin may enter the school in support mode.</summary>
+    public Support.SupportAccess SupportAccess { get; set; } = Support.SupportAccess.Approval;
+
     /// <summary>The built-in four (<see cref="Auth.RoleSeeder.AddMissing"/>)
     /// and the school's own.</summary>
     public List<Auth.Role> Roles { get; set; } = [];

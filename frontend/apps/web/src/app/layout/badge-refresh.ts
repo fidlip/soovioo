@@ -22,8 +22,7 @@ export function startBadgeRefresh(hideHeader: Signal<boolean>): void {
       }
       if (authApi.isSuperAdmin()) {
         unread.refreshFeedback();
-      } else {
-        unread.refresh();
       }
+      unread.refresh();
     });
 }

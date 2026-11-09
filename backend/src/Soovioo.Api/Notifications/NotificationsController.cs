@@ -10,7 +10,8 @@ namespace Soovioo.Api.Notifications;
 
 /// <summary>The caller's own notifications (the bell), which kinds they
 /// want under it, in the daily e-mail and as a push (Nastavení), and the
-/// phones the push goes to.</summary>
+/// phones the push goes to. A SuperAdmin has a bell too (decisions on
+/// their support requests), nothing else here.</summary>
 [Authorize]
 [ApiController]
 [Route("api/notifications")]
@@ -20,6 +21,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
     /// <summary>Newest first; <paramref name="beforeId"/> continues below
     /// the last one shown, <paramref name="unread"/> leaves out the read ones.</summary>
+    [AllowSuperAdmin]
     [HttpGet]
     public async Task<ActionResult<NotificationPageDto>> GetNotifications([FromQuery] int? beforeId, [FromQuery] bool unread = false)
     {
@@ -45,6 +47,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// <summary>The bell's and the Zprávy badge's numbers and the linked
     /// accounts' in one request — the app asks on every navigation and once
     /// a minute.</summary>
+    [AllowSuperAdmin]
     [HttpGet("unread-counts")]
     public async Task<ActionResult<UnreadCountsDto>> GetUnreadCounts() =>
         Ok(new UnreadCountsDto(
@@ -52,6 +55,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
             await db.CountUnreadConversationsAsync(CurrentUserId()),
             await db.LinkedAccountsOfAsync(CurrentUserId())));
 
+    [AllowSuperAdmin]
     [HttpPost("{id:int}/read")]
     public async Task<IActionResult> MarkRead(int id)
     {
@@ -65,6 +69,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return NoContent();
     }
 
+    [AllowSuperAdmin]
     [HttpPost("read-all")]
     public async Task<IActionResult> MarkAllRead()
     {
@@ -205,23 +210,30 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
     /// <summary>The kinds that can reach this account — staff alone hear
     /// only about messages, events, changes of their lessons, new omluvenky, nicknames to approve (and generated
-    /// timetables when they may edit the timetable), pupils' and parents' agendas are theirs.
+    /// timetables when they may edit the timetable, support tickets the
+    /// school's admins), pupils' and parents' agendas are theirs.
     /// Needs the roles' permissions loaded.</summary>
     public static IReadOnlyList<NotificationType> TypesFor(IReadOnlyCollection<Role> roles)
     {
         var timetable = roles.Any(r => r.Permissions.Any(p => p.Permission == Permission.Timetable && p.Scope != PermissionScope.None))
             ? new[] { NotificationType.Timetable }
             : [];
+        var support = roles.Any(r => r.BuiltIn == UserRole.Admin)
+            ? new[] { NotificationType.SupportTicketUpdate }
+            : [];
         if (roles.Any(r => r.Kind == RoleKind.Parent))
         {
-            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Timetable or NotificationType.NewExcuse)), .. timetable];
+            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Timetable or NotificationType.NewExcuse
+                or NotificationType.SupportTicket or NotificationType.SupportTicketUpdate)), .. timetable, .. support];
         }
         if (roles.Any(r => r.Kind == RoleKind.Student))
         {
-            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Nickname or NotificationType.Timetable or NotificationType.NewExcuse))];
+            return [.. Enum.GetValues<NotificationType>().Where(t => t is not (NotificationType.Photo or NotificationType.Nickname
+                or NotificationType.Timetable or NotificationType.NewExcuse or NotificationType.SupportTicket
+                or NotificationType.SupportTicketUpdate))];
         }
         return [NotificationType.Message, NotificationType.Event, NotificationType.TimetableChange, NotificationType.Substitution,
-            NotificationType.NewExcuse, NotificationType.Nickname, .. timetable];
+            NotificationType.NewExcuse, NotificationType.Nickname, .. timetable, .. support];
     }
 
     private async Task<NotificationSettingsDto> SettingsOfAsync(User user)

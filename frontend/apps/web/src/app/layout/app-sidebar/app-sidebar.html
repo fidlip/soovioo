@@ -20,7 +20,6 @@
     alt="Soovioo"
     class="h-6 w-auto dark:brightness-0 dark:invert"
   />
-  @if (!isSuperAdmin()) {
   <button
     type="button"
     class="app-icon-button app-bell-icon ml-auto text-surface-700 hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-800"
@@ -33,7 +32,6 @@
       >{{ unread.notifications() }}</span
     >}
   </button>
-  }
 </header>
 
 @if (state.drawerOpen()) {
@@ -76,6 +74,20 @@
   </div>
 
   <nav class="app-sidebar-nav" aria-label="Hlavní navigace">
+    <button
+      type="button"
+      class="app-nav-link app-bell-nav text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      [attr.aria-label]="bellLabel()"
+      title="Upozornění"
+      (click)="toggleBell($event)"
+    >
+      <i class="pi pi-bell"></i><span class="app-nav-label">Upozornění</span>@if
+      (unread.notifications() > 0) {<span
+        class="app-nav-badge"
+        aria-hidden="true"
+        >{{ unread.notifications() }}</span
+      >}
+    </button>
     @if (isSuperAdmin()) {
     <a
       routerLink="/superadmin"
@@ -87,6 +99,15 @@
       ><app-icon name="school" /><span class="app-nav-label"
         >Správa škol</span
       ></a
+    >
+    <a
+      routerLink="/superadmin/support"
+      routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
+      class="app-nav-link text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
+      aria-label="Požadavky škol"
+      title="Požadavky škol"
+      ><i class="pi pi-ticket"></i
+      ><span class="app-nav-label">Požadavky škol</span></a
     >
     <a
       routerLink="/superadmin/logs"
@@ -110,22 +131,8 @@
         >{{ unread.feedback() }}</span
       >}</a
     >
-    } @else {
-    <button
-      type="button"
-      class="app-nav-link app-bell-nav text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
-      [attr.aria-label]="bellLabel()"
-      title="Upozornění"
-      (click)="toggleBell($event)"
-    >
-      <i class="pi pi-bell"></i><span class="app-nav-label">Upozornění</span>@if
-      (unread.notifications() > 0) {<span
-        class="app-nav-badge"
-        aria-hidden="true"
-        >{{ unread.notifications() }}</span
-      >}
-    </button>
-    @for (item of navItems(); track item.icon) { @if (showsNavItem(item)) {
+    } @else { @for (item of navItems(); track item.icon) { @if
+    (showsNavItem(item)) {
     <a
       [routerLink]="item.link"
       routerLinkActive="!text-primary bg-primary-50 dark:bg-primary-950/50"
@@ -176,6 +183,4 @@
   </div>
 </aside>
 
-@if (!isSuperAdmin()) {
 <app-notification-bell />
-}

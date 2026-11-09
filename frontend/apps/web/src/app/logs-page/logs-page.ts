@@ -30,6 +30,7 @@ import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
+import { Markdown } from '../markdown/markdown';
 
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'superadmin',
@@ -56,6 +57,7 @@ const ROLE_LABELS: Record<string, string> = {
     FormsModule,
     GroupedTable,
     Loading,
+    Markdown,
     NgTemplateOutlet,
     Paginator,
     Select,

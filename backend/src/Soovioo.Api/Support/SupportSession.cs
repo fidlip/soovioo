@@ -20,6 +20,11 @@ public class SupportSession
     public int SchoolId { get; set; }
     public School? School { get; set; }
 
+    /// <summary>The support ticket it was entered for (null only for
+    /// sessions from before tickets).</summary>
+    public int? TicketId { get; set; }
+    public SupportTicket? Ticket { get; set; }
+
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>The support session can't outlive this (2 h from start).</summary>
@@ -38,4 +43,7 @@ public class SupportSession
 
     /// <summary>Set by "Opustit"; null = left by letting the token expire.</summary>
     public DateTimeOffset? EndedAt { get; set; }
+
+    /// <summary>What was done — the SuperAdmin may write it on "Opustit".</summary>
+    public string? Result { get; set; }
 }

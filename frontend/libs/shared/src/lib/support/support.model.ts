@@ -26,6 +26,10 @@ export interface SupportSession {
   schoolName: string;
   startedAt: string;
   endedAt: string | null;
+  /** The title of the ticket it was entered for. */
+  purpose: string | null;
+  /** What was done, written on leaving (Markdown). */
+  result: string | null;
   actions: SupportAction[];
 }
 
@@ -62,3 +66,114 @@ export interface UpdateSuperAdminRequest {
   phone?: string;
   email?: string;
 }
+
+/** When a SuperAdmin may enter the school — the school's choice. Entering
+ * is always for a ticket, by whoever takes care of it. */
+export type SupportAccess = 'Always' | 'Approval' | 'Never';
+
+/** Administrace → Podpora: the policy. */
+export interface SchoolSupport {
+  access: SupportAccess;
+  /** How long allowing entering for a ticket lasts. */
+  approvalMinutes: number;
+}
+
+/** `1440` → `24 hodin`, `2` → `2 minuty` — for "na …". */
+export function approvalDuration(minutes: number): string {
+  const [n, one, few, many] =
+    minutes % 60 === 0
+      ? [minutes / 60, 'hodinu', 'hodiny', 'hodin']
+      : [minutes, 'minutu', 'minuty', 'minut'];
+  return `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
+}
+
+export type SupportTicketStatus =
+  | 'New'
+  /** Has a SuperAdmin taking care of it. */
+  | 'Assigned'
+  /** Being worked on right now. */
+  | 'InProgress'
+  /** The support asked; the school's answer brings it back to Assigned. */
+  | 'WaitingForSchool'
+  | 'Resolved'
+  | 'Cancelled';
+
+export const SUPPORT_TICKET_STATUS_LABELS: Record<SupportTicketStatus, string> =
+  {
+    New: 'Nový',
+    Assigned: 'Přiřazeno',
+    InProgress: 'Řeší se',
+    WaitingForSchool: 'Čeká na školu',
+    Resolved: 'Vyřešeno',
+    Cancelled: 'Zrušeno',
+  };
+
+export function isTicketOpen(status: SupportTicketStatus): boolean {
+  return status !== 'Resolved' && status !== 'Cancelled';
+}
+
+/** A case of support for a school — asked by its admin or opened by a
+ * SuperAdmin; due by the school's support plan. */
+export interface SupportTicket {
+  id: number;
+  schoolId: number;
+  schoolName: string;
+  /** The school's policy. */
+  schoolAccess: SupportAccess;
+  title: string;
+  /** Markdown. */
+  description: string;
+  createdAt: string;
+  createdByName: string;
+  /** Opened by a SuperAdmin for the school. */
+  createdBySupport: boolean;
+  /** The school's plan when it was created. */
+  planName: string;
+  /** `yyyy-MM-dd`. */
+  dueDate: string;
+  status: SupportTicketStatus;
+  statusChangedAt: string | null;
+  assigneeUserId: number | null;
+  assigneeName: string | null;
+  /** Still open after `dueDate`. */
+  overdue: boolean;
+  /** Open and the assignee waits for the school to allow entering. */
+  accessRequestedAt: string | null;
+  /** Open and entering allowed until then; null otherwise. */
+  accessUntil: string | null;
+}
+
+export type SupportTicketEntryKind =
+  | 'Message'
+  /** The SuperAdmins' own — the school doesn't see it. */
+  | 'Note'
+  | 'Created'
+  | 'Assigned'
+  /** Back to the pool, with a summary (internal). */
+  | 'Released'
+  | 'StatusChanged'
+  | 'AccessRequested'
+  | 'AccessGranted'
+  | 'AccessRevoked'
+  /** A support session — text is what was done. */
+  | 'Visit';
+
+export interface SupportTicketEntry {
+  id: number;
+  at: string;
+  kind: SupportTicketEntryKind;
+  authorName: string;
+  bySupport: boolean;
+  internal: boolean;
+  /** Markdown. */
+  text: string | null;
+  status: SupportTicketStatus | null;
+  until: string | null;
+}
+
+export interface SupportTicketDetail {
+  ticket: SupportTicket;
+  entries: SupportTicketEntry[];
+}
+
+export type SupportTicketFilter = 'Open' | 'Mine' | 'Unassigned' | 'All';

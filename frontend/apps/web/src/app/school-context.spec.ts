@@ -13,7 +13,9 @@ describe('isPathBasedTenant', () => {
   });
 
   it('treats the main domain and its subdomains as subdomain-based', () => {
-    expect(isPathBasedTenant('demo.soovioo.cloud', 'soovioo.cloud')).toBe(false);
+    expect(isPathBasedTenant('demo.soovioo.cloud', 'soovioo.cloud')).toBe(
+      false,
+    );
     expect(isPathBasedTenant('soovioo.cloud', 'soovioo.cloud')).toBe(false);
   });
 
@@ -46,7 +48,9 @@ describe('subdomainSlug', () => {
   });
 
   it('takes only the first label when there are multiple subdomain levels', () => {
-    expect(subdomainSlug('demo.staging.soovioo.cloud', mainDomain)).toBe('demo');
+    expect(subdomainSlug('demo.staging.soovioo.cloud', mainDomain)).toBe(
+      'demo',
+    );
   });
 });
 
@@ -54,22 +58,34 @@ describe('subdomainSlug', () => {
 describe('currentSchoolSlugFromUrl', () => {
   it('reads the first path segment in path mode', () => {
     expect(
-      currentSchoolSlugFromUrl({ hostname: 'localhost', pathname: '/demo/grades' }),
+      currentSchoolSlugFromUrl({
+        hostname: 'localhost',
+        pathname: '/demo/grades',
+      }),
     ).toBe('demo');
   });
 
   it('has no school in the SuperAdmin area', () => {
     expect(
-      currentSchoolSlugFromUrl({ hostname: 'localhost', pathname: '/superadmin/logs' }),
+      currentSchoolSlugFromUrl({
+        hostname: 'localhost',
+        pathname: '/superadmin/logs',
+      }),
     ).toBeNull();
   });
 
   it('reads the subdomain in production', () => {
     expect(
-      currentSchoolSlugFromUrl({ hostname: 'demo.soovioo.cloud', pathname: '/home' }),
+      currentSchoolSlugFromUrl({
+        hostname: 'demo.soovioo.cloud',
+        pathname: '/home',
+      }),
     ).toBe('demo');
     expect(
-      currentSchoolSlugFromUrl({ hostname: 'soovioo.cloud', pathname: '/superadmin' }),
+      currentSchoolSlugFromUrl({
+        hostname: 'soovioo.cloud',
+        pathname: '/superadmin',
+      }),
     ).toBeNull();
   });
 });

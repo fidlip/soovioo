@@ -289,7 +289,16 @@
         [severity]="session.actions.length > 0 ? 'warn' : 'secondary'"
       />
     </summary>
-    @if (session.actions.length > 0) {
+    @if (session.purpose) {
+    <p class="m-0 mt-2 text-sm">
+      <span class="text-surface-500">Požadavek:</span> {{ session.purpose }}
+    </p>
+    } @if (session.result) {
+    <div class="mt-2 text-sm">
+      <span class="text-surface-500">Výsledek:</span>
+      <app-markdown [text]="session.result" />
+    </div>
+    } @if (session.actions.length > 0) {
     <ul
       class="m-0 mt-2 list-none p-0 text-xs text-surface-600 dark:text-surface-300"
     >

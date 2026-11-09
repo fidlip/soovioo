@@ -51,6 +51,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
     public DbSet<MessageBroadcast> MessageBroadcasts => Set<MessageBroadcast>();
     public DbSet<Support.SupportSession> SupportSessions => Set<Support.SupportSession>();
+    public DbSet<Support.SupportTicketEntry> SupportTicketEntries => Set<Support.SupportTicketEntry>();
+    public DbSet<Support.SupportTicket> SupportTickets => Set<Support.SupportTicket>();
     public DbSet<Audit.AuditLogEntry> AuditLogEntries => Set<Audit.AuditLogEntry>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
@@ -238,6 +240,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
 
         modelBuilder.Entity<School>().HasIndex(s => s.Slug).IsUnique();
         modelBuilder.Entity<School>().HasIndex(s => s.ExpiresAt).HasFilter("\"IsDemo\"");
+        modelBuilder.Entity<School>().Property(s => s.SupportAccess).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<Support.SupportSession>().Property(s => s.Result).HasMaxLength(Support.SupportTicket.MaxTextLength);
+        modelBuilder.Entity<Support.SupportSession>()
+            .HasOne(s => s.Ticket).WithMany().HasForeignKey(s => s.TicketId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Support.SupportTicket>(e =>
+        {
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Title).HasMaxLength(Support.SupportTicket.MaxTitleLength);
+            e.Property(x => x.Description).HasMaxLength(Support.SupportTicket.MaxTextLength);
+            e.Property(x => x.CreatedByName).HasMaxLength(200);
+            e.Property(x => x.AssigneeName).HasMaxLength(200);
+            e.Property(x => x.PlanName).HasMaxLength(100);
+            e.HasIndex(x => new { x.SchoolId, x.CreatedAt });
+            e.HasIndex(x => new { x.Status, x.DueDate });
+            e.HasIndex(x => x.AssigneeUserId);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<Support.SupportTicketEntry>(e =>
+        {
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.AuthorName).HasMaxLength(200);
+            e.Property(x => x.Text).HasMaxLength(Support.SupportTicket.MaxTextLength);
+            e.HasIndex(x => new { x.TicketId, x.At });
+            e.HasOne(x => x.Ticket).WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
 
         // Username unique per school; SuperAdmin usernames (SchoolId null) unique globally.
         modelBuilder.Entity<User>().HasIndex(u => new { u.SchoolId, u.Username }).IsUnique();
