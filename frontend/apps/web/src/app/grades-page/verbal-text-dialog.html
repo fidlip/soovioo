@@ -1,0 +1,45 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [header]="options()?.header ?? ''"
+  [modal]="true"
+  styleClass="w-full max-w-2xl"
+  (onShow)="textArea.focus()"
+>
+  <form class="flex flex-col gap-3" #verbalForm="ngForm" (ngSubmit)="save()">
+    <app-float-field label="Slovní hodnocení" for="verbalText">
+      <textarea
+        id="verbalText"
+        #textArea
+        pTextarea
+        rows="10"
+        name="text"
+        maxlength="20000"
+        class="w-full"
+        [(ngModel)]="text"
+      ></textarea>
+    </app-float-field>
+    @if (options()?.results; as results) {
+    <app-float-field label="Celkové hodnocení" for="verbalResult">
+      <p-select
+        ariaLabel="Celkové hodnocení"
+        inputId="verbalResult"
+        [options]="results"
+        optionLabel="label"
+        optionValue="value"
+        name="result"
+        [required]="text.trim().length > 0"
+        [(ngModel)]="result"
+        appendTo="body"
+        styleClass="w-72"
+      />
+    </app-float-field>
+    }
+    <app-submit-button
+      [form]="verbalForm"
+      label="Uložit"
+      icon="pi pi-check"
+      class="self-start"
+    />
+  </form>
+</p-dialog>

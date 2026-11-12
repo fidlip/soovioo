@@ -25,9 +25,11 @@ public enum ReportCardResult
 
 /// <param name="Average">Weighted average of the half-year's grades; null
 /// without any.</param>
-/// <param name="Stored">Changed or confirmed by a teacher; null = the
-/// suggestion from the average.</param>
-public record ReportCardSubject(int SubjectId, string SubjectName, double? Average, int GradeCount, ReportCardGrade? Stored)
+/// <param name="Stored">Changed, confirmed or with a slovní hodnocení; its
+/// Kind null = the suggestion from the average.</param>
+public record ReportCardSubject(
+    int SubjectId, string SubjectName, double? Average, int GradeCount, ReportCardGrade? Stored,
+    AssessmentMode Mode = AssessmentMode.Classification)
 {
     public int? Suggested => Average is { } average
         ? (int)Math.Clamp(Math.Round(average, MidpointRounding.AwayFromZero), 1, 5)
@@ -35,9 +37,21 @@ public record ReportCardSubject(int SubjectId, string SubjectName, double? Avera
 
     public bool Confirmed => Stored?.ConfirmedAt is not null;
 
+    /// <summary>Changed by a teacher.</summary>
+    public bool Changed => Stored?.Kind is not null;
+
     public ReportCardGradeKind? Kind => Stored?.Kind ?? (Suggested is null ? null : ReportCardGradeKind.Graded);
 
-    public int? Value => Stored is { } stored ? stored.Value : Suggested;
+    public int? Value => Changed ? Stored!.Value : Suggested;
+
+    public string? VerbalText => Stored?.VerbalText;
+
+    /// <summary>A slovní hodnocení goes with it — not with uvolněn/a or
+    /// nehodnocen/a.</summary>
+    public bool NeedsText => Mode != AssessmentMode.Classification && Kind == ReportCardGradeKind.Graded;
+
+    /// <summary>Has what it takes to be confirmed.</summary>
+    public bool Complete => Kind is not null && (!NeedsText || !string.IsNullOrWhiteSpace(VerbalText));
 }
 
 /// <param name="UnexcusedHours">Everything not excused, as Docházka's
@@ -47,13 +61,35 @@ public record ReportCard(
     BehaviorClassificationValue Behavior,
     int ExcusedHours,
     int UnexcusedHours,
-    IReadOnlyList<ReportCardSubject> Subjects)
+    IReadOnlyList<ReportCardSubject> Subjects,
+    AssessmentMode BehaviorMode = AssessmentMode.Classification,
+    ReportCardNote? Note = null)
 {
-    /// <summary>Only once every subject is confirmed.</summary>
+    /// <summary>The souhrnné slovní hodnocení may replace the subjects: in
+    /// the first half, when every subject is assessed only slovně.</summary>
+    public bool SummaryAllowed(SchoolHalfYear half) =>
+        half == SchoolHalfYear.First && Subjects.Count > 0 && Subjects.All(s => s.Mode == AssessmentMode.Verbal);
+
+    /// <summary>The souhrnné hodnocení stands in for the subjects.</summary>
+    public bool Summarised(SchoolHalfYear half) =>
+        SummaryAllowed(half) && !string.IsNullOrWhiteSpace(Note?.SummaryText);
+
+    public bool SummaryConfirmed => Note?.SummaryConfirmedAt is not null;
+
+    /// <summary>Any slovní hodnocení — the report card goes on list A/B.</summary>
+    public bool HasVerbal(SchoolHalfYear half) =>
+        BehaviorMode != AssessmentMode.Classification
+        || Summarised(half)
+        || Subjects.Any(s => s.Mode != AssessmentMode.Classification);
+
+    /// <summary>Only once every subject is confirmed — or the souhrnné
+    /// hodnocení, with the result the třídní chose.</summary>
     public ReportCardResult? Result(SchoolHalfYear half) =>
-        Subjects.Count > 0 && Subjects.All(s => s.Confirmed)
-            ? ReportCards.Result(Subjects.Select(s => (s.Kind!.Value, s.Value)), Behavior, half)
-            : null;
+        Summarised(half)
+            ? SummaryConfirmed ? Note!.SummaryResult : null
+            : Subjects.Count > 0 && Subjects.All(s => s.Confirmed)
+                ? ReportCards.Result(Subjects.Select(s => (s.Kind!.Value, s.Value)), Behavior, half)
+                : null;
 }
 
 /// <summary>The report card (vysvědčení) of a half-year: the pupil's subjects
@@ -98,6 +134,11 @@ public static class ReportCards
                     && r.SchoolYearStartYear == schoolYearStartYear && r.HalfYear == half)
                 .ToListAsync())
             .ToLookup(r => r.StudentId);
+        var notes = await db.ReportCardNotes
+            .Where(n => studentIds.Contains(n.StudentId)
+                && n.SchoolYearStartYear == schoolYearStartYear && n.HalfYear == half)
+            .ToDictionaryAsync(n => n.StudentId);
+        var modes = await AssessmentModes.LoadAsync(db);
         var behavior = await db.BehaviorClassifications
             .Where(c => studentIds.Contains(c.StudentId)
                 && c.SchoolYearStartYear == schoolYearStartYear && c.HalfYear == half)
@@ -143,7 +184,8 @@ public static class ReportCards
                             subjectNames[id],
                             weight > 0 ? inSubject.Sum(g => g.Value * g.Weight) / (double)weight : null,
                             inSubject.Count,
-                            ownStored.GetValueOrDefault(id));
+                            ownStored.GetValueOrDefault(id),
+                            modes.For(student, id));
                     })
                     .OrderBy(s => s.SubjectName, Czech)
                     .ToList();
@@ -153,7 +195,9 @@ public static class ReportCards
                     behavior.GetValueOrDefault(student.Id, BehaviorClassificationValue.VelmiDobre),
                     missed.Where(a => a.Status == AbsenceStatus.Excused).Sum(a => a.Periods.Count),
                     missed.Where(a => a.Status != AbsenceStatus.Excused).Sum(a => a.Periods.Count),
-                    subjects);
+                    subjects,
+                    modes.ForBehavior(student),
+                    notes.GetValueOrDefault(student.Id));
             })];
     }
 

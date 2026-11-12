@@ -74,6 +74,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<BehaviorRecord> BehaviorRecords => Set<BehaviorRecord>();
     public DbSet<BehaviorClassification> BehaviorClassifications => Set<BehaviorClassification>();
     public DbSet<ReportCardGrade> ReportCardGrades => Set<ReportCardGrade>();
+    public DbSet<ReportCardNote> ReportCardNotes => Set<ReportCardNote>();
+    public DbSet<AssessmentModeRule> AssessmentModeRules => Set<AssessmentModeRule>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentRecipient> PaymentRecipients => Set<PaymentRecipient>();
     public DbSet<PaymentSchoolClass> PaymentSchoolClasses => Set<PaymentSchoolClass>();
@@ -200,6 +202,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .HasKey(c => new { c.StudentId, c.SchoolYearStartYear, c.HalfYear });
         modelBuilder.Entity<ReportCardGrade>()
             .HasKey(g => new { g.StudentId, g.SubjectId, g.SchoolYearStartYear, g.HalfYear });
+        modelBuilder.Entity<ReportCardNote>()
+            .HasKey(n => new { n.StudentId, n.SchoolYearStartYear, n.HalfYear });
+        modelBuilder.Entity<AssessmentModeRule>(e =>
+        {
+            e.HasIndex(r => new { r.SchoolId, r.Rocnik, r.StudentId, r.SubjectId, r.Behavior })
+                .IsUnique()
+                .AreNullsDistinct(false);
+            e.HasOne(r => r.Student).WithMany().OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Subject).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
 
         // Audience recipient join tables — composite keys, same shape as
         // ParentStudent above. Everyone/OnlyMe events keep these empty;
@@ -530,6 +542,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             currentSchool.IsSuperAdmin || c.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<ReportCardGrade>().HasQueryFilter(g =>
             currentSchool.IsSuperAdmin || g.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<ReportCardNote>().HasQueryFilter(n =>
+            currentSchool.IsSuperAdmin || n.SchoolId == currentSchool.SchoolId);
+        modelBuilder.Entity<AssessmentModeRule>().HasQueryFilter(r =>
+            currentSchool.IsSuperAdmin || r.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<Event>().HasQueryFilter(e =>
             currentSchool.IsSuperAdmin || e.SchoolId == currentSchool.SchoolId);
         modelBuilder.Entity<EventSchoolClass>().HasQueryFilter(x =>

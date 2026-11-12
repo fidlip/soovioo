@@ -76,9 +76,36 @@ describe('ReportCardApiService', () => {
   it('downloads the class report cards as a blob', () => {
     service.downloadPdf(half, { schoolClassId: 3 }).subscribe();
     const req = httpMock.expectOne(
-      'http://test/api/report-cards/pdf?schoolYearStartYear=2026&halfYear=First&schoolClassId=3',
+      'http://test/api/report-cards/pdf?schoolYearStartYear=2026&halfYear=First&schoolClassId=3&form=Extract',
     );
     expect(req.request.responseType).toBe('blob');
     req.flush(new Blob());
+  });
+
+  it('downloads lists A and B and writes the slovní hodnocení', () => {
+    service.downloadPdf(half, { studentId: 5 }, 'Verbal').subscribe();
+    httpMock
+      .expectOne(
+        'http://test/api/report-cards/pdf?schoolYearStartYear=2026&halfYear=First&studentId=5&form=Verbal',
+      )
+      .flush(new Blob());
+
+    service
+      .setGradeText(half, { studentId: 5, subjectId: 7 }, 'Počítá.')
+      .subscribe();
+    const text = httpMock.expectOne('http://test/api/report-cards/grades/text');
+    expect(text.request.method).toBe('PUT');
+    expect(text.request.body).toEqual({
+      ...half,
+      studentId: 5,
+      subjectId: 7,
+      text: 'Počítá.',
+    });
+    text.flush(null);
+
+    service.setSummary(half, 5, 'Zvládá.', 'Passed').subscribe();
+    expect(
+      httpMock.expectOne('http://test/api/report-cards/summary').request.body,
+    ).toEqual({ ...half, studentId: 5, text: 'Zvládá.', result: 'Passed' });
   });
 });

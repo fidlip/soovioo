@@ -43,10 +43,17 @@ public class ReportCardGrade
 
     public int SchoolId { get; set; }
 
-    public ReportCardGradeKind Kind { get; set; }
+    /// <summary>Null = still the suggestion from the average; the row is
+    /// there for <see cref="VerbalText"/> only.</summary>
+    public ReportCardGradeKind? Kind { get; set; }
 
-    /// <summary>1–5 for <see cref="ReportCardGradeKind.Graded"/>, else null.</summary>
+    /// <summary>1–5 for <see cref="ReportCardGradeKind.Graded"/>, else null.
+    /// Under slovní hodnocení the stupeň it corresponds to.</summary>
     public int? Value { get; set; }
+
+    /// <summary>Slovní hodnocení, for <see cref="AssessmentMode.Verbal"/> and
+    /// <see cref="AssessmentMode.ClassificationWithVerbal"/>.</summary>
+    public string? VerbalText { get; set; }
 
     public required string SetByName { get; set; }
     public DateTimeOffset SetAt { get; set; } = DateTimeOffset.UtcNow;

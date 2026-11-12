@@ -102,7 +102,15 @@
       [outlined]="true"
       (onClick)="downloadClassPdf()"
     />
-    }
+    @if (classHasVerbal()) {
+    <p-button
+      label="Listy A/B za třídu"
+      icon="pi pi-download"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="downloadClassPdf('Verbal')"
+    />
+    } }
   </div>
 </div>
 
@@ -138,18 +146,107 @@
     >
     @if ((isStaff() || card.issued) && card.whole) {
     <span>Celkové hodnocení: <strong>{{ resultText(card) }}</strong></span>
-    <p-button
-      class="ml-auto"
-      label="PDF"
-      icon="pi pi-download"
-      size="small"
-      [text]="true"
-      [ariaLabel]="'Stáhnout vysvědčení – ' + card.studentName"
-      (onClick)="downloadPdf(card)"
-    />
+    <span class="ml-auto flex items-center">
+      <p-button
+        label="PDF"
+        icon="pi pi-download"
+        size="small"
+        [text]="true"
+        [ariaLabel]="'Stáhnout vysvědčení – ' + card.studentName"
+        (onClick)="downloadPdf(card)"
+      />
+      @if (card.hasVerbal) {
+      <p-button
+        label="Listy A/B"
+        icon="pi pi-download"
+        size="small"
+        [text]="true"
+        [ariaLabel]="'Stáhnout vysvědčení list A/B – ' + card.studentName"
+        (onClick)="downloadPdf(card, 'Verbal')"
+      />
+      }
+    </span>
     }
   </header>
-  @for (subject of card.subjects; track subject.subjectId) {
+  @if (card.behaviorMode !== 'Classification' && (card.behaviorText ||
+  card.canEditBehaviorText)) {
+  <div
+    class="flex items-start gap-2 border-b border-surface-100 px-3 py-1.5 text-sm dark:border-surface-800"
+  >
+    <div class="flex-1">
+      <div class="text-xs text-surface-500">Chování – slovní hodnocení</div>
+      <p class="m-0 whitespace-pre-line">
+        {{ card.behaviorText ?? 'nezapsáno' }}
+      </p>
+    </div>
+    @if (card.canEditBehaviorText) {
+    <p-button
+      icon="pi pi-pencil"
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [ariaLabel]="'Slovní hodnocení chování – ' + card.studentName"
+      (onClick)="editBehavior(card)"
+    />
+    }
+  </div>
+  } @if (card.summary; as summary) { @if (summary.text || summary.canEdit) {
+  <div
+    class="flex flex-wrap items-start gap-2 border-b border-surface-100 px-3 py-1.5 text-sm dark:border-surface-800"
+  >
+    <div class="min-w-60 flex-1">
+      <div class="text-xs text-surface-500">
+        Souhrnné hodnocení za pololetí – místo hodnocení v předmětech
+      </div>
+      @if (summary.text) {
+      <p class="m-0 whitespace-pre-line">{{ summary.text }}</p>
+      @if (summary.result) {
+      <div>
+        Celkové hodnocení:
+        <strong>{{ resultLabel(summary.result, card.gender) }}</strong>
+      </div>
+      } } @else {
+      <p class="m-0 text-surface-500">nezapsáno</p>
+      }
+    </div>
+    @if (isStaff()) {
+    <div class="flex items-center gap-2 text-xs text-surface-500">
+      @if (summary.confirmed) {
+      <span
+        ><i class="pi pi-check-circle text-green-600" aria-hidden="true"></i>
+        Potvrzeno: {{ summary.confirmedByName }}, {{ summary.confirmedAt |
+        dateFormat: 'date' }}</span
+      >
+      @if (summary.canReopen) {
+      <p-button
+        label="Otevřít"
+        size="small"
+        [text]="true"
+        [ariaLabel]="'Znovu otevřít souhrnné hodnocení – ' + card.studentName"
+        (onClick)="reopenSummary(card)"
+      />
+      } } @else if (summary.canEdit) {
+      <p-button
+        icon="pi pi-pencil"
+        size="small"
+        [text]="true"
+        severity="secondary"
+        [ariaLabel]="'Souhrnné hodnocení – ' + card.studentName"
+        (onClick)="editSummary(card)"
+      />
+      @if (summary.text && summary.result) {
+      <p-button
+        label="Potvrdit"
+        size="small"
+        [outlined]="true"
+        [ariaLabel]="'Potvrdit souhrnné hodnocení – ' + card.studentName"
+        (onClick)="confirmSummary(card)"
+      />
+      } }
+    </div>
+    }
+  </div>
+  } } @for (subject of card.subjects; track subject.subjectId) {
   <div
     class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-surface-100 px-3 py-1.5 last:border-b-0 dark:border-surface-800"
   >
@@ -174,7 +271,7 @@
     @if (subject.canEdit) {
     <p-select
       [ariaLabel]="'Na vysvědčení – ' + subject.subjectName + ', ' + card.studentName"
-      [options]="markOptions"
+      [options]="subject.mode === 'Verbal' ? verbalMarkOptions : markOptions"
       optionLabel="label"
       optionValue="value"
       [ngModel]="markKey(subject)"
@@ -182,7 +279,7 @@
       placeholder="—"
       appendTo="body"
       size="small"
-      styleClass="w-44"
+      [styleClass]="subject.mode === 'Verbal' ? 'w-60' : 'w-44'"
     />
     } @else {
     <span class="w-44 text-sm font-medium"
@@ -207,10 +304,7 @@
         (onClick)="reopen(card, subject)"
       />
       } } @else {
-      <span
-        >{{ subject.changed ? 'upraveno' : subject.kind ? 'návrh z průměru' :
-        'chybí' }}</span
-      >
+      <span>{{ status(subject) }}</span>
       @if (subject.canEdit && subject.changed) {
       <p-button
         icon="pi pi-undo"
@@ -220,7 +314,7 @@
         [ariaLabel]="'Vrátit na návrh – ' + subject.subjectName + ', ' + card.studentName"
         (onClick)="reset(card, subject)"
       />
-      } @if (subject.canEdit && subject.kind) {
+      } @if (subject.canEdit && subject.complete) {
       <p-button
         label="Potvrdit"
         size="small"
@@ -230,6 +324,27 @@
       />
       } }
     </div>
+    } @if (subject.mode !== 'Classification' && (subject.verbalText ||
+    subject.canEdit)) {
+    <div class="flex w-full items-start gap-2 pl-3 text-sm">
+      <p
+        class="m-0 flex-1 whitespace-pre-line"
+        [class.text-surface-500]="!subject.verbalText"
+      >
+        {{ subject.verbalText ?? (isStaff() ? modeLabels[subject.mode] + ' –
+        nezapsáno' : '') }}
+      </p>
+      @if (subject.canEdit) {
+      <p-button
+        icon="pi pi-pencil"
+        size="small"
+        [text]="true"
+        severity="secondary"
+        [ariaLabel]="'Slovní hodnocení – ' + subject.subjectName + ', ' + card.studentName"
+        (onClick)="editText(card, subject)"
+      />
+      }
+    </div>
     }
   </div>
   }
@@ -237,3 +352,4 @@
 } } @else {
 <app-loading class="justify-center py-6" />
 }
+<app-verbal-text-dialog />

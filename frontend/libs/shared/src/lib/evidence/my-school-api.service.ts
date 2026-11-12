@@ -2,7 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { ReportCardSettings } from '../grades/report-card.model';
+import {
+  AssessmentModeRule,
+  ReportCardSettings,
+  SetAssessmentModeRule,
+} from '../grades/report-card.model';
 import { VisibilityRules } from '../people/visibility.model';
 import {
   School,
@@ -72,6 +76,27 @@ export class MySchoolApiService {
     return this.http.put<ReportCardSettings>(
       `${this.baseUrl}/api/my-school/report-cards`,
       request,
+    );
+  }
+
+  /** How ročníky and pupils are assessed — everything else is classified. */
+  getAssessmentRules(): Observable<AssessmentModeRule[]> {
+    return this.http.get<AssessmentModeRule[]>(
+      `${this.baseUrl}/api/my-school/report-cards/assessment-rules`,
+    );
+  }
+
+  /** Adds the rule, or changes the mode of the one for the same target. */
+  setAssessmentRule(rule: SetAssessmentModeRule): Observable<void> {
+    return this.http.put<void>(
+      `${this.baseUrl}/api/my-school/report-cards/assessment-rules`,
+      rule,
+    );
+  }
+
+  deleteAssessmentRule(id: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/my-school/report-cards/assessment-rules/${id}`,
     );
   }
 }
