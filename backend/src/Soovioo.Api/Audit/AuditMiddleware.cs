@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -12,8 +13,8 @@ namespace Soovioo.Api.Audit;
 
 /// <summary>Writes an <see cref="AuditLogEntry"/> for every data-changing
 /// API request (anything but GET/HEAD/OPTIONS) — whoever makes it, support
-/// mode included. Token refreshes aren't changes and are skipped. A failure
-/// to write the log never fails the request itself.</summary>
+/// mode included — except actions marked <see cref="NoAuditAttribute"/>.
+/// A failure to write the log never fails the request itself.</summary>
 public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logger)
 {
     /// <summary>How much of the request/response body is looked at.</summary>
@@ -21,7 +22,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
 
     public async Task InvokeAsync(HttpContext context, AppDbContext db)
     {
-        if (!ShouldAudit(context.Request))
+        if (!ShouldAudit(context))
         {
             await next(context);
             return;
@@ -56,20 +57,21 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
         }
     }
 
-    public static bool ShouldAudit(HttpRequest request) =>
-        request.Path.StartsWithSegments("/api")
-        && !HttpMethods.IsGet(request.Method)
-        && !HttpMethods.IsHead(request.Method)
-        && !HttpMethods.IsOptions(request.Method)
-        && !request.Path.StartsWithSegments("/api/auth/refresh");
+    public static bool ShouldAudit(HttpContext context) =>
+        context.Request.Path.StartsWithSegments("/api")
+        && !HttpMethods.IsGet(context.Request.Method)
+        && !HttpMethods.IsHead(context.Request.Method)
+        && !HttpMethods.IsOptions(context.Request.Method)
+        && context.GetEndpoint()?.Metadata.GetMetadata<NoAuditAttribute>() is null;
 
     private static async Task WriteAsync(HttpContext context, AppDbContext db, int statusCode, byte[] responseBytes)
     {
         var request = context.Request;
         var user = context.User;
         var audit = AuditContext.Find(context);
-        var action = context.GetEndpoint()?.Metadata.GetMetadata<ControllerActionDescriptor>();
-        var crossSchool = context.GetEndpoint()?.Metadata.GetMetadata<CrossSchoolAuditAttribute>() is not null;
+        var metadata = context.GetEndpoint()?.Metadata;
+        var route = metadata?.GetMetadata<ControllerActionDescriptor>()?.AttributeRouteInfo?.Template;
+        var crossSchool = metadata?.GetMetadata<CrossSchoolAuditAttribute>() is not null;
 
         // Whatever the endpoint left tracked must not be saved along with
         // the log entry (e.g. a change it rejected without saving).
@@ -114,7 +116,7 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
             }
         }
 
-        var baseDescription = AuditDescriptions.Describe(action?.ControllerName, action?.ActionName);
+        var baseDescription = metadata?.GetMetadata<AuditActionAttribute>()?.Description;
         var responseText = Encoding.UTF8.GetString(responseBytes);
         db.AuditLogEntries.Add(new AuditLogEntry
         {
@@ -127,13 +129,13 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
             SupportBy = user.FindFirstValue(SupportClaims.By) ?? audit?.SupportBy,
             Method = request.Method,
             Path = request.Path.Value ?? "",
-            Area = AuditDescriptions.Area(action?.ControllerName),
+            Area = metadata?.GetMetadata<AuditAreaAttribute>()?.Name ?? AuditCatalog.OtherArea,
             Action = audit?.Action
                      ?? baseDescription
-                     ?? $"{request.Method} /{action?.AttributeRouteInfo?.Template ?? request.Path.Value?.TrimStart('/')}",
+                     ?? $"{request.Method} /{route ?? request.Path.Value?.TrimStart('/')}",
             Description = audit?.Description
                           ?? Describe(baseDescription,
-                              AuditPayload.SubjectName(payload), studentName, request.RouteValues["id"]?.ToString(),
+                              AuditPayload.SubjectName(payload), studentName, RouteReference(request.RouteValues),
                               statusCode >= 400),
             StatusCode = statusCode,
             RequestBody = crossSchool ? null : payloadText,
@@ -144,9 +146,22 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
         await db.SaveChangesAsync();
     }
 
+    /// <summary>What the route names, for an entry whose payload names
+    /// nothing: "#4", or a day "na 12. 11. 2026".</summary>
+    private static string? RouteReference(RouteValueDictionary route)
+    {
+        if ((route["id"] ?? route["userId"])?.ToString() is { } id)
+        {
+            return $"#{id}";
+        }
+        return DateOnly.TryParse(route["date"]?.ToString(), CultureInfo.InvariantCulture, out var date)
+            ? $"na {date.ToString("d. M. yyyy", CultureInfo.InvariantCulture)}"
+            : null;
+    }
+
     /// <summary>"Vytvořen uživatel Karel Nový", "Zapsána známka – Jan Novák",
     /// "Smazána učebna #4"; a rejected request "… (neprovedeno)".</summary>
-    private static string? Describe(string? description, string? subject, string? student, string? id, bool failed)
+    private static string? Describe(string? description, string? subject, string? student, string? reference, bool failed)
     {
         if (description is null)
         {
@@ -161,9 +176,9 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
         {
             text += $" – {student}";
         }
-        if (subject is null && student is null && id is not null)
+        if (subject is null && student is null && reference is not null)
         {
-            text += $" #{id}";
+            text += $" {reference}";
         }
         return failed ? $"{text} (neprovedeno)" : text;
     }

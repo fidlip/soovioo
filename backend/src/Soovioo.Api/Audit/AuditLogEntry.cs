@@ -33,7 +33,7 @@ public class AuditLogEntry
     public required string Method { get; set; }
     public required string Path { get; set; }
 
-    /// <summary>Agenda label ("Známky", "Uživatelé"…), see <see cref="AuditDescriptions"/>.</summary>
+    /// <summary>Agenda label ("Známky", "Uživatelé"…), see <see cref="AuditAreaAttribute"/>.</summary>
     public required string Area { get; set; }
 
     /// <summary>What was done, without whom/what to ("Vytvořen uživatel",

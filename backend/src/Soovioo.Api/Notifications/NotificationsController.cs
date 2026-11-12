@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
@@ -14,6 +15,7 @@ namespace Soovioo.Api.Notifications;
 [Authorize]
 [ApiController]
 [Route("api/notifications")]
+[AuditArea("Upozornění")]
 public class NotificationsController(AppDbContext db, TimeProvider clock) : ControllerBase
 {
     public const int PageSize = 30;
@@ -53,6 +55,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
             await db.LinkedAccountsOfAsync(CurrentUserId())));
 
     [HttpPost("{id:int}/read")]
+    [NoAudit]
     public async Task<IActionResult> MarkRead(int id)
     {
         var notification = await Mine().FirstOrDefaultAsync(n => n.Id == id);
@@ -66,6 +69,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     }
 
     [HttpPost("read-all")]
+    [NoAudit]
     public async Task<IActionResult> MarkAllRead()
     {
         var now = clock.GetUtcNow();
@@ -86,6 +90,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
     /// <summary>The kinds under the bell.</summary>
     [HttpPut("settings")]
+    [AuditAction("Změněno nastavení upozornění")]
     public async Task<ActionResult<NotificationSettingsDto>> SetSettings(NotificationSettingsRequest request)
     {
         var user = await MeAsync();
@@ -101,6 +106,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// <summary>The kinds in the daily e-mail and when it comes (null = the
     /// school's time).</summary>
     [HttpPut("email-settings")]
+    [AuditAction("Změněno nastavení upozornění e-mailem")]
     public async Task<ActionResult<NotificationSettingsDto>> SetEmailSettings(NotificationEmailSettingsRequest request)
     {
         var user = await MeAsync();
@@ -117,6 +123,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// <summary>Push: the kinds, the whole text or just the kind of event
     /// (only while the school allows it), and the night quiet.</summary>
     [HttpPut("push-settings")]
+    [AuditAction("Změněno nastavení upozornění na mobil")]
     public async Task<ActionResult<NotificationSettingsDto>> SetPushSettings(NotificationPushSettingsRequest request)
     {
         var user = await MeAsync();
@@ -145,6 +152,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// changes. A token another account registered moves to the caller —
     /// the phone was logged in as someone else before.</summary>
     [HttpPost("push-devices")]
+    [NoAudit]
     public async Task<IActionResult> RegisterDevice(PushDeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Token) || request.Token.Length > 4096 || !Enum.IsDefined(request.Platform))
@@ -174,6 +182,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// <summary>The mobile app when logging out — nothing more for this
     /// account comes to that phone.</summary>
     [HttpPost("push-devices/remove")]
+    [NoAudit]
     public async Task<IActionResult> RemoveDevice(PushDeviceRemoveRequest request)
     {
         var me = CurrentUserId();
@@ -187,6 +196,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// kind the school doesn't force, without logging in.</summary>
     [AllowAnonymous]
     [HttpPost("unsubscribe")]
+    [AuditAction("Odhlášen odběr upozornění e-mailem")]
     public async Task<ActionResult<UnsubscribeResultDto>> Unsubscribe(UnsubscribeRequest request)
     {
         var user = string.IsNullOrEmpty(request.Token)

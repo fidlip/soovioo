@@ -4,6 +4,7 @@ WORKDIR /src
 # Restore first, in its own layer — re-runs only when the project file changes.
 # For linux-x64 only: OR-Tools brings native libraries for five platforms.
 COPY src/Soovioo.Api/Soovioo.Api.csproj src/Soovioo.Api/
+COPY src/Soovioo.Analyzers/Soovioo.Analyzers.csproj src/Soovioo.Analyzers/
 RUN dotnet restore src/Soovioo.Api/Soovioo.Api.csproj -r linux-x64
 COPY src/ src/
 RUN dotnet publish src/Soovioo.Api/Soovioo.Api.csproj -c Release -r linux-x64 --self-contained false -o /app --no-restore

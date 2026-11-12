@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -12,6 +13,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/school-classes/{schoolClassId}/timetable")]
+[AuditArea("Rozvrh")]
 public class TimetableController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
     /// <summary>The lessons of <paramref name="versionId"/>, or of the version
@@ -137,6 +139,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
 
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Přidána hodina do rozvrhu")]
     public async Task<ActionResult<TimetableEntryDto>> AddEntry(int schoolClassId, CreateTimetableEntryRequest request)
     {
         // Both lookups are already scoped to the caller's school by the
@@ -219,6 +222,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Upravena hodina rozvrhu")]
     public async Task<ActionResult<TimetableEntryDto>> UpdateEntry(
         int schoolClassId, int id, CreateTimetableEntryRequest request)
     {
@@ -406,6 +410,7 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
 
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Smazána hodina rozvrhu")]
     public async Task<IActionResult> DeleteEntry(int schoolClassId, int id)
     {
         var entry = await db.TimetableEntries.Include(e => e.TimetableVersion)

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -18,6 +19,7 @@ namespace Soovioo.Api.Attendance;
 [Authorize]
 [ApiController]
 [Route("api/excuses")]
+[AuditArea("Docházka")]
 public class ExcusesController(
     AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, TimeProvider clock,
     MessageAttachmentStorageService storage) : ControllerBase
@@ -36,6 +38,7 @@ public class ExcusesController(
     }
 
     [HttpPost]
+    [AuditAction("Napsána omluvenka")]
     public async Task<ActionResult<ExcuseResultDto>> CreateExcuse(ExcuseRequest request)
     {
         if (await db.Students.FindAsync(request.StudentId) is not { } student)
@@ -92,6 +95,7 @@ public class ExcusesController(
     /// stay. Staff also drop decided days outside the range; days they add
     /// up to today are approved at once.</summary>
     [HttpPut("{id:int}")]
+    [AuditAction("Upravena omluvenka")]
     public async Task<ActionResult<ExcuseResultDto>> UpdateExcuse(int id, ExcuseRequest request)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)
@@ -148,6 +152,7 @@ public class ExcusesController(
     /// <summary>Takes back the days still waiting (staff: all days); with no
     /// day left the omluvenka goes.</summary>
     [HttpDelete("{id:int}")]
+    [AuditAction("Smazána omluvenka")]
     public async Task<IActionResult> DeleteExcuse(int id)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)
@@ -178,6 +183,7 @@ public class ExcusesController(
     /// changes the decision of all its days.</summary>
     [HttpPost("{id:int}/review")]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Posouzena omluvenka")]
     public async Task<ActionResult> ReviewExcuse(int id, ReviewAbsenceRequest request)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)
@@ -212,6 +218,7 @@ public class ExcusesController(
     /// omluvenka, e.g. add a doctor's note.</summary>
     [HttpPost("{id:int}/reopen")]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Omluvenka vrácena k posouzení")]
     public async Task<ActionResult> ReopenExcuse(int id)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)
@@ -233,6 +240,7 @@ public class ExcusesController(
     }
 
     [HttpPost("{id:int}/attachments")]
+    [AuditAction("Přiložen soubor k omluvence")]
     public async Task<ActionResult<ExcuseAttachmentDto>> UploadAttachment(int id, IFormFile file)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)
@@ -275,6 +283,7 @@ public class ExcusesController(
     }
 
     [HttpDelete("{id:int}/attachments/{attachmentId:int}")]
+    [AuditAction("Odebrán soubor z omluvenky")]
     public async Task<IActionResult> DeleteAttachment(int id, int attachmentId)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse

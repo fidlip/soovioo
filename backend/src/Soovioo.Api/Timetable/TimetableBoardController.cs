@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
@@ -15,6 +16,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions/{versionId:int}/board")]
+[AuditArea("Rozvrh")]
 public class TimetableBoardController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     private const string LockedLesson = "Zamčenou hodinu nejde přesunout.";
@@ -94,6 +96,7 @@ public class TimetableBoardController(AppDbContext db, ICurrentSchoolContext cur
 
     [HttpPost("lessons/{entryId:int}/move")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Přesunuta hodina v rozvrhu")]
     public async Task<IActionResult> Move(int versionId, int entryId, MoveLessonRequest request)
     {
         if (await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == versionId) is not { } version)
@@ -144,6 +147,7 @@ public class TimetableBoardController(AppDbContext db, ICurrentSchoolContext cur
 
     [HttpPost("lessons")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Umístěna hodina do rozvrhu")]
     public async Task<IActionResult> Place(int versionId, PlaceLessonRequest request)
     {
         if (await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == versionId) is not { } version)
@@ -199,6 +203,7 @@ public class TimetableBoardController(AppDbContext db, ICurrentSchoolContext cur
     /// division. Only what the plan wants: anything else wouldn't show there.</summary>
     [HttpDelete("lessons/{entryId:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Vrácena hodina z rozvrhu mezi neumístěné")]
     public async Task<IActionResult> Unplace(int versionId, int entryId)
     {
         if (await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == versionId) is not { } version)

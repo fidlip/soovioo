@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -12,6 +13,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions/{versionId:int}/generation")]
+[AuditArea("Rozvrh")]
 public class TimetableGenerationController(
     AppDbContext db, ICurrentSchoolContext currentSchool, IBackgroundJobClient jobs, TimeProvider clock) : ControllerBase
 {
@@ -53,6 +55,7 @@ public class TimetableGenerationController(
     /// <summary>The user saw how it ended: its notification is read.</summary>
     [HttpPost("seen")]
     [RequirePermission(Permission.Timetable)]
+    [NoAudit]
     public async Task<IActionResult> Seen(int versionId)
     {
         var me = User.UserId();
@@ -85,6 +88,7 @@ public class TimetableGenerationController(
 
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Spuštěno generování rozvrhu")]
     public async Task<ActionResult<TimetableGenerationDto>> Generate(int versionId, GenerateTimetableRequest request)
     {
         var version = await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == versionId);

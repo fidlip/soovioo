@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -15,6 +16,7 @@ namespace Soovioo.Api.Attendance;
 [Authorize]
 [ApiController]
 [Route("api/absences")]
+[AuditArea("Docházka")]
 public class AbsencesController(
     AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, TimeProvider clock,
     Messaging.MessageAttachmentStorageService storage) : ControllerBase
@@ -42,6 +44,7 @@ public class AbsencesController(
 
     [HttpPost]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Zapsána absence")]
     public async Task<ActionResult<AbsenceDto>> AddAbsence(CreateAbsenceRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);
@@ -88,6 +91,7 @@ public class AbsencesController(
     /// <summary>A one-day omluvenka for the absence (what the mobile app
     /// still sends).</summary>
     [HttpPost("{id}/excuse")]
+    [AuditAction("Napsána omluvenka")]
     public async Task<ActionResult> SubmitExcuse(int id, SubmitExcuseRequest request)
     {
         var absence = await db.Absences.FindAsync(id);
@@ -131,6 +135,7 @@ public class AbsencesController(
     /// or rejects it with a reason.</summary>
     [HttpPost("{id}/review")]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Posouzena omluvenka za den")]
     public async Task<ActionResult> ReviewAbsence(int id, ReviewAbsenceRequest request)
     {
         var absence = await db.Absences.Include(a => a.Excuse).FirstOrDefaultAsync(a => a.Id == id);
@@ -168,6 +173,7 @@ public class AbsencesController(
     /// <summary>The decided day waits again.</summary>
     [HttpPost("{id:int}/reopen")]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Omluvenka za den vrácena k posouzení")]
     public async Task<ActionResult> ReopenAbsence(int id)
     {
         var absence = await db.Absences.Include(a => a.Excuse).FirstOrDefaultAsync(a => a.Id == id);
@@ -211,6 +217,7 @@ public class AbsencesController(
     /// stays the normal path for actually processing an absence.</summary>
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Upravena absence")]
     public async Task<ActionResult<AbsenceDto>> UpdateAbsence(int id, CreateAbsenceRequest request)
     {
         var absence = await db.Absences.FindAsync(id);
@@ -253,6 +260,7 @@ public class AbsencesController(
 
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.AbsencesWrite)]
+    [AuditAction("Smazána absence")]
     public async Task<IActionResult> DeleteAbsence(int id)
     {
         var absence = await db.Absences.FindAsync(id);

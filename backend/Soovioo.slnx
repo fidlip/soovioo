@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Soovioo.Analyzers/Soovioo.Analyzers.csproj" />
     <Project Path="src/Soovioo.Api/Soovioo.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">

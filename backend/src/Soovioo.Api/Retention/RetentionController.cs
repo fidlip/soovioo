@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -20,6 +21,7 @@ namespace Soovioo.Api.Retention;
 [RequirePermission(Permission.Retention)]
 [ApiController]
 [Route("api/retention")]
+[AuditArea("Archiv")]
 public class RetentionController(
     AppDbContext db, ICurrentSchoolContext currentSchool, StudentEraser studentEraser,
     AccountEraser accountEraser, LeaveNotifier notifier, Notifier notifications, StaffLeaving staffLeaving,
@@ -33,6 +35,7 @@ public class RetentionController(
         Ok(RetentionPolicyDto.From(await RetentionJob.PolicyOfAsync(db, SchoolId)));
 
     [HttpPut("policy")]
+    [AuditAction("Nastavena pravidla výmazu údajů")]
     public async Task<ActionResult<RetentionPolicyDto>> SetPolicy(RetentionPolicyDto request)
     {
         if (!Enum.IsDefined(request.Mode))
@@ -122,6 +125,7 @@ public class RetentionController(
     /// of theirs has been erased. A new departure, or a new last day, goes to
     /// the people in <see cref="LeaveRequest.Notices"/>.</summary>
     [HttpPut("students/{id:int}/leave")]
+    [AuditAction("Zapsán odchod žáka")]
     public async Task<ActionResult<FormerStudentDto>> SetLeave(int id, LeaveRequest request)
     {
         db.IncludeFormerStudents = true;
@@ -163,6 +167,7 @@ public class RetentionController(
     /// <summary>Takes a departure back — the pupil (and their parents'
     /// accounts, unless erased) are back. Not once anything was erased.</summary>
     [HttpDelete("students/{id:int}/leave")]
+    [AuditAction("Zrušen odchod žáka")]
     public async Task<IActionResult> CancelLeave(int id, [FromBody] CancelLeaveRequest? request = null)
     {
         db.IncludeFormerStudents = true;
@@ -200,6 +205,7 @@ public class RetentionController(
     /// <see cref="EraseRequest.Everything"/>, all of it now (e.g. a request
     /// under čl. 17 GDPR).</summary>
     [HttpPost("students/{id:int}/erase")]
+    [AuditAction("Vymazány údaje bývalého žáka")]
     public async Task<ActionResult<FormerStudentDto?>> EraseStudent(int id, EraseRequest request)
     {
         db.IncludeFormerStudents = true;
@@ -226,6 +232,7 @@ public class RetentionController(
     /// <summary>Carries out everything due — what the daily job does in a
     /// school that erases automatically.</summary>
     [HttpPost("erase-due")]
+    [AuditAction("Vymazány údaje, kterým uplynula lhůta")]
     public async Task<ActionResult<EraseDueResult>> EraseDue()
     {
         var today = Today;
@@ -251,6 +258,7 @@ public class RetentionController(
 
     /// <summary>Erases a deactivated member of staff now.</summary>
     [HttpPost("staff/{userId:int}/erase")]
+    [AuditAction("Vymazány údaje bývalého zaměstnance")]
     public async Task<IActionResult> EraseStaff(int userId)
     {
         var user = await RetentionJob.DeactivatedStaff(db, SchoolId).FirstOrDefaultAsync(u => u.Id == userId);
@@ -274,6 +282,7 @@ public class RetentionController(
 
     /// <summary>Lessons the chosen substitutes would get at a time they already teach.</summary>
     [HttpPost("staff/{userId:int}/leave/conflicts")]
+    [NoAudit]
     public async Task<ActionResult<IReadOnlyList<HandoverConflictDto>>> GetHandoverConflicts(int userId, HandoverCheckRequest request)
     {
         var user = await ActiveStaffAsync(userId);
@@ -284,6 +293,7 @@ public class RetentionController(
     /// handover; a new departure or a new last day goes to
     /// <see cref="StaffLeaveRequest.Notices"/>.</summary>
     [HttpPut("staff/{userId:int}/leave")]
+    [AuditAction("Zapsán odchod zaměstnance")]
     public async Task<ActionResult<StaffLeavePreviewDto>> SetStaffLeave(int userId, StaffLeaveRequest request)
     {
         var user = await ActiveStaffAsync(userId);
@@ -346,6 +356,7 @@ public class RetentionController(
 
     /// <summary>Takes a departure back while the account still works.</summary>
     [HttpDelete("staff/{userId:int}/leave")]
+    [AuditAction("Zrušen odchod zaměstnance")]
     public async Task<IActionResult> CancelStaffLeave(int userId, [FromBody] CancelStaffLeaveRequest? request = null)
     {
         var user = await ActiveStaffAsync(userId);

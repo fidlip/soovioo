@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -12,10 +13,12 @@ namespace Soovioo.Api.ProductFeedback;
 [Authorize]
 [ApiController]
 [Route("api/feedback")]
+[AuditArea("Zpětná vazba")]
 public class FeedbackController(AppDbContext db, ICurrentSchoolContext currentSchool, FeedbackService feedback)
     : ControllerBase
 {
     [HttpPost]
+    [AuditAction("Odeslána zpětná vazba")]
     public async Task<IActionResult> Send(FeedbackRequest request)
     {
         // A SuperAdmin in support mode isn't the school's user.

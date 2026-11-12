@@ -16,6 +16,7 @@ namespace Soovioo.Api.Auth;
 /// a one-time code. A school sees neither — its log gets only the
 /// login at <see cref="RedeemCode"/>.</summary>
 [ApiController]
+[AuditArea("Přihlášení")]
 public class LinkedAccountsController(
     AppDbContext db, AuthSessionService sessions, RefreshTokenService refreshTokens, TimeProvider clock) : ControllerBase
 {
@@ -58,6 +59,7 @@ public class LinkedAccountsController(
     [HttpPost("api/linked-accounts/requests")]
     [Authorize]
     [CrossSchoolAudit]
+    [AuditAction("Zahájeno propojení účtů")]
     public async Task<ActionResult<LinkRequestDto>> StartRequest(StartLinkRequest request)
     {
         var me = await db.Users.Include(u => u.School).FirstOrDefaultAsync(u => u.Id == CurrentUserId());
@@ -94,6 +96,7 @@ public class LinkedAccountsController(
     [HttpPost("api/linked-accounts/requests/preview")]
     [AllowAnonymous]
     [CrossSchoolAudit]
+    [AuditAction("Zobrazena žádost o propojení účtů")]
     public async Task<ActionResult<LinkRequestPreviewDto>> PreviewRequest(LinkCodeRequest request)
     {
         if (await FindRequestAsync(request.Code) is not { } found)
@@ -112,6 +115,7 @@ public class LinkedAccountsController(
     [HttpPost("api/linked-accounts/requests/approve")]
     [Authorize]
     [CrossSchoolAudit]
+    [AuditAction("Potvrzeno propojení účtů")]
     public async Task<ActionResult<LinkRequestDto>> ApproveRequest(LinkCodeRequest request)
     {
         if (await FindRequestAsync(request.Code) is not { } found)
@@ -143,6 +147,7 @@ public class LinkedAccountsController(
     [HttpPost("api/linked-accounts/requests/complete")]
     [Authorize]
     [CrossSchoolAudit]
+    [AuditAction("Dokončeno propojení účtů")]
     public async Task<IActionResult> CompleteRequest(LinkCodeRequest request)
     {
         var hash = Hash(request.Code);
@@ -174,6 +179,7 @@ public class LinkedAccountsController(
     [HttpPost("api/linked-accounts")]
     [Authorize]
     [CrossSchoolAudit]
+    [AuditAction("Propojen účet z jiné školy")]
     public async Task<IActionResult> Link(LinkAccountRequest request)
     {
         var me = await db.Users.Include(u => u.School).FirstOrDefaultAsync(u => u.Id == CurrentUserId());
@@ -271,6 +277,7 @@ public class LinkedAccountsController(
     [HttpDelete("api/linked-accounts/{userId:int}")]
     [Authorize]
     [CrossSchoolAudit]
+    [AuditAction("Zrušeno propojení účtů")]
     public async Task<IActionResult> Unlink(int userId)
     {
         if (!await IsLinkedToMeAsync(userId))
@@ -287,6 +294,7 @@ public class LinkedAccountsController(
     [HttpPost("api/linked-accounts/{userId:int}/switch")]
     [Authorize]
     [CrossSchoolAudit]
+    [AuditAction("Přepnuto na propojený účet")]
     public async Task<ActionResult<AccountSwitchDto>> Switch(int userId)
     {
         if (!await IsLinkedToMeAsync(userId))
@@ -309,8 +317,13 @@ public class LinkedAccountsController(
     /// yet. Its school sees an ordinary login.</summary>
     [HttpPost("api/auth/login-code")]
     [AllowAnonymous]
+    [AuditAction("Přihlášení")]
     public async Task<ActionResult<LoginResponse>> RedeemCode(RedeemLoginCodeRequest request)
     {
+        var audit = AuditContext.Of(HttpContext);
+        audit.Action = "Neúspěšné přihlášení";
+        audit.Description = "Neúspěšné přihlášení z propojeného účtu";
+
         var hash = Hash(request.Code);
         var link = await db.AccountLinks.IgnoreQueryFilters().FirstOrDefaultAsync(l => l.SwitchCodeHash == hash);
         if (link is null)
@@ -323,15 +336,17 @@ public class LinkedAccountsController(
         await db.SaveChangesAsync();
 
         var user = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == link.UserId);
+        if (user is not null)
+        {
+            audit.UserId = user.Id;
+            audit.SchoolId = user.SchoolId;
+            audit.Username = user.Username;
+        }
         if (expired || user is null || user.DeactivatedAt is not null || user.ErasedAt is not null)
         {
             return BadRequest(BadCode);
         }
 
-        var audit = AuditContext.Of(HttpContext);
-        audit.UserId = user.Id;
-        audit.SchoolId = user.SchoolId;
-        audit.Username = user.Username;
         audit.Action = "Přihlášení";
         audit.Description = "Přihlášení";
 

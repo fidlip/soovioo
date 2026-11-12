@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -17,6 +18,7 @@ namespace Soovioo.Api.People;
 [RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/people")]
+[AuditArea("Osoby")]
 public class PeopleController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -36,6 +38,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpPost]
+    [AuditAction("Vytvořena osoba")]
     public async Task<ActionResult<PersonDto>> AddPerson(
         SavePersonRequest request, [FromServices] PhotoAccess? photoAccess = null)
     {
@@ -50,6 +53,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
     }
 
     [HttpPut("{id:int}")]
+    [AuditAction("Upravena osoba")]
     public async Task<ActionResult<PersonDto>> UpdatePerson(
         int id, SavePersonRequest request,
         [FromServices] PhotoStorage? photos = null, [FromServices] PhotoAccess? photoAccess = null)
@@ -71,6 +75,7 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
     /// <summary>Only someone without an account (delete that first); a pupil
     /// only without history, like in Žáci.</summary>
     [HttpDelete("{id:int}")]
+    [AuditAction("Smazána osoba")]
     public async Task<IActionResult> DeletePerson(int id, [FromServices] PhotoStorage? photos = null)
     {
         var person = await (await ListedAsync()).FirstOrDefaultAsync(p => p.Id == id);

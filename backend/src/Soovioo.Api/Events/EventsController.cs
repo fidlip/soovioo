@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -15,6 +16,7 @@ namespace Soovioo.Api.Events;
 [Authorize]
 [ApiController]
 [Route("api/events")]
+[AuditArea("Kalendář")]
 public partial class EventsController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     /// <summary>Visibility depends on the caller's role and the event's
@@ -130,6 +132,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
 
     [HttpPost]
     [RequirePermission(Permission.EventsWrite)]
+    [AuditAction("Vytvořena akce")]
     public async Task<ActionResult<EventDto>> CreateEvent(CreateEventRequest request)
     {
         var validationError = await ValidateEventRequestAsync(request);
@@ -163,6 +166,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.EventsWrite)]
+    [AuditAction("Upravena akce")]
     public async Task<ActionResult<EventDto>> UpdateEvent(int id, CreateEventRequest request)
     {
         var validationError = await ValidateEventRequestAsync(request);
@@ -209,6 +213,7 @@ public partial class EventsController(AppDbContext db, ICurrentSchoolContext cur
 
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.EventsWrite)]
+    [AuditAction("Smazána akce")]
     public async Task<IActionResult> DeleteEvent(int id)
     {
         var @event = await db.Events.FirstOrDefaultAsync(e => e.Id == id);

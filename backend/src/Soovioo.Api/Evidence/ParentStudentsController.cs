@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
@@ -14,6 +15,7 @@ namespace Soovioo.Api.Evidence;
 [RequirePermission(Permission.Students)]
 [ApiController]
 [Route("api/parent-student-links")]
+[AuditArea("Rodiče")]
 public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -45,6 +47,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
     }
 
     [HttpPost]
+    [AuditAction("Přiřazeno dítě rodiči")]
     public async Task<ActionResult<ParentStudentDto>> AddLink(CreateParentStudentLinkRequest request)
     {
         var user = await db.Users.FindAsync(request.UserId);
@@ -74,6 +77,7 @@ public class ParentStudentsController(AppDbContext db, ICurrentSchoolContext cur
     }
 
     [HttpDelete("{userId:int}/{studentId:int}")]
+    [AuditAction("Odebráno dítě rodiči")]
     public async Task<IActionResult> RemoveLink(int userId, int studentId)
     {
         var link = await db.ParentStudents

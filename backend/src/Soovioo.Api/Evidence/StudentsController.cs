@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -11,6 +12,7 @@ namespace Soovioo.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/students")]
+[AuditArea("Žáci")]
 public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -66,10 +68,12 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// <summary>A pupil's proposed nickname, decided by the school when no
     /// parent of theirs uses the app (<see cref="People.Nicknames"/>).</summary>
     [HttpPost("{id:int}/nickname/approve")]
+    [AuditAction("Schválena přezdívka žáka")]
     public Task<IActionResult> ApproveNickname(int id, [FromServices] People.Nicknames nicknames) =>
         DecideNicknameAsync(id, true, nicknames);
 
     [HttpPost("{id:int}/nickname/reject")]
+    [AuditAction("Zamítnuta přezdívka žáka")]
     public Task<IActionResult> RejectNickname(int id, [FromServices] People.Nicknames nicknames) =>
         DecideNicknameAsync(id, false, nicknames);
 
@@ -100,6 +104,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
     [HttpPost]
     [RequirePermission(Permission.Students)]
+    [AuditAction("Vytvořen žák")]
     public async Task<ActionResult<StudentDto>> AddStudent(CreateStudentRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(request.SchoolClassId);
@@ -132,6 +137,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Students)]
+    [AuditAction("Upraven žák")]
     public async Task<ActionResult<StudentDto>> UpdateStudent(int id, CreateStudentRequest request)
     {
         var student = await db.Students.FindAsync(id);
@@ -175,6 +181,7 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// so does their own account.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Students)]
+    [AuditAction("Smazán žák")]
     public async Task<IActionResult> DeleteStudent(int id, [FromServices] People.PhotoStorage? photos = null)
     {
         var student = await db.Students.FindAsync(id);

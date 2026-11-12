@@ -19,6 +19,7 @@ namespace Soovioo.Api.Demo;
 [AllowAnonymous]
 [ApiController]
 [Route("api/public/demo")]
+[AuditArea("Demo")]
 public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchoolPurger purger, AuthSessionService sessions,
     FeedbackService feedback)
     : ControllerBase
@@ -27,6 +28,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
 
     [HttpPost]
     [EnableRateLimiting(CreateRateLimit)]
+    [AuditAction("Založena ukázková škola")]
     public async Task<ActionResult<DemoCreatedDto>> Create(DemoSetupRequest request)
     {
         if (DemoSchoolService.Validate(request) is { } field)
@@ -43,7 +45,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         // e-mail), so it goes when the demo goes.
         var audit = AuditContext.Of(HttpContext);
         audit.SchoolId = demo!.SchoolId;
-        audit.Description = $"Založení ukázkové školy {demo.Slug}";
+        audit.Description = $"Založena ukázková škola {demo.Slug}";
         return Ok(ToDto(demo));
     }
 
@@ -104,6 +106,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
 
     /// <summary>Passwordless — the demo's users have no passwords at all.</summary>
     [HttpPost("{slug}/login")]
+    [AuditAction("Přihlášení")]
     public async Task<ActionResult<LoginResponse>> Login(string slug, DemoLoginRequest request)
     {
         if (await DemoSchoolAsync(slug) is not { } school)
@@ -121,13 +124,13 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         audit.SchoolId = school.Id;
         audit.UserId = user.Id;
         audit.Username = user.Username;
-        audit.Action = "Přihlášení";
         audit.Description = "Přihlášení (demo)";
         return Ok(await sessions.StartAsync(HttpContext, user, persistent: true, request.UseCookie));
     }
 
     [HttpPost("{slug}/reset")]
     [EnableRateLimiting(CreateRateLimit)]
+    [AuditAction("Vygenerována nová ukázková data")]
     public async Task<ActionResult<DemoCreatedDto>> Reset(string slug, DemoSetupRequest request)
     {
         if (await DemoSchoolAsync(slug) is not { } school)
@@ -148,6 +151,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
     /// <summary>"Vymazat data" — see <see cref="DemoSchoolService.ClearAsync"/>.
     /// The caller is then logged in as the remaining admin.</summary>
     [HttpPost("{slug}/clear")]
+    [AuditAction("Vymazání dat")]
     public async Task<ActionResult<DemoClearedDto>> Clear(string slug)
     {
         if (await DemoSchoolAsync(slug) is not { } school)
@@ -162,18 +166,19 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
         }
         var audit = AuditContext.Of(HttpContext);
         audit.SchoolId = school.Id;
-        audit.Action = "Vymazání dat";
         audit.Description = "Vymazání dat ukázkové školy";
         return Ok(new DemoClearedDto(adminId.Value));
     }
 
     [HttpDelete("{slug}")]
+    [AuditAction("Smazána ukázková škola")]
     public async Task<IActionResult> Delete(string slug)
     {
         if (await DemoSchoolAsync(slug) is not { } school)
         {
             return NotFound();
         }
+        AuditContext.Of(HttpContext).Description = $"Smazána ukázková škola {slug}";
         sessions.ClearCookie(HttpContext, AuthSessionService.CookieNameFor(school.Id));
         await purger.PurgeAsync(school.Id, deleteSchool: true);
         return NoContent();
@@ -181,6 +186,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
 
     /// <summary>The demo's feedback dialog (see <see cref="FeedbackService"/>).</summary>
     [HttpPost("{slug}/feedback")]
+    [AuditAction("Odeslána zpětná vazba")]
     public async Task<IActionResult> Feedback(string slug, FeedbackRequest request)
     {
         if (await DemoSchoolAsync(slug) is not { } school)

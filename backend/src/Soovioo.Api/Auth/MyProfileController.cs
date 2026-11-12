@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
@@ -17,6 +18,7 @@ namespace Soovioo.Api.Auth;
 [AllowSuperAdmin] // the SuperAdmin's own profile and password
 [ApiController]
 [Route("api/users/me")]
+[AuditArea("Nastavení")]
 public class MyProfileController(
     AppDbContext db,
     AuthSessionService sessions,
@@ -32,6 +34,7 @@ public class MyProfileController(
     }
 
     [HttpPut]
+    [AuditAction("Upraven vlastní profil")]
     public async Task<ActionResult<MyProfileDto>> UpdateProfile(UpdateMyProfileRequest request)
     {
         var user = await CurrentUserAsync();
@@ -52,6 +55,7 @@ public class MyProfileController(
     /// refresh token is revoked and this caller alone gets a new session,
     /// keeping its "Zůstat přihlášen" choice (mobile: always persistent).</summary>
     [HttpPost("change-password")]
+    [AuditAction("Změněno vlastní heslo")]
     public async Task<ActionResult<ChangePasswordResponse>> ChangePassword(ChangePasswordRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword))
@@ -84,6 +88,7 @@ public class MyProfileController(
     /// active one and returns an access token carrying it. Persisted on the
     /// user, so it's also what the next login/refresh starts in.</summary>
     [HttpPost("active-role")]
+    [AuditAction("Přepnuta aktivní role")]
     public async Task<ActionResult<SwitchRoleResponse>> SwitchRole(SwitchRoleRequest request)
     {
         var user = await CurrentUserAsync();
@@ -100,6 +105,7 @@ public class MyProfileController(
     /// <summary>A parent's own nickname applies right away, a pupil's waits
     /// for approval (<see cref="Nicknames"/>).</summary>
     [HttpPut("nickname")]
+    [AuditAction("Změněna vlastní přezdívka")]
     public async Task<ActionResult<MyProfileDto>> SetNickname(SetNicknameRequest request, [FromServices] Nicknames nicknames)
     {
         var user = await CurrentUserAsync();
@@ -129,6 +135,7 @@ public class MyProfileController(
     /// <summary>Stored only where it differs from the default, so the
     /// school's default keeps applying to everyone who didn't choose.</summary>
     [HttpPut("show-nicknames")]
+    [AuditAction("Změněno zobrazování přezdívek žáků")]
     public async Task<ActionResult<MyProfileDto>> SetShowNicknames(SetShowNicknamesRequest request)
     {
         var user = await CurrentUserAsync();
@@ -152,6 +159,7 @@ public class MyProfileController(
     }
 
     [HttpPut("visibility")]
+    [AuditAction("Změněna viditelnost vlastních údajů")]
     public async Task<ActionResult<IReadOnlyList<VisibilitySettingDto>>> SetVisibility(SetVisibilityRequest request)
     {
         var user = await CurrentUserAsync();

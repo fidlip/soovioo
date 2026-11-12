@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Soovioo.Analyzers/Soovioo.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Matrika reference-data CSVs (Country/District/Municipality seed),
          loaded at startup from AppContext.BaseDirectory — see Program.cs
          SeedReferenceData. Must be copied next to the built DLL. -->

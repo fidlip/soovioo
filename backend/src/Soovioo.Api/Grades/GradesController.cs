@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -14,6 +15,7 @@ namespace Soovioo.Api.Grades;
 [Authorize]
 [ApiController]
 [Route("api/grades")]
+[AuditArea("Známky")]
 public class GradesController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     private const int MaxPageSize = 100;
@@ -100,6 +102,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
     [HttpPost]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Zapsána známka")]
     public async Task<ActionResult<GradeDto>> AddGrade(CreateGradeRequest request)
     {
         var studentExists = await db.Students.AnyAsync(s => s.Id == request.StudentId);
@@ -157,6 +160,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Upravena známka")]
     public async Task<ActionResult<GradeDto>> UpdateGrade(int id, CreateGradeRequest request)
     {
         var grade = await db.Grades.FindAsync(id);
@@ -206,6 +210,7 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
 
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Smazána známka")]
     public async Task<IActionResult> DeleteGrade(int id)
     {
         var grade = await db.Grades.FindAsync(id);

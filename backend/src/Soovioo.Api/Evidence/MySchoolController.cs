@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -17,6 +18,7 @@ namespace Soovioo.Api.Evidence;
 [RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/my-school")]
+[AuditArea("Údaje o škole")]
 public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -32,6 +34,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPut("matrika-ids")]
+    [AuditAction("Nastaveny identifikátory školy (IZO, RED_IZO)")]
     public async Task<ActionResult<SchoolDto>> SetMatrikaIds(SetSchoolMatrikaIdsRequest request)
     {
         var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
@@ -50,6 +53,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     /// <summary>ZŠ/SŠ — switches "žák"/"student" across the UI. Takes effect
     /// for each user with their next access token (≤ 15 min).</summary>
     [HttpPut("type")]
+    [AuditAction("Změněn typ školy")]
     public async Task<ActionResult<SchoolDto>> SetType(SetSchoolTypeRequest request)
     {
         var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
@@ -82,6 +86,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     /// <summary>Institutional address/contact/director — used on real
     /// documents, not transmitted to matrika itself.</summary>
     [HttpPut("details")]
+    [AuditAction("Upraveny údaje o škole")]
     public async Task<ActionResult<SchoolDto>> SetDetails(SetSchoolDetailsRequest request)
     {
         var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
@@ -105,6 +110,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     /// build the client-generated SPAYD QR string. Without it set, the
     /// frontend just skips rendering a QR code.</summary>
     [HttpPut("bank-account")]
+    [AuditAction("Nastaven bankovní účet školy")]
     public async Task<ActionResult<SchoolDto>> SetBankAccount(SetSchoolBankAccountRequest request)
     {
         var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
@@ -144,6 +150,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     /// <summary>Replaces the whole set; entries left out mean
     /// <see cref="VisibilityScope.Nobody"/>.</summary>
     [HttpPut("visibility")]
+    [AuditAction("Změněna viditelnost údajů")]
     public async Task<ActionResult<VisibilityRulesDto>> SetVisibility(VisibilityRulesDto request)
     {
         var schoolId = currentSchool.SchoolId!.Value;
@@ -197,6 +204,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPut("notifications")]
+    [AuditAction("Změněno nastavení upozornění pro celou školu")]
     public async Task<ActionResult<SchoolNotificationSettingsDto>> SetNotifications(SchoolNotificationSettingsDto request)
     {
         if (request.ForcedEmail.Any(t => !Enum.IsDefined(t)))
@@ -221,6 +229,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     }
 
     [HttpPut("report-cards")]
+    [AuditAction("Změněno nastavení vysvědčení")]
     public async Task<ActionResult<ReportCardSettingsDto>> SetReportCards(ReportCardSettingsDto request)
     {
         if (!Enum.IsDefined(request.MarkFormat))
