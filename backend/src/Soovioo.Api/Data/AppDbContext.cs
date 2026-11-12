@@ -206,9 +206,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .HasKey(n => new { n.StudentId, n.SchoolYearStartYear, n.HalfYear });
         modelBuilder.Entity<AssessmentModeRule>(e =>
         {
-            e.HasIndex(r => new { r.SchoolId, r.Rocnik, r.StudentId, r.SubjectId, r.Behavior })
+            e.HasIndex(r => new { r.SchoolId, r.Rocnik, r.SchoolClassId, r.StudentId, r.SubjectId, r.Behavior })
                 .IsUnique()
                 .AreNullsDistinct(false);
+            e.HasOne(r => r.SchoolClass).WithMany().OnDelete(DeleteBehavior.Cascade);
             e.HasOne(r => r.Student).WithMany().OnDelete(DeleteBehavior.Cascade);
             e.HasOne(r => r.Subject).WithMany().OnDelete(DeleteBehavior.Cascade);
         });

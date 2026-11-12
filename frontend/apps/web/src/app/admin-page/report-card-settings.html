@@ -1,12 +1,14 @@
 <p-card>
-  <ng-template #title
-    >Vysvědčení<app-info-hint
-      text="Jak se na vysvědčení a výpisu z vysvědčení zapisují stupně prospěchu a chování — podle pravidel hodnocení ve školním řádu. Uvolnění a nehodnocení se píše vždy slovem."
-  /></ng-template>
+  <ng-template #title>Vysvědčení</ng-template>
+  <h3 class="mb-2 mt-0 flex items-center text-base font-semibold">
+    Výchozí klasifikace na vysvědčení<app-info-hint
+      text="Stupeň prospěchu a chování se na vysvědčení a výpisu píše číslem, nebo jeho slovním ekvivalentem (§ 15 odst. 3 vyhlášky č. 48/2005 Sb.) — podle pravidel hodnocení ve školním řádu. Jinak pro ročník, třídu nebo žáka nastavíte ve výjimkách. Uvolnění a nehodnocení se píše vždy slovem."
+    />
+  </h3>
   <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
-    <app-float-field label="Zápis stupně" for="reportCardMarkFormat">
+    <app-float-field label="Klasifikace" for="reportCardMarkFormat">
       <p-select
-        ariaLabel="Zápis stupně"
+        ariaLabel="Výchozí klasifikace na vysvědčení"
         inputId="reportCardMarkFormat"
         [options]="markFormatOptions"
         optionLabel="label"
@@ -27,12 +29,14 @@
   </form>
 
   <h3 class="mb-1 mt-6 flex items-center text-base font-semibold">
-    Způsob hodnocení<app-info-hint
-      [text]="'Bez pravidla se hodnotí klasifikací. Platí nejpřesnější pravidlo: žáka v předmětu, žáka ve všech předmětech, ročníku v předmětu, ročníku ve všech předmětech. U slovního hodnocení učitel vybírá i odpovídající stupeň pro celkové hodnocení — netiskne se a rodiče ho nevidí.' | term"
+    Výjimky ze způsobu hodnocení<app-info-hint
+      [text]="'Bez výjimky se hodnotí výchozí klasifikací. Platí nejpřesnější výjimka: žáka v předmětu, žáka ve všech předmětech, pak stejně třídy a ročníku. Zápis číslem nebo slovem se bere z nejpřesnější výjimky, která ho určuje. U slovního hodnocení učitel vybírá i odpovídající stupeň pro celkové hodnocení — netiskne se a rodiče ho nevidí.' | term"
     />
   </h3>
   @if (rules().length === 0) {
-  <p class="m-0 text-sm text-surface-500">Všichni se hodnotí klasifikací.</p>
+  <p class="m-0 text-sm text-surface-500">
+    Všichni se hodnotí výchozí klasifikací.
+  </p>
   } @else {
   <ul class="m-0 list-none p-0 text-sm">
     @for (rule of rules(); track rule.id) {
@@ -41,14 +45,14 @@
     >
       <span class="font-medium">{{ ruleTarget(rule) }}</span>
       <span class="text-surface-500">· {{ ruleSubjects(rule) }}</span>
-      <span>— {{ modeLabel(rule.mode) }}</span>
+      <span>— {{ modeLabel(rule) }}</span>
       <p-button
         class="ml-auto"
         icon="pi pi-trash"
         size="small"
         [text]="true"
         severity="danger"
-        [ariaLabel]="'Smazat pravidlo – ' + ruleTarget(rule) + ', ' + ruleSubjects(rule)"
+        [ariaLabel]="'Smazat výjimku – ' + ruleTarget(rule) + ', ' + ruleSubjects(rule)"
         (onClick)="deleteRule(rule)"
       />
     </li>
@@ -81,6 +85,22 @@
         [ngModel]="rocnik()"
         (ngModelChange)="rocnik.set($event)"
         name="ruleRocnik"
+        styleClass="w-36"
+        appendTo="body"
+      />
+    </app-float-field>
+    } @else if (target() === 'class') {
+    <app-float-field label="Třída" for="ruleClass">
+      <p-select
+        ariaLabel="Třída"
+        inputId="ruleClass"
+        [options]="classOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [ngModel]="classId()"
+        (ngModelChange)="classId.set($event)"
+        [filter]="classOptions().length > 10"
+        name="ruleClass"
         styleClass="w-36"
         appendTo="body"
       />
@@ -131,6 +151,22 @@
         appendTo="body"
       />
     </app-float-field>
+    @if (mode() !== 'Verbal') {
+    <app-float-field label="Klasifikace" for="ruleFormat">
+      <p-select
+        ariaLabel="Klasifikace"
+        inputId="ruleFormat"
+        [options]="ruleFormatOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="ruleFormat()"
+        (ngModelChange)="ruleFormat.set($event)"
+        name="ruleFormat"
+        styleClass="w-48"
+        appendTo="body"
+      />
+    </app-float-field>
+    }
     <p-button
       type="submit"
       label="Nastavit"

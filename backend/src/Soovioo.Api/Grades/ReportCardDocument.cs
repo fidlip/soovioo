@@ -33,7 +33,6 @@ public static class ReportCardDocument
         SchoolHalfYear half)
     {
         var schoolType = school?.Type ?? SchoolType.Elementary;
-        var format = school?.ReportCardMarkFormat ?? ReportCardMarkFormat.Words;
         var extract = half == SchoolHalfYear.First;
         var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, half);
         return Document.Create(container =>
@@ -106,7 +105,7 @@ public static class ReportCardDocument
                             table.Cell().BorderBottom(behaviorText is null ? 1 : 0).PaddingBottom(3).Text(
                                 card.BehaviorMode == AssessmentMode.Verbal
                                     ? female ? "hodnocena slovně" : "hodnocen slovně"
-                                    : Behavior(card.Behavior, format));
+                                    : Behavior(card.Behavior, card.BehaviorMarkFormat));
                             if (behaviorText is not null)
                             {
                                 table.Cell().ColumnSpan(2).BorderBottom(1).PaddingBottom(4).Text(behaviorText).FontSize(10);
@@ -129,7 +128,7 @@ public static class ReportCardDocument
                                 var line = text is null ? 0.5f : 0;
                                 table.Cell().BorderBottom(line).BorderColor(Colors.Grey.Lighten2).PaddingVertical(3).Text(subject.SubjectName);
                                 table.Cell().BorderBottom(line).BorderColor(Colors.Grey.Lighten2).PaddingVertical(3)
-                                    .Text(subject.Confirmed ? SubjectMark(subject, female, format) : "");
+                                    .Text(subject.Confirmed ? SubjectMark(subject, female) : "");
                                 if (text is not null)
                                 {
                                     table.Cell().ColumnSpan(2).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
@@ -183,10 +182,10 @@ public static class ReportCardDocument
     /// <summary>The subject's mark as printed: a subject assessed only
     /// slovně is "hodnocen/a slovně" (the text goes with it), its stupeň is
     /// never printed.</summary>
-    public static string SubjectMark(ReportCardSubject subject, bool female, ReportCardMarkFormat format) =>
+    public static string SubjectMark(ReportCardSubject subject, bool female) =>
         subject.Mode == AssessmentMode.Verbal && subject.Kind == ReportCardGradeKind.Graded
             ? female ? "hodnocena slovně" : "hodnocen slovně"
-            : Mark(subject.Kind!.Value, subject.Value, female, format);
+            : Mark(subject.Kind!.Value, subject.Value, female, subject.MarkFormat);
 
     /// <summary>"31. ledna 2027" — the month as a word in the genitive, as
     /// MŠMT's guidance has the date of signing.</summary>

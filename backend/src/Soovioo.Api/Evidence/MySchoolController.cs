@@ -234,7 +234,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
     {
         if (!Enum.IsDefined(request.MarkFormat))
         {
-            return BadRequest("Neznámý zápis hodnocení.");
+            return BadRequest("Neznámý způsob klasifikace.");
         }
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
         school.ReportCardMarkFormat = request.MarkFormat;
@@ -242,8 +242,8 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(new ReportCardSettingsDto(school.ReportCardMarkFormat));
     }
 
-    /// <summary>How ročníky and single pupils are assessed on the report
-    /// card — everything else is classified.</summary>
+    /// <summary>How ročníky, classes and single pupils are assessed on the
+    /// report card otherwise than the school's default.</summary>
     [HttpGet("report-cards/assessment-rules")]
     public async Task<ActionResult<List<AssessmentModeRuleDto>>> GetAssessmentRules()
     {
@@ -251,32 +251,36 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             .Select(r => new AssessmentModeRuleDto(
                 r.Id,
                 r.Rocnik,
+                r.SchoolClassId,
+                r.SchoolClass == null ? null : r.SchoolClass.Name,
                 r.StudentId,
                 r.Student == null ? null : r.Student.Person!.FirstName + " " + r.Student.Person.LastName,
                 r.SubjectId,
                 r.Subject == null ? null : r.Subject.Name,
                 r.Behavior,
-                r.Mode))
+                r.Mode,
+                r.MarkFormat))
             .ToListAsync();
         var czech = StringComparer.Create(SchoolFormat.Culture, true);
         return Ok(rules
-            .OrderBy(r => r.StudentId is null ? 0 : 1)
+            .OrderBy(r => r.StudentId is not null ? 2 : r.SchoolClassId is not null ? 1 : 0)
             .ThenBy(r => r.Rocnik)
+            .ThenBy(r => r.SchoolClassName ?? "", czech)
             .ThenBy(r => r.StudentName ?? "", czech)
             .ThenBy(r => r.Behavior ? 2 : r.SubjectId is null ? 0 : 1)
             .ThenBy(r => r.SubjectName ?? "", czech)
             .ToList());
     }
 
-    /// <summary>Adds the rule, or changes the mode of the one for the same
-    /// ročník or pupil and the same subjects.</summary>
+    /// <summary>Adds the rule, or changes the one for the same ročník, class
+    /// or pupil and the same subjects.</summary>
     [AuditAction("Nastavena výjimka ze způsobu hodnocení")]
     [HttpPut("report-cards/assessment-rules")]
     public async Task<IActionResult> SetAssessmentRule(SetAssessmentModeRuleRequest request)
     {
-        if ((request.Rocnik is null) == (request.StudentId is null))
+        if (new object?[] { request.Rocnik, request.SchoolClassId, request.StudentId }.Count(x => x is not null) != 1)
         {
-            return BadRequest("Vyberte ročník, nebo žáka.");
+            return BadRequest("Vyberte ročník, třídu, nebo žáka.");
         }
         if (request.Rocnik is not (null or (>= 1 and <= 13)))
         {
@@ -290,6 +294,18 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return BadRequest("Neznámý způsob hodnocení.");
         }
+        if (request.MarkFormat is { } format && !Enum.IsDefined(format))
+        {
+            return BadRequest("Neznámý způsob klasifikace.");
+        }
+        if (request.MarkFormat is not null && request.Mode == Grades.AssessmentMode.Verbal)
+        {
+            return BadRequest("Slovní hodnocení se nezapisuje číslem ani slovem.");
+        }
+        if (request.SchoolClassId is { } classId && !await db.SchoolClasses.AnyAsync(c => c.Id == classId))
+        {
+            return BadRequest("Neznámá třída.");
+        }
         if (request.StudentId is { } studentId && !await db.Students.AnyAsync(s => s.Id == studentId))
         {
             return BadRequest("Neznámý žák.");
@@ -300,7 +316,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         var rule = await db.AssessmentModeRules.FirstOrDefaultAsync(r =>
-            r.Rocnik == request.Rocnik && r.StudentId == request.StudentId
+            r.Rocnik == request.Rocnik && r.SchoolClassId == request.SchoolClassId && r.StudentId == request.StudentId
             && r.SubjectId == request.SubjectId && r.Behavior == request.Behavior);
         if (rule is null)
         {
@@ -308,6 +324,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             {
                 SchoolId = currentSchool.SchoolId!.Value,
                 Rocnik = request.Rocnik,
+                SchoolClassId = request.SchoolClassId,
                 StudentId = request.StudentId,
                 SubjectId = request.SubjectId,
                 Behavior = request.Behavior,
@@ -315,6 +332,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             db.AssessmentModeRules.Add(rule);
         }
         rule.Mode = request.Mode;
+        rule.MarkFormat = request.MarkFormat;
         await db.SaveChangesAsync();
         return NoContent();
     }
@@ -354,16 +372,22 @@ public record ReportCardSettingsDto(Grades.ReportCardMarkFormat MarkFormat);
 public record AssessmentModeRuleDto(
     int Id,
     int? Rocnik,
+    int? SchoolClassId,
+    string? SchoolClassName,
     int? StudentId,
     string? StudentName,
     int? SubjectId,
     string? SubjectName,
     bool Behavior,
-    Grades.AssessmentMode Mode);
+    Grades.AssessmentMode Mode,
+    Grades.ReportCardMarkFormat? MarkFormat);
 
-/// <param name="Rocnik">Exactly one of it and <paramref name="StudentId"/>.</param>
+/// <param name="Rocnik">Exactly one of it, <paramref name="SchoolClassId"/>
+/// and <paramref name="StudentId"/>.</param>
+/// <param name="MarkFormat">See <see cref="Grades.AssessmentModeRule.MarkFormat"/>.</param>
 public record SetAssessmentModeRuleRequest(
-    int? Rocnik, int? StudentId, int? SubjectId, bool Behavior, Grades.AssessmentMode Mode);
+    int? Rocnik, int? SchoolClassId, int? StudentId, int? SubjectId, bool Behavior, Grades.AssessmentMode Mode,
+    Grades.ReportCardMarkFormat? MarkFormat = null);
 
 /// <param name="DigestTime">See <see cref="School.DigestTime"/>.</param>
 /// <param name="ForcedEmail">See <see cref="School.ForcedEmailNotifications"/>.</param>

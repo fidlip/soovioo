@@ -1223,10 +1223,16 @@ namespace Soovioo.Api.Migrations
                     b.Property<bool>("Behavior")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("MarkFormat")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Mode")
                         .HasColumnType("integer");
 
                     b.Property<int?>("Rocnik")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SchoolClassId")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
@@ -1240,14 +1246,16 @@ namespace Soovioo.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SchoolClassId");
+
                     b.HasIndex("StudentId");
 
                     b.HasIndex("SubjectId");
 
-                    b.HasIndex("SchoolId", "Rocnik", "StudentId", "SubjectId", "Behavior")
+                    b.HasIndex("SchoolId", "Rocnik", "SchoolClassId", "StudentId", "SubjectId", "Behavior")
                         .IsUnique();
 
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("SchoolId", "Rocnik", "StudentId", "SubjectId", "Behavior"), false);
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("SchoolId", "Rocnik", "SchoolClassId", "StudentId", "SubjectId", "Behavior"), false);
 
                     b.ToTable("AssessmentModeRules");
                 });
@@ -3896,6 +3904,11 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Grades.AssessmentModeRule", b =>
                 {
+                    b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
@@ -3905,6 +3918,8 @@ namespace Soovioo.Api.Migrations
                         .WithMany()
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("SchoolClass");
 
                     b.Navigation("Student");
 

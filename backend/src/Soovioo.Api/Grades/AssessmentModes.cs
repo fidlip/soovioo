@@ -22,16 +22,20 @@ public enum AssessmentMode
 }
 
 /// <summary>The school's decision (the director's, with the school board's
-/// consent) on how a ročník or a single pupil is assessed: in all subjects
-/// (<see cref="SubjectId"/> null), one subject, or behaviour. Exactly one of
-/// <see cref="Rocnik"/> and <see cref="StudentId"/>. Without a rule it's
-/// classification.</summary>
+/// consent) on how a ročník, a class or a single pupil is assessed: in all
+/// subjects (<see cref="SubjectId"/> null), one subject, or behaviour.
+/// Exactly one of <see cref="Rocnik"/>, <see cref="SchoolClassId"/> and
+/// <see cref="StudentId"/>. Without a rule it's classification, written as
+/// <see cref="School.ReportCardMarkFormat"/>.</summary>
 public class AssessmentModeRule
 {
     public int Id { get; set; }
     public int SchoolId { get; set; }
 
     public int? Rocnik { get; set; }
+
+    public int? SchoolClassId { get; set; }
+    public SchoolClass? SchoolClass { get; set; }
 
     public int? StudentId { get; set; }
     public StudentProfile? Student { get; set; }
@@ -43,30 +47,47 @@ public class AssessmentModeRule
     public bool Behavior { get; set; }
 
     public AssessmentMode Mode { get; set; }
+
+    /// <summary>How the stupeň is written (§ 15 odst. 3 of vyhláška 48/2005
+    /// Sb.); null = as a less specific rule, or the school, has it. Always
+    /// null with <see cref="AssessmentMode.Verbal"/>.</summary>
+    public ReportCardMarkFormat? MarkFormat { get; set; }
 }
 
-/// <summary>A pupil's assessment mode — the most specific rule wins: the
-/// pupil's in the subject, the pupil's in all subjects, the ročník's in the
-/// subject, the ročník's in all subjects; behaviour: the pupil's, the
-/// ročník's.</summary>
-public sealed class AssessmentModes(IReadOnlyList<AssessmentModeRule> rules)
-{
-    public static async Task<AssessmentModes> LoadAsync(AppDbContext db) =>
-        new(await db.AssessmentModeRules.AsNoTracking().ToListAsync());
+public readonly record struct Assessment(AssessmentMode Mode, ReportCardMarkFormat MarkFormat);
 
-    public AssessmentMode For(StudentProfile student, int subjectId) =>
+/// <summary>A pupil's assessment — the most specific rule wins: the pupil's
+/// in the subject, the pupil's in all subjects, then the class's and the
+/// ročník's the same way; behaviour: the pupil's, the class's, the
+/// ročník's. The mark format is looked up on its own, from the most specific
+/// rule that sets one.</summary>
+public sealed class AssessmentModes(
+    IReadOnlyList<AssessmentModeRule> rules, IReadOnlyDictionary<int, ReportCardMarkFormat> schoolFormats)
+{
+    public static async Task<AssessmentModes> LoadAsync(AppDbContext db, IReadOnlyCollection<int> schoolIds) =>
+        new(await db.AssessmentModeRules.AsNoTracking().Where(r => schoolIds.Contains(r.SchoolId)).ToListAsync(),
+            await db.Schools.Where(s => schoolIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.ReportCardMarkFormat));
+
+    public Assessment For(StudentProfile student, int subjectId) =>
         Find(student, r => !r.Behavior && r.SubjectId == subjectId, r => !r.Behavior && r.SubjectId is null);
 
-    public AssessmentMode ForBehavior(StudentProfile student) =>
+    public Assessment ForBehavior(StudentProfile student) =>
         Find(student, r => r.Behavior, r => false);
 
-    private AssessmentMode Find(
+    private Assessment Find(
         StudentProfile student, Func<AssessmentModeRule, bool> exact, Func<AssessmentModeRule, bool> all)
     {
         var rocnik = student.SchoolClass?.Rocnik;
-        var own = rules.Where(r => r.StudentId == student.Id).ToList();
-        var year = rocnik is null ? [] : rules.Where(r => r.StudentId is null && r.Rocnik == rocnik).ToList();
-        return (own.FirstOrDefault(exact) ?? own.FirstOrDefault(all) ?? year.FirstOrDefault(exact) ?? year.FirstOrDefault(all))
-            ?.Mode ?? AssessmentMode.Classification;
+        var levels = new[]
+        {
+            rules.Where(r => r.StudentId == student.Id).ToList(),
+            rules.Where(r => r.SchoolClassId == student.SchoolClassId).ToList(),
+            rocnik is null ? [] : rules.Where(r => r.StudentId is null && r.SchoolClassId is null && r.Rocnik == rocnik).ToList(),
+        };
+        var applying = levels.SelectMany(level => level.Where(exact).Concat(level.Where(all))).ToList();
+        return new(
+            applying.FirstOrDefault()?.Mode ?? AssessmentMode.Classification,
+            applying.FirstOrDefault(r => r.MarkFormat is not null)?.MarkFormat
+                ?? schoolFormats.GetValueOrDefault(student.SchoolId, ReportCardMarkFormat.Words));
     }
 }

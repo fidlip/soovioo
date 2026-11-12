@@ -4,7 +4,8 @@ import {
 } from '../behavior/behavior.model';
 import { Gender } from '../evidence/student.model';
 
-/** How a stupeň is written on the report card: "výborný" or "1". */
+/** How a stupeň prospěchu (and chování) is written on the report card:
+ * the number "1" or its word "výborný". */
 export type ReportCardMarkFormat = 'Words' | 'Digits';
 
 export interface ReportCardSettings {
@@ -17,22 +18,27 @@ export interface ReportCardSettings {
 export type AssessmentMode =
   'Classification' | 'Verbal' | 'ClassificationWithVerbal';
 
-/** The school's rule: a ročník or a pupil (exactly one), all subjects
- * (`subjectId` null), one subject, or behaviour. */
+/** The school's rule: a ročník, a class or a pupil (exactly one), all
+ * subjects (`subjectId` null), one subject, or behaviour. */
 export interface AssessmentModeRule {
   id: number;
   rocnik: number | null;
+  schoolClassId: number | null;
+  schoolClassName: string | null;
   studentId: number | null;
   studentName: string | null;
   subjectId: number | null;
   subjectName: string | null;
   behavior: boolean;
   mode: AssessmentMode;
+  /** Null = as a less specific rule, or the school's default; always null
+   * with slovní hodnocení. */
+  markFormat: ReportCardMarkFormat | null;
 }
 
 export type SetAssessmentModeRule = Omit<
   AssessmentModeRule,
-  'id' | 'studentName' | 'subjectName'
+  'id' | 'schoolClassName' | 'studentName' | 'subjectName'
 >;
 
 /** Graded = a stupeň 1–5; Exempt = uvolněn/a; NotGraded = nehodnocen/a. */
