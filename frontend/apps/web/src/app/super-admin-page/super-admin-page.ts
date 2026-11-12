@@ -11,12 +11,10 @@ import { TableModule } from '@openng/optimus-ui/table';
 import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import {
-  AuthApiService,
   CreateSchoolRequest,
   DateFormatPipe,
   School,
   SchoolsApiService,
-  SuperAdmin,
   SupportApiService,
   UpdateSchoolRequest,
 } from '@soovioo/shared';
@@ -55,21 +53,7 @@ export class SuperAdminPage {
   protected readonly notify = inject(NotifyService);
   private readonly schoolsApi = inject(SchoolsApiService);
   private readonly supportApi = inject(SupportApiService);
-  private readonly authApi = inject(AuthApiService);
   private readonly confirmation = inject(ConfirmationService);
-
-  protected readonly superAdmins = signal<SuperAdmin[]>([]);
-  protected readonly myUserId = this.authApi.getUserId();
-  protected readonly superAdminDialogVisible = signal(false);
-  /** null = the dialog adds a new SuperAdmin, otherwise edits this one. */
-  protected editingSuperAdminId: number | null = null;
-  protected editingBuiltIn = false;
-  protected superAdminFirstName = '';
-  protected superAdminLastName = '';
-  protected superAdminUsername = '';
-  protected superAdminPassword = '';
-  protected superAdminPhone = '';
-  protected superAdminEmail = '';
 
   protected readonly schools = signal<School[] | null>(null);
   protected readonly totalCount = signal(0);
@@ -103,7 +87,6 @@ export class SuperAdminPage {
       next: (result) => this.demoCount.set(result.totalCount),
       error: (err) => console.error('demo count failed', err),
     });
-    this.reloadSuperAdmins();
   }
 
   /** "Vstoupit do školy": an audited, 2-hour Admin session in that school
@@ -118,75 +101,6 @@ export class SuperAdminPage {
       },
       error: (err) =>
         this.notify.actionFailed('startSupportSession failed', err),
-    });
-  }
-
-  protected openAddSuperAdminDialog(): void {
-    this.editingSuperAdminId = null;
-    this.fillSuperAdminForm(null);
-  }
-
-  protected openEditSuperAdminDialog(superAdmin: SuperAdmin): void {
-    this.editingSuperAdminId = superAdmin.id;
-    this.fillSuperAdminForm(superAdmin);
-  }
-
-  protected saveSuperAdmin(): void {
-    const fields = {
-      username: this.superAdminUsername.trim(),
-      firstName: this.superAdminFirstName.trim() || undefined,
-      lastName: this.superAdminLastName.trim() || undefined,
-      phone: this.superAdminPhone.trim() || undefined,
-      email: this.superAdminEmail.trim() || undefined,
-    };
-    const editingId = this.editingSuperAdminId;
-    const result =
-      editingId === null
-        ? this.supportApi.addSuperAdmin({
-            ...fields,
-            password: this.superAdminPassword,
-          })
-        : this.supportApi.updateSuperAdmin(editingId, {
-            ...fields,
-            password: this.superAdminPassword || undefined,
-          });
-    result.subscribe({
-      next: (saved) => {
-        this.notify.success(
-          editingId === null
-            ? `Superadmin ${saved.name} přidán — při prvním přihlášení si změní heslo.`
-            : 'Uloženo.',
-        );
-        this.superAdminDialogVisible.set(false);
-        this.reloadSuperAdmins();
-      },
-      error: (err) => this.notify.actionFailed('saveSuperAdmin failed', err),
-    });
-  }
-
-  private fillSuperAdminForm(superAdmin: SuperAdmin | null): void {
-    this.editingBuiltIn = superAdmin?.builtIn ?? false;
-    this.superAdminFirstName = superAdmin?.firstName ?? '';
-    this.superAdminLastName = superAdmin?.lastName ?? '';
-    this.superAdminUsername = superAdmin?.username ?? '';
-    this.superAdminPassword = '';
-    this.superAdminPhone = superAdmin?.phone ?? '';
-    this.superAdminEmail = superAdmin?.email ?? '';
-    this.notify.clear();
-    this.superAdminDialogVisible.set(true);
-  }
-
-  protected deleteSuperAdmin(superAdmin: SuperAdmin): void {
-    this.supportApi.deleteSuperAdmin(superAdmin.id).subscribe({
-      next: () => this.reloadSuperAdmins(),
-      error: (err) => this.notify.actionFailed('deleteSuperAdmin failed', err),
-    });
-  }
-
-  private reloadSuperAdmins(): void {
-    this.supportApi.getSuperAdmins().subscribe({
-      next: (list) => this.superAdmins.set(list),
-      error: (err) => console.error('getSuperAdmins failed', err),
     });
   }
 

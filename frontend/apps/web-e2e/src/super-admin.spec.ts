@@ -21,12 +21,23 @@ test('new school is created in a modal like other entities', async ({
   ).toBeDisabled();
 });
 
-test('new SuperAdmin is added in a modal too', async ({ page }) => {
+test('SuperAdmins are a page of their own, a new one added in a modal', async ({
+  page,
+}) => {
   await page.goto('/superadmin/login');
   await page.locator('#username').fill('superadmin');
   await page.locator('#password').fill('superadmin123');
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/superadmin$/);
+  // Správa škol holds just the schools; SuperAdmins have a menu item of their own.
+  await expect(
+    page.getByRole('button', { name: 'Nový superadmin' }),
+  ).toHaveCount(0);
+  await page.getByRole('link', { name: 'Superadmini', exact: true }).click();
+  await expect(page).toHaveURL(/\/superadmin\/superadmins$/);
+  await expect(
+    page.getByRole('cell', { name: 'superadmin', exact: true }),
+  ).toBeVisible();
 
   await expect(page.locator('#superAdminUsername')).toHaveCount(0);
 
