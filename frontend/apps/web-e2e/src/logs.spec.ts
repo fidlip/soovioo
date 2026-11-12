@@ -16,8 +16,10 @@ test('school admin sees their own login in Logy, password masked', async ({
   page,
 }) => {
   await login(page, 'admin', 'admin123');
-  await page.getByRole('link', { name: 'Logy', exact: true }).click();
-  await expect(page).toHaveURL(/\/skola\/logs$/);
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Aplikace', exact: true }).click();
+  await page.getByRole('tab', { name: 'Logy', exact: true }).click();
+  await expect(page).toHaveURL(/\/skola\/admin\?group=app&section=logs$/);
 
   // The login just made (other tests log in in parallel, so not
   // necessarily the very first row). "Přihlášení" is also the agenda of
@@ -45,18 +47,28 @@ test('school admin sees their own login in Logy, password masked', async ({
   await expect(page.getByText('"password": "***"')).toBeVisible();
 });
 
-test('teacher has no Logy', async ({ page }) => {
+test('teacher has no Logy, not even by the old address', async ({ page }) => {
   await login(page, 'ucitel', 'ucitel123');
+  await page.goto('/skola/logs');
+  await expect(page).toHaveURL(/\/skola\/admin\?group=app&section=logs$/);
   await expect(
-    page.getByRole('link', { name: 'Logy', exact: true }),
-  ).toHaveCount(0);
+    page.getByRole('heading', { name: 'Administrace' }),
+  ).toBeVisible();
+  await expect(page.getByRole('tab').first()).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Aplikace' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Logy' })).toHaveCount(0);
 });
 
 test('Akce filter: pick an exact action or search by typed text', async ({
   page,
 }) => {
   await login(page, 'admin', 'admin123');
+  // The old address of Logy leads to them in Administrace.
   await page.goto('/skola/logs');
+  await expect(page.getByRole('tab', { name: 'Logy' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   const rows = page.locator('tbody tr');
   await expect(rows.first()).toBeVisible();
 

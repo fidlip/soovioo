@@ -87,7 +87,14 @@ const GROUP_SECTIONS: Record<string, string[]> = {
  * ROADMAP "Administrace — redesign"). Denied: anyone else who reaches this
  * route (a Teacher who isn't a class teacher of anything, or a non-Teacher
  * non-Admin navigating here directly). */
-type AccessLevel = 'admin' | 'classTeacher' | 'teaching' | 'denied' | 'loading';
+type AccessLevel =
+  | 'admin'
+  | 'classTeacher'
+  /** Not a class teacher, but may see the logs (and maybe Výuka). */
+  | 'logs'
+  | 'teaching'
+  | 'denied'
+  | 'loading';
 
 /** The person profile a role needs — the built-in Teacher a teacher's, a
  * parent's or pupil's role theirs, other staff roles none. */
@@ -133,6 +140,7 @@ import { Departures } from '../departures/departures';
 import { TeachingTab } from '../teaching/teaching-tab';
 import { canSeeTeachingArea } from '../teaching/teaching-area-access';
 import { PeopleTab } from '../people/people-tab';
+import { LogsPage } from '../logs-page/logs-page';
 import { RolesTab } from '../roles/roles-tab';
 import { PersonCard } from '../people/person-card';
 import {
@@ -173,6 +181,7 @@ import { Loading } from '../loading/loading';
     Departures,
     PeopleTab,
     TeachingTab,
+    LogsPage,
     RolesTab,
     PersonCard,
     PersonDialog,
@@ -288,8 +297,11 @@ export class AdminPage {
           { value: 'archive', label: 'Archiv' },
         ]
       : [
-          { value: 'class', label: 'Moje třída' },
+          ...(this.accessLevel() === 'classTeacher'
+            ? [{ value: 'class', label: 'Moje třída' }]
+            : []),
           ...(canSeeTeachingArea(this.authApi) ? [teaching] : []),
+          ...(this.canSeeLogs ? [{ value: 'app', label: 'Aplikace' }] : []),
         ];
   });
   /** The open group and section are in the address: a reload or a link
@@ -301,10 +313,22 @@ export class AdminPage {
   });
   protected readonly section = computed(() => this.query().get('section'));
   protected readonly groupSection = computed(() => {
-    const sections = GROUP_SECTIONS[this.group()] ?? [];
+    const sections = this.sectionsOf(this.group());
     const wanted = this.section();
     return wanted !== null && sections.includes(wanted) ? wanted : sections[0];
   });
+
+  protected readonly canSeeLogs = this.authApi.can('AuditLog');
+
+  /** Aplikace holds just Logy for whoever may see them without being Admin. */
+  private sectionsOf(group: string): string[] {
+    const sections = GROUP_SECTIONS[group] ?? [];
+    if (group !== 'app') {
+      return sections;
+    }
+    const logs = this.canSeeLogs ? ['logs'] : [];
+    return this.accessLevel() === 'admin' ? [...sections, ...logs] : logs;
+  }
 
   protected openGroup(group: string | number | undefined): void {
     this.teachingFocus.set(null);
@@ -582,10 +606,14 @@ export class AdminPage {
     });
   }
 
-  /** Without a class of their own, a teacher may still see Výuka. */
+  /** Without a class of their own, a teacher may still see Výuka or Logy. */
   private denyOrTeaching(): void {
     this.accessLevel.set(
-      canSeeTeachingArea(this.authApi) ? 'teaching' : 'denied',
+      this.canSeeLogs
+        ? 'logs'
+        : canSeeTeachingArea(this.authApi)
+          ? 'teaching'
+          : 'denied',
     );
   }
 

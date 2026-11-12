@@ -21,10 +21,8 @@ interface NavItem {
   label: string;
   icon: AppIconName;
   link: string[];
-  /** Administrace — the whole of it, or a class teacher's pupils. */
+  /** Administrace — the whole of it, or the parts of it the role may see. */
   staffOnly?: boolean;
-  /** Logy. */
-  adminOnly?: boolean;
   /** Lidé — parents and pupils only (staff have Administrace). */
   familyOnly?: boolean;
   /** Mé děti — parents only. */
@@ -97,18 +95,14 @@ export class AppSidebar {
         link: link('admin'),
         staffOnly: true,
       },
-      { label: 'Logy', icon: 'logs', link: link('logs'), adminOnly: true },
     ];
   });
 
-  /** Administrace shows to whoever may manage pupils even in part —
-   * AdminPage itself resolves whether they're actually a class teacher of
-   * something (restricted view) or not, since that needs an async lookup
-   * this synchronous nav check can't do. */
+  /** Administrace shows to whoever may manage pupils even in part, see
+   * Výuka or the logs — AdminPage itself resolves whether they're actually
+   * a class teacher of something (restricted view) or not, since that needs
+   * an async lookup this synchronous nav check can't do. */
   protected showsNavItem(item: NavItem): boolean {
-    if (item.adminOnly) {
-      return this.authApi.can('AuditLog');
-    }
     if (item.parentOnly) {
       return this.authApi.isParent();
     }
@@ -119,6 +113,7 @@ export class AppSidebar {
       !item.staffOnly ||
       this.authApi.isAdmin() ||
       this.authApi.can('Students') ||
+      this.authApi.can('AuditLog') ||
       canSeeTeachingArea(this.authApi)
     );
   }

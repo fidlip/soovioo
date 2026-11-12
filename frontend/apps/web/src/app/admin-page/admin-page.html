@@ -7,7 +7,7 @@
 } @else if (accessLevel() === 'denied') {
 <p class="text-surface-500">
   Tato stránka je dostupná pro roli Admin, pro třídního učitele (jen pro vlastní
-  třídu), nebo pro toho, kdo smí vidět výuku nebo koncepty rozvrhu.
+  třídu), nebo pro toho, kdo smí vidět výuku, koncepty rozvrhu nebo logy.
 </p>
 } @else if (accessLevel() === 'teaching') {
 <app-teaching-tab [section]="section()" (sectionChange)="openSection($event)" />
@@ -244,7 +244,7 @@
   </p-card>
 </ng-template>
 
-@if (accessLevel() === 'classTeacher') {
+@if (accessLevel() === 'classTeacher' || accessLevel() === 'logs') {
 <p-tabs [value]="group()" (valueChange)="openGroup($event)" [scrollable]="true">
   <p-tablist>
     @for (g of groups(); track g.value) {
@@ -252,6 +252,7 @@
     }
   </p-tablist>
   <p-tabpanels>
+    @if (accessLevel() === 'classTeacher') {
     <p-tabpanel value="class">
       <p-tabs
         [value]="groupSection()"
@@ -276,6 +277,7 @@
         </p-tabpanels>
       </p-tabs>
     </p-tabpanel>
+    }
     <p-tabpanel value="teaching">
       @if (group() === 'teaching') {
       <div class="pt-4">
@@ -284,6 +286,22 @@
           (sectionChange)="openSection($event)"
         />
       </div>
+      }
+    </p-tabpanel>
+    <p-tabpanel value="app">
+      @if (group() === 'app') {
+      <p-tabs [value]="groupSection()" [scrollable]="true">
+        <p-tablist>
+          <p-tab value="logs">Logy</p-tab>
+        </p-tablist>
+        <p-tabpanels>
+          <p-tabpanel value="logs">
+            <div class="pt-4">
+              <app-logs-page [showTitle]="false" />
+            </div>
+          </p-tabpanel>
+        </p-tabpanels>
+      </p-tabs>
       }
     </p-tabpanel>
   </p-tabpanels>
@@ -866,6 +884,9 @@
             <p-tab value="roles">Role</p-tab>
             <p-tab value="visibility">Viditelnost údajů</p-tab>
             <p-tab value="notifications">Upozornění</p-tab>
+            @if (canSeeLogs) {
+            <p-tab value="logs">Logy</p-tab>
+            }
           </p-tablist>
           <p-tabpanels>
             <p-tabpanel value="users">
@@ -1090,6 +1111,14 @@
               <ng-template #content>
                 <div class="pt-4">
                   <app-school-notifications />
+                </div>
+              </ng-template>
+            </p-tabpanel>
+
+            <p-tabpanel value="logs">
+              <ng-template #content>
+                <div class="pt-4">
+                  <app-logs-page [showTitle]="false" />
                 </div>
               </ng-template>
             </p-tabpanel>
