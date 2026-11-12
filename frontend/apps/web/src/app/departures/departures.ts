@@ -27,6 +27,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
+import { TabScroll } from '../tab-scroll';
 import { FORM_FIELDS } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
@@ -63,6 +64,7 @@ import { Loading } from '../loading/loading';
     StaffLeaveDialog,
     Tab,
     TabList,
+    TabScroll,
     TabPanel,
     TabPanels,
     Tabs,

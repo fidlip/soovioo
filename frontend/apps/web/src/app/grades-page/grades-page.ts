@@ -14,6 +14,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
+import { TabScroll } from '../tab-scroll';
 import { Tag } from '@openng/optimus-ui/tag';
 import { PaginatorState } from '@openng/optimus-ui/types/paginator';
 import { Subscription } from 'rxjs';
@@ -91,6 +92,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
     Select,
     Tab,
     TabList,
+    TabScroll,
     TabPanel,
     TabPanels,
     Tabs,

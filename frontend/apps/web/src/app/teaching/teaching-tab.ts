@@ -26,6 +26,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
+import { TabScroll } from '../tab-scroll';
 import {
   AuthApiService,
   MainBlock,
@@ -93,6 +94,7 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
     TableModule,
     Tab,
     TabList,
+    TabScroll,
     TabPanel,
     TabPanels,
     Tabs,
