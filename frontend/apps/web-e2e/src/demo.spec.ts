@@ -42,7 +42,7 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
     .first()
     .click();
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
-  await expect(page.getByRole('link', { name: 'Logy' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
   await expect(
     other.getByRole('alert').filter({ hasText: 'V jiné záložce' }),
   ).toContainText('V jiné záložce jste se přihlásili jako');

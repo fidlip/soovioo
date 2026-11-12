@@ -185,9 +185,6 @@ test('the pages offer exactly what the role may do', async ({
 
   await login(page, username, 'nove-heslo1');
   await expect(
-    nav(page).getByRole('link', { name: 'Logy', exact: true }),
-  ).toHaveCount(0);
-  await expect(
     nav(page).getByRole('link', { name: 'Administrace', exact: true }),
   ).toHaveCount(0);
   for (const [link, tool] of TOOLS) {
@@ -205,9 +202,6 @@ test('the pages offer exactly what the role may do', async ({
   // Everything, for the whole school — a reload is enough.
   await setRole(admin, roleId, roleName, await staffScopes(admin, true));
   await page.reload();
-  await expect(
-    nav(page).getByRole('link', { name: 'Logy', exact: true }),
-  ).toBeVisible();
   await expect(
     nav(page).getByRole('link', { name: 'Administrace', exact: true }),
   ).toBeVisible();
@@ -252,6 +246,31 @@ test('the pages offer exactly what the role may do', async ({
     page
       .getByText('Jste třídní učitel')
       .or(page.getByRole('tab', { name: 'Učební plán' })),
+  ).toBeVisible();
+});
+
+test('a role that may only see the logs finds them in Administrace, nothing else there', async ({
+  page,
+  request,
+}) => {
+  const admin = await adminApi(page, request);
+  const roleName = `Jen logy ${Date.now()}`;
+  const username = `logy${Date.now()}`;
+  const roleId = await staffAccount(admin, roleName, username);
+  await setRole(admin, roleId, roleName, {
+    ...(await staffScopes(admin, false)),
+    AuditLog: 'School',
+  });
+
+  await login(page, username, 'nove-heslo1');
+  await open(page, 'Administrace', async () => undefined);
+  await expect(page.getByRole('tab')).toHaveText(['Aplikace', 'Logy']);
+  await expect(page.getByRole('tab', { name: 'Logy' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(
+    page.locator('tbody tr').filter({ hasText: roleName }).first(),
   ).toBeVisible();
 });
 

@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
@@ -39,9 +39,10 @@ const ROLE_LABELS: Record<string, string> = {
   Student: 'žák',
 };
 
-/** Agenda "Logy" — the audit log of changes and logins. A SuperAdmin sees
- * every school (filterable by school) plus the support-mode visits; a
- * school admin sees only their own school, support-mode changes flagged. */
+/** "Logy" — the audit log of changes and logins. A SuperAdmin sees every
+ * school (filterable by school) plus the support-mode visits on a page of its
+ * own; a school sees only its own, support-mode changes flagged, in
+ * Administrace → Aplikace. */
 @Component({
   selector: 'app-logs-page',
   imports: [
@@ -68,6 +69,8 @@ export class LogsPage {
   private readonly supportApi = inject(SupportApiService);
   private readonly schoolsApi = inject(SchoolsApiService);
   protected readonly isSuperAdmin = inject(AuthApiService).isSuperAdmin();
+  /** Off inside Administrace, whose tabs already name it. */
+  readonly showTitle = input(true);
 
   protected readonly entries = signal<AuditLogEntry[]>([]);
   protected readonly totalCount = signal(0);

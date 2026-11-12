@@ -1,4 +1,5 @@
-import { Route } from '@angular/router';
+import { inject } from '@angular/core';
+import { Route, Router } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { LoginPage } from './login-page/login-page';
 import { schoolExistsGuard } from './school-exists.guard';
@@ -7,6 +8,7 @@ import {
   DEMO_ENTRY_SLUG,
   isDemoEntryHost,
   isPathBasedTenant,
+  SchoolContextService,
 } from './school-context';
 
 // Pages are lazy chunks (the login page aside — it's the usual first
@@ -142,11 +144,17 @@ const schoolRoutes: Route[] = [
       import('./admin-page/admin-page').then((m) => m.AdminPage),
     canActivate: [authGuard],
   },
+  // Logy moved into Administrace. A relative redirectTo drops query params.
   {
     path: 'logs',
-    loadComponent: () =>
-      import('./logs-page/logs-page').then((m) => m.LogsPage),
-    canActivate: [authGuard],
+    children: [],
+    canActivate: [
+      () =>
+        inject(Router).createUrlTree(
+          inject(SchoolContextService).link('admin'),
+          { queryParams: { group: 'app', section: 'logs' } },
+        ),
+    ],
   },
   {
     path: 'settings',
