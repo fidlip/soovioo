@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -14,6 +15,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions")]
+[AuditArea("Rozvrh")]
 public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock)
     : ControllerBase
 {
@@ -61,6 +63,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     /// blocks too), groups and přidělení výuky of <see cref="CreateTimetableVersionRequest.CopyFromVersionId"/>.</summary>
     [HttpPost]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Vytvořen koncept rozvrhu")]
     public async Task<ActionResult<TimetableVersionDto>> CreateVersion(CreateTimetableVersionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -84,6 +87,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     /// on: the one already waiting for that day, otherwise a new copy.</summary>
     [HttpPost("{id:int}/edit-from-date")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Otevřen koncept změny rozvrhu od data")]
     public async Task<ActionResult<TimetableVersionDto>> EditFromDate(int id, EditFromDateRequest request)
     {
         var source = await WithContentAsync(id);
@@ -189,6 +193,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     /// apply yet.</summary>
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Upravena verze rozvrhu")]
     public async Task<ActionResult<TimetableVersionDto>> UpdateVersion(int id, UpdateTimetableVersionRequest request)
     {
         var version = await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == id);
@@ -237,6 +242,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     /// <see cref="PublishTimetableVersionRequest.NotifyDaysBefore"/> days before it starts.</summary>
     [HttpPost("{id:int}/publish")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Zveřejněna verze rozvrhu")]
     public async Task<ActionResult<TimetableVersionDto>> PublishVersion(int id, PublishTimetableVersionRequest? request = null)
     {
         if (request?.NotifyDaysBefore is < 1 or > MaxNotifyDaysBefore)
@@ -271,6 +277,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     /// apply yet.</summary>
     [HttpPost("{id:int}/unpublish")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Zrušeno zveřejnění verze rozvrhu")]
     public async Task<ActionResult<TimetableVersionDto>> UnpublishVersion(int id)
     {
         var version = await db.TimetableVersions.Include(v => v.Entries).FirstOrDefaultAsync(v => v.Id == id);
@@ -300,6 +307,7 @@ public class TimetableVersionsController(AppDbContext db, ICurrentSchoolContext 
     /// Who heard of it while it was published hears now that it's off.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Smazán koncept verze rozvrhu")]
     public async Task<IActionResult> DeleteVersion(int id)
     {
         var version = await db.TimetableVersions.FirstOrDefaultAsync(v => v.Id == id);

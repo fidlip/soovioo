@@ -9,6 +9,7 @@ namespace Soovioo.Api.Auth;
 
 [ApiController]
 [Route("api/auth")]
+[AuditArea("Přihlášení")]
 public class AuthController(
     AppDbContext db,
     AuthSessionService sessions,
@@ -20,6 +21,7 @@ public class AuthController(
     public const string DeactivatedMessage = "Účet už není aktivní. S dotazy se obraťte na školu.";
 
     [HttpPost("login")]
+    [AuditAction("Přihlášení")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
         // Anonymous request — the audit log learns who it was from here.
@@ -82,6 +84,7 @@ public class AuthController(
     /// returns a fresh <see cref="LoginResponse"/>: the invite flow ends
     /// with the user logged in, not back at the login form.</summary>
     [HttpPost("accept-invite")]
+    [AuditAction("Přijata pozvánka (nastaveno heslo)")]
     public async Task<ActionResult<LoginResponse>> AcceptInvite(AcceptInviteRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword))
@@ -121,6 +124,7 @@ public class AuthController(
     /// every startup to restore a session, and a logged-out visitor isn't an
     /// error worth a red 401 in the console.</summary>
     [HttpPost("refresh")]
+    [NoAudit]
     public async Task<ActionResult<LoginResponse>> Refresh(RefreshRequest? request)
     {
         // On a school's page with a live support session for that school,
@@ -161,6 +165,7 @@ public class AuthController(
     }
 
     [HttpPost("logout")]
+    [AuditAction("Odhlášení")]
     public async Task<IActionResult> Logout(RefreshRequest? request)
     {
         if (await PresentedTokenAsync(request) is not { ForThisPage: true } presented)

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
@@ -12,6 +13,7 @@ namespace Soovioo.Api.Payments;
 [Authorize]
 [ApiController]
 [Route("api/payments")]
+[AuditArea("Platby")]
 public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     /// <summary>Unscoped list + <see cref="PermissionAccess.StudentIdsAsync"/>
@@ -130,6 +132,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
     [HttpPost]
     [RequirePermission(Permission.PaymentsWrite)]
+    [AuditAction("Vytvořena platba")]
     public async Task<ActionResult<PaymentDto>> CreatePayment(CreatePaymentRequest request)
     {
         var validationError = await ValidatePaymentRequestAsync(request);
@@ -188,6 +191,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// recipients) that don't exist. Delete + recreate is the only path.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.PaymentsWrite)]
+    [AuditAction("Smazána platba")]
     public async Task<IActionResult> DeletePayment(int id)
     {
         var payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == id);
@@ -212,6 +216,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
     /// school's bank statement by hand.</summary>
     [HttpPut("recipients/{id:int}/paid")]
     [RequirePermission(Permission.PaymentsWrite)]
+    [AuditAction("Změněn stav úhrady")]
     public async Task<ActionResult<PaymentRecipientDto>> SetRecipientPaid(int id, SetPaymentRecipientPaidRequest request)
     {
         var recipient = await db.PaymentRecipients.Include(r => r.Student).FirstOrDefaultAsync(r => r.Id == id);
@@ -233,6 +238,7 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
     [HttpPut("recipients/{id:int}/variable-symbol")]
     [RequirePermission(Permission.PaymentsWrite)]
+    [AuditAction("Změněn variabilní symbol")]
     public async Task<ActionResult<PaymentRecipientDto>> SetRecipientVariableSymbol(
         int id, SetPaymentRecipientVariableSymbolRequest request)
     {

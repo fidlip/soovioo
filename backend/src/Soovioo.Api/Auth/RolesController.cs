@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
@@ -15,6 +16,7 @@ namespace Soovioo.Api.Auth;
 [RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/roles")]
+[AuditArea("Role a práva")]
 public class RolesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -36,6 +38,7 @@ public class RolesController(AppDbContext db, ICurrentSchoolContext currentSchoo
     /// <summary>A new role, with the permissions of <see cref="CreateRoleRequest.CopyFromRoleId"/>
     /// (as far as its kind allows them) or none.</summary>
     [HttpPost]
+    [AuditAction("Vytvořena role")]
     public async Task<ActionResult<RoleDto>> AddRole(CreateRoleRequest request)
     {
         if (await NameErrorAsync(request.Name, null) is { } nameError)
@@ -71,6 +74,7 @@ public class RolesController(AppDbContext db, ICurrentSchoolContext currentSchoo
 
     /// <summary>Name and the whole matrix; a permission left out is none.</summary>
     [HttpPut("{id:int}")]
+    [AuditAction("Upravena role a její práva")]
     public async Task<ActionResult<RoleDto>> UpdateRole(int id, UpdateRoleRequest request)
     {
         var role = await db.Roles.Include(r => r.Permissions).FirstOrDefaultAsync(r => r.Id == id);
@@ -112,6 +116,7 @@ public class RolesController(AppDbContext db, ICurrentSchoolContext currentSchoo
     /// <paramref name="reassignToRoleId"/> (same kind) in the same step —
     /// without one, a role somebody has can't be deleted.</summary>
     [HttpDelete("{id:int}")]
+    [AuditAction("Smazána role")]
     public async Task<IActionResult> DeleteRole(int id, int? reassignToRoleId = null)
     {
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == id);

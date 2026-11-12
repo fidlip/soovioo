@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.13" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.13" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
@@ -21,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Soovioo.Analyzers\Soovioo.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\Soovioo.Api\Soovioo.Api.csproj" />
   </ItemGroup>
 

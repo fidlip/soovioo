@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -12,6 +13,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/school-periods")]
+[AuditArea("Rozvrh")]
 public class SchoolPeriodsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -29,6 +31,7 @@ public class SchoolPeriodsController(AppDbContext db, ICurrentSchoolContext curr
     /// from the UI, just "set period N's bell times".</summary>
     [HttpPut("{periodNumber:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Nastaven čas hodiny")]
     public async Task<ActionResult<SchoolPeriodDto>> UpsertPeriod(int periodNumber, UpsertSchoolPeriodRequest request)
     {
         // 0 = "nultá hodina" (before the regular first period).
@@ -58,6 +61,7 @@ public class SchoolPeriodsController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpDelete("{periodNumber:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Smazán čas hodiny")]
     public async Task<IActionResult> DeletePeriod(int periodNumber)
     {
         var period = await db.SchoolPeriods.FirstOrDefaultAsync(p => p.PeriodNumber == periodNumber);

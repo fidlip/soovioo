@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
@@ -20,6 +21,7 @@ namespace Soovioo.Api.Messaging;
 /// broadcast reaches many parents at once.</summary>
 [Authorize]
 [ApiController]
+[AuditArea("Zprávy")]
 public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier) : ControllerBase
 {
     /// <summary>Classes the caller is allowed to broadcast to. Drives the
@@ -43,6 +45,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
 
     [HttpPost("api/school-classes/{schoolClassId:int}/messages/broadcast")]
     [RequirePermission(Permission.MessagesBroadcastClass)]
+    [AuditAction("Odeslána hromadná zpráva třídě")]
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToClass(int schoolClassId, BroadcastRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
@@ -62,6 +65,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
 
     [HttpPost("api/messages/broadcast")]
     [RequirePermission(Permission.MessagesBroadcastSchool)]
+    [AuditAction("Odeslána hromadná zpráva celé škole")]
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToSchool(BroadcastRequest request)
     {
         var studentIds = await db.Students.Select(s => s.Id).ToListAsync();

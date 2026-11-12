@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Timetable;
@@ -11,6 +12,7 @@ namespace Soovioo.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/subjects")]
+[AuditArea("Předměty")]
 public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
@@ -27,6 +29,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
 
     [HttpPost]
     [RequirePermission(Permission.Subjects)]
+    [AuditAction("Vytvořen předmět")]
     public async Task<ActionResult<Subject>> AddSubject(CreateSubjectRequest request)
     {
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
@@ -73,6 +76,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Subjects)]
+    [AuditAction("Upraven předmět")]
     public async Task<ActionResult<Subject>> UpdateSubject(int id, CreateSubjectRequest request)
     {
         if (request.Color is not null && !HexColorPattern().IsMatch(request.Color))
@@ -105,6 +109,7 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
     /// side effect of tidying up the subject list.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Subjects)]
+    [AuditAction("Smazán předmět")]
     public async Task<IActionResult> DeleteSubject(int id)
     {
         var subject = await db.Subjects.FindAsync(id);

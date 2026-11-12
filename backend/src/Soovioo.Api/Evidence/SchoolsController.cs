@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -13,6 +14,7 @@ namespace Soovioo.Api.Evidence;
 [Authorize(Roles = "SuperAdmin")]
 [ApiController]
 [Route("api/schools")]
+[AuditArea("Školy")]
 public class SchoolsController(AppDbContext db) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
@@ -63,6 +65,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     /// there's immediately someone who can log in and run it. No infra
     /// provisioning — new tenant is just a row.</summary>
     [HttpPost]
+    [AuditAction("Založena škola")]
     public async Task<ActionResult<SchoolDto>> AddSchool(CreateSchoolRequest request)
     {
         if (Demo.DemoSlugs.IsReserved(request.Slug))
@@ -105,6 +108,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     /// school created before matrika support existed (e.g. the seeded demo
     /// school had to migrate this way).</summary>
     [HttpPut("{id:int}/matrika-ids")]
+    [AuditAction("Nastaveny identifikátory školy (IZO, RED_IZO)")]
     public async Task<ActionResult<SchoolDto>> SetMatrikaIds(int id, SetSchoolMatrikaIdsRequest request)
     {
         var school = await db.Schools.FindAsync(id);
@@ -121,6 +125,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [AuditAction("Upravena škola")]
     public async Task<ActionResult<SchoolDto>> UpdateSchool(int id, UpdateSchoolRequest request)
     {
         var school = await db.Schools.FindAsync(id);
@@ -166,6 +171,7 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     /// delete — if that's ever needed, it needs its own deliberate,
     /// confirmed, non-generic flow.</summary>
     [HttpDelete("{id:int}")]
+    [AuditAction("Smazána škola")]
     public async Task<IActionResult> DeleteSchool(int id, [FromServices] Demo.DemoSchoolPurger? demoPurger = null)
     {
         var school = await db.Schools.FindAsync(id);

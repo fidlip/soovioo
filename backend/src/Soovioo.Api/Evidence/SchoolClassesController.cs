@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Timetable.Rvp;
@@ -10,6 +11,7 @@ namespace Soovioo.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/school-classes")]
+[AuditArea("Třídy")]
 public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -20,6 +22,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpPost]
     [RequirePermission(Permission.Classes)]
+    [AuditAction("Vytvořena třída")]
     public async Task<ActionResult<SchoolClass>> AddSchoolClass(CreateSchoolClassRequest request)
     {
         if (!await HomeroomExistsAsync(request.HomeroomId))
@@ -48,6 +51,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Classes)]
+    [AuditAction("Upravena třída")]
     public async Task<ActionResult<SchoolClass>> UpdateSchoolClass(int id, CreateSchoolClassRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(id);
@@ -80,6 +84,7 @@ public class SchoolClassesController(AppDbContext db, ICurrentSchoolContext curr
     /// along with it (they're just schedule slots, not records).</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Classes)]
+    [AuditAction("Smazána třída")]
     public async Task<IActionResult> DeleteSchoolClass(int id)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(id);

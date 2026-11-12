@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -16,6 +17,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions/{versionId:int}")]
+[AuditArea("Výuka")]
 public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
     [HttpGet("groups")]
@@ -57,6 +59,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpPost("divisions")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Vytvořeno dělení výuky")]
     public async Task<ActionResult<GroupDivisionDto>> CreateDivision(int versionId, SaveGroupDivisionRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -83,6 +86,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
     /// pupils of a class left out leave the groups too.</summary>
     [HttpPut("divisions/{id:int}")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Upraveno dělení výuky")]
     public async Task<ActionResult<GroupDivisionDto>> UpdateDivision(int versionId, int id, SaveGroupDivisionRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -120,6 +124,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
     /// <summary>With its groups and their lessons; not one with a group with homework.</summary>
     [HttpDelete("divisions/{id:int}")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Smazáno dělení výuky")]
     public async Task<IActionResult> DeleteDivision(int versionId, int id)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -146,6 +151,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpPost("groups")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Vytvořena skupina")]
     public async Task<ActionResult<StudentGroupDto>> CreateGroup(int versionId, SaveStudentGroupRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -168,6 +174,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpPut("groups/{id:int}")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Upravena skupina")]
     public async Task<ActionResult<StudentGroupDto>> UpdateGroup(int versionId, int id, SaveStudentGroupRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -197,6 +204,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
     /// at the day's end.</summary>
     [HttpPut("groups/{id:int}/members")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Změněni členové skupiny")]
     public async Task<ActionResult<StudentGroupDto>> UpdateGroupMembers(int versionId, int id, SaveGroupMembersRequest request)
     {
         var version = await db.TimetableVersions.FindAsync(versionId);
@@ -235,6 +243,7 @@ public class StudentGroupsController(AppDbContext db, ICurrentSchoolContext curr
     /// <summary>With its lessons; not one with homework.</summary>
     [HttpDelete("groups/{id:int}")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Smazána skupina")]
     public async Task<IActionResult> DeleteGroup(int versionId, int id)
     {
         var (version, error) = await EditableVersionAsync(versionId);

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Email;
@@ -18,6 +19,7 @@ namespace Soovioo.Api.Auth;
 [RequirePermission(Permission.Administration)]
 [ApiController]
 [Route("api/users")]
+[AuditArea("Uživatelé")]
 public class UsersController(
     AppDbContext db,
     ICurrentSchoolContext currentSchool,
@@ -52,6 +54,7 @@ public class UsersController(
     /// one can't log in until its owner accepts the invite. The outcome is in
     /// <see cref="UserDto.Invite"/>; a failed invite doesn't undo the account.</summary>
     [HttpPost]
+    [AuditAction("Vytvořen uživatel")]
     public async Task<ActionResult<UserDto>> AddUser(CreateUserRequest request)
     {
         if (await db.Users.AnyAsync(u => u.Username == request.Username))
@@ -110,6 +113,7 @@ public class UsersController(
 
     /// <summary>Password is optional — omit it to change only username/role.</summary>
     [HttpPut("{id:int}")]
+    [AuditAction("Upraven uživatel")]
     public async Task<ActionResult<UserDto>> UpdateUser(int id, UpdateUserRequest request)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
@@ -181,6 +185,7 @@ public class UsersController(
     }
 
     [HttpDelete("{id:int}")]
+    [AuditAction("Smazán uživatel")]
     public async Task<IActionResult> DeleteUser(int id)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);
@@ -210,6 +215,7 @@ public class UsersController(
     /// stops working, the data stays until the school's retention period
     /// for staff runs out (Administrace → Archiv a výmaz údajů).</summary>
     [HttpPost("{id:int}/deactivate")]
+    [AuditAction("Deaktivován uživatel")]
     public async Task<ActionResult<UserDto>> Deactivate(int id, [FromServices] Retention.AccountEraser eraser)
     {
         var user = await db.Users.Include(u => u.Person).ThenInclude(p => p!.TeacherProfile)
@@ -232,6 +238,7 @@ public class UsersController(
     }
 
     [HttpPost("{id:int}/activate")]
+    [AuditAction("Znovu aktivován uživatel")]
     public async Task<ActionResult<UserDto>> Activate(int id, [FromServices] Retention.AccountEraser eraser)
     {
         var user = await db.Users.Include(u => u.Person).ThenInclude(p => p!.TeacherProfile)
@@ -251,6 +258,7 @@ public class UsersController(
     /// <see cref="UpdateUser"/> — this is an alternative the Admin can trigger
     /// any time the account has an e-mail on file, not a replacement for it.</summary>
     [HttpPost("{id:int}/invite")]
+    [AuditAction("Odeslána pozvánka")]
     public async Task<IActionResult> SendInvite(int id)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id);

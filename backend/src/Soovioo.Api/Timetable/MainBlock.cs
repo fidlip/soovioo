@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -104,12 +105,14 @@ public class ClassMainBlock
 [ApiController]
 [Route("api/main-block")]
 [RequirePermission(Permission.Timetable)]
+[AuditArea("Rozvrh")]
 public class MainBlockController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<MainBlock>> Get() => await MainBlock.OfSchoolAsync(db, currentSchool.SchoolId!.Value);
 
     [HttpPut]
+    [AuditAction("Nastaven hlavní blok školy")]
     public async Task<IActionResult> Set(MainBlock request)
     {
         if (MainBlock.Error(request.From, request.To) is var (field, message))

@@ -100,7 +100,7 @@ public class AuditLogController(AppDbContext db) : ControllerBase
                 .ToListAsync();
 
         return Ok(new AuditLogFilterOptionsDto(
-            AuditDescriptions.AllAreas.ToList(),
+            AuditCatalog.AllAreas,
             users,
             classes));
     }

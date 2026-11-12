@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -14,6 +15,7 @@ namespace Soovioo.Api.Events;
 [Authorize]
 [ApiController]
 [Route("api/users/me/calendar-feed-url")]
+[AuditArea("Nastavení")]
 public class CalendarTokenController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
@@ -30,6 +32,7 @@ public class CalendarTokenController(AppDbContext db) : ControllerBase
     /// every calendar app that had the old URL stops getting updates until
     /// re-subscribed with the new one.</summary>
     [HttpPost("regenerate")]
+    [AuditAction("Vygenerován nový odkaz na odběr kalendáře")]
     public async Task<ActionResult<CalendarFeedUrlDto>> RegenerateFeedUrl()
     {
         var user = await CurrentUserAsync();

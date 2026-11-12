@@ -14,6 +14,7 @@ namespace Soovioo.Api.Support;
 /// <summary>SuperAdmin support: entering a school as its admin (audited,
 /// see <see cref="SupportSession"/>) and managing the SuperAdmin accounts.</summary>
 [ApiController]
+[AuditArea("Podpora")]
 public class SupportController(AppDbContext db, SupportSessionService supportSessions, RefreshTokenService refreshTokens) : ControllerBase
 {
     private static readonly PasswordHasher<User> Hasher = new();
@@ -28,6 +29,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     /// <see cref="Redeem"/>. The SuperAdmin's own session stays untouched.</summary>
     [HttpPost("api/schools/{schoolId:int}/support-sessions")]
     [Authorize(Roles = "SuperAdmin")]
+    [AuditAction("Zahájen režim podpory")]
     public async Task<ActionResult<SupportSessionStartDto>> StartSupportSession(int schoolId)
     {
         var school = await db.Schools.FindAsync(schoolId);
@@ -56,6 +58,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     /// Anonymous: on a school's subdomain there's no session yet.</summary>
     [HttpPost("api/support-sessions/redeem")]
     [AllowAnonymous]
+    [AuditAction("Vstup do školy v režimu podpory")]
     public async Task<ActionResult<LoginResponse>> Redeem(RedeemSupportCodeRequest request)
     {
         var response = await supportSessions.RedeemAsync(HttpContext, request.Code);
@@ -67,6 +70,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     /// <summary>"Opustit" — called with the support token itself.</summary>
     [HttpPost("api/support-sessions/current/end")]
     [Authorize]
+    [AuditAction("Ukončen režim podpory")]
     public async Task<IActionResult> EndCurrentSession()
     {
         if (!int.TryParse(User.FindFirstValue(SupportClaims.SessionId), out var sessionId))
@@ -124,6 +128,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
 
     [HttpPost("api/superadmins")]
     [Authorize(Roles = "SuperAdmin")]
+    [AuditAction("Vytvořen superadmin")]
     public async Task<ActionResult<SuperAdminDto>> AddSuperAdmin(CreateSuperAdminRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Username))
@@ -161,6 +166,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     /// someone else's forces a change on their next login and signs them out).</summary>
     [HttpPut("api/superadmins/{id:int}")]
     [Authorize(Roles = "SuperAdmin")]
+    [AuditAction("Upraven superadmin")]
     public async Task<ActionResult<SuperAdminDto>> UpdateSuperAdmin(int id, UpdateSuperAdminRequest request)
     {
         var user = await db.Users.Include(u => u.Person)
@@ -208,6 +214,7 @@ public class SupportController(AppDbContext db, SupportSessionService supportSes
     /// <summary>Never yourself, never the last one.</summary>
     [HttpDelete("api/superadmins/{id:int}")]
     [Authorize(Roles = "SuperAdmin")]
+    [AuditAction("Smazán superadmin")]
     public async Task<IActionResult> DeleteSuperAdmin(int id)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsSuperAdmin && u.SchoolId == null);

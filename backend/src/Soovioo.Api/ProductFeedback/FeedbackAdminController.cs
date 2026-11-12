@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Demo;
@@ -15,6 +16,7 @@ namespace Soovioo.Api.ProductFeedback;
 [Authorize(Roles = "SuperAdmin")]
 [ApiController]
 [Route("api/superadmin/feedback")]
+[AuditArea("Zpětná vazba")]
 public class FeedbackAdminController(
     AppDbContext db,
     [FromKeyedServices(SmtpEmailSender.Key)] IEmailSender smtp,
@@ -65,6 +67,7 @@ public class FeedbackAdminController(
 
     /// <summary>Seen, flagged or resolved — only the fields sent change.</summary>
     [HttpPatch("{id:int}")]
+    [AuditAction("Upravena zpětná vazba")]
     public async Task<ActionResult<FeedbackDto>> Update(int id, FeedbackUpdate update)
     {
         if (await db.Feedback.FirstOrDefaultAsync(f => f.Id == id) is not { } feedback)
@@ -90,6 +93,7 @@ public class FeedbackAdminController(
 
     /// <summary>Spam, or someone asking for it to be erased — the replies go with it.</summary>
     [HttpDelete("{id:int}")]
+    [AuditAction("Smazána zpětná vazba")]
     public async Task<IActionResult> Delete(int id)
     {
         if (await db.Feedback.FirstOrDefaultAsync(f => f.Id == id) is not { } feedback)
@@ -104,6 +108,7 @@ public class FeedbackAdminController(
     /// <summary>E-mails the answer and keeps it; only to someone who agreed
     /// to be contacted, and stored only once it went out.</summary>
     [HttpPost("{id:int}/replies")]
+    [AuditAction("Odeslána odpověď na zpětnou vazbu")]
     public async Task<ActionResult<FeedbackReplyDto>> Reply(int id, FeedbackReplyRequest request)
     {
         if (await db.Feedback.FirstOrDefaultAsync(f => f.Id == id) is not { } feedback)

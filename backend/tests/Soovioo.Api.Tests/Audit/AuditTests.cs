@@ -2,7 +2,6 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Soovioo.Api.Audit;
@@ -10,8 +9,11 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Grades;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 using Soovioo.Api.Support;
+using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Audit;
 
@@ -40,7 +42,7 @@ public class AuditTests
 
     private static DefaultHttpContext Request(
         string method, string path, string? json = null, ClaimsPrincipal? user = null,
-        string? controller = null, string? action = null)
+        Type? controller = null, string? action = null)
     {
         var context = new DefaultHttpContext { User = user ?? new ClaimsPrincipal(new ClaimsIdentity()) };
         context.Request.Method = method;
@@ -53,10 +55,18 @@ public class AuditTests
         context.Response.Body = new MemoryStream();
         if (controller is not null)
         {
-            context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(
-                new ControllerActionDescriptor { ControllerName = controller, ActionName = action! }), "test"));
+            context.SetEndpoint(Endpoint(controller, action!));
         }
         return context;
+    }
+
+    /// <summary>The endpoint of a real controller action, with its
+    /// attributes as metadata — as routing would set it.</summary>
+    private static Endpoint Endpoint(Type controller, string action)
+    {
+        var method = controller.GetMethod(action)!;
+        return new Endpoint(null, new EndpointMetadataCollection(
+            [.. controller.GetCustomAttributes(true), .. method.GetCustomAttributes(true)]), "test");
     }
 
     private static AuditMiddleware Middleware(RequestDelegate next) =>
@@ -66,15 +76,66 @@ public class AuditTests
     [InlineData("POST", "/api/grades", 1)]
     [InlineData("DELETE", "/api/grades/3", 1)]
     [InlineData("GET", "/api/grades", 0)]
-    [InlineData("POST", "/api/auth/refresh", 0)]
     [InlineData("POST", "/hangfire/x", 0)]
-    public async Task LogsChangesOnlyNotReadsOrTokenRefreshes(string method, string path, int expected)
+    public async Task LogsChangesOnlyNotReads(string method, string path, int expected)
     {
         using var db = NewDb();
 
         await Middleware(_ => Task.CompletedTask).InvokeAsync(Request(method, path), db);
 
         Assert.Equal(expected, db.AuditLogEntries.Count());
+    }
+
+    [Theory]
+    [InlineData(typeof(AuthController), nameof(AuthController.Refresh), "/api/auth/refresh")]
+    [InlineData(typeof(NotificationsController), nameof(NotificationsController.MarkAllRead), "/api/notifications/read-all")]
+    public async Task ActionsMarkedNoAuditAreNotLogged(Type controller, string action, string path)
+    {
+        using var db = NewDb();
+
+        await Middleware(_ => Task.CompletedTask).InvokeAsync(
+            Request("POST", path, user: Principal(1, "admin", "Admin", 1), controller: controller, action: action), db);
+
+        Assert.Empty(db.AuditLogEntries);
+    }
+
+    [Fact]
+    public async Task ADayInTheRouteNamesTheDay()
+    {
+        using var db = NewDb();
+        var context = Request("POST", "/api/substitutions/days/2026-11-12/publish", user: Principal(1, "admin", "Admin", 1),
+            controller: typeof(SubstitutionsController), action: nameof(SubstitutionsController.Publish));
+        context.Request.RouteValues["date"] = "2026-11-12";
+
+        await Middleware(_ => Task.CompletedTask).InvokeAsync(context, db);
+
+        var entry = Assert.Single(db.AuditLogEntries);
+        Assert.Equal("Suplování", entry.Area);
+        Assert.Equal("Zveřejněno suplování", entry.Action);
+        Assert.Equal("Zveřejněno suplování na 12. 11. 2026", entry.Description);
+    }
+
+    [Fact]
+    public async Task ARequestMatchingNoActionKeepsItsPath()
+    {
+        using var db = NewDb();
+
+        await Middleware(ctx => { ctx.Response.StatusCode = 404; return Task.CompletedTask; })
+            .InvokeAsync(Request("POST", "/api/nonexistent", user: Principal(1, "admin", "Admin", 1)), db);
+
+        var entry = Assert.Single(db.AuditLogEntries);
+        Assert.Equal(AuditCatalog.OtherArea, entry.Area);
+        Assert.Equal("POST /api/nonexistent", entry.Action);
+    }
+
+    [Fact]
+    public void CatalogListsTheAgendasAndActionsDeclaredOnControllers()
+    {
+        Assert.Contains("Suplování", AuditCatalog.AllAreas);
+        Assert.Contains("Osoby", AuditCatalog.AllAreas);
+        Assert.DoesNotContain(AuditCatalog.OtherArea, AuditCatalog.AllAreas);
+        Assert.Contains("Vytvořen uživatel", AuditCatalog.AllActions);
+        Assert.Contains("Zrušeno zveřejnění verze rozvrhu", AuditCatalog.AllActions);
     }
 
     [Fact]
@@ -86,7 +147,7 @@ public class AuditTests
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/users",
             """{"username":"knovy","password":"tajne123","firstName":"Karel","lastName":"Nový","nested":{"newPassword":"x"}}""",
-            Principal(admin.Id, "admin", "Admin", 1), "Users", "AddUser");
+            Principal(admin.Id, "admin", "Admin", 1), typeof(UsersController), nameof(UsersController.AddUser));
 
         await Middleware(async ctx =>
         {
@@ -116,9 +177,7 @@ public class AuditTests
         using var db = NewDb();
         var context = Request("POST", "/api/linked-accounts", """{"schoolSlug":"udoli","username":"novak","password":"x"}""",
             Principal(2, "rodic", "Parent", 1));
-        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(
-            new ControllerActionDescriptor { ControllerName = "LinkedAccounts", ActionName = "Link" },
-            new CrossSchoolAuditAttribute()), "test"));
+        context.SetEndpoint(Endpoint(typeof(LinkedAccountsController), nameof(LinkedAccountsController.Link)));
 
         await Middleware(_ => Task.CompletedTask).InvokeAsync(context, db);
 
@@ -136,7 +195,7 @@ public class AuditTests
         db.Students.Add(new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = 1 }, Id = 5, SchoolClassId = 9, SchoolId = 1 });
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/grades", """{"studentId":5,"value":1}""",
-            Principal(2, "ucitel", "Teacher", 1), "Grades", "AddGrade");
+            Principal(2, "ucitel", "Teacher", 1), typeof(GradesController), nameof(GradesController.AddGrade));
 
         await Middleware(async ctx =>
         {
@@ -157,7 +216,7 @@ public class AuditTests
         using var db = NewDb();
         var context = Request("DELETE", "/api/classrooms/4", user: Principal(1, "superadmin", "Admin", 3,
             new Claim(SupportClaims.SessionId, "7"), new Claim(SupportClaims.By, "superadmin")),
-            controller: "Classrooms", action: "DeleteClassroom");
+            controller: typeof(ClassroomsController), action: nameof(ClassroomsController.DeleteClassroom));
         context.Request.RouteValues["id"] = "4";
 
         await Middleware(ctx => { ctx.Response.StatusCode = 204; return Task.CompletedTask; }).InvokeAsync(context, db);
@@ -180,7 +239,7 @@ public class AuditTests
         db.Users.Add(user);
         await db.SaveChangesAsync();
         var context = Request("POST", "/api/auth/login",
-            """{"username":"rodic","password":"spatne","schoolSlug":"demo"}""", controller: "Auth", action: "Login");
+            """{"username":"rodic","password":"spatne","schoolSlug":"demo"}""", controller: typeof(AuthController), action: nameof(AuthController.Login));
         var controller = new AuthController(db, Soovioo.Api.Tests.Auth.AuthTestServices.Sessions(db), Soovioo.Api.Tests.Auth.AuthTestServices.RefreshTokens(db),
             Soovioo.Api.Tests.Auth.AuthTestServices.SupportSessions(db))
         {

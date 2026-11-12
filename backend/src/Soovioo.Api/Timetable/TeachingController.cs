@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -15,6 +16,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/timetable-versions/{versionId:int}")]
+[AuditArea("Výuka")]
 public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock) : ControllerBase
 {
     /// <summary>For whoever may see it or edit it.</summary>
@@ -57,6 +59,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// <see cref="SaveCurriculumRequest.MainBlocks"/>, the grades' main blocks too.</summary>
     [HttpPut("curriculum")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Upraven učební plán")]
     public async Task<ActionResult<TeachingOverviewDto>> SaveCurriculum(int versionId, SaveCurriculumRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -129,6 +132,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// would happen.</summary>
     [HttpPost("curriculum/fill")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Doplněn učební plán podle RVP")]
     public async Task<ActionResult<FillCurriculumResponse>> FillCurriculum(int versionId, FillCurriculumRequest request)
     {
         var version = await db.TimetableVersions.FindAsync(versionId);
@@ -149,6 +153,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// disponibilní hours; Automatic = as the system recognises it.</summary>
     [HttpPut("rvp-subject-area")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Nastavena vzdělávací oblast předmětu")]
     public async Task<ActionResult<TeachingOverviewDto>> SetSubjectArea(int versionId, SetRvpSubjectAreaRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -193,6 +198,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// has (so do the grade's hours themselves), 0 = the class doesn't have it.</summary>
     [HttpPut("class-curriculum")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Upraven učební plán třídy")]
     public async Task<ActionResult<TeachingOverviewDto>> SetClassCurriculum(int versionId, SetClassCurriculumRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -231,6 +237,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// as its grade (or the subject) has.</summary>
     [HttpPut("class-double-lessons")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Nastaveny dvouhodinovky třídy")]
     public async Task<ActionResult<TeachingOverviewDto>> SetClassDoubleLessons(int versionId, SetClassDoubleLessonsRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -265,6 +272,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// the school's) block has, so both null = no block of its own.</summary>
     [HttpPut("class-main-block")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Nastaven hlavní blok třídy")]
     public async Task<ActionResult<TeachingOverviewDto>> SetClassMainBlock(int versionId, SetClassMainBlockRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -330,6 +338,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// automatically again.</summary>
     [HttpPut("assignments")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Přidělena výuka")]
     public async Task<ActionResult<TeachingOverviewDto>> SetAssignment(int versionId, SetAssignmentRequest request)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -380,6 +389,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// whatever changes later — a group's too.</summary>
     [HttpPost("assignments/confirm")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Potvrzeno přidělení výuky")]
     public async Task<ActionResult<TeachingOverviewDto>> ConfirmAssignments(int versionId)
     {
         var (version, error) = await EditableVersionAsync(versionId);
@@ -407,6 +417,7 @@ public class TeachingController(AppDbContext db, ICurrentSchoolContext currentSc
     /// plan, a class and subject the teacher who has most of its lessons.</summary>
     [HttpPost("teaching/import")]
     [RequirePermission(Permission.Teaching)]
+    [AuditAction("Převzata výuka z rozvrhu")]
     public async Task<ActionResult<TeachingOverviewDto>> ImportFromTimetable(int versionId)
     {
         var (version, error) = await EditableVersionAsync(versionId);

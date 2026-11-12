@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -14,6 +15,7 @@ namespace Soovioo.Api.Homework;
 [Authorize]
 [ApiController]
 [Route("api/homework")]
+[AuditArea("Domácí úkoly")]
 public class HomeworkController(
     AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage,
     Notifier notifier) : ControllerBase
@@ -137,6 +139,7 @@ public class HomeworkController(
 
     [HttpPost]
     [RequirePermission(Permission.HomeworkWrite)]
+    [AuditAction("Zadán úkol")]
     public async Task<ActionResult<HomeworkDto>> CreateHomework(CreateHomeworkRequest request)
     {
         var (target, error) = await TargetAsync(request);
@@ -182,6 +185,7 @@ public class HomeworkController(
     /// completions and targets that don't belong there anymore.</summary>
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.HomeworkWrite)]
+    [AuditAction("Upraven úkol")]
     public async Task<ActionResult<HomeworkDto>> UpdateHomework(int id, CreateHomeworkRequest request)
     {
         var homework = await db.Homework
@@ -265,6 +269,7 @@ public class HomeworkController(
     /// of the plain-JSON create request.</summary>
     [HttpPost("{id:int}/attachments")]
     [RequirePermission(Permission.HomeworkWrite)]
+    [AuditAction("Přiložen soubor k úkolu")]
     public async Task<ActionResult<HomeworkAttachmentDto>> UploadAttachment(int id, IFormFile file)
     {
         var homework = await db.Homework.FindAsync(id);
@@ -337,6 +342,7 @@ public class HomeworkController(
     }
 
     [HttpPost("{id:int}/complete")]
+    [AuditAction("Úkol označen jako hotový")]
     public async Task<IActionResult> MarkComplete(int id, MarkHomeworkCompleteRequest request)
     {
         if (!await User.ReachesStudentAsync(db, Permission.HomeworkComplete, request.StudentId))
@@ -379,6 +385,7 @@ public class HomeworkController(
     /// <summary>Same ownership rule as creating it.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.HomeworkWrite)]
+    [AuditAction("Smazán úkol")]
     public async Task<IActionResult> DeleteHomework(int id)
     {
         var homework = await db.Homework.FindAsync(id);

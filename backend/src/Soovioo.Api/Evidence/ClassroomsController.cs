@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 
@@ -9,6 +10,7 @@ namespace Soovioo.Api.Evidence;
 [Authorize]
 [ApiController]
 [Route("api/classrooms")]
+[AuditArea("Učebny")]
 public class ClassroomsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -19,6 +21,7 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
 
     [HttpPost]
     [RequirePermission(Permission.Classrooms)]
+    [AuditAction("Vytvořena učebna")]
     public async Task<ActionResult<Classroom>> AddClassroom(CreateClassroomRequest request)
     {
         var classroom = new Classroom
@@ -36,6 +39,7 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
 
     [HttpPut("{id:int}")]
     [RequirePermission(Permission.Classrooms)]
+    [AuditAction("Upravena učebna")]
     public async Task<ActionResult<Classroom>> UpdateClassroom(int id, CreateClassroomRequest request)
     {
         var classroom = await db.Classrooms.FindAsync(id);
@@ -57,6 +61,7 @@ public class ClassroomsController(AppDbContext db, ICurrentSchoolContext current
     /// own delete, see SubjectsController.DeleteSubject.</summary>
     [HttpDelete("{id:int}")]
     [RequirePermission(Permission.Classrooms)]
+    [AuditAction("Smazána učebna")]
     public async Task<IActionResult> DeleteClassroom(int id)
     {
         var classroom = await db.Classrooms.FindAsync(id);

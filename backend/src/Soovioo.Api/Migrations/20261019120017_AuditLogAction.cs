@@ -23,7 +23,7 @@ namespace Soovioo.Api.Migrations
                 UPDATE "AuditLogEntries" SET "Action" = 'Neúspěšné přihlášení'
                 WHERE "Description" LIKE 'Neúspěšné přihlášení%';
                 """);
-            foreach (var action in Audit.AuditDescriptions.AllActions.OrderByDescending(a => a.Length))
+            foreach (var action in Audit.AuditCatalog.AllActions.OrderByDescending(a => a.Length))
             {
                 var literal = action.Replace("'", "''");
                 migrationBuilder.Sql($"""

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Behavior;
 using Soovioo.Api.Common;
@@ -20,6 +21,7 @@ namespace Soovioo.Api.Grades;
 [Authorize]
 [ApiController]
 [Route("api/report-cards")]
+[AuditArea("Známky")]
 public class ReportCardsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     private const string Confirmed = "Známka na vysvědčení je potvrzená — změnit ji jde až po znovuotevření vedením školy.";
@@ -114,6 +116,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
     [HttpPut("grades")]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Upravena známka na vysvědčení")]
     public async Task<IActionResult> SetGrade(SetReportCardGradeRequest request)
     {
         if (request.Kind == ReportCardGradeKind.Graded ? request.Value is not (>= 1 and <= 5) : request.Value is not null)
@@ -156,6 +159,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
     /// <summary>Back to the suggestion from the average.</summary>
     [HttpDelete("grades")]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Známka na vysvědčení vrácena na návrh")]
     public async Task<IActionResult> ResetGrade(int studentId, int subjectId, int schoolYearStartYear, SchoolHalfYear halfYear)
     {
         if (await CheckAsync(studentId, subjectId) is { } error)
@@ -179,6 +183,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
     /// ones without any value (no grades in the half-year) are skipped.</summary>
     [HttpPost("grades/confirm")]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Potvrzeny známky na vysvědčení")]
     public async Task<ActionResult<ConfirmReportCardGradesResult>> ConfirmGrades(ConfirmReportCardGradesRequest request)
     {
         foreach (var (studentId, subjectId) in request.Grades.Select(g => (g.StudentId, g.SubjectId)).Distinct())
@@ -235,6 +240,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
     [HttpPost("grades/reopen")]
     [RequirePermission(Permission.GradesWrite)]
+    [AuditAction("Znovu otevřena známka na vysvědčení")]
     public async Task<IActionResult> ReopenGrade(ReportCardGradeRequest request)
     {
         if (await User.ScopeAsync(db, Permission.GradesWrite) != PermissionScope.School)

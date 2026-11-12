@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Notifications;
@@ -19,6 +20,7 @@ namespace Soovioo.Api.Messaging;
 [Authorize]
 [ApiController]
 [Route("api/conversations")]
+[AuditArea("Zprávy")]
 public class ConversationsController(
     AppDbContext db, ICurrentSchoolContext currentSchool, MessageAttachmentStorageService storage,
     Notifier notifier) : ControllerBase
@@ -169,6 +171,7 @@ public class ConversationsController(
     /// <c>StudentId</c> = which (own) child it's about, recipients picked
     /// from <see cref="GetContacts"/>.</summary>
     [HttpPost]
+    [AuditAction("Odeslána nová zpráva")]
     public async Task<ActionResult<ConversationDto>> StartConversation(StartConversationRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Subject) || string.IsNullOrWhiteSpace(request.Body))
@@ -228,6 +231,7 @@ public class ConversationsController(
     }
 
     [HttpPost("{id:int}/messages")]
+    [AuditAction("Odeslána odpověď")]
     public async Task<ActionResult<MessageDto>> Reply(int id, ReplyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Body))
@@ -264,6 +268,7 @@ public class ConversationsController(
     }
 
     [HttpPost("{id:int}/read")]
+    [AuditAction("Přečtena konverzace")]
     public async Task<IActionResult> MarkRead(int id)
     {
         var participant = await db.ConversationParticipants
@@ -300,6 +305,7 @@ public class ConversationsController(
     /// <summary>Separate step after sending (which stays plain JSON) — only
     /// the message's own sender may attach to it.</summary>
     [HttpPost("{id:int}/messages/{messageId:int}/attachments")]
+    [AuditAction("Přiložen soubor ke zprávě")]
     public async Task<ActionResult<MessageAttachmentDto>> UploadAttachment(int id, int messageId, IFormFile file)
     {
         var message = await db.Messages.FirstOrDefaultAsync(m =>
@@ -366,6 +372,7 @@ public class ConversationsController(
     /// a conversation left without messages disappears with it. Its notifications
     /// go, read or not.</summary>
     [HttpDelete("{id:int}/messages/{messageId:int}")]
+    [AuditAction("Smazána zpráva")]
     public async Task<IActionResult> DeleteMessage(int id, int messageId)
     {
         var message = await db.Messages.Include(m => m.Attachments).FirstOrDefaultAsync(m =>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -43,6 +44,7 @@ public record TeacherWishes(int? MinLessonsPerDay = null, int? MaxLessonsPerDay 
 [Authorize]
 [ApiController]
 [Route("api/teacher-wishes")]
+[AuditArea("Rozvrh")]
 public class TeacherWishesController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
@@ -50,6 +52,7 @@ public class TeacherWishesController(AppDbContext db, ICurrentSchoolContext curr
 
     [HttpPut]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Nastavena výchozí přání učitelů k rozvrhu")]
     public async Task<ActionResult<TeacherWishes>> Set(TeacherWishes request)
     {
         if (TeacherWishes.Error(request.MinLessonsPerDay, request.MaxLessonsPerDay, request.MaxGapsPerDay) is var (field, message))

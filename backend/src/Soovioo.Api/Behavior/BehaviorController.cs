@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
@@ -10,6 +11,7 @@ namespace Soovioo.Api.Behavior;
 [Authorize]
 [ApiController]
 [Route("api")]
+[AuditArea("Chování")]
 public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     /// <summary>Unscoped, like GET /api/grades — Teacher/Admin see every
@@ -41,6 +43,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     /// the targeted student's own Parent/Student account (mirrors the same
     /// simplification Message.ReadAt already makes).</summary>
     [HttpPost("behavior-records/{id:int}/read")]
+    [AuditAction("Potvrzeno přečtení záznamu chování")]
     public async Task<IActionResult> MarkBehaviorRecordRead(int id)
     {
         var record = await db.BehaviorRecords.FindAsync(id);
@@ -64,6 +67,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     /// the class teacher, Admin).</summary>
     [HttpPost("behavior-records")]
     [Authorize(Roles = nameof(RoleKind.Staff))]
+    [AuditAction("Zapsán záznam chování")]
     public async Task<ActionResult<BehaviorRecordDto>> CreateBehaviorRecord(CreateBehaviorRecordRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);
@@ -100,6 +104,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     /// which any Teacher/Admin may delete regardless of sender).</summary>
     [HttpDelete("behavior-records/{id:int}")]
     [Authorize(Roles = nameof(RoleKind.Staff))]
+    [AuditAction("Smazán záznam chování")]
     public async Task<IActionResult> DeleteBehaviorRecord(int id)
     {
         var record = await db.BehaviorRecords.FindAsync(id);
@@ -145,6 +150,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     /// teacher's measures, Uspokojive/Neuspokojive with the director's.</summary>
     [HttpPut("behavior-classifications")]
     [Authorize(Roles = nameof(RoleKind.Staff))]
+    [AuditAction("Nastavena klasifikace chování")]
     public async Task<ActionResult<BehaviorClassificationDto>> SetClassification(SetBehaviorClassificationRequest request)
     {
         var student = await db.Students.FindAsync(request.StudentId);

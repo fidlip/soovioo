@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -20,6 +21,7 @@ namespace Soovioo.Api.People;
 [Authorize]
 [ApiController]
 [Route("api/photos")]
+[AuditArea("Fotky")]
 public class PhotosController(
     AppDbContext db,
     ICurrentSchoolContext currentSchool,
@@ -52,6 +54,7 @@ public class PhotosController(
     /// parents' photos on. An admin may also set a staff member's.</summary>
     [HttpPut("users/{userId:int}")]
     [RequestSizeLimit(PhotoStorage.MaxUploadBytes + 64 * 1024)]
+    [AuditAction("Nahrána profilová fotka")]
     public async Task<ActionResult<PhotoDto>> UploadUserPhoto(int userId, IFormFile? file)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == userId);
@@ -81,6 +84,7 @@ public class PhotosController(
     }
 
     [HttpDelete("users/{userId:int}")]
+    [AuditAction("Smazána profilová fotka")]
     public async Task<IActionResult> DeleteUserPhoto(int userId)
     {
         var user = await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == userId);
@@ -150,6 +154,7 @@ public class PhotosController(
     /// consent.</summary>
     [HttpPut("students/{studentId:int}")]
     [RequestSizeLimit(PhotoStorage.MaxUploadBytes + 64 * 1024)]
+    [AuditAction("Nahrána fotka žáka")]
     public async Task<ActionResult<StudentPhotoStateDto>> UploadStudentPhoto(int studentId, IFormFile? file)
     {
         var student = await db.Students.FindAsync(studentId);
@@ -196,6 +201,7 @@ public class PhotosController(
     }
 
     [HttpPost("students/{studentId:int}/approve")]
+    [AuditAction("Schválena fotka žáka")]
     public async Task<ActionResult<StudentPhotoStateDto>> ApproveStudentPhoto(int studentId)
     {
         var student = await db.Students.FindAsync(studentId);
@@ -214,6 +220,7 @@ public class PhotosController(
 
     /// <summary>Rejected = deleted right away.</summary>
     [HttpPost("students/{studentId:int}/reject")]
+    [AuditAction("Zamítnuta (smazána) fotka žáka")]
     public async Task<ActionResult<StudentPhotoStateDto>> RejectStudentPhoto(int studentId)
     {
         var student = await db.Students.FindAsync(studentId);
@@ -233,6 +240,7 @@ public class PhotosController(
     /// <summary>Whoever may approve (the school even after a parent
     /// approved, e.g. for unsuitable content), and the pupil their own.</summary>
     [HttpDelete("students/{studentId:int}")]
+    [AuditAction("Smazána fotka žáka")]
     public async Task<ActionResult<StudentPhotoStateDto>> DeleteStudentPhoto(int studentId)
     {
         var student = await db.Students.FindAsync(studentId);
@@ -252,6 +260,7 @@ public class PhotosController(
     /// <summary>A parent gives the consent themselves; the school records
     /// one given on paper, with the guardian's name.</summary>
     [HttpPut("students/{studentId:int}/consent")]
+    [AuditAction("Udělen souhlas s fotkou žáka")]
     public async Task<ActionResult<StudentPhotoStateDto>> GiveConsent(int studentId, PhotoConsentRequest request)
     {
         var student = await db.Students.FindAsync(studentId);
@@ -286,6 +295,7 @@ public class PhotosController(
 
     /// <summary>Revoking deletes the photo, not just hides it.</summary>
     [HttpDelete("students/{studentId:int}/consent")]
+    [AuditAction("Odvolán souhlas s fotkou žáka (fotka smazána)")]
     public async Task<ActionResult<StudentPhotoStateDto>> RevokeConsent(int studentId)
     {
         var student = await db.Students.FindAsync(studentId);

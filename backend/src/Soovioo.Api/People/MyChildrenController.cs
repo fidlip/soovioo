@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -13,12 +14,14 @@ namespace Soovioo.Api.People;
 [Authorize(Roles = nameof(RoleKind.Parent))]
 [ApiController]
 [Route("api/my-children")]
+[AuditArea("Mé děti")]
 public class MyChildrenController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MyChildDto>>> Get() => Ok(await ChildrenAsync());
 
     [HttpPut("{studentId:int}/visibility")]
+    [AuditAction("Změněna viditelnost údajů dítěte")]
     public async Task<ActionResult<IReadOnlyList<MyChildDto>>> SetVisibility(int studentId, SetVisibilityRequest request)
     {
         var me = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -45,6 +48,7 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
     /// <summary>The parent's choice applies right away (and replaces a
     /// proposal of the child's).</summary>
     [HttpPut("{studentId:int}/nickname")]
+    [AuditAction("Změněna přezdívka dítěte")]
     public async Task<ActionResult<IReadOnlyList<MyChildDto>>> SetNickname(
         int studentId, SetNicknameRequest request, [FromServices] Nicknames nicknames)
     {
@@ -63,10 +67,12 @@ public class MyChildrenController(AppDbContext db, ICurrentSchoolContext current
     }
 
     [HttpPost("{studentId:int}/nickname/approve")]
+    [AuditAction("Schválena přezdívka dítěte")]
     public Task<ActionResult<IReadOnlyList<MyChildDto>>> ApproveNickname(int studentId, [FromServices] Nicknames nicknames) =>
         DecideAsync(studentId, true, nicknames);
 
     [HttpPost("{studentId:int}/nickname/reject")]
+    [AuditAction("Zamítnuta přezdívka dítěte")]
     public Task<ActionResult<IReadOnlyList<MyChildDto>>> RejectNickname(int studentId, [FromServices] Nicknames nicknames) =>
         DecideAsync(studentId, false, nicknames);
 

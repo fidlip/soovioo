@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Attendance;
+using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
@@ -19,6 +20,7 @@ namespace Soovioo.Api.Timetable;
 [Authorize]
 [ApiController]
 [Route("api/substitutions")]
+[AuditArea("Suplování")]
 public class SubstitutionsController(
     AppDbContext db, ICurrentSchoolContext currentSchool, TimeProvider clock, Notifier notifier) : ControllerBase
 {
@@ -79,6 +81,7 @@ public class SubstitutionsController(
 
     [HttpPost("absences")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Zapsána nepřítomnost učitele")]
     public async Task<ActionResult<SubstitutionDayDto>> AddAbsence(TeacherAbsenceRequest request)
     {
         if (request.DateTo < request.DateFrom || request.PeriodTo < request.PeriodFrom)
@@ -100,6 +103,7 @@ public class SubstitutionsController(
 
     [HttpDelete("absences/{id:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Smazána nepřítomnost učitele")]
     public async Task<IActionResult> DeleteAbsence(int id)
     {
         if (await db.TeacherAbsences.FindAsync(id) is not { } absence)
@@ -115,6 +119,7 @@ public class SubstitutionsController(
     /// nothing left the lesson is as the timetable has it again.</summary>
     [HttpPut("changes")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Upravena změna v rozvrhu")]
     public async Task<ActionResult<SubstitutionDayDto>> SaveChange(LessonChangeRequest request)
     {
         var key = new LessonKey(request.Date, request.PeriodNumber, request.SchoolClassId, request.StudentGroupId);
@@ -266,6 +271,7 @@ public class SubstitutionsController(
 
     [HttpDelete("changes/{id:int}")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Smazána změna v rozvrhu")]
     public async Task<ActionResult<SubstitutionDayDto>> DeleteChange(int id)
     {
         if (await db.LessonChanges.FindAsync(id) is not { } row)
@@ -353,6 +359,7 @@ public class SubstitutionsController(
     /// first one offered, if there's anyone. Doesn't publish.</summary>
     [HttpPost("days/{date}/fill")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Doplněno suplování")]
     public async Task<ActionResult<SubstitutionFillDto>> Fill(DateOnly date)
     {
         var tried = new HashSet<LessonKey>();
@@ -397,6 +404,7 @@ public class SubstitutionsController(
     /// what changed for them.</summary>
     [HttpPost("days/{date}/publish")]
     [RequirePermission(Permission.Timetable)]
+    [AuditAction("Zveřejněno suplování")]
     public async Task<ActionResult<SubstitutionDayDto>> Publish(DateOnly date)
     {
         if (await db.TimetableVersionOnAsync(date) is null)
