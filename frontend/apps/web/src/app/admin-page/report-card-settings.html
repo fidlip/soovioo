@@ -25,4 +25,119 @@
       [outlined]="true"
     />
   </form>
+
+  <h3 class="mb-1 mt-6 flex items-center text-base font-semibold">
+    Způsob hodnocení<app-info-hint
+      [text]="'Bez pravidla se hodnotí klasifikací. Platí nejpřesnější pravidlo: žáka v předmětu, žáka ve všech předmětech, ročníku v předmětu, ročníku ve všech předmětech. U slovního hodnocení učitel vybírá i odpovídající stupeň pro celkové hodnocení — netiskne se a rodiče ho nevidí.' | term"
+    />
+  </h3>
+  @if (rules().length === 0) {
+  <p class="m-0 text-sm text-surface-500">Všichni se hodnotí klasifikací.</p>
+  } @else {
+  <ul class="m-0 list-none p-0 text-sm">
+    @for (rule of rules(); track rule.id) {
+    <li
+      class="flex flex-wrap items-center gap-x-2 border-b border-surface-100 py-1 last:border-b-0 dark:border-surface-800"
+    >
+      <span class="font-medium">{{ ruleTarget(rule) }}</span>
+      <span class="text-surface-500">· {{ ruleSubjects(rule) }}</span>
+      <span>— {{ modeLabel(rule.mode) }}</span>
+      <p-button
+        class="ml-auto"
+        icon="pi pi-trash"
+        size="small"
+        [text]="true"
+        severity="danger"
+        [ariaLabel]="'Smazat pravidlo – ' + ruleTarget(rule) + ', ' + ruleSubjects(rule)"
+        (onClick)="deleteRule(rule)"
+      />
+    </li>
+    }
+  </ul>
+  }
+  <form class="mt-3 flex flex-wrap items-end gap-2" (ngSubmit)="addRule()">
+    <app-float-field label="Pro" for="ruleTarget">
+      <p-select
+        ariaLabel="Pro"
+        inputId="ruleTarget"
+        [options]="targetOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="target()"
+        (ngModelChange)="target.set($event)"
+        name="ruleTarget"
+        styleClass="w-32"
+        appendTo="body"
+      />
+    </app-float-field>
+    @if (target() === 'rocnik') {
+    <app-float-field label="Ročník" for="ruleRocnik">
+      <p-select
+        ariaLabel="Ročník"
+        inputId="ruleRocnik"
+        [options]="rocnikOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="rocnik()"
+        (ngModelChange)="rocnik.set($event)"
+        name="ruleRocnik"
+        styleClass="w-36"
+        appendTo="body"
+      />
+    </app-float-field>
+    } @else {
+    <app-float-field [label]="'Žák' | term" for="ruleStudent">
+      <p-select
+        [ariaLabel]="'Žák' | term"
+        inputId="ruleStudent"
+        [options]="studentOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [ngModel]="studentId()"
+        (ngModelChange)="studentId.set($event)"
+        [filter]="true"
+        name="ruleStudent"
+        styleClass="w-64"
+        appendTo="body"
+      />
+    </app-float-field>
+    }
+    <app-float-field label="Předmět" for="ruleSubject">
+      <p-select
+        ariaLabel="Předmět"
+        inputId="ruleSubject"
+        [options]="subjectOptions()"
+        optionLabel="label"
+        optionValue="key"
+        [ngModel]="subjectKey()"
+        (ngModelChange)="subjectKey.set($event)"
+        [filter]="subjectOptions().length > 10"
+        name="ruleSubject"
+        styleClass="w-52"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-float-field label="Způsob" for="ruleMode">
+      <p-select
+        ariaLabel="Způsob"
+        inputId="ruleMode"
+        [options]="modeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="mode()"
+        (ngModelChange)="mode.set($event)"
+        name="ruleMode"
+        styleClass="w-72"
+        appendTo="body"
+      />
+    </app-float-field>
+    <p-button
+      type="submit"
+      label="Nastavit"
+      icon="pi pi-plus"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="!canAdd()"
+    />
+  </form>
 </p-card>

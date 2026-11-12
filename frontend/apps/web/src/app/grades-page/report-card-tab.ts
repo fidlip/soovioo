@@ -6,6 +6,7 @@ import {
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from '@openng/optimus-ui/api';
@@ -14,6 +15,7 @@ import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Select } from '@openng/optimus-ui/select';
 import { Subscription } from 'rxjs';
 import {
+  AssessmentMode,
   AuthApiService,
   BehaviorClassificationValue,
   DateFormatPipe,
@@ -23,6 +25,7 @@ import {
   ReportCardApiService,
   ReportCardClasses,
   ReportCardGradeKind,
+  ReportCardPrint,
   ReportCardResult,
   ReportCardSubject,
   Student,
@@ -32,6 +35,7 @@ import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
+import { VerbalTextDialog } from './verbal-text-dialog';
 
 /** The half-year a day belongs to: 1. pololetí 1 Sep – 31 Jan, 2. pololetí
  * 1 Feb – 31 Aug (fixed until the school has its own school year, #253). */
@@ -66,6 +70,18 @@ const MARK_OPTIONS = [
   { value: 'NotGraded', label: 'nehodnocen/a' },
 ];
 
+/** Under slovní hodnocení the stupeň it corresponds to. */
+const VERBAL_MARK_OPTIONS = MARK_OPTIONS.map((o) => ({
+  ...o,
+  label: /^\d/.test(o.value) ? `odpovídá ${o.label}` : o.label,
+}));
+
+const MODE_LABELS: Record<AssessmentMode, string> = {
+  Classification: 'klasifikace',
+  Verbal: 'slovní hodnocení',
+  ClassificationWithVerbal: 'klasifikace a slovní hodnocení',
+};
+
 const BEHAVIOR: Record<BehaviorClassificationValue, string> = {
   VelmiDobre: 'velmi dobré',
   Uspokojive: 'uspokojivé',
@@ -97,6 +113,7 @@ function gendered(base: string, gender: Gender | null): string {
     Loading,
     Select,
     TermPipe,
+    VerbalTextDialog,
   ],
   templateUrl: './report-card-tab.html',
 })
@@ -113,6 +130,9 @@ export class ReportCardTab {
 
   protected readonly isStaff = computed(() => this.authApi.isStaff());
   protected readonly markOptions = MARK_OPTIONS;
+  protected readonly verbalMarkOptions = VERBAL_MARK_OPTIONS;
+  protected readonly modeLabels = MODE_LABELS;
+  private readonly textDialog = viewChild.required(VerbalTextDialog);
 
   /** The current school year's halves and the previous one's, newest first. */
   protected readonly halfYearOptions = (() => {
@@ -218,9 +238,14 @@ export class ReportCardTab {
   protected readonly confirmable = computed(() =>
     (this.shownCards() ?? []).flatMap((card) =>
       card.subjects
-        .filter((s) => s.canEdit && s.kind !== null)
+        .filter((s) => s.canEdit && s.complete)
         .map((s) => ({ studentId: card.studentId, subjectId: s.subjectId })),
     ),
+  );
+
+  /** Any pupil shown is assessed slovně — lists A/B for the class. */
+  protected readonly classHasVerbal = computed(() =>
+    (this.cards() ?? []).some((card) => card.hasVerbal),
   );
 
   /** Families see report card grades once the report card is issued. */
@@ -285,22 +310,127 @@ export class ReportCardTab {
       case 'NotGraded':
         return gendered('nehodnocen', gender);
       default:
+        if (subject.value === null) {
+          return gendered('hodnocen', gender) + ' slovně';
+        }
         return `${subject.value} – ${GRADE_WORDS[(subject.value ?? 1) - 1]}`;
     }
   }
 
   protected resultText(card: ReportCard): string {
-    const labels: Record<ReportCardResult, string> = {
-      WithHonours: `${gendered('prospěl', card.gender)} s vyznamenáním`,
-      Passed: gendered('prospěl', card.gender),
-      Failed: gendered('neprospěl', card.gender),
-      NotAssessed: gendered('nehodnocen', card.gender),
-    };
-    return card.result ? labels[card.result] : 'neuzavřeno';
+    return card.result
+      ? this.resultLabel(card.result, card.gender)
+      : 'neuzavřeno';
   }
 
   protected behaviorText(card: ReportCard): string {
-    return BEHAVIOR[card.behavior];
+    if (card.behavior === null) {
+      return 'slovní hodnocení';
+    }
+    return card.behaviorMode === 'Verbal'
+      ? `slovní hodnocení (odpovídá: ${BEHAVIOR[card.behavior]})`
+      : BEHAVIOR[card.behavior];
+  }
+
+  /** Where the subject's grade stands until it's confirmed. */
+  protected status(subject: ReportCardSubject): string {
+    if (subject.kind && !subject.complete) {
+      return 'chybí slovní hodnocení';
+    }
+    return subject.changed
+      ? 'upraveno'
+      : subject.kind
+        ? 'návrh z průměru'
+        : 'chybí';
+  }
+
+  protected editText(card: ReportCard, subject: ReportCardSubject): void {
+    this.textDialog().open({
+      header: `${subject.subjectName} – ${card.studentName}`,
+      text: subject.verbalText,
+      save: (text) =>
+        this.api
+          .setGradeText(this.halfYear(), this.key(card, subject), text)
+          .subscribe({
+            next: () => this.reload(),
+            error: (err) => this.failed('setGradeText failed', err),
+          }),
+    });
+  }
+
+  protected editBehavior(card: ReportCard): void {
+    this.textDialog().open({
+      header: `Chování – ${card.studentName}`,
+      text: card.behaviorText,
+      save: (text) =>
+        this.api
+          .setBehaviorText(this.halfYear(), card.studentId, text)
+          .subscribe({
+            next: () => this.reload(),
+            error: (err) => this.failed('setBehaviorText failed', err),
+          }),
+    });
+  }
+
+  protected editSummary(card: ReportCard): void {
+    const results: ReportCardResult[] = [
+      'WithHonours',
+      'Passed',
+      'Failed',
+      'NotAssessed',
+    ];
+    this.textDialog().open({
+      header: `Souhrnné hodnocení – ${card.studentName}`,
+      text: card.summary?.text ?? null,
+      results: results.map((value) => ({
+        value,
+        label: this.resultLabel(value, card.gender),
+      })),
+      result: card.summary?.result ?? null,
+      save: (text, result) =>
+        this.api
+          .setSummary(this.halfYear(), card.studentId, text, result)
+          .subscribe({
+            next: () => this.reload(),
+            error: (err) => this.failed('setSummary failed', err),
+          }),
+    });
+  }
+
+  protected confirmSummary(card: ReportCard): void {
+    this.confirmation.confirm({
+      header: 'Potvrdit souhrnné hodnocení',
+      message: `Potvrdit souhrnné hodnocení – ${card.studentName}? Potvrzené může změnit už jen vedení školy.`,
+      icon: 'pi pi-check-circle',
+      acceptLabel: 'Potvrdit',
+      rejectLabel: 'Zrušit',
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept: () =>
+        this.api.confirmSummary(this.halfYear(), card.studentId).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.failed('confirmSummary failed', err),
+        }),
+    });
+  }
+
+  protected reopenSummary(card: ReportCard): void {
+    this.api.reopenSummary(this.halfYear(), card.studentId).subscribe({
+      next: () => this.reload(),
+      error: (err) => this.failed('reopenSummary failed', err),
+    });
+  }
+
+  protected resultLabel(
+    result: ReportCardResult,
+    gender: Gender | null,
+  ): string {
+    const labels: Record<ReportCardResult, string> = {
+      WithHonours: `${gendered('prospěl', gender)} s vyznamenáním`,
+      Passed: gendered('prospěl', gender),
+      Failed: gendered('neprospěl', gender),
+      NotAssessed: gendered('nehodnocen', gender),
+    };
+    return labels[result];
   }
 
   protected formatAverage(average: number): string {
@@ -362,15 +492,18 @@ export class ReportCardTab {
     });
   }
 
-  protected downloadPdf(card: ReportCard): void {
-    this.download({ studentId: card.studentId }, card.studentName);
+  protected downloadPdf(
+    card: ReportCard,
+    form: ReportCardPrint = 'Extract',
+  ): void {
+    this.download({ studentId: card.studentId }, card.studentName, form);
   }
 
-  protected downloadClassPdf(): void {
+  protected downloadClassPdf(form: ReportCardPrint = 'Extract'): void {
     const classId = this.classId();
     const name = this.classes()?.classes.find((c) => c.id === classId)?.name;
     if (classId !== null && name) {
-      this.download({ schoolClassId: classId }, name);
+      this.download({ schoolClassId: classId }, name, form);
     }
   }
 
@@ -379,7 +512,7 @@ export class ReportCardTab {
       next: (result) => {
         if (result.skipped > 0) {
           this.notify.warn(
-            `Bez známky na vysvědčení nejde potvrdit (počet: ${result.skipped}) — vyberte ji nebo nehodnocen/a.`,
+            `Bez známky na vysvědčení nebo slovního hodnocení nejde potvrdit (počet: ${result.skipped}) — doplňte je, nebo vyberte nehodnocen/a.`,
           );
         }
         this.reload();
@@ -391,13 +524,14 @@ export class ReportCardTab {
   private download(
     of: { studentId: number } | { schoolClassId: number },
     name: string,
+    form: ReportCardPrint,
   ): void {
-    this.api.downloadPdf(this.halfYear(), of).subscribe({
+    this.api.downloadPdf(this.halfYear(), of, form).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${this.pdfKind()}-${name}.pdf`;
+        link.download = `${form === 'Verbal' ? 'vysvedceni-list-a-b' : this.pdfKind()}-${name}.pdf`;
         link.click();
         URL.revokeObjectURL(url);
       },

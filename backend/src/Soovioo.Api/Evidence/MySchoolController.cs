@@ -242,6 +242,97 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(new ReportCardSettingsDto(school.ReportCardMarkFormat));
     }
 
+    /// <summary>How ročníky and single pupils are assessed on the report
+    /// card — everything else is classified.</summary>
+    [HttpGet("report-cards/assessment-rules")]
+    public async Task<ActionResult<List<AssessmentModeRuleDto>>> GetAssessmentRules()
+    {
+        var rules = await db.AssessmentModeRules
+            .Select(r => new AssessmentModeRuleDto(
+                r.Id,
+                r.Rocnik,
+                r.StudentId,
+                r.Student == null ? null : r.Student.Person!.FirstName + " " + r.Student.Person.LastName,
+                r.SubjectId,
+                r.Subject == null ? null : r.Subject.Name,
+                r.Behavior,
+                r.Mode))
+            .ToListAsync();
+        var czech = StringComparer.Create(SchoolFormat.Culture, true);
+        return Ok(rules
+            .OrderBy(r => r.StudentId is null ? 0 : 1)
+            .ThenBy(r => r.Rocnik)
+            .ThenBy(r => r.StudentName ?? "", czech)
+            .ThenBy(r => r.Behavior ? 2 : r.SubjectId is null ? 0 : 1)
+            .ThenBy(r => r.SubjectName ?? "", czech)
+            .ToList());
+    }
+
+    /// <summary>Adds the rule, or changes the mode of the one for the same
+    /// ročník or pupil and the same subjects.</summary>
+    [AuditAction("Nastavena výjimka ze způsobu hodnocení")]
+    [HttpPut("report-cards/assessment-rules")]
+    public async Task<IActionResult> SetAssessmentRule(SetAssessmentModeRuleRequest request)
+    {
+        if ((request.Rocnik is null) == (request.StudentId is null))
+        {
+            return BadRequest("Vyberte ročník, nebo žáka.");
+        }
+        if (request.Rocnik is not (null or (>= 1 and <= 13)))
+        {
+            return BadRequest("Neplatný ročník.");
+        }
+        if (request.Behavior && request.SubjectId is not null)
+        {
+            return BadRequest("Chování nemá předmět.");
+        }
+        if (!Enum.IsDefined(request.Mode))
+        {
+            return BadRequest("Neznámý způsob hodnocení.");
+        }
+        if (request.StudentId is { } studentId && !await db.Students.AnyAsync(s => s.Id == studentId))
+        {
+            return BadRequest("Neznámý žák.");
+        }
+        if (request.SubjectId is { } subjectId && !await db.Subjects.AnyAsync(s => s.Id == subjectId))
+        {
+            return BadRequest("Neznámý předmět.");
+        }
+
+        var rule = await db.AssessmentModeRules.FirstOrDefaultAsync(r =>
+            r.Rocnik == request.Rocnik && r.StudentId == request.StudentId
+            && r.SubjectId == request.SubjectId && r.Behavior == request.Behavior);
+        if (rule is null)
+        {
+            rule = new Grades.AssessmentModeRule
+            {
+                SchoolId = currentSchool.SchoolId!.Value,
+                Rocnik = request.Rocnik,
+                StudentId = request.StudentId,
+                SubjectId = request.SubjectId,
+                Behavior = request.Behavior,
+            };
+            db.AssessmentModeRules.Add(rule);
+        }
+        rule.Mode = request.Mode;
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [AuditAction("Smazána výjimka ze způsobu hodnocení")]
+    [HttpDelete("report-cards/assessment-rules/{id}")]
+    public async Task<IActionResult> DeleteAssessmentRule(int id)
+    {
+        var rule = await db.AssessmentModeRules.FindAsync(id);
+        if (rule is null)
+        {
+            return NotFound();
+        }
+        db.AssessmentModeRules.Remove(rule);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
     private static SchoolNotificationSettingsDto NotificationsOf(School school) =>
         new(school.DigestTime, school.ForcedEmailNotifications, school.PushFullText, school.PushQuietFrom, school.PushQuietTo);
 
@@ -257,6 +348,22 @@ public record SetSchoolBankAccountRequest(string? BankAccountNumber);
 
 /// <param name="MarkFormat">See <see cref="School.ReportCardMarkFormat"/>.</param>
 public record ReportCardSettingsDto(Grades.ReportCardMarkFormat MarkFormat);
+
+/// <param name="SubjectId">Null with <paramref name="Behavior"/> false = all
+/// subjects.</param>
+public record AssessmentModeRuleDto(
+    int Id,
+    int? Rocnik,
+    int? StudentId,
+    string? StudentName,
+    int? SubjectId,
+    string? SubjectName,
+    bool Behavior,
+    Grades.AssessmentMode Mode);
+
+/// <param name="Rocnik">Exactly one of it and <paramref name="StudentId"/>.</param>
+public record SetAssessmentModeRuleRequest(
+    int? Rocnik, int? StudentId, int? SubjectId, bool Behavior, Grades.AssessmentMode Mode);
 
 /// <param name="DigestTime">See <see cref="School.DigestTime"/>.</param>
 /// <param name="ForcedEmail">See <see cref="School.ForcedEmailNotifications"/>.</param>

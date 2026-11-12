@@ -25,6 +25,9 @@ namespace Soovioo.Api.Grades;
 public class ReportCardsController(AppDbContext db, ICurrentSchoolContext currentSchool) : ControllerBase
 {
     private const string Confirmed = "Známka na vysvědčení je potvrzená — změnit ji jde až po znovuotevření vedením školy.";
+    private const string SummaryConfirmed = "Souhrnné hodnocení je potvrzené — změnit ho jde až po znovuotevření vedením školy.";
+    private const int MaxText = 20000;
+    private const string TooLong = "Slovní hodnocení je příliš dlouhé.";
 
     [HttpGet]
     public async Task<ActionResult<List<ReportCardDto>>> GetReportCards(
@@ -42,6 +45,8 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         var shown = !family || issued;
         var reach = family ? [] : await User.StudentReachAsync(db, Permission.GradesWrite);
         var mayReopen = !family && await User.ScopeAsync(db, Permission.GradesWrite) == PermissionScope.School;
+        var mayWriteGrades = !family && await User.HasPermissionAsync(db, Permission.GradesWrite);
+        var behaviorReach = family ? [] : await User.StudentIdsAsync(db, Permission.BehaviorClassTeacher);
 
         var whole = await WholeAsync();
 
@@ -55,41 +60,66 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                 : card with { Subjects = [.. card.Subjects.Where(s => MayEdit(card.Student.Id, s.SubjectId))] })
             .Where(card => card.Subjects.Count > 0 || whole(card.Student))];
 
-        return Ok(cards.Select(card => new ReportCardDto(
-                card.Student.Id,
-                card.Student.Person!.FullName,
-                card.Student.Gender,
-                card.Student.SchoolClassId,
-                card.Student.SchoolClass!.Name,
-                card.Behavior,
-                card.ExcusedHours,
-                card.UnexcusedHours,
-                shown && whole(card.Student) ? card.Result(halfYear) : null,
-                issuedOn,
-                issued,
-                whole(card.Student),
-                [.. card.Subjects
-                    .Where(s => subjectId is null || s.SubjectId == subjectId)
-                    .Select(s =>
-                    {
-                        var visible = !family || (shown && s.Confirmed);
-                        var mayEdit = !family && MayEdit(card.Student.Id, s.SubjectId);
-                        return new ReportCardSubjectDto(
-                            s.SubjectId,
-                            s.SubjectName,
-                            s.Average,
-                            s.GradeCount,
-                            family ? null : s.Suggested,
-                            visible ? s.Kind : null,
-                            visible ? s.Value : null,
-                            !family && s.Stored is not null && !s.Confirmed,
-                            visible && s.Confirmed,
-                            visible ? s.Stored?.ConfirmedByName : null,
-                            visible ? s.Stored?.ConfirmedAt : null,
-                            mayEdit,
-                            mayEdit && !s.Confirmed,
-                            mayReopen && s.Confirmed);
-                    })]))
+        return Ok(cards.Select(card =>
+            {
+                var summarised = card.Summarised(halfYear);
+                var summaryVisible = !family || (shown && card.SummaryConfirmed);
+                var verbalBehavior = card.BehaviorMode == AssessmentMode.Verbal;
+                return new ReportCardDto(
+                    card.Student.Id,
+                    card.Student.Person!.FullName,
+                    card.Student.Gender,
+                    card.Student.SchoolClassId,
+                    card.Student.SchoolClass!.Name,
+                    family && verbalBehavior ? null : card.Behavior,
+                    card.ExcusedHours,
+                    card.UnexcusedHours,
+                    shown && whole(card.Student) ? card.Result(halfYear) : null,
+                    issuedOn,
+                    issued,
+                    whole(card.Student),
+                    [.. card.Subjects
+                        .Where(s => subjectId is null || s.SubjectId == subjectId)
+                        .Select(s =>
+                        {
+                            var visible = !family || (shown && s.Confirmed);
+                            var mayEdit = !family && MayEdit(card.Student.Id, s.SubjectId);
+                            var hideValue = family && s.Mode == AssessmentMode.Verbal;
+                            return new ReportCardSubjectDto(
+                                s.SubjectId,
+                                s.SubjectName,
+                                s.Average,
+                                s.GradeCount,
+                                family ? null : s.Suggested,
+                                visible ? s.Kind : null,
+                                visible && !hideValue ? s.Value : null,
+                                !family && s.Changed && !s.Confirmed,
+                                visible && s.Confirmed,
+                                visible ? s.Stored?.ConfirmedByName : null,
+                                visible ? s.Stored?.ConfirmedAt : null,
+                                mayEdit,
+                                mayEdit && !s.Confirmed,
+                                mayReopen && s.Confirmed,
+                                s.Mode,
+                                visible ? s.VerbalText : null,
+                                !family && s.Complete);
+                        })],
+                    card.BehaviorMode,
+                    family && !shown ? null : card.Note?.BehaviorText,
+                    !family && card.BehaviorMode != AssessmentMode.Classification
+                        && (behaviorReach is null || behaviorReach.Contains(card.Student.Id)),
+                    card.HasVerbal(halfYear),
+                    whole(card.Student) && card.SummaryAllowed(halfYear)
+                        ? new ReportCardSummaryDto(
+                            summaryVisible && summarised ? card.Note!.SummaryText : null,
+                            summaryVisible && summarised ? card.Note!.SummaryResult : null,
+                            summaryVisible && card.SummaryConfirmed,
+                            summaryVisible ? card.Note?.SummaryConfirmedByName : null,
+                            summaryVisible ? card.Note?.SummaryConfirmedAt : null,
+                            mayWriteGrades && !card.SummaryConfirmed,
+                            mayReopen && card.SummaryConfirmed)
+                        : null);
+            })
             .ToList());
     }
 
@@ -173,9 +203,179 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         }
         if (grade is not null)
         {
-            db.ReportCardGrades.Remove(grade);
+            if (string.IsNullOrWhiteSpace(grade.VerbalText))
+            {
+                db.ReportCardGrades.Remove(grade);
+            }
+            else
+            {
+                grade.Kind = null;
+                grade.Value = null;
+            }
             await db.SaveChangesAsync();
         }
+        return NoContent();
+    }
+
+    /// <summary>The slovní hodnocení of a subject assessed slovně (or a
+    /// stupeň with it); the grade itself stays as it is — the suggestion
+    /// too.</summary>
+    [AuditAction("Upraveno slovní hodnocení na vysvědčení")]
+    [HttpPut("grades/text")]
+    [RequirePermission(Permission.GradesWrite)]
+    public async Task<IActionResult> SetGradeText(SetReportCardTextRequest request)
+    {
+        if (request.Text is { Length: > MaxText })
+        {
+            return BadRequest(TooLong);
+        }
+        if (await CheckAsync(request.StudentId, request.SubjectId) is { } error)
+        {
+            return error;
+        }
+        var student = await db.Students.Include(s => s.SchoolClass).FirstAsync(s => s.Id == request.StudentId);
+        if ((await AssessmentModes.LoadAsync(db)).For(student, request.SubjectId) == AssessmentMode.Classification)
+        {
+            return BadRequest("Předmět se u žáka hodnotí jen klasifikací.");
+        }
+
+        var grade = await db.ReportCardGrades.FindAsync(
+            request.StudentId, request.SubjectId, request.SchoolYearStartYear, request.HalfYear);
+        if (grade?.ConfirmedAt is not null)
+        {
+            return Conflict(Confirmed);
+        }
+        var text = Clean(request.Text);
+        var userName = await UserNameAsync();
+        if (grade is null)
+        {
+            if (text is null)
+            {
+                return NoContent();
+            }
+            grade = new ReportCardGrade
+            {
+                StudentId = request.StudentId,
+                SubjectId = request.SubjectId,
+                SchoolYearStartYear = request.SchoolYearStartYear,
+                HalfYear = request.HalfYear,
+                SchoolId = currentSchool.SchoolId!.Value,
+                SetByName = userName,
+            };
+            db.ReportCardGrades.Add(grade);
+        }
+        grade.VerbalText = text;
+        grade.SetByName = userName;
+        grade.SetAt = DateTimeOffset.UtcNow;
+        if (grade.Kind is null && text is null)
+        {
+            db.ReportCardGrades.Remove(grade);
+        }
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>The slovní hodnocení of behaviour — the třídní's (its
+    /// stupeň is the behaviour classification on Chování).</summary>
+    [AuditAction("Upraveno slovní hodnocení chování na vysvědčení")]
+    [HttpPut("behavior-text")]
+    [RequirePermission(Permission.BehaviorClassTeacher)]
+    public async Task<IActionResult> SetBehaviorText(SetReportCardNoteTextRequest request)
+    {
+        if (request.Text is { Length: > MaxText })
+        {
+            return BadRequest(TooLong);
+        }
+        var student = await db.Students.Include(s => s.SchoolClass).FirstOrDefaultAsync(s => s.Id == request.StudentId);
+        if (student is null)
+        {
+            return BadRequest("Neznámý žák.");
+        }
+        if (!await User.ReachesStudentAsync(db, Permission.BehaviorClassTeacher, student.Id))
+        {
+            return Forbid();
+        }
+        if ((await AssessmentModes.LoadAsync(db)).ForBehavior(student) == AssessmentMode.Classification)
+        {
+            return BadRequest("Chování se u žáka hodnotí jen klasifikací.");
+        }
+        var note = await NoteAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        note.BehaviorText = Clean(request.Text);
+        await SaveNoteAsync(note);
+        return NoContent();
+    }
+
+    /// <summary>The souhrnné slovní hodnocení of the first half and the
+    /// overall result chosen with it; an empty text removes it and the
+    /// subjects count again.</summary>
+    [AuditAction("Upraveno souhrnné hodnocení na vysvědčení")]
+    [HttpPut("summary")]
+    [RequirePermission(Permission.GradesWrite)]
+    public async Task<IActionResult> SetSummary(SetReportCardSummaryRequest request)
+    {
+        if (request.Text is { Length: > MaxText })
+        {
+            return BadRequest(TooLong);
+        }
+        if (request.Result is { } result && !Enum.IsDefined(result))
+        {
+            return BadRequest("Neznámé celkové hodnocení.");
+        }
+        if (await CheckSummaryAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear) is { } error)
+        {
+            return error;
+        }
+        var note = await NoteAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        if (note.SummaryConfirmedAt is not null)
+        {
+            return Conflict(SummaryConfirmed);
+        }
+        note.SummaryText = Clean(request.Text);
+        note.SummaryResult = note.SummaryText is null ? null : request.Result;
+        await SaveNoteAsync(note);
+        return NoContent();
+    }
+
+    [AuditAction("Potvrzeno souhrnné hodnocení na vysvědčení")]
+    [HttpPost("summary/confirm")]
+    [RequirePermission(Permission.GradesWrite)]
+    public async Task<IActionResult> ConfirmSummary(ReportCardNoteRequest request)
+    {
+        if (await CheckSummaryAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear) is { } error)
+        {
+            return error;
+        }
+        var note = await db.ReportCardNotes.FindAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        if (note is not { SummaryText: not null, SummaryResult: not null })
+        {
+            return BadRequest("Souhrnné hodnocení potřebuje text i celkové hodnocení.");
+        }
+        if (note.SummaryConfirmedAt is null)
+        {
+            note.SummaryConfirmedByName = await UserNameAsync();
+            note.SummaryConfirmedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        return NoContent();
+    }
+
+    [AuditAction("Znovu otevřeno souhrnné hodnocení na vysvědčení")]
+    [HttpPost("summary/reopen")]
+    [RequirePermission(Permission.GradesWrite)]
+    public async Task<IActionResult> ReopenSummary(ReportCardNoteRequest request)
+    {
+        if (await User.ScopeAsync(db, Permission.GradesWrite) != PermissionScope.School)
+        {
+            return Forbid();
+        }
+        var note = await db.ReportCardNotes.FindAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        if (note is null)
+        {
+            return NotFound();
+        }
+        note.SummaryConfirmedAt = null;
+        note.SummaryConfirmedByName = null;
+        await db.SaveChangesAsync();
         return NoContent();
     }
 
@@ -204,11 +404,13 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         foreach (var key in request.Grades.Distinct())
         {
             var subject = cards.GetValueOrDefault(key.StudentId)?.Subjects.FirstOrDefault(s => s.SubjectId == key.SubjectId);
-            if (subject is null || subject.Kind is not { } kind)
+            if (subject is null || !subject.Complete)
             {
                 skipped++;
                 continue;
             }
+            var kind = subject.Kind!.Value;
+            var value = subject.Value;
             if (subject.Confirmed)
             {
                 continue;
@@ -224,11 +426,16 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                     HalfYear = request.HalfYear,
                     SchoolId = currentSchool.SchoolId!.Value,
                     Kind = kind,
-                    Value = subject.Value,
+                    Value = value,
                     SetByName = userName,
                     SetAt = now,
                 };
                 db.ReportCardGrades.Add(grade);
+            }
+            else if (grade.Kind is null)
+            {
+                grade.Kind = kind;
+                grade.Value = value;
             }
             grade.ConfirmedByName = userName;
             grade.ConfirmedAt = now;
@@ -262,7 +469,8 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
     /// <summary>One pupil's report card, or the class's — a page each.</summary>
     [HttpGet("pdf")]
     public async Task<IActionResult> GetPdf(
-        int schoolYearStartYear, SchoolHalfYear halfYear, int? schoolClassId = null, int? studentId = null)
+        int schoolYearStartYear, SchoolHalfYear halfYear, int? schoolClassId = null, int? studentId = null,
+        ReportCardPrint form = ReportCardPrint.Extract)
     {
         if (await StudentIdsAsync(schoolClassId, studentId) is not { } ids)
         {
@@ -291,9 +499,20 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             .Select(c => new { c.Id, c.ClassTeacher!.Person!.FirstName, c.ClassTeacher.Person.LastName })
             .ToDictionaryAsync(c => c.Id, c => $"{c.FirstName} {c.LastName}".Trim());
 
-        var pdf = ReportCardDocument.Generate(school, cards, classTeachers, schoolYearStartYear, halfYear);
+        if (form == ReportCardPrint.Verbal)
+        {
+            cards = [.. cards.Where(c => c.HasVerbal(halfYear))];
+            if (cards.Count == 0)
+            {
+                return BadRequest("Nikdo tu není hodnocen slovně.");
+            }
+        }
+        var pdf = form == ReportCardPrint.Verbal
+            ? VerbalReportCardDocument.Generate(school, cards, schoolYearStartYear, halfYear)
+            : ReportCardDocument.Generate(school, cards, classTeachers, schoolYearStartYear, halfYear);
         var name = studentId is not null ? cards[0].Student.Person!.LastName : cards[0].Student.SchoolClass!.Name;
-        var kind = halfYear == SchoolHalfYear.First ? "vypis-z-vysvedceni" : "podklady-k-vysvedceni";
+        var kind = form == ReportCardPrint.Verbal ? "vysvedceni-list-a-b"
+            : halfYear == SchoolHalfYear.First ? "vypis-z-vysvedceni" : "podklady-k-vysvedceni";
         return File(pdf, "application/pdf", $"{kind}-{name}.pdf");
     }
 
@@ -309,6 +528,71 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         var own = (await db.GetOwnClassIdsAsClassTeacherAsync(User.UserId())).ToHashSet();
         return student => own.Contains(student.SchoolClassId);
     }
+
+    private async Task<ReportCardNote> NoteAsync(int studentId, int schoolYearStartYear, SchoolHalfYear halfYear)
+    {
+        var note = await db.ReportCardNotes.FindAsync(studentId, schoolYearStartYear, halfYear);
+        if (note is null)
+        {
+            note = new ReportCardNote
+            {
+                StudentId = studentId,
+                SchoolYearStartYear = schoolYearStartYear,
+                HalfYear = halfYear,
+                SchoolId = currentSchool.SchoolId!.Value,
+                SetByName = "",
+            };
+            db.ReportCardNotes.Add(note);
+        }
+        return note;
+    }
+
+    private async Task SaveNoteAsync(ReportCardNote note)
+    {
+        if (note is { BehaviorText: null, SummaryText: null })
+        {
+            if (db.Entry(note).State != EntityState.Added)
+            {
+                db.ReportCardNotes.Remove(note);
+            }
+            else
+            {
+                db.Entry(note).State = EntityState.Detached;
+            }
+        }
+        else
+        {
+            note.SetByName = await UserNameAsync();
+            note.SetAt = DateTimeOffset.UtcNow;
+        }
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Whoever sees the pupil's whole report card and writes
+    /// grades (the třídní, the management), when the pupil is assessed only
+    /// slovně in the first half.</summary>
+    private async Task<IActionResult?> CheckSummaryAsync(int studentId, int schoolYearStartYear, SchoolHalfYear halfYear)
+    {
+        if (!await User.ReachesStudentAsync(db, Permission.GradesWrite, studentId))
+        {
+            return Forbid();
+        }
+        var card = (await ReportCards.BuildAsync(db, [studentId], schoolYearStartYear, halfYear)).SingleOrDefault();
+        if (card is null)
+        {
+            return BadRequest("Neznámý žák.");
+        }
+        if (!(await WholeAsync())(card.Student))
+        {
+            return Forbid();
+        }
+        return card.SummaryAllowed(halfYear)
+            ? null
+            : BadRequest("Souhrnné hodnocení jde jen v 1. pololetí u žáka hodnoceného slovně ve všech předmětech.");
+    }
+
+    private static string? Clean(string? text) =>
+        string.IsNullOrWhiteSpace(text) ? null : text.Trim().ReplaceLineEndings("\n");
 
     private async Task<string> UserNameAsync()
     {
@@ -378,7 +662,10 @@ public record ReportCardSubjectDto(
     DateTimeOffset? ConfirmedAt,
     bool Mine,
     bool CanEdit,
-    bool CanReopen);
+    bool CanReopen,
+    AssessmentMode Mode = AssessmentMode.Classification,
+    string? VerbalText = null,
+    bool Complete = false);
 
 /// <param name="Result">Once every subject is confirmed (for families once
 /// issued); not for <paramref name="Whole"/> false.</param>
@@ -391,14 +678,50 @@ public record ReportCardDto(
     Gender? Gender,
     int SchoolClassId,
     string SchoolClassName,
-    BehaviorClassificationValue Behavior,
+    BehaviorClassificationValue? Behavior,
     int ExcusedHours,
     int UnexcusedHours,
     ReportCardResult? Result,
     DateOnly IssuedOn,
     bool Issued,
     bool Whole,
-    IReadOnlyList<ReportCardSubjectDto> Subjects);
+    IReadOnlyList<ReportCardSubjectDto> Subjects,
+    AssessmentMode BehaviorMode = AssessmentMode.Classification,
+    string? BehaviorText = null,
+    bool CanEditBehaviorText = false,
+    bool HasVerbal = false,
+    ReportCardSummaryDto? Summary = null);
+
+/// <summary>The souhrnné slovní hodnocení — only where it's allowed (first
+/// half, every subject slovně) and the caller sees the whole report card.
+/// Families get the text and result once confirmed and issued.</summary>
+public record ReportCardSummaryDto(
+    string? Text,
+    ReportCardResult? Result,
+    bool Confirmed,
+    string? ConfirmedByName,
+    DateTimeOffset? ConfirmedAt,
+    bool CanEdit,
+    bool CanReopen);
+
+/// <summary>Extract = výpis z vysvědčení (1. pololetí) or the particulars
+/// (2. pololetí); Verbal = vysvědčení list A (slovní hodnocení) and list B
+/// of the pupils assessed slovně.</summary>
+public enum ReportCardPrint
+{
+    Extract,
+    Verbal,
+}
+
+public record SetReportCardTextRequest(
+    int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear, string? Text);
+
+public record SetReportCardNoteTextRequest(int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, string? Text);
+
+public record SetReportCardSummaryRequest(
+    int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, string? Text, ReportCardResult? Result);
+
+public record ReportCardNoteRequest(int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear);
 
 public record SetReportCardGradeRequest(
     int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear, ReportCardGradeKind Kind, int? Value);

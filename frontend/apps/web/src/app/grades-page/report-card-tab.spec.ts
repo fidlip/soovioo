@@ -64,6 +64,9 @@ describe('ReportCardTab', () => {
     mine: true,
     canEdit: true,
     canReopen: false,
+    mode: 'Classification',
+    verbalText: null,
+    complete: true,
   };
 
   const card = (subjects: ReportCardSubject[], issued = true): ReportCard => ({
@@ -80,6 +83,11 @@ describe('ReportCardTab', () => {
     issued,
     whole: true,
     subjects,
+    behaviorMode: 'Classification',
+    behaviorText: null,
+    canEditBehaviorText: false,
+    hasVerbal: false,
+    summary: null,
   });
 
   beforeEach(async () => {
@@ -278,5 +286,64 @@ describe('ReportCardTab', () => {
     expect(text).toContain('Známky na vysvědčení uvidíte od');
     expect(text).not.toContain('Celkové hodnocení');
     expect(text).not.toContain('návrh z průměru');
+  });
+
+  it('writes the slovní hodnocení of a subject and offers lists A/B', () => {
+    const fixture = render([student(7, 2, '5.A')]);
+    classes(fixture, true, [2, '5.A', false]);
+    const verbal: ReportCardSubject = {
+      ...maths,
+      mode: 'Verbal',
+      complete: false,
+    };
+    reportCardsRequest().flush([
+      { ...card([verbal]), behaviorMode: 'Verbal', hasVerbal: true },
+    ]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const text = (element.textContent ?? '').replace(/\s+/g, ' ');
+    expect(text).toContain('slovní hodnocení – nezapsáno');
+    expect(text).toContain('chybí slovní hodnocení');
+    expect(text).toContain('slovní hodnocení (odpovídá: velmi dobré)');
+    expect(text).toContain('Listy A/B za třídu');
+    expect(text).not.toContain('Potvrdit zobrazené');
+
+    buttonLabelled(element, 'Stáhnout vysvědčení list A/B – Jan Novák').click();
+    const pdf = httpMock.expectOne(
+      (r) => r.url === 'http://test/api/report-cards/pdf',
+    );
+    expect(pdf.request.params.get('form')).toBe('Verbal');
+  });
+
+  it('shows the family a subject assessed slovně by its text', () => {
+    staff = false;
+    const fixture = render([student(7, 2, '5.A')]);
+    reportCardsRequest().flush([
+      {
+        ...card([
+          {
+            ...maths,
+            mode: 'Verbal',
+            value: null,
+            confirmed: true,
+            canEdit: false,
+            verbalText: 'Počítá do sta.',
+          },
+        ]),
+        behavior: null,
+        behaviorMode: 'Verbal',
+        behaviorText: 'Je ohleduplný.',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const text = (
+      (fixture.nativeElement as HTMLElement).textContent ?? ''
+    ).replace(/\s+/g, ' ');
+    expect(text).toContain('hodnocen slovně');
+    expect(text).toContain('Počítá do sta.');
+    expect(text).toContain('Je ohleduplný.');
+    expect(text).not.toContain('odpovídá');
   });
 });

@@ -10,7 +10,12 @@ import {
   ReportCardGradeKey,
   ReportCardGradeKind,
   ReportCardQuery,
+  ReportCardResult,
 } from './report-card.model';
+
+/** Extract = výpis z vysvědčení / the particulars for the form; Verbal =
+ * vysvědčení list A (slovní hodnocení) and lists B. */
+export type ReportCardPrint = 'Extract' | 'Verbal';
 
 export interface HalfYearKey {
   schoolYearStartYear: number;
@@ -49,6 +54,59 @@ export class ReportCardApiService {
     });
   }
 
+  /** The slovní hodnocení of a subject; empty removes it. */
+  setGradeText(
+    halfYear: HalfYearKey,
+    key: ReportCardGradeKey,
+    text: string,
+  ): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/api/report-cards/grades/text`, {
+      ...halfYear,
+      ...key,
+      text,
+    });
+  }
+
+  setBehaviorText(
+    halfYear: HalfYearKey,
+    studentId: number,
+    text: string,
+  ): Observable<void> {
+    return this.http.put<void>(
+      `${this.baseUrl}/api/report-cards/behavior-text`,
+      { ...halfYear, studentId, text },
+    );
+  }
+
+  /** The souhrnné hodnocení; an empty text removes it. */
+  setSummary(
+    halfYear: HalfYearKey,
+    studentId: number,
+    text: string,
+    result: ReportCardResult | null,
+  ): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/api/report-cards/summary`, {
+      ...halfYear,
+      studentId,
+      text,
+      result,
+    });
+  }
+
+  confirmSummary(halfYear: HalfYearKey, studentId: number): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/report-cards/summary/confirm`,
+      { ...halfYear, studentId },
+    );
+  }
+
+  reopenSummary(halfYear: HalfYearKey, studentId: number): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}/api/report-cards/summary/reopen`,
+      { ...halfYear, studentId },
+    );
+  }
+
   /** Back to the suggestion from the average. */
   resetGrade(halfYear: HalfYearKey, key: ReportCardGradeKey): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/api/report-cards/grades`, {
@@ -80,9 +138,10 @@ export class ReportCardApiService {
   downloadPdf(
     halfYear: HalfYearKey,
     of: { studentId: number } | { schoolClassId: number },
+    form: ReportCardPrint = 'Extract',
   ): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/api/report-cards/pdf`, {
-      params: params({ ...halfYear, ...of }),
+      params: params({ ...halfYear, ...of, form }),
       responseType: 'blob',
     });
   }

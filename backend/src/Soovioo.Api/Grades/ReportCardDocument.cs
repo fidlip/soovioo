@@ -100,18 +100,41 @@ public static class ReportCardDocument
                                 columns.RelativeColumn(3);
                                 columns.RelativeColumn(2);
                             });
-                            table.Header(header =>
+                            var behaviorText = card.BehaviorMode == AssessmentMode.Classification ? null : card.Note?.BehaviorText;
+                            table.Cell().BorderBottom(behaviorText is null ? 1 : 0).PaddingBottom(3)
+                                .Text(StudentTerm.Localize("Chování žáka", schoolType)).Bold();
+                            table.Cell().BorderBottom(behaviorText is null ? 1 : 0).PaddingBottom(3).Text(
+                                card.BehaviorMode == AssessmentMode.Verbal
+                                    ? female ? "hodnocena slovně" : "hodnocen slovně"
+                                    : Behavior(card.Behavior, format));
+                            if (behaviorText is not null)
                             {
-                                header.Cell().BorderBottom(1).PaddingBottom(3).Text(StudentTerm.Localize("Chování žáka", schoolType)).Bold();
-                                header.Cell().BorderBottom(1).PaddingBottom(3).Text(Behavior(card.Behavior, format));
-                            });
+                                table.Cell().ColumnSpan(2).BorderBottom(1).PaddingBottom(4).Text(behaviorText).FontSize(10);
+                            }
+                            if (card.Summarised(half))
+                            {
+                                table.Cell().ColumnSpan(2).PaddingTop(10).BorderBottom(1).PaddingBottom(3)
+                                    .Text("Souhrnné slovní hodnocení").Bold();
+                                table.Cell().ColumnSpan(2).PaddingVertical(3)
+                                    .Text(card.SummaryConfirmed ? card.Note!.SummaryText : "").FontSize(10);
+                                return;
+                            }
                             table.Cell().ColumnSpan(2).PaddingTop(10).BorderBottom(1).PaddingBottom(3)
                                 .Text("Hodnocení v jednotlivých předmětech").Bold();
                             foreach (var subject in card.Subjects)
                             {
-                                table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(3).Text(subject.SubjectName);
-                                table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(3)
-                                    .Text(subject.Confirmed ? Mark(subject.Kind!.Value, subject.Value, female, format) : "");
+                                var text = subject.Confirmed && subject.Mode != AssessmentMode.Classification
+                                    ? subject.VerbalText
+                                    : null;
+                                var line = text is null ? 0.5f : 0;
+                                table.Cell().BorderBottom(line).BorderColor(Colors.Grey.Lighten2).PaddingVertical(3).Text(subject.SubjectName);
+                                table.Cell().BorderBottom(line).BorderColor(Colors.Grey.Lighten2).PaddingVertical(3)
+                                    .Text(subject.Confirmed ? SubjectMark(subject, female, format) : "");
+                                if (text is not null)
+                                {
+                                    table.Cell().ColumnSpan(2).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
+                                        .PaddingBottom(4).Text(text).FontSize(10);
+                                }
                             }
                         });
 
@@ -157,11 +180,19 @@ public static class ReportCardDocument
         _ => format == ReportCardMarkFormat.Digits ? $"{value}" : GradeWords[value!.Value - 1],
     };
 
+    /// <summary>The subject's mark as printed: a subject assessed only
+    /// slovně is "hodnocen/a slovně" (the text goes with it), its stupeň is
+    /// never printed.</summary>
+    public static string SubjectMark(ReportCardSubject subject, bool female, ReportCardMarkFormat format) =>
+        subject.Mode == AssessmentMode.Verbal && subject.Kind == ReportCardGradeKind.Graded
+            ? female ? "hodnocena slovně" : "hodnocen slovně"
+            : Mark(subject.Kind!.Value, subject.Value, female, format);
+
     /// <summary>"31. ledna 2027" — the month as a word in the genitive, as
     /// MŠMT's guidance has the date of signing.</summary>
     public static string LongDate(DateOnly day) => $"{day.Day}. {MonthsGenitive[day.Month - 1]} {day.Year}";
 
-    private static string Result(ReportCardResult result, bool female) => result switch
+    public static string Result(ReportCardResult result, bool female) => result switch
     {
         ReportCardResult.WithHonours => female ? "prospěla s vyznamenáním" : "prospěl s vyznamenáním",
         ReportCardResult.Passed => female ? "prospěla" : "prospěl",
@@ -169,7 +200,7 @@ public static class ReportCardDocument
         _ => female ? "nehodnocena" : "nehodnocen",
     };
 
-    private static string Behavior(BehaviorClassificationValue value, ReportCardMarkFormat format)
+    public static string Behavior(BehaviorClassificationValue value, ReportCardMarkFormat format)
     {
         var index = value switch
         {

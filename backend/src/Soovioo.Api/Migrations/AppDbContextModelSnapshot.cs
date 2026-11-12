@@ -1212,6 +1212,46 @@ namespace Soovioo.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Grades.AssessmentModeRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Behavior")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Rocnik")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("SchoolId", "Rocnik", "StudentId", "SubjectId", "Behavior")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("SchoolId", "Rocnik", "StudentId", "SubjectId", "Behavior"), false);
+
+                    b.ToTable("AssessmentModeRules");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Grades.Grade", b =>
                 {
                     b.Property<int>("Id")
@@ -1275,7 +1315,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("ConfirmedByName")
                         .HasColumnType("text");
 
-                    b.Property<int>("Kind")
+                    b.Property<int?>("Kind")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
@@ -1291,11 +1331,55 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("Value")
                         .HasColumnType("integer");
 
+                    b.Property<string>("VerbalText")
+                        .HasColumnType("text");
+
                     b.HasKey("StudentId", "SubjectId", "SchoolYearStartYear", "HalfYear");
 
                     b.HasIndex("SubjectId");
 
                     b.ToTable("ReportCardGrades");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Grades.ReportCardNote", b =>
+                {
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolYearStartYear")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HalfYear")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("BehaviorText")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SetByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("SummaryConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SummaryConfirmedByName")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SummaryResult")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SummaryText")
+                        .HasColumnType("text");
+
+                    b.HasKey("StudentId", "SchoolYearStartYear", "HalfYear");
+
+                    b.ToTable("ReportCardNotes");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Homework.Homework", b =>
@@ -3810,6 +3894,23 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Grades.AssessmentModeRule", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Student");
+
+                    b.Navigation("Subject");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Grades.Grade", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -3854,6 +3955,17 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Student");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Grades.ReportCardNote", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Homework.Homework", b =>
