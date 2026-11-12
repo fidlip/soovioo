@@ -55,7 +55,12 @@ test('superadmin: every page loads with a clean console', async ({
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/superadmin$/);
 
-  for (const path of ['superadmin', 'superadmin/logs', 'superadmin/settings']) {
+  for (const path of [
+    'superadmin',
+    'superadmin/superadmins',
+    'superadmin/logs',
+    'superadmin/settings',
+  ]) {
     await page.goto(`/${path}`);
     await expect(page.locator('main h1')).toBeVisible();
     await waitForApiIdle();
