@@ -234,7 +234,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             return error;
         }
         var student = await db.Students.Include(s => s.SchoolClass).FirstAsync(s => s.Id == request.StudentId);
-        if ((await AssessmentModes.LoadAsync(db)).For(student, request.SubjectId) == AssessmentMode.Classification)
+        if ((await AssessmentModes.LoadAsync(db, [student.SchoolId])).For(student, request.SubjectId).Mode == AssessmentMode.Classification)
         {
             return BadRequest("Předmět se u žáka hodnotí jen klasifikací.");
         }
@@ -295,7 +295,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return Forbid();
         }
-        if ((await AssessmentModes.LoadAsync(db)).ForBehavior(student) == AssessmentMode.Classification)
+        if ((await AssessmentModes.LoadAsync(db, [student.SchoolId])).ForBehavior(student).Mode == AssessmentMode.Classification)
         {
             return BadRequest("Chování se u žáka hodnotí jen klasifikací.");
         }

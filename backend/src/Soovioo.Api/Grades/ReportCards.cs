@@ -29,7 +29,8 @@ public enum ReportCardResult
 /// Kind null = the suggestion from the average.</param>
 public record ReportCardSubject(
     int SubjectId, string SubjectName, double? Average, int GradeCount, ReportCardGrade? Stored,
-    AssessmentMode Mode = AssessmentMode.Classification)
+    AssessmentMode Mode = AssessmentMode.Classification,
+    ReportCardMarkFormat MarkFormat = ReportCardMarkFormat.Words)
 {
     public int? Suggested => Average is { } average
         ? (int)Math.Clamp(Math.Round(average, MidpointRounding.AwayFromZero), 1, 5)
@@ -63,7 +64,8 @@ public record ReportCard(
     int UnexcusedHours,
     IReadOnlyList<ReportCardSubject> Subjects,
     AssessmentMode BehaviorMode = AssessmentMode.Classification,
-    ReportCardNote? Note = null)
+    ReportCardNote? Note = null,
+    ReportCardMarkFormat BehaviorMarkFormat = ReportCardMarkFormat.Words)
 {
     /// <summary>The souhrnné slovní hodnocení may replace the subjects: in
     /// the first half, when every subject is assessed only slovně.</summary>
@@ -138,7 +140,7 @@ public static class ReportCards
             .Where(n => studentIds.Contains(n.StudentId)
                 && n.SchoolYearStartYear == schoolYearStartYear && n.HalfYear == half)
             .ToDictionaryAsync(n => n.StudentId);
-        var modes = await AssessmentModes.LoadAsync(db);
+        var modes = await AssessmentModes.LoadAsync(db, [.. students.Select(s => s.SchoolId).Distinct()]);
         var behavior = await db.BehaviorClassifications
             .Where(c => studentIds.Contains(c.StudentId)
                 && c.SchoolYearStartYear == schoolYearStartYear && c.HalfYear == half)
@@ -179,25 +181,29 @@ public static class ReportCards
                     {
                         var inSubject = own.Where(g => g.SubjectId == id).ToList();
                         var weight = inSubject.Sum(g => g.Weight);
+                        var assessment = modes.For(student, id);
                         return new ReportCardSubject(
                             id,
                             subjectNames[id],
                             weight > 0 ? inSubject.Sum(g => g.Value * g.Weight) / (double)weight : null,
                             inSubject.Count,
                             ownStored.GetValueOrDefault(id),
-                            modes.For(student, id));
+                            assessment.Mode,
+                            assessment.MarkFormat);
                     })
                     .OrderBy(s => s.SubjectName, Czech)
                     .ToList();
                 var missed = absences[student.Id].ToList();
+                var behaviorAssessment = modes.ForBehavior(student);
                 return new ReportCard(
                     student,
                     behavior.GetValueOrDefault(student.Id, BehaviorClassificationValue.VelmiDobre),
                     missed.Where(a => a.Status == AbsenceStatus.Excused).Sum(a => a.Periods.Count),
                     missed.Where(a => a.Status != AbsenceStatus.Excused).Sum(a => a.Periods.Count),
                     subjects,
-                    modes.ForBehavior(student),
-                    notes.GetValueOrDefault(student.Id));
+                    behaviorAssessment.Mode,
+                    notes.GetValueOrDefault(student.Id),
+                    behaviorAssessment.MarkFormat);
             })];
     }
 

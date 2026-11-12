@@ -32,8 +32,9 @@ const MODE_OPTIONS: { value: AssessmentMode; label: string }[] = [
 ];
 
 /** Vysvědčení in Údaje o škole: whether a stupeň goes on the report card as
- * "výborný" or "1", and how ročníky and single pupils are assessed — the
- * school sets both in its školní řád (§ 15 of vyhláška 48/2005 Sb.). */
+ * "1" or "výborný", and the ročníky, classes and single pupils assessed or
+ * written otherwise — the school sets both in its školní řád (§ 15 of
+ * vyhláška 48/2005 Sb.). */
 @Component({
   selector: 'app-report-card-settings',
   imports: [Button, Card, FloatField, FormsModule, InfoHint, Select, TermPipe],
@@ -51,27 +52,35 @@ export class ReportCardSettings {
     value: ReportCardMarkFormat;
     label: string;
   }[] = [
-    { value: 'Words', label: 'Slovem (výborný)' },
     { value: 'Digits', label: 'Číslem (1)' },
+    { value: 'Words', label: 'Slovem (výborný)' },
   ];
+  protected readonly ruleFormatOptions: {
+    value: ReportCardMarkFormat | null;
+    label: string;
+  }[] = [{ value: null, label: 'Jako výchozí' }, ...this.markFormatOptions];
   protected readonly markFormat = signal<ReportCardMarkFormat>('Words');
 
   protected readonly modeOptions = MODE_OPTIONS;
   protected readonly rules = signal<AssessmentModeRule[]>([]);
   protected readonly targetOptions = [
     { value: 'rocnik', label: 'Ročník' },
+    { value: 'class', label: 'Třída' },
     { value: 'student', label: 'Žák' },
   ];
-  protected readonly target = signal<'rocnik' | 'student'>('rocnik');
+  protected readonly target = signal<'rocnik' | 'class' | 'student'>('rocnik');
   protected readonly rocnik = signal<number | null>(null);
+  protected readonly classId = signal<number | null>(null);
   protected readonly studentId = signal<number | null>(null);
   protected readonly subjectKey = signal<string>(ALL_SUBJECTS);
   protected readonly mode = signal<AssessmentMode>('Verbal');
+  protected readonly ruleFormat = signal<ReportCardMarkFormat | null>(null);
 
   private readonly rocniky = signal<number[]>([]);
   protected readonly rocnikOptions = computed(() =>
     this.rocniky().map((r) => ({ value: r, label: `${r}. ročník` })),
   );
+  protected readonly classOptions = signal<{ id: number; label: string }[]>([]);
   protected readonly studentOptions = signal<{ id: number; label: string }[]>(
     [],
   );
@@ -80,11 +89,16 @@ export class ReportCardSettings {
     { key: BEHAVIOR, label: 'Chování' },
   ]);
 
-  protected readonly canAdd = computed(() =>
-    this.target() === 'rocnik'
-      ? this.rocnik() !== null
-      : this.studentId() !== null,
-  );
+  protected readonly canAdd = computed(() => {
+    switch (this.target()) {
+      case 'rocnik':
+        return this.rocnik() !== null;
+      case 'class':
+        return this.classId() !== null;
+      default:
+        return this.studentId() !== null;
+    }
+  });
 
   constructor() {
     this.mySchoolApi.getReportCardSettings().subscribe({
@@ -93,7 +107,7 @@ export class ReportCardSettings {
     });
     this.loadRules();
     this.classesApi.getSchoolClasses().subscribe({
-      next: (classes) =>
+      next: (classes) => {
         this.rocniky.set(
           [
             ...new Set(
@@ -102,7 +116,13 @@ export class ReportCardSettings {
                 .filter((r): r is number => r !== null),
             ),
           ].sort((a, b) => a - b),
-        ),
+        );
+        this.classOptions.set(
+          classes
+            .map((c) => ({ id: c.id, label: c.name }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'cs')),
+        );
+      },
       error: (err) => console.error('getSchoolClasses failed', err),
     });
     this.studentsApi.getStudents().subscribe({
@@ -145,28 +165,35 @@ export class ReportCardSettings {
   protected ruleTarget(rule: AssessmentModeRule): string {
     return rule.rocnik !== null
       ? `${rule.rocnik}. ročník`
-      : (rule.studentName ?? '');
+      : (rule.schoolClassName ?? rule.studentName ?? '');
   }
 
   protected ruleSubjects(rule: AssessmentModeRule): string {
     return rule.behavior ? 'chování' : (rule.subjectName ?? 'všechny předměty');
   }
 
-  protected modeLabel(mode: AssessmentMode): string {
-    return MODE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+  protected modeLabel(rule: AssessmentModeRule): string {
+    const mode =
+      MODE_OPTIONS.find((o) => o.value === rule.mode)?.label ?? rule.mode;
+    const format = this.markFormatOptions.find(
+      (o) => o.value === rule.markFormat,
+    );
+    return format ? `${mode}, ${format.label.toLowerCase()}` : mode;
   }
 
   protected addRule(): void {
     const key = this.subjectKey();
-    const student = this.target() === 'student';
+    const target = this.target();
     this.mySchoolApi
       .setAssessmentRule({
-        rocnik: student ? null : this.rocnik(),
-        studentId: student ? this.studentId() : null,
+        rocnik: target === 'rocnik' ? this.rocnik() : null,
+        schoolClassId: target === 'class' ? this.classId() : null,
+        studentId: target === 'student' ? this.studentId() : null,
         subjectId:
           key === ALL_SUBJECTS || key === BEHAVIOR ? null : Number(key),
         behavior: key === BEHAVIOR,
         mode: this.mode(),
+        markFormat: this.mode() === 'Verbal' ? null : this.ruleFormat(),
       })
       .subscribe({
         next: () => this.loadRules(),
@@ -177,8 +204,8 @@ export class ReportCardSettings {
 
   protected deleteRule(rule: AssessmentModeRule): void {
     this.confirmation.confirm({
-      header: 'Smazat pravidlo',
-      message: `Smazat pravidlo „${this.ruleTarget(rule)}, ${this.ruleSubjects(rule)}“? Slovní hodnocení, která už učitelé napsali, zůstanou uložená.`,
+      header: 'Smazat výjimku',
+      message: `Smazat výjimku „${this.ruleTarget(rule)}, ${this.ruleSubjects(rule)}“? Slovní hodnocení, která už učitelé napsali, zůstanou uložená.`,
       icon: 'pi pi-trash',
       acceptLabel: 'Smazat',
       rejectLabel: 'Zrušit',

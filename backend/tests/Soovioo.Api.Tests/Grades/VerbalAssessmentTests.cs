@@ -71,8 +71,10 @@ public class VerbalAssessmentTests : IDisposable
         db.SaveChanges();
     }
 
-    private async Task Rule(AssessmentMode mode, int? rocnik = null, int? studentId = null, Subject? subject = null, bool behavior = false) =>
-        Assert.IsType<NoContentResult>(await Settings().SetAssessmentRule(new(rocnik, studentId, subject?.Id, behavior, mode)));
+    private async Task Rule(
+        AssessmentMode mode, int? rocnik = null, int? studentId = null, Subject? subject = null, bool behavior = false,
+        int? classId = null, ReportCardMarkFormat? format = null) =>
+        Assert.IsType<NoContentResult>(await Settings().SetAssessmentRule(new(rocnik, classId, studentId, subject?.Id, behavior, mode, format)));
 
     private async Task<ReportCardDto> CardAs(ClaimsPrincipal user)
     {
@@ -129,8 +131,10 @@ public class VerbalAssessmentTests : IDisposable
         Assert.Equal(AssessmentMode.ClassificationWithVerbal, rule.Mode);
         Assert.Equal("Matematika", rule.SubjectName);
 
-        Assert.IsType<BadRequestObjectResult>(await Settings().SetAssessmentRule(new(3, jan.Id, null, false, AssessmentMode.Verbal)));
-        Assert.IsType<BadRequestObjectResult>(await Settings().SetAssessmentRule(new(3, null, maths.Id, true, AssessmentMode.Verbal)));
+        Assert.IsType<BadRequestObjectResult>(await Settings().SetAssessmentRule(new(3, null, jan.Id, null, false, AssessmentMode.Verbal)));
+        Assert.IsType<BadRequestObjectResult>(await Settings().SetAssessmentRule(new(3, null, null, maths.Id, true, AssessmentMode.Verbal)));
+        Assert.IsType<BadRequestObjectResult>(await Settings().SetAssessmentRule(
+            new(3, null, null, maths.Id, false, AssessmentMode.Verbal, ReportCardMarkFormat.Digits)));
         Assert.IsType<NoContentResult>(await Settings().DeleteAssessmentRule(rule.Id));
         Assert.Equal(AssessmentMode.Classification, In(await CardAs(management), maths).Mode);
     }
@@ -292,5 +296,48 @@ public class VerbalAssessmentTests : IDisposable
             await As(management).GetPdf(Year, Half, studentId: jan.Id, form: ReportCardPrint.Verbal));
 
         Assert.Equal(2, Pages(file));
+    }
+
+    [Fact]
+    public async Task TheClassRuleSitsBetweenThePupilsAndTheRocniks()
+    {
+        await Rule(AssessmentMode.Verbal, rocnik: 3);
+        await Rule(AssessmentMode.Classification, classId: schoolClass.Id);
+        await Rule(AssessmentMode.ClassificationWithVerbal, rocnik: 3, subject: maths);
+
+        var card = await CardAs(management);
+        Assert.Equal(AssessmentMode.Classification, In(card, maths).Mode);
+        Assert.Equal(AssessmentMode.Classification, In(card, czech).Mode);
+
+        await Rule(AssessmentMode.Verbal, studentId: jan.Id, subject: czech);
+        Assert.Equal(AssessmentMode.Verbal, In(await CardAs(management), czech).Mode);
+
+        var rules = (List<AssessmentModeRuleDto>)Assert.IsType<OkObjectResult>((await Settings().GetAssessmentRules()).Result).Value!;
+        Assert.Equal("3.A", rules.Single(r => r.SchoolClassId is not null).SchoolClassName);
+        Assert.IsType<BadRequestObjectResult>(await Settings().SetAssessmentRule(
+            new(null, schoolClass.Id, jan.Id, null, false, AssessmentMode.Verbal)));
+    }
+
+    [Fact]
+    public async Task TheMarkFormatComesFromTheMostSpecificRuleThatSetsOne()
+    {
+        async Task<ReportCard> Card() => Assert.Single(await ReportCards.BuildAsync(db, [jan.Id], Year, Half));
+        Assert.IsType<OkObjectResult>((await Settings().SetReportCards(new(ReportCardMarkFormat.Words))).Result);
+
+        Assert.Equal(ReportCardMarkFormat.Words, (await Card()).Subjects[0].MarkFormat);
+
+        await Rule(AssessmentMode.Classification, rocnik: 3, format: ReportCardMarkFormat.Digits);
+        await Rule(AssessmentMode.ClassificationWithVerbal, studentId: jan.Id, subject: maths);
+        await Rule(AssessmentMode.Classification, classId: schoolClass.Id, behavior: true, format: ReportCardMarkFormat.Words);
+
+        var card = await Card();
+        var inMaths = card.Subjects.Single(s => s.SubjectId == maths.Id);
+        Assert.Equal(AssessmentMode.ClassificationWithVerbal, inMaths.Mode);
+        Assert.Equal(ReportCardMarkFormat.Digits, inMaths.MarkFormat);
+        Assert.Equal(ReportCardMarkFormat.Digits, card.Subjects.Single(s => s.SubjectId == czech.Id).MarkFormat);
+        Assert.Equal(ReportCardMarkFormat.Words, card.BehaviorMarkFormat);
+
+        await Rule(AssessmentMode.ClassificationWithVerbal, studentId: jan.Id, subject: maths, format: ReportCardMarkFormat.Words);
+        Assert.Equal(ReportCardMarkFormat.Words, (await Card()).Subjects.Single(s => s.SubjectId == maths.Id).MarkFormat);
     }
 }

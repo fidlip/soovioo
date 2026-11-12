@@ -25,7 +25,6 @@ public static class VerbalReportCardDocument
 
     public static byte[] Generate(School? school, IReadOnlyList<ReportCard> cards, int schoolYearStartYear, SchoolHalfYear half)
     {
-        var format = school?.ReportCardMarkFormat ?? ReportCardMarkFormat.Words;
         var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, half);
 
         // Each pupil's pages first on their own: how many lists B there are
@@ -33,7 +32,7 @@ public static class VerbalReportCardDocument
         var sheets = cards
             .Select(card =>
             {
-                var counting = new Layout(school, card, schoolYearStartYear, half, format, issuedOn, Pages: 0, First: 1);
+                var counting = new Layout(school, card, schoolYearStartYear, half, issuedOn, Pages: 0, First: 1);
                 Compose(counting, padded: false).GeneratePdf();
                 var pages = Math.Max(2, counting.Counted + counting.Counted % 2);
                 return (Card: card, Pages: pages, Padded: counting.Counted != pages);
@@ -43,7 +42,7 @@ public static class VerbalReportCardDocument
         var layouts = new List<(Layout Layout, bool Padded)>();
         foreach (var (card, pages, padded) in sheets)
         {
-            layouts.Add((new Layout(school, card, schoolYearStartYear, half, format, issuedOn, pages, first), padded));
+            layouts.Add((new Layout(school, card, schoolYearStartYear, half, issuedOn, pages, first), padded));
             first += pages;
         }
 
@@ -71,7 +70,7 @@ public static class VerbalReportCardDocument
             page.Content().Extend().BorderLeft(1).BorderRight(1).PaddingHorizontal(8).PaddingVertical(6).Column(column =>
             {
                 column.Spacing(6);
-                foreach (var (heading, text) in Blocks(layout.Card, layout.Half, layout.Format))
+                foreach (var (heading, text) in Blocks(layout.Card, layout.Half))
                 {
                     column.Item().Text(heading).Bold();
                     if (text is not null)
@@ -90,7 +89,7 @@ public static class VerbalReportCardDocument
 
     /// <summary>The headings and texts in the box: behaviour, then the
     /// souhrnné hodnocení or the subjects.</summary>
-    private static IEnumerable<(string Heading, string? Text)> Blocks(ReportCard card, SchoolHalfYear half, ReportCardMarkFormat format)
+    private static IEnumerable<(string Heading, string? Text)> Blocks(ReportCard card, SchoolHalfYear half)
     {
         var female = card.Student.Gender == Gender.Female;
         if (card.BehaviorMode == AssessmentMode.Verbal)
@@ -99,7 +98,7 @@ public static class VerbalReportCardDocument
         }
         else if (card.BehaviorMode == AssessmentMode.ClassificationWithVerbal)
         {
-            yield return ($"Chování: {ReportCardDocument.Behavior(card.Behavior, format)}", card.Note?.BehaviorText);
+            yield return ($"Chování: {ReportCardDocument.Behavior(card.Behavior, card.BehaviorMarkFormat)}", card.Note?.BehaviorText);
         }
 
         if (card.Summarised(half))
@@ -122,7 +121,7 @@ public static class VerbalReportCardDocument
             }
             var mark = subject.Mode == AssessmentMode.Verbal && subject.Kind == ReportCardGradeKind.Graded
                 ? null
-                : ReportCardDocument.Mark(subject.Kind!.Value, subject.Value, female, format);
+                : ReportCardDocument.Mark(subject.Kind!.Value, subject.Value, female, subject.MarkFormat);
             yield return (mark is null ? subject.SubjectName : $"{subject.SubjectName}: {mark}", subject.VerbalText);
         }
     }
@@ -143,7 +142,6 @@ public static class VerbalReportCardDocument
         ReportCard Card,
         int SchoolYearStartYear,
         SchoolHalfYear Half,
-        ReportCardMarkFormat Format,
         DateOnly IssuedOn,
         int Pages,
         int First)
