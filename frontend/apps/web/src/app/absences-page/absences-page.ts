@@ -20,6 +20,7 @@ import {
   TabPanel,
   TabPanels,
 } from '@openng/optimus-ui/tabs';
+import { TabScroll } from '../tab-scroll';
 import { Tag } from '@openng/optimus-ui/tag';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
@@ -104,6 +105,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
     Select,
     Tab,
     TabList,
+    TabScroll,
     TabPanel,
     TabPanels,
     Tabs,

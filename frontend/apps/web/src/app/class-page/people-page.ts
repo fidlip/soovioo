@@ -6,6 +6,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
+import { TabScroll } from '../tab-scroll';
 import { AppIcon } from '../app-icon';
 import { ClassPage } from './class-page';
 import { SchoolDirectoryList } from './school-directory';
@@ -17,6 +18,7 @@ import { SchoolDirectoryList } from './school-directory';
   imports: [
     Tabs,
     TabList,
+    TabScroll,
     Tab,
     TabPanels,
     TabPanel,

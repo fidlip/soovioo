@@ -23,6 +23,7 @@ import {
   TabPanels,
   Tabs,
 } from '@openng/optimus-ui/tabs';
+import { TabScroll } from '../tab-scroll';
 import { forkJoin, Observable, switchMap } from 'rxjs';
 import {
   AppUser,
@@ -209,6 +210,7 @@ import { Loading } from '../loading/loading';
     Tab,
     TableModule,
     TabList,
+    TabScroll,
     TabPanel,
     TabPanels,
     Tabs,

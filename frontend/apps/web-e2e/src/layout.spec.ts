@@ -139,3 +139,21 @@ test.describe('on a touch phone', () => {
     await expect(page).toHaveURL(/\/skola\/login$/);
   });
 });
+
+test('a tab opened by a link is scrolled into a phone’s tab bar', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await login(page);
+  await page.goto('/skola/admin?group=app&section=logs');
+  const logs = page.getByRole('tab', { name: 'Logy' });
+  await expect(logs).toHaveAttribute('aria-selected', 'true');
+  // Whole, and as the last tab at the very end: no arrow over it.
+  await expect(logs).toBeInViewport({ ratio: 1 });
+  await expect(
+    page
+      .locator('p-tablist')
+      .filter({ has: logs })
+      .locator('.p-tablist-next-button'),
+  ).toHaveCount(0);
+});
