@@ -95,7 +95,9 @@ test('a parent decides who sees their child on the class list', async ({
 
 test('staff have neither Lidé nor Mé děti in the menu', async ({ page }) => {
   await login(page, 'ucitel', 'ucitel123');
-  await expect(page.getByRole('link', { name: 'Administrace' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Administrace', exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Lidé', exact: true }),
   ).toHaveCount(0);
