@@ -13,6 +13,7 @@ namespace Soovioo.Api.Events;
 /// secret that gates the unauthenticated <see cref="CalendarFeedController"/>
 /// ICS endpoint a calendar app subscribes to.</summary>
 [Authorize]
+[Support.OwnAccount]
 [ApiController]
 [Route("api/users/me/calendar-feed-url")]
 [AuditArea("Nastavení")]

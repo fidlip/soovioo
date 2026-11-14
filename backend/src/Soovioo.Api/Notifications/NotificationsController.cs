@@ -86,6 +86,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return NoContent();
     }
 
+    [Support.OwnAccount]
     [HttpGet("settings")]
     public async Task<ActionResult<NotificationSettingsDto>> GetSettings()
     {
@@ -94,6 +95,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     }
 
     /// <summary>The kinds under the bell.</summary>
+    [Support.OwnAccount]
     [HttpPut("settings")]
     [AuditAction("Změněno nastavení upozornění")]
     public async Task<ActionResult<NotificationSettingsDto>> SetSettings(NotificationSettingsRequest request)
@@ -110,6 +112,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
     /// <summary>The kinds in the daily e-mail and when it comes (null = the
     /// school's time).</summary>
+    [Support.OwnAccount]
     [HttpPut("email-settings")]
     [AuditAction("Změněno nastavení upozornění e-mailem")]
     public async Task<ActionResult<NotificationSettingsDto>> SetEmailSettings(NotificationEmailSettingsRequest request)
@@ -127,6 +130,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
     /// <summary>Push: the kinds, the whole text or just the kind of event
     /// (only while the school allows it), and the night quiet.</summary>
+    [Support.OwnAccount]
     [HttpPut("push-settings")]
     [AuditAction("Změněno nastavení upozornění na mobil")]
     public async Task<ActionResult<NotificationSettingsDto>> SetPushSettings(NotificationPushSettingsRequest request)
@@ -156,6 +160,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
     /// <summary>The mobile app after logging in and whenever its token
     /// changes. A token another account registered moves to the caller —
     /// the phone was logged in as someone else before.</summary>
+    [Support.OwnAccount]
     [HttpPost("push-devices")]
     [NoAudit]
     public async Task<IActionResult> RegisterDevice(PushDeviceRequest request)

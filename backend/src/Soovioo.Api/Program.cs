@@ -36,6 +36,7 @@ builder.Services.AddControllers(options =>
         // sends, so the web app can map them back onto its form fields.
         options.ModelMetadataDetailsProviders.Add(new Microsoft.AspNetCore.Mvc.ModelBinding.Metadata.SystemTextJsonValidationMetadataProvider());
         options.Filters.Add<SuperAdminScopeFilter>();
+        options.Filters.Add<Soovioo.Api.Support.SupportModeScopeFilter>();
     })
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
