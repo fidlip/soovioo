@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace Soovioo.Api.Support;
@@ -23,9 +24,11 @@ public class SupportPlanOptions
 }
 
 /// <summary>Asks the separate plans service (<c>GET {BaseUrl}/schools/{id}/plan</c>)
-/// for a school's plan. Never fails: without the service, for an unknown
-/// school or when the call goes wrong it's the configured default.</summary>
-public class SupportPlanClient(HttpClient http, IOptions<SupportPlanOptions> options, ILogger<SupportPlanClient> logger)
+/// for a school's plan. Never fails: without the service or for an unknown
+/// school it's the configured default; when the call goes wrong it's the plan
+/// the service last gave for the school (kept in memory), else the default.</summary>
+public class SupportPlanClient(
+    HttpClient http, IOptions<SupportPlanOptions> options, IMemoryCache cache, ILogger<SupportPlanClient> logger)
 {
     public async Task<SupportPlanDto> GetPlanAsync(int schoolId)
     {
@@ -34,6 +37,7 @@ public class SupportPlanClient(HttpClient http, IOptions<SupportPlanOptions> opt
         {
             return settings.Default;
         }
+        var key = $"support-plan:{schoolId}";
         try
         {
             using var request = new HttpRequestMessage(
@@ -45,16 +49,21 @@ public class SupportPlanClient(HttpClient http, IOptions<SupportPlanOptions> opt
             using var response = await http.SendAsync(request);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
+                cache.Remove(key);
                 return settings.Default;
             }
             response.EnsureSuccessStatusCode();
             var plan = await response.Content.ReadFromJsonAsync<SupportPlanDto>();
-            return plan is { ResponseWorkingDays: >= 0 } && !string.IsNullOrEmpty(plan.Code) ? plan : settings.Default;
+            if (plan is { ResponseWorkingDays: >= 0 } && !string.IsNullOrEmpty(plan.Code))
+            {
+                return cache.Set(key, plan);
+            }
+            logger.LogWarning("Support plan of school {SchoolId} is not valid, using the last known one or the default.", schoolId);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
-            logger.LogWarning(ex, "Support plan of school {SchoolId} unavailable, using the default.", schoolId);
-            return settings.Default;
+            logger.LogWarning(ex, "Support plan of school {SchoolId} unavailable, using the last known one or the default.", schoolId);
         }
+        return cache.TryGetValue(key, out SupportPlanDto? known) && known is not null ? known : settings.Default;
     }
 }

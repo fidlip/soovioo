@@ -58,6 +58,7 @@ se na existující DB neprojeví.
 | `Demo:LifetimeDays`, `Demo:MaxActive` | životnost dema (30 dní), strop současně existujících dem (200) |
 | `Demo:CreatePerIpPerDay`            | nová dema / resety za den z jedné IP (5; v dev 1000)           |
 | `Demo:FeedbackEmail`                | kam chodí zpětná vazba z dem (`info@soovioo.cz`)               |
+| `SupportPlans:BaseUrl`, `SupportPlans:ApiKey`, `SupportPlans:Default` | služba support plánů (prázdná URL = všem školám `Default`); při výpadku platí poslední známý plán školy, jinak `Default` |
 
 ## Migrace
 
