@@ -52,6 +52,8 @@ services:
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cz}
       Smtp__FromName: Soovioo
       Push__FcmServiceAccountJson: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      SupportPlans__BaseUrl: http://support-plans:8080
+      SupportPlans__ApiKey: ${SUPPORT_PLANS_API_KEY}
     volumes:
       - attachments:/app/AttachmentStorage
     logging: *logging
@@ -75,6 +77,40 @@ services:
       - caddy-config:/config
     logging: *logging
 
+  # Support plans of the schools (#260): business data, kept apart from the
+  # schools' database. Reachable only inside this network — the app asks it
+  # for a school's plan; Caddy doesn't route to it.
+  support-plans-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: support_plans
+      POSTGRES_PASSWORD: ${SUPPORT_PLANS_DB_PASSWORD:?set in .env}
+      POSTGRES_DB: support_plans
+    volumes:
+      - support-plans-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U support_plans -d support_plans"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  support-plans:
+    build:
+      context: ../backend
+      dockerfile: src/Soovioo.SupportPlans/Dockerfile
+    image: ghcr.io/fidlip/soovioo-support-plans:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      support-plans-db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=support-plans-db;Database=support_plans;Username=support_plans;Password=${SUPPORT_PLANS_DB_PASSWORD}
+      ApiKey: ${SUPPORT_PLANS_API_KEY:?set in .env}
+    logging: *logging
+
   # Daily pg_dump, rotated (7 daily, 4 weekly, 6 monthly) into the
   # "backups" volume. Not off-site yet — see README.md.
   db-backup:
@@ -96,6 +132,25 @@ services:
       - backups:/backups
     logging: *logging
 
+  support-plans-backup:
+    image: prodrigestivill/postgres-backup-local:17
+    restart: unless-stopped
+    depends_on:
+      support-plans-db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: support-plans-db
+      POSTGRES_DB: support_plans
+      POSTGRES_USER: support_plans
+      POSTGRES_PASSWORD: ${SUPPORT_PLANS_DB_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - backups:/backups
+    logging: *logging
+
 networks:
   default:
     # IPv6 inside the stack too: Docker then forwards IPv6 clients straight
@@ -106,6 +161,7 @@ networks:
 
 volumes:
   postgres-data:
+  support-plans-data:
   attachments:
   caddy-data:
   caddy-config:
