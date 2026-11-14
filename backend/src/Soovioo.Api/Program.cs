@@ -66,6 +66,7 @@ builder.Services.Configure<AppLinkOptions>(builder.Configuration.GetSection("App
 builder.Services.Configure<Soovioo.Api.Demo.DemoOptions>(builder.Configuration.GetSection("Demo"));
 builder.Services.Configure<Soovioo.Api.Support.SupportOptions>(builder.Configuration.GetSection("Support"));
 builder.Services.Configure<Soovioo.Api.Support.SupportPlanOptions>(builder.Configuration.GetSection("SupportPlans"));
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<Soovioo.Api.Support.SupportPlanClient>(c => c.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoDataGenerator>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolPurger>();

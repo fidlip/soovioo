@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
@@ -33,9 +34,11 @@ public class SupportTicketsControllerTests
             [new Claim(ClaimTypes.NameIdentifier, userId.ToString()), .. extra])),
     };
 
-    private static SupportPlanClient Plans(SupportPlanOptions? options = null, HttpMessageHandler? handler = null) =>
+    private static SupportPlanClient Plans(
+        SupportPlanOptions? options = null, HttpMessageHandler? handler = null, IMemoryCache? cache = null) =>
         new(new HttpClient(handler ?? new StubHandler(HttpStatusCode.NotFound, "")),
             Microsoft.Extensions.Options.Options.Create(options ?? new SupportPlanOptions()),
+            cache ?? new MemoryCache(new MemoryCacheOptions()),
             NullLogger<SupportPlanClient>.Instance);
 
     private SupportTicketsController Tickets(AppDbContext db, int userId, int? schoolId = null, params Claim[] extra) =>
@@ -734,6 +737,26 @@ public class SupportTicketsControllerTests
         Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, "")).GetPlanAsync(7));
         Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.InternalServerError, "")).GetPlanAsync(7));
         Assert.Equal(options.Default, await Plans(new SupportPlanOptions()).GetPlanAsync(7));
+    }
+
+    [Fact]
+    public async Task WhenTheServiceFailsTheSchoolKeepsItsLastKnownPlan()
+    {
+        var options = new SupportPlanOptions { BaseUrl = "https://plans.test/api", ApiKey = "k" };
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var priority = new SupportPlanDto("Priority", "Prioritní", 1);
+        var ok = new StubHandler(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}""");
+        var down = new StubHandler(HttpStatusCode.InternalServerError, "");
+        var invalid = new StubHandler(HttpStatusCode.OK, """{"code":"","name":"","responseWorkingDays":-1}""");
+
+        await Plans(options, ok, cache).GetPlanAsync(7);
+
+        Assert.Equal(priority, await Plans(options, down, cache).GetPlanAsync(7));
+        Assert.Equal(priority, await Plans(options, invalid, cache).GetPlanAsync(7));
+        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(8));
+
+        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, ""), cache).GetPlanAsync(7));
+        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(7));
     }
 
     /// <summary>The status a request with this session's support token ends with.</summary>
