@@ -1,9 +1,10 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Soovioo.Analyzers/Soovioo.Analyzers.csproj" />
     <Project Path="src/Soovioo.Api/Soovioo.Api.csproj" />
+    <Project Path="src/Soovioo.SupportPlans/Soovioo.SupportPlans.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Soovioo.Api.Tests/Soovioo.Api.Tests.csproj" />
+    <Project Path="tests/Soovioo.SupportPlans.Tests/Soovioo.SupportPlans.Tests.csproj" />
   </Folder>
 </Solution>

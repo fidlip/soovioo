@@ -1,7 +1,8 @@
 # Soovioo — backend
 
-ASP.NET Core (.NET 10) API nad PostgreSQL. Jeden projekt `src/Soovioo.Api`, testy v
-`tests/Soovioo.Api.Tests`. Zpět na [hlavní README](../README.md).
+ASP.NET Core (.NET 10) API nad PostgreSQL. Aplikace je `src/Soovioo.Api`, testy v
+`tests/Soovioo.Api.Tests`. Vedle ní samostatná služba se support plány škol
+`src/Soovioo.SupportPlans` (viz [níže](#support-plány)). Zpět na [hlavní README](../README.md).
 
 ## Struktura
 
@@ -76,6 +77,32 @@ dotnet test                        # z backend/
 
 xUnit, EF Core InMemory provider; testy volají controllery přímo s falešným kontextem školy
 (`FakeCurrentSchoolContext`) a e-mailem (`FakeEmailSender`).
+
+## Support plány
+
+`src/Soovioo.SupportPlans` — samostatná služba s vlastní databází (plány a jejich přiřazení
+školám s platností od–do, obojí včetně). Aplikace se jí ptá, jaký plán škola má:
+
+```
+GET /schools/{schoolId}/plan    hlavička X-Api-Key
+200 { "code": "Free", "name": "Free", "responseWorkingDays": 5 }
+404 škola dnes (podle Prahy) žádný plán nemá → aplikace bere výchozí
+401 chybí nebo nesedí klíč
+```
+
+Překrývají-li se přiřazení, platí to s pozdějším začátkem. Migrace zakládá plány `Free` (5
+pracovních dní), `Paid` (Placený, 2), `Priority` (Prioritní, 1), `Demo` (demo školy, 5) a
+`Pilot` (pilotní školy, 1). Administrace plánů zatím není — přiřazení školám (a další plány)
+se zakládají přímo v DB (tabulky `SchoolPlans`, `Plans`).
+
+```bash
+cd src/Soovioo.SupportPlans
+dotnet run                         # http://localhost:5090, DB soovioo_support_plans v lokálním PostgreSQL
+```
+
+Klíč `ApiKey` (32+ znaků) je povinný; v dev ho dává `appsettings.Development.json`, na
+serveru env `ApiKey`. Migrace se aplikují při startu, nové přes
+`dotnet ef migrations add Nazev` v adresáři projektu.
 
 ## Plánované úlohy (Hangfire)
 
