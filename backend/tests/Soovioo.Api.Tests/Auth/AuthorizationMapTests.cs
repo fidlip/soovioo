@@ -13,7 +13,8 @@ namespace Soovioo.Api.Tests.Auth;
 public class AuthorizationMapTests
 {
     /// <summary>"anonymous", "authenticated", "roles:X,Y", "perm:P", joined
-    /// by " + "; "superadmin" when a SuperAdmin may get through.</summary>
+    /// by " + "; "superadmin" when a SuperAdmin may get through, "own account"
+    /// when support mode may not.</summary>
     private static readonly Dictionary<string, string> Expected = new()
     {
         ["Absences.AddAbsence"] = "authenticated + perm:AbsencesWrite",
@@ -46,8 +47,8 @@ public class AuthorizationMapTests
         ["Behavior.MarkBehaviorRecordRead"] = "authenticated",
         ["Behavior.SetClassification"] = "roles:Staff",
         ["CalendarFeed.GetFeed"] = "anonymous",
-        ["CalendarToken.GetFeedUrl"] = "authenticated",
-        ["CalendarToken.RegenerateFeedUrl"] = "authenticated",
+        ["CalendarToken.GetFeedUrl"] = "authenticated + own account",
+        ["CalendarToken.RegenerateFeedUrl"] = "authenticated + own account",
         ["ClassDirectory.Get"] = "roles:Parent,Student",
         ["Classrooms.AddClassroom"] = "authenticated + perm:Classrooms",
         ["Classrooms.DeleteClassroom"] = "authenticated + perm:Classrooms",
@@ -118,14 +119,14 @@ public class AuthorizationMapTests
         ["MyChildren.SetNickname"] = "roles:Parent",
         ["MyChildren.ApproveNickname"] = "roles:Parent",
         ["MyChildren.RejectNickname"] = "roles:Parent",
-        ["MyProfile.ChangePassword"] = "authenticated + superadmin",
-        ["MyProfile.GetProfile"] = "authenticated + superadmin",
-        ["MyProfile.GetVisibility"] = "authenticated + superadmin",
-        ["MyProfile.SetVisibility"] = "authenticated + superadmin",
-        ["MyProfile.SetNickname"] = "authenticated + superadmin",
-        ["MyProfile.SetShowNicknames"] = "authenticated + superadmin",
-        ["MyProfile.SwitchRole"] = "authenticated + superadmin",
-        ["MyProfile.UpdateProfile"] = "authenticated + superadmin",
+        ["MyProfile.ChangePassword"] = "authenticated + superadmin + own account",
+        ["MyProfile.GetProfile"] = "authenticated + superadmin + own account",
+        ["MyProfile.GetVisibility"] = "authenticated + superadmin + own account",
+        ["MyProfile.SetVisibility"] = "authenticated + superadmin + own account",
+        ["MyProfile.SetNickname"] = "authenticated + superadmin + own account",
+        ["MyProfile.SetShowNicknames"] = "authenticated + superadmin + own account",
+        ["MyProfile.SwitchRole"] = "authenticated + superadmin + own account",
+        ["MyProfile.UpdateProfile"] = "authenticated + superadmin + own account",
         ["MySchool.Get"] = "authenticated + perm:Administration",
         ["MySchool.GetNotifications"] = "authenticated + perm:Administration",
         ["MySchool.DeleteAssessmentRule"] = "authenticated + perm:Administration",
@@ -141,15 +142,15 @@ public class AuthorizationMapTests
         ["MySchool.SetType"] = "authenticated + perm:Administration",
         ["MySchool.SetVisibility"] = "authenticated + perm:Administration",
         ["Notifications.GetNotifications"] = "authenticated + superadmin",
-        ["Notifications.GetSettings"] = "authenticated",
+        ["Notifications.GetSettings"] = "authenticated + own account",
         ["Notifications.GetUnreadCounts"] = "authenticated + superadmin",
         ["Notifications.MarkAllRead"] = "authenticated + superadmin",
         ["Notifications.MarkRead"] = "authenticated + superadmin",
-        ["Notifications.RegisterDevice"] = "authenticated",
+        ["Notifications.RegisterDevice"] = "authenticated + own account",
         ["Notifications.RemoveDevice"] = "authenticated",
-        ["Notifications.SetEmailSettings"] = "authenticated",
-        ["Notifications.SetPushSettings"] = "authenticated",
-        ["Notifications.SetSettings"] = "authenticated",
+        ["Notifications.SetEmailSettings"] = "authenticated + own account",
+        ["Notifications.SetPushSettings"] = "authenticated + own account",
+        ["Notifications.SetSettings"] = "authenticated + own account",
         ["Notifications.Unsubscribe"] = "anonymous",
         ["ParentStudents.AddLink"] = "authenticated + perm:Students",
         ["ParentStudents.GetLinks"] = "authenticated + perm:Students",
@@ -369,6 +370,10 @@ public class AuthorizationMapTests
         if (all.OfType<AllowSuperAdminAttribute>().Any())
         {
             parts.Add("superadmin");
+        }
+        if (all.OfType<Soovioo.Api.Support.OwnAccountAttribute>().Any())
+        {
+            parts.Add("own account");
         }
         return string.Join(" + ", parts);
     }

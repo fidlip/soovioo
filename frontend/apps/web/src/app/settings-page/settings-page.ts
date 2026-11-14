@@ -110,9 +110,14 @@ export class SettingsPage {
   protected confirmNewPassword = '';
   protected readonly passwordError = signal<string | null>(null);
 
+  /** Support mode has no account of its own in the school (the API
+   * refuses those endpoints): only Vzhled is left. */
+  protected readonly ownAccount = !this.authApi.getSupportInfo();
+
   // Hidden for SuperAdmin: calendar/events are a per-school feature SuperAdmin
   // has no "Kalendář" nav link for either, see app.html.
-  protected readonly showCalendarFeed = !this.authApi.isSuperAdmin();
+  protected readonly showCalendarFeed =
+    this.ownAccount && !this.authApi.isSuperAdmin();
   protected readonly feedUrl = signal<string | null>(null);
 
   /** "Zpětná vazba" to the Soovioo team — a school's own users only. */
@@ -205,6 +210,10 @@ export class SettingsPage {
           this.loadNotificationSettings();
         }
       });
+    if (!this.ownAccount) {
+      this.profileSettled.set(true);
+      return;
+    }
     const userId = this.authApi.getUserId();
     if (this.authApi.isStaff() && userId !== null) {
       this.teachingApi.getTeacherTeaching(userId).subscribe({

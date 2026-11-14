@@ -232,4 +232,32 @@ public class SupportControllerTests
 
         Assert.Equal(forbidden, context.Result is ForbidResult);
     }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]   // the school's agendas stay open
+    [InlineData(false, true, false)]   // a real account
+    public void SupportModeDoesNotReachOwnAccountEndpoints(bool supportMode, bool ownAccount, bool refused)
+    {
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, "1"), new(ClaimTypes.Role, "Staff") };
+        if (supportMode)
+        {
+            claims.Add(new Claim(SupportClaims.SessionId, "7"));
+        }
+        var metadata = new List<object> { new Microsoft.AspNetCore.Authorization.AuthorizeAttribute() };
+        if (ownAccount)
+        {
+            metadata.Add(new OwnAccountAttribute());
+        }
+        var context = new Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext(
+            new Microsoft.AspNetCore.Mvc.ActionContext(
+                new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test")) },
+                new Microsoft.AspNetCore.Routing.RouteData(),
+                new Microsoft.AspNetCore.Mvc.Abstractions.ActionDescriptor { EndpointMetadata = metadata }),
+            []);
+
+        new SupportModeScopeFilter().OnAuthorization(context);
+
+        Assert.Equal(refused, context.Result is ObjectResult { StatusCode: StatusCodes.Status403Forbidden });
+    }
 }

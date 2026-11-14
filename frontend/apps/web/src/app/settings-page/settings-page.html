@@ -39,6 +39,7 @@
 />
 } @if (profileSettled()) {
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  @if (ownAccount) {
   <p-card header="Profil">
     @if (profile(); as p) {
     <div class="flex flex-col gap-3">
@@ -237,6 +238,7 @@
       />
     </form>
   </p-card>
+  }
 
   <p-card header="Vzhled">
     <div class="flex items-center gap-3">

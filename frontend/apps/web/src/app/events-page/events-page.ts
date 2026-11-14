@@ -173,6 +173,9 @@ export class EventsPage {
   protected readonly activeView = signal(readInitialView());
 
   protected readonly events = signal<SchoolEvent[]>([]);
+  /** The ICS link is a person's own; support mode has no account in the
+   * school. */
+  protected readonly canSubscribe = !this.authApi.getSupportInfo();
   protected readonly feedUrl = signal<string | null>(null);
   protected readonly feedUrlCopied = signal(false);
   protected readonly formError = signal<string | null>(null);
@@ -263,10 +266,12 @@ export class EventsPage {
       this.linkedEventId = id;
       this.showLinked();
     });
-    this.eventsApi.getCalendarFeedUrl().subscribe({
-      next: (result) => this.feedUrl.set(result.feedUrl),
-      error: (err) => console.error('getCalendarFeedUrl failed', err),
-    });
+    if (this.canSubscribe) {
+      this.eventsApi.getCalendarFeedUrl().subscribe({
+        next: (result) => this.feedUrl.set(result.feedUrl),
+        error: (err) => console.error('getCalendarFeedUrl failed', err),
+      });
+    }
     if (this.canManageEvents()) {
       this.eventsApi.getRecipientOptions().subscribe({
         next: (options) => this.recipientOptions.set(options),

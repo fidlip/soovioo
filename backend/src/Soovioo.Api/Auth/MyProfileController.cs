@@ -16,6 +16,7 @@ namespace Soovioo.Api.Auth;
 /// own contact info and password here.</summary>
 [Authorize]
 [AllowSuperAdmin] // the SuperAdmin's own profile and password
+[Support.OwnAccount]
 [ApiController]
 [Route("api/users/me")]
 [AuditArea("Nastavení")]

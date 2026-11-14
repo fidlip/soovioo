@@ -3,6 +3,7 @@
     <app-icon name="events" />Kalendář akcí
   </h1>
   <div class="flex items-center gap-2">
+    @if (canSubscribe) {
     <p-button
       icon="pi pi-bell"
       label="Odběr"
@@ -10,7 +11,7 @@
       [text]="true"
       (onClick)="subscribePopover.toggle($event)"
     />
-    @if (canManageEvents()) {
+    } @if (canManageEvents()) {
     <p-button
       icon="pi pi-plus"
       label="Nová akce"
