@@ -16,7 +16,7 @@ fi
 sed -i '/^IMAGE_TAG=/d' .env
 echo "IMAGE_TAG=$tag" >> .env
 
-docker compose pull api web support-plans
+docker compose pull api web
 docker compose up -d --remove-orphans
 # Old images of the past week stay around for a quick rollback.
 docker image prune -af --filter until=168h

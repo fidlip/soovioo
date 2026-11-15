@@ -8,9 +8,6 @@ Jeden VPS, všechno v Dockeru (`docker-compose.yml` v tomto adresáři, na serve
 | `api`       | .NET backend (port 8080 jen uvnitř Docker sítě), přílohy ve volume `attachments`    |
 | `postgres`  | PostgreSQL 17, data ve volume `postgres-data`, ven nepublikovaný                    |
 | `db-backup` | denní `pg_dump` do volume `backups` (7 denních, 4 týdenní, 6 měsíčních)              |
-| `support-plans` | .NET služba se support plány škol (#260), jen uvnitř Docker sítě; `api` ji volá s `X-Api-Key` |
-| `support-plans-db` | PostgreSQL 17 pro support plány, oddělený od DB škol, volume `support-plans-data` |
-| `support-plans-backup` | denní `pg_dump` DB plánů do stejného volume `backups` (soubory `support_plans-*`) |
 
 Domény:
 
@@ -142,9 +139,6 @@ docker compose start api
 
 Záloha obsahuje schéma `public` (všechna data aplikace); schéma `hangfire` (fronta
 úloh) se po obnově založí samo a opakované úlohy se zaregistrují při startu `api`.
-
-Support plány zálohuje `support-plans-backup` stejně (`/backups/daily/support_plans-latest.sql.gz`);
-obnova obdobně přes `support-plans-db` (uživatel i DB `support_plans`, zastavit `support-plans`).
 
 Zálohy zatím leží **na stejném disku** a nezahrnují přílohy (volume `attachments`) —
 mimo server je zatím nekopíruje nic (TODO: off-site, např. snapshoty u providera
