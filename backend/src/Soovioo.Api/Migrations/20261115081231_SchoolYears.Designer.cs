@@ -2440,6 +2440,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("SchoolId")
                         .HasColumnType("integer");
 
+                    b.Property<DateOnly>("TeachingEnd")
+                        .HasColumnType("date");
+
                     b.Property<DateOnly>("TeachingStart")
                         .HasColumnType("date");
 

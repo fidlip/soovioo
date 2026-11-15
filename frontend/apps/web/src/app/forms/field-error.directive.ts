@@ -160,7 +160,8 @@ function messageFor(errors: ValidationErrors | null): string | null {
 
 /** Server keys are camelCase DTO property names (`firstName`, maybe
  * prefixed like `request.firstName`); control names are often prefixed
- * by the form (`userFirstName`, `newText`) — match on the suffix. */
+ * by the form (`userFirstName`, `newText`) — match on the suffix. A key
+ * or a control of a list item (`periods[1].to`) matches only exactly. */
 export function matchServerError(
   errors: Record<string, string[]> | null,
   controlName: string | number | null,
@@ -170,8 +171,17 @@ export function matchServerError(
   }
   const name = String(controlName).toLowerCase();
   for (const [key, messages] of Object.entries(errors)) {
+    if (messages.length === 0) {
+      continue;
+    }
+    if (key.includes('[') || name.includes('[')) {
+      if (key.toLowerCase() === name) {
+        return messages.join(' ');
+      }
+      continue;
+    }
     const field = key.split('.').pop()?.toLowerCase();
-    if (field && messages.length > 0 && name.endsWith(field)) {
+    if (field && name.endsWith(field)) {
       return messages.join(' ');
     }
   }

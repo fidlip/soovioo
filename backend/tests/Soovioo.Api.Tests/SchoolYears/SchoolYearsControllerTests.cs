@@ -24,41 +24,72 @@ public class SchoolYearsControllerTests : IDisposable
 
     private static T Ok<T>(ActionResult<T> result) => (T)Assert.IsType<OkObjectResult>(result.Result).Value!;
 
-    private static CreateSchoolYearRequest Request(int startYear) =>
-        new(startYear, new DateOnly(startYear, 9, 1), new DateOnly(startYear + 1, 1, 28), new DateOnly(startYear + 1, 6, 30));
+    private static GradingPeriodRequest Period(string name, DateOnly to, DateOnly? issuedOn, int? id = null) =>
+        new(id, name, to, issuedOn is null ? PeriodReport.None : PeriodReport.ReportCard, issuedOn);
+
+    private static SchoolYearRequest Request(int startYear) =>
+        new(
+            new DateOnly(startYear, 9, 1),
+            new DateOnly(startYear + 1, 8, 31),
+            new DateOnly(startYear, 9, 1),
+            new DateOnly(startYear + 1, 6, 30),
+            [
+                Period("1. pololetí", new DateOnly(startYear + 1, 1, 31), new DateOnly(startYear + 1, 1, 28)),
+                Period("2. pololetí", new DateOnly(startYear + 1, 8, 31), new DateOnly(startYear + 1, 6, 30)),
+            ]);
+
+    private static ValidationProblemDetails Problem<T>(ActionResult<T> result) =>
+        Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
 
     [Fact]
-    public async Task ASchoolWithoutAYearIsOfferedTheOneRunningTodayWithMsmtsDates()
+    public async Task ASchoolWithoutAYearIsOfferedTheOneRunningTodayWithMsmtsDatesAndTwoPololeti()
     {
         var suggestion = Ok(await Controller().GetSuggestion());
 
-        Assert.Equal((2026, "2026/27", true), (suggestion.StartYear, suggestion.Name, suggestion.Official));
-        Assert.Equal(new DateOnly(2027, 1, 28), suggestion.FirstHalfIssuedOn);
+        Assert.Equal((new DateOnly(2026, 9, 1), new DateOnly(2027, 8, 31), true), (suggestion.From, suggestion.To, suggestion.Official));
+        Assert.Equal((new DateOnly(2026, 9, 1), new DateOnly(2027, 6, 30)), (suggestion.TeachingStart, suggestion.TeachingEnd));
+        Assert.Equal(
+            [("1. pololetí", new DateOnly(2027, 1, 31), (DateOnly?)new DateOnly(2027, 1, 28)), ("2. pololetí", new DateOnly(2027, 8, 31), new DateOnly(2027, 6, 30))],
+            suggestion.Periods.Select(p => (p.Name, p.To, p.IssuedOn)));
 
         db.Today = new DateOnly(2027, 8, 15);
-        Assert.Equal(2026, Ok(await Controller().GetSuggestion()).StartYear);
+        Assert.Equal(new DateOnly(2026, 9, 1), Ok(await Controller().GetSuggestion()).From);
     }
 
     [Fact]
-    public async Task TheNextYearFollowsTheSchoolsLast()
+    public async Task TheNextYearIsOfferedFromTheDayAfterTheSchoolsLast()
+    {
+        Ok(await Controller().Create(Request(2026) with { To = new DateOnly(2027, 8, 20), Periods =
+            [
+                Period("1. pololetí", new DateOnly(2027, 1, 31), new DateOnly(2027, 1, 28)),
+                Period("2. pololetí", new DateOnly(2027, 8, 20), new DateOnly(2027, 6, 30)),
+            ] }));
+
+        var suggestion = Ok(await Controller().GetSuggestion());
+        Assert.Equal((new DateOnly(2027, 8, 21), new DateOnly(2028, 8, 31)), (suggestion.From, suggestion.To));
+        Assert.Equal(new DateOnly(2028, 1, 31), suggestion.Periods[0].IssuedOn);
+    }
+
+    [Fact]
+    public async Task YearsMustNotOverlap()
     {
         Ok(await Controller().Create(Request(2026)));
 
-        var suggestion = Ok(await Controller().GetSuggestion());
-        Assert.Equal((2027, new DateOnly(2028, 1, 31)), (suggestion.StartYear, suggestion.FirstHalfIssuedOn));
-        Assert.IsType<BadRequestObjectResult>((await Controller().Create(Request(2028))).Result);
-        Assert.IsType<BadRequestObjectResult>((await Controller().Create(Request(2026))).Result);
-        Ok(await Controller().Create(Request(2027)));
+        Assert.Equal(["from"], Problem(await Controller().Create(Request(2026))).Errors.Keys);
+        Assert.Equal(["from"], Problem(await Controller().Create(Request(2027) with { From = new DateOnly(2027, 8, 31), To = new DateOnly(2028, 8, 30) })).Errors.Keys);
+        Ok(await Controller().Create(Request(2028)));
+        Ok(await Controller().Create(Request(2025)));
 
-        Assert.Equal(["2026/27", "2027/28"], Ok(await Controller().GetSchoolYears()).Select(y => y.Name));
+        Assert.Equal(["2025/26", "2026/27", "2028/29"], Ok(await Controller().GetSchoolYears()).Select(y => y.Name));
     }
 
     [Fact]
-    public async Task AFoundedYearHasItsTwoPololeti()
+    public async Task AFoundedYearHasThePeriodsAsGiven()
     {
         var year = Ok(await Controller().Create(Request(2026)));
 
         Assert.Equal(("2026/27", new DateOnly(2026, 9, 1), new DateOnly(2027, 8, 31), true), (year.Name, year.From, year.To, year.Current));
+        Assert.Equal(new DateOnly(2027, 6, 30), year.TeachingEnd);
         Assert.Collection(
             year.Periods,
             first =>
@@ -76,36 +107,107 @@ public class SchoolYearsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task TheDatesMustLieInTheirMonths()
+    public async Task ASchoolDividesItsYearIntoTrimestersWithAnInterimAssessment()
     {
-        var late = Request(2026) with { TeachingStart = new DateOnly(2026, 10, 1) };
-        var early = Request(2026) with { FirstHalfIssuedOn = new DateOnly(2026, 12, 20) };
-        var july = Request(2026) with { SecondHalfIssuedOn = new DateOnly(2027, 7, 1) };
+        var year = Ok(await Controller().Create(Request(2026) with { Periods =
+            [
+                Period("1. trimestr", new DateOnly(2026, 11, 30), new DateOnly(2026, 11, 27)),
+                new(null, "2. trimestr", new DateOnly(2027, 2, 28), PeriodReport.Interim, null),
+                Period("3. trimestr", new DateOnly(2027, 8, 31), new DateOnly(2027, 6, 30)),
+            ] }));
 
-        foreach (var (request, field) in new[] { (late, "teachingStart"), (early, "firstHalfIssuedOn"), (july, "secondHalfIssuedOn") })
+        Assert.Equal(
+            [
+                ("1. trimestr", new DateOnly(2026, 9, 1), new DateOnly(2026, 11, 30), (int?)1, false),
+                ("2. trimestr", new DateOnly(2026, 12, 1), new DateOnly(2027, 2, 28), null, false),
+                ("3. trimestr", new DateOnly(2027, 3, 1), new DateOnly(2027, 8, 31), 2, true),
+            ],
+            year.Periods.Select(p => (p.Name, p.From, p.To, p.ReportNumber, p.Final)));
+    }
+
+    [Fact]
+    public async Task TheYearAndItsPeriodsMustHoldTogether()
+    {
+        var cases = new (SchoolYearRequest Request, string Field)[]
         {
-            var problem = Assert.IsType<ValidationProblemDetails>(
-                Assert.IsType<BadRequestObjectResult>((await Controller().Create(request)).Result).Value);
-            Assert.Equal([field], problem.Errors.Keys);
+            (Request(2026) with { To = new DateOnly(2027, 9, 1) }, "to"),
+            (Request(2026) with { TeachingStart = new DateOnly(2026, 8, 31) }, "teachingStart"),
+            (Request(2026) with { TeachingEnd = new DateOnly(2027, 9, 1) }, "teachingEnd"),
+            (Request(2026) with { Periods = [] }, "periods"),
+            (Request(2026) with { Periods = [Period(" ", new DateOnly(2027, 8, 31), null)] }, "periods[0].name"),
+            (Request(2026) with { Periods = [Period("A", new DateOnly(2027, 6, 30), null)] }, "periods[0].to"),
+            (Request(2026) with { Periods = [Period("A", new DateOnly(2027, 2, 1), null), Period("B", new DateOnly(2027, 1, 31), null), Period("C", new DateOnly(2027, 8, 31), null)] }, "periods[1].to"),
+            (Request(2026) with { Periods = [Period("A", new DateOnly(2027, 2, 1), null), Period("A", new DateOnly(2027, 8, 31), null)] }, "periods[1].name"),
+            (Request(2026) with { Periods = [new(null, "A", new DateOnly(2027, 8, 31), PeriodReport.ReportCard, null)] }, "periods[0].issuedOn"),
+            (Request(2026) with { Periods = [Period("A", new DateOnly(2027, 1, 31), new DateOnly(2027, 1, 28)), Period("B", new DateOnly(2027, 8, 31), new DateOnly(2027, 1, 30))] }, "periods[1].issuedOn"),
+        };
+
+        foreach (var (request, field) in cases)
+        {
+            Assert.Equal([field], Problem(await Controller().Create(request)).Errors.Keys);
         }
         Assert.Empty(db.SchoolYears);
     }
 
     [Fact]
-    public async Task TheManagementMovesTheYearsDates()
+    public async Task TheManagementChangesTheYearsDaysAndPeriods()
     {
         var year = Ok(await Controller().Create(Request(2026)));
+        var (first, second) = (year.Periods[0], year.Periods[1]);
 
-        var updated = Ok(await Controller().Update(
-            year.Id, new(new DateOnly(2026, 9, 2), new DateOnly(2027, 1, 29), new DateOnly(2027, 6, 25))));
+        var updated = Ok(await Controller().Update(year.Id, Request(2026) with
+        {
+            TeachingStart = new DateOnly(2026, 9, 2),
+            Periods =
+            [
+                Period("1. čtvrtletí", new DateOnly(2026, 11, 15), null, first.Id),
+                Period("1. pololetí", new DateOnly(2027, 1, 31), new DateOnly(2027, 1, 29)),
+                Period("2. pololetí", new DateOnly(2027, 8, 31), new DateOnly(2027, 6, 25), second.Id),
+            ],
+        }));
 
         Assert.Equal(new DateOnly(2026, 9, 2), updated.TeachingStart);
-        Assert.Equal([new DateOnly(2027, 1, 29), new DateOnly(2027, 6, 25)], updated.Periods.Select(p => p.IssuedOn!.Value));
-        Assert.Equal([new DateOnly(2027, 1, 31), new DateOnly(2027, 8, 31)], updated.Periods.Select(p => p.To));
-        Assert.IsType<BadRequestObjectResult>((await Controller().Update(
-            year.Id, new(new DateOnly(2026, 9, 2), new DateOnly(2027, 2, 1), new DateOnly(2027, 6, 25)))).Result);
-        Assert.IsType<NotFoundResult>((await Controller().Update(
-            999, new(new DateOnly(2026, 9, 2), new DateOnly(2027, 1, 29), new DateOnly(2027, 6, 25)))).Result);
+        Assert.Equal(
+            [("1. čtvrtletí", new DateOnly(2026, 11, 15)), ("1. pololetí", new DateOnly(2027, 1, 31)), ("2. pololetí", new DateOnly(2027, 8, 31))],
+            updated.Periods.Select(p => (p.Name, p.To)));
+        Assert.Equal([first.Id, second.Id], updated.Periods.Where(p => p.Id == first.Id || p.Id == second.Id).Select(p => p.Id));
+        Assert.IsType<NotFoundResult>((await Controller().Update(999, Request(2026))).Result);
+    }
+
+    [Fact]
+    public async Task APeriodWithReportCardGradesStays()
+    {
+        var year = Ok(await Controller().Create(Request(2026)));
+        db.ReportCardGrades.Add(new() { SchoolId = SchoolId, StudentId = 1, SubjectId = 1, GradingPeriodId = year.Periods[0].Id, SetByName = "Učitel" });
+        await db.SaveChangesAsync();
+
+        var result = await Controller().Update(year.Id, Request(2026) with
+        {
+            Periods = [Period("Celý rok", new DateOnly(2027, 8, 31), new DateOnly(2027, 6, 30), year.Periods[1].Id)],
+        });
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(2, db.GradingPeriods.Count());
+    }
+
+    [Fact]
+    public async Task TheYearKeepsItsRecords()
+    {
+        var year = Ok(await Controller().Create(Request(2026)));
+        db.Absences.Add(new() { SchoolId = SchoolId, StudentId = 1, Date = new DateOnly(2027, 8, 20) });
+        await db.SaveChangesAsync();
+        var shorter = Request(2026) with
+        {
+            To = new DateOnly(2027, 8, 15),
+            Periods =
+            [
+                Period("1. pololetí", new DateOnly(2027, 1, 31), new DateOnly(2027, 1, 28), year.Periods[0].Id),
+                Period("2. pololetí", new DateOnly(2027, 8, 15), new DateOnly(2027, 6, 30), year.Periods[1].Id),
+            ],
+        };
+
+        Assert.IsType<BadRequestObjectResult>((await Controller().Update(year.Id, shorter)).Result);
+        Assert.Equal(new DateOnly(2027, 8, 31), db.SchoolYears.Single().To);
     }
 
     [Fact]
@@ -114,6 +216,6 @@ public class SchoolYearsControllerTests : IDisposable
         db.SchoolYear(2025, schoolId: 2);
 
         Assert.Empty(Ok(await Controller().GetSchoolYears()));
-        Assert.Equal(2026, Ok(await Controller().GetSuggestion()).StartYear);
+        Assert.Equal(new DateOnly(2026, 9, 1), Ok(await Controller().GetSuggestion()).From);
     }
 }

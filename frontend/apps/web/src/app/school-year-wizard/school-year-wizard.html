@@ -4,58 +4,77 @@
   [header]="title()"
   [modal]="true"
   [focusOnShow]="false"
-  styleClass="w-full max-w-lg"
+  styleClass="w-full max-w-3xl"
 >
-  @if (!editing() && !founding()) {
+  @if (!loaded()) {
   <app-loading />
-  } @else if (step() === 'dates') {
-  <form #datesForm="ngForm" class="flex flex-col gap-4" (ngSubmit)="next()">
-    @if (founding(); as year) {
+  } @else {
+  <p-stepper
+    [value]="step()"
+    (valueChange)="step.set($any($event))"
+    class="mb-6 block"
+  >
+    <p-step-list>
+      <p-step [value]="1">Školní rok</p-step>
+      <p-step
+        [value]="2"
+        [disabled]="!from || !to || !teachingStart || !teachingEnd"
+        >Období</p-step
+      >
+    </p-step-list>
+  </p-stepper>
+
+  @if (step() === 1) {
+  <form #yearForm="ngForm" class="flex flex-col gap-4" (ngSubmit)="step.set(2)">
+    @if (!editing()) {
     <p class="text-sm text-surface-500" data-testid="school-year-source">
-      @if (year.official) { Termíny jsou podle organizace školního roku MŠMT. }
+      @if (official()) { Termíny jsou podle organizace školního roku MŠMT. }
       @else { MŠMT termíny pro tento rok ještě nevydalo, jde o odhad. } Můžete
       je upravit.
     </p>
     }
-    <app-float-field label="Začátek vyučování" for="teachingStart">
-      <p-datePicker
-        inputId="teachingStart"
-        [(ngModel)]="teachingStart"
-        name="teachingStart"
-        required
-        [showIcon]="true"
-        appendTo="body"
-      />
-    </app-float-field>
-    <app-float-field
-      label="Vydání výpisu z vysvědčení (1. pololetí)"
-      for="firstHalfIssuedOn"
-    >
-      <p-datePicker
-        inputId="firstHalfIssuedOn"
-        [(ngModel)]="firstHalfIssuedOn"
-        name="firstHalfIssuedOn"
-        required
-        [showIcon]="true"
-        appendTo="body"
-      />
-    </app-float-field>
-    <app-float-field
-      label="Vydání vysvědčení (2. pololetí)"
-      for="secondHalfIssuedOn"
-    >
-      <p-datePicker
-        inputId="secondHalfIssuedOn"
-        [(ngModel)]="secondHalfIssuedOn"
-        name="secondHalfIssuedOn"
-        required
-        [showIcon]="true"
-        appendTo="body"
-      />
-    </app-float-field>
-    <p class="text-sm text-surface-500">
-      Pololetí končí 31. 1. a 30. 6., hlavní prázdniny patří k druhému.
-    </p>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <app-float-field label="Začátek školního roku" for="from">
+        <p-datePicker
+          inputId="from"
+          [(ngModel)]="from"
+          name="from"
+          required
+          [showIcon]="true"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Konec školního roku" for="to">
+        <p-datePicker
+          inputId="to"
+          [(ngModel)]="to"
+          name="to"
+          required
+          [showIcon]="true"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Začátek vyučování" for="teachingStart">
+        <p-datePicker
+          inputId="teachingStart"
+          [(ngModel)]="teachingStart"
+          name="teachingStart"
+          required
+          [showIcon]="true"
+          appendTo="body"
+        />
+      </app-float-field>
+      <app-float-field label="Konec vyučování" for="teachingEnd">
+        <p-datePicker
+          inputId="teachingEnd"
+          [(ngModel)]="teachingEnd"
+          name="teachingEnd"
+          required
+          [showIcon]="true"
+          appendTo="body"
+        />
+      </app-float-field>
+    </div>
     <div class="flex justify-end gap-2">
       <p-button
         label="Zavřít"
@@ -64,41 +83,114 @@
         (onClick)="visible.set(false)"
       />
       <app-submit-button
-        [form]="datesForm"
-        [label]="editing() ? 'Uložit' : 'Pokračovat'"
-        [busy]="saving()"
+        [form]="yearForm"
+        label="Pokračovat"
+        icon="pi pi-arrow-right"
       />
     </div>
   </form>
   } @else {
-  <dl
-    class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2"
-    data-testid="school-year-summary"
-  >
-    <dt class="text-surface-500">Školní rok</dt>
-    <dd>{{ founding()?.name }} (1. 9. – 31. 8.)</dd>
-    <dt class="text-surface-500">Začátek vyučování</dt>
-    <dd>{{ teachingStart | dateFormat: 'date' }}</dd>
-    <dt class="text-surface-500">1. pololetí</dt>
-    <dd>
-      do 31. 1., výpis z vysvědčení {{ firstHalfIssuedOn | dateFormat: 'date' }}
-    </dd>
-    <dt class="text-surface-500">2. pololetí</dt>
-    <dd>do 30. 6., vysvědčení {{ secondHalfIssuedOn | dateFormat: 'date' }}</dd>
-  </dl>
-  <div class="mt-4 flex justify-end gap-2">
-    <p-button
-      label="Zpět"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="step.set('dates')"
-    />
-    <p-button
-      label="Založit školní rok"
-      icon="pi pi-check"
-      [disabled]="saving()"
-      (onClick)="save()"
-    />
-  </div>
-  }
+  <form #periodsForm="ngForm" class="flex flex-col gap-3" (ngSubmit)="save()">
+    <p class="text-sm text-surface-500">
+      Období na sebe navazují. Poslední končí s koncem školního roku, hlavní
+      prázdniny patří k němu.
+    </p>
+    @for (period of periods; track period.key; let i = $index) {
+    <div
+      class="flex flex-col gap-3 rounded-border border border-surface-200 p-3 dark:border-surface-700"
+      data-testid="school-year-period"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-surface-500">
+          {{ periodFrom(i) | dateFormat: 'date' }} – {{ (isLast(i) ? to :
+          period.to) | dateFormat: 'date' }}
+        </span>
+        <p-button
+          class="ml-auto"
+          icon="pi pi-trash"
+          severity="secondary"
+          [text]="true"
+          size="small"
+          ariaLabel="Odebrat období"
+          [disabled]="periods.length === 1"
+          (onClick)="removePeriod(i)"
+        />
+      </div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <app-float-field label="Název" [for]="'periodName' + period.key">
+          <input
+            pInputText
+            [id]="'periodName' + period.key"
+            [(ngModel)]="period.name"
+            [name]="'periods[' + period.key + '].name'"
+            required
+          />
+        </app-float-field>
+        <app-float-field label="Konec" [for]="'periodTo' + period.key">
+          <p-datePicker
+            [inputId]="'periodTo' + period.key"
+            [ngModel]="isLast(i) ? to : period.to"
+            (ngModelChange)="period.to = $event"
+            [name]="'periods[' + period.key + '].to'"
+            [disabled]="isLast(i)"
+            [required]="!isLast(i)"
+            [showIcon]="true"
+            appendTo="body"
+          />
+        </app-float-field>
+        <app-float-field label="Hodnocení" [for]="'periodReport' + period.key">
+          <p-select
+            [inputId]="'periodReport' + period.key"
+            [options]="reportOptions"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="period.report"
+            [name]="'periods[' + period.key + '].report'"
+            required
+            appendTo="body"
+          />
+        </app-float-field>
+        @if (period.report !== 'None') {
+        <app-float-field
+          [label]="period.report === 'ReportCard' ? 'Vydání vysvědčení' : 'Vydání hodnocení'"
+          [for]="'periodIssuedOn' + period.key"
+        >
+          <p-datePicker
+            [inputId]="'periodIssuedOn' + period.key"
+            [(ngModel)]="period.issuedOn"
+            [name]="'periods[' + period.key + '].issuedOn'"
+            [required]="period.report === 'ReportCard'"
+            [showIcon]="true"
+            appendTo="body"
+          />
+        </app-float-field>
+        }
+      </div>
+    </div>
+    }
+    <div>
+      <p-button
+        label="Přidat období"
+        icon="pi pi-plus"
+        severity="secondary"
+        [outlined]="true"
+        size="small"
+        (onClick)="addPeriod()"
+      />
+    </div>
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="step.set(1)"
+      />
+      <app-submit-button
+        [form]="periodsForm"
+        [label]="editing() ? 'Uložit' : 'Založit školní rok'"
+        [busy]="saving()"
+      />
+    </div>
+  </form>
+  } }
 </p-dialog>

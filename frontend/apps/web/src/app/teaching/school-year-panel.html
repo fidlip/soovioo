@@ -21,7 +21,7 @@
       } @if (canEdit) {
       <p-button
         class="ml-auto"
-        label="Upravit termíny"
+        label="Upravit"
         icon="pi pi-pencil"
         severity="secondary"
         [outlined]="true"
@@ -32,7 +32,8 @@
     </div>
     <p class="mt-1 text-sm text-surface-500">
       {{ year.from | dateFormat: 'date' }} – {{ year.to | dateFormat: 'date' }}
-      · vyučování začíná {{ year.teachingStart | dateFormat: 'date' }}
+      · vyučování {{ year.teachingStart | dateFormat: 'date' }} – {{
+      year.teachingEnd | dateFormat: 'date' }}
     </p>
     <ul class="mt-3 flex flex-col gap-2">
       @for (period of year.periods; track period.id) {
@@ -46,8 +47,9 @@
         >
         @if (period.issuedOn) {
         <span class="text-sm text-surface-500"
-          >{{ period.final ? 'vysvědčení' : 'výpis z vysvědčení' }} {{
-          period.issuedOn | dateFormat: 'date' }}</span
+          >{{ period.report === 'Interim' ? 'hodnocení' : period.final ?
+          'vysvědčení' : 'výpis z vysvědčení' }} {{ period.issuedOn |
+          dateFormat: 'date' }}</span
         >
         }
         <span class="text-sm text-surface-500">{{ state(period) }}</span>
