@@ -1,5 +1,11 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { ReportPeriodOption, SchoolYear } from './school-year.model';
+import {
+  DayOffSpan,
+  ReportPeriodOption,
+  SchoolYear,
+  dayOffOn,
+  dayOffSpans,
+} from './school-year.model';
 import { SchoolYearsApiService } from './school-years-api.service';
 
 /** The school's years, loaded once and kept for the session. */
@@ -35,6 +41,15 @@ export class SchoolYearsStore {
       )
       .reverse(),
   );
+
+  /** The days without lessons, the hlavní prázdniny included. */
+  readonly daysOff = computed(() => dayOffSpans(this.years() ?? []));
+
+  /** Why `date` (YYYY-MM-DD) is off for the class (without one: for the
+   * whole school); null on a day of lessons. Weekends aside. */
+  dayOff(date: string, classId?: number | null): DayOffSpan | null {
+    return dayOffOn(this.daysOff(), date, classId);
+  }
 
   /** Loads the years unless they are here (or on their way). */
   ensure(): void {

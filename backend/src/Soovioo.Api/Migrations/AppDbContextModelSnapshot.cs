@@ -887,6 +887,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("DirectorName")
                         .HasColumnType("text");
 
+                    b.Property<string>("District")
+                        .HasColumnType("text");
+
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
@@ -2417,6 +2420,46 @@ namespace Soovioo.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("GradingPeriods");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolDayOff", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.PrimitiveCollection<List<int>>("ClassIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("To")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolYearId", "From");
+
+                    b.ToTable("SchoolDaysOff");
                 });
 
             modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolYear", b =>
@@ -4543,6 +4586,17 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("SchoolYear");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolDayOff", b =>
+                {
+                    b.HasOne("Soovioo.Api.SchoolYears.SchoolYear", "SchoolYear")
+                        .WithMany("DaysOff")
+                        .HasForeignKey("SchoolYearId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SchoolYear");
+                });
+
             modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolYear", b =>
                 {
                     b.HasOne("Soovioo.Api.Evidence.School", "School")
@@ -5106,6 +5160,8 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolYear", b =>
                 {
+                    b.Navigation("DaysOff");
+
                     b.Navigation("Periods");
                 });
 

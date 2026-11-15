@@ -314,6 +314,11 @@
         appendTo="body"
       />
     </app-float-field>
+    @if (newDateOff(); as off) {
+    <small class="-mt-2 text-orange-600" data-testid="absence-day-off"
+      >V tento den je volno: {{ off }}.</small
+    >
+    }
 
     <div class="flex flex-col gap-1.5">
       <div class="flex items-center justify-between gap-2">

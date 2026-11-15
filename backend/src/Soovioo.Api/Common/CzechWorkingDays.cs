@@ -4,22 +4,48 @@ namespace Soovioo.Api.Common;
 /// (zákon č. 245/2000 Sb.).</summary>
 public static class CzechWorkingDays
 {
-    private static readonly (int Month, int Day)[] FixedHolidays =
+    private static readonly (int Month, int Day, string Name)[] FixedHolidays =
     [
-        (1, 1), (5, 1), (5, 8), (7, 5), (7, 6), (9, 28), (10, 28), (11, 17), (12, 24), (12, 25), (12, 26),
+        (1, 1, "Den obnovy samostatného českého státu"),
+        (5, 1, "Svátek práce"),
+        (5, 8, "Den vítězství"),
+        (7, 5, "Den slovanských věrozvěstů Cyrila a Metoděje"),
+        (7, 6, "Den upálení mistra Jana Husa"),
+        (9, 28, "Den české státnosti"),
+        (10, 28, "Den vzniku samostatného československého státu"),
+        (11, 17, "Den boje za svobodu a demokracii"),
+        (12, 24, "Štědrý den"),
+        (12, 25, "1. svátek vánoční"),
+        (12, 26, "2. svátek vánoční"),
     ];
 
     public static bool IsWorkingDay(DateOnly date) =>
         date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && !IsHoliday(date);
 
-    public static bool IsHoliday(DateOnly date)
+    public static bool IsHoliday(DateOnly date) => HolidayName(date) is not null;
+
+    public static string? HolidayName(DateOnly date)
     {
-        if (FixedHolidays.Contains((date.Month, date.Day)))
+        if (FixedHolidays.FirstOrDefault(h => h.Month == date.Month && h.Day == date.Day) is { Name: { } name })
         {
-            return true;
+            return name;
         }
         var easter = EasterSunday(date.Year);
-        return date == easter.AddDays(-2) || date == easter.AddDays(1);
+        return date == easter.AddDays(-2) ? "Velký pátek"
+            : date == easter.AddDays(1) ? "Velikonoční pondělí"
+            : null;
+    }
+
+    /// <summary>The public holidays from <paramref name="from"/> to <paramref name="to"/>.</summary>
+    public static IEnumerable<(DateOnly Date, string Name)> Holidays(DateOnly from, DateOnly to)
+    {
+        for (var date = from; date <= to; date = date.AddDays(1))
+        {
+            if (HolidayName(date) is { } name)
+            {
+                yield return (date, name);
+            }
+        }
     }
 
     /// <summary>The <paramref name="days"/>-th working day after <paramref name="from"/>.</summary>

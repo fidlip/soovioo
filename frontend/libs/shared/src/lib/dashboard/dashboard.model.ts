@@ -39,4 +39,8 @@ export interface Dashboard {
   unreadBehaviorRecords: BehaviorRecord[];
   /** Admin only. */
   schoolCounts: SchoolCounts | null;
+  /** Why there are no lessons today ("Podzimní prázdniny"): for the school,
+   * for Parent/Student for the child's class. Null on a day of lessons and
+   * at the weekend. */
+  todayOff: string | null;
 }

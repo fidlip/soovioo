@@ -11,6 +11,7 @@ using Soovioo.Api.Grades;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Timetable;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Dashboard;
 
@@ -33,7 +34,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         {
             // SuperAdmin isn't tied to a school and has no agenda pages to
             // summarize — same "nothing to show" stance as EventsController.
-            return Ok(new DashboardDto([], null, [], [], 0, [], [], [], null, []));
+            return Ok(new DashboardDto([], null, [], [], 0, [], [], [], null, [], null));
         }
 
         var schoolId = currentSchool.SchoolId.Value;
@@ -44,16 +45,20 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         var allowedStudentIds = await User.GetAccessibleStudentIdsAsync(db);
         var today = db.Today.DayOfWeek;
 
+        var calendar = await SchoolCalendar.LoadAsync(db, db.Today, db.Today);
         var todayLessons = new List<TimetableEntryDto>();
         string? todayLessonsContext = null;
+        int? ownClassId = null;
         if (isTeacher)
         {
             todayLessons = await WithChangesAsync(await TodayLessonsForTeacherAsync(userId, today), new LessonScope(TeacherId: userId));
         }
         else if (!isAdmin)
         {
-            (todayLessons, todayLessonsContext) = await TodayLessonsForOwnClassAsync(allowedStudentIds, today);
+            (todayLessons, todayLessonsContext, ownClassId) = await TodayLessonsForOwnClassAsync(allowedStudentIds, today);
         }
+        todayLessons = [.. todayLessons.Where(e => e.Id < 0 || calendar.Off(db.Today, e.SchoolClassId) is null)];
+        var todayOff = today is DayOfWeek.Saturday or DayOfWeek.Sunday ? null : calendar.Off(db.Today, ownClassId)?.Name;
 
         var recentGrades = new List<GradeDto>();
         if (!isStaff)
@@ -169,7 +174,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
 
         return Ok(new DashboardDto(
             todayLessons, todayLessonsContext, recentGrades, pendingAbsences,
-            unreadMessageCount, unreadConversations, upcomingEvents, unreadBehaviorRecords, schoolCounts, pendingExcuses));
+            unreadMessageCount, unreadConversations, upcomingEvents, unreadBehaviorRecords, schoolCounts, pendingExcuses, todayOff));
     }
 
     /// <summary>Filtered by day of week only, not <see cref="WeekParity"/> —
@@ -195,12 +200,12 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
     /// per-child switcher belongs to the Rozvrh redesign (see ROADMAP), not
     /// this summary widget. Empty/null when the account isn't linked to any
     /// student yet (e.g. a freshly created Student-role account).</summary>
-    private async Task<(List<TimetableEntryDto> Lessons, string? Context)> TodayLessonsForOwnClassAsync(
+    private async Task<(List<TimetableEntryDto> Lessons, string? Context, int? ClassId)> TodayLessonsForOwnClassAsync(
         HashSet<int>? allowedStudentIds, DayOfWeek today)
     {
         if (allowedStudentIds is not { Count: > 0 })
         {
-            return ([], null);
+            return ([], null, null);
         }
 
         var student = await db.Students
@@ -210,7 +215,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
             .FirstOrDefaultAsync();
         if (student is null)
         {
-            return ([], null);
+            return ([], null, null);
         }
 
         var lessons = await db.TimetableEntriesOn()
@@ -227,7 +232,7 @@ public class DashboardController(AppDbContext db, ICurrentSchoolContext currentS
         var groups = await db.StudentGroupMembers.Where(m => m.StudentId == student.Id).Select(m => m.StudentGroupId).ToListAsync();
         lessons = await WithChangesAsync(lessons, new LessonScope(ClassId: student.SchoolClassId, GroupIds: groups.ToHashSet()));
         var label = (await db.StudentLabelsAsync(User, [student.Id])).GetValueOrDefault(student.Id);
-        return (lessons, $"{NameLabel.TextOf(label, $"{student.FirstName} {student.LastName}")} ({student.SchoolClassName})");
+        return (lessons, $"{NameLabel.TextOf(label, $"{student.FirstName} {student.LastName}")} ({student.SchoolClassName})", student.SchoolClassId);
     }
 
     /// <summary>Today's published changes of the lessons.</summary>
@@ -274,7 +279,11 @@ public record DashboardDto(
     /// <summary>Admin only — null for every other role.</summary>
     SchoolCountsDto? SchoolCounts,
     /// <summary>Up to 5 omluvenky with days still waiting for approval.</summary>
-    IReadOnlyList<ExcuseDto> PendingExcuses);
+    IReadOnlyList<ExcuseDto> PendingExcuses,
+    /// <summary>Why there are no lessons today ("Podzimní prázdniny"): for the
+    /// school, for Parent/Student for the child's class. Null on a day of
+    /// lessons and at the weekend.</summary>
+    string? TodayOff);
 
 public record UpcomingEventDto(int Id, string Title, DateTimeOffset StartAt, DateTimeOffset EndAt, bool AllDay);
 

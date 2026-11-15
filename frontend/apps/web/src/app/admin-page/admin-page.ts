@@ -38,6 +38,7 @@ import {
   Gender,
   MatrikaApiService,
   MySchoolApiService,
+  SchoolYearsApiService,
   Parent as ParentUser,
   ParentStudentLink,
   ParentStudentsApiService,
@@ -238,6 +239,7 @@ export class AdminPage {
   private readonly parentsApi = inject(ParentsApiService);
   private readonly parentStudentsApi = inject(ParentStudentsApiService);
   private readonly mySchoolApi = inject(MySchoolApiService);
+  private readonly schoolYearsApi = inject(SchoolYearsApiService);
   private readonly photosApi = inject(PhotosApiService);
   private readonly peopleApi = inject(PeopleApiService);
   private readonly matrikaApi = inject(MatrikaApiService);
@@ -529,6 +531,8 @@ export class AdminPage {
   protected readonly schoolStreet = signal('');
   protected readonly schoolCity = signal('');
   protected readonly schoolPostalCode = signal('');
+  protected readonly schoolDistrict = signal<string | null>(null);
+  protected readonly districts = signal<string[]>([]);
   protected readonly schoolDirectorName = signal('');
   protected readonly schoolEmail = signal('');
   protected readonly schoolPhone = signal('');
@@ -1594,6 +1598,12 @@ export class AdminPage {
   }
 
   private loadMySchool(): void {
+    if (this.districts().length === 0) {
+      this.schoolYearsApi.getDistricts().subscribe({
+        next: (districts) => this.districts.set(districts),
+        error: (err) => console.error('getDistricts failed', err),
+      });
+    }
     this.mySchoolApi.getMySchool().subscribe({
       next: (school) => {
         this.matrikaIzo.set(school.izo ?? '');
@@ -1601,6 +1611,7 @@ export class AdminPage {
         this.schoolStreet.set(school.street ?? '');
         this.schoolCity.set(school.city ?? '');
         this.schoolPostalCode.set(school.postalCode ?? '');
+        this.schoolDistrict.set(school.district);
         this.schoolDirectorName.set(school.directorName ?? '');
         this.schoolEmail.set(school.email ?? '');
         this.schoolPhone.set(school.phone ?? '');
@@ -1644,6 +1655,7 @@ export class AdminPage {
         street: this.schoolStreet() || null,
         city: this.schoolCity() || null,
         postalCode: this.schoolPostalCode() || null,
+        district: this.schoolDistrict(),
         directorName: this.schoolDirectorName() || null,
         email: this.schoolEmail() || null,
         phone: this.schoolPhone() || null,

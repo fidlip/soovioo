@@ -1,4 +1,9 @@
+using Soovioo.Api.Common;
+
 namespace Soovioo.Api.SchoolYears;
+
+/// <summary>A day off as the calendar suggests it.</summary>
+public record DayOffDraft(DateOnly From, DateOnly To, string Name, DayOffKind Kind);
 
 /// <param name="FirstHalfIssuedOn">The last day of lessons of the first half,
 /// when the výpis z vysvědčení is handed out.</param>
@@ -52,5 +57,73 @@ public static class MsmtCalendar
             _ => end,
         };
         return new SchoolYearDates(start, firstHalf, end, false);
+    }
+
+    /// <summary>The prázdniny of the year by § 4 of vyhláška 16/2005 Sb. —
+    /// the jarní ones only with the <paramref name="district"/> — and the
+    /// public holidays on the days of lessons (those in the vánoční
+    /// prázdniny aside).</summary>
+    public static List<DayOffDraft> DaysOff(int startYear, DateOnly teachingStart, DateOnly teachingEnd, string? district)
+    {
+        var next = startYear + 1;
+        var days = new List<DayOffDraft>();
+        var autumn = AutumnHolidays(startYear);
+        if (autumn[1] == autumn[0].AddDays(1))
+        {
+            days.Add(new(autumn[0], autumn[1], "Podzimní prázdniny", DayOffKind.Holidays));
+        }
+        else
+        {
+            days.AddRange(autumn.Select(day => new DayOffDraft(day, day, "Podzimní prázdniny", DayOffKind.Holidays)));
+        }
+
+        var christmasFrom = new DateOnly(startYear, 12, 23);
+        if (christmasFrom.DayOfWeek == DayOfWeek.Tuesday)
+        {
+            christmasFrom = christmasFrom.AddDays(-1);
+        }
+        var christmasTo = new DateOnly(next, 1, 2);
+        if (christmasTo.AddDays(1).DayOfWeek == DayOfWeek.Friday)
+        {
+            christmasTo = christmasTo.AddDays(1);
+        }
+        days.Add(new(christmasFrom, christmasTo, "Vánoční prázdniny", DayOffKind.Holidays));
+
+        var halfYear = new DateOnly(next, 1, 29);
+        while (halfYear.DayOfWeek != DayOfWeek.Friday)
+        {
+            halfYear = halfYear.AddDays(1);
+        }
+        days.Add(new(halfYear, halfYear, "Pololetní prázdniny", DayOffKind.Holidays));
+
+        if (district is not null && Districts.IsKnown(district))
+        {
+            var spring = Districts.SpringHolidays(startYear, district);
+            days.Add(new(spring, spring.AddDays(4), "Jarní prázdniny", DayOffKind.Holidays));
+        }
+
+        var easterThursday = CzechWorkingDays.EasterSunday(next).AddDays(-3);
+        days.Add(new(easterThursday, easterThursday, "Velikonoční prázdniny", DayOffKind.Holidays));
+
+        days.AddRange(CzechWorkingDays.Holidays(teachingStart, teachingEnd)
+            .Where(h => h.Date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)
+                && (h.Date < christmasFrom || h.Date > christmasTo))
+            .Select(h => new DayOffDraft(h.Date, h.Date, h.Name, DayOffKind.PublicHoliday)));
+        return [.. days.Where(d => d.To >= teachingStart && d.From <= teachingEnd).OrderBy(d => d.From)];
+    }
+
+    /// <summary>Two days next to 28 Oct, as MŠMT has set them: around it
+    /// when it is a Tuesday or a Thursday, the two days after it on a Monday,
+    /// a Wednesday or a Sunday, the two days before it on a Friday or a
+    /// Saturday.</summary>
+    private static DateOnly[] AutumnHolidays(int startYear)
+    {
+        var holiday = new DateOnly(startYear, 10, 28);
+        return holiday.DayOfWeek switch
+        {
+            DayOfWeek.Tuesday or DayOfWeek.Thursday => [holiday.AddDays(-1), holiday.AddDays(1)],
+            DayOfWeek.Friday or DayOfWeek.Saturday => [holiday.AddDays(-2), holiday.AddDays(-1)],
+            _ => [holiday.AddDays(1), holiday.AddDays(2)],
+        };
     }
 }

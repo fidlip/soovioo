@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import {
+  SchoolDayOffRequest,
   SchoolYear,
   SchoolYearRequest,
   SchoolYearSuggestion,
@@ -18,9 +19,28 @@ export class SchoolYearsApiService {
     return this.http.get<SchoolYear[]>(`${this.baseUrl}/api/school-years`);
   }
 
-  getSuggestion(): Observable<SchoolYearSuggestion> {
+  /** The jarní prázdniny of the `district`, by default the school's. */
+  getSuggestion(district?: string | null): Observable<SchoolYearSuggestion> {
     return this.http.get<SchoolYearSuggestion>(
       `${this.baseUrl}/api/school-years/suggestion`,
+      { params: district ? { district } : {} },
+    );
+  }
+
+  /** The okresy the jarní prázdniny go by, alphabetically. */
+  getDistricts(): Observable<string[]> {
+    return this.http.get<string[]>(
+      `${this.baseUrl}/api/school-years/districts`,
+    );
+  }
+
+  getSpringHolidays(
+    startYear: number,
+    district: string,
+  ): Observable<SchoolDayOffRequest> {
+    return this.http.get<SchoolDayOffRequest>(
+      `${this.baseUrl}/api/school-years/spring-holidays`,
+      { params: { startYear, district } },
     );
   }
 

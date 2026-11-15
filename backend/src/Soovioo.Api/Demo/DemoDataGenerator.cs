@@ -318,12 +318,14 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             .Concat(optional.Select(o => o.Subject))
             .ToList();
 
-        schoolYear = SchoolYear.Create(school.Id, calendar.StartYear, MsmtCalendar.For(calendar.StartYear));
+        schoolYear = SchoolYear.Create(school.Id, calendar.StartYear, MsmtCalendar.For(calendar.StartYear))
+            .WithDaysOff(DemoSchoolCalendar.District);
         db.SchoolYears.Add(schoolYear);
         // From June the school has the next year ready.
         if (calendar.Today >= new DateOnly(calendar.StartYear + 1, 6, 1))
         {
-            db.SchoolYears.Add(SchoolYear.Create(school.Id, calendar.StartYear + 1, MsmtCalendar.For(calendar.StartYear + 1)));
+            db.SchoolYears.Add(SchoolYear.Create(school.Id, calendar.StartYear + 1, MsmtCalendar.For(calendar.StartYear + 1))
+                .WithDaysOff(DemoSchoolCalendar.District));
         }
 
         foreach (var (period, (start, end)) in Bells.Select((b, i) => (i + 1, b)))
@@ -510,6 +512,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
     {
         school.Street = $"{Pick(DemoNames.Streets)} {rng.Next(1, 60)}";
         school.City = "Ukázkov";
+        school.District = DemoSchoolCalendar.District;
         school.PostalCode = "123 45";
         school.Email = "info@skola.example.com";
         school.Phone = $"+420 {rng.Next(200, 600)} {rng.Next(100, 999)} {rng.Next(100, 999)}";

@@ -218,4 +218,107 @@ public class SchoolYearsControllerTests : IDisposable
         Assert.Empty(Ok(await Controller().GetSchoolYears()));
         Assert.Equal(new DateOnly(2026, 9, 1), Ok(await Controller().GetSuggestion()).From);
     }
+
+    private static SchoolDayOffRequest DayOff(string name, DateOnly from, DateOnly to, DayOffKind kind = DayOffKind.Holidays, int? id = null,
+        IReadOnlyList<int>? classIds = null) => new(id, from, to, name, kind, classIds);
+
+    [Fact]
+    public async Task TheSuggestionHasTheDaysOffOfTheSchoolsDistrict()
+    {
+        db.Schools.Add(new() { Id = SchoolId, Name = "ZŠ", Slug = "zs", District = "Liberec" });
+        await db.SaveChangesAsync();
+
+        var suggestion = Ok(await Controller().GetSuggestion());
+        Assert.Equal("Liberec", suggestion.District);
+        Assert.Contains(DayOff("Jarní prázdniny", new DateOnly(2027, 2, 1), new DateOnly(2027, 2, 5)) with { ClassIds = [] }, suggestion.DaysOff);
+        Assert.Contains(DayOff("Vánoční prázdniny", new DateOnly(2026, 12, 23), new DateOnly(2027, 1, 2)) with { ClassIds = [] }, suggestion.DaysOff);
+
+        Assert.Equal(new DateOnly(2026, 2, 16), Ok(Controller().GetSpringHolidays(2025, "Praha 1–5")).From);
+        Assert.IsType<BadRequestObjectResult>(Controller().GetSpringHolidays(2025, "Atlantida").Result);
+
+        var praha = Ok(await Controller().GetSuggestion("Praha 1–5"));
+        Assert.Equal("Praha 1–5", praha.District);
+        Assert.Contains(praha.DaysOff, d => d.Name == "Jarní prázdniny" && d.From == new DateOnly(2027, 2, 22));
+    }
+
+    [Fact]
+    public async Task TheYearIsFoundedWithItsDaysOffAndTheSchoolsDistrict()
+    {
+        db.Schools.Add(new() { Id = SchoolId, Name = "ZŠ", Slug = "zs" });
+        db.SchoolClasses.Add(new() { Id = 7, Name = "5.A", Rocnik = 5, SchoolId = SchoolId });
+        await db.SaveChangesAsync();
+
+        var year = Ok(await Controller().Create(Request(2026) with
+        {
+            District = "Liberec",
+            DaysOff =
+            [
+                DayOff("Podzimní prázdniny", new DateOnly(2026, 10, 29), new DateOnly(2026, 10, 30)),
+                DayOff(" Ředitelské volno ", new DateOnly(2026, 11, 16), new DateOnly(2026, 11, 16), DayOffKind.DirectorsDay, classIds: [7, 7]),
+            ],
+        }));
+
+        Assert.Equal("Liberec", db.Schools.Single().District);
+        Assert.Equal(
+            [("Podzimní prázdniny", DayOffKind.Holidays, 0), ("Ředitelské volno", DayOffKind.DirectorsDay, 1)],
+            year.DaysOff.Select(d => (d.Name, d.Kind, d.ClassIds.Count)));
+        Assert.Equal(2, Ok(await Controller().GetSchoolYears()).Single().DaysOff.Count);
+    }
+
+    [Fact]
+    public async Task TheManagementChangesTheDaysOff()
+    {
+        var year = Ok(await Controller().Create(Request(2026) with
+        {
+            DaysOff =
+            [
+                DayOff("Podzimní prázdniny", new DateOnly(2026, 10, 29), new DateOnly(2026, 10, 30)),
+                DayOff("Volby", new DateOnly(2026, 10, 9), new DateOnly(2026, 10, 9), DayOffKind.Other),
+            ],
+        }));
+        var autumn = year.DaysOff.Single(d => d.Name == "Podzimní prázdniny");
+
+        var updated = Ok(await Controller().Update(year.Id, Request(2026) with
+        {
+            Periods = [.. year.Periods.Select(p => new GradingPeriodRequest(p.Id, p.Name, p.To, p.Report, p.IssuedOn))],
+            DaysOff =
+            [
+                DayOff("Podzimní prázdniny", new DateOnly(2026, 10, 29), new DateOnly(2026, 10, 29), id: autumn.Id),
+                DayOff("Sportovní den", new DateOnly(2027, 6, 29), new DateOnly(2027, 6, 30), DayOffKind.Other),
+            ],
+        }));
+
+        Assert.Equal(
+            [(autumn.Id, "Podzimní prázdniny", new DateOnly(2026, 10, 29)), (updated.DaysOff[1].Id, "Sportovní den", new DateOnly(2027, 6, 30))],
+            updated.DaysOff.Select(d => (d.Id, d.Name, d.To)));
+        Assert.Equal(2, db.SchoolDaysOff.Count());
+
+        // Without days off in the request they stay.
+        var kept = Ok(await Controller().Update(year.Id, Request(2026) with
+        {
+            Periods = [.. year.Periods.Select(p => new GradingPeriodRequest(p.Id, p.Name, p.To, p.Report, p.IssuedOn))],
+        }));
+        Assert.Equal(2, kept.DaysOff.Count);
+    }
+
+    [Fact]
+    public async Task DaysOffMustBeInTheYear()
+    {
+        var day = new DateOnly(2026, 10, 29);
+        var cases = new (SchoolYearRequest Request, string Field)[]
+        {
+            (Request(2026) with { DaysOff = [DayOff("", day, day)] }, "daysOff[0].name"),
+            (Request(2026) with { DaysOff = [DayOff("A", day, day), DayOff("B", day, day.AddDays(-1))] }, "daysOff[1].to"),
+            (Request(2026) with { DaysOff = [DayOff("A", new DateOnly(2026, 8, 31), day)] }, "daysOff[0].from"),
+            (Request(2026) with { DaysOff = [DayOff("A", day, new DateOnly(2027, 9, 1))] }, "daysOff[0].from"),
+            (Request(2026) with { District = "Atlantida" }, "district"),
+        };
+
+        foreach (var (request, field) in cases)
+        {
+            Assert.Equal([field], Problem(await Controller().Create(request)).Errors.Keys);
+        }
+        Assert.IsType<BadRequestObjectResult>((await Controller().Create(Request(2026) with { DaysOff = [DayOff("A", day, day, classIds: [999])] })).Result);
+        Assert.Empty(db.SchoolYears);
+    }
 }

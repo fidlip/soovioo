@@ -32,6 +32,10 @@ public class School
     public string? City { get; set; }
     public string? PostalCode { get; set; }
 
+    /// <summary>The okres of the school's seat, one of
+    /// <see cref="SchoolYears.Districts.All"/> — its jarní prázdniny.</summary>
+    public string? District { get; set; }
+
     /// <summary>Ředitel/ředitelka — appears on official documents.</summary>
     public string? DirectorName { get; set; }
     public string? Email { get; set; }

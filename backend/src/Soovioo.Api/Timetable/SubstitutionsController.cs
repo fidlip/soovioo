@@ -9,6 +9,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Timetable;
 
@@ -184,6 +185,10 @@ public class SubstitutionsController(
             if (movedTo == key)
             {
                 return BadRequest("Hodina už je v tento čas.");
+            }
+            if ((await SchoolCalendar.LoadAsync(db, movedTo.Date, movedTo.Date)).Off(movedTo.Date, key.ClassId) is { } off)
+            {
+                return BadRequest($"Na {movedTo.Date:d. M.} připadá volno ({off.Name}), hodina se tam přesunout nedá.");
             }
             if (!periods.Contains(movedTo.Period))
             {

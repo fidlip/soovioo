@@ -8,6 +8,7 @@ using Soovioo.Api.Evidence;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
 
@@ -170,6 +171,24 @@ public class ExcusesTests
         var monday = (await AbsencesAsync()).Single(a => a.Date == Monday);
         Assert.Equal((AbsenceStatus.PendingExcuse, dto.ExcuseId), (monday.Status, monday.ExcuseId));
         Assert.Equal([2], monday.Periods);
+    }
+
+    [Fact]
+    public async Task DaysOffOfTheClassAreSkippedLikeWeekends()
+    {
+        var year = db.SchoolYear(2026, SchoolId);
+        db.SchoolDaysOff.AddRange(
+            new SchoolDayOff { SchoolId = SchoolId, SchoolYearId = year.Id, From = Friday, To = Friday, Name = "Podzimní prázdniny" },
+            new SchoolDayOff
+            {
+                SchoolId = SchoolId, SchoolYearId = year.Id, From = Tuesday, To = Tuesday, Name = "Ředitelské volno",
+                Kind = DayOffKind.DirectorsDay, ClassIds = [classA.Id + 100],
+            });
+        await db.SaveChangesAsync();
+
+        await ExcuseAsync(Friday, Tuesday);
+
+        Assert.Equal([Monday, Tuesday], (await AbsencesAsync()).Select(a => a.Date));
     }
 
     [Fact]

@@ -27,6 +27,8 @@ public class SchoolYear
 
     public List<GradingPeriod> Periods { get; set; } = [];
 
+    public List<SchoolDayOff> DaysOff { get; set; } = [];
+
     public static string NameOf(DateOnly from, DateOnly to) =>
         from.Year == to.Year ? $"{from.Year}" : $"{from.Year}/{to.Year % 100:00}";
 
@@ -65,5 +67,14 @@ public class SchoolYear
                 },
             ],
         };
+    }
+
+    /// <summary>Adds MŠMT's prázdniny and the public holidays of its days of
+    /// lessons (<see cref="MsmtCalendar.DaysOff"/>).</summary>
+    public SchoolYear WithDaysOff(string? district)
+    {
+        DaysOff.AddRange(MsmtCalendar.DaysOff(From.Year, TeachingStart, TeachingEnd, district)
+            .Select(d => new SchoolDayOff { SchoolId = SchoolId, From = d.From, To = d.To, Name = d.Name, Kind = d.Kind }));
+        return this;
     }
 }

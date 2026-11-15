@@ -351,7 +351,7 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
     if (!db.SchoolYears.IgnoreQueryFilters().Any(y => y.SchoolId == demoSchoolId && y.From <= today && today <= y.To))
     {
         var startYear = today.Month >= 9 ? today.Year : today.Year - 1;
-        db.SchoolYears.Add(SchoolYear.Create(demoSchoolId, startYear, MsmtCalendar.For(startYear)));
+        db.SchoolYears.Add(SchoolYear.Create(demoSchoolId, startYear, MsmtCalendar.For(startYear)).WithDaysOff(null));
     }
 
     db.SaveChanges();
