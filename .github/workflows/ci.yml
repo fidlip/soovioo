@@ -236,3 +236,23 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             "sh /opt/soovioo/deploy.sh ${{ github.sha }} ${{ github.actor }}"
+      # `docker compose up -d` returns before the app is up, so the deploy
+      # is green only once the live site serves this commit's web and the
+      # API answers. An unknown school is a 404 from the API (after asking
+      # the database); a 502 or 500 means it isn't up.
+      - name: Check the live app
+        env:
+          APP_URL: https://soovioo.cloud
+        run: |
+          for attempt in $(seq 1 30); do
+            commit=$(curl -fsS "$APP_URL/version.json?check=$attempt" | jq -r .commit) || commit=
+            page=$(curl -fsS -o /dev/null -w '%{http_code}' "$APP_URL/") || page=
+            api=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/api/public/schools/deploy-check-none") || api=
+            echo "attempt $attempt: commit=$commit page=$page api=$api"
+            if [ "$commit" = "$GITHUB_SHA" ] && [ "$page" = 200 ] && [ "$api" = 404 ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$APP_URL does not serve $GITHUB_SHA with a working API after 5 minutes"
+          exit 1
