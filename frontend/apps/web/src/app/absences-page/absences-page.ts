@@ -257,6 +257,8 @@ export class AbsencesPage {
   }
 
   constructor() {
+    // Days off change elsewhere too.
+    this.schoolYears.reload();
     this.reload();
     // ?absence= / ?excuse= — opened from a notification.
     onLinkedItem('absence', (id) => {

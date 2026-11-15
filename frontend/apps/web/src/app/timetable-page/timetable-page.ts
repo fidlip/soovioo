@@ -609,7 +609,8 @@ export class TimetablePage {
   );
 
   constructor() {
-    this.schoolYears.ensure();
+    // Days off change elsewhere too.
+    this.schoolYears.reload();
     if (this.selection) {
       this.openFromAddress(this.selection);
     } else {
