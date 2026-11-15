@@ -177,13 +177,8 @@ jobs:
         include:
           - name: api
             context: backend
-            file: backend/Dockerfile
-          - name: support-plans
-            context: backend
-            file: backend/src/Soovioo.SupportPlans/Dockerfile
           - name: web
             context: frontend
-            file: frontend/Dockerfile
     steps:
       - uses: actions/checkout@v5
       # Replaces the empty placeholder the app gets outside a deployed build.
@@ -201,7 +196,6 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
           push: true
           tags: |
             ghcr.io/fidlip/soovioo-${{ matrix.name }}:latest
