@@ -36,6 +36,11 @@ public class SupportTicketsController(
         Ok(await ListAsync(db.SupportTickets.Where(t => t.SchoolId == currentSchool.SchoolId!.Value)
             .OrderByDescending(t => t.CreatedAt)));
 
+    /// <summary>The school's support plan, for the sidebar.</summary>
+    [HttpGet("api/my-school/support-plan")]
+    [RequirePermission(Permission.Administration)]
+    public async Task<SupportPlanDto> GetSchoolPlan() => await plans.GetPlanAsync(currentSchool.SchoolId!.Value);
+
     /// <summary>With its thread, without the SuperAdmins' internal entries.</summary>
     [HttpGet("api/my-school/support-tickets/{id:int}")]
     [RequirePermission(Permission.Administration)]

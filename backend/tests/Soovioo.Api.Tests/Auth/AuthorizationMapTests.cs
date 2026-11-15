@@ -264,6 +264,7 @@ public class AuthorizationMapTests
         ["SupportTickets.CreateSchoolTicket"] = "authenticated + perm:Administration",
         ["SupportTickets.CreateTicket"] = "roles:SuperAdmin",
         ["SupportTickets.Enter"] = "roles:SuperAdmin",
+        ["SupportTickets.GetSchoolPlan"] = "authenticated + perm:Administration",
         ["SupportTickets.GetSchoolTicket"] = "authenticated + perm:Administration",
         ["SupportTickets.GetSchoolTickets"] = "authenticated + perm:Administration",
         ["SupportTickets.GetSessionTicket"] = "authenticated",

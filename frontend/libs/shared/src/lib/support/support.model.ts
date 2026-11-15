@@ -121,6 +121,13 @@ export function isTicketOpen(status: SupportTicketStatus): boolean {
   return status !== 'Resolved' && status !== 'Cancelled';
 }
 
+/** The school's support plan: how many working days a ticket may take. */
+export interface SupportPlan {
+  code: string;
+  name: string;
+  responseWorkingDays: number;
+}
+
 /** A case of support for a school — asked by its admin or opened by a
  * SuperAdmin; due by the school's support plan. */
 export interface SupportTicket {
