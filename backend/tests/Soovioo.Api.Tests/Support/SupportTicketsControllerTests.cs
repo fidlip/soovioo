@@ -737,14 +737,14 @@ public class SupportTicketsControllerTests
     {
         var options = new SupportPlanOptions { BaseUrl = "https://plans.test/api", ApiKey = "k" };
         var ok = new StubHandler(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}""");
-        var plan = await Plans(options, ok).GetPlanAsync(7);
+        var plan = await Plans(options, ok).GetPlanAsync(School(7));
         Assert.Equal(new SupportPlanDto("Priority", "Prioritní", 1), plan);
         Assert.Equal("https://plans.test/api/schools/7/plan", ok.Last!.RequestUri!.ToString());
         Assert.Equal("k", ok.Last.Headers.GetValues("X-Api-Key").Single());
 
-        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, "")).GetPlanAsync(7));
-        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.InternalServerError, "")).GetPlanAsync(7));
-        Assert.Equal(options.Default, await Plans(new SupportPlanOptions()).GetPlanAsync(7));
+        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, "")).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.InternalServerError, "")).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(new SupportPlanOptions()).GetPlanAsync(School(7)));
     }
 
     [Fact]
@@ -757,15 +757,35 @@ public class SupportTicketsControllerTests
         var down = new StubHandler(HttpStatusCode.InternalServerError, "");
         var invalid = new StubHandler(HttpStatusCode.OK, """{"code":"","name":"","responseWorkingDays":-1}""");
 
-        await Plans(options, ok, cache).GetPlanAsync(7);
+        await Plans(options, ok, cache).GetPlanAsync(School(7));
 
-        Assert.Equal(priority, await Plans(options, down, cache).GetPlanAsync(7));
-        Assert.Equal(priority, await Plans(options, invalid, cache).GetPlanAsync(7));
-        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(8));
+        Assert.Equal(priority, await Plans(options, down, cache).GetPlanAsync(School(7)));
+        Assert.Equal(priority, await Plans(options, invalid, cache).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(8)));
 
-        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, ""), cache).GetPlanAsync(7));
-        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(7));
+        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, ""), cache).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(7)));
     }
+
+    [Fact]
+    public async Task ADemoSchoolHasTheDemoPlanWhoeverItIs()
+    {
+        var options = new SupportPlanOptions { BaseUrl = "https://plans.test/api", ApiKey = "k" };
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var demo = new SupportPlanDto("Demo", "Demo", 5);
+        var ok = new StubHandler(HttpStatusCode.OK, """{"code":"Demo","name":"Demo","responseWorkingDays":5}""");
+
+        Assert.Equal(demo, await Plans(options, ok, cache).GetPlanAsync(School(7, isDemo: true)));
+        Assert.Equal("https://plans.test/api/plans/Demo", ok.Last!.RequestUri!.ToString());
+        Assert.Equal("k", ok.Last.Headers.GetValues("X-Api-Key").Single());
+
+        var down = new StubHandler(HttpStatusCode.InternalServerError, "");
+        Assert.Equal(demo, await Plans(options, down, cache).GetPlanAsync(School(8, isDemo: true)));
+        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(8)));
+    }
+
+    private static School School(int id, bool isDemo = false) =>
+        new() { Id = id, Name = "Škola", Slug = $"skola-{id}", IsDemo = isDemo };
 
     /// <summary>The status a request with this session's support token ends with.</summary>
     private async Task<int> GuardAsync(int sessionId)

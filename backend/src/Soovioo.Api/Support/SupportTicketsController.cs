@@ -8,6 +8,7 @@ using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
+using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 
@@ -39,7 +40,8 @@ public class SupportTicketsController(
     /// <summary>The school's support plan, for the sidebar.</summary>
     [HttpGet("api/my-school/support-plan")]
     [RequirePermission(Permission.Administration)]
-    public async Task<SupportPlanDto> GetSchoolPlan() => await plans.GetPlanAsync(currentSchool.SchoolId!.Value);
+    public async Task<SupportPlanDto> GetSchoolPlan() =>
+        await plans.GetPlanAsync(await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value));
 
     /// <summary>With its thread, without the SuperAdmins' internal entries.</summary>
     [HttpGet("api/my-school/support-tickets/{id:int}")]
@@ -68,7 +70,7 @@ public class SupportTicketsController(
         }
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
         var me = await MeAsync();
-        var ticket = await NewTicketAsync(school.Id, me, request.Title!, request.Description, bySupport: false);
+        var ticket = await NewTicketAsync(school, me, request.Title!, request.Description, bySupport: false);
         if (request.AllowAccess && school.SupportAccess == SupportAccess.Approval)
         {
             AllowAccess(ticket, me);
@@ -310,7 +312,7 @@ public class SupportTicketsController(
         }
         AuditContext.Of(HttpContext).SchoolId = school.Id;
         var me = await MeAsync();
-        var ticket = await NewTicketAsync(school.Id, me, request.Title!, request.Description, bySupport: true);
+        var ticket = await NewTicketAsync(school, me, request.Title!, request.Description, bySupport: true);
         Assign(ticket, me, me);
         await db.SaveChangesAsync();
         await NotifySchoolAsync(ticket, $"Podpora založila požadavek: {ticket.Title}", ticket.Description);
@@ -881,12 +883,12 @@ public class SupportTicketsController(
     }
 
     private async Task<SupportTicket> NewTicketAsync(
-        int schoolId, User me, string title, string? description, bool bySupport)
+        School school, User me, string title, string? description, bool bySupport)
     {
-        var plan = await plans.GetPlanAsync(schoolId);
+        var plan = await plans.GetPlanAsync(school);
         var ticket = new SupportTicket
         {
-            SchoolId = schoolId,
+            SchoolId = school.Id,
             CreatedByUserId = me.Id,
             CreatedByName = PersonNames.Display(me),
             CreatedBySupport = bySupport,

@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Support;
 
@@ -21,27 +22,34 @@ public class SupportPlanOptions
     /// <summary>For a school the service doesn't know, or while it's
     /// unreachable or not configured.</summary>
     public SupportPlanDto Default { get; set; } = new("Free", "Free", 5);
+
+    /// <summary>The plan every demo school has, asked for by its code.</summary>
+    public string DemoPlanCode { get; set; } = "Demo";
 }
 
-/// <summary>Asks the separate plans service (<c>GET {BaseUrl}/schools/{id}/plan</c>)
-/// for a school's plan. Never fails: without the service or for an unknown
-/// school it's the configured default; when the call goes wrong it's the plan
-/// the service last gave for the school (kept in memory), else the default.</summary>
+/// <summary>Asks the separate plans service for a school's plan: a demo
+/// school's is the demo plan (<c>GET {BaseUrl}/plans/{code}</c>), any other's
+/// the one assigned to it (<c>GET {BaseUrl}/schools/{id}/plan</c>). Never fails:
+/// without the service or for an unknown school or plan it's the configured
+/// default; when the call goes wrong it's the plan the service last gave
+/// (kept in memory), else the default.</summary>
 public class SupportPlanClient(
     HttpClient http, IOptions<SupportPlanOptions> options, IMemoryCache cache, ILogger<SupportPlanClient> logger)
 {
-    public async Task<SupportPlanDto> GetPlanAsync(int schoolId)
+    public async Task<SupportPlanDto> GetPlanAsync(School school)
     {
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.BaseUrl))
         {
             return settings.Default;
         }
-        var key = $"support-plan:{schoolId}";
+        var path = school.IsDemo
+            ? $"plans/{Uri.EscapeDataString(settings.DemoPlanCode)}"
+            : $"schools/{school.Id}/plan";
+        var key = $"support-plan:{path}";
         try
         {
-            using var request = new HttpRequestMessage(
-                HttpMethod.Get, $"{settings.BaseUrl.TrimEnd('/')}/schools/{schoolId}/plan");
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.BaseUrl.TrimEnd('/')}/{path}");
             if (!string.IsNullOrEmpty(settings.ApiKey))
             {
                 request.Headers.Add("X-Api-Key", settings.ApiKey);
@@ -58,11 +66,11 @@ public class SupportPlanClient(
             {
                 return cache.Set(key, plan);
             }
-            logger.LogWarning("Support plan of school {SchoolId} is not valid, using the last known one or the default.", schoolId);
+            logger.LogWarning("Support plan of school {SchoolId} is not valid, using the last known one or the default.", school.Id);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
-            logger.LogWarning(ex, "Support plan of school {SchoolId} unavailable, using the last known one or the default.", schoolId);
+            logger.LogWarning(ex, "Support plan of school {SchoolId} unavailable, using the last known one or the default.", school.Id);
         }
         return cache.TryGetValue(key, out SupportPlanDto? known) && known is not null ? known : settings.Default;
     }
