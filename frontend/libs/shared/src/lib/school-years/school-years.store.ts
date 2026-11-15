@@ -13,6 +13,8 @@ import { SchoolYearsApiService } from './school-years-api.service';
 export class SchoolYearsStore {
   private readonly api = inject(SchoolYearsApiService);
   private loading = false;
+  /** Bumped by {@link clear}: a response asked for before it is dropped. */
+  private session = 0;
 
   /** Null until loaded. */
   readonly years = signal<SchoolYear[] | null>(null);
@@ -58,22 +60,31 @@ export class SchoolYearsStore {
     }
   }
 
+  /** Loads the years again; the ones here stay until they come. */
   reload(): void {
+    const session = this.session;
     this.loading = true;
     this.api.getSchoolYears().subscribe({
       next: (years) => {
-        this.loading = false;
-        this.years.set(years);
+        if (session === this.session) {
+          this.loading = false;
+          this.years.set(years);
+        }
       },
       error: (err) => {
-        this.loading = false;
+        if (session === this.session) {
+          this.loading = false;
+        }
         console.error('getSchoolYears failed', err);
       },
     });
   }
 
-  /** After signing out or switching the account. */
+  /** After signing out or switching the account; a load still on its way
+   * is for the previous one. */
   clear(): void {
+    this.session++;
+    this.loading = false;
     this.years.set(null);
   }
 

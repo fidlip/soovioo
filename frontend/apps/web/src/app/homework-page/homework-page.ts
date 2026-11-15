@@ -238,7 +238,8 @@ export class HomeworkPage {
   private linkedId: number | null = null;
 
   constructor() {
-    this.schoolYears.ensure();
+    // Days off change elsewhere too.
+    this.schoolYears.reload();
     this.reload();
     onLinkedItem('homework', (id) => {
       this.linkedId = id;

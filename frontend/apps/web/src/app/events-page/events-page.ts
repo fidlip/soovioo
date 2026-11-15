@@ -287,7 +287,8 @@ export class EventsPage {
   private durationMs = DEFAULT_DURATION_MS;
 
   constructor() {
-    this.schoolYears.ensure();
+    // Days off change elsewhere too.
+    this.schoolYears.reload();
     this.reload();
     onLinkedItem('event', (id) => {
       this.linkedEventId = id;
