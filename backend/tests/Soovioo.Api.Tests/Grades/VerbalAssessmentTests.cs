@@ -7,6 +7,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Tests.Grades;
 
@@ -17,9 +18,9 @@ public class VerbalAssessmentTests : IDisposable
 {
     private const int SchoolId = 1;
     private const int Year = 2026;
-    private const SchoolHalfYear Half = SchoolHalfYear.First;
 
     private readonly AppDbContext db;
+    private readonly int period;
     private readonly StudentProfile jan;
     private readonly SchoolClass schoolClass;
     private readonly Subject maths = new() { Name = "Matematika", SchoolId = SchoolId };
@@ -34,6 +35,7 @@ public class VerbalAssessmentTests : IDisposable
         db = new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId)) { Today = new DateOnly(2026, 12, 1) };
+        period = db.FirstHalf(Year).Id;
         teacher = TestRoles.Principal(db, 1, UserRole.Teacher, SchoolId);
         management = TestRoles.Principal(db, 2, UserRole.Admin, SchoolId);
         pupil = TestRoles.Principal(db, 50, UserRole.Student, SchoolId);
@@ -78,7 +80,7 @@ public class VerbalAssessmentTests : IDisposable
 
     private async Task<ReportCardDto> CardAs(ClaimsPrincipal user)
     {
-        var result = await As(user).GetReportCards(Year, Half, studentId: jan.Id);
+        var result = await As(user).GetReportCards(period, studentId: jan.Id);
         return Assert.Single((List<ReportCardDto>)Assert.IsType<OkObjectResult>(result.Result).Value!);
     }
 
@@ -86,7 +88,7 @@ public class VerbalAssessmentTests : IDisposable
         card.Subjects.Single(s => s.SubjectId == subject.Id);
 
     private Task<IActionResult> Text(ClaimsPrincipal user, Subject subject, string? text) =>
-        As(user).SetGradeText(new(jan.Id, subject.Id, Year, Half, text));
+        As(user).SetGradeText(new(jan.Id, subject.Id, period, text));
 
     private static int Pages(FileContentResult pdf) =>
         System.Text.RegularExpressions.Regex.Count(
@@ -94,7 +96,7 @@ public class VerbalAssessmentTests : IDisposable
 
     private async Task<ConfirmReportCardGradesResult> Confirm(ClaimsPrincipal user, params Subject[] subjects)
     {
-        var result = await As(user).ConfirmGrades(new(Year, Half, [.. subjects.Select(s => new ReportCardGradeKey(jan.Id, s.Id))]));
+        var result = await As(user).ConfirmGrades(new(period, [.. subjects.Select(s => new ReportCardGradeKey(jan.Id, s.Id))]));
         return (ConfirmReportCardGradesResult)Assert.IsType<OkObjectResult>(result.Result).Value!;
     }
 
@@ -176,10 +178,10 @@ public class VerbalAssessmentTests : IDisposable
     {
         await Rule(AssessmentMode.Verbal, rocnik: 3, subject: maths);
         await Text(teacher, maths, "Počítá do sta.");
-        await As(teacher).SetGrade(new(jan.Id, maths.Id, Year, Half, ReportCardGradeKind.Graded, 1));
+        await As(teacher).SetGrade(new(jan.Id, maths.Id, period, ReportCardGradeKind.Graded, 1));
         Assert.True(In(await CardAs(teacher), maths).Changed);
 
-        Assert.IsType<NoContentResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, Year, Half));
+        Assert.IsType<NoContentResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, period));
 
         var reset = In(await CardAs(teacher), maths);
         Assert.False(reset.Changed);
@@ -197,7 +199,7 @@ public class VerbalAssessmentTests : IDisposable
         await Rule(AssessmentMode.Verbal, rocnik: 3, behavior: true);
         await Text(teacher, maths, "Počítá do sta.");
         await Confirm(teacher, maths);
-        await As(teacher).SetBehaviorText(new(jan.Id, Year, Half, "Je ohleduplný."));
+        await As(teacher).SetBehaviorText(new(jan.Id, period, "Je ohleduplný."));
 
         var before = await CardAs(pupil);
         Assert.Null(before.BehaviorText);
@@ -216,23 +218,23 @@ public class VerbalAssessmentTests : IDisposable
     [Fact]
     public async Task TheTridniWritesTheBehavioursText()
     {
-        Assert.IsType<BadRequestObjectResult>(await As(teacher).SetBehaviorText(new(jan.Id, Year, Half, "Je ohleduplný.")));
+        Assert.IsType<BadRequestObjectResult>(await As(teacher).SetBehaviorText(new(jan.Id, period, "Je ohleduplný.")));
         await Rule(AssessmentMode.Verbal, rocnik: 3, behavior: true);
 
-        Assert.IsType<NoContentResult>(await As(teacher).SetBehaviorText(new(jan.Id, Year, Half, "Je ohleduplný.")));
+        Assert.IsType<NoContentResult>(await As(teacher).SetBehaviorText(new(jan.Id, period, "Je ohleduplný.")));
         var card = await CardAs(teacher);
         Assert.Equal("Je ohleduplný.", card.BehaviorText);
         Assert.True(card.CanEditBehaviorText);
 
         schoolClass.ClassTeacherId = null;
         await db.SaveChangesAsync();
-        Assert.IsType<ForbidResult>(await As(teacher).SetBehaviorText(new(jan.Id, Year, Half, "Jinak.")));
+        Assert.IsType<ForbidResult>(await As(teacher).SetBehaviorText(new(jan.Id, period, "Jinak.")));
     }
 
     [Fact]
     public async Task TheSummaryStandsInForTheSubjectsInTheFirstHalf()
     {
-        var request = new SetReportCardSummaryRequest(jan.Id, Year, Half, "Celkově zvládá učivo.", ReportCardResult.Passed);
+        var request = new SetReportCardSummaryRequest(jan.Id, period, "Celkově zvládá učivo.", ReportCardResult.Passed);
         Assert.IsType<BadRequestObjectResult>(await As(teacher).SetSummary(request));
         await Rule(AssessmentMode.Verbal, rocnik: 3);
         Assert.Null((await CardAs(management)).Result);
@@ -243,14 +245,14 @@ public class VerbalAssessmentTests : IDisposable
         Assert.False(written.Summary.Confirmed);
         Assert.Null(written.Result);
 
-        Assert.IsType<NoContentResult>(await As(teacher).ConfirmSummary(new(jan.Id, Year, Half)));
+        Assert.IsType<NoContentResult>(await As(teacher).ConfirmSummary(new(jan.Id, period)));
         var confirmed = await CardAs(teacher);
         Assert.True(confirmed.Summary!.Confirmed);
         Assert.False(confirmed.Summary.CanEdit);
         Assert.Equal(ReportCardResult.Passed, confirmed.Result);
         Assert.IsType<ConflictObjectResult>(await As(teacher).SetSummary(request with { Text = "Jinak." }));
-        Assert.IsType<ForbidResult>(await As(teacher).ReopenSummary(new(jan.Id, Year, Half)));
-        Assert.IsType<NoContentResult>(await As(management).ReopenSummary(new(jan.Id, Year, Half)));
+        Assert.IsType<ForbidResult>(await As(teacher).ReopenSummary(new(jan.Id, period)));
+        Assert.IsType<NoContentResult>(await As(management).ReopenSummary(new(jan.Id, period)));
         Assert.IsType<NoContentResult>(await As(teacher).SetSummary(request with { Text = null }));
         Assert.Null((await CardAs(teacher)).Summary!.Text);
     }
@@ -261,28 +263,28 @@ public class VerbalAssessmentTests : IDisposable
         await Rule(AssessmentMode.Verbal, rocnik: 3);
         await Rule(AssessmentMode.ClassificationWithVerbal, rocnik: 3, subject: czech);
 
-        Assert.IsType<BadRequestObjectResult>(await As(teacher).SetSummary(new(jan.Id, Year, Half, "Text", ReportCardResult.Passed)));
+        Assert.IsType<BadRequestObjectResult>(await As(teacher).SetSummary(new(jan.Id, period, "Text", ReportCardResult.Passed)));
         Assert.Null((await CardAs(teacher)).Summary);
         Assert.IsType<BadRequestObjectResult>(await As(teacher).SetSummary(
-            new(jan.Id, Year, SchoolHalfYear.Second, "Text", ReportCardResult.Passed)));
+            new(jan.Id, db.SecondHalf(Year).Id, "Text", ReportCardResult.Passed)));
     }
 
     [Fact]
     public async Task ListsAAndBAreForPupilsAssessedSlovneAListBGoesOnWithALongText()
     {
-        Assert.IsType<BadRequestObjectResult>(await As(management).GetPdf(Year, Half, studentId: jan.Id, form: ReportCardPrint.Verbal));
+        Assert.IsType<BadRequestObjectResult>(await As(management).GetPdf(period, studentId: jan.Id, form: ReportCardPrint.Verbal));
 
         await Rule(AssessmentMode.Verbal, rocnik: 3);
         await Rule(AssessmentMode.Verbal, rocnik: 3, behavior: true);
         await Text(teacher, maths, string.Join(" ", Enumerable.Repeat("Počítá do sta, sčítá a odčítá s přechodem přes desítku.", 300)));
         await Confirm(teacher, maths);
-        await As(teacher).SetBehaviorText(new(jan.Id, Year, Half, "Je ohleduplný ke spolužákům."));
+        await As(teacher).SetBehaviorText(new(jan.Id, period, "Je ohleduplný ke spolužákům."));
 
         var file = Assert.IsType<FileContentResult>(
-            await As(management).GetPdf(Year, Half, schoolClassId: schoolClass.Id, form: ReportCardPrint.Verbal));
+            await As(management).GetPdf(period, schoolClassId: schoolClass.Id, form: ReportCardPrint.Verbal));
         Assert.Equal("vysvedceni-list-a-b-3.A.pdf", file.FileDownloadName);
         Assert.Equal(4, Pages(file));
-        Assert.IsType<FileContentResult>(await As(management).GetPdf(Year, Half, studentId: jan.Id));
+        Assert.IsType<FileContentResult>(await As(management).GetPdf(period, studentId: jan.Id));
     }
 
     [Fact]
@@ -293,7 +295,7 @@ public class VerbalAssessmentTests : IDisposable
         await Confirm(teacher, maths);
 
         var file = Assert.IsType<FileContentResult>(
-            await As(management).GetPdf(Year, Half, studentId: jan.Id, form: ReportCardPrint.Verbal));
+            await As(management).GetPdf(period, studentId: jan.Id, form: ReportCardPrint.Verbal));
 
         Assert.Equal(2, Pages(file));
     }
@@ -321,7 +323,7 @@ public class VerbalAssessmentTests : IDisposable
     [Fact]
     public async Task TheMarkFormatComesFromTheMostSpecificRuleThatSetsOne()
     {
-        async Task<ReportCard> Card() => Assert.Single(await ReportCards.BuildAsync(db, [jan.Id], Year, Half));
+        async Task<ReportCard> Card() => Assert.Single(await ReportCards.BuildAsync(db, [jan.Id], (await db.GradingPeriodsAsync()).Report(period)!));
         Assert.IsType<OkObjectResult>((await Settings().SetReportCards(new(ReportCardMarkFormat.Words))).Result);
 
         Assert.Equal(ReportCardMarkFormat.Words, (await Card()).Subjects[0].MarkFormat);

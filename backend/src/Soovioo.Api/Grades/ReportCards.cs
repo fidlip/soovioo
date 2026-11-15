@@ -4,6 +4,7 @@ using Soovioo.Api.Behavior;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Grades;
@@ -23,7 +24,7 @@ public enum ReportCardResult
     NotAssessed,
 }
 
-/// <param name="Average">Weighted average of the half-year's grades; null
+/// <param name="Average">Weighted average of the period's grades; null
 /// without any.</param>
 /// <param name="Stored">Changed, confirmed or with a slovní hodnocení; its
 /// Kind null = the suggestion from the average.</param>
@@ -67,34 +68,35 @@ public record ReportCard(
     ReportCardNote? Note = null,
     ReportCardMarkFormat BehaviorMarkFormat = ReportCardMarkFormat.Words)
 {
-    /// <summary>The souhrnné slovní hodnocení may replace the subjects: in
-    /// the first half, when every subject is assessed only slovně.</summary>
-    public bool SummaryAllowed(SchoolHalfYear half) =>
-        half == SchoolHalfYear.First && Subjects.Count > 0 && Subjects.All(s => s.Mode == AssessmentMode.Verbal);
+    /// <summary>The souhrnné slovní hodnocení may replace the subjects: on
+    /// a výpis (not the year's final report card), when every subject is
+    /// assessed only slovně.</summary>
+    public bool SummaryAllowed(bool final) =>
+        !final && Subjects.Count > 0 && Subjects.All(s => s.Mode == AssessmentMode.Verbal);
 
     /// <summary>The souhrnné hodnocení stands in for the subjects.</summary>
-    public bool Summarised(SchoolHalfYear half) =>
-        SummaryAllowed(half) && !string.IsNullOrWhiteSpace(Note?.SummaryText);
+    public bool Summarised(bool final) =>
+        SummaryAllowed(final) && !string.IsNullOrWhiteSpace(Note?.SummaryText);
 
     public bool SummaryConfirmed => Note?.SummaryConfirmedAt is not null;
 
     /// <summary>Any slovní hodnocení — the report card goes on list A/B.</summary>
-    public bool HasVerbal(SchoolHalfYear half) =>
+    public bool HasVerbal(bool final) =>
         BehaviorMode != AssessmentMode.Classification
-        || Summarised(half)
+        || Summarised(final)
         || Subjects.Any(s => s.Mode != AssessmentMode.Classification);
 
     /// <summary>Only once every subject is confirmed — or the souhrnné
     /// hodnocení, with the result the třídní chose.</summary>
-    public ReportCardResult? Result(SchoolHalfYear half) =>
-        Summarised(half)
+    public ReportCardResult? Result(bool final) =>
+        Summarised(final)
             ? SummaryConfirmed ? Note!.SummaryResult : null
             : Subjects.Count > 0 && Subjects.All(s => s.Confirmed)
-                ? ReportCards.Result(Subjects.Select(s => (s.Kind!.Value, s.Value)), Behavior, half)
+                ? ReportCards.Result(Subjects.Select(s => (s.Kind!.Value, s.Value)), Behavior, final)
                 : null;
 }
 
-/// <summary>The report card (vysvědčení) of a half-year: the pupil's subjects
+/// <summary>The report card (vysvědčení) of a grading period: the pupil's subjects
 /// (their timetable's, plus any they have a grade or a report card grade in),
 /// the grades' averages, the report card grades, behaviour and missed
 /// lessons.</summary>
@@ -103,9 +105,9 @@ public static class ReportCards
     private static readonly StringComparer Czech = StringComparer.Create(SchoolFormat.Culture, true);
 
     public static async Task<List<ReportCard>> BuildAsync(
-        AppDbContext db, IReadOnlyCollection<int> studentIds, int schoolYearStartYear, SchoolHalfYear half)
+        AppDbContext db, IReadOnlyCollection<int> studentIds, ReportPeriod period)
     {
-        var (from, to) = HalfYears.Range(schoolYearStartYear, half);
+        var (from, to) = (period.From, period.To);
         var students = await db.Students
             .Include(s => s.Person)
             .Include(s => s.SchoolClass)
@@ -132,18 +134,15 @@ public static class ReportCards
                 .ToListAsync())
             .ToLookup(g => g.StudentId);
         var stored = (await db.ReportCardGrades
-                .Where(r => studentIds.Contains(r.StudentId)
-                    && r.SchoolYearStartYear == schoolYearStartYear && r.HalfYear == half)
+                .Where(r => studentIds.Contains(r.StudentId) && r.GradingPeriodId == period.Id)
                 .ToListAsync())
             .ToLookup(r => r.StudentId);
         var notes = await db.ReportCardNotes
-            .Where(n => studentIds.Contains(n.StudentId)
-                && n.SchoolYearStartYear == schoolYearStartYear && n.HalfYear == half)
+            .Where(n => studentIds.Contains(n.StudentId) && n.GradingPeriodId == period.Id)
             .ToDictionaryAsync(n => n.StudentId);
         var modes = await AssessmentModes.LoadAsync(db, [.. students.Select(s => s.SchoolId).Distinct()]);
         var behavior = await db.BehaviorClassifications
-            .Where(c => studentIds.Contains(c.StudentId)
-                && c.SchoolYearStartYear == schoolYearStartYear && c.HalfYear == half)
+            .Where(c => studentIds.Contains(c.StudentId) && c.GradingPeriodId == period.Id)
             .ToDictionaryAsync(c => c.StudentId, c => c.Value);
         var absences = (await db.Absences
                 .Where(a => studentIds.Contains(a.StudentId) && a.Date >= from && a.Date <= to)
@@ -210,11 +209,11 @@ public static class ReportCards
     /// <summary>Celkové hodnocení (§ 16 odst. 3 and 4 of vyhláška 48/2005
     /// Sb.): s vyznamenáním — nothing worse than 2, an average of at most 1.5
     /// and very good behaviour; prospěl/a — no 5; a 5 fails; nehodnocen/a in a
-    /// subject leaves the first half not assessed and fails the second — a 5
-    /// together with nehodnocen/a fails either half (MŠMT's guidance on
-    /// report cards, 6.12). Exempt subjects don't count.</summary>
+    /// subject leaves the first half not assessed and fails the year's final
+    /// report card — a 5 together with nehodnocen/a fails either (MŠMT's
+    /// guidance on report cards, 6.12). Exempt subjects don't count.</summary>
     public static ReportCardResult? Result(
-        IEnumerable<(ReportCardGradeKind Kind, int? Value)> marks, BehaviorClassificationValue behavior, SchoolHalfYear half)
+        IEnumerable<(ReportCardGradeKind Kind, int? Value)> marks, BehaviorClassificationValue behavior, bool final)
     {
         var list = marks.ToList();
         var values = list.Where(m => m.Kind == ReportCardGradeKind.Graded).Select(m => m.Value!.Value).ToList();
@@ -224,7 +223,7 @@ public static class ReportCards
         }
         if (list.Any(m => m.Kind == ReportCardGradeKind.NotGraded))
         {
-            return half == SchoolHalfYear.First ? ReportCardResult.NotAssessed : ReportCardResult.Failed;
+            return final ? ReportCardResult.Failed : ReportCardResult.NotAssessed;
         }
         if (values.Count == 0)
         {

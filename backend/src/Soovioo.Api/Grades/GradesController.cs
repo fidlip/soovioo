@@ -8,6 +8,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Grades;
@@ -119,6 +120,11 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         {
             return Forbid();
         }
+        var gradedOn = request.GradedOn ?? db.Today;
+        if (!await db.HasSchoolYearOnAsync(gradedOn))
+        {
+            return this.FieldError("gradedOn", GradingPeriods.NoYear);
+        }
 
         var grade = new Grade
         {
@@ -127,12 +133,9 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
             Value = request.Value,
             Weight = request.Weight,
             Note = request.Note,
+            GradedOn = gradedOn,
             SchoolId = currentSchool.SchoolId!.Value,
         };
-        if (request.GradedOn is { } gradedOn)
-        {
-            grade.GradedOn = gradedOn;
-        }
 
         db.Grades.Add(grade);
         await db.SaveChangesAsync();
@@ -182,6 +185,10 @@ public class GradesController(AppDbContext db, ICurrentSchoolContext currentScho
         if (!await MayGradeAsync(grade.StudentId, grade.SubjectId) || !await MayGradeAsync(request.StudentId, request.SubjectId))
         {
             return Forbid();
+        }
+        if (request.GradedOn is { } moved && moved != grade.GradedOn && !await db.HasSchoolYearOnAsync(moved))
+        {
+            return this.FieldError("gradedOn", GradingPeriods.NoYear);
         }
 
         var before = (grade.StudentId, grade.SubjectId, grade.Value, grade.Weight, grade.Note, grade.GradedOn);

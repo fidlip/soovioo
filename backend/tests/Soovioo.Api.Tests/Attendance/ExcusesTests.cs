@@ -36,6 +36,7 @@ public class ExcusesTests
         db = new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId));
+        db.WithSchoolYears(SchoolId);
         User Teacher(string name) => new()
         {
             Username = name, PasswordHash = "x", SchoolId = SchoolId, Roles = [db.Role(UserRole.Teacher)],
@@ -132,6 +133,18 @@ public class ExcusesTests
         Assert.Equal([novak.Id], await NotifiedAsync(excuseId));
         var dto = Assert.Single(Assert.IsType<OkObjectResult>((await Excuses(novak).GetExcuses()).Result).Value as IEnumerable<ExcuseDto>);
         Assert.Equal((ExcuseStatus.Pending, "Hory", 3), (dto.Status, dto.Reason, dto.Days.Count));
+    }
+
+    [Fact]
+    public async Task AnOmluvenkaReachingBeyondTheSchoolsYearsIsRefused()
+    {
+        var result = await Excuses(parent).CreateExcuse(
+            new ExcuseRequest(jan.Id, new DateOnly(2030, 8, 30), new DateOnly(2030, 9, 2), "Dovolená"));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal(["dateTo"], problem.Errors.Keys);
+        Assert.Empty(db.Excuses);
+        Assert.Empty(db.Absences);
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Timetable;
 
@@ -74,8 +75,8 @@ public class TimetableChangeNotice(AppDbContext db, TimeProvider clock)
             .FirstOrDefaultAsync();
         var lessons = await LessonsAsync(version.Id);
         List<Lesson> before = previous is null ? [] : await LessonsAsync(previous.Id);
-        var fresh = before.Count == 0
-            || TimetableVersions.SchoolYearStart(previous!.ValidFrom) != TimetableVersions.SchoolYearStart(version.ValidFrom);
+        var years = await db.GradingPeriodsAsync();
+        var fresh = before.Count == 0 || years.YearOn(previous!.ValidFrom) != years.YearOn(version.ValidFrom);
 
         var from = SchoolFormat.Date(version.ValidFrom);
         var title = fresh ? $"Nový rozvrh od {from}" : $"Změna rozvrhu od {from}";

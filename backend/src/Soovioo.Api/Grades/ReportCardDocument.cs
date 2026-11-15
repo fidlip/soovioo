@@ -4,6 +4,7 @@ using QuestPDF.Infrastructure;
 using Soovioo.Api.Behavior;
 using Soovioo.Api.Common;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Grades;
 
@@ -21,6 +22,16 @@ public static class ReportCardDocument
         "července", "srpna", "září", "října", "listopadu", "prosince",
     ];
 
+    /// <summary>"I", "II" — the year's report cards as the forms number them.</summary>
+    public static string Roman(int number) => number switch
+    {
+        1 => "I",
+        2 => "II",
+        3 => "III",
+        4 => "IV",
+        _ => number.ToString(),
+    };
+
     private static readonly string[] GradeWords = ["výborný", "chvalitebný", "dobrý", "dostatečný", "nedostatečný"];
 
     private static readonly string[] BehaviorWords = ["velmi dobré", "uspokojivé", "neuspokojivé"];
@@ -29,12 +40,11 @@ public static class ReportCardDocument
         School? school,
         IReadOnlyList<ReportCard> cards,
         IReadOnlyDictionary<int, string> classTeachers,
-        int schoolYearStartYear,
-        SchoolHalfYear half)
+        ReportPeriod period)
     {
         var schoolType = school?.Type ?? SchoolType.Elementary;
-        var extract = half == SchoolHalfYear.First;
-        var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, half);
+        var extract = !period.Final;
+        var issuedOn = period.IssuedOn;
         return Document.Create(container =>
         {
             foreach (var card in cards)
@@ -65,7 +75,7 @@ public static class ReportCardDocument
                         column.Item().PaddingTop(12).Text(extract ? "Výpis z vysvědčení" : "Podklady k vysvědčení")
                             .FontSize(22).Bold();
                         column.Item().Text(
-                            $"Školní rok {schoolYearStartYear}/{schoolYearStartYear + 1} · {(extract ? "I" : "II")}. pololetí");
+                            $"Školní rok {period.Year.From.Year}/{period.Year.To.Year} · {Roman(period.Number)}. pololetí");
                         if (!extract)
                         {
                             column.Item().PaddingTop(4).Text(
@@ -110,7 +120,7 @@ public static class ReportCardDocument
                             {
                                 table.Cell().ColumnSpan(2).BorderBottom(1).PaddingBottom(4).Text(behaviorText).FontSize(10);
                             }
-                            if (card.Summarised(half))
+                            if (card.Summarised(period.Final))
                             {
                                 table.Cell().ColumnSpan(2).PaddingTop(10).BorderBottom(1).PaddingBottom(3)
                                     .Text("Souhrnné slovní hodnocení").Bold();
@@ -138,7 +148,7 @@ public static class ReportCardDocument
                         });
 
                         column.Item().PaddingTop(12);
-                        Field(column, "Celkové hodnocení", card.Result(half) is { } result ? Result(result, female) : "");
+                        Field(column, "Celkové hodnocení", card.Result(period.Final) is { } result ? Result(result, female) : "");
                         Field(column, "Zameškané hodiny",
                             $"{card.ExcusedHours + card.UnexcusedHours}, z toho neomluvených {card.UnexcusedHours}");
 

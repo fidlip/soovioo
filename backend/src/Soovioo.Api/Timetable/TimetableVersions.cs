@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Timetable;
 
@@ -33,16 +34,15 @@ public static class TimetableVersions
         await user.HasPermissionAsync(db, Permission.Timetable)
         || await user.HasPermissionAsync(db, Permission.TimetableVersionsRead);
 
-    public static DateOnly SchoolYearStart(DateOnly day) => new(day.Month >= 9 ? day.Year : day.Year - 1, 9, 1);
-
-    public static string SchoolYearName(DateOnly start) => $"Rozvrh {start.Year}/{(start.Year + 1) % 100:00}";
+    public static string NameFor(SchoolYear year) => $"Rozvrh {year.Name}";
 
     public const string PublishedReadOnly =
         "Zveřejněnou verzi rozvrhu nejde upravovat. Změnu připravte v novém konceptu, naplánované verzi můžete zveřejnění zrušit.";
 
     /// <summary>The version valid on <paramref name="day"/>. A school that has
     /// no published version yet gets a draft from the start of the school year,
-    /// so its first lessons have somewhere to go.</summary>
+    /// so its first lessons have somewhere to go — none without a school year
+    /// for the day.</summary>
     public static async Task<TimetableVersion?> EnsureTimetableVersionOnAsync(
         this AppDbContext db, int schoolId, DateOnly day, DateTimeOffset now)
     {
@@ -62,12 +62,15 @@ public static class TimetableVersions
             return draft;
         }
 
-        var start = SchoolYearStart(day);
+        if ((await db.GradingPeriodsAsync()).YearOn(day) is not { } year)
+        {
+            return null;
+        }
         version = new TimetableVersion
         {
             SchoolId = schoolId,
-            Name = SchoolYearName(start),
-            ValidFrom = start,
+            Name = NameFor(year),
+            ValidFrom = year.From,
             Status = TimetableVersionStatus.Draft,
             CreatedAt = now,
         };

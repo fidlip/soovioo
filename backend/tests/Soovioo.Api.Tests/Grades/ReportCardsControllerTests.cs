@@ -18,9 +18,9 @@ public class ReportCardsControllerTests : IDisposable
 {
     private const int SchoolId = 1;
     private const int Year = 2026;
-    private const SchoolHalfYear Half = SchoolHalfYear.First;
 
     private readonly AppDbContext db;
+    private readonly int period;
     private readonly StudentProfile jan;
     private readonly Subject maths = new() { Name = "Matematika", SchoolId = SchoolId };
     private readonly Subject czech = new() { Name = "Český jazyk", SchoolId = SchoolId };
@@ -34,6 +34,7 @@ public class ReportCardsControllerTests : IDisposable
         db = new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId)) { Today = new DateOnly(2026, 12, 1) };
+        period = db.FirstHalf(Year).Id;
         teacher = TestRoles.Principal(db, 1, UserRole.Teacher, SchoolId);
         management = TestRoles.Principal(db, 2, UserRole.Admin, SchoolId);
         pupil = TestRoles.Principal(db, 50, UserRole.Student, SchoolId);
@@ -63,7 +64,7 @@ public class ReportCardsControllerTests : IDisposable
 
     private async Task<ReportCardDto> CardAs(ClaimsPrincipal user)
     {
-        var result = await As(user).GetReportCards(Year, Half, studentId: jan.Id);
+        var result = await As(user).GetReportCards(period, studentId: jan.Id);
         return Assert.Single((List<ReportCardDto>)Assert.IsType<OkObjectResult>(result.Result).Value!);
     }
 
@@ -71,11 +72,11 @@ public class ReportCardsControllerTests : IDisposable
         card.Subjects.Single(s => s.SubjectId == subject.Id);
 
     private Task<IActionResult> Set(ClaimsPrincipal user, Subject subject, int value) =>
-        As(user).SetGrade(new(jan.Id, subject.Id, Year, Half, ReportCardGradeKind.Graded, value));
+        As(user).SetGrade(new(jan.Id, subject.Id, period, ReportCardGradeKind.Graded, value));
 
     private async Task<ConfirmReportCardGradesResult> Confirm(ClaimsPrincipal user, params Subject[] subjects)
     {
-        var result = await As(user).ConfirmGrades(new(Year, Half, [.. subjects.Select(s => new ReportCardGradeKey(jan.Id, s.Id))]));
+        var result = await As(user).ConfirmGrades(new(period, [.. subjects.Select(s => new ReportCardGradeKey(jan.Id, s.Id))]));
         return (ConfirmReportCardGradesResult)Assert.IsType<OkObjectResult>(result.Result).Value!;
     }
 
@@ -121,12 +122,12 @@ public class ReportCardsControllerTests : IDisposable
         Assert.True(confirmed.Mine);
         Assert.False(confirmed.CanReopen);
         Assert.IsType<ConflictObjectResult>(await Set(teacher, maths, 3));
-        Assert.IsType<ConflictObjectResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, Year, Half));
-        Assert.IsType<ForbidResult>(await As(teacher).ReopenGrade(new(jan.Id, maths.Id, Year, Half)));
+        Assert.IsType<ConflictObjectResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, period));
+        Assert.IsType<ForbidResult>(await As(teacher).ReopenGrade(new(jan.Id, maths.Id, period)));
 
         Assert.True(In(await CardAs(management), maths).CanReopen);
-        Assert.IsType<NoContentResult>(await As(management).ReopenGrade(new(jan.Id, maths.Id, Year, Half)));
-        Assert.IsType<NoContentResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, Year, Half));
+        Assert.IsType<NoContentResult>(await As(management).ReopenGrade(new(jan.Id, maths.Id, period)));
+        Assert.IsType<NoContentResult>(await As(teacher).ResetGrade(jan.Id, maths.Id, period));
 
         var reset = In(await CardAs(teacher), maths);
         Assert.False(reset.Confirmed);
@@ -146,7 +147,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Equal(["Matematika"], card.Subjects.Select(s => s.SubjectName));
         Assert.False(card.Whole);
         Assert.Null(card.Result);
-        Assert.IsType<ForbidResult>(await As(teacher).GetPdf(Year, Half, studentId: jan.Id));
+        Assert.IsType<ForbidResult>(await As(teacher).GetPdf(period, studentId: jan.Id));
 
         jan.SchoolClass!.ClassTeacherId = 1;
         await db.SaveChangesAsync();
@@ -155,7 +156,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Equal(2, asClassTeacher.Subjects.Count);
         Assert.True(asClassTeacher.Whole);
         Assert.Equal(ReportCardResult.WithHonours, asClassTeacher.Result);
-        Assert.IsType<FileContentResult>(await As(teacher).GetPdf(Year, Half, studentId: jan.Id));
+        Assert.IsType<FileContentResult>(await As(teacher).GetPdf(period, studentId: jan.Id));
     }
 
     [Fact]
@@ -170,9 +171,51 @@ public class ReportCardsControllerTests : IDisposable
     [Fact]
     public async Task ATeacherConfirmsOnlyWhatTheyGrade()
     {
-        var result = await As(teacher).ConfirmGrades(new(Year, Half, [new(jan.Id, czech.Id)]));
+        var result = await As(teacher).ConfirmGrades(new(period, [new(jan.Id, czech.Id)]));
 
         Assert.IsType<ForbidResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AGradeCountsInThePeriodOfItsDateTheSummerHolidaysInTheSecondHalf()
+    {
+        Grade(maths, 1, new DateOnly(2027, 1, 31));
+        Grade(maths, 5, new DateOnly(2027, 2, 1));
+        Grade(maths, 3, new DateOnly(2027, 8, 20));
+        Grade(maths, 2, new DateOnly(2027, 9, 1));
+        db.Absences.AddRange(
+            new Absence { StudentId = jan.Id, Date = new DateOnly(2027, 1, 29), Periods = [1, 2], Status = AbsenceStatus.Excused, SchoolId = SchoolId },
+            new Absence { StudentId = jan.Id, Date = new DateOnly(2027, 2, 1), Periods = [1], Status = AbsenceStatus.Unexcused, SchoolId = SchoolId });
+        db.SaveChanges();
+
+        var first = await CardAs(teacher);
+        var second = Assert.Single((List<ReportCardDto>)Assert.IsType<OkObjectResult>(
+            (await As(teacher).GetReportCards(db.SecondHalf(Year).Id, studentId: jan.Id)).Result).Value!);
+
+        Assert.Equal((1, 1), (In(first, maths).Average, In(first, maths).GradeCount));
+        Assert.Equal((2, 0), (first.ExcusedHours, first.UnexcusedHours));
+        Assert.Equal((4, 2), (In(second, maths).Average, In(second, maths).GradeCount));
+        Assert.Equal((0, 1), (second.ExcusedHours, second.UnexcusedHours));
+        Assert.Equal(new DateOnly(2027, 6, 30), second.IssuedOn);
+    }
+
+    [Fact]
+    public async Task AReportCardNeedsAPeriodThatEndsWithOne()
+    {
+        var year = db.SchoolYear(Year);
+        year.Periods.Add(new Soovioo.Api.SchoolYears.GradingPeriod
+        {
+            SchoolId = SchoolId, Name = "1. čtvrtletí", To = new DateOnly(2026, 11, 15),
+        });
+        db.SaveChanges();
+        var quarter = year.Periods.Single(p => p.Name == "1. čtvrtletí").Id;
+
+        Assert.IsType<BadRequestObjectResult>((await As(teacher).GetReportCards(quarter, studentId: jan.Id)).Result);
+        Assert.IsType<BadRequestObjectResult>((await As(teacher).GetReportCards(12345, studentId: jan.Id)).Result);
+        Assert.IsType<BadRequestObjectResult>(
+            await As(teacher).SetGrade(new(jan.Id, maths.Id, quarter, ReportCardGradeKind.Graded, 1)));
+        Assert.IsType<BadRequestObjectResult>(await As(teacher).GetPdf(12345, studentId: jan.Id));
+        Assert.Empty(db.ReportCardGrades);
     }
 
     [Fact]
@@ -189,7 +232,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Null(In(before, maths).Kind);
         Assert.Null(In(before, maths).Suggested);
         Assert.False(In(before, maths).CanEdit);
-        Assert.IsType<BadRequestObjectResult>(await As(pupil).GetPdf(Year, Half, studentId: jan.Id));
+        Assert.IsType<BadRequestObjectResult>(await As(pupil).GetPdf(period, studentId: jan.Id));
 
         db.Today = new DateOnly(2027, 1, 31);
         var after = await CardAs(pupil);
@@ -199,7 +242,7 @@ public class ReportCardsControllerTests : IDisposable
         Assert.Null(In(after, czech).Value);
         Assert.False(In(after, czech).Changed);
         Assert.Null(after.Result);
-        Assert.IsType<FileContentResult>(await As(pupil).GetPdf(Year, Half, studentId: jan.Id));
+        Assert.IsType<FileContentResult>(await As(pupil).GetPdf(period, studentId: jan.Id));
     }
 
     [Fact]
@@ -223,7 +266,7 @@ public class ReportCardsControllerTests : IDisposable
             new Absence { StudentId = jan.Id, Date = new DateOnly(2026, 6, 1), Periods = [1], Status = AbsenceStatus.Unexcused, SchoolId = SchoolId });
         db.BehaviorClassifications.Add(new BehaviorClassification
         {
-            StudentId = jan.Id, SchoolYearStartYear = Year, HalfYear = Half, SchoolId = SchoolId,
+            StudentId = jan.Id, GradingPeriodId = period, SchoolId = SchoolId,
             Value = BehaviorClassificationValue.Uspokojive, SetByName = "ředitel",
         });
         await db.SaveChangesAsync();
@@ -238,7 +281,7 @@ public class ReportCardsControllerTests : IDisposable
     [Fact]
     public async Task TheClassPdfHasEveryPupil()
     {
-        var result = await As(management).GetPdf(Year, Half, schoolClassId: jan.SchoolClassId);
+        var result = await As(management).GetPdf(period, schoolClassId: jan.SchoolClassId);
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("vypis-z-vysvedceni-5.A.pdf", file.FileDownloadName);
@@ -300,7 +343,7 @@ public class ReportCardsControllerTests : IDisposable
     {
         var marks = values.Select(v => (ReportCardGradeKind.Graded, (int?)v));
 
-        Assert.Equal(expected, ReportCards.Result(marks, behavior, SchoolHalfYear.First));
+        Assert.Equal(expected, ReportCards.Result(marks, behavior, final: false));
     }
 
     [Fact]
@@ -309,10 +352,10 @@ public class ReportCardsControllerTests : IDisposable
         (ReportCardGradeKind, int?)[] exempt = [(ReportCardGradeKind.Graded, 1), (ReportCardGradeKind.Exempt, null)];
         (ReportCardGradeKind, int?)[] notGraded = [(ReportCardGradeKind.Graded, 1), (ReportCardGradeKind.NotGraded, null)];
 
-        Assert.Equal(ReportCardResult.WithHonours, ReportCards.Result(exempt, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.First));
-        Assert.Equal(ReportCardResult.NotAssessed, ReportCards.Result(notGraded, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.First));
-        Assert.Equal(ReportCardResult.Failed, ReportCards.Result(notGraded, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.Second));
+        Assert.Equal(ReportCardResult.WithHonours, ReportCards.Result(exempt, BehaviorClassificationValue.VelmiDobre, final: false));
+        Assert.Equal(ReportCardResult.NotAssessed, ReportCards.Result(notGraded, BehaviorClassificationValue.VelmiDobre, final: false));
+        Assert.Equal(ReportCardResult.Failed, ReportCards.Result(notGraded, BehaviorClassificationValue.VelmiDobre, final: true));
         (ReportCardGradeKind, int?)[] failedAndNotGraded = [(ReportCardGradeKind.Graded, 5), (ReportCardGradeKind.NotGraded, null)];
-        Assert.Equal(ReportCardResult.Failed, ReportCards.Result(failedAndNotGraded, BehaviorClassificationValue.VelmiDobre, SchoolHalfYear.First));
+        Assert.Equal(ReportCardResult.Failed, ReportCards.Result(failedAndNotGraded, BehaviorClassificationValue.VelmiDobre, final: false));
     }
 }

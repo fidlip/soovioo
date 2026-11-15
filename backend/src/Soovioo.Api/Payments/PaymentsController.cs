@@ -6,7 +6,9 @@ using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Common;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Payments;
 
@@ -143,9 +145,15 @@ public class PaymentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         var schoolId = currentSchool.SchoolId!.Value;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        DateOnly? recurrenceEndDate = request.Recurrence == PaymentRecurrence.None
-            ? null
-            : request.RecurrenceEndDate ?? PaymentRecipientGenerator.DefaultSchoolYearEndDate(today);
+        DateOnly? recurrenceEndDate = null;
+        if (request.Recurrence != PaymentRecurrence.None)
+        {
+            recurrenceEndDate = request.RecurrenceEndDate ?? (await db.GradingPeriodsAsync()).TeachingEnd(today);
+            if (recurrenceEndDate is null)
+            {
+                return this.FieldError("recurrenceEndDate", "Zadejte konec opakování, školní rok ještě není založený.");
+            }
+        }
 
         var payment = new Payment
         {

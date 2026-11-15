@@ -16,7 +16,7 @@ public class TimetableControllerTests
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
+        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId)).WithSchoolYears(SchoolId);
     }
 
     /// <summary>Lessons change only in a draft; without a published version

@@ -21,7 +21,7 @@ public class AbsencesControllerTests
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
+        return new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId)).WithSchoolYears(SchoolId);
     }
 
     private static AbsencesController NewControllerAs(AppDbContext db, int userId, UserRole role)
@@ -132,5 +132,29 @@ public class AbsencesControllerTests
 
         var invalid = await controller.AddAbsence(new CreateAbsenceRequest(student.Id, new DateOnly(2026, 1, 6), [16]));
         Assert.IsType<BadRequestObjectResult>(invalid.Result);
+    }
+
+    [Fact]
+    public async Task AnAbsenceOutsideTheSchoolsYearsIsRefused()
+    {
+        using var db = NewDb();
+        var student = new StudentProfile { Person = new Person { FirstName = "Jan", LastName = "Novák", SchoolId = SchoolId }, SchoolClassId = 1, SchoolId = SchoolId };
+        db.Students.Add(student);
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, 999, UserRole.Admin);
+
+        var added = await controller.AddAbsence(new CreateAbsenceRequest(student.Id, new DateOnly(2031, 9, 1), [1]));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(added.Result).Value);
+        Assert.Equal(["date"], problem.Errors.Keys);
+        Assert.Empty(db.Absences);
+
+        var absence = new Absence { StudentId = student.Id, Date = new DateOnly(2026, 10, 1), Periods = [1], SchoolId = SchoolId };
+        db.Absences.Add(absence);
+        await db.SaveChangesAsync();
+        var moved = await controller.UpdateAbsence(absence.Id, new CreateAbsenceRequest(student.Id, new DateOnly(2031, 9, 1), [1]));
+
+        Assert.IsType<BadRequestObjectResult>(moved.Result);
+        Assert.Equal(new DateOnly(2026, 10, 1), absence.Date);
     }
 }

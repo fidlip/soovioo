@@ -6,6 +6,7 @@ export function canSeeTeachingArea(auth: AuthApiService): boolean {
     auth.can('TeachingRead') ||
     auth.can('Teaching') ||
     auth.can('Timetable') ||
-    auth.can('TimetableVersionsRead')
+    auth.can('TimetableVersionsRead') ||
+    auth.can('SchoolYear')
   );
 }

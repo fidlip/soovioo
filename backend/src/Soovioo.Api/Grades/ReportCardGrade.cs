@@ -1,5 +1,5 @@
-using Soovioo.Api.Behavior;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Grades;
 
@@ -26,9 +26,9 @@ public enum ReportCardGradeKind
 }
 
 /// <summary>The grade on the report card (vysvědčení) in a subject for a
-/// half-year, once a teacher changed or confirmed it — until then it is the
-/// rounded average (<see cref="ReportCards"/>), not stored. One row per
-/// (student, subject, school year, half), composite key in AppDbContext.
+/// grading period, once a teacher changed or confirmed it — until then it is
+/// the rounded average (<see cref="ReportCards"/>), not stored. One row per
+/// (student, subject, grading period), composite key in AppDbContext.
 /// Confirmed = closed: only the school's management may reopen it.</summary>
 public class ReportCardGrade
 {
@@ -38,8 +38,8 @@ public class ReportCardGrade
     public int SubjectId { get; set; }
     public Subject? Subject { get; set; }
 
-    public int SchoolYearStartYear { get; set; }
-    public SchoolHalfYear HalfYear { get; set; }
+    public int GradingPeriodId { get; set; }
+    public GradingPeriod? GradingPeriod { get; set; }
 
     public int SchoolId { get; set; }
 

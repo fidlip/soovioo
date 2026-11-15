@@ -93,13 +93,4 @@ public static class PaymentRecipientGenerator
         PaymentRecurrence.Semiannually => date.AddMonths(6),
         _ => throw new InvalidOperationException("Advance must not be called for a non-recurring payment."),
     };
-
-    /// <summary>Default end-of-recurrence date when the creator doesn't
-    /// supply one: June 30 of the nearest currently-running Czech school
-    /// year. The school doesn't have its own SchoolYear entity/setting yet
-    /// (see ROADMAP), so this is derived purely from today's date — same
-    /// trick as the frontend's defaultSchoolYearStartYear()/defaultHalfYear()
-    /// helpers in behavior-page.ts.</summary>
-    public static DateOnly DefaultSchoolYearEndDate(DateOnly today) =>
-        today.Month >= 8 ? new DateOnly(today.Year + 1, 6, 30) : new DateOnly(today.Year, 6, 30);
 }

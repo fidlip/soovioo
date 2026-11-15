@@ -18,6 +18,7 @@ using Soovioo.Api.Notifications;
 using Soovioo.Api.Payments;
 using Soovioo.Api.People;
 using Soovioo.Api.Reference;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 QuestPDF.Settings.License = LicenseType.Community;
@@ -344,6 +345,14 @@ static void SeedUsers(AppDbContext db, SeedOptions seed)
 
     var demoStudent = db.Students.IgnoreQueryFilters().First(s => s.Id == 1);
     demoStudent.Person!.UserId = demoUsers.First(u => u.Username == "zak").Id;
+
+    // The demo school works right away: the school year running today.
+    var today = SchoolClock.Today(TimeProvider.System);
+    if (!db.SchoolYears.IgnoreQueryFilters().Any(y => y.SchoolId == demoSchoolId && y.From <= today && today <= y.To))
+    {
+        var startYear = today.Month >= 9 ? today.Year : today.Year - 1;
+        db.SchoolYears.Add(SchoolYear.Create(demoSchoolId, startYear, MsmtCalendar.For(startYear)));
+    }
 
     db.SaveChanges();
 }

@@ -10,6 +10,7 @@ using Soovioo.Api.Homework;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Payments;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Demo;
@@ -187,6 +188,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
     private DateTimeOffset now;
     private School school = null!;
     private DemoSchoolCalendar calendar = null!;
+    private SchoolYear schoolYear = null!;
     private readonly HashSet<string> usernames = [];
     private readonly List<User> users = [];
     private readonly List<DivisionInfo> divisions = [];
@@ -315,6 +317,14 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
             .Where(d => !OfferedSubjects.Contains(d.Abbr) || languages.Contains(d.Abbr) || (d.Abbr == "PVP" && electiveGrades.Count > 0))
             .Concat(optional.Select(o => o.Subject))
             .ToList();
+
+        schoolYear = SchoolYear.Create(school.Id, calendar.StartYear, MsmtCalendar.For(calendar.StartYear));
+        db.SchoolYears.Add(schoolYear);
+        // From June the school has the next year ready.
+        if (calendar.Today >= new DateOnly(calendar.StartYear + 1, 6, 1))
+        {
+            db.SchoolYears.Add(SchoolYear.Create(school.Id, calendar.StartYear + 1, MsmtCalendar.For(calendar.StartYear + 1)));
+        }
 
         foreach (var (period, (start, end)) in Bells.Select((b, i) => (i + 1, b)))
         {
@@ -1218,7 +1228,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
         var version = new TimetableVersion
         {
             SchoolId = school.Id,
-            Name = TimetableVersions.SchoolYearName(calendar.Start),
+            Name = TimetableVersions.NameFor(schoolYear),
             ValidFrom = calendar.Start,
             Status = TimetableVersionStatus.Published,
             CreatedAt = now,
@@ -1510,8 +1520,7 @@ public class DemoDataGenerator(AppDbContext db, PhotoStorage? photos = null)
                     {
                         SchoolId = school.Id,
                         StudentId = student.Student.Id,
-                        SchoolYearStartYear = calendar.StartYear,
-                        HalfYear = SchoolHalfYear.First,
+                        GradingPeriod = schoolYear.Periods[0],
                         Value = roll < 0.97 ? BehaviorClassificationValue.VelmiDobre : roll < 0.995 ? BehaviorClassificationValue.Uspokojive : BehaviorClassificationValue.Neuspokojive,
                         SetByName = info.ClassTeacher.Person.FullName,
                         SetAt = At(calendar.SecondHalfStart.AddDays(-4), 12, 0),

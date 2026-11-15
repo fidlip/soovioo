@@ -4,6 +4,8 @@
   <p-button
     label="Zapsat známku"
     icon="pi pi-plus"
+    [disabled]="noSchoolYear()"
+    [title]="noSchoolYear() ? 'Škola nemá založený školní rok.' : ''"
     (onClick)="openAddGradeDialog()"
   />
   }

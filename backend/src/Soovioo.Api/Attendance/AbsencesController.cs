@@ -9,6 +9,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Attendance;
@@ -61,6 +62,10 @@ public class AbsencesController(
         if (periods is null)
         {
             return this.FieldError("periods", "Neplatné číslo hodiny.");
+        }
+        if (!await db.HasSchoolYearOnAsync(request.Date))
+        {
+            return this.FieldError("date", GradingPeriods.NoYear);
         }
 
         // The family already excused the day: the teacher's periods go to that record.
@@ -241,6 +246,10 @@ public class AbsencesController(
         if (periods is null)
         {
             return this.FieldError("periods", "Neplatné číslo hodiny.");
+        }
+        if (request.Date != absence.Date && !await db.HasSchoolYearOnAsync(request.Date))
+        {
+            return this.FieldError("date", GradingPeriods.NoYear);
         }
 
         var changed = absence.StudentId != request.StudentId || absence.Date != request.Date || !absence.Periods.SequenceEqual(periods);

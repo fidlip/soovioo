@@ -1,3 +1,4 @@
+using Soovioo.Api.Common;
 using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Grades;
@@ -26,7 +27,7 @@ public class Grade
 
     /// <summary>Date the grade was given — chosen by the teacher (defaults to
     /// today), unlike the purely technical <see cref="CreatedAt"/>.</summary>
-    public DateOnly GradedOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly GradedOn { get; set; } = SchoolClock.Today(TimeProvider.System);
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

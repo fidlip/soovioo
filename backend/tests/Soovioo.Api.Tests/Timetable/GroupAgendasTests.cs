@@ -31,6 +31,7 @@ public class GroupAgendasTests
 
     public GroupAgendasTests()
     {
+        db.WithSchoolYears(SchoolId);
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
         a = new SchoolClass { Name = "7.A", Rocnik = 7, SchoolId = SchoolId };
         b = new SchoolClass { Name = "7.B", Rocnik = 7, SchoolId = SchoolId };

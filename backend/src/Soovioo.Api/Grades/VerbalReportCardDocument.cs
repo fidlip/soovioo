@@ -5,6 +5,7 @@ using QuestPDF.Infrastructure;
 using Soovioo.Api.Behavior;
 using Soovioo.Api.Common;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Grades;
 
@@ -23,16 +24,15 @@ public static class VerbalReportCardDocument
     private const string Dots = "……………………";
     private const string Title = "Chování, povinné předměty, nepovinné předměty";
 
-    public static byte[] Generate(School? school, IReadOnlyList<ReportCard> cards, int schoolYearStartYear, SchoolHalfYear half)
+    public static byte[] Generate(School? school, IReadOnlyList<ReportCard> cards, ReportPeriod period)
     {
-        var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, half);
 
         // Each pupil's pages first on their own: how many lists B there are
         // shows on list A, and a list ends with its back.
         var sheets = cards
             .Select(card =>
             {
-                var counting = new Layout(school, card, schoolYearStartYear, half, issuedOn, Pages: 0, First: 1);
+                var counting = new Layout(school, card, period, Pages: 0, First: 1);
                 Compose(counting, padded: false).GeneratePdf();
                 var pages = Math.Max(2, counting.Counted + counting.Counted % 2);
                 return (Card: card, Pages: pages, Padded: counting.Counted != pages);
@@ -42,7 +42,7 @@ public static class VerbalReportCardDocument
         var layouts = new List<(Layout Layout, bool Padded)>();
         foreach (var (card, pages, padded) in sheets)
         {
-            layouts.Add((new Layout(school, card, schoolYearStartYear, half, issuedOn, pages, first), padded));
+            layouts.Add((new Layout(school, card, period, pages, first), padded));
             first += pages;
         }
 
@@ -70,7 +70,7 @@ public static class VerbalReportCardDocument
             page.Content().Extend().BorderLeft(1).BorderRight(1).PaddingHorizontal(8).PaddingVertical(6).Column(column =>
             {
                 column.Spacing(6);
-                foreach (var (heading, text) in Blocks(layout.Card, layout.Half))
+                foreach (var (heading, text) in Blocks(layout.Card, layout.Period.Final))
                 {
                     column.Item().Text(heading).Bold();
                     if (text is not null)
@@ -89,7 +89,7 @@ public static class VerbalReportCardDocument
 
     /// <summary>The headings and texts in the box: behaviour, then the
     /// souhrnné hodnocení or the subjects.</summary>
-    private static IEnumerable<(string Heading, string? Text)> Blocks(ReportCard card, SchoolHalfYear half)
+    private static IEnumerable<(string Heading, string? Text)> Blocks(ReportCard card, bool final)
     {
         var female = card.Student.Gender == Gender.Female;
         if (card.BehaviorMode == AssessmentMode.Verbal)
@@ -101,13 +101,13 @@ public static class VerbalReportCardDocument
             yield return ($"Chování: {ReportCardDocument.Behavior(card.Behavior, card.BehaviorMarkFormat)}", card.Note?.BehaviorText);
         }
 
-        if (card.Summarised(half))
+        if (card.Summarised(final))
         {
             yield return ("Souhrnné hodnocení", card.SummaryConfirmed ? card.Note!.SummaryText : null);
             yield break;
         }
 
-        var listA = ListA(card, half);
+        var listA = ListA(card, final);
         foreach (var subject in card.Subjects)
         {
             if (!listA && subject.Mode == AssessmentMode.Classification)
@@ -129,9 +129,9 @@ public static class VerbalReportCardDocument
     /// <summary>Slovně in everything: behaviour and every subject (a stupeň
     /// with a slovní hodnocení counts — MŠMT's guidance, 3.1.4), or the
     /// souhrnné hodnocení.</summary>
-    private static bool ListA(ReportCard card, SchoolHalfYear half) =>
+    private static bool ListA(ReportCard card, bool final) =>
         card.BehaviorMode != AssessmentMode.Classification
-        && (card.Summarised(half) || card.Subjects.All(s => s.Mode != AssessmentMode.Classification));
+        && (card.Summarised(final) || card.Subjects.All(s => s.Mode != AssessmentMode.Classification));
 
     /// <param name="Pages">The pupil's pages, a sheet's front and back each;
     /// 0 while counting them.</param>
@@ -140,13 +140,11 @@ public static class VerbalReportCardDocument
     private sealed record Layout(
         School? School,
         ReportCard Card,
-        int SchoolYearStartYear,
-        SchoolHalfYear Half,
-        DateOnly IssuedOn,
+        ReportPeriod Period,
         int Pages,
         int First)
     {
-        public bool ListA => VerbalReportCardDocument.ListA(Card, Half);
+        public bool ListA => VerbalReportCardDocument.ListA(Card, Period.Final);
 
         /// <summary>The pages the counting run took.</summary>
         public int Counted { get; set; }
@@ -232,7 +230,7 @@ public static class VerbalReportCardDocument
                 {
                     row.RelativeItem().Element(c => Field(c, "Číslo v třídním výkazu", null));
                     row.RelativeItem().Element(c => Field(c, "Školní rok",
-                        $"{Layout.SchoolYearStartYear}/{Layout.SchoolYearStartYear + 1}"));
+                        $"{Layout.Period.Year.From.Year}/{Layout.Period.Year.To.Year}"));
                 });
                 column.Item().PaddingTop(10).AlignCenter().Text("VYSVĚDČENÍ").FontSize(34).Bold().LetterSpacing(0.02f);
                 column.Item().AlignCenter().Text(isA ? "list A" : "list B").FontSize(13).Bold();
@@ -252,7 +250,7 @@ public static class VerbalReportCardDocument
                     column.Item().PaddingTop(3).Element(c => Field(c, "Místo narození", null));
                 }
                 column.Item().PaddingTop(10).Element(c =>
-                    TitleRow(c, $"{(Layout.Half == SchoolHalfYear.First ? "I." : "II.")} pololetí", bold: true));
+                    TitleRow(c, $"{ReportCardDocument.Roman(Layout.Period.Number)}. pololetí", bold: true));
                 if (isA)
                 {
                     column.Item().Border(1).BorderTop(0).Height(10);
@@ -277,7 +275,7 @@ public static class VerbalReportCardDocument
                     row.RelativeItem().Padding(4).Column(cell =>
                     {
                         cell.Item().AlignCenter().Text("Celkové hodnocení").Bold();
-                        cell.Item().AlignCenter().Text(card.Result(Layout.Half) is { } result
+                        cell.Item().AlignCenter().Text(card.Result(Layout.Period.Final) is { } result
                             ? ReportCardDocument.Result(result, female)
                             : Dots);
                     });
@@ -325,7 +323,7 @@ public static class VerbalReportCardDocument
                 row.RelativeItem(4).Column(place =>
                 {
                     place.Item().Text($"V {Layout.School?.City ?? Dots}");
-                    place.Item().PaddingTop(10).Text($"dne {ReportCardDocument.LongDate(Layout.IssuedOn)}");
+                    place.Item().PaddingTop(10).Text($"dne {ReportCardDocument.LongDate(Layout.Period.IssuedOn)}");
                 });
                 row.ConstantItem(70).Height(60).AlignCenter().AlignMiddle().Width(58).Height(58)
                     .Svg("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 58 58\"><circle cx=\"29\" cy=\"29\" r=\"28\" fill=\"none\" stroke=\"black\" stroke-width=\"1\"/></svg>");

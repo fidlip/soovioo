@@ -1,14 +1,14 @@
 <div class="flex flex-wrap items-end gap-3 pt-4">
-  <app-float-field label="Pololetí" for="reportCardHalfYear">
+  <app-float-field label="Období" for="reportCardPeriod">
     <p-select
-      ariaLabel="Pololetí"
-      inputId="reportCardHalfYear"
-      [options]="halfYearOptions"
+      ariaLabel="Období"
+      inputId="reportCardPeriod"
+      [options]="periodOptions()"
       optionLabel="label"
-      optionValue="key"
-      [ngModel]="halfYearKey()"
-      (ngModelChange)="halfYearKey.set($event)"
-      name="reportCardHalfYear"
+      optionValue="id"
+      [ngModel]="periodId()"
+      (ngModelChange)="pickedPeriodId.set($event)"
+      name="reportCardPeriod"
       appendTo="body"
       styleClass="w-56"
     />

@@ -31,6 +31,7 @@ public class StudentGroupsTests
 
     public StudentGroupsTests()
     {
+        db.WithSchoolYears(SchoolId);
         a = new SchoolClass { Name = "2.A", Rocnik = 2, SchoolId = SchoolId };
         b = new SchoolClass { Name = "2.B", Rocnik = 2, SchoolId = SchoolId };
         gym1 = new Classroom { Name = "Tělocvična 1", Type = ClassroomType.Gym, Capacity = 30, SchoolId = SchoolId };

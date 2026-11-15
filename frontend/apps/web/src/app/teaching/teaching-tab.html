@@ -581,6 +581,12 @@
       }
     </p-tabpanel>
 
+    <p-tabpanel value="schoolYear">
+      @if (activeSection() === 'schoolYear') {
+      <app-school-year-panel />
+      }
+    </p-tabpanel>
+
     <p-tabpanel value="substitutions">
       @if (activeSection() === 'substitutions') {
       <app-substitutions-panel />

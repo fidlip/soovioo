@@ -9,6 +9,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Attendance;
 
@@ -52,6 +53,10 @@ public class ExcusesController(
         if (Validate(request) is { } invalid)
         {
             return invalid;
+        }
+        if (!await InSchoolYearAsync(request))
+        {
+            return this.FieldError("dateTo", GradingPeriods.NoYear);
         }
         var family = await IsFamilyAsync();
         if (!family && request.Channel is null)
@@ -110,6 +115,10 @@ public class ExcusesController(
         if (Validate(request) is { } invalid)
         {
             return invalid;
+        }
+        if ((request.DateFrom != excuse.DateFrom || request.DateTo != excuse.DateTo) && !await InSchoolYearAsync(request))
+        {
+            return this.FieldError("dateTo", GradingPeriods.NoYear);
         }
         if (staff && excuse.Channel is not null)
         {
@@ -388,6 +397,11 @@ public class ExcusesController(
         }
         return null;
     }
+
+    /// <summary>The school's years follow one another, so both ends inside
+    /// them mean the whole range is.</summary>
+    private async Task<bool> InSchoolYearAsync(ExcuseRequest request) =>
+        await db.HasSchoolYearOnAsync(request.DateFrom) && await db.HasSchoolYearOnAsync(request.DateTo);
 
     private static void Set(Excuse excuse, ExcuseRequest request)
     {

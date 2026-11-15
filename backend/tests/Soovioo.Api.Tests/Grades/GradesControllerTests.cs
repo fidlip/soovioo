@@ -21,7 +21,7 @@ public class GradesControllerTests
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId));
+        var db = new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId)).WithSchoolYears(SchoolId);
         db.SchoolClasses.Add(new SchoolClass { Id = 1, Name = "5.A", SchoolId = SchoolId });
         db.SaveChanges();
         return db;
@@ -85,6 +85,28 @@ public class GradesControllerTests
     }
 
     [Fact]
+    public async Task AGradeOutsideTheSchoolsYearsIsRefused()
+    {
+        using var db = NewDb();
+        var (student, subject) = await SeedStudentAndSubject(db);
+        var controller = NewTeacherController(db);
+
+        var added = await controller.AddGrade(new CreateGradeRequest(student.Id, subject.Id, 1, 1, null, new DateOnly(2031, 9, 1)));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(added.Result).Value);
+        Assert.Equal(["gradedOn"], problem.Errors.Keys);
+        Assert.Empty(db.Grades);
+
+        var grade = new Grade { StudentId = student.Id, SubjectId = subject.Id, Value = 2, GradedOn = new DateOnly(2026, 10, 1), SchoolId = SchoolId };
+        db.Grades.Add(grade);
+        await db.SaveChangesAsync();
+        var moved = await controller.UpdateGrade(grade.Id, new CreateGradeRequest(student.Id, subject.Id, 2, 1, null, new DateOnly(2019, 5, 1)));
+
+        Assert.IsType<BadRequestObjectResult>(moved.Result);
+        Assert.Equal(new DateOnly(2026, 10, 1), grade.GradedOn);
+    }
+
+    [Fact]
     public async Task AddGradeDefaultsGradedOnToToday()
     {
         using var db = NewDb();
@@ -94,7 +116,7 @@ public class GradesControllerTests
             .AddGrade(new CreateGradeRequest(student.Id, subject.Id, 1, 1, null));
 
         var dto = Assert.IsType<GradeDto>(Assert.IsType<CreatedAtActionResult>(result.Result).Value);
-        Assert.Equal(DateOnly.FromDateTime(DateTime.Today), dto.GradedOn);
+        Assert.Equal(db.Today, dto.GradedOn);
     }
 
     [Fact]

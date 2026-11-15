@@ -42,7 +42,7 @@ export class BehaviorApiService {
     );
   }
 
-  /** Upsert — setting it again for the same (student, year, half) replaces
+  /** Upsert — setting it again for the same (student, period) replaces
    * the value. Rejected (403) unless the caller may set this value for
    * this student (class teacher → VelmiDobre only; Admin → anything). */
   setClassification(
