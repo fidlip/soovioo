@@ -7,6 +7,7 @@ import {
   CreateSuperAdminRequest,
   SchoolSupport,
   SupportAccess,
+  SupportPlan,
   SupportTicket,
   SupportTicketDetail,
   SupportTicketFilter,
@@ -165,6 +166,12 @@ export class SupportApiService {
   getSchoolTickets(): Observable<SupportTicket[]> {
     return this.http.get<SupportTicket[]>(
       `${this.baseUrl}/api/my-school/support-tickets`,
+    );
+  }
+
+  getSchoolPlan(): Observable<SupportPlan> {
+    return this.http.get<SupportPlan>(
+      `${this.baseUrl}/api/my-school/support-plan`,
     );
   }
 

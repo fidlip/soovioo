@@ -4,6 +4,17 @@
   display: contents;
 }
 
+/* The school's name with its support plan under it. */
+.app-school {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.app-school-plan {
+  font-size: 0.75rem;
+}
+
 /* Name with the logout button beside it. */
 .app-user-row {
   display: flex;

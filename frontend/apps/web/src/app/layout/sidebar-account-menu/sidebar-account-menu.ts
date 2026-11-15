@@ -1,13 +1,17 @@
 import { Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NgTemplateOutlet } from '@angular/common';
 import { Router } from '@angular/router';
 import { Menu } from '@openng/optimus-ui/menu';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
 import { MenuItem } from '@openng/optimus-ui/api';
+import { catchError, of } from 'rxjs';
 import {
   AuthApiService,
   LinkedAccount,
   LinkedAccountsApiService,
   RoleRef,
+  SupportApiService,
 } from '@soovioo/shared';
 import { canLinkAccounts } from '../../link-account/can-link-accounts';
 import { LinkAccountDialogService } from '../../link-account/link-account-dialog.service';
@@ -20,7 +24,7 @@ import { checkOnNavigation } from '../check-on-navigation';
  * with switching between them, and logging out. */
 @Component({
   selector: 'app-sidebar-account-menu',
-  imports: [Menu, Tooltip],
+  imports: [Menu, Tooltip, NgTemplateOutlet],
   templateUrl: './sidebar-account-menu.html',
   styleUrl: './sidebar-account-menu.scss',
 })
@@ -36,6 +40,16 @@ export class SidebarAccountMenu {
   constructor() {
     checkOnNavigation();
   }
+
+  /** Shown under the school's name to those who ask the support for help. */
+  protected readonly plan = toSignal(
+    this.authApi.isAdmin() && this.authApi.getSchoolName()
+      ? inject(SupportApiService)
+          .getSchoolPlan()
+          .pipe(catchError(() => of(null)))
+      : of(null),
+    { initialValue: null },
+  );
 
   /** Accounts with several roles (e.g. a teacher who is also a parent) get
    * a "Jako: …" switcher. */

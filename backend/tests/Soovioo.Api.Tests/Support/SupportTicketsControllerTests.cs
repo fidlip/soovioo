@@ -97,6 +97,14 @@ public class SupportTicketsControllerTests
     }
 
     [Fact]
+    public async Task TheSchoolSeesItsPlan()
+    {
+        var w = await SeedAsync();
+        using var db = SchoolDb(w.School.Id);
+        Assert.Equal(new SupportPlanDto("Paid", "Placený", 2), await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolPlan());
+    }
+
+    [Fact]
     public async Task TicketGoesFromTheSchoolThroughItsAssigneeToResolvedWithTheThreadOnBothSides()
     {
         var w = await SeedAsync();

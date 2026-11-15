@@ -19,8 +19,9 @@
   (click)="accountMenu.toggle($event)"
 >
   <i class="pi pi-building"></i>
-  <span class="app-nav-label truncate">Škola: {{ schoolName }}</span>@if
-  (linkedUnread() > 0) {<span class="app-nav-badge" aria-hidden="true"
+  <ng-container
+    *ngTemplateOutlet="school; context: { $implicit: schoolName }"
+  />@if (linkedUnread() > 0) {<span class="app-nav-badge" aria-hidden="true"
     >{{ linkedUnread() }}</span
   >}
 </button>
@@ -35,8 +36,8 @@
   class="app-nav-link text-surface-600 dark:text-surface-300"
   [title]="schoolName"
   ><i class="pi pi-building"></i
-  ><span class="app-nav-label truncate">Škola: {{ schoolName }}</span></span
->
+  ><ng-container *ngTemplateOutlet="school; context: { $implicit: schoolName }"
+/></span>
 } }
 <div class="app-user-row">
   <span
@@ -56,3 +57,15 @@
     <i class="pi pi-sign-out"></i>
   </button>
 </div>
+
+<ng-template #school let-schoolName>
+  <span class="app-nav-label app-school">
+    <span class="truncate">Škola: {{ schoolName }}</span>
+    @if (plan(); as plan) {
+    <span
+      class="app-school-plan truncate text-surface-500 dark:text-surface-400"
+      >Plán: {{ plan.name }}</span
+    >
+    }
+  </span>
+</ng-template>
