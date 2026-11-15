@@ -523,10 +523,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("StudentId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("SchoolYearStartYear")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("HalfYear")
+                    b.Property<int>("GradingPeriodId")
                         .HasColumnType("integer");
 
                     b.Property<int>("SchoolId")
@@ -542,7 +539,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("Value")
                         .HasColumnType("integer");
 
-                    b.HasKey("StudentId", "SchoolYearStartYear", "HalfYear");
+                    b.HasKey("StudentId", "GradingPeriodId");
+
+                    b.HasIndex("GradingPeriodId");
 
                     b.ToTable("BehaviorClassifications");
                 });
@@ -1311,10 +1310,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("SchoolYearStartYear")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("HalfYear")
+                    b.Property<int>("GradingPeriodId")
                         .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("ConfirmedAt")
@@ -1342,7 +1338,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("VerbalText")
                         .HasColumnType("text");
 
-                    b.HasKey("StudentId", "SubjectId", "SchoolYearStartYear", "HalfYear");
+                    b.HasKey("StudentId", "SubjectId", "GradingPeriodId");
+
+                    b.HasIndex("GradingPeriodId");
 
                     b.HasIndex("SubjectId");
 
@@ -1354,10 +1352,7 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("StudentId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("SchoolYearStartYear")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("HalfYear")
+                    b.Property<int>("GradingPeriodId")
                         .HasColumnType("integer");
 
                     b.Property<string>("BehaviorText")
@@ -1385,7 +1380,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<string>("SummaryText")
                         .HasColumnType("text");
 
-                    b.HasKey("StudentId", "SchoolYearStartYear", "HalfYear");
+                    b.HasKey("StudentId", "GradingPeriodId");
+
+                    b.HasIndex("GradingPeriodId");
 
                     b.ToTable("ReportCardNotes");
                 });
@@ -2384,6 +2381,74 @@ namespace Soovioo.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("StaffHandovers");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.GradingPeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("IssuedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Report")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("To")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolYearId", "To")
+                        .IsUnique();
+
+                    b.ToTable("GradingPeriods");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolYear", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("TeachingStart")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("To")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "From")
+                        .IsUnique();
+
+                    b.ToTable("SchoolYears");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
@@ -3602,11 +3667,19 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Behavior.BehaviorClassification", b =>
                 {
+                    b.HasOne("Soovioo.Api.SchoolYears.GradingPeriod", "GradingPeriod")
+                        .WithMany()
+                        .HasForeignKey("GradingPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("GradingPeriod");
 
                     b.Navigation("Student");
                 });
@@ -3955,6 +4028,12 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Grades.ReportCardGrade", b =>
                 {
+                    b.HasOne("Soovioo.Api.SchoolYears.GradingPeriod", "GradingPeriod")
+                        .WithMany()
+                        .HasForeignKey("GradingPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
@@ -3967,6 +4046,8 @@ namespace Soovioo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("GradingPeriod");
+
                     b.Navigation("Student");
 
                     b.Navigation("Subject");
@@ -3974,11 +4055,19 @@ namespace Soovioo.Api.Migrations
 
             modelBuilder.Entity("Soovioo.Api.Grades.ReportCardNote", b =>
                 {
+                    b.HasOne("Soovioo.Api.SchoolYears.GradingPeriod", "GradingPeriod")
+                        .WithMany()
+                        .HasForeignKey("GradingPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("GradingPeriod");
 
                     b.Navigation("Student");
                 });
@@ -4438,6 +4527,28 @@ namespace Soovioo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.GradingPeriod", b =>
+                {
+                    b.HasOne("Soovioo.Api.SchoolYears.SchoolYear", "SchoolYear")
+                        .WithMany("Periods")
+                        .HasForeignKey("SchoolYearId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SchoolYear");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolYear", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
@@ -4988,6 +5099,11 @@ namespace Soovioo.Api.Migrations
             modelBuilder.Entity("Soovioo.Api.ProductFeedback.Feedback", b =>
                 {
                     b.Navigation("Replies");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.SchoolYears.SchoolYear", b =>
+                {
+                    b.Navigation("Periods");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportTicketEntry", b =>

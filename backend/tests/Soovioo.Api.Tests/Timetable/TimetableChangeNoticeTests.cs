@@ -37,6 +37,7 @@ public class TimetableChangeNoticeTests
     public TimetableChangeNoticeTests()
     {
         db = new AppDbContext(options, new FakeCurrentSchoolContext(SchoolId)) { Today = new DateOnly(2026, 11, 2) };
+        db.WithSchoolYears(SchoolId);
         User NewUser(string name, UserRole role) =>
             new() { Username = name, PasswordHash = "x", ActiveRole = db.Role(role, SchoolId), SchoolId = SchoolId };
         teacherA = NewUser("ucitelA", UserRole.Teacher);

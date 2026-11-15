@@ -1,15 +1,7 @@
 using Soovioo.Api.Evidence;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Behavior;
-
-/// <summary>"Pololetí" — named to avoid any confusion with the US
-/// "semester" (which doesn't map 1:1 to the Czech school year's two
-/// halves).</summary>
-public enum SchoolHalfYear
-{
-    First = 1,
-    Second = 2,
-}
 
 public enum BehaviorClassificationValue
 {
@@ -18,7 +10,7 @@ public enum BehaviorClassificationValue
     Neuspokojive,
 }
 
-/// <summary>One row per (student, school year, half) — composite key,
+/// <summary>One row per (student, grading period) — composite key,
 /// configured in AppDbContext. Setting it again replaces the value (see
 /// BehaviorController.SetClassification), there's no history kept.
 /// Who may set which value is enforced in the controller: a class teacher
@@ -30,8 +22,8 @@ public class BehaviorClassification
     public int StudentId { get; set; }
     public StudentProfile? Student { get; set; }
 
-    public int SchoolYearStartYear { get; set; }
-    public SchoolHalfYear HalfYear { get; set; }
+    public int GradingPeriodId { get; set; }
+    public GradingPeriod? GradingPeriod { get; set; }
 
     public int SchoolId { get; set; }
 

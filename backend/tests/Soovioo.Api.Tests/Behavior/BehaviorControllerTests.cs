@@ -14,9 +14,9 @@ public class BehaviorControllerTests
     private const int SchoolId = 1;
 
     private static AppDbContext NewDb() =>
-        new(
+        new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
-            new FakeCurrentSchoolContext(SchoolId));
+            new FakeCurrentSchoolContext(SchoolId)).WithSchoolYears(SchoolId);
 
     private static Soovioo.Api.Behavior.BehaviorController NewController(AppDbContext db, int userId, string role)
     {
@@ -114,6 +114,33 @@ public class BehaviorControllerTests
     }
 
     [Fact]
+    public async Task ARecordOutsideTheSchoolsYearsIsRefused()
+    {
+        using var db = NewDb();
+        var (_, student) = await SeedClassAndStudentAsync(db);
+
+        var result = await NewController(db, 1, "Admin").CreateBehaviorRecord(new Soovioo.Api.Behavior.CreateBehaviorRecordRequest(
+            student.Id, Soovioo.Api.Behavior.BehaviorRecordType.Pochvala, "Text", new DateOnly(2031, 9, 1)));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal(["date"], problem.Errors.Keys);
+        Assert.Empty(db.BehaviorRecords);
+    }
+
+    [Fact]
+    public async Task AClassificationGoesToAPeriodWithAReportCard()
+    {
+        using var db = NewDb();
+        var (_, student) = await SeedClassAndStudentAsync(db);
+
+        var result = await NewController(db, 1, "Admin").SetClassification(new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(
+            student.Id, 12345, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Empty(db.BehaviorClassifications);
+    }
+
+    [Fact]
     public async Task DeleteAppliesSameRuleAsCreate()
     {
         using var db = NewDb();
@@ -203,7 +230,7 @@ public class BehaviorControllerTests
 
         var result = await NewController(db, 7, "Teacher").SetClassification(
             new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(
-                student.Id, 2026, Soovioo.Api.Behavior.SchoolHalfYear.First, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
+                student.Id, db.FirstHalf(2026, SchoolId).Id, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
 
         Assert.IsType<OkObjectResult>(result.Result);
     }
@@ -217,7 +244,7 @@ public class BehaviorControllerTests
 
         var result = await NewController(db, 7, "Teacher").SetClassification(
             new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(
-                student.Id, 2026, Soovioo.Api.Behavior.SchoolHalfYear.First, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
+                student.Id, db.FirstHalf(2026, SchoolId).Id, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
 
         Assert.IsType<ForbidResult>(result.Result);
     }
@@ -231,7 +258,7 @@ public class BehaviorControllerTests
         var (_, student) = await SeedClassAndStudentAsync(db, classTeacherId: 7);
 
         var result = await NewController(db, 7, "Teacher").SetClassification(
-            new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(student.Id, 2026, Soovioo.Api.Behavior.SchoolHalfYear.First, value));
+            new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(student.Id, db.FirstHalf(2026, SchoolId).Id, value));
 
         Assert.IsType<ForbidResult>(result.Result);
     }
@@ -245,7 +272,7 @@ public class BehaviorControllerTests
         var (_, student) = await SeedClassAndStudentAsync(db);
 
         var result = await NewController(db, 1, "Admin").SetClassification(
-            new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(student.Id, 2026, Soovioo.Api.Behavior.SchoolHalfYear.First, value));
+            new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(student.Id, db.FirstHalf(2026, SchoolId).Id, value));
 
         Assert.IsType<OkObjectResult>(result.Result);
     }
@@ -257,10 +284,10 @@ public class BehaviorControllerTests
         var (_, student) = await SeedClassAndStudentAsync(db);
         var controller = NewController(db, 1, "Admin");
         await controller.SetClassification(new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(
-            student.Id, 2026, Soovioo.Api.Behavior.SchoolHalfYear.First, Soovioo.Api.Behavior.BehaviorClassificationValue.Uspokojive));
+            student.Id, db.FirstHalf(2026, SchoolId).Id, Soovioo.Api.Behavior.BehaviorClassificationValue.Uspokojive));
 
         var result = await controller.SetClassification(new Soovioo.Api.Behavior.SetBehaviorClassificationRequest(
-            student.Id, 2026, Soovioo.Api.Behavior.SchoolHalfYear.First, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
+            student.Id, db.FirstHalf(2026, SchoolId).Id, Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre));
 
         var dto = Assert.IsType<Soovioo.Api.Behavior.BehaviorClassificationDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre, dto.Value);
@@ -323,7 +350,7 @@ public class BehaviorControllerTests
         var (_, student) = await SeedClassAndStudentAsync(db);
         db.BehaviorClassifications.Add(new Soovioo.Api.Behavior.BehaviorClassification
         {
-            StudentId = student.Id, SchoolYearStartYear = 2026, HalfYear = Soovioo.Api.Behavior.SchoolHalfYear.First,
+            StudentId = student.Id, GradingPeriodId = db.FirstHalf(2026, SchoolId).Id,
             Value = Soovioo.Api.Behavior.BehaviorClassificationValue.VelmiDobre, SetByName = "admin", SchoolId = SchoolId,
         });
         var parentUser = new User { Username = "rodic3", PasswordHash = "x", ActiveRole = db.Role(UserRole.Parent, SchoolId), SchoolId = SchoolId };

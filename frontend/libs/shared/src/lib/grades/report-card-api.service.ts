@@ -2,7 +2,6 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
-import { SchoolHalfYear } from '../behavior/behavior.model';
 import {
   ConfirmReportCardGradesResult,
   ReportCard,
@@ -17,9 +16,9 @@ import {
  * vysvědčení list A (slovní hodnocení) and lists B. */
 export type ReportCardPrint = 'Extract' | 'Verbal';
 
-export interface HalfYearKey {
-  schoolYearStartYear: number;
-  halfYear: SchoolHalfYear;
+/** The grading period a report card is of. */
+export interface PeriodKey {
+  gradingPeriodId: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -41,13 +40,13 @@ export class ReportCardApiService {
   }
 
   setGrade(
-    halfYear: HalfYearKey,
+    period: PeriodKey,
     key: ReportCardGradeKey,
     kind: ReportCardGradeKind,
     value: number | null,
   ): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/api/report-cards/grades`, {
-      ...halfYear,
+      ...period,
       ...key,
       kind,
       value,
@@ -56,92 +55,89 @@ export class ReportCardApiService {
 
   /** The slovní hodnocení of a subject; empty removes it. */
   setGradeText(
-    halfYear: HalfYearKey,
+    period: PeriodKey,
     key: ReportCardGradeKey,
     text: string,
   ): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/api/report-cards/grades/text`, {
-      ...halfYear,
+      ...period,
       ...key,
       text,
     });
   }
 
   setBehaviorText(
-    halfYear: HalfYearKey,
+    period: PeriodKey,
     studentId: number,
     text: string,
   ): Observable<void> {
     return this.http.put<void>(
       `${this.baseUrl}/api/report-cards/behavior-text`,
-      { ...halfYear, studentId, text },
+      { ...period, studentId, text },
     );
   }
 
   /** The souhrnné hodnocení; an empty text removes it. */
   setSummary(
-    halfYear: HalfYearKey,
+    period: PeriodKey,
     studentId: number,
     text: string,
     result: ReportCardResult | null,
   ): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/api/report-cards/summary`, {
-      ...halfYear,
+      ...period,
       studentId,
       text,
       result,
     });
   }
 
-  confirmSummary(halfYear: HalfYearKey, studentId: number): Observable<void> {
+  confirmSummary(period: PeriodKey, studentId: number): Observable<void> {
     return this.http.post<void>(
       `${this.baseUrl}/api/report-cards/summary/confirm`,
-      { ...halfYear, studentId },
+      { ...period, studentId },
     );
   }
 
-  reopenSummary(halfYear: HalfYearKey, studentId: number): Observable<void> {
+  reopenSummary(period: PeriodKey, studentId: number): Observable<void> {
     return this.http.post<void>(
       `${this.baseUrl}/api/report-cards/summary/reopen`,
-      { ...halfYear, studentId },
+      { ...period, studentId },
     );
   }
 
   /** Back to the suggestion from the average. */
-  resetGrade(halfYear: HalfYearKey, key: ReportCardGradeKey): Observable<void> {
+  resetGrade(period: PeriodKey, key: ReportCardGradeKey): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/api/report-cards/grades`, {
-      params: params({ ...halfYear, ...key }),
+      params: params({ ...period, ...key }),
     });
   }
 
   confirmGrades(
-    halfYear: HalfYearKey,
+    period: PeriodKey,
     grades: ReportCardGradeKey[],
   ): Observable<ConfirmReportCardGradesResult> {
     return this.http.post<ConfirmReportCardGradesResult>(
       `${this.baseUrl}/api/report-cards/grades/confirm`,
-      { ...halfYear, grades },
+      { ...period, grades },
     );
   }
 
-  reopenGrade(
-    halfYear: HalfYearKey,
-    key: ReportCardGradeKey,
-  ): Observable<void> {
+  reopenGrade(period: PeriodKey, key: ReportCardGradeKey): Observable<void> {
     return this.http.post<void>(
       `${this.baseUrl}/api/report-cards/grades/reopen`,
-      { ...halfYear, ...key },
+      { ...period, ...key },
     );
   }
 
   /** One pupil's report card, or the class's — a page each. */
   downloadPdf(
-    halfYear: HalfYearKey,
+    period: PeriodKey,
     of: { studentId: number } | { schoolClassId: number },
     form: ReportCardPrint = 'Extract',
   ): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/api/report-cards/pdf`, {
-      params: params({ ...halfYear, ...of, form }),
+      params: params({ ...period, ...of, form }),
       responseType: 'blob',
     });
   }

@@ -4,7 +4,6 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Dialog } from '@openng/optimus-ui/dialog';
-import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { Message as PMessage } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
@@ -20,7 +19,7 @@ import {
   Permission,
   SchoolClass,
   SchoolClassesApiService,
-  SchoolHalfYear,
+  SchoolYearsStore,
   Student,
   StudentsApiService,
   nameText,
@@ -28,6 +27,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
+import { todayString } from '../absences-page/excuse-days';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { PersonName } from '../person-name/person-name';
@@ -68,11 +68,6 @@ const CLASSIFICATION_SEVERITY: Record<
   Neuspokojive: 'danger',
 };
 
-const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
-  { value: 'First', label: '1. pololetí' },
-  { value: 'Second', label: '2. pololetí' },
-];
-
 @Component({
   selector: 'app-behavior-page',
   imports: [
@@ -88,7 +83,6 @@ const HALF_YEAR_OPTIONS: { value: SchoolHalfYear; label: string }[] = [
     DatePicker,
     Dialog,
     FormsModule,
-    InputNumber,
     PMessage,
     Select,
     Tag,
@@ -110,7 +104,15 @@ export class BehaviorPage {
   protected readonly students = signal<Student[]>([]);
   protected readonly schoolClasses = signal<SchoolClass[]>([]);
 
-  protected readonly halfYearOptions = HALF_YEAR_OPTIONS;
+  private readonly schoolYears = inject(SchoolYearsStore);
+  protected readonly noSchoolYear = this.schoolYears.missing;
+  /** The periods with a report card that have started, newest first. */
+  protected readonly periodOptions = computed(() => {
+    const today = todayString();
+    return this.schoolYears
+      .reportPeriods()
+      .filter((o) => o.period.from <= today);
+  });
 
   protected readonly studentOptions = computed(() =>
     this.students().map((s) => ({
@@ -146,11 +148,11 @@ export class BehaviorPage {
   protected newDate = new Date();
 
   protected classStudentId: number | null = null;
-  protected classSchoolYearStartYear = this.defaultSchoolYearStartYear();
-  protected classHalfYear: SchoolHalfYear = this.defaultHalfYear();
+  protected classPeriodId: number | null = null;
   protected classValue: BehaviorClassificationValue = 'VelmiDobre';
 
   constructor() {
+    this.schoolYears.ensure();
     this.reload();
     this.studentsApi.getStudents().subscribe({
       next: (students) => this.students.set(students),
@@ -190,8 +192,11 @@ export class BehaviorPage {
     return CLASSIFICATION_SEVERITY[value];
   }
 
-  protected halfYearLabel(halfYear: SchoolHalfYear): string {
-    return halfYear === 'First' ? '1. pololetí' : '2. pololetí';
+  protected periodLabel(gradingPeriodId: number): string {
+    return (
+      this.schoolYears.reportPeriods().find((o) => o.id === gradingPeriodId)
+        ?.label ?? ''
+    );
   }
 
   /** Mirrors the backend's CanRecordTypeAsync closely enough to hide
@@ -329,8 +334,8 @@ export class BehaviorPage {
   protected openSetClassificationDialog(): void {
     this.createError.set(null);
     this.classStudentId = this.students()[0]?.id ?? null;
-    this.classSchoolYearStartYear = this.defaultSchoolYearStartYear();
-    this.classHalfYear = this.defaultHalfYear();
+    this.classPeriodId =
+      this.schoolYears.reportPeriodOn(todayString())?.id ?? null;
     this.onClassStudentChange();
     this.notify.clear();
     this.classificationDialogVisible.set(true);
@@ -344,15 +349,14 @@ export class BehaviorPage {
   }
 
   protected saveClassification(): void {
-    if (!this.classStudentId) {
+    if (!this.classStudentId || !this.classPeriodId) {
       return;
     }
     this.createError.set(null);
     this.behaviorApi
       .setClassification({
         studentId: this.classStudentId,
-        schoolYearStartYear: this.classSchoolYearStartYear,
-        halfYear: this.classHalfYear,
+        gradingPeriodId: this.classPeriodId,
         value: this.classValue,
       })
       .subscribe({
@@ -369,16 +373,6 @@ export class BehaviorPage {
           );
         },
       });
-  }
-
-  private defaultSchoolYearStartYear(): number {
-    const now = new Date();
-    return now.getMonth() + 1 >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-  }
-
-  private defaultHalfYear(): SchoolHalfYear {
-    const month = new Date().getMonth() + 1;
-    return month >= 9 || month === 1 ? 'First' : 'Second';
   }
 
   /** Local (not UTC) y-m-d — see absences-page.ts's identical helper. */

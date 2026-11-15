@@ -7,6 +7,7 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Timetable;
 
@@ -177,7 +178,9 @@ public class TimetableController(AppDbContext db, ICurrentSchoolContext currentS
             : await db.EnsureTimetableVersionOnAsync(currentSchool.SchoolId!.Value, SchoolClock.Today(clock), clock.GetUtcNow());
         if (version is null)
         {
-            return BadRequest("Neznámá verze rozvrhu.");
+            return BadRequest(request.TimetableVersionId is null && !await db.HasSchoolYearOnAsync(SchoolClock.Today(clock))
+                ? GradingPeriods.NoYear
+                : "Neznámá verze rozvrhu.");
         }
         if (LockedMessage(version) is { } locked)
         {

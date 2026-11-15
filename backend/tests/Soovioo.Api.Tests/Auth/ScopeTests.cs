@@ -41,6 +41,7 @@ public class ScopeTests
 
     public ScopeTests()
     {
+        db.WithSchoolYears(SchoolId);
         db.Schools.Add(new School { Id = SchoolId, Name = "Škola", Slug = "skola" });
         db.AddRange(a, b, c, maths, czech);
         db.SaveChanges();
@@ -196,12 +197,12 @@ public class ScopeTests
         var reportCards = (ClaimsPrincipal user) =>
             As(new ReportCardsController(db, new FakeCurrentSchoolContext(SchoolId)), user);
 
-        Assert.IsType<NotFoundResult>(await reportCards(Teacher).GetPdf(2025, SchoolHalfYear.First, studentId: oto.Id));
-        Assert.IsType<NotFoundResult>(await reportCards(Parent).GetPdf(2025, SchoolHalfYear.First, studentId: eva.Id));
-        Assert.IsType<FileContentResult>(await reportCards(Parent).GetPdf(2025, SchoolHalfYear.First, studentId: jan.Id));
-        Assert.Empty(Ok(await reportCards(Teacher).GetReportCards(2025, SchoolHalfYear.First, studentId: oto.Id)));
+        Assert.IsType<NotFoundResult>(await reportCards(Teacher).GetPdf(db.FirstHalf(2025, SchoolId).Id, studentId: oto.Id));
+        Assert.IsType<NotFoundResult>(await reportCards(Parent).GetPdf(db.FirstHalf(2025, SchoolId).Id, studentId: eva.Id));
+        Assert.IsType<FileContentResult>(await reportCards(Parent).GetPdf(db.FirstHalf(2025, SchoolId).Id, studentId: jan.Id));
+        Assert.Empty(Ok(await reportCards(Teacher).GetReportCards(db.FirstHalf(2025, SchoolId).Id, studentId: oto.Id)));
         Assert.IsType<ForbidResult>(await reportCards(Teacher).SetGrade(
-            new(oto.Id, maths.Id, 2025, SchoolHalfYear.First, ReportCardGradeKind.Graded, 1)));
+            new(oto.Id, maths.Id, db.FirstHalf(2025, SchoolId).Id, ReportCardGradeKind.Graded, 1)));
     }
 
     // ---- absences -------------------------------------------------------
@@ -291,7 +292,7 @@ public class ScopeTests
     [Fact]
     public async Task ClassificationGoesWithTheMeasures()
     {
-        SetBehaviorClassificationRequest Of(StudentProfile s, BehaviorClassificationValue v) => new(s.Id, 2026, SchoolHalfYear.First, v);
+        SetBehaviorClassificationRequest Of(StudentProfile s, BehaviorClassificationValue v) => new(s.Id, db.FirstHalf(2026, SchoolId).Id, v);
 
         Assert.IsType<OkObjectResult>((await Behavior(Teacher).SetClassification(Of(jan, BehaviorClassificationValue.VelmiDobre))).Result);
         Assert.IsType<ForbidResult>((await Behavior(Teacher).SetClassification(Of(eva, BehaviorClassificationValue.VelmiDobre))).Result);

@@ -3,6 +3,7 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
 import {
@@ -10,31 +11,11 @@ import {
   AuthApiService,
   ReportCard,
   ReportCardSubject,
+  SchoolYearsStore,
   Student,
   Subject,
 } from '@soovioo/shared';
-import { ReportCardTab, halfYearOf } from './report-card-tab';
-
-describe('halfYearOf', () => {
-  it('puts September to January in the first half, the rest in the second', () => {
-    expect(halfYearOf(new Date(2026, 8, 1))).toEqual({
-      schoolYearStartYear: 2026,
-      halfYear: 'First',
-    });
-    expect(halfYearOf(new Date(2027, 0, 31))).toEqual({
-      schoolYearStartYear: 2026,
-      halfYear: 'First',
-    });
-    expect(halfYearOf(new Date(2027, 1, 1))).toEqual({
-      schoolYearStartYear: 2026,
-      halfYear: 'Second',
-    });
-    expect(halfYearOf(new Date(2027, 7, 31))).toEqual({
-      schoolYearStartYear: 2026,
-      halfYear: 'Second',
-    });
-  });
-});
+import { ReportCardTab } from './report-card-tab';
 
 describe('ReportCardTab', () => {
   let httpMock: HttpTestingController;
@@ -104,6 +85,20 @@ describe('ReportCardTab', () => {
           provide: AuthApiService,
           useValue: { isStaff: () => staff, getSchoolType: () => 'Elementary' },
         },
+        {
+          provide: SchoolYearsStore,
+          useValue: {
+            ensure: () => undefined,
+            years: signal([]),
+            reportPeriods: signal([
+              {
+                id: 11,
+                label: '2026/27 – 1. pololetí',
+                period: { from: '2000-09-01', to: '2999-01-31', final: false },
+              },
+            ]),
+          },
+        },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -146,12 +141,8 @@ describe('ReportCardTab', () => {
     classes(fixture, false, [1, '4.B', false], [2, '5.A', true]);
 
     const request = reportCardsRequest();
-    const current = halfYearOf(new Date());
     expect(request.request.params.get('schoolClassId')).toBe('2');
-    expect(request.request.params.get('halfYear')).toBe(current.halfYear);
-    expect(request.request.params.get('schoolYearStartYear')).toBe(
-      `${current.schoolYearStartYear}`,
-    );
+    expect(request.request.params.get('gradingPeriodId')).toBe('11');
     request.flush([card([maths])]);
     fixture.detectChanges();
 

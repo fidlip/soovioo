@@ -5,12 +5,12 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../api-base-url.token';
-import { HalfYearKey, ReportCardApiService } from './report-card-api.service';
+import { PeriodKey, ReportCardApiService } from './report-card-api.service';
 
 describe('ReportCardApiService', () => {
   let service: ReportCardApiService;
   let httpMock: HttpTestingController;
-  const half: HalfYearKey = { schoolYearStartYear: 2026, halfYear: 'First' };
+  const half: PeriodKey = { gradingPeriodId: 7 };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -32,7 +32,7 @@ describe('ReportCardApiService', () => {
       .subscribe();
     httpMock
       .expectOne(
-        'http://test/api/report-cards?schoolYearStartYear=2026&halfYear=First&schoolClassId=3',
+        'http://test/api/report-cards?gradingPeriodId=7&schoolClassId=3',
       )
       .flush([]);
   });
@@ -60,7 +60,7 @@ describe('ReportCardApiService', () => {
         (r) =>
           r.method === 'DELETE' &&
           r.urlWithParams ===
-            'http://test/api/report-cards/grades?schoolYearStartYear=2026&halfYear=First&studentId=1&subjectId=2',
+            'http://test/api/report-cards/grades?gradingPeriodId=7&studentId=1&subjectId=2',
       )
       .flush(null);
     const confirm = httpMock.expectOne(
@@ -76,7 +76,7 @@ describe('ReportCardApiService', () => {
   it('downloads the class report cards as a blob', () => {
     service.downloadPdf(half, { schoolClassId: 3 }).subscribe();
     const req = httpMock.expectOne(
-      'http://test/api/report-cards/pdf?schoolYearStartYear=2026&halfYear=First&schoolClassId=3&form=Extract',
+      'http://test/api/report-cards/pdf?gradingPeriodId=7&schoolClassId=3&form=Extract',
     );
     expect(req.request.responseType).toBe('blob');
     req.flush(new Blob());
@@ -86,7 +86,7 @@ describe('ReportCardApiService', () => {
     service.downloadPdf(half, { studentId: 5 }, 'Verbal').subscribe();
     httpMock
       .expectOne(
-        'http://test/api/report-cards/pdf?schoolYearStartYear=2026&halfYear=First&studentId=5&form=Verbal',
+        'http://test/api/report-cards/pdf?gradingPeriodId=7&studentId=5&form=Verbal',
       )
       .flush(new Blob());
 

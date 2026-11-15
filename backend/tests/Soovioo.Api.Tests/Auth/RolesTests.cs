@@ -17,9 +17,9 @@ public class RolesTests
     private const int SchoolId = 1;
 
     private static AppDbContext NewDb() =>
-        new(
+        new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
-            new FakeCurrentSchoolContext(SchoolId));
+            new FakeCurrentSchoolContext(SchoolId)).WithSchoolYears(SchoolId);
 
     private static RolesController Roles(AppDbContext db) =>
         new(db, new FakeCurrentSchoolContext(SchoolId)) { ControllerContext = TestRoles.Context(db, 999, UserRole.Admin) };

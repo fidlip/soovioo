@@ -34,6 +34,7 @@ import {
   formatDate,
   localizeStudentTerm,
   nameText,
+  SchoolYearsStore,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -102,6 +103,7 @@ const STUDENT_GROUP: GroupLevel<Grade> = {
 })
 export class GradesPage {
   protected readonly notify = inject(NotifyService);
+  protected readonly noSchoolYear = inject(SchoolYearsStore).missing;
   private readonly gradesApi = inject(GradesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly subjectsApi = inject(SubjectsApiService);

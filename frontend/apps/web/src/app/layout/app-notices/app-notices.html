@@ -63,4 +63,26 @@
   </span>
   }
 </div>
+} @if (noSchoolYear()) {
+<div
+  class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+  role="alert"
+  data-testid="no-school-year"
+>
+  <span
+    ><i class="pi pi-calendar-times mr-1"></i
+    ><strong>Škola nemá založený školní rok.</strong> Známky, docházku a chování
+    teď nejde zapisovat@if (!canFound()) {, založí ho vedení školy}.</span
+  >
+  @if (canFound()) {
+  <button
+    type="button"
+    class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+    (click)="foundSchoolYear()"
+  >
+    Založit školní rok
+  </button>
+  <app-school-year-wizard />
+  }
+</div>
 }

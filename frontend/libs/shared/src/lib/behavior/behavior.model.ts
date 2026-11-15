@@ -7,8 +7,6 @@ export type BehaviorRecordType =
   | 'NapomenutiReditele'
   | 'DutkaReditele';
 
-export type SchoolHalfYear = 'First' | 'Second';
-
 export type BehaviorClassificationValue =
   'VelmiDobre' | 'Uspokojive' | 'Neuspokojive';
 
@@ -40,8 +38,7 @@ export interface BehaviorClassification {
   studentName: string;
   /** How the caller sees the pupil when not by `studentName` — see `NameLabel`. */
   studentLabel?: NameLabel | null;
-  schoolYearStartYear: number;
-  halfYear: SchoolHalfYear;
+  gradingPeriodId: number;
   value: BehaviorClassificationValue;
   setByName: string;
   setAt: string;
@@ -49,7 +46,6 @@ export interface BehaviorClassification {
 
 export interface SetBehaviorClassificationRequest {
   studentId: number;
-  schoolYearStartYear: number;
-  halfYear: SchoolHalfYear;
+  gradingPeriodId: number;
   value: BehaviorClassificationValue;
 }

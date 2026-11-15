@@ -1,7 +1,4 @@
-import {
-  BehaviorClassificationValue,
-  SchoolHalfYear,
-} from '../behavior/behavior.model';
+import { BehaviorClassificationValue } from '../behavior/behavior.model';
 import { Gender } from '../evidence/student.model';
 
 /** How a stupeň prospěchu (and chování) is written on the report card:
@@ -121,8 +118,7 @@ export interface ReportCard {
 }
 
 export interface ReportCardQuery {
-  schoolYearStartYear: number;
-  halfYear: SchoolHalfYear;
+  gradingPeriodId: number;
   schoolClassId?: number | null;
   studentId?: number | null;
   subjectId?: number | null;

@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Behavior;
 
@@ -80,6 +82,10 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return Forbid();
         }
+        if (!await db.HasSchoolYearOnAsync(request.Date))
+        {
+            return this.FieldError("date", GradingPeriods.NoYear);
+        }
 
         var record = new BehaviorRecord
         {
@@ -136,16 +142,16 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         var classifications = await query
-            .OrderByDescending(c => c.SchoolYearStartYear).ThenByDescending(c => c.HalfYear)
+            .OrderByDescending(c => c.GradingPeriod!.To)
             .Select(c => new BehaviorClassificationDto(
                 c.StudentId, c.Student!.Person!.FirstName + " " + c.Student.Person!.LastName,
-                c.SchoolYearStartYear, c.HalfYear, c.Value, c.SetByName, c.SetAt))
+                c.GradingPeriodId, c.Value, c.SetByName, c.SetAt))
             .ToListAsync();
 
         return Ok(await db.WithStudentLabelsAsync(User, classifications, c => c.StudentId, (c, label) => c with { StudentLabel = label }));
     }
 
-    /// <summary>Upsert — setting it again for the same (student, year, half)
+    /// <summary>Upsert — setting it again for the same (student, period)
     /// replaces the value, no history kept. VelmiDobre goes with the class
     /// teacher's measures, Uspokojive/Neuspokojive with the director's.</summary>
     [HttpPut("behavior-classifications")]
@@ -167,16 +173,19 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
             return Forbid();
         }
 
-        var existing = await db.BehaviorClassifications.FindAsync(
-            request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        if ((await db.GradingPeriodsAsync()).Report(request.GradingPeriodId) is null)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
+
+        var existing = await db.BehaviorClassifications.FindAsync(request.StudentId, request.GradingPeriodId);
         var setByName = User.Identity?.Name ?? "Neznámý uživatel";
         if (existing is null)
         {
             existing = new BehaviorClassification
             {
                 StudentId = request.StudentId,
-                SchoolYearStartYear = request.SchoolYearStartYear,
-                HalfYear = request.HalfYear,
+                GradingPeriodId = request.GradingPeriodId,
                 SchoolId = currentSchool.SchoolId!.Value,
                 Value = request.Value,
                 SetByName = setByName,
@@ -193,8 +202,8 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
         await db.SaveChangesAsync();
 
         var dto = new BehaviorClassificationDto(
-            existing.StudentId, student.Person!.FirstName + " " + student.Person!.LastName, existing.SchoolYearStartYear,
-            existing.HalfYear, existing.Value, existing.SetByName, existing.SetAt);
+            existing.StudentId, student.Person!.FirstName + " " + student.Person!.LastName, existing.GradingPeriodId,
+            existing.Value, existing.SetByName, existing.SetAt);
         return Ok(dto);
     }
 
@@ -222,13 +231,12 @@ public record BehaviorRecordDto(
     NameLabel? StudentLabel = null);
 
 public record SetBehaviorClassificationRequest(
-    int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, BehaviorClassificationValue Value);
+    int StudentId, int GradingPeriodId, BehaviorClassificationValue Value);
 
 public record BehaviorClassificationDto(
     int StudentId,
     string StudentName,
-    int SchoolYearStartYear,
-    SchoolHalfYear HalfYear,
+    int GradingPeriodId,
     BehaviorClassificationValue Value,
     string SetByName,
     DateTimeOffset SetAt,

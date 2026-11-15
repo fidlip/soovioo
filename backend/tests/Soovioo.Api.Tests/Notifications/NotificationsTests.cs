@@ -23,9 +23,9 @@ public class NotificationsTests
     private const int SchoolId = 1;
 
     private static AppDbContext NewDb() =>
-        new(
+        new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
-            new FakeCurrentSchoolContext(SchoolId));
+            new FakeCurrentSchoolContext(SchoolId)).WithSchoolYears(SchoolId);
 
     private static ControllerContext ContextOf(User user) => new()
     {

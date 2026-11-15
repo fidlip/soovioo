@@ -5,6 +5,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
 using Soovioo.Api.Tests.Auth;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Tests.Timetable;
@@ -28,6 +29,7 @@ public class TimetableVersionsControllerTests
         db = new AppDbContext(
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(SchoolId)) { Today = Today };
+        db.WithSchoolYears(SchoolId);
         schoolClass = new SchoolClass { Name = "5.A", SchoolId = SchoolId };
         maths = new Subject { Name = "Matematika", SchoolId = SchoolId };
         czech = new Subject { Name = "Český jazyk", SchoolId = SchoolId };
@@ -311,6 +313,19 @@ public class TimetableVersionsControllerTests
         Assert.Equal(("Rozvrh 2026/27", new DateOnly(2026, 9, 1), TimetableVersionStatus.Draft),
             (version.Name, version.ValidFrom, version.Status));
         Assert.Equal(2, await db.TimetableEntries.CountAsync(e => e.TimetableVersionId == version.Id));
+    }
+
+    [Fact]
+    public async Task WithoutASchoolYearTheFirstLessonHasNowhereToGo()
+    {
+        db.TimetableVersions.Remove(current);
+        db.SchoolYears.RemoveRange(db.SchoolYears);
+        await db.SaveChangesAsync();
+
+        var result = await Timetable().AddEntry(schoolClass.Id, new(maths.Id, DayOfWeek.Monday, 1, WeekParity.Every));
+
+        Assert.Equal(GradingPeriods.NoYear, Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Empty(db.TimetableVersions);
     }
 
     [Fact]

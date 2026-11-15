@@ -20,7 +20,6 @@ import {
   BehaviorClassificationValue,
   DateFormatPipe,
   Gender,
-  HalfYearKey,
   ReportCard,
   ReportCardApiService,
   ReportCardClasses,
@@ -28,27 +27,16 @@ import {
   ReportCardPrint,
   ReportCardResult,
   ReportCardSubject,
+  SchoolYearsStore,
   Student,
   Subject,
 } from '@soovioo/shared';
+import { todayString } from '../absences-page/excuse-days';
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
 import { TermPipe } from '../term.pipe';
 import { VerbalTextDialog } from './verbal-text-dialog';
-
-/** The half-year a day belongs to: 1. pololetí 1 Sep – 31 Jan, 2. pololetí
- * 1 Feb – 31 Aug (fixed until the school has its own school year, #253). */
-export function halfYearOf(day: Date): HalfYearKey {
-  const month = day.getMonth() + 1;
-  const year = day.getFullYear();
-  if (month >= 9) {
-    return { schoolYearStartYear: year, halfYear: 'First' };
-  }
-  return month === 1
-    ? { schoolYearStartYear: year - 1, halfYear: 'First' }
-    : { schoolYearStartYear: year - 1, halfYear: 'Second' };
-}
 
 /** "Všechny moje třídy" — for staff who don't see the whole school. */
 const ALL_CLASSES = 0;
@@ -97,9 +85,9 @@ function gendered(base: string, gender: Gender | null): string {
       : `${base}/a`;
 }
 
-/** Vysvědčení in Známky: a half-year's report cards — of a class for staff,
+/** Vysvědčení in Známky: a grading period's report cards — of a class for staff,
  * of the family's children for them. A report card grade is suggested from
- * the half-year's average; the teacher may change it and confirms it, a
+ * the period's average; the teacher may change it and confirms it, a
  * confirmed one only the management reopens. */
 @Component({
   selector: 'app-report-card-tab',
@@ -134,36 +122,36 @@ export class ReportCardTab {
   protected readonly modeLabels = MODE_LABELS;
   private readonly textDialog = viewChild.required(VerbalTextDialog);
 
-  /** The current school year's halves and the previous one's, newest first. */
-  protected readonly halfYearOptions = (() => {
-    const current = halfYearOf(new Date());
-    const options: { key: string; label: string; value: HalfYearKey }[] = [];
-    for (const year of [
-      current.schoolYearStartYear,
-      current.schoolYearStartYear - 1,
-    ]) {
-      for (const halfYear of ['Second', 'First'] as const) {
-        if (
-          year === current.schoolYearStartYear &&
-          halfYear === 'Second' &&
-          current.halfYear === 'First'
-        ) {
-          continue;
-        }
-        options.push({
-          key: `${year}-${halfYear}`,
-          label: `${year}/${(year + 1) % 100} – ${halfYear === 'First' ? 1 : 2}. pololetí`,
-          value: { schoolYearStartYear: year, halfYear },
-        });
-      }
-    }
-    return options;
-  })();
+  private readonly schoolYears = inject(SchoolYearsStore);
 
-  protected readonly halfYearKey = signal(this.halfYearOptions[0].key);
-  private readonly halfYear = computed(
-    () => this.halfYearOptions.find((o) => o.key === this.halfYearKey())!.value,
+  /** The periods with a report card that have started, newest first. */
+  protected readonly periodOptions = computed(() => {
+    const today = todayString();
+    return this.schoolYears
+      .reportPeriods()
+      .filter((o) => o.period.from <= today);
+  });
+
+  /** Picked by hand; until then the period today is in. */
+  private readonly pickedPeriodId = signal<number | null>(null);
+  protected readonly periodId = computed(() => {
+    const options = this.periodOptions();
+    const picked = this.pickedPeriodId();
+    if (options.some((o) => o.id === picked)) {
+      return picked;
+    }
+    const today = todayString();
+    return (
+      options.find((o) => o.period.to >= today)?.id ?? options[0]?.id ?? null
+    );
+  });
+  private readonly period = computed(() =>
+    this.periodOptions().find((o) => o.id === this.periodId()),
   );
+  /** For the API; only asked for with a period picked. */
+  private key(): { gradingPeriodId: number } {
+    return { gradingPeriodId: this.periodId() ?? 0 };
+  }
   protected readonly classId = signal<number | null>(null);
   protected readonly subjectId = signal<number | null>(null);
   protected readonly studentId = signal<number | null>(null);
@@ -270,8 +258,9 @@ export class ReportCardTab {
         },
       });
     }
+    this.schoolYears.ensure();
     effect(() => {
-      this.halfYear();
+      this.periodId();
       this.classId();
       this.subjectId();
       this.studentId();
@@ -350,7 +339,7 @@ export class ReportCardTab {
       text: subject.verbalText,
       save: (text) =>
         this.api
-          .setGradeText(this.halfYear(), this.key(card, subject), text)
+          .setGradeText(this.key(), this.gradeKey(card, subject), text)
           .subscribe({
             next: () => this.reload(),
             error: (err) => this.failed('setGradeText failed', err),
@@ -363,12 +352,10 @@ export class ReportCardTab {
       header: `Chování – ${card.studentName}`,
       text: card.behaviorText,
       save: (text) =>
-        this.api
-          .setBehaviorText(this.halfYear(), card.studentId, text)
-          .subscribe({
-            next: () => this.reload(),
-            error: (err) => this.failed('setBehaviorText failed', err),
-          }),
+        this.api.setBehaviorText(this.key(), card.studentId, text).subscribe({
+          next: () => this.reload(),
+          error: (err) => this.failed('setBehaviorText failed', err),
+        }),
     });
   }
 
@@ -389,7 +376,7 @@ export class ReportCardTab {
       result: card.summary?.result ?? null,
       save: (text, result) =>
         this.api
-          .setSummary(this.halfYear(), card.studentId, text, result)
+          .setSummary(this.key(), card.studentId, text, result)
           .subscribe({
             next: () => this.reload(),
             error: (err) => this.failed('setSummary failed', err),
@@ -406,7 +393,7 @@ export class ReportCardTab {
       rejectLabel: 'Zrušit',
       rejectButtonProps: { severity: 'secondary', outlined: true },
       accept: () =>
-        this.api.confirmSummary(this.halfYear(), card.studentId).subscribe({
+        this.api.confirmSummary(this.key(), card.studentId).subscribe({
           next: () => this.reload(),
           error: (err) => this.failed('confirmSummary failed', err),
         }),
@@ -414,7 +401,7 @@ export class ReportCardTab {
   }
 
   protected reopenSummary(card: ReportCard): void {
-    this.api.reopenSummary(this.halfYear(), card.studentId).subscribe({
+    this.api.reopenSummary(this.key(), card.studentId).subscribe({
       next: () => this.reload(),
       error: (err) => this.failed('reopenSummary failed', err),
     });
@@ -450,8 +437,8 @@ export class ReportCardTab {
       key === 'Exempt' || key === 'NotGraded' ? key : 'Graded';
     this.api
       .setGrade(
-        this.halfYear(),
-        this.key(card, subject),
+        this.key(),
+        this.gradeKey(card, subject),
         kind,
         kind === 'Graded' ? Number(key) : null,
       )
@@ -462,14 +449,14 @@ export class ReportCardTab {
   }
 
   protected reset(card: ReportCard, subject: ReportCardSubject): void {
-    this.api.resetGrade(this.halfYear(), this.key(card, subject)).subscribe({
+    this.api.resetGrade(this.key(), this.gradeKey(card, subject)).subscribe({
       next: () => this.reload(),
       error: (err) => this.failed('resetGrade failed', err),
     });
   }
 
   protected confirmOne(card: ReportCard, subject: ReportCardSubject): void {
-    this.confirm([this.key(card, subject)]);
+    this.confirm([this.gradeKey(card, subject)]);
   }
 
   protected confirmShown(): void {
@@ -486,7 +473,7 @@ export class ReportCardTab {
   }
 
   protected reopen(card: ReportCard, subject: ReportCardSubject): void {
-    this.api.reopenGrade(this.halfYear(), this.key(card, subject)).subscribe({
+    this.api.reopenGrade(this.key(), this.gradeKey(card, subject)).subscribe({
       next: () => this.reload(),
       error: (err) => this.failed('reopenGrade failed', err),
     });
@@ -508,7 +495,7 @@ export class ReportCardTab {
   }
 
   private confirm(keys: { studentId: number; subjectId: number }[]): void {
-    this.api.confirmGrades(this.halfYear(), keys).subscribe({
+    this.api.confirmGrades(this.key(), keys).subscribe({
       next: (result) => {
         if (result.skipped > 0) {
           this.notify.warn(
@@ -526,7 +513,7 @@ export class ReportCardTab {
     name: string,
     form: ReportCardPrint,
   ): void {
-    this.api.downloadPdf(this.halfYear(), of, form).subscribe({
+    this.api.downloadPdf(this.key(), of, form).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -542,12 +529,12 @@ export class ReportCardTab {
   /** 1. pololetí: výpis z vysvědčení; 2. pololetí: the particulars for
    * the official form (no výpis then). */
   private pdfKind(): string {
-    return this.halfYear().halfYear === 'First'
-      ? 'vypis-z-vysvedceni'
-      : 'podklady-k-vysvedceni';
+    return this.period()?.period.final
+      ? 'podklady-k-vysvedceni'
+      : 'vypis-z-vysvedceni';
   }
 
-  private key(card: ReportCard, subject: ReportCardSubject) {
+  private gradeKey(card: ReportCard, subject: ReportCardSubject) {
     return { studentId: card.studentId, subjectId: subject.subjectId };
   }
 
@@ -562,10 +549,15 @@ export class ReportCardTab {
       this.cards.set(this.classes() === null ? null : []);
       return;
     }
+    if (this.periodId() === null) {
+      this.request?.unsubscribe();
+      this.cards.set(this.schoolYears.years() === null ? null : []);
+      return;
+    }
     this.request?.unsubscribe();
     this.request = this.api
       .getReportCards({
-        ...this.halfYear(),
+        ...this.key(),
         schoolClassId: classId === ALL_CLASSES ? null : classId,
         studentId: this.studentId(),
         subjectId: this.subjectId(),

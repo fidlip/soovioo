@@ -38,6 +38,7 @@ import {
   localizeStudentTerm,
   reachesStudent,
   nameText,
+  SchoolYearsStore,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
@@ -116,6 +117,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
 })
 export class AbsencesPage {
   protected readonly notify = inject(NotifyService);
+  protected readonly noSchoolYear = inject(SchoolYearsStore).missing;
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly studentsApi = inject(StudentsApiService);
   private readonly authApi = inject(AuthApiService);

@@ -10,6 +10,7 @@ using Soovioo.Api.Homework;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Payments;
 using Soovioo.Api.Reference;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 using Soovioo.Api.Timetable.Rvp;
 
@@ -43,6 +44,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<LessonChange> LessonChanges => Set<LessonChange>();
     public DbSet<SubstitutionDay> SubstitutionDays => Set<SubstitutionDay>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
+    public DbSet<SchoolYear> SchoolYears => Set<SchoolYear>();
+    public DbSet<GradingPeriod> GradingPeriods => Set<GradingPeriod>();
     public DbSet<GradeMainBlock> GradeMainBlocks => Set<GradeMainBlock>();
     public DbSet<ClassMainBlock> ClassMainBlocks => Set<ClassMainBlock>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -198,12 +201,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Audit.AuditLogEntry>().HasIndex(e => e.SupportSessionId);
         modelBuilder.Entity<HomeworkStudent>().HasKey(hs => new { hs.HomeworkId, hs.StudentId });
         modelBuilder.Entity<HomeworkCompletion>().HasKey(hc => new { hc.HomeworkId, hc.StudentId });
-        modelBuilder.Entity<BehaviorClassification>()
-            .HasKey(c => new { c.StudentId, c.SchoolYearStartYear, c.HalfYear });
-        modelBuilder.Entity<ReportCardGrade>()
-            .HasKey(g => new { g.StudentId, g.SubjectId, g.SchoolYearStartYear, g.HalfYear });
-        modelBuilder.Entity<ReportCardNote>()
-            .HasKey(n => new { n.StudentId, n.SchoolYearStartYear, n.HalfYear });
+        modelBuilder.Entity<SchoolYear>(e =>
+        {
+            e.HasIndex(y => new { y.SchoolId, y.From }).IsUnique();
+            e.HasOne(y => y.School).WithMany().HasForeignKey(y => y.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(y => currentSchool.IsSuperAdmin || y.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<GradingPeriod>(e =>
+        {
+            e.HasIndex(p => new { p.SchoolYearId, p.To }).IsUnique();
+            e.Property(p => p.Report).HasConversion<string>();
+            e.HasOne(p => p.SchoolYear).WithMany(y => y.Periods)
+                .HasForeignKey(p => p.SchoolYearId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(p => currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<BehaviorClassification>(e =>
+        {
+            e.HasKey(c => new { c.StudentId, c.GradingPeriodId });
+            e.HasOne(c => c.GradingPeriod).WithMany().HasForeignKey(c => c.GradingPeriodId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ReportCardGrade>(e =>
+        {
+            e.HasKey(g => new { g.StudentId, g.SubjectId, g.GradingPeriodId });
+            e.HasOne(g => g.GradingPeriod).WithMany().HasForeignKey(g => g.GradingPeriodId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ReportCardNote>(e =>
+        {
+            e.HasKey(n => new { n.StudentId, n.GradingPeriodId });
+            e.HasOne(n => n.GradingPeriod).WithMany().HasForeignKey(n => n.GradingPeriodId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<AssessmentModeRule>(e =>
         {
             e.HasIndex(r => new { r.SchoolId, r.Rocnik, r.SchoolClassId, r.StudentId, r.SubjectId, r.Behavior })

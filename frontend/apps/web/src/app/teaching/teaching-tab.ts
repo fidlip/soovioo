@@ -50,6 +50,7 @@ import { Loading } from '../loading/loading';
 import { DESKTOP_QUERY, mediaQuery } from '../media-query';
 import { NotifyService } from '../notify.service';
 import { PeriodsEditor } from '../periods-editor/periods-editor';
+import { SchoolYearPanel } from './school-year-panel';
 import { TeacherWishesDefaults } from '../periods-editor/teacher-wishes-defaults';
 import { MainBlockSettings } from '../periods-editor/main-block-settings';
 import { TimetableGenerateDialog } from '../timetable-page/timetable-generate-dialog';
@@ -88,6 +89,7 @@ const OVERVIEW_SECTIONS = ['classes', 'teachers', 'groups', 'plan'];
     Message,
     PeriodsEditor,
     RvpPanel,
+    SchoolYearPanel,
     Select,
     StudentGroupsPanel,
     SubstitutionsPanel,
@@ -148,6 +150,7 @@ export class TeachingTab {
           { value: 'plan', label: 'Učební plán', versioned: true },
         ]
       : []),
+    { value: 'schoolYear', label: 'Školní rok', versioned: false },
     ...(this.authApi.can('Timetable')
       ? [
           { value: 'substitutions', label: 'Suplování', versioned: false },

@@ -68,9 +68,9 @@ public class Payment
     public PaymentRecurrence Recurrence { get; set; }
 
     /// <summary>Only meaningful when <see cref="Recurrence"/> != None. Defaults
-    /// (server-side, if the creator didn't supply one) to June 30 of the
-    /// nearest running Czech school year — see
-    /// <see cref="PaymentRecipientGenerator.DefaultSchoolYearEndDate"/>.</summary>
+    /// (server-side, if the creator didn't supply one) to the end of lessons
+    /// of the school year — see
+    /// <see cref="SchoolYears.GradingPeriods.TeachingEnd"/>.</summary>
     public DateOnly? RecurrenceEndDate { get; set; }
 
     /// <summary>Mutable cursor the recurring background job

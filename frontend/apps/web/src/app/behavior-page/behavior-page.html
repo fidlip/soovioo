@@ -10,6 +10,8 @@
         label="Nový záznam"
         icon="pi pi-plus"
         size="small"
+        [disabled]="noSchoolYear()"
+        [title]="noSchoolYear() ? 'Škola nemá založený školní rok.' : ''"
         (onClick)="openAddRecordDialog()"
       />
     </div>
@@ -80,13 +82,15 @@
         label="Nastavit klasifikaci"
         icon="pi pi-plus"
         size="small"
+        [disabled]="noSchoolYear()"
+        [title]="noSchoolYear() ? 'Škola nemá založený školní rok.' : ''"
         (onClick)="openSetClassificationDialog()"
       />
     </div>
     }
     <div class="flex flex-col gap-3">
       @for (item of classifications() ?? []; track item.studentId + '-' +
-      item.schoolYearStartYear + '-' + item.halfYear) {
+      item.gradingPeriodId) {
       <div
         class="flex items-center justify-between gap-3 rounded-border border border-surface-200 p-3 dark:border-surface-700"
       >
@@ -98,8 +102,7 @@
                 [label]="item.studentLabel"
             /></strong>
             <span class="text-sm text-surface-500"
-              >{{ item.schoolYearStartYear }}/{{ item.schoolYearStartYear + 1 }}
-              — {{ halfYearLabel(item.halfYear) }}</span
+              >{{ periodLabel(item.gradingPeriodId) }}</span
             >
           </div>
           <div class="mt-1 text-sm text-surface-500">
@@ -223,33 +226,20 @@
         styleClass="w-full"
       />
     </app-float-field>
-    <div class="flex flex-wrap gap-3">
-      <app-float-field label="Školní rok (začátek)" for="classYear">
-        <p-inputNumber
-          inputId="classYear"
-          [(ngModel)]="classSchoolYearStartYear"
-          name="classYear"
-          required
-          [useGrouping]="false"
-          styleClass="w-32"
-          inputStyleClass="w-full"
-        />
-      </app-float-field>
-      <app-float-field label="Pololetí" for="classHalfYear">
-        <p-select
-          ariaLabel="Pololetí"
-          inputId="classHalfYear"
-          [options]="halfYearOptions"
-          optionLabel="label"
-          optionValue="value"
-          [(ngModel)]="classHalfYear"
-          name="classHalfYear"
-          required
-          appendTo="body"
-          styleClass="w-40"
-        />
-      </app-float-field>
-    </div>
+    <app-float-field label="Období" for="classPeriod">
+      <p-select
+        ariaLabel="Období"
+        inputId="classPeriod"
+        [options]="periodOptions()"
+        optionLabel="label"
+        optionValue="id"
+        [(ngModel)]="classPeriodId"
+        name="classPeriod"
+        required
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </app-float-field>
     <app-float-field label="Klasifikace" for="classValue">
       <p-select
         ariaLabel="Klasifikace"

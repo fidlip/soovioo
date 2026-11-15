@@ -241,6 +241,27 @@ public class PaymentsControllerTests
     }
 
     [Fact]
+    public async Task ARecurringPaymentWithoutAnEndRunsToTheEndOfTheSchoolYearsLessons()
+    {
+        using var db = NewDb();
+        await Fixture.SeedAsync(db);
+        CreatePaymentRequest Monthly() => new(
+            "Obědy", null, new DateOnly(2026, 11, 1),
+            PaymentAmountType.FixedPerStudent, 100m, PaymentRecurrence.Monthly, PaymentAudience.Everyone);
+
+        var withoutYear = await NewController(db, 999, "Admin").CreatePayment(Monthly());
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(withoutYear.Result).Value);
+        Assert.Equal(["recurrenceEndDate"], problem.Errors.Keys);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var year = db.SchoolYear(today.Month >= 7 ? today.Year : today.Year - 1, SchoolId);
+        var created = await NewController(db, 999, "Admin").CreatePayment(Monthly());
+
+        var dto = Assert.IsType<PaymentDto>(Assert.IsType<CreatedAtActionResult>(created.Result).Value);
+        Assert.Equal(year.Periods.Max(p => p.To), dto.RecurrenceEndDate);
+    }
+
+    [Fact]
     public async Task RecurringPaymentSetsNextOccurrenceDueDateWithinRecurrenceEndDate()
     {
         using var db = NewDb();

@@ -6,10 +6,18 @@
   <p-button
     label="Zapsat absenci"
     icon="pi pi-plus"
+    [disabled]="noSchoolYear()"
+    [title]="noSchoolYear() ? 'Škola nemá založený školní rok.' : ''"
     (onClick)="openAddAbsenceDialog()"
   />
   } @else if (tab() === 'omluvenky' && canExcuse()) {
-  <p-button label="Omluvit" icon="pi pi-plus" (onClick)="openExcuseDialog()" />
+  <p-button
+    label="Omluvit"
+    icon="pi pi-plus"
+    [disabled]="noSchoolYear()"
+    [title]="noSchoolYear() ? 'Škola nemá založený školní rok.' : ''"
+    (onClick)="openExcuseDialog()"
+  />
   }
 </div>
 

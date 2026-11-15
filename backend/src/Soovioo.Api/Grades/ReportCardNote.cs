@@ -1,11 +1,11 @@
-using Soovioo.Api.Behavior;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Grades;
 
-/// <summary>A pupil's texts on the half-year's report card: the slovní
+/// <summary>A pupil's texts on a grading period's report card: the slovní
 /// hodnocení of behaviour (its stupeň stays the behaviour classification),
-/// and in the first half the souhrnné slovní hodnocení — all subjects at once
+/// and on a výpis the souhrnné slovní hodnocení — all subjects at once
 /// instead of each (§ 15 odst. 2 of vyhláška 48/2005 Sb.) with the overall
 /// result the třídní decides by the school's rules. The summary is confirmed
 /// like a report card grade; only the management reopens it.</summary>
@@ -14,8 +14,8 @@ public class ReportCardNote
     public int StudentId { get; set; }
     public StudentProfile? Student { get; set; }
 
-    public int SchoolYearStartYear { get; set; }
-    public SchoolHalfYear HalfYear { get; set; }
+    public int GradingPeriodId { get; set; }
+    public GradingPeriod? GradingPeriod { get; set; }
 
     public int SchoolId { get; set; }
 

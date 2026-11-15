@@ -8,15 +8,16 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Grades;
 
-/// <summary>Vysvědčení of a half-year. A report card grade is suggested from
+/// <summary>Vysvědčení of a grading period. A report card grade is suggested from
 /// the average until a teacher who grades the pupil in the subject changes
 /// or confirms it; a confirmed one only the school's management (Zápis
 /// známek for the whole school) may reopen. Families see report card grades
-/// and the PDF once the half-year's report card is issued, and only
+/// and the PDF once the period's report card is issued, and only
 /// confirmed ones.</summary>
 [Authorize]
 [ApiController]
@@ -31,15 +32,20 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
     [HttpGet]
     public async Task<ActionResult<List<ReportCardDto>>> GetReportCards(
-        int schoolYearStartYear, SchoolHalfYear halfYear, int? schoolClassId = null, int? studentId = null, int? subjectId = null)
+        int gradingPeriodId, int? schoolClassId = null, int? studentId = null, int? subjectId = null)
     {
+        if (await PeriodAsync(gradingPeriodId) is not { } period)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
         if (await StudentIdsAsync(schoolClassId, studentId) is not { } ids)
         {
             return BadRequest("Vyberte třídu nebo žáka.");
         }
 
-        var cards = await ReportCards.BuildAsync(db, ids, schoolYearStartYear, halfYear);
-        var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, halfYear);
+        var cards = await ReportCards.BuildAsync(db, ids, period);
+        var issuedOn = period.IssuedOn;
+        var final = period.Final;
         var family = !User.IsStaff();
         var issued = db.Today >= issuedOn;
         var shown = !family || issued;
@@ -62,7 +68,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
         return Ok(cards.Select(card =>
             {
-                var summarised = card.Summarised(halfYear);
+                var summarised = card.Summarised(final);
                 var summaryVisible = !family || (shown && card.SummaryConfirmed);
                 var verbalBehavior = card.BehaviorMode == AssessmentMode.Verbal;
                 return new ReportCardDto(
@@ -74,7 +80,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                     family && verbalBehavior ? null : card.Behavior,
                     card.ExcusedHours,
                     card.UnexcusedHours,
-                    shown && whole(card.Student) ? card.Result(halfYear) : null,
+                    shown && whole(card.Student) ? card.Result(final) : null,
                     issuedOn,
                     issued,
                     whole(card.Student),
@@ -108,8 +114,8 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                     family && !shown ? null : card.Note?.BehaviorText,
                     !family && card.BehaviorMode != AssessmentMode.Classification
                         && (behaviorReach is null || behaviorReach.Contains(card.Student.Id)),
-                    card.HasVerbal(halfYear),
-                    whole(card.Student) && card.SummaryAllowed(halfYear)
+                    card.HasVerbal(final),
+                    whole(card.Student) && card.SummaryAllowed(final)
                         ? new ReportCardSummaryDto(
                             summaryVisible && summarised ? card.Note!.SummaryText : null,
                             summaryVisible && summarised ? card.Note!.SummaryResult : null,
@@ -153,13 +159,12 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return BadRequest("Neplatná známka na vysvědčení.");
         }
-        if (await CheckAsync(request.StudentId, request.SubjectId) is { } error)
+        if (await CheckAsync(request.StudentId, request.SubjectId, request.GradingPeriodId) is { } error)
         {
             return error;
         }
 
-        var grade = await db.ReportCardGrades.FindAsync(
-            request.StudentId, request.SubjectId, request.SchoolYearStartYear, request.HalfYear);
+        var grade = await db.ReportCardGrades.FindAsync(request.StudentId, request.SubjectId, request.GradingPeriodId);
         if (grade?.ConfirmedAt is not null)
         {
             return Conflict(Confirmed);
@@ -171,8 +176,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             {
                 StudentId = request.StudentId,
                 SubjectId = request.SubjectId,
-                SchoolYearStartYear = request.SchoolYearStartYear,
-                HalfYear = request.HalfYear,
+                GradingPeriodId = request.GradingPeriodId,
                 SchoolId = currentSchool.SchoolId!.Value,
                 SetByName = userName,
             };
@@ -190,13 +194,13 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
     [HttpDelete("grades")]
     [RequirePermission(Permission.GradesWrite)]
     [AuditAction("Známka na vysvědčení vrácena na návrh")]
-    public async Task<IActionResult> ResetGrade(int studentId, int subjectId, int schoolYearStartYear, SchoolHalfYear halfYear)
+    public async Task<IActionResult> ResetGrade(int studentId, int subjectId, int gradingPeriodId)
     {
-        if (await CheckAsync(studentId, subjectId) is { } error)
+        if (await CheckAsync(studentId, subjectId, gradingPeriodId) is { } error)
         {
             return error;
         }
-        var grade = await db.ReportCardGrades.FindAsync(studentId, subjectId, schoolYearStartYear, halfYear);
+        var grade = await db.ReportCardGrades.FindAsync(studentId, subjectId, gradingPeriodId);
         if (grade?.ConfirmedAt is not null)
         {
             return Conflict(Confirmed);
@@ -229,7 +233,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return BadRequest(TooLong);
         }
-        if (await CheckAsync(request.StudentId, request.SubjectId) is { } error)
+        if (await CheckAsync(request.StudentId, request.SubjectId, request.GradingPeriodId) is { } error)
         {
             return error;
         }
@@ -239,8 +243,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             return BadRequest("Předmět se u žáka hodnotí jen klasifikací.");
         }
 
-        var grade = await db.ReportCardGrades.FindAsync(
-            request.StudentId, request.SubjectId, request.SchoolYearStartYear, request.HalfYear);
+        var grade = await db.ReportCardGrades.FindAsync(request.StudentId, request.SubjectId, request.GradingPeriodId);
         if (grade?.ConfirmedAt is not null)
         {
             return Conflict(Confirmed);
@@ -257,8 +260,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             {
                 StudentId = request.StudentId,
                 SubjectId = request.SubjectId,
-                SchoolYearStartYear = request.SchoolYearStartYear,
-                HalfYear = request.HalfYear,
+                GradingPeriodId = request.GradingPeriodId,
                 SchoolId = currentSchool.SchoolId!.Value,
                 SetByName = userName,
             };
@@ -299,7 +301,11 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return BadRequest("Chování se u žáka hodnotí jen klasifikací.");
         }
-        var note = await NoteAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        if (await PeriodAsync(request.GradingPeriodId) is null)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
+        var note = await NoteAsync(request.StudentId, request.GradingPeriodId);
         note.BehaviorText = Clean(request.Text);
         await SaveNoteAsync(note);
         return NoContent();
@@ -321,11 +327,11 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return BadRequest("Neznámé celkové hodnocení.");
         }
-        if (await CheckSummaryAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear) is { } error)
+        if (await CheckSummaryAsync(request.StudentId, request.GradingPeriodId) is { } error)
         {
             return error;
         }
-        var note = await NoteAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        var note = await NoteAsync(request.StudentId, request.GradingPeriodId);
         if (note.SummaryConfirmedAt is not null)
         {
             return Conflict(SummaryConfirmed);
@@ -341,11 +347,11 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
     [RequirePermission(Permission.GradesWrite)]
     public async Task<IActionResult> ConfirmSummary(ReportCardNoteRequest request)
     {
-        if (await CheckSummaryAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear) is { } error)
+        if (await CheckSummaryAsync(request.StudentId, request.GradingPeriodId) is { } error)
         {
             return error;
         }
-        var note = await db.ReportCardNotes.FindAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        var note = await db.ReportCardNotes.FindAsync(request.StudentId, request.GradingPeriodId);
         if (note is not { SummaryText: not null, SummaryResult: not null })
         {
             return BadRequest("Souhrnné hodnocení potřebuje text i celkové hodnocení.");
@@ -368,7 +374,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return Forbid();
         }
-        var note = await db.ReportCardNotes.FindAsync(request.StudentId, request.SchoolYearStartYear, request.HalfYear);
+        var note = await db.ReportCardNotes.FindAsync(request.StudentId, request.GradingPeriodId);
         if (note is null)
         {
             return NotFound();
@@ -394,8 +400,11 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
             }
         }
 
-        var cards = (await ReportCards.BuildAsync(
-                db, [.. request.Grades.Select(g => g.StudentId).Distinct()], request.SchoolYearStartYear, request.HalfYear))
+        if (await PeriodAsync(request.GradingPeriodId) is not { } period)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
+        var cards = (await ReportCards.BuildAsync(db, [.. request.Grades.Select(g => g.StudentId).Distinct()], period))
             .ToDictionary(c => c.Student.Id);
         var confirmed = 0;
         var skipped = 0;
@@ -422,8 +431,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
                 {
                     StudentId = key.StudentId,
                     SubjectId = key.SubjectId,
-                    SchoolYearStartYear = request.SchoolYearStartYear,
-                    HalfYear = request.HalfYear,
+                    GradingPeriodId = period.Id,
                     SchoolId = currentSchool.SchoolId!.Value,
                     Kind = kind,
                     Value = value,
@@ -454,8 +462,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return Forbid();
         }
-        var grade = await db.ReportCardGrades.FindAsync(
-            request.StudentId, request.SubjectId, request.SchoolYearStartYear, request.HalfYear);
+        var grade = await db.ReportCardGrades.FindAsync(request.StudentId, request.SubjectId, request.GradingPeriodId);
         if (grade is null)
         {
             return NotFound();
@@ -469,20 +476,23 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
     /// <summary>One pupil's report card, or the class's — a page each.</summary>
     [HttpGet("pdf")]
     public async Task<IActionResult> GetPdf(
-        int schoolYearStartYear, SchoolHalfYear halfYear, int? schoolClassId = null, int? studentId = null,
+        int gradingPeriodId, int? schoolClassId = null, int? studentId = null,
         ReportCardPrint form = ReportCardPrint.Extract)
     {
+        if (await PeriodAsync(gradingPeriodId) is not { } period)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
         if (await StudentIdsAsync(schoolClassId, studentId) is not { } ids)
         {
             return BadRequest("Vyberte třídu nebo žáka.");
         }
-        var issuedOn = HalfYears.IssuedOn(schoolYearStartYear, halfYear);
-        if (!User.IsStaff() && db.Today < issuedOn)
+        if (!User.IsStaff() && db.Today < period.IssuedOn)
         {
-            return BadRequest($"Vysvědčení bude k dispozici od {SchoolFormat.Date(issuedOn)}.");
+            return BadRequest($"Vysvědčení bude k dispozici od {SchoolFormat.Date(period.IssuedOn)}.");
         }
 
-        var cards = await ReportCards.BuildAsync(db, ids, schoolYearStartYear, halfYear);
+        var cards = await ReportCards.BuildAsync(db, ids, period);
         if (cards.Count == 0)
         {
             return NotFound();
@@ -501,18 +511,18 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
         if (form == ReportCardPrint.Verbal)
         {
-            cards = [.. cards.Where(c => c.HasVerbal(halfYear))];
+            cards = [.. cards.Where(c => c.HasVerbal(period.Final))];
             if (cards.Count == 0)
             {
                 return BadRequest("Nikdo tu není hodnocen slovně.");
             }
         }
         var pdf = form == ReportCardPrint.Verbal
-            ? VerbalReportCardDocument.Generate(school, cards, schoolYearStartYear, halfYear)
-            : ReportCardDocument.Generate(school, cards, classTeachers, schoolYearStartYear, halfYear);
+            ? VerbalReportCardDocument.Generate(school, cards, period)
+            : ReportCardDocument.Generate(school, cards, classTeachers, period);
         var name = studentId is not null ? cards[0].Student.Person!.LastName : cards[0].Student.SchoolClass!.Name;
         var kind = form == ReportCardPrint.Verbal ? "vysvedceni-list-a-b"
-            : halfYear == SchoolHalfYear.First ? "vypis-z-vysvedceni" : "podklady-k-vysvedceni";
+            : period.Final ? "podklady-k-vysvedceni" : "vypis-z-vysvedceni";
         return File(pdf, "application/pdf", $"{kind}-{name}.pdf");
     }
 
@@ -529,16 +539,18 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         return student => own.Contains(student.SchoolClassId);
     }
 
-    private async Task<ReportCardNote> NoteAsync(int studentId, int schoolYearStartYear, SchoolHalfYear halfYear)
+    private async Task<ReportPeriod?> PeriodAsync(int gradingPeriodId) =>
+        (await db.GradingPeriodsAsync()).Report(gradingPeriodId);
+
+    private async Task<ReportCardNote> NoteAsync(int studentId, int gradingPeriodId)
     {
-        var note = await db.ReportCardNotes.FindAsync(studentId, schoolYearStartYear, halfYear);
+        var note = await db.ReportCardNotes.FindAsync(studentId, gradingPeriodId);
         if (note is null)
         {
             note = new ReportCardNote
             {
                 StudentId = studentId,
-                SchoolYearStartYear = schoolYearStartYear,
-                HalfYear = halfYear,
+                GradingPeriodId = gradingPeriodId,
                 SchoolId = currentSchool.SchoolId!.Value,
                 SetByName = "",
             };
@@ -570,14 +582,18 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
 
     /// <summary>Whoever sees the pupil's whole report card and writes
     /// grades (the třídní, the management), when the pupil is assessed only
-    /// slovně in the first half.</summary>
-    private async Task<IActionResult?> CheckSummaryAsync(int studentId, int schoolYearStartYear, SchoolHalfYear halfYear)
+    /// slovně on a výpis.</summary>
+    private async Task<IActionResult?> CheckSummaryAsync(int studentId, int gradingPeriodId)
     {
+        if (await PeriodAsync(gradingPeriodId) is not { } period)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
         if (!await User.ReachesStudentAsync(db, Permission.GradesWrite, studentId))
         {
             return Forbid();
         }
-        var card = (await ReportCards.BuildAsync(db, [studentId], schoolYearStartYear, halfYear)).SingleOrDefault();
+        var card = (await ReportCards.BuildAsync(db, [studentId], period)).SingleOrDefault();
         if (card is null)
         {
             return BadRequest("Neznámý žák.");
@@ -586,7 +602,7 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         {
             return Forbid();
         }
-        return card.SummaryAllowed(halfYear)
+        return card.SummaryAllowed(period.Final)
             ? null
             : BadRequest("Souhrnné hodnocení jde jen v 1. pololetí u žáka hodnoceného slovně ve všech předmětech.");
     }
@@ -627,8 +643,12 @@ public class ReportCardsController(AppDbContext db, ICurrentSchoolContext curren
         return await query.Select(s => s.Id).ToListAsync();
     }
 
-    private async Task<IActionResult?> CheckAsync(int studentId, int subjectId)
+    private async Task<IActionResult?> CheckAsync(int studentId, int subjectId, int gradingPeriodId)
     {
+        if (await PeriodAsync(gradingPeriodId) is null)
+        {
+            return BadRequest(GradingPeriods.UnknownPeriod);
+        }
         if (!await db.Students.AnyAsync(s => s.Id == studentId) || !await db.Subjects.AnyAsync(s => s.Id == subjectId))
         {
             return BadRequest("Neznámý žák nebo předmět.");
@@ -692,8 +712,8 @@ public record ReportCardDto(
     bool HasVerbal = false,
     ReportCardSummaryDto? Summary = null);
 
-/// <summary>The souhrnné slovní hodnocení — only where it's allowed (first
-/// half, every subject slovně) and the caller sees the whole report card.
+/// <summary>The souhrnné slovní hodnocení — only where it's allowed (a
+/// výpis, every subject slovně) and the caller sees the whole report card.
 /// Families get the text and result once confirmed and issued.</summary>
 public record ReportCardSummaryDto(
     string? Text,
@@ -714,19 +734,19 @@ public enum ReportCardPrint
 }
 
 public record SetReportCardTextRequest(
-    int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear, string? Text);
+    int StudentId, int SubjectId, int GradingPeriodId, string? Text);
 
-public record SetReportCardNoteTextRequest(int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, string? Text);
+public record SetReportCardNoteTextRequest(int StudentId, int GradingPeriodId, string? Text);
 
 public record SetReportCardSummaryRequest(
-    int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear, string? Text, ReportCardResult? Result);
+    int StudentId, int GradingPeriodId, string? Text, ReportCardResult? Result);
 
-public record ReportCardNoteRequest(int StudentId, int SchoolYearStartYear, SchoolHalfYear HalfYear);
+public record ReportCardNoteRequest(int StudentId, int GradingPeriodId);
 
 public record SetReportCardGradeRequest(
-    int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear, ReportCardGradeKind Kind, int? Value);
+    int StudentId, int SubjectId, int GradingPeriodId, ReportCardGradeKind Kind, int? Value);
 
-public record ReportCardGradeRequest(int StudentId, int SubjectId, int SchoolYearStartYear, SchoolHalfYear HalfYear);
+public record ReportCardGradeRequest(int StudentId, int SubjectId, int GradingPeriodId);
 
 /// <param name="Own">The caller is its třídní.</param>
 public record ReportCardClassDto(int Id, string Name, bool Own);
@@ -735,6 +755,6 @@ public record ReportCardClassesDto(bool All, IReadOnlyList<ReportCardClassDto> C
 
 public record ReportCardGradeKey(int StudentId, int SubjectId);
 
-public record ConfirmReportCardGradesRequest(int SchoolYearStartYear, SchoolHalfYear HalfYear, IReadOnlyList<ReportCardGradeKey> Grades);
+public record ConfirmReportCardGradesRequest(int GradingPeriodId, IReadOnlyList<ReportCardGradeKey> Grades);
 
 public record ConfirmReportCardGradesResult(int Confirmed, int Skipped);
