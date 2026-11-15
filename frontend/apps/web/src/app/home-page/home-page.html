@@ -2,7 +2,15 @@
 
 @if (loadError()) {
 <p>Přehled se nepodařilo načíst.</p>
-} @else if (dashboard(); as d) {
+} @else if (dashboard(); as d) { @if (d.todayOff) {
+<p
+  class="mb-4 mt-0 flex items-center gap-2 text-lg font-medium"
+  data-testid="today-off"
+>
+  <i class="pi pi-sun text-orange-500" aria-hidden="true"></i>Dnes je volno: {{
+  d.todayOff }}
+</p>
+}
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
   @for (widget of activeWidgets(); track widget.id) {
   <p-card>

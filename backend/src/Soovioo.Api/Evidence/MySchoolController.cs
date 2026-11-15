@@ -95,7 +95,13 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
+        if (request.District is { } district && !SchoolYears.Districts.IsKnown(district))
+        {
+            return this.FieldError("district", "Takový okres neznáme.");
+        }
+
         school.Street = request.Street;
+        school.District = request.District;
         school.City = request.City;
         school.PostalCode = request.PostalCode;
         school.DirectorName = request.DirectorName;

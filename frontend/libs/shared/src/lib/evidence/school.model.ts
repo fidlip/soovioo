@@ -13,6 +13,8 @@ export interface School {
   street: string | null;
   city: string | null;
   postalCode: string | null;
+  /** The okres of the school's seat — its jarní prázdniny. */
+  district: string | null;
   directorName: string | null;
   email: string | null;
   phone: string | null;
@@ -52,6 +54,7 @@ export interface SetSchoolDetailsRequest {
   street: string | null;
   city: string | null;
   postalCode: string | null;
+  district: string | null;
   directorName: string | null;
   email: string | null;
   phone: string | null;

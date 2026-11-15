@@ -44,7 +44,9 @@ import {
   LINKED_ITEM_GONE,
   RecipientOptions,
   SchoolEvent,
+  SchoolYearsStore,
 } from '@soovioo/shared';
+import { toDateOnlyString } from '../absences-page/student-day-periods';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
@@ -173,6 +175,7 @@ export class EventsPage {
   protected readonly activeView = signal(readInitialView());
 
   protected readonly events = signal<SchoolEvent[]>([]);
+  private readonly schoolYears = inject(SchoolYearsStore);
   /** The ICS link is a person's own; support mode has no account in the
    * school. */
   protected readonly canSubscribe = !this.authApi.getSupportInfo();
@@ -205,15 +208,17 @@ export class EventsPage {
     slotMinTime: '07:00:00',
     slotMaxTime: '18:00:00',
     selectable: this.canManageEvents(),
-    events: this.events().map((e) => ({
-      id: e.id.toString(),
-      title: e.title,
-      start: e.startAt,
-      end: e.endAt,
-      allDay: e.allDay,
-      backgroundColor: e.color,
-      borderColor: e.color,
-    })),
+    events: this.events()
+      .map((e) => ({
+        id: e.id.toString(),
+        title: e.title,
+        start: e.startAt,
+        end: e.endAt,
+        allDay: e.allDay,
+        backgroundColor: e.color,
+        borderColor: e.color,
+      }))
+      .concat(this.daysOff()),
     // `select` alone (not `dateClick`) covers both "clicked one empty spot"
     // and "dragged a range" — FullCalendar fires it for either when
     // selectable is on, with a real start/end either way.
@@ -221,6 +226,27 @@ export class EventsPage {
     eventClick: (arg: EventClickArg) => this.onEventClick(arg),
     eventDidMount: (arg) => arg.el.setAttribute('id', `event-${arg.event.id}`),
   }));
+
+  /** The whole school's days off, shaded behind the events. */
+  private readonly daysOff = computed(() =>
+    this.schoolYears
+      .daysOff()
+      .filter((d) => d.classIds.length === 0)
+      .map((d) => {
+        const end = new Date(`${d.to}T00:00:00`);
+        end.setDate(end.getDate() + 1);
+        return {
+          id: '',
+          title: d.name,
+          start: d.from,
+          end: toDateOnlyString(end),
+          allDay: true,
+          display: 'background',
+          backgroundColor: 'var(--p-surface-300)',
+          borderColor: 'var(--p-surface-300)',
+        };
+      }),
+  );
 
   /** ?event= — opened from a notification, shown once the events are here. */
   private linkedEventId: number | null = null;
@@ -261,6 +287,7 @@ export class EventsPage {
   private durationMs = DEFAULT_DURATION_MS;
 
   constructor() {
+    this.schoolYears.ensure();
     this.reload();
     onLinkedItem('event', (id) => {
       this.linkedEventId = id;
@@ -472,7 +499,7 @@ export class EventsPage {
   }
 
   private onEventClick(arg: EventClickArg): void {
-    if (!this.canManageEvents()) {
+    if (!this.canManageEvents() || arg.event.display === 'background') {
       return;
     }
     const event = this.events().find((e) => e.id.toString() === arg.event.id);

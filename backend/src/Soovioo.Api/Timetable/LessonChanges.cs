@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 
 namespace Soovioo.Api.Timetable;
 
@@ -100,9 +101,11 @@ public static class LessonChanges
         return [.. result.OrderBy(l => l.Key.Date).ThenBy(l => l.Key.Period)];
     }
 
-    /// <summary>The lessons of the published versions valid on the days.</summary>
+    /// <summary>The lessons of the published versions valid on the days, but
+    /// those of classes that have the day off.</summary>
     public static async Task<List<BaseLesson>> BaseLessonsAsync(AppDbContext db, DateOnly from, DateOnly to)
     {
+        var calendar = await SchoolCalendar.LoadAsync(db, from, to);
         var versions = await db.TimetableVersions
             .Where(v => v.Status == TimetableVersionStatus.Published && v.ValidFrom <= to && (v.ValidTo == null || v.ValidTo >= from))
             .Select(v => new { v.Id, v.ValidFrom, v.ValidTo })
@@ -134,7 +137,8 @@ public static class LessonChanges
                     return new BaseLesson(
                         new LessonKey(date, first.PeriodNumber, first.StudentGroupId is null ? first.SchoolClassId : null, first.StudentGroupId),
                         [.. g.Select(e => e.SchoolClassId).Distinct()], first.SubjectId, first.TeacherId, first.ClassroomId);
-                }));
+                })
+                .Where(l => !calendar.IsOffForAll(date, l.ClassIds)));
         }
         return lessons;
     }

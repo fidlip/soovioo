@@ -21,15 +21,37 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
     public async Task<ActionResult<List<SchoolYearDto>>> GetSchoolYears()
     {
         var periods = await db.GradingPeriodsAsync();
-        return Ok(periods.Years.Select(y => Dto(periods, y)).ToList());
+        var daysOff = await db.SchoolDaysOff.AsNoTracking().ToListAsync();
+        return Ok(periods.Years.Select(y => Dto(periods, y, daysOff)).ToList());
+    }
+
+    /// <summary>The okresy the jarní prázdniny go by, alphabetically.</summary>
+    [HttpGet("districts")]
+    public ActionResult<IReadOnlyList<string>> GetDistricts() => Ok(Districts.All);
+
+    /// <summary>The jarní prázdniny of the <paramref name="district"/> in the
+    /// school year starting in <paramref name="startYear"/>.</summary>
+    [HttpGet("spring-holidays")]
+    [RequirePermission(Permission.SchoolYear)]
+    public ActionResult<SchoolDayOffRequest> GetSpringHolidays(int startYear, string district)
+    {
+        if (!Districts.IsKnown(district))
+        {
+            return this.FieldError("district", "Takový okres neznáme.");
+        }
+        var monday = Districts.SpringHolidays(startYear, district);
+        return Ok(new SchoolDayOffRequest(null, monday, monday.AddDays(4), "Jarní prázdniny", DayOffKind.Holidays, []));
     }
 
     /// <summary>The year to found next — the one after the school's last, or
-    /// the one running today — with MŠMT's dates and its two pololetí.</summary>
+    /// the one running today — with MŠMT's dates, its two pololetí and its
+    /// prázdniny and public holidays; the jarní prázdniny of the
+    /// <paramref name="district"/>, by default the school's.</summary>
     [HttpGet("suggestion")]
     [RequirePermission(Permission.SchoolYear)]
-    public async Task<ActionResult<SchoolYearSuggestionDto>> GetSuggestion()
+    public async Task<ActionResult<SchoolYearSuggestionDto>> GetSuggestion(string? district = null)
     {
+        district ??= await db.Schools.Where(s => s.Id == currentSchool.SchoolId).Select(s => s.District).FirstOrDefaultAsync();
         var last = await db.SchoolYears.OrderByDescending(y => y.To).FirstOrDefaultAsync();
         var startYear = last is null
             ? (db.Today.Month >= 9 ? db.Today.Year : db.Today.Year - 1)
@@ -50,7 +72,10 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
             year.TeachingStart,
             year.TeachingEnd,
             [.. year.Periods.Select(p => new GradingPeriodRequest(null, p.Name, p.To, p.Report, p.IssuedOn))],
-            dates.Official));
+            dates.Official,
+            [.. MsmtCalendar.DaysOff(startYear, year.TeachingStart, year.TeachingEnd, district)
+                .Select(d => new SchoolDayOffRequest(null, d.From, d.To, d.Name, d.Kind, []))],
+            district));
     }
 
     [HttpPost]
@@ -64,10 +89,10 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
         }
 
         var year = new SchoolYear { SchoolId = currentSchool.SchoolId!.Value, Name = "" };
-        Apply(year, request);
+        await ApplyAsync(year, request);
         db.SchoolYears.Add(year);
         await db.SaveChangesAsync();
-        return Ok(Dto(await db.GradingPeriodsAsync(), year));
+        return Ok(Dto(await db.GradingPeriodsAsync(), year, year.DaysOff));
     }
 
     /// <summary>The year's days and periods. A period that has report card
@@ -78,7 +103,7 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
     [AuditAction("Upraven školní rok")]
     public async Task<ActionResult<SchoolYearDto>> Update(int id, SchoolYearRequest request)
     {
-        var year = await db.SchoolYears.Include(y => y.Periods).FirstOrDefaultAsync(y => y.Id == id);
+        var year = await db.SchoolYears.Include(y => y.Periods).Include(y => y.DaysOff).FirstOrDefaultAsync(y => y.Id == id);
         if (year is null)
         {
             return NotFound();
@@ -106,13 +131,37 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
         }
 
         db.GradingPeriods.RemoveRange(removed);
-        Apply(year, request);
+        await ApplyAsync(year, request);
         await db.SaveChangesAsync();
-        return Ok(Dto(await db.GradingPeriodsAsync(), year));
+        return Ok(Dto(await db.GradingPeriodsAsync(), year, year.DaysOff));
     }
 
-    private void Apply(SchoolYear year, SchoolYearRequest request)
+    private async Task ApplyAsync(SchoolYear year, SchoolYearRequest request)
     {
+        if (request.District is { } district)
+        {
+            var school = await db.Schools.FirstAsync(s => s.Id == year.SchoolId);
+            school.District = district;
+        }
+        if (request.DaysOff is { } daysOff)
+        {
+            db.SchoolDaysOff.RemoveRange(year.DaysOff.Where(d => !daysOff.Any(r => r.Id == d.Id)));
+            foreach (var item in daysOff)
+            {
+                var dayOff = year.DaysOff.FirstOrDefault(d => item.Id is { } id && d.Id == id);
+                if (dayOff is null)
+                {
+                    dayOff = new SchoolDayOff { SchoolId = year.SchoolId, Name = "" };
+                    year.DaysOff.Add(dayOff);
+                }
+                dayOff.From = item.From;
+                dayOff.To = item.To;
+                dayOff.Name = item.Name.Trim();
+                dayOff.Kind = item.Kind;
+                dayOff.ClassIds = [.. (item.ClassIds ?? []).Distinct().Order()];
+            }
+        }
+
         year.Name = SchoolYear.NameOf(request.From, request.To);
         year.From = request.From;
         year.To = request.To;
@@ -201,6 +250,43 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
             }
             from = period.To.AddDays(1);
         }
+
+        if (request.District is { } district && !Districts.IsKnown(district))
+        {
+            return this.FieldError("district", "Takový okres neznáme.");
+        }
+        if (request.DaysOff is { } daysOff)
+        {
+            if (daysOff.Where(d => d.Id is not null).Any(d => year?.DaysOff.Any(e => e.Id == d.Id) != true))
+            {
+                return BadRequest("Takový volný den rok nemá.");
+            }
+            var classIds = daysOff.SelectMany(d => d.ClassIds ?? []).Distinct().ToList();
+            if (await db.SchoolClasses.CountAsync(c => classIds.Contains(c.Id)) != classIds.Count)
+            {
+                return BadRequest("Taková třída není.");
+            }
+            for (var i = 0; i < daysOff.Count; i++)
+            {
+                var dayOff = daysOff[i];
+                if (string.IsNullOrWhiteSpace(dayOff.Name))
+                {
+                    return this.FieldError($"daysOff[{i}].name", "Vyplňte název volna.");
+                }
+                if (dayOff.Name.Trim().Length > 100)
+                {
+                    return this.FieldError($"daysOff[{i}].name", "Název je nejvýš na 100 znaků.");
+                }
+                if (dayOff.To < dayOff.From)
+                {
+                    return this.FieldError($"daysOff[{i}].to", "Volno končí po svém začátku.");
+                }
+                if (dayOff.From < request.From || dayOff.To > request.To)
+                {
+                    return this.FieldError($"daysOff[{i}].from", "Volno je ve školním roce.");
+                }
+            }
+        }
         return null;
     }
 
@@ -221,7 +307,7 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
         return grades + absences + behavior + excuses;
     }
 
-    private SchoolYearDto Dto(GradingPeriods periods, SchoolYear year) => new(
+    private SchoolYearDto Dto(GradingPeriods periods, SchoolYear year, List<SchoolDayOff> daysOff) => new(
         year.Id,
         year.Name,
         year.From,
@@ -229,6 +315,8 @@ public class SchoolYearsController(AppDbContext db, ICurrentSchoolContext curren
         year.TeachingStart,
         year.TeachingEnd,
         year.From <= db.Today && db.Today <= year.To,
+        [.. daysOff.Where(d => d.SchoolYearId == year.Id).OrderBy(d => d.From).ThenBy(d => d.Id)
+            .Select(d => new SchoolDayOffDto(d.Id, d.From, d.To, d.Name, d.Kind, d.ClassIds))],
         [.. periods.Spans
             .Where(s => s.Year.Id == year.Id)
             .Select(s =>
@@ -257,16 +345,28 @@ public record SchoolYearDto(
     DateOnly TeachingStart,
     DateOnly TeachingEnd,
     bool Current,
+    IReadOnlyList<SchoolDayOffDto> DaysOff,
     IReadOnlyList<GradingPeriodDto> Periods);
 
+/// <param name="ClassIds">Empty = the whole school.</param>
+public record SchoolDayOffDto(int Id, DateOnly From, DateOnly To, string Name, DayOffKind Kind, IReadOnlyList<int> ClassIds);
+
+/// <param name="Id">An existing day off of the year; null for a new one.</param>
+/// <param name="ClassIds">Empty or null = the whole school.</param>
+public record SchoolDayOffRequest(int? Id, DateOnly From, DateOnly To, string Name, DayOffKind Kind, IReadOnlyList<int>? ClassIds);
+
 /// <param name="Official">The dates are MŠMT's; otherwise an estimate.</param>
+/// <param name="District">The okres of the jarní prázdniny in
+/// <paramref name="DaysOff"/>; null without them.</param>
 public record SchoolYearSuggestionDto(
     DateOnly From,
     DateOnly To,
     DateOnly TeachingStart,
     DateOnly TeachingEnd,
     IReadOnlyList<GradingPeriodRequest> Periods,
-    bool Official);
+    bool Official,
+    IReadOnlyList<SchoolDayOffRequest> DaysOff,
+    string? District);
 
 /// <param name="Id">An existing period of the year; null for a new one.</param>
 /// <param name="To">The period's last day; the last period's is the
@@ -275,9 +375,13 @@ public record GradingPeriodRequest(int? Id, string Name, DateOnly To, PeriodRepo
 
 /// <param name="Periods">In order; they follow one another from the year's
 /// start.</param>
+/// <param name="DaysOff">All the year's days off; null leaves them.</param>
+/// <param name="District">Sets the school's okres; null leaves it.</param>
 public record SchoolYearRequest(
     DateOnly From,
     DateOnly To,
     DateOnly TeachingStart,
     DateOnly TeachingEnd,
-    IReadOnlyList<GradingPeriodRequest> Periods);
+    IReadOnlyList<GradingPeriodRequest> Periods,
+    IReadOnlyList<SchoolDayOffRequest>? DaysOff = null,
+    string? District = null);

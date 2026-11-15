@@ -56,6 +56,30 @@
       </li>
       }
     </ul>
+    <details class="mt-3" [open]="year.current" data-testid="school-days-off">
+      <summary class="cursor-pointer text-sm font-medium">
+        Volné dny ({{ year.daysOff.length }}) · ředitelské volno {{
+        directorsDays(year) }} z {{ directorsDaysLimit }} dnů
+      </summary>
+      <ul class="mt-2 flex flex-col gap-1">
+        @for (dayOff of year.daysOff; track dayOff.id) {
+        <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span class="min-w-56 whitespace-nowrap"
+            >{{ dayOff.from | dateFormat: 'date' }} @if (dayOff.to !==
+            dayOff.from) { – {{ dayOff.to | dateFormat: 'date' }} }</span
+          >
+          <span>{{ dayOff.name }}</span>
+          @if (dayOff.classIds.length > 0) {
+          <span class="text-sm text-surface-500"
+            >jen {{ classNames(dayOff.classIds) }}</span
+          >
+          }
+        </li>
+        } @empty {
+        <li class="text-surface-500">Žádné.</li>
+        }
+      </ul>
+    </details>
   </section>
   } @empty {
   <p class="text-surface-500">Škola zatím nemá založený žádný školní rok.</p>

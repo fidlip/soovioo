@@ -411,6 +411,19 @@
                           class="w-24"
                         />
                       </app-float-field>
+                      <app-float-field label="Okres" for="schoolDistrict">
+                        <p-select
+                          inputId="schoolDistrict"
+                          name="schoolDistrict"
+                          [options]="districts()"
+                          [ngModel]="schoolDistrict()"
+                          (ngModelChange)="schoolDistrict.set($event)"
+                          [filter]="true"
+                          [showClear]="true"
+                          styleClass="w-56"
+                          appendTo="body"
+                        />
+                      </app-float-field>
                       <app-float-field
                         label="Ředitel/ka"
                         for="schoolDirectorName"

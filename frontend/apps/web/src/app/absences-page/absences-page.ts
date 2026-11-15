@@ -183,6 +183,7 @@ export class AbsencesPage {
   protected readonly excuseReason = signal<string | null>(null);
   protected newStudentId: number | null = null;
   protected newDate = new Date();
+  private readonly schoolYears = inject(SchoolYearsStore);
   /** Missed periods picked in the dialog. */
   protected readonly newPeriods = signal<number[]>([]);
   protected readonly dayPeriods = new StudentDayPeriods();
@@ -287,6 +288,17 @@ export class AbsencesPage {
       queryParams: { tab },
       replaceUrl: true,
     });
+  }
+
+  /** The dialog's day is off for the pupil's class: why. */
+  protected newDateOff(): string | null {
+    const student = this.students().find((s) => s.id === this.newStudentId);
+    return this.newDate
+      ? (this.schoolYears.dayOff(
+          toDateOnlyString(this.newDate),
+          student?.schoolClassId,
+        )?.name ?? null)
+      : null;
   }
 
   /** Pupil or date changed in the dialog: a day under an omluvenka is

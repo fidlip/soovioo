@@ -272,6 +272,11 @@
         Vyžadovat potvrzení splnění
       </label>
     </div>
+    @if (dueDateOff(); as off) {
+    <small class="-mt-2 text-orange-600" data-testid="homework-day-off"
+      >V den termínu je volno: {{ off }}.</small
+    >
+    }
 
     <div class="flex flex-col gap-1.5">
       <label

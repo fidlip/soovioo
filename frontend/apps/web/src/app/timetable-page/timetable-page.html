@@ -261,17 +261,28 @@
           <col [style.width]="dayColumnWidth" />
         </colgroup>
         <tbody>
-          @for (day of days; track day; let firstDay = $first) {
+          @for (day of days; track day; let firstDay = $first) { @let dayOff =
+          daysOff().get(day);
           <tr>
             <th
               class="sticky left-0 z-[1] border-b border-r border-surface-200 bg-surface-50 p-2 text-center font-medium text-surface-700 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200"
+              [class.opacity-60]="dayOff"
               [title]="dayLabels[day]"
             >
               {{ dayShortLabels[day] }}
             </th>
-            @for (period of displayedPeriods(); track period.periodNumber) {
-            @let entries = entryGrid().get(day)?.get(period.periodNumber) ?? [];
-            @let editable = editMode() && canManageTimetable();
+            @if (dayOff && displayedPeriods().length > 0) {
+            <td
+              class="border-b border-surface-200 bg-surface-100 p-2 text-center text-surface-500 dark:border-surface-700 dark:bg-surface-800"
+              [attr.colspan]="displayedPeriods().length"
+              data-testid="timetable-day-off"
+            >
+              Volno — {{ dayOff }}
+            </td>
+            } @else { @for (period of displayedPeriods(); track
+            period.periodNumber) { @let entries =
+            entryGrid().get(day)?.get(period.periodNumber) ?? []; @let editable
+            = editMode() && canManageTimetable();
             <td
               class="group relative border-b border-r border-surface-200 p-1.5 align-top last:border-r-0 dark:border-surface-700"
               [class.h-14]="editable"
@@ -464,7 +475,7 @@
             >
               V tomto týdnu nejsou žádné hodiny.
             </td>
-            } }
+            } } }
           </tr>
           }
         </tbody>

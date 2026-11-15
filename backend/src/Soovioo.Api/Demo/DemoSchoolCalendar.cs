@@ -1,9 +1,10 @@
+using Soovioo.Api.SchoolYears;
+
 namespace Soovioo.Api.Demo;
 
 /// <summary>Czech school year for the demo data: which days are teaching
-/// days. Public holidays are exact; the school holidays (prázdniny) follow
-/// the usual pattern, not any particular region's schedule — good enough
-/// for data that should merely look plausible.</summary>
+/// days — MŠMT's prázdniny for <see cref="District"/> and the public
+/// holidays, the days off the demo's school year gets.</summary>
 public class DemoSchoolCalendar
 {
     private readonly HashSet<DateOnly> daysOff = [];
@@ -17,20 +18,14 @@ public class DemoSchoolCalendar
         End = new DateOnly(StartYear + 1, 6, 30);
         Today = today;
 
-        var y = StartYear;
-        var next = StartYear + 1;
-        AddDays(new DateOnly(y, 9, 28));
-        AddDays(new DateOnly(y, 10, 28));
-        AddRange(new DateOnly(y, 10, 29), new DateOnly(y, 10, 30)); // podzimní prázdniny
-        AddDays(new DateOnly(y, 11, 17));
-        AddRange(new DateOnly(y, 12, 23), new DateOnly(next, 1, 2)); // vánoční prázdniny
-        AddDays(FirstWeekday(new DateOnly(next, 1, 30), DayOfWeek.Friday)); // pololetní prázdniny
-        var spring = FirstWeekday(new DateOnly(next, 2, 16), DayOfWeek.Monday); // jarní prázdniny
-        AddRange(spring, spring.AddDays(4));
-        var easter = EasterSunday(next);
-        AddDays(easter.AddDays(-3), easter.AddDays(-2), easter.AddDays(1)); // Zelený čtvrtek, Velký pátek, Velikonoční pondělí
-        AddDays(new DateOnly(next, 5, 1), new DateOnly(next, 5, 8));
+        foreach (var dayOff in MsmtCalendar.DaysOff(StartYear, Start, End, District))
+        {
+            AddRange(dayOff.From, dayOff.To);
+        }
     }
+
+    /// <summary>The demo school's okres.</summary>
+    public const string District = "Brno-město";
 
     public int StartYear { get; }
     public DateOnly Start { get; }
@@ -76,42 +71,11 @@ public class DemoSchoolCalendar
         return days;
     }
 
-    private void AddDays(params DateOnly[] days) => daysOff.UnionWith(days);
-
     private void AddRange(DateOnly from, DateOnly to)
     {
         for (var day = from; day <= to; day = day.AddDays(1))
         {
             daysOff.Add(day);
         }
-    }
-
-    private static DateOnly FirstWeekday(DateOnly from, DayOfWeek dayOfWeek)
-    {
-        while (from.DayOfWeek != dayOfWeek)
-        {
-            from = from.AddDays(1);
-        }
-        return from;
-    }
-
-    /// <summary>Gregorian Easter Sunday (anonymous algorithm).</summary>
-    private static DateOnly EasterSunday(int year)
-    {
-        var a = year % 19;
-        var b = year / 100;
-        var c = year % 100;
-        var d = b / 4;
-        var e = b % 4;
-        var f = (b + 8) / 25;
-        var g = (b - f + 1) / 3;
-        var h = (19 * a + b - d - g + 15) % 30;
-        var i = c / 4;
-        var k = c % 4;
-        var l = (32 + 2 * e + 2 * i - h - k) % 7;
-        var m = (a + 11 * h + 22 * l) / 451;
-        var month = (h + l - 7 * m + 114) / 31;
-        var day = (h + l - 7 * m + 114) % 31 + 1;
-        return new DateOnly(year, month, day);
     }
 }

@@ -37,6 +37,7 @@ import {
   SchoolClassesApiService,
   SchoolPeriod,
   SchoolPeriodsApiService,
+  SchoolYearsStore,
   Student,
   StudentGroup,
   StudentsApiService,
@@ -287,6 +288,33 @@ export class TimetablePage {
   private linkedStudentId: number | null = null;
 
   protected readonly weekStart = signal(mondayOf(new Date()));
+  private readonly schoolYears = inject(SchoolYearsStore);
+
+  /** The shown week's days off of the shown class (a teacher's: the whole
+   * school's), by weekday; none in the editor. */
+  protected readonly daysOff = computed(() => {
+    const off = new Map<DayOfWeek, string>();
+    if (this.editor) {
+      return off;
+    }
+    const mode = this.viewMode();
+    const classId =
+      mode === 'class'
+        ? this.selectedClassId()
+        : mode === 'student'
+          ? (this.students().find((s) => s.id === this.selectedStudentId())
+              ?.schoolClassId ?? null)
+          : null;
+    DAYS.forEach((day, index) => {
+      const date = new Date(this.weekStart());
+      date.setDate(date.getDate() + index);
+      const dayOff = this.schoolYears.dayOff(toDateOnly(date), classId);
+      if (dayOff) {
+        off.set(day, dayOff.name);
+      }
+    });
+    return off;
+  });
   protected readonly editMode = computed(
     () => this.editor && this.canEditShownVersion(),
   );
@@ -581,6 +609,7 @@ export class TimetablePage {
   );
 
   constructor() {
+    this.schoolYears.ensure();
     if (this.selection) {
       this.openFromAddress(this.selection);
     } else {

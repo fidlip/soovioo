@@ -3,6 +3,7 @@ using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Timetable;
 
 namespace Soovioo.Api.Attendance;
@@ -23,8 +24,8 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
 
     /// <summary>Brings the omluvenka's days in line with its range: its days
     /// waiting outside it are withdrawn, school days in it are added, or
-    /// joined when the teacher already recorded them (a weekend day only
-    /// then). A day already excused, rejected or under another omluvenka is
+    /// joined when the teacher already recorded them (a weekend day or a day
+    /// off only then). A day already excused, rejected or under another omluvenka is
     /// skipped.
     /// Returns the skipped days and the days the omluvenka now waits for.
     /// Staff withdraw decided days outside the range too.</summary>
@@ -37,10 +38,11 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
             .Where(a => a.StudentId == student.Id
                 && ((a.Date >= excuse.DateFrom && a.Date <= excuse.DateTo) || (excuseId != 0 && a.ExcuseId == excuseId)))
             .ToListAsync();
+        var calendar = await SchoolCalendar.LoadAsync(db, excuse.DateFrom, excuse.DateTo);
         var days = new List<DateOnly>();
         for (var day = excuse.DateFrom; day <= excuse.DateTo; day = day.AddDays(1))
         {
-            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) || records.Any(a => a.Date == day))
+            if (calendar.IsTeachingDay(day, student.SchoolClassId) || records.Any(a => a.Date == day))
             {
                 days.Add(day);
             }

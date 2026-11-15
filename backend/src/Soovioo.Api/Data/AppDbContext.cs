@@ -46,6 +46,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<SchoolYear> SchoolYears => Set<SchoolYear>();
     public DbSet<GradingPeriod> GradingPeriods => Set<GradingPeriod>();
+    public DbSet<SchoolDayOff> SchoolDaysOff => Set<SchoolDayOff>();
     public DbSet<GradeMainBlock> GradeMainBlocks => Set<GradeMainBlock>();
     public DbSet<ClassMainBlock> ClassMainBlocks => Set<ClassMainBlock>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -214,6 +215,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasOne(p => p.SchoolYear).WithMany(y => y.Periods)
                 .HasForeignKey(p => p.SchoolYearId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(p => currentSchool.IsSuperAdmin || p.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<SchoolDayOff>(e =>
+        {
+            e.HasIndex(d => new { d.SchoolYearId, d.From });
+            e.Property(d => d.Name).HasMaxLength(100);
+            e.Property(d => d.Kind).HasConversion<string>();
+            e.HasOne(d => d.SchoolYear).WithMany(y => y.DaysOff)
+                .HasForeignKey(d => d.SchoolYearId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(d => currentSchool.IsSuperAdmin || d.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<BehaviorClassification>(e =>
         {

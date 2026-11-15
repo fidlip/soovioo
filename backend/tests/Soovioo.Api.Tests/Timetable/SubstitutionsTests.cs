@@ -6,6 +6,7 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
+using Soovioo.Api.SchoolYears;
 using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
 
@@ -273,6 +274,29 @@ public class SubstitutionsTests
             views.Select(v => (v.Date, v.PeriodNumber, v.Replaces, v.Gone, v.Label)));
         Assert.Equal(mala.Id, views[1].TeacherId);
         Assert.Contains(Ok(await Controller().GetDay(Tuesday)).Lessons, l => l.MovedIn && l.PeriodNumber == 4);
+    }
+
+    [Fact]
+    public async Task A_lesson_doesnt_move_to_a_day_off_and_a_day_off_has_no_lessons_at_home()
+    {
+        var year = db.SchoolYear(2026, SchoolId);
+        db.SchoolDaysOff.Add(new SchoolDayOff
+        {
+            SchoolId = SchoolId, SchoolYearId = year.Id, From = Tuesday, To = Tuesday, Name = "Ředitelské volno", Kind = DayOffKind.DirectorsDay,
+        });
+        await db.SaveChangesAsync();
+
+        Assert.IsType<BadRequestObjectResult>((await Controller().SaveChange(
+            new(Monday, 2, classA.Id, MovedToDate: Tuesday, MovedToPeriod: 4))).Result);
+
+        db.Today = Tuesday;
+        var dashboard = new DashboardController(db, new FakeCurrentSchoolContext(SchoolId))
+        {
+            ControllerContext = TestRoles.Context(TestRoles.Principal(db, kral.Id, UserRole.Teacher, SchoolId, null)),
+        };
+        var home = Assert.IsType<DashboardDto>(Assert.IsType<OkObjectResult>((await dashboard.GetDashboard()).Result).Value);
+        Assert.Equal("Ředitelské volno", home.TodayOff);
+        Assert.Empty(home.TodayLessons);
     }
 
     [Fact]

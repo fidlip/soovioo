@@ -25,6 +25,7 @@ import {
   HomeworkAttachment,
   SchoolClass,
   SchoolClassesApiService,
+  SchoolYearsStore,
   Student,
   StudentReach,
   StudentsApiService,
@@ -201,6 +202,7 @@ export class HomeworkPage {
   protected newSubjectId: number | null = null;
   protected newText = '';
   protected newDueDate = new Date();
+  private readonly schoolYears = inject(SchoolYearsStore);
   protected newRequiresCompletion = false;
   /** Empty = whole class. */
   protected newTargetStudentIds: number[] = [];
@@ -236,6 +238,7 @@ export class HomeworkPage {
   private linkedId: number | null = null;
 
   constructor() {
+    this.schoolYears.ensure();
     this.reload();
     onLinkedItem('homework', (id) => {
       this.linkedId = id;
@@ -563,6 +566,16 @@ export class HomeworkPage {
 
   /** Local (not UTC) y-m-d — see absences-page.ts's identical helper for
    * why this can't be toISOString().slice(0, 10). */
+  /** The due day is off for the class: why. */
+  protected dueDateOff(): string | null {
+    return this.newDueDate
+      ? (this.schoolYears.dayOff(
+          this.toDateOnlyString(this.newDueDate),
+          this.newSchoolClassId(),
+        )?.name ?? null)
+      : null;
+  }
+
   private toDateOnlyString(date: Date): string {
     const year = date.getFullYear();
     const month = `${date.getMonth() + 1}`.padStart(2, '0');
