@@ -64,12 +64,10 @@ public sealed class GradingPeriods
 
     public PeriodSpan? On(DateOnly day) => spans.FirstOrDefault(s => s.From <= day && day <= s.To);
 
-    /// <summary>The end of lessons (of the last period) of the school year
-    /// running on the day; after it, the next year's.</summary>
+    /// <summary>The end of lessons of the school year running on the day;
+    /// after it, the next year's.</summary>
     public DateOnly? TeachingEnd(DateOnly day) =>
-        Years.Where(y => y.Periods.Count > 0)
-            .Select(y => (DateOnly?)y.Periods.Max(p => p.To))
-            .FirstOrDefault(to => to >= day);
+        Years.Select(y => (DateOnly?)y.TeachingEnd).FirstOrDefault(to => to >= day);
 
     public PeriodSpan? Span(int periodId) => spans.FirstOrDefault(s => s.Period.Id == periodId);
 

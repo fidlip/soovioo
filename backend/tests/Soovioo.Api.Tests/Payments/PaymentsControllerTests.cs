@@ -258,7 +258,7 @@ public class PaymentsControllerTests
         var created = await NewController(db, 999, "Admin").CreatePayment(Monthly());
 
         var dto = Assert.IsType<PaymentDto>(Assert.IsType<CreatedAtActionResult>(created.Result).Value);
-        Assert.Equal(year.Periods.Max(p => p.To), dto.RecurrenceEndDate);
+        Assert.Equal(year.TeachingEnd, dto.RecurrenceEndDate);
     }
 
     [Fact]

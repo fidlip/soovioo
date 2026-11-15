@@ -22,7 +22,8 @@ namespace Soovioo.Api.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     From = table.Column<DateOnly>(type: "date", nullable: false),
                     To = table.Column<DateOnly>(type: "date", nullable: false),
-                    TeachingStart = table.Column<DateOnly>(type: "date", nullable: false)
+                    TeachingStart = table.Column<DateOnly>(type: "date", nullable: false),
+                    TeachingEnd = table.Column<DateOnly>(type: "date", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -72,9 +73,11 @@ namespace Soovioo.Api.Migrations
                 unique: true);
 
             // A school with records gets the years they fall in, up to the
-            // one running now; each with its two pololetí. Lessons start on
-            // 1 Sep (after a weekend on Monday), the report cards are issued
-            // on the last school day up to 31 Jan (not a Friday) and 30 Jun.
+            // one running now; each with its two pololetí, the second to the
+            // year's end. Lessons start on 1 Sep (after a weekend on Monday)
+            // and end on the last school day up to 30 Jun, when the
+            // vysvědčení is issued; the výpis on the last one up to 31 Jan
+            // (not a Friday).
             migrationBuilder.Sql("""
                 WITH now_year AS (
                     SELECT CASE WHEN EXTRACT(MONTH FROM (now() AT TIME ZONE 'Europe/Prague')) >= 9
@@ -104,12 +107,13 @@ namespace Soovioo.Api.Migrations
                     WHERE years.y BETWEEN 2000 AND now_year.y + 1
                     GROUP BY years."SchoolId", now_year.y
                 )
-                INSERT INTO "SchoolYears" ("SchoolId", "Name", "From", "To", "TeachingStart")
+                INSERT INTO "SchoolYears" ("SchoolId", "Name", "From", "To", "TeachingStart", "TeachingEnd")
                 SELECT span."SchoolId",
                     y::text || '/' || lpad(((y + 1) % 100)::text, 2, '0'),
                     make_date(y, 9, 1),
                     make_date(y + 1, 8, 31),
-                    make_date(y, 9, 1) + CASE EXTRACT(ISODOW FROM make_date(y, 9, 1))::int WHEN 6 THEN 2 WHEN 7 THEN 1 ELSE 0 END
+                    make_date(y, 9, 1) + CASE EXTRACT(ISODOW FROM make_date(y, 9, 1))::int WHEN 6 THEN 2 WHEN 7 THEN 1 ELSE 0 END,
+                    make_date(y + 1, 6, 30) - CASE EXTRACT(ISODOW FROM make_date(y + 1, 6, 30))::int WHEN 6 THEN 1 WHEN 7 THEN 2 ELSE 0 END
                 FROM span CROSS JOIN LATERAL generate_series(span.first, span.last) AS y;
 
                 INSERT INTO "GradingPeriods" ("SchoolId", "SchoolYearId", "Name", "To", "Report", "IssuedOn")
@@ -117,9 +121,8 @@ namespace Soovioo.Api.Migrations
                     h.d - CASE EXTRACT(ISODOW FROM h.d)::int WHEN 5 THEN 1 WHEN 6 THEN 2 WHEN 7 THEN 3 ELSE 0 END
                 FROM "SchoolYears" CROSS JOIN LATERAL (SELECT make_date(EXTRACT(YEAR FROM "From")::int + 1, 1, 31) AS d) h
                 UNION ALL
-                SELECT "SchoolId", "Id", '2. pololetí', h.d, 'ReportCard',
-                    h.d - CASE EXTRACT(ISODOW FROM h.d)::int WHEN 6 THEN 1 WHEN 7 THEN 2 ELSE 0 END
-                FROM "SchoolYears" CROSS JOIN LATERAL (SELECT make_date(EXTRACT(YEAR FROM "From")::int + 1, 6, 30) AS d) h;
+                SELECT "SchoolId", "Id", '2. pololetí', "To", 'ReportCard', "TeachingEnd"
+                FROM "SchoolYears";
                 """);
 
             migrationBuilder.AddColumn<int>(
@@ -149,7 +152,7 @@ namespace Soovioo.Api.Migrations
                     FROM "SchoolYears" y JOIN "GradingPeriods" p ON p."SchoolYearId" = y."Id"
                     WHERE y."SchoolId" = r."SchoolId"
                         AND EXTRACT(YEAR FROM y."From")::int = r."SchoolYearStartYear"
-                        AND EXTRACT(MONTH FROM p."To")::int = CASE r."HalfYear" WHEN 1 THEN 1 ELSE 6 END;
+                        AND EXTRACT(MONTH FROM p."To")::int = CASE r."HalfYear" WHEN 1 THEN 1 ELSE 8 END;
 
                     DELETE FROM "{table}" WHERE "GradingPeriodId" IS NULL;
                     """);

@@ -39,7 +39,8 @@ public class MsmtCalendarTests
     }
 
     /// <summary>§ 1 of vyhláška 16/2005 Sb.: the first pololetí ends on
-    /// 31 Jan, the second on 30 Jun, whenever the report cards go out.</summary>
+    /// 31 Jan, whenever the výpis goes out; the second runs to the year's
+    /// end, lessons end with the vysvědčení.</summary>
     [Fact]
     public void AYearsPololetiEndByTheLaw()
     {
@@ -49,7 +50,8 @@ public class MsmtCalendarTests
             var year = SchoolYear.Create(1, startYear, published);
             Assert.Equal(published.FirstHalfIssuedOn, year.Periods[0].IssuedOn);
             Assert.Equal(new DateOnly(startYear + 1, 1, 31), year.Periods[0].To);
-            Assert.Equal(new DateOnly(startYear + 1, 6, 30), year.Periods[1].To);
+            Assert.Equal(new DateOnly(startYear + 1, 8, 31), year.Periods[1].To);
+            Assert.Equal(published.SecondHalfIssuedOn, year.TeachingEnd);
         }
     }
 }
