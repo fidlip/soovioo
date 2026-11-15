@@ -1,5 +1,6 @@
 name: Idea / Nápad
 description: A new feature or an improvement. / Nová funkce nebo vylepšení.
+type: Feature
 labels: [enhancement, needs-discussion]
 body:
   - type: textarea

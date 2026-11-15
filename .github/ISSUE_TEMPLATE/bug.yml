@@ -1,6 +1,6 @@
 name: Bug / Chyba
 description: Something doesn't work as it should. / Něco nefunguje, jak má.
-labels: [bug]
+type: Bug
 body:
   - type: markdown
     attributes:
