@@ -26,6 +26,10 @@ export class OwnPhotoService {
 
   load(): void {
     this.set(null);
+    // Support mode has no account of its own in the school (403).
+    if (this.authApi.getSupportInfo()) {
+      return;
+    }
     this.profileApi.getProfile().subscribe({
       next: (profile) => this.set(profile.photo),
       error: (err) => console.error('getProfile failed', err),
