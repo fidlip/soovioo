@@ -54,6 +54,11 @@ import { Markdown } from '../markdown/markdown';
 import { MarkdownEditor } from '../markdown/markdown-editor';
 import { NotifyService } from '../notify.service';
 import { schoolUrl } from '../school-context';
+import {
+  SupportAsPick,
+  SupportAsPicker,
+} from '../support-as/support-as-picker';
+import { TicketSupportAsDialog } from '../support-as/ticket-support-as-dialog';
 import { ticketStatusSeverity } from './ticket-status';
 import {
   TicketVisit,
@@ -84,7 +89,9 @@ import {
     NgTemplateOutlet,
     Menu,
     Select,
+    SupportAsPicker,
     Tag,
+    TicketSupportAsDialog,
     ToggleSwitch,
     Tooltip,
   ],
@@ -370,6 +377,10 @@ export class SupportTicketDialog {
         return 'Vstup do školy povolen';
       case 'AccessRevoked':
         return 'Povolení vstupu odebráno';
+      case 'SupportAsChanged':
+        return entry.text
+          ? 'Podpora smí vstoupit jako'
+          : 'Podpora nemá vybráno, za koho smí vstoupit';
       case 'SessionStarted':
         return 'Vstup do školy';
       case 'Visit':
@@ -772,9 +783,33 @@ export class SupportTicketDialog {
     this.act((id) => this.api.reopenTicket(id), 'Požadavek znovu otevřen.');
   }
 
-  /** An audited, 2-hour Admin session in the school (support mode); the own
-   * SuperAdmin session comes back on "Opustit", here at the ticket. */
-  protected enter(): void {
+  private readonly enterAsPicker = viewChild(SupportAsPicker);
+
+  protected readonly supportAsNames = computed(() =>
+    (this.ticket()?.supportAsUsers ?? []).map((u) => u.name).join(', '),
+  );
+
+  /** The school changed whom the support may enter as. */
+  protected supportAsSaved(detail: SupportTicketDetail): void {
+    this.show(detail);
+    this.changed.emit(detail.ticket);
+  }
+
+  /** "Vstoupit do školy": as the school's admin, or as whom the ticket
+   * names — then picked first. */
+  protected enterClicked(): void {
+    const ticket = this.ticket();
+    if (ticket?.schoolSupportAs === 'Users') {
+      this.enterAsPicker()?.open(this.api.getEnterAs(ticket.id));
+    } else {
+      this.enter();
+    }
+  }
+
+  /** An audited, 2-hour session in the school (support mode) as its admin
+   * — or as one of its users (`as`); the own SuperAdmin
+   * session comes back on "Opustit", here at the ticket. */
+  protected enter(as: SupportAsPick | null = null): void {
     const ticket = this.ticket();
     if (!ticket) {
       return;
@@ -783,28 +818,35 @@ export class SupportTicketDialog {
     // right on the click: after the request it'd be blocked as a pop-up.
     const tab = window.open('', '_blank');
     this.busy.set(true);
-    this.api.enterForTicket(ticket.id).subscribe({
-      next: (session) => {
-        // The school's page (its own subdomain in production). The one-time
-        // code rides in the fragment, which never reaches any server log;
-        // `back` is for a tab that can't close itself on leaving.
-        const back = `superadmin/support?ticket=${ticket.id}`;
-        const url = `${schoolUrl(session.schoolSlug, 'support/enter')}#code=${session.code}&back=${encodeURIComponent(back)}`;
-        if (tab) {
-          tab.location.href = url;
+    this.api
+      .enterForTicket(
+        ticket.id,
+        as?.userId
+          ? { userId: as.userId, roleId: as.roleId ?? undefined }
+          : null,
+      )
+      .subscribe({
+        next: (session) => {
+          // The school's page (its own subdomain in production). The one-time
+          // code rides in the fragment, which never reaches any server log;
+          // `back` is for a tab that can't close itself on leaving.
+          const back = `superadmin/support?ticket=${ticket.id}`;
+          const url = `${schoolUrl(session.schoolSlug, 'support/enter')}#code=${session.code}&back=${encodeURIComponent(back)}`;
+          if (tab) {
+            tab.location.href = url;
+            this.busy.set(false);
+            this.reload();
+          } else {
+            window.location.href = url;
+          }
+        },
+        error: (err) => {
+          tab?.close();
           this.busy.set(false);
-          this.reload();
-        } else {
-          window.location.href = url;
-        }
-      },
-      error: (err) => {
-        tab?.close();
-        this.busy.set(false);
-        this.notify.actionFailed('enterForTicket failed', err);
-        this.open(ticket.id);
-      },
-    });
+          this.notify.actionFailed('enterForTicket failed', err);
+          this.open(ticket.id);
+        },
+      });
   }
 
   private act(

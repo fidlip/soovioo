@@ -1,0 +1,59 @@
+@for (presence of presences(); track presence.sessionId) {
+<div
+  class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+  role="status"
+  data-testid="support-presence"
+>
+  <span
+    ><i class="pi pi-shield mr-1"></i>@if (presence.asMe) {
+    <strong>superadmin {{ presence.superAdminName }}</strong> se přihlásil k
+    vašemu účtu } @else {
+    <strong>superadmin {{ presence.superAdminName }}</strong> je přihlášen jako
+    {{ presence.as }} }</span
+  >
+  @if (presence.asMe) {
+  <button
+    type="button"
+    class="ml-auto cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+    (click)="detail.set(presence)"
+  >
+    Detail
+  </button>
+  } @else if (presence.ticketId) {
+  <button
+    type="button"
+    class="ml-auto cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+    [title]="presence.ticketTitle ?? ''"
+    (click)="openTicket(presence.ticketId)"
+  >
+    Detail požadavku
+  </button>
+  }
+</div>
+} @if (detail(); as presence) {
+<p-dialog
+  [visible]="true"
+  (visibleChange)="detail.set(null)"
+  header="Podpora ve vašem účtu"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <p class="mt-0">
+    Superadmin <strong>{{ presence.superAdminName }}</strong> z podpory Soovioo
+    je od {{ presence.startedAt | dateFormat: 'dateTime' }} přihlášen k vašemu
+    účtu ({{ presence.as }}). Škola mu to povolila kvůli požadavku na podporu —
+    vidí aplikaci tak jako vy, aby našel a opravil problém.
+  </p>
+  <p>
+    Vše, co při tom udělá, se zaznamenává do Logů školy a škola to může vrátit.
+    Zprávy vaším jménem neodešle, omluvenky nenapíše a co si prohlédne, vám
+    zůstane nepřečtené. Skončí, až podporu opustí, nejpozději za 2 hodiny od
+    vstupu.
+  </p>
+  <div class="flex justify-end">
+    <p-button label="Zavřít" (onClick)="detail.set(null)" />
+  </div>
+</p-dialog>
+} @if (forMyTicket()) {
+<app-support-ticket-dialog #schoolTicketDialog side="school" />
+}

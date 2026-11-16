@@ -17,15 +17,25 @@
   class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
   role="status"
 >
-  <span
+  <span data-testid="support-banner"
     ><i class="pi pi-shield mr-1"></i><strong>Režim podpory</strong> — {{
-    support.schoolName }} · jako superadmin {{ support.by }} (změny se
-    zaznamenávají)</span
+    support.schoolName }} · jste přihlášen jako {{ support.as ?? 'admin školy'
+    }} (superadmin {{ support.by }}, změny se zaznamenávají)</span
   >
   <app-support-ended-dialog />
   <!-- Deferred: their Markdown editors are needed only in support mode. -->
   @defer (on idle) {
   <span class="ml-auto flex gap-2">
+    @if (support.as) {
+    <button
+      type="button"
+      class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+      title="Být ve škole jako jiný uživatel vybraný u požadavku, nebo v jiné roli — bez opuštění"
+      (click)="switchAs(asPicker)"
+    >
+      <i class="pi pi-users mr-1 text-xs" aria-hidden="true"></i>Přepnout…
+    </button>
+    }
     <button
       type="button"
       class="cursor-pointer rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
@@ -45,8 +55,20 @@
   </span>
   <app-support-ticket-dialog #ticketDialog side="session" />
   <app-support-leave-dialog #leaveDialog />
+  <app-support-as-picker
+    #asPicker
+    header="Přepnout na…"
+    (picked)="switchedAs($event)"
+  />
   } @placeholder {
   <span class="ml-auto flex gap-2">
+    <button
+      type="button"
+      class="rounded border border-amber-400 px-2 py-0.5 font-medium opacity-60"
+      disabled
+    >
+      Přepnout…
+    </button>
     <button
       type="button"
       class="rounded border border-amber-400 px-2 py-0.5 font-medium opacity-60"
@@ -64,7 +86,9 @@
   </span>
   }
 </div>
-} @if (noSchoolYear()) {
+} @if (supportPresence().length > 0) { @defer {
+<app-support-presence />
+} } @if (noSchoolYear()) {
 <div
   class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
   role="alert"

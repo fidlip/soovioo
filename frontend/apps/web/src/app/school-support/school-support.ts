@@ -34,12 +34,13 @@ import { InfoHint } from '../info-hint/info-hint';
 import { Loading } from '../loading/loading';
 import { MarkdownEditor } from '../markdown/markdown-editor';
 import { NotifyService } from '../notify.service';
+import { SupportAsUsersSelect } from '../support-as/support-as-users-select';
 import { SupportTicketDialog } from '../support-ticket/support-ticket-dialog';
 import { ticketStatusSeverity } from '../support-ticket/ticket-status';
 
 /** The school's support tickets (asking the SuperAdmins for help, talked
  * over in each ticket's thread, entering allowed per ticket); whether the
- * support may enter the school at all is set in Údaje o škole
+ * support may enter the school at all is set in Aplikace → Nastavení
  * (SupportAccessSettings). `?ticket=<id>` (a notification's link) opens one. */
 @Component({
   selector: 'app-school-support',
@@ -58,6 +59,7 @@ import { ticketStatusSeverity } from '../support-ticket/ticket-status';
     MarkdownEditor,
     RouterLink,
     SupportTicketDialog,
+    SupportAsUsersSelect,
     TableModule,
     Tag,
   ],
@@ -79,6 +81,13 @@ export class SchoolSupportSection {
   protected ticketTitle = '';
   protected ticketDescription = '';
   protected allowAccess = true;
+  protected supportAsUserIds: number[] = [];
+  /** Whom the support may enter as is named on the ticket. */
+  protected readonly namesUsers = computed(() => {
+    const support = this.support();
+    return support?.access !== 'Never' && support?.supportAs === 'Users';
+  });
+  private readonly myId = inject(AuthApiService).getUserId();
 
   /** In support mode the SuperAdmin can only look — the school decides. */
   protected readonly readOnly =
@@ -126,6 +135,7 @@ export class SchoolSupportSection {
     this.ticketTitle = '';
     this.ticketDescription = '';
     this.allowAccess = true;
+    this.supportAsUserIds = this.myId ? [this.myId] : [];
     this.notify.clear();
     this.ticketDialogVisible.set(true);
   }
@@ -136,6 +146,7 @@ export class SchoolSupportSection {
         this.ticketTitle.trim(),
         this.ticketDescription.trim(),
         this.access() === 'Approval' && this.allowAccess,
+        this.namesUsers() ? this.supportAsUserIds : [],
       )
       .subscribe({
         next: (detail) => {

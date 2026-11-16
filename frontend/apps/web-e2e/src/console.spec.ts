@@ -101,9 +101,15 @@ test('support mode: every page loads with a clean console', async ({
   await request.post(`${api}/support-tickets/${ticketId}/assign`, {
     headers: superAdmin,
   });
+  // As the ticket's author (the school wants the support as a named user).
+  const [author] = await (
+    await request.get(`${api}/support-tickets/${ticketId}/enter-as`, {
+      headers: superAdmin,
+    })
+  ).json();
   const entered = await request.post(
     `${api}/support-tickets/${ticketId}/enter`,
-    { headers: superAdmin },
+    { headers: superAdmin, data: { userId: author.id } },
   );
   expect(entered.ok()).toBe(true);
   const { code } = await entered.json();

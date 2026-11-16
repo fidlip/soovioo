@@ -1,0 +1,75 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [header]="header()"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+>
+  @if (failed()) {
+  <p class="text-sm text-red-600">Seznam uživatelů se nepodařilo načíst.</p>
+  } @else if (users(); as users) { @if (users.length === 0) {
+  <p class="text-sm text-surface-500" data-testid="support-as-none">
+    Škola u požadavku zatím nevybrala, za koho smí podpora vstoupit.
+  </p>
+  } @else { @if (users.length > 1) {
+  <div class="mb-3 flex flex-wrap gap-2">
+    @if (roles().length > 1) {
+    <app-float-field label="Role" for="supportAsRole" class="w-44">
+      <p-select
+        ariaLabel="Role"
+        inputId="supportAsRole"
+        [options]="roles()"
+        optionLabel="name"
+        optionValue="id"
+        [showClear]="true"
+        [ngModel]="roleId()"
+        (ngModelChange)="roleId.set($event ?? null)"
+        appendTo="body"
+      />
+    </app-float-field>
+    }
+    <app-float-field label="Jméno" for="supportAsName" class="min-w-40 grow">
+      <input
+        pInputText
+        id="supportAsName"
+        autocomplete="off"
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)"
+      />
+    </app-float-field>
+  </div>
+  }
+  <ul class="max-h-96 overflow-y-auto" data-testid="support-as-users">
+    @for (user of shown(); track user.id) {
+    <li
+      class="flex flex-wrap items-center gap-2 border-b border-surface-100 py-1.5 last:border-0 dark:border-surface-800"
+    >
+      <span class="grow text-sm">{{ user.name }}</span>
+      @for (role of user.roles; track role.id) { @if (roleId() === null ||
+      roleId() === role.id) { @if (isCurrent(user.id, role.id)) {
+      <span class="px-2 text-sm text-surface-500"
+        >{{ role.name }} · právě teď</span
+      >
+      } @else {
+      <p-button
+        [label]="role.name"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        [ariaLabel]="user.name + ' – ' + role.name"
+        (onClick)="pick(user.id, role.id)"
+      />
+      } } }
+    </li>
+    } @empty {
+    <li class="py-2 text-sm text-surface-500">Nikdo takový.</li>
+    }
+  </ul>
+  @if (more() > 0) {
+  <p class="mt-2 text-sm text-surface-500">
+    … a dalších {{ more() }}, upřesněte hledání.
+  </p>
+  } } } @else {
+  <app-loading />
+  }
+</p-dialog>

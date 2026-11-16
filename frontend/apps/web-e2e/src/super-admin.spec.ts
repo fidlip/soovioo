@@ -123,20 +123,39 @@ test('support mode: a ticket for the school, the school allows entering, the Sup
   const schoolDetail = admin.getByRole('dialog', { name: title });
   await schoolDetail.getByRole('button', { name: 'Povolit vstup' }).click();
   await expect(admin.getByText('Vstup povolen.')).toBeVisible();
+  // As whom: the support created it, so nobody is named yet.
+  await schoolDetail.getByRole('button', { name: /Vybrat$/ }).click();
+  const naming = admin.getByRole('dialog', {
+    name: 'Za koho smí podpora vstoupit',
+  });
+  await naming.locator('p-multiselect').click();
+  await admin.getByRole('option', { name: /Alena Správcová/ }).click();
+  await admin.keyboard.press('Escape');
+  await naming.getByRole('button', { name: 'Uložit' }).click();
+  await expect(
+    schoolDetail.getByText('Vstup jako: Alena Správcová.'),
+  ).toBeVisible();
   await admin.close();
 
-  // Allowed — under the SuperAdmin's bell, leading back to the ticket.
+  // Allowed and named — under the SuperAdmin's bell (the ticket's latest),
+  // leading back to the ticket.
   await detail.locator('.p-dialog-close-button').click();
   await expect(detail).toBeHidden();
   await page.getByRole('button', { name: /^Upozornění/ }).click();
   await page
-    .getByText(`Škola povolila vstup (Testovací škola): ${title}`)
+    .getByText(
+      'Za koho smí podpora vstoupit (Testovací škola): Alena Správcová',
+    )
     .first()
     .click();
   // The school in a new tab.
+  await detail.getByRole('button', { name: 'Vstoupit do školy' }).click();
   const [school] = await Promise.all([
     page.context().waitForEvent('page'),
-    detail.getByRole('button', { name: 'Vstoupit do školy' }).click(),
+    page
+      .getByRole('dialog', { name: 'Vstoupit jako' })
+      .getByRole('button', { name: 'Alena Správcová – Admin' })
+      .click(),
   ]);
   await expect(school).toHaveURL(/\/skola\/home$/);
   await expect(school.getByText('Režim podpory')).toBeVisible();

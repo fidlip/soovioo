@@ -5,17 +5,20 @@ import { Card } from '@openng/optimus-ui/card';
 import { Select } from '@openng/optimus-ui/select';
 import {
   SUPPORT_ACCESS_LABELS,
+  SUPPORT_AS_SCOPE_LABELS,
   SchoolSupport,
   SupportAccess,
   SupportApiService,
+  SupportAsScope,
   approvalDuration,
 } from '@soovioo/shared';
 import { FloatField } from '../forms';
 import { InfoHint } from '../info-hint/info-hint';
 import { NotifyService } from '../notify.service';
 
-/** Vstup podpory do školy in Údaje o škole: whether the support may enter
- * the school — only the school's admin changes it, the others see it. */
+/** Vstup podpory do školy in Aplikace → Nastavení: whether the support may
+ * enter the school, and as its admin or as a user the ticket names — only
+ * the school's admin changes it, the others see it. */
 @Component({
   selector: 'app-support-access-settings',
   imports: [Button, Card, FloatField, FormsModule, InfoHint, Select],
@@ -28,7 +31,11 @@ export class SupportAccessSettings {
   protected readonly accessOptions = (
     Object.keys(SUPPORT_ACCESS_LABELS) as SupportAccess[]
   ).map((value) => ({ value, label: SUPPORT_ACCESS_LABELS[value] }));
+  protected readonly asOptions = (
+    Object.keys(SUPPORT_AS_SCOPE_LABELS) as SupportAsScope[]
+  ).map((value) => ({ value, label: SUPPORT_AS_SCOPE_LABELS[value] }));
   protected readonly support = signal<SchoolSupport | null>(null);
+  protected readonly supportAs = signal<SupportAsScope>('Admin');
   protected readonly access = signal<SupportAccess>('Approval');
   protected readonly duration = computed(() =>
     approvalDuration(this.support()?.approvalMinutes ?? 24 * 60),
@@ -51,8 +58,19 @@ export class SupportAccessSettings {
     });
   }
 
+  protected saveAs(): void {
+    this.api.setSupportAs(this.supportAs()).subscribe({
+      next: (support) => {
+        this.apply(support);
+        this.notify.success('Uloženo.');
+      },
+      error: (err) => this.notify.actionFailed('setSupportAs failed', err),
+    });
+  }
+
   private apply(support: SchoolSupport): void {
     this.support.set(support);
     this.access.set(support.access);
+    this.supportAs.set(support.supportAs);
   }
 }

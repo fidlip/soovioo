@@ -1,3 +1,5 @@
+import { RoleRef } from '../auth/role.model';
+
 /** Result of entering a school in support mode — `code` is a one-time code
  * (valid 1 minute) the school's own page redeems via
  * `SupportApiService.redeem` for an Admin session in that school. */
@@ -16,6 +18,8 @@ export interface SupportAction {
   at: string;
   /** "Zapsána známka – Jan Novák"; null = show method + path. */
   description: string | null;
+  /** Made as one of the school's users: who ("učitel Jan Novák"). */
+  as?: string | null;
 }
 
 /** Audit log row: a SuperAdmin's visit to a school and what they changed. */
@@ -79,6 +83,38 @@ export interface SchoolSupport {
   /** The caller is the school's admin (not the support inside it) — only
    * they change `access`. */
   canChange: boolean;
+  /** Whom the support enters as. */
+  supportAs: SupportAsScope;
+}
+
+/** Whom the support enters the school as: its admin, or only a user the
+ * ticket names ("Vstoupit jako…"). */
+export type SupportAsScope = 'Admin' | 'Users';
+
+export const SUPPORT_AS_SCOPE_LABELS: Record<SupportAsScope, string> = {
+  Users: 'Vybraný uživatel',
+  Admin: 'Admin školy',
+};
+
+/** A user of the school the support may be (or the school may name on a
+ * ticket), with their roles. */
+export interface SupportAsUser {
+  id: number;
+  name: string;
+  roles: RoleRef[];
+}
+
+/** SuperAdmins in the school as someone (support mode, "Vstoupit jako…"):
+ * as the caller (`asMe`), or as someone else for the caller's ticket. */
+export interface SupportPresence {
+  sessionId: number;
+  asMe: boolean;
+  superAdminName: string;
+  /** "učitel Jan Novák". */
+  as: string;
+  startedAt: string;
+  ticketId: number | null;
+  ticketTitle: string | null;
 }
 
 export const SUPPORT_ACCESS_LABELS: Record<SupportAccess, string> = {
@@ -172,6 +208,11 @@ export interface SupportTicket {
   /** In the detail: the support's changes not reset yet, when the caller
    * may reset them; 0 otherwise. */
   resettableChanges?: number;
+  /** Whom the school lets the support enter as. */
+  schoolSupportAs?: SupportAsScope;
+  /** In the detail: the users the support may enter as for the ticket
+   * (with `Users`), the author first. */
+  supportAsUsers?: { id: number; name: string }[] | null;
 }
 
 export type SupportTicketEntryKind =
@@ -189,6 +230,9 @@ export type SupportTicketEntryKind =
   | 'AccessRequested'
   | 'AccessGranted'
   | 'AccessRevoked'
+  /** The school changed whom the support may enter as — text names
+   * them, null = nobody. */
+  | 'SupportAsChanged'
   /** Leaving the school ("Opustit") — text is what was done. */
   | 'Visit'
   /** The support's changes reset — text says how it went; sessionId when
@@ -219,6 +263,8 @@ export interface SupportTicketEntry {
   statusCode: number | null;
   /** With SessionAction, "METHOD /path" — only for the SuperAdmins. */
   request: string | null;
+  /** With SessionAction made as one of the school's users: who. */
+  as?: string | null;
   /** With SessionStarted: the session's last request. */
   lastSeenAt?: string | null;
   /** With SessionStarted: the session's changes not reset yet, when the
