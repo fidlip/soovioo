@@ -104,8 +104,12 @@ export type SupportTicketStatus =
   | 'InProgress'
   /** The support asked; the school's answer brings it back to Assigned. */
   | 'WaitingForSchool'
+  /** Done by the support — the school closes or returns it; closes by
+   * itself after 30 days. */
   | 'Resolved'
-  | 'Cancelled';
+  | 'Cancelled'
+  /** Confirmed by the school, or closed by itself. */
+  | 'Closed';
 
 export const SUPPORT_TICKET_STATUS_LABELS: Record<SupportTicketStatus, string> =
   {
@@ -115,10 +119,11 @@ export const SUPPORT_TICKET_STATUS_LABELS: Record<SupportTicketStatus, string> =
     WaitingForSchool: 'Čeká na školu',
     Resolved: 'Vyřešeno',
     Cancelled: 'Zrušeno',
+    Closed: 'Uzavřeno',
   };
 
 export function isTicketOpen(status: SupportTicketStatus): boolean {
-  return status !== 'Resolved' && status !== 'Cancelled';
+  return status !== 'Resolved' && status !== 'Cancelled' && status !== 'Closed';
 }
 
 /** The school's support plan: how many working days a ticket may take. */
@@ -157,6 +162,13 @@ export interface SupportTicket {
   accessRequestedAt: string | null;
   /** Open and entering allowed until then; null otherwise. */
   accessUntil: string | null;
+  /** Resolved: closes by itself then. */
+  autoClosesAt?: string | null;
+  /** Closed or cancelled and may still be reopened till then. */
+  reopenableUntil?: string | null;
+  /** In the detail for the school: the caller may close or return it
+   * (resolved), or reopen it. */
+  canConfirm?: boolean;
 }
 
 export type SupportTicketEntryKind =

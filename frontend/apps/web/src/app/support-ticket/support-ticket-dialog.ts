@@ -105,6 +105,8 @@ export class SupportTicketDialog {
   protected summary = '';
   protected readonly cancelling = signal(false);
   protected cancelReason = '';
+  protected readonly returning = signal(false);
+  protected returnText = '';
   /** The message or note being changed in place. */
   protected readonly editing = signal<number | null>(null);
   protected editText = '';
@@ -175,7 +177,14 @@ export class SupportTicketDialog {
   protected readonly statusActions = computed(() =>
     STATUS_ACTIONS.filter((a) => a.status !== this.ticket()?.status),
   );
+  /** The last day reopening is possible (it ends at its midnight). */
+  protected readonly reopenLastDay = computed(() => {
+    const until = this.ticket()?.reopenableUntil;
+    return until ? new Date(new Date(until).getTime() - 1).toISOString() : null;
+  });
+
   /** Entering allowed right now — by the school's policy or the ticket. */
+
   protected readonly canEnter = computed(() => {
     const ticket = this.ticket();
     return (
@@ -590,7 +599,7 @@ export class SupportTicketDialog {
     this.confirmation.confirm({
       header: 'Vyřešeno',
       message:
-        'Požadavek se uzavře a vstup do školy kvůli němu skončí. Škola dostane upozornění.',
+        'Vstup do školy kvůli požadavku skončí. Škola dostane upozornění a vyřešení potvrdí, nebo požadavek vrátí do řešení; bez reakce se za 30 dní uzavře sám.',
       icon: 'pi pi-check-circle',
       acceptLabel: 'Vyřešeno',
       rejectLabel: 'Zpět',
@@ -638,6 +647,27 @@ export class SupportTicketDialog {
       'Požadavek zrušen.',
       () => this.cancelling.set(false),
     );
+  }
+
+  protected close(): void {
+    this.act((id) => this.api.closeTicket(id), 'Požadavek uzavřen.');
+  }
+
+  protected openReturn(): void {
+    this.returnText = '';
+    this.returning.set(true);
+  }
+
+  protected returnToSupport(): void {
+    this.act(
+      (id) => this.api.returnTicket(id, this.returnText.trim()),
+      'Požadavek vrácen do řešení.',
+      () => this.returning.set(false),
+    );
+  }
+
+  protected reopen(): void {
+    this.act((id) => this.api.reopenTicket(id), 'Požadavek znovu otevřen.');
   }
 
   /** An audited, 2-hour Admin session in the school (support mode); the own

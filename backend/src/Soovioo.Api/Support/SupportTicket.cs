@@ -1,3 +1,4 @@
+using Soovioo.Api.Common;
 using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.Support;
@@ -15,10 +16,17 @@ public enum SupportTicketStatus
     /// <summary>The support asked the school something; the school's
     /// answer brings it back to <see cref="Assigned"/>.</summary>
     WaitingForSchool,
+
+    /// <summary>Done by the support — the school confirms it
+    /// (<see cref="Closed"/>) or returns it; closed by itself
+    /// <see cref="SupportTicket.AutoCloseAfter"/> later.</summary>
     Resolved,
 
     /// <summary>The school withdrew it before it was resolved.</summary>
     Cancelled,
+
+    /// <summary>The school confirmed it resolved, or nobody returned it in time.</summary>
+    Closed,
 }
 
 /// <summary>A case of support for a school — asked by its admin, or opened
@@ -73,7 +81,25 @@ public class SupportTicket
     /// taken back = set to the moment.</summary>
     public DateTimeOffset? AccessUntil { get; set; }
 
-    public bool IsOpen => Status is not (SupportTicketStatus.Resolved or SupportTicketStatus.Cancelled);
+    /// <summary>The status it had when cancelled — reopening returns it.</summary>
+    public SupportTicketStatus? StatusBeforeCancel { get; set; }
+
+    public static readonly TimeSpan AutoCloseAfter = TimeSpan.FromDays(30);
+
+    /// <summary>Open for the support's work.</summary>
+    public bool IsOpen => Status is not (SupportTicketStatus.Resolved or SupportTicketStatus.Cancelled
+        or SupportTicketStatus.Closed);
+
+    /// <summary>Resolved: closed by itself then.</summary>
+    public DateTimeOffset? AutoClosesAt =>
+        Status == SupportTicketStatus.Resolved ? StatusChangedAt + AutoCloseAfter : null;
+
+    /// <summary>Closed or cancelled: may be reopened till the end of the
+    /// next working day (Prague) — a mistake noticed in time.</summary>
+    public DateTimeOffset? ReopenableUntil =>
+        Status is SupportTicketStatus.Closed or SupportTicketStatus.Cancelled && StatusChangedAt is { } at
+            ? SchoolClock.At(CzechWorkingDays.Add(DateOnly.FromDateTime(SchoolClock.Local(at)), 1).AddDays(1), TimeOnly.MinValue)
+            : null;
 }
 
 public enum SupportTicketEntryKind

@@ -683,6 +683,186 @@ public class SupportTicketsControllerTests
         }
     }
 
+    private async Task<User> AnotherAdminAsync(World w)
+    {
+        using var db = SuperAdminDb();
+        var adminRole = db.Roles.Single(r => r.SchoolId == w.School.Id && r.BuiltIn == UserRole.Admin);
+        var admin = new User { Username = "zastupce", PasswordHash = "x", SchoolId = w.School.Id, ActiveRole = adminRole };
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+        return admin;
+    }
+
+    private async Task ResolveAsync(World w, int id)
+    {
+        using var db = SuperAdminDb();
+        if (db.SupportTickets.Single(t => t.Id == id).AssigneeUserId is null)
+        {
+            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
+        }
+        Ok(await Tickets(db, w.SuperAdmin.Id)
+            .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.Resolved)));
+    }
+
+    [Fact]
+    public async Task TheAuthorClosesOrReturnsAResolvedTicketAndMayReopenItTillTheEndOfTheNextWorkingDay()
+    {
+        var w = await SeedAsync();
+        var deputy = await AnotherAdminAsync(w);
+        var id = await SchoolTicketAsync(w);
+        await ResolveAsync(w, id);
+
+        using (var db = SchoolDb(w.School.Id))
+        {
+            var resolved = db.Notifications.Single(n => n.UserId == w.Admin.Id && n.Title.StartsWith("Požadavek vyřešen"));
+            Assert.Equal("Potvrďte vyřešení, nebo požadavek vraťte do řešení. Jinak se 9. 12. 2026 uzavře sám.", resolved.Body);
+
+            // Not the author's colleague: the author decides.
+            var seen = Ok(await Tickets(db, deputy.Id, w.School.Id).GetSchoolTicket(id)).Ticket;
+            Assert.False(seen.CanConfirm);
+            Assert.Equal(clock.Now.AddDays(30), seen.AutoClosesAt);
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).CloseTicket(id)).Result);
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).ReturnTicket(id)).Result);
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
+                .AddSchoolMessage(id, new SupportTicketMessageRequest("Ještě"))).Result);
+
+            Assert.True(Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Ticket.CanConfirm);
+            var returned = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
+                .ReturnTicket(id, new ReturnSupportTicketRequest(" Import pořád padá ")));
+            Assert.Equal(SupportTicketStatus.Assigned, returned.Ticket.Status);
+            Assert.Null(returned.Ticket.AutoClosesAt);
+            Assert.Contains(returned.Entries, e => e.Kind == SupportTicketEntryKind.Message && e.Text == "Import pořád padá");
+        }
+        using (var db = SuperAdminDb())
+        {
+            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola vrátila")
+                                                   && n.Body == "Import pořád padá");
+            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
+        }
+
+        await ResolveAsync(w, id);
+        using (var db = SchoolDb(w.School.Id))
+        {
+            var closed = Ok(await Tickets(db, w.Admin.Id, w.School.Id).CloseTicket(id)).Ticket;
+            Assert.Equal(SupportTicketStatus.Closed, closed.Status);
+            // Monday 11:00 → till the end of Tuesday, Prague.
+            Assert.Equal(new DateTimeOffset(2026, 11, 10, 23, 0, 0, TimeSpan.Zero), closed.ReopenableUntil);
+            Assert.True(closed.CanConfirm);
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).CloseTicket(id)).Result);
+        }
+        using (var db = SuperAdminDb())
+        {
+            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola potvrdila"));
+            Assert.Empty(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
+        }
+        using (var db = SchoolDb(w.School.Id))
+        {
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).ReopenTicket(id)).Result);
+            clock.Now = clock.Now.AddDays(1);
+            var reopened = Ok(await Tickets(db, w.Admin.Id, w.School.Id).ReopenTicket(id)).Ticket;
+            Assert.Equal(SupportTicketStatus.Resolved, reopened.Status);
+            Assert.Equal(clock.Now.AddDays(30), reopened.AutoClosesAt);
+
+            Ok(await Tickets(db, w.Admin.Id, w.School.Id).CloseTicket(id));
+            // Closed on Tuesday: the window ends with Wednesday.
+            clock.Now = new DateTimeOffset(2026, 11, 11, 23, 0, 0, TimeSpan.Zero);
+            var late = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Ticket;
+            Assert.Null(late.ReopenableUntil);
+            Assert.False(late.CanConfirm);
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).ReopenTicket(id)).Result);
+        }
+    }
+
+    [Fact]
+    public async Task AnyAdminConfirmsATicketTheSupportOpenedOrWhoseAuthorIsNoLongerAdmin()
+    {
+        var w = await SeedAsync();
+        var deputy = await AnotherAdminAsync(w);
+        int bySupport;
+        using (var db = SuperAdminDb())
+        {
+            bySupport = Ok(await Tickets(db, w.SuperAdmin.Id)
+                .CreateTicket(new CreateSupportTicketRequest(w.School.Id, "Kontrola", ""))).Ticket.Id;
+        }
+        var byDeputy = await SchoolTicketAsync(w);
+        await ResolveAsync(w, bySupport);
+        await ResolveAsync(w, byDeputy);
+        using (var db = SuperAdminDb())
+        {
+            db.Users.Remove(db.Users.Single(u => u.Id == w.Admin.Id));
+            await db.SaveChangesAsync();
+        }
+        using (var db = SchoolDb(w.School.Id))
+        {
+            Assert.Equal(SupportTicketStatus.Closed,
+                Ok(await Tickets(db, deputy.Id, w.School.Id).CloseTicket(bySupport)).Ticket.Status);
+            Assert.Equal(SupportTicketStatus.Closed,
+                Ok(await Tickets(db, deputy.Id, w.School.Id).CloseTicket(byDeputy)).Ticket.Status);
+        }
+    }
+
+    [Fact]
+    public async Task ACancelledTicketIsReopenedByAnyAdminToTheStatusItHadPastAHoliday()
+    {
+        // Monday 2026-11-16; Tuesday the 17th is a public holiday.
+        clock.Now = new DateTimeOffset(2026, 11, 16, 10, 0, 0, TimeSpan.Zero);
+        var w = await SeedAsync();
+        var deputy = await AnotherAdminAsync(w);
+        var id = await SchoolTicketAsync(w);
+        using (var db = SuperAdminDb())
+        {
+            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
+            Ok(await Tickets(db, w.SuperAdmin.Id)
+                .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.WaitingForSchool)));
+        }
+        using (var db = SchoolDb(w.School.Id))
+        {
+            var cancelled = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
+                .CancelTicket(id, new CancelSupportTicketRequest("Omylem"))).Ticket;
+            Assert.Equal(new DateTimeOffset(2026, 11, 18, 23, 0, 0, TimeSpan.Zero), cancelled.ReopenableUntil);
+            Assert.True(Ok(await Tickets(db, deputy.Id, w.School.Id).GetSchoolTicket(id)).Ticket.CanConfirm);
+
+            clock.Now = new DateTimeOffset(2026, 11, 18, 22, 0, 0, TimeSpan.Zero);
+            var reopened = Ok(await Tickets(db, deputy.Id, w.School.Id).ReopenTicket(id));
+            Assert.Equal(SupportTicketStatus.WaitingForSchool, reopened.Ticket.Status);
+            Assert.Equal(SupportTicketStatus.WaitingForSchool, reopened.Entries.Last(e => e.Status != null).Status);
+        }
+        using (var db = SuperAdminDb())
+        {
+            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola znovu otevřela"));
+            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
+        }
+    }
+
+    [Fact]
+    public async Task AResolvedTicketClosesByItselfAfterThirtyDays()
+    {
+        var w = await SeedAsync();
+        var id = await SchoolTicketAsync(w);
+        var open = await SchoolTicketAsync(w);
+        await ResolveAsync(w, id);
+        using (var db = SuperAdminDb())
+        {
+            clock.Now = clock.Now.AddDays(30).AddMinutes(-1);
+            await new SupportTicketAutoCloseJob(db, new Notifier(db, clock), clock).RunAsync();
+            Assert.Equal(SupportTicketStatus.Resolved, db.SupportTickets.Single(t => t.Id == id).Status);
+
+            clock.Now = clock.Now.AddMinutes(1);
+            await new SupportTicketAutoCloseJob(db, new Notifier(db, clock), clock).RunAsync();
+            Assert.Equal(SupportTicketStatus.Closed, db.SupportTickets.Single(t => t.Id == id).Status);
+            Assert.Equal(SupportTicketStatus.New, db.SupportTickets.Single(t => t.Id == open).Status);
+        }
+        using (var db = SchoolDb(w.School.Id))
+        {
+            var detail = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id));
+            var entry = detail.Entries.Last(e => e.Kind == SupportTicketEntryKind.StatusChanged);
+            Assert.Equal(SupportTicketStatus.Closed, entry.Status);
+            Assert.Equal(SupportTicketAutoCloseJob.AuthorName, entry.AuthorName);
+            Assert.NotNull(detail.Ticket.ReopenableUntil);
+            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Požadavek uzavřen automaticky"));
+        }
+    }
+
     [Fact]
     public async Task OnlyTheSchoolsAdminLetsTheSupportInAndTheSuperAdminsHearOfIt()
     {

@@ -233,6 +233,21 @@ export class SupportApiService {
     return this.schoolTicketAction(id, 'cancel', { reason });
   }
 
+  /** Resolved → closed; the author's (or any admin's, see the API). */
+  closeTicket(id: number): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(id, 'close');
+  }
+
+  /** Resolved → back to its assignee; `text` goes to the thread. */
+  returnTicket(id: number, text: string): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(id, 'return', { text: text || null });
+  }
+
+  /** Closed or cancelled → as it was, while `reopenableUntil` lasts. */
+  reopenTicket(id: number): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(id, 'reopen');
+  }
+
   grantTicketAccess(id: number): Observable<SupportTicketDetail> {
     return this.schoolTicketAction(id, 'grant-access');
   }

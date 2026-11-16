@@ -220,6 +220,8 @@ using (var scope = app.Services.CreateScope())
         "retention-daily", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationCleanupJob>(
         "notification-cleanup", job => job.RunAsync(), Cron.Daily);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportTicketAutoCloseJob>(
+        "support-ticket-auto-close", job => job.RunAsync(), Cron.Hourly);
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationDigestJob>(
         "notification-digest", job => job.RunAsync(), "*/15 * * * *");
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.PushJob>(
