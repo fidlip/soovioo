@@ -1,34 +1,42 @@
-<div class="tabs" role="tablist">
+<div class="bar">
+  <div class="tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="tab"
+      [attr.aria-selected]="!preview()"
+      (click)="preview.set(false)"
+    >
+      Text
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="tab"
+      [attr.aria-selected]="preview()"
+      (click)="preview.set(true)"
+    >
+      Náhled
+    </button>
+  </div>
   <button
     type="button"
-    role="tab"
-    class="tab"
-    [attr.aria-selected]="!preview()"
-    (click)="preview.set(false)"
+    class="hint"
+    aria-label="Formátování Markdown"
+    pTooltip="Formátování Markdown: **tučně**, _kurzíva_, - seznam, [odkaz](https://…)"
+    tooltipPosition="top"
+    tooltipEvent="both"
   >
-    Text
-  </button>
-  <button
-    type="button"
-    role="tab"
-    class="tab"
-    [attr.aria-selected]="preview()"
-    (click)="preview.set(true)"
-  >
-    Náhled
+    <i class="pi pi-info-circle"></i>
   </button>
 </div>
 <div class="field">
-  @if (preview()) {
-  <div class="preview" [attr.aria-label]="label() + ' – náhled'">
-    @if (value().trim()) {
-    <app-markdown [text]="value()" />
-    } @else {
-    <span class="text-surface-500">Nic k náhledu.</span>
-    }
-  </div>
-  } @else {
-  <app-float-field [label]="label()" [for]="inputId()" variant="in">
+  <app-float-field
+    [label]="label()"
+    [for]="inputId()"
+    variant="in"
+    [class.invisible]="preview()"
+  >
     <textarea
       pTextarea
       class="w-full"
@@ -41,11 +49,14 @@
       (blur)="onTouched()"
     ></textarea>
   </app-float-field>
+  @if (preview()) {
+  <div class="preview" [attr.aria-label]="label() + ' – náhled'">
+    @if (value().trim()) {
+    <app-markdown [text]="value()" />
+    } @else {
+    <span class="text-surface-500">Nic k náhledu.</span>
+    }
+  </div>
   }
   <div class="actions"><ng-content /></div>
 </div>
-@if (!preview()) {
-<div class="mt-1 text-xs text-surface-500">
-  Formátování Markdown: **tučně**, _kurzíva_, - seznam, [odkaz](https://…)
-</div>
-}
