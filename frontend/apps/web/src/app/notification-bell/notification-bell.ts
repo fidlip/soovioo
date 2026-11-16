@@ -1,4 +1,5 @@
 import { Component, inject, signal, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
@@ -11,6 +12,7 @@ import {
   NotificationType,
   NotificationsApiService,
 } from '@soovioo/shared';
+import { LiveService } from '../live.service';
 import { Loading } from '../loading/loading';
 import { SchoolContextService } from '../school-context';
 import { UnreadCountsService } from '../unread-counts.service';
@@ -44,7 +46,8 @@ function readUnreadOnly(): boolean {
 
 /** The bell's popover with the notifications — a click opens the thing
  * it's about. The buttons that open it are the app shell's (sidebar, phone
- * top bar), they call `toggle`. */
+ * top bar), they call `toggle`. Open, it follows what the live connection
+ * says changed. */
 @Component({
   selector: 'app-notification-bell',
   imports: [DateFormatPipe, Button, Checkbox, FormsModule, Loading, Popover],
@@ -65,6 +68,17 @@ export class NotificationBell {
   protected readonly unreadOnly = signal(readUnreadOnly());
 
   protected readonly icons = TYPE_ICONS;
+  private shown = false;
+
+  constructor() {
+    inject(LiveService)
+      .counts$.pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (this.shown && !this.loading()) {
+          this.fetch(undefined, true);
+        }
+      });
+  }
 
   toggle(event: Event): void {
     this.popover().toggle(event);
@@ -72,8 +86,13 @@ export class NotificationBell {
 
   /** Fresh list each time it opens. */
   protected load(): void {
+    this.shown = true;
     this.unread.refresh();
     this.fetch();
+  }
+
+  protected hidden(): void {
+    this.shown = false;
   }
 
   protected setUnreadOnly(unreadOnly: boolean): void {
@@ -93,14 +112,20 @@ export class NotificationBell {
     this.fetch(items[items.length - 1]?.id);
   }
 
-  private fetch(beforeId?: number): void {
+  /** `refreshing`: the first page again, keeping what was loaded below it. */
+  private fetch(beforeId?: number, refreshing = false): void {
     this.loading.set(true);
     this.api.getNotifications(beforeId, this.unreadOnly()).subscribe({
       next: (page) => {
+        const last = page.items[page.items.length - 1]?.id;
+        const below =
+          refreshing && page.hasMore && last !== undefined
+            ? this.items().filter((n) => n.id < last)
+            : [];
         this.items.update((items) =>
-          beforeId ? [...items, ...page.items] : page.items,
+          beforeId ? [...items, ...page.items] : [...page.items, ...below],
         );
-        this.hasMore.set(page.hasMore);
+        this.hasMore.set(below.length ? this.hasMore() : page.hasMore);
         this.loading.set(false);
       },
       error: (err) => {
