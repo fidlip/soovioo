@@ -238,9 +238,21 @@ export class SupportApiService {
     return this.schoolTicketAction(id, 'close');
   }
 
-  /** Resolved → back to its assignee; `text` goes to the thread. */
+  /** Resolved → back to its assignee; `text` (required) goes to the thread. */
   returnTicket(id: number, text: string): Observable<SupportTicketDetail> {
-    return this.schoolTicketAction(id, 'return', { text: text || null });
+    return this.schoolTicketAction(id, 'return', { text });
+  }
+
+  /** A SuperAdmin's: resolved → back to its assignee; `text` is an
+   * optional internal note. */
+  returnTicketBySupport(
+    id: number,
+    text: string,
+  ): Observable<SupportTicketDetail> {
+    return this.http.post<SupportTicketDetail>(
+      `${this.baseUrl}/api/support-tickets/${id}/return`,
+      { text: text || null },
+    );
   }
 
   /** Closed or cancelled → as it was, while `reopenableUntil` lasts. */

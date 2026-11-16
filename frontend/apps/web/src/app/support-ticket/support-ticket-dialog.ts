@@ -599,7 +599,7 @@ export class SupportTicketDialog {
     this.confirmation.confirm({
       header: 'Vyřešeno',
       message:
-        'Vstup do školy kvůli požadavku skončí. Škola dostane upozornění a vyřešení potvrdí, nebo požadavek vrátí do řešení; bez reakce se za 30 dní uzavře sám.',
+        'Vstup do školy kvůli požadavku skončí. Škola dostane upozornění a vyřešení potvrdí, nebo požadavek vrátí k řešení; bez reakce se za 30 dní uzavře sám.',
       icon: 'pi pi-check-circle',
       acceptLabel: 'Vyřešeno',
       rejectLabel: 'Zpět',
@@ -660,8 +660,11 @@ export class SupportTicketDialog {
 
   protected returnToSupport(): void {
     this.act(
-      (id) => this.api.returnTicket(id, this.returnText.trim()),
-      'Požadavek vrácen do řešení.',
+      (id) =>
+        this.bySupport()
+          ? this.api.returnTicketBySupport(id, this.returnText.trim())
+          : this.api.returnTicket(id, this.returnText.trim()),
+      'Požadavek vrácen k řešení.',
       () => this.returning.set(false),
     );
   }

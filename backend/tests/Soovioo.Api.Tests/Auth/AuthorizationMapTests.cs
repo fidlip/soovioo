@@ -269,6 +269,7 @@ public class AuthorizationMapTests
         ["SupportTickets.CancelTicket"] = "authenticated + perm:Administration",
         ["SupportTickets.CloseTicket"] = "authenticated + perm:Administration",
         ["SupportTickets.ReturnTicket"] = "authenticated + perm:Administration",
+        ["SupportTickets.ReturnTicketBySupport"] = "roles:SuperAdmin",
         ["SupportTickets.ReopenTicket"] = "authenticated + perm:Administration",
         ["SupportTickets.CreateSchoolTicket"] = "authenticated + perm:Administration",
         ["SupportTickets.CreateTicket"] = "roles:SuperAdmin",
