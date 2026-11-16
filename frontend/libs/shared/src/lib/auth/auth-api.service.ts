@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import {
   Observable,
   Subject,
@@ -29,6 +29,14 @@ export type SessionChange =
   | { kind: 'logout' }
   | { kind: 'role'; roleName: string };
 
+/** Support mode ended by someone else (the school, another SuperAdmin):
+ * who, when and why (Markdown) — the API says so with the 401. */
+export interface SupportSessionEnded {
+  at: string;
+  by: string;
+  reason: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
   private readonly http = inject(HttpClient);
@@ -45,6 +53,9 @@ export class AuthApiService {
    * (refresh token expired or revoked) — the app sends the user to login. */
   readonly sessionExpired$ = this.sessionExpiredSubject.asObservable();
   readonly sessionChanged$ = this.sessionChangedSubject.asObservable();
+  /** Set once this tab's support mode was ended by someone else — it stays
+   * until the SuperAdmin confirms it. */
+  readonly supportEnded = signal<SupportSessionEnded | null>(null);
 
   login(request: LoginRequest): Observable<LoginResponse> {
     return this.http
@@ -138,6 +149,13 @@ export class AuthApiService {
    * router's guards run. Never rejects; no session just means logged out. */
   restoreSession(): Promise<unknown> {
     return firstValueFrom(this.refresh());
+  }
+
+  /** Called by the interceptor when the API says support mode was ended. */
+  notifySupportEnded(ended: SupportSessionEnded): void {
+    if (!this.supportEnded()) {
+      this.supportEnded.set(ended);
+    }
   }
 
   /** Called by the interceptor when a refresh after a 401 failed. */

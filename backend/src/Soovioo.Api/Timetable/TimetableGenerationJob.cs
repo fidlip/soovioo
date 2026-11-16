@@ -34,6 +34,11 @@ public class TimetableGenerationJob(
         {
             return;
         }
+        if (generation.SupportSessionId is { } sessionId
+            && await db.SupportSessions.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == sessionId) is { } session)
+        {
+            db.SupportJournal = Support.SupportJournalScope.Of(session, clock);
+        }
         generation.Status = TimetableGenerationStatus.Running;
         generation.StartedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();

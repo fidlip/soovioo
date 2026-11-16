@@ -16,6 +16,8 @@ export interface TicketVisit {
   /** What was done, written on leaving. */
   result: string | null;
   changes: number;
+  /** Its changes not reset yet, when the caller may reset them. */
+  resettable: number;
   /** What happened meanwhile — its own changes and anything else. */
   entries: SupportTicketEntry[];
 }
@@ -48,6 +50,7 @@ export function groupTicketThread(
         end: 'running',
         result: null,
         changes: 0,
+        resettable: entry.changes ?? 0,
         entries: [],
       });
     }

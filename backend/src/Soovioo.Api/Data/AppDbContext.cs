@@ -58,6 +58,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Support.SupportTicketEntry> SupportTicketEntries => Set<Support.SupportTicketEntry>();
     public DbSet<Support.SupportTicketEntryRevision> SupportTicketEntryRevisions => Set<Support.SupportTicketEntryRevision>();
     public DbSet<Support.SupportTicket> SupportTickets => Set<Support.SupportTicket>();
+    public DbSet<Support.SupportChange> SupportChanges => Set<Support.SupportChange>();
     public DbSet<Audit.AuditLogEntry> AuditLogEntries => Set<Audit.AuditLogEntry>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
@@ -120,8 +121,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<District> Districts => Set<District>();
     public DbSet<Municipality> Municipalities => Set<Municipality>();
 
+    /// <summary>Set in support mode: what is saved goes to the support's
+    /// journal (<see cref="Support.SupportJournal"/>).</summary>
+    public Support.SupportJournalScope? SupportJournal { get; set; }
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        if (SupportJournal is { } journal)
+        {
+            return Support.SupportJournal.SaveAsync(this, journal, acceptAllChangesOnSuccess, CancellationToken.None)
+                .GetAwaiter().GetResult();
+        }
         var rolesChanged = RolesChanged();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         if (rolesChanged)
@@ -131,7 +141,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         return result;
     }
 
-    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default) =>
+        SupportJournal is { } journal
+            ? Support.SupportJournal.SaveAsync(this, journal, acceptAllChangesOnSuccess, cancellationToken)
+            : SaveWithoutJournalAsync(acceptAllChangesOnSuccess, cancellationToken);
+
+    internal async Task<int> SaveWithoutJournalAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken)
     {
         var rolesChanged = RolesChanged();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -317,6 +332,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasIndex(x => new { x.TicketId, x.At });
             e.HasOne(x => x.Ticket).WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Revisions).WithOne().HasForeignKey(x => x.EntryId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<Support.SupportChange>(e =>
+        {
+            e.Property(x => x.Operation).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.EntityType).HasMaxLength(300);
+            e.HasIndex(x => new { x.TicketId, x.SessionId });
+            e.HasOne<Support.SupportTicket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Support.SupportSession>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<Support.SupportTicketEntryRevision>(e =>

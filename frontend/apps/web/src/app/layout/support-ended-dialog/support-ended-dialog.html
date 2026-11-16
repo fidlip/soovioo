@@ -1,0 +1,26 @@
+@if (authApi.supportEnded(); as ended) {
+<p-dialog
+  [visible]="true"
+  header="Vstup do školy ukončen"
+  [modal]="true"
+  [closable]="false"
+  [closeOnEscape]="false"
+  styleClass="w-full max-w-lg"
+>
+  <p class="mt-0">
+    Váš vstup do školy ukončil(a) <strong>{{ ended.by }}</strong> ({{ ended.at |
+    dateFormat: 'dateTime' }}). Další změny už se neuloží.
+  </p>
+  @if (ended.reason) {
+  <div
+    class="rounded-md border-l-4 border-amber-300 px-3 py-1"
+    data-testid="support-ended-reason"
+  >
+    <app-markdown [text]="ended.reason" />
+  </div>
+  }
+  <div class="mt-4 flex justify-end">
+    <p-button label="Rozumím" icon="pi pi-check" (onClick)="confirm()" />
+  </div>
+</p-dialog>
+}

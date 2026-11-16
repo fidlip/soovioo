@@ -15,6 +15,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule, NgForm } from '@angular/forms';
 import { ConfirmationService, MenuItem } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
+import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Menu } from '@openng/optimus-ui/menu';
 import { Select } from '@openng/optimus-ui/select';
@@ -24,9 +25,12 @@ import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
   AuthApiService,
   DateFormatPipe,
+  SUPPORT_RESET_ACTION_LABELS,
   SUPPORT_TICKET_ENTRY_CHANGE_LABELS,
   SUPPORT_TICKET_STATUS_LABELS,
   SupportApiService,
+  SupportResetItem,
+  SupportResetPreview,
   SupportTicket,
   SupportTicketDetail,
   SupportTicketEntry,
@@ -69,6 +73,7 @@ import {
   selector: 'app-support-ticket-dialog',
   imports: [
     Button,
+    Checkbox,
     DateFormatPipe,
     Dialog,
     FloatField,
@@ -107,6 +112,21 @@ export class SupportTicketDialog {
   protected summary = '';
   protected readonly cancelling = signal(false);
   protected cancelReason = '';
+  /** Cancelling resets the support's changes first. */
+  protected cancelReset = false;
+  /** Resetting the support's changes: of the ticket (sessionId null) or of one visit. */
+  protected readonly resetting = signal<{ sessionId: number | null } | null>(
+    null,
+  );
+  protected resetReason = '';
+  /** What the reset does — for resetting or cancelling with it. */
+  protected readonly resetPreview = signal<SupportResetPreview | null>(null);
+  protected readonly resetReturned = computed(
+    () => this.resetPreview()?.items.filter((i) => !i.skipped) ?? [],
+  );
+  protected readonly resetSkipped = computed(
+    () => this.resetPreview()?.items.filter((i) => i.skipped) ?? [],
+  );
   protected readonly returning = signal(false);
   protected returnText = '';
   /** The message or note being changed in place. */
@@ -178,6 +198,13 @@ export class SupportTicketDialog {
   );
   protected readonly statusActions = computed(() =>
     STATUS_ACTIONS.filter((a) => a.status !== this.ticket()?.status),
+  );
+  /** The support's changes the caller may reset — not from inside the
+   * school, not when only looking. */
+  protected readonly resettable = computed(() =>
+    this.readOnly() || this.side() === 'session'
+      ? 0
+      : (this.ticket()?.resettableChanges ?? 0),
   );
   /** The last day reopening is possible (it ends at its midnight). */
   protected readonly reopenLastDay = computed(() => {
@@ -351,6 +378,10 @@ export class SupportTicketDialog {
         return 'Vstup do školy ukončen';
       case 'SessionExpired':
         return 'Vstup do školy vypršel';
+      case 'Reset':
+        return entry.sessionId
+          ? 'Změny tohoto vstupu resetovány'
+          : 'Změny podpory resetovány';
       default:
         return '';
     }
@@ -646,15 +677,75 @@ export class SupportTicketDialog {
 
   protected openCancel(): void {
     this.cancelReason = '';
+    this.cancelReset = false;
+    this.resetPreview.set(null);
     this.cancelling.set(true);
+  }
+
+  protected setCancelReset(reset: boolean): void {
+    this.cancelReset = reset;
+    if (reset && !this.resetPreview()) {
+      this.loadResetPreview(null);
+    }
   }
 
   protected cancel(): void {
     this.act(
-      (id) => this.api.cancelTicket(id, this.cancelReason.trim()),
+      (id) =>
+        this.api.cancelTicket(id, this.cancelReason.trim(), this.cancelReset),
       'Požadavek zrušen.',
       () => this.cancelling.set(false),
     );
+  }
+
+  /** A visit runs now — resetting ends it. */
+  protected readonly visitRunning = computed(() =>
+    this.items().some((i) => i.visit?.end === 'running'),
+  );
+
+  protected openReset(sessionId: number | null): void {
+    this.resetReason = '';
+    this.resetPreview.set(null);
+    this.resetting.set({ sessionId });
+    this.loadResetPreview(sessionId);
+  }
+
+  private loadResetPreview(sessionId: number | null): void {
+    const ticket = this.ticket();
+    if (!ticket) {
+      return;
+    }
+    this.api.previewReset(this.resetScope(), ticket.id, sessionId).subscribe({
+      next: (preview) => this.resetPreview.set(preview),
+      error: (err) => {
+        this.resetting.set(null);
+        this.cancelReset = false;
+        this.notify.actionFailed('previewReset failed', err);
+      },
+    });
+  }
+
+  protected reset(): void {
+    const sessionId = this.resetting()?.sessionId ?? null;
+    this.act(
+      (id) =>
+        this.api.resetChanges(
+          this.resetScope(),
+          id,
+          sessionId,
+          this.resetReason.trim(),
+        ),
+      'Změny podpory resetovány.',
+      () => this.resetting.set(null),
+    );
+  }
+
+  private resetScope(): 'support' | 'school' {
+    return this.side() === 'school' ? 'school' : 'support';
+  }
+
+  protected resetActionLabel(item: SupportResetItem): string {
+    return SUPPORT_RESET_ACTION_LABELS[item.action];
   }
 
   protected close(): void {

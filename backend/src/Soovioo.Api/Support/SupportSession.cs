@@ -49,6 +49,14 @@ public class SupportSession
     /// <summary>Set by "Opustit"; null = left by letting the token expire.</summary>
     public DateTimeOffset? EndedAt { get; set; }
 
+    /// <summary>Ended by someone else (the school, another SuperAdmin) — who.
+    /// The SuperAdmin inside learns it with <see cref="EndReason"/>
+    /// (<see cref="SupportSessionGuardMiddleware"/>).</summary>
+    public string? EndedBy { get; set; }
+
+    /// <summary>Markdown.</summary>
+    public string? EndReason { get; set; }
+
     /// <summary>What was done — the SuperAdmin may write it on "Opustit".</summary>
     public string? Result { get; set; }
 }

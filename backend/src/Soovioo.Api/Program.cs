@@ -57,6 +57,7 @@ builder.Services.AddScoped<Soovioo.Api.Support.SupportSessionService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<AuthCookieOptions>(builder.Configuration.GetSection("AuthCookie"));
 builder.Services.AddScoped<MessageAttachmentStorageService>();
+builder.Services.AddScoped<Soovioo.Api.Support.SupportReset>();
 builder.Services.AddScoped<Soovioo.Api.People.PhotoStorage>();
 builder.Services.AddScoped<Soovioo.Api.People.PhotoAccess>();
 builder.Services.AddScoped<Soovioo.Api.People.NameLabels>();
@@ -222,6 +223,8 @@ using (var scope = app.Services.CreateScope())
         "notification-cleanup", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportTicketAutoCloseJob>(
         "support-ticket-auto-close", job => job.RunAsync(), Cron.Hourly);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportChangeCleanupJob>(
+        "support-change-cleanup", job => job.RunAsync(), Cron.Hourly);
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationDigestJob>(
         "notification-digest", job => job.RunAsync(), "*/15 * * * *");
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.PushJob>(

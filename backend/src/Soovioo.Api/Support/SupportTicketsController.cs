@@ -23,7 +23,7 @@ namespace Soovioo.Api.Support;
 [AuditArea("Podpora")]
 public class SupportTicketsController(
     AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, SupportPlanClient plans,
-    SupportSessionService supportSessions, IOptions<SupportOptions> options, TimeProvider clock)
+    SupportSessionService supportSessions, SupportReset reset, IOptions<SupportOptions> options, TimeProvider clock)
     : ControllerBase
 {
     public const int ListLength = 100;
@@ -149,7 +149,8 @@ public class SupportTicketsController(
     }
 
     /// <summary>The school withdraws a ticket not closed yet, saying why;
-    /// entering for it ends.</summary>
+    /// entering for it ends. With <see cref="CancelSupportTicketRequest.ResetChanges"/>
+    /// the support's changes are reset first (<see cref="MayConfirmAsync"/>).</summary>
     [HttpPost("api/my-school/support-tickets/{id:int}/cancel")]
     [RequirePermission(Permission.Administration)]
     [AuditAction("Zrušen požadavek na podporu")]
@@ -172,12 +173,23 @@ public class SupportTicketsController(
         {
             return BadRequest("Požadavek už je uzavřený.");
         }
+        if (request.ResetChanges && !await MayConfirmAsync(ticket))
+        {
+            return ResetAuthorOnly(ticket);
+        }
         var me = await MeAsync();
+        if (request.ResetChanges)
+        {
+            await ResetAsync(ticket, null, me, null, endSessions: false);
+        }
         var reason = request.Reason!.Trim();
         ticket.StatusBeforeCancel = ticket.Status;
         var cancelled = SetStatus(ticket, SupportTicketStatus.Cancelled, me, reason);
-        await CloseAccessAsync(ticket, cancelled.At);
-        await db.SaveChangesAsync();
+        await CloseAccessAsync(ticket, cancelled.At, me, WithReason("Škola požadavek zrušila.", reason));
+        if (await SaveResetAsync() is { } failed)
+        {
+            return failed;
+        }
         await NotifySupportAsync(ticket, $"Škola zrušila požadavek ({ticket.School!.Name}): {ticket.Title}", reason);
         return Ok(await DetailAsync(ticket, withInternal: false));
     }
@@ -290,6 +302,43 @@ public class SupportTicketsController(
         return Ok(await DetailAsync(ticket, withInternal: false));
     }
 
+    /// <summary>What resetting the support's changes would do — of the
+    /// whole ticket, or of one of its sessions.</summary>
+    [HttpGet("api/my-school/support-tickets/{id:int}/reset")]
+    [RequirePermission(Permission.Administration)]
+    public async Task<ActionResult<SupportResetPreviewDto>> PreviewSchoolReset(int id, int? sessionId = null)
+    {
+        var (ticket, refused) = await SchoolResettableAsync(id, sessionId);
+        return ticket is null ? refused! : Ok(await reset.PreviewAsync(ticket.Id, sessionId));
+    }
+
+    /// <summary>"Resetovat" — returns the support's changes, saying why; the
+    /// thread says how it went, the support's running sessions end and its
+    /// assignee hears of it.</summary>
+    [HttpPost("api/my-school/support-tickets/{id:int}/reset")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Resetovány změny podpory")]
+    public async Task<ActionResult<SupportTicketDetailDto>> ResetSchoolTicket(int id, ResetSupportChangesRequest request)
+    {
+        if (ValidateText(request.Reason, "reason", "Napište, proč změny podpory resetujete.") is { } invalid)
+        {
+            return invalid;
+        }
+        var (ticket, refused) = await SchoolResettableAsync(id, request.SessionId);
+        if (ticket is null)
+        {
+            return refused!;
+        }
+        var reason = request.Reason!.Trim();
+        await ResetAsync(ticket, request.SessionId, await MeAsync(), reason, endSessions: true);
+        if (await SaveResetAsync() is { } failed)
+        {
+            return failed;
+        }
+        await NotifySupportAsync(ticket, $"Škola resetovala změny podpory ({ticket.School!.Name}): {ticket.Title}", reason);
+        return Ok(await DetailAsync(ticket, withInternal: false));
+    }
+
     /// <summary>Lets the support in for this ticket for
     /// <see cref="SupportOptions.ApprovalMinutes"/> (again).</summary>
     [HttpPost("api/my-school/support-tickets/{id:int}/grant-access")]
@@ -354,7 +403,7 @@ public class SupportTicketsController(
         ticket.AccessUntil = now;
         var revoked = AddEntry(ticket, SupportTicketEntryKind.AccessRevoked, me);
         // Ended by it — in the thread, within the visit.
-        await EndSessionsAsync(ticket.Id, revoked.At);
+        await EndSessionsAsync(ticket.Id, revoked.At, me, "Škola odebrala povolení vstupu.");
         await db.SaveChangesAsync();
         if (ticket.AssigneeUserId is { } assignee)
         {
@@ -461,7 +510,7 @@ public class SupportTicketsController(
             }
             var from = ticket.AssigneeName;
             Assign(ticket, me, me, from);
-            await EndSessionsAsync(ticket.Id, clock.GetUtcNow());
+            await EndSessionsAsync(ticket.Id, clock.GetUtcNow(), me, $"Požadavek převzal(a) {ticket.AssigneeName}.");
             await db.SaveChangesAsync();
             await notifier.NotifyAsync(
                 ticket.SchoolId, [current], NotificationType.SupportTicket,
@@ -556,10 +605,11 @@ public class SupportTicketsController(
         {
             return Ok(await DetailAsync(ticket, withInternal: true));
         }
-        var changed = SetStatus(ticket, request.Status, await MeAsync());
+        var me = await MeAsync();
+        var changed = SetStatus(ticket, request.Status, me);
         if (request.Status == SupportTicketStatus.Resolved)
         {
-            await CloseAccessAsync(ticket, changed.At);
+            await CloseAccessAsync(ticket, changed.At, me, "Požadavek je vyřešený.");
         }
         await db.SaveChangesAsync();
         await NotifySchoolAsync(
@@ -780,6 +830,35 @@ public class SupportTicketsController(
         AddEntry(ticket, SupportTicketEntryKind.AccessRequested, await MeAsync());
         await db.SaveChangesAsync();
         await NotifySchoolAsync(ticket, $"Podpora žádá o vstup do školy: {ticket.Title}", null);
+        return Ok(await DetailAsync(ticket, withInternal: true));
+    }
+
+    /// <summary>What resetting the support's changes would do — the assignee's.</summary>
+    [HttpGet("api/support-tickets/{id:int}/reset")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<ActionResult<SupportResetPreviewDto>> PreviewReset(int id, int? sessionId = null)
+    {
+        var (ticket, refused) = await ResettableAsync(id, sessionId);
+        return ticket is null ? refused! : Ok(await reset.PreviewAsync(ticket.Id, sessionId));
+    }
+
+    [HttpPost("api/support-tickets/{id:int}/reset")]
+    [Authorize(Roles = "SuperAdmin")]
+    [AuditAction("Resetovány změny podpory")]
+    public async Task<ActionResult<SupportTicketDetailDto>> ResetTicket(int id, ResetSupportChangesRequest request)
+    {
+        var (ticket, refused) = await ResettableAsync(id, request.SessionId);
+        if (ticket is null)
+        {
+            return refused!;
+        }
+        var reason = request.Reason?.Trim();
+        await ResetAsync(ticket, request.SessionId, await MeAsync(), reason, endSessions: true);
+        if (await SaveResetAsync() is { } failed)
+        {
+            return failed;
+        }
+        await NotifySchoolAsync(ticket, $"Podpora resetovala své změny: {ticket.Title}", reason);
         return Ok(await DetailAsync(ticket, withInternal: true));
     }
 
@@ -1020,6 +1099,98 @@ public class SupportTicketsController(
             : null;
     }
 
+    private async Task<(SupportTicket? Ticket, ActionResult? Refused)> SchoolResettableAsync(int id, int? sessionId)
+    {
+        if (InSupportMode())
+        {
+            return (null, SupportModeRefused());
+        }
+        var ticket = await SchoolTicketAsync(id);
+        if (ticket is null || !await OfTicketAsync(ticket, sessionId))
+        {
+            return (null, NotFound());
+        }
+        if (!ticket.IsResettable)
+        {
+            return (null, NotResettable());
+        }
+        return await MayConfirmAsync(ticket) ? (ticket, null) : (null, ResetAuthorOnly(ticket));
+    }
+
+    private async Task<(SupportTicket? Ticket, ActionResult? Refused)> ResettableAsync(int id, int? sessionId)
+    {
+        var ticket = await TicketAsync(id);
+        if (ticket is null || !await OfTicketAsync(ticket, sessionId))
+        {
+            return (null, NotFound());
+        }
+        AuditContext.Of(HttpContext).SchoolId = ticket.SchoolId;
+        if (!ticket.IsResettable)
+        {
+            return (null, NotResettable());
+        }
+        return ticket.AssigneeUserId == CurrentUserId()
+            ? (ticket, null)
+            : (null, BadRequest(ticket.AssigneeUserId is null
+                ? "Požadavek nejdřív převezměte."
+                : $"Požadavek řeší {ticket.AssigneeName}."));
+    }
+
+    private async Task<bool> OfTicketAsync(SupportTicket ticket, int? sessionId) =>
+        sessionId is null
+        || await db.SupportSessions.IgnoreQueryFilters().AnyAsync(s => s.Id == sessionId && s.TicketId == ticket.Id);
+
+    private BadRequestObjectResult NotResettable() =>
+        BadRequest("Požadavek je uzavřený — změny podpory už resetovat nejde.");
+
+    private BadRequestObjectResult ResetAuthorOnly(SupportTicket ticket) =>
+        BadRequest($"Změny podpory může resetovat autor požadavku ({ticket.CreatedByName}).");
+
+    /// <summary>Returns the changes and says in the thread how it went (and
+    /// why); with <paramref name="endSessions"/> the running sessions end —
+    /// they'd go on with what's gone. The caller saves (<see cref="SaveResetAsync"/>).</summary>
+    private async Task ResetAsync(SupportTicket ticket, int? sessionId, User me, string? reason, bool endSessions)
+    {
+        var result = await reset.ApplyAsync(ticket.Id, sessionId);
+        var entry = AddEntry(ticket, SupportTicketEntryKind.Reset, me,
+            text: string.IsNullOrEmpty(reason) ? ResetSummary(result) : $"**Důvod:** {reason}\n\n{ResetSummary(result)}");
+        entry.SessionId = sessionId;
+        if (endSessions)
+        {
+            await EndSessionsAsync(ticket.Id, entry.At, me, WithReason("Změny podpory byly resetovány.", reason));
+        }
+    }
+
+    /// <summary>Null when saved; a row changed under the reset fails it all.</summary>
+    private async Task<ActionResult?> SaveResetAsync()
+    {
+        try
+        {
+            await db.SaveChangesAsync();
+            return null;
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            return Conflict("Reset se nepodařil, data se mezitím změnila. Zkuste to znovu.");
+        }
+    }
+
+    private const int ResetSummaryLines = 30;
+
+    private static string ResetSummary(SupportResetPreviewDto result)
+    {
+        var skipped = result.Items.Where(i => i.Skipped is not null).ToList();
+        var text = $"Vráceno záznamů: {result.Items.Count - skipped.Count}.";
+        if (skipped.Count > 0)
+        {
+            text += $"\n\nNevráceno ({skipped.Count}):\n"
+                    + string.Join("\n", skipped.Take(ResetSummaryLines).Select(i => $"- {i.Type} {i.Record}: {i.Skipped}"))
+                    + (skipped.Count > ResetSummaryLines ? "\n- …" : "");
+        }
+        return text;
+    }
+
     private BadRequestObjectResult AuthorOnly(SupportTicket ticket) =>
         BadRequest($"O vyřešení rozhoduje autor požadavku ({ticket.CreatedByName}).");
 
@@ -1123,18 +1294,19 @@ public class SupportTicketsController(
 
     /// <summary>Closed (at <paramref name="now"/>, the moment of the entry
     /// closing it): no more entering, the running sessions end.</summary>
-    private async Task CloseAccessAsync(SupportTicket ticket, DateTimeOffset now)
+    private async Task CloseAccessAsync(SupportTicket ticket, DateTimeOffset now, User by, string reason)
     {
         if (ticket.AccessUntil > now)
         {
             ticket.AccessUntil = now;
         }
         ticket.AccessRequestedAt = null;
-        await EndSessionsAsync(ticket.Id, now);
+        await EndSessionsAsync(ticket.Id, now, by, reason);
     }
 
-    /// <summary>Ends the running ones — their tokens stop working at once.</summary>
-    private async Task EndSessionsAsync(int ticketId, DateTimeOffset now)
+    /// <summary>Ends the running ones — their tokens stop working at once;
+    /// the SuperAdmin inside learns from whom and why.</summary>
+    private async Task EndSessionsAsync(int ticketId, DateTimeOffset now, User by, string reason)
     {
         foreach (var session in await db.SupportSessions
                      .Where(s => s.TicketId == ticketId && s.EndedAt == null && s.ExpiresAt > now)
@@ -1142,8 +1314,13 @@ public class SupportTicketsController(
         {
             session.EndedAt = now;
             session.RefreshSecretHash = null;
+            session.EndedBy = PersonNames.Display(by);
+            session.EndReason = reason;
         }
     }
+
+    private static string WithReason(string what, string? reason) =>
+        string.IsNullOrWhiteSpace(reason) ? what : $"{what}\n\n**Důvod:** {reason.Trim()}";
 
     private SupportTicketEntry AddEntry(
         SupportTicket ticket, SupportTicketEntryKind kind, User author, string? text = null, bool @internal = false,
@@ -1271,7 +1448,8 @@ public class SupportTicketsController(
 
     /// <param name="mayConfirm">The caller may close, return or reopen it
     /// (the school's side, <see cref="MayConfirmAsync"/>).</param>
-    private SupportTicketDto ToDto(SupportTicket t, bool mayConfirm = false)
+    /// <param name="changes">The support's changes the caller may reset (<see cref="DetailAsync"/>).</param>
+    private SupportTicketDto ToDto(SupportTicket t, bool mayConfirm = false, int changes = 0)
     {
         var now = clock.GetUtcNow();
         var open = t.IsOpen;
@@ -1282,7 +1460,7 @@ public class SupportTicketsController(
             t.AssigneeUserId, t.AssigneeName, open && t.DueDate < SchoolClock.Today(clock),
             open ? t.AccessRequestedAt : null, open && t.AccessUntil > now ? t.AccessUntil : null,
             t.AutoClosesAt, reopenable,
-            mayConfirm && (t.Status == SupportTicketStatus.Resolved || reopenable is not null));
+            mayConfirm && (t.Status == SupportTicketStatus.Resolved || reopenable is not null), changes);
     }
 
     /// <summary>The thread with the ticket's support sessions in it: when
@@ -1341,12 +1519,15 @@ public class SupportTicketsController(
             .ToListAsync();
         actions.RemoveAll(a => SupportController.IsEnteringOrLeaving(a.Path));
         var now = clock.GetUtcNow();
+        var mayReset = !InSupportMode() && ticket.IsResettable
+                       && (withInternal ? ticket.AssigneeUserId == me : await MayConfirmAsync(ticket));
+        var changes = mayReset ? await reset.CountsAsync(ticket.Id) : [];
         foreach (var s in sessions)
         {
             var name = names[s.Id];
             entries.Add(new SupportTicketEntryDto(
                 0, s.StartedAt, SupportTicketEntryKind.SessionStarted, name, true, false, null, null, null, s.Id,
-                LastSeenAt: s.LastSeenAt ?? s.StartedAt));
+                LastSeenAt: s.LastSeenAt ?? s.StartedAt, Changes: changes.GetValueOrDefault(s.Id)));
             var left = entries.Any(e => e.Kind == SupportTicketEntryKind.Visit && e.SessionId == s.Id);
             if (!left && (s.EndedAt is not null || s.ExpiresAt <= now))
             {
@@ -1363,7 +1544,7 @@ public class SupportTicketsController(
             a.StatusCode, withInternal ? $"{a.Method} {a.Path}" : null)));
         var mayConfirm = !withInternal && !InSupportMode()
                          && (ticket.Status == SupportTicketStatus.Cancelled || await MayConfirmAsync(ticket));
-        return new SupportTicketDetailDto(ToDto(ticket, mayConfirm), entries
+        return new SupportTicketDetailDto(ToDto(ticket, mayConfirm, changes.Values.Sum()), entries
             .OrderBy(e => e.At)
             // At one moment: the visit starts first and ends last.
             .ThenBy(e => e.Kind switch
@@ -1411,7 +1592,12 @@ public record SetSupportTicketStatusRequest(SupportTicketStatus Status);
 /// someone else takes care of it by now.</param>
 public record AssignSupportTicketRequest(int? UserId = null, int? TakeOverFrom = null);
 
-public record CancelSupportTicketRequest(string? Reason);
+/// <param name="ResetChanges">Reset the support's changes first.</param>
+public record CancelSupportTicketRequest(string? Reason, bool ResetChanges = false);
+
+/// <param name="SessionId">Only this session's changes; none = the whole ticket's.</param>
+/// <param name="Reason">Why — required of the school.</param>
+public record ResetSupportChangesRequest(int? SessionId = null, string? Reason = null);
 
 /// <param name="Text">Why it isn't resolved — the school's goes to the thread
 /// as a message (required), a SuperAdmin's as an internal note (optional).</param>
@@ -1425,12 +1611,15 @@ public record ReturnSupportTicketRequest(string? Text);
 /// <param name="ReopenableUntil">Closed or cancelled and may still be reopened till then.</param>
 /// <param name="CanConfirm">In the ticket's detail for the school: the caller
 /// may close or return it (resolved), or reopen it.</param>
+/// <param name="ResettableChanges">In the ticket's detail: the support's
+/// changes not reset yet, when the caller may reset them; 0 otherwise.</param>
 public record SupportTicketDto(
     int Id, int SchoolId, string SchoolName, SupportAccess SchoolAccess, string Title, string Description,
     DateTimeOffset CreatedAt, string CreatedByName, bool CreatedBySupport, string PlanName, DateOnly DueDate,
     SupportTicketStatus Status, DateTimeOffset? StatusChangedAt, int? AssigneeUserId, string? AssigneeName,
     bool Overdue, DateTimeOffset? AccessRequestedAt, DateTimeOffset? AccessUntil,
-    DateTimeOffset? AutoClosesAt = null, DateTimeOffset? ReopenableUntil = null, bool CanConfirm = false);
+    DateTimeOffset? AutoClosesAt = null, DateTimeOffset? ReopenableUntil = null, bool CanConfirm = false,
+    int ResettableChanges = 0);
 
 /// <param name="Id">0 for the support sessions' entries, which aren't stored.</param>
 /// <param name="Text">With <see cref="SupportTicketEntryKind.SessionAction"/>
@@ -1443,6 +1632,8 @@ public record SupportTicketDto(
 /// <param name="Text">Null when deleted (<paramref name="Revisions"/> have it).</param>
 /// <param name="CanEdit">A message or note of the caller's side — they may
 /// change or delete it (a SuperAdmin also retype it).</param>
+/// <param name="Changes">With <see cref="SupportTicketEntryKind.SessionStarted"/>:
+/// the session's changes not reset yet, when the caller may reset them.</param>
 /// <param name="EditedAt">Changed afterwards; only for the entry's side and
 /// the SuperAdmins, like <paramref name="Deleted"/> ones and <paramref name="Revisions"/>.</param>
 public record SupportTicketEntryDto(
@@ -1450,7 +1641,7 @@ public record SupportTicketEntryDto(
     string? Text, SupportTicketStatus? Status, DateTimeOffset? Until, int? SessionId, int? StatusCode = null,
     string? Request = null, DateTimeOffset? LastSeenAt = null, bool CanEdit = false,
     DateTimeOffset? EditedAt = null, bool Deleted = false,
-    IReadOnlyList<SupportTicketEntryRevisionDto>? Revisions = null);
+    IReadOnlyList<SupportTicketEntryRevisionDto>? Revisions = null, int Changes = 0);
 
 /// <param name="Text">The entry's text before the change.</param>
 public record SupportTicketEntryRevisionDto(

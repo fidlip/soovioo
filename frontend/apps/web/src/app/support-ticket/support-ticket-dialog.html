@@ -227,6 +227,28 @@
     </div>
     }
 
+    <!-- The support's changes in the school, while they may be reset. -->
+    @if (resettable(); as count) {
+    <div
+      class="flex flex-wrap items-center gap-2 rounded-md bg-surface-100 px-3 py-2 text-sm dark:bg-surface-800"
+      data-testid="ticket-changes"
+    >
+      <i class="pi pi-history text-surface-500"></i>
+      <span class="grow"
+        >Neresetované změny podpory ve škole: {{ count }}.</span
+      >
+      <p-button
+        label="Resetovat vše"
+        icon="pi pi-undo"
+        size="small"
+        severity="danger"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="openReset(null)"
+      />
+    </div>
+    }
+
     <!-- The thread -->
     <div
       #thread
@@ -289,6 +311,17 @@
             >
               <app-markdown [text]="visit.result" />
             </div>
+            } @if (visit.resettable && resettable()) {
+            <p-button
+              label="Resetovat tento vstup"
+              icon="pi pi-undo"
+              size="small"
+              severity="danger"
+              [text]="true"
+              [disabled]="busy()"
+              (onClick)="openReset(visit.sessionId)"
+              styleClass="mt-1"
+            />
             }
           </div>
           @if (visitEntries(visit); as entries) { @if (entries.length) {
@@ -420,6 +453,22 @@
       required
       [(ngModel)]="cancelReason"
     />
+    @if (resettable()) {
+    <label class="mt-3 flex items-center gap-2 text-sm">
+      <p-checkbox
+        inputId="cancelReset"
+        name="cancelReset"
+        [binary]="true"
+        [ngModel]="cancelReset"
+        (ngModelChange)="setCancelReset($event)"
+      />
+      Resetovat i změny, které podpora ve škole udělala
+    </label>
+    @if (cancelReset) {
+    <div class="mt-3">
+      <ng-container *ngTemplateOutlet="resetPreviewList" />
+    </div>
+    } }
     <div class="mt-4 flex justify-end gap-2">
       <p-button
         label="Zpět"
@@ -487,6 +536,102 @@
     </div>
   </form>
 </p-dialog>
+
+<p-dialog
+  [visible]="!!resetting()"
+  (visibleChange)="$event || resetting.set(null)"
+  [header]="resetting()?.sessionId ? 'Resetovat změny vstupu' : 'Resetovat změny podpory'"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form #resetForm="ngForm" (ngSubmit)="reset()">
+    <p class="mt-0 text-sm text-surface-500">
+      Záznamy, které podpora ve škole změnila, se vrátí do stavu před jejím
+      zásahem. Reset se zapíše do vlákna a vrátit ho nejde.
+    </p>
+    @if (visitRunning()) {
+    <p
+      class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+      role="alert"
+      data-testid="reset-ends-visit"
+    >
+      <i class="pi pi-exclamation-triangle mr-1"></i>Podpora je právě ve škole —
+      reset její vstup ukončí.
+    </p>
+    }
+    <ng-container *ngTemplateOutlet="resetPreviewList" />
+    @if (side() === 'school') {
+    <div class="mt-3">
+      <app-markdown-editor
+        label="Důvod resetu"
+        inputId="resetReason"
+        name="reason"
+        [rows]="3"
+        maxlength="8000"
+        required
+        [(ngModel)]="resetReason"
+      />
+    </div>
+    }
+    <div class="mt-4 flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="resetting.set(null)"
+      />
+      <p-button
+        type="submit"
+        label="Resetovat"
+        icon="pi pi-undo"
+        severity="danger"
+        [disabled]="busy() || !resetReturned().length || !!resetForm.invalid"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<!-- What a reset does: what comes back, what stays and why. -->
+<ng-template #resetPreviewList>
+  @if (resetPreview()) {
+  <div
+    class="flex max-h-80 flex-col gap-3 overflow-y-auto text-sm"
+    data-testid="reset-preview"
+  >
+    @if (resetReturned().length) {
+    <div>
+      <div class="font-medium">Vrátí se ({{ resetReturned().length }})</div>
+      <ul class="m-0 mt-1 pl-5">
+        @for (item of resetReturned(); track $index) {
+        <li>
+          {{ item.type }} {{ item.record }} — {{ resetActionLabel(item) }}
+        </li>
+        }
+      </ul>
+    </div>
+    } @else {
+    <p class="m-0">Není co vrátit.</p>
+    } @if (resetSkipped().length) {
+    <div>
+      <div class="font-medium">Nevrátí se ({{ resetSkipped().length }})</div>
+      <ul class="m-0 mt-1 pl-5">
+        @for (item of resetSkipped(); track $index) {
+        <li>{{ item.type }} {{ item.record }} — {{ item.skipped }}</li>
+        }
+      </ul>
+    </div>
+    }
+    <p class="m-0 text-surface-500">
+      Reset nevrátí odeslané e-maily a push notifikace, upozornění v aplikaci
+      ani zprávy, které si už někdo přečetl.
+    </p>
+  </div>
+  } @else {
+  <p class="m-0 text-sm text-surface-500">
+    <i class="pi pi-spin pi-spinner"></i> Zjišťuji, co se vrátí…
+  </p>
+  }
+</ng-template>
 
 <!-- One entry of the thread, also inside a visit. -->
 <ng-template #entryRow let-entry>
