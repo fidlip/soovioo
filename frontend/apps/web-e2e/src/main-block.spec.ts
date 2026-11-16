@@ -60,7 +60,13 @@ test('the school’s main block in Nastavení, a grade’s in Učební plán, a 
         hasText: 'Hlavní výukový blok školy',
       });
       await setNumber(card.getByRole('spinbutton', { name: 'Do hodiny' }), to);
+      // Saved before leaving the tab: the plan reloads once it is.
+      const saved = page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/main-block') && r.request().method() !== 'GET',
+      );
       await card.getByRole('button', { name: 'Uložit' }).click();
+      await saved;
       await page.getByRole('tab', { name: 'Učební plán' }).click();
       await expect(gradeTo).toHaveAttribute('placeholder', to);
     }
