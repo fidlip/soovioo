@@ -90,9 +90,15 @@ test('a school asks for support allowing entering; the assignee works on it in t
   await expect(visit.getByText('Povolení vstupu odebráno')).toBeVisible();
   await expect(visit.getByText('Dívám se na rozvrh.')).toBeVisible();
   await expect(schoolDetail.getByTestId('ticket-visits-total')).toBeVisible();
-  // Out at once: the school's tab closes on its next request.
-  const closed = school.waitForEvent('close');
+  // Out at once: the school's tab says who ended it and why on its next
+  // request, and closes once that's confirmed.
   await school.getByRole('link', { name: 'Domácí úkoly' }).click();
+  const ended = school.getByRole('dialog', { name: 'Vstup do školy ukončen' });
+  await expect(
+    ended.getByText('Škola odebrala povolení vstupu.'),
+  ).toBeVisible();
+  const closed = school.waitForEvent('close');
+  await ended.getByRole('button', { name: 'Rozumím' }).click();
   await closed;
   await superAdmin.bringToFront();
   await expect(detail.getByText('Povolení vstupu odebráno')).toBeVisible({

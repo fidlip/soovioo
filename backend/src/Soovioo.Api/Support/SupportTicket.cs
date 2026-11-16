@@ -87,6 +87,10 @@ public class SupportTicket
     public static readonly TimeSpan AutoCloseAfter = TimeSpan.FromDays(30);
 
     /// <summary>Open for the support's work.</summary>
+    /// <summary>The support's changes may still be reset — till it's
+    /// closed or cancelled (reopening brings that back).</summary>
+    public bool IsResettable => Status is not (SupportTicketStatus.Cancelled or SupportTicketStatus.Closed);
+
     public bool IsOpen => Status is not (SupportTicketStatus.Resolved or SupportTicketStatus.Cancelled
         or SupportTicketStatus.Closed);
 
@@ -130,6 +134,11 @@ public enum SupportTicketEntryKind
     /// <summary>Leaving the school ("Opustit") — <see cref="SupportTicketEntry.Text"/>
     /// is what was done.</summary>
     Visit,
+
+    /// <summary>The support's changes returned (<see cref="SupportReset"/>) —
+    /// <see cref="SupportTicketEntry.Text"/> says how it went;
+    /// <see cref="SupportTicketEntry.SessionId"/> when of one session.</summary>
+    Reset,
 
     // Not stored: the thread puts the ticket's support sessions
     // (SupportSession) and what was changed in them (the audit log) in.

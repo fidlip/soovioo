@@ -45,6 +45,12 @@ export class SessionActionsService {
       });
   }
 
+  /** Back from support mode ended by someone else, once the SuperAdmin
+   * read why. */
+  returnFromSupport(): void {
+    backToSuperAdmin();
+  }
+
   logout(): void {
     if (this.authApi.getSupportInfo()) {
       // Logging out here would end the SuperAdmin's own session too.

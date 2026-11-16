@@ -13,6 +13,7 @@ import { AuthApiService, SchoolYearsStore } from '@soovioo/shared';
 import { SchoolYearWizard } from '../../school-year-wizard/school-year-wizard';
 import { SessionSyncService } from '../../session-sync.service';
 import { SupportTicketDialog } from '../../support-ticket/support-ticket-dialog';
+import { SupportEndedDialog } from '../support-ended-dialog/support-ended-dialog';
 import { SupportLeaveDialog } from '../support-leave-dialog/support-leave-dialog';
 import { checkOnNavigation } from '../check-on-navigation';
 
@@ -23,7 +24,12 @@ import { checkOnNavigation } from '../check-on-navigation';
   selector: 'app-notices',
   templateUrl: './app-notices.html',
   styleUrl: './app-notices.scss',
-  imports: [SchoolYearWizard, SupportLeaveDialog, SupportTicketDialog],
+  imports: [
+    SchoolYearWizard,
+    SupportEndedDialog,
+    SupportLeaveDialog,
+    SupportTicketDialog,
+  ],
 })
 export class AppNotices {
   protected readonly authApi = inject(AuthApiService);

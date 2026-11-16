@@ -169,6 +169,9 @@ export interface SupportTicket {
   /** In the detail for the school: the caller may close or return it
    * (resolved), or reopen it. */
   canConfirm?: boolean;
+  /** In the detail: the support's changes not reset yet, when the caller
+   * may reset them; 0 otherwise. */
+  resettableChanges?: number;
 }
 
 export type SupportTicketEntryKind =
@@ -188,6 +191,9 @@ export type SupportTicketEntryKind =
   | 'AccessRevoked'
   /** Leaving the school ("Opustit") — text is what was done. */
   | 'Visit'
+  /** The support's changes reset — text says how it went; sessionId when
+   * of one session. */
+  | 'Reset'
   // The ticket's support sessions, put in by the API (id 0):
   | 'SessionStarted'
   /** A change in the school — text says it in words. */
@@ -215,6 +221,9 @@ export interface SupportTicketEntry {
   request: string | null;
   /** With SessionStarted: the session's last request. */
   lastSeenAt?: string | null;
+  /** With SessionStarted: the session's changes not reset yet, when the
+   * caller may reset them. */
+  changes?: number;
   /** A message or note of the caller's side — they may change or delete
    * it (a SuperAdmin also retype it). */
   canEdit?: boolean;
@@ -262,4 +271,29 @@ export type SupportTicketFilter = 'Open' | 'Mine' | 'Unassigned' | 'All';
 /** "1 změna", "3 změny", "5 změn". */
 export function changesLabel(count: number): string {
   return `${count} ${count === 1 ? 'změna' : count >= 2 && count <= 4 ? 'změny' : 'změn'}`;
+}
+
+/** Added by the support — goes; deleted — comes back; changed — gets its
+ * values back. */
+export type SupportResetAction = 'Delete' | 'Restore' | 'Revert';
+
+export const SUPPORT_RESET_ACTION_LABELS: Record<SupportResetAction, string> = {
+  Delete: 'smaže se',
+  Restore: 'obnoví se',
+  Revert: 'vrátí se původní hodnoty',
+};
+
+export interface SupportResetItem {
+  /** "Známka". */
+  type: string;
+  /** "5.A", "Jana Nováková", "#12". */
+  record: string;
+  action: SupportResetAction;
+  /** Why it stays as it is; null = it's returned. */
+  skipped: string | null;
+  sessionIds: number[];
+}
+
+export interface SupportResetPreview {
+  items: SupportResetItem[];
 }

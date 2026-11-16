@@ -23,6 +23,10 @@ public class TimetableGeneration
 
     public DateTimeOffset CreatedAt { get; set; }
     public int? CreatedByUserId { get; set; }
+
+    /// <summary>Started in support mode: the run's changes go to that
+    /// session's journal.</summary>
+    public int? SupportSessionId { get; set; }
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
 

@@ -118,6 +118,7 @@ public class TimetableGenerationController(
             Status = TimetableGenerationStatus.Queued,
             CreatedAt = clock.GetUtcNow(),
             CreatedByUserId = User.UserId(),
+            SupportSessionId = db.SupportJournal?.SessionId,
         };
         db.TimetableGenerations.Add(generation);
         await db.SaveChangesAsync();

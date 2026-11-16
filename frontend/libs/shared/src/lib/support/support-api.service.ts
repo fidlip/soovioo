@@ -8,6 +8,7 @@ import {
   SchoolSupport,
   SupportAccess,
   SupportPlan,
+  SupportResetPreview,
   SupportTicket,
   SupportTicketDetail,
   SupportTicketFilter,
@@ -229,8 +230,13 @@ export class SupportApiService {
     return this.schoolTicketAction(id, 'messages', { text });
   }
 
-  cancelTicket(id: number, reason: string): Observable<SupportTicketDetail> {
-    return this.schoolTicketAction(id, 'cancel', { reason });
+  /** `resetChanges`: the support's changes are reset first. */
+  cancelTicket(
+    id: number,
+    reason: string,
+    resetChanges = false,
+  ): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(id, 'cancel', { reason, resetChanges });
   }
 
   /** Resolved → closed; the author's (or any admin's, see the API). */
@@ -253,6 +259,37 @@ export class SupportApiService {
       `${this.baseUrl}/api/support-tickets/${id}/return`,
       { text: text || null },
     );
+  }
+
+  /** What resetting the support's changes would do — of the ticket, or of
+   * `sessionId` only; the school's side ('school') or the assignee's. */
+  previewReset(
+    scope: 'support' | 'school',
+    id: number,
+    sessionId: number | null,
+  ): Observable<SupportResetPreview> {
+    return this.http.get<SupportResetPreview>(`${this.resetUrl(scope, id)}`, {
+      params: sessionId ? { sessionId } : {},
+    });
+  }
+
+  /** `reason`: required of the school. Running sessions of the ticket end. */
+  resetChanges(
+    scope: 'support' | 'school',
+    id: number,
+    sessionId: number | null,
+    reason: string,
+  ): Observable<SupportTicketDetail> {
+    return this.http.post<SupportTicketDetail>(this.resetUrl(scope, id), {
+      sessionId,
+      reason: reason || null,
+    });
+  }
+
+  private resetUrl(scope: 'support' | 'school', id: number): string {
+    return scope === 'school'
+      ? `${this.baseUrl}/api/my-school/support-tickets/${id}/reset`
+      : `${this.baseUrl}/api/support-tickets/${id}/reset`;
   }
 
   /** Closed or cancelled → as it was, while `reopenableUntil` lasts. */
@@ -308,6 +345,11 @@ export class SupportApiService {
 
   /** Sent with the support token itself, with what was done if written;
    * also drops the support cookie. */
+  /** Whether support mode still runs — a 401 when it was ended. */
+  checkCurrentSession(): Observable<void> {
+    return this.http.get<void>(`${this.baseUrl}/api/support-sessions/current`);
+  }
+
   endCurrentSession(
     result?: string,
     options: { withCredentials?: boolean } = {},

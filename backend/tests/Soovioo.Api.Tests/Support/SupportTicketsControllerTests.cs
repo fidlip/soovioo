@@ -44,7 +44,7 @@ public class SupportTicketsControllerTests
     private SupportTicketsController Tickets(AppDbContext db, int userId, int? schoolId = null, params Claim[] extra) =>
         new(db, new FakeCurrentSchoolContext(schoolId, isSuperAdmin: schoolId is null), new Notifier(db, clock),
             Plans(new SupportPlanOptions { Default = new SupportPlanDto("Paid", "Placený", 2) }),
-            AuthTestServices.SupportSessions(db, clock),
+            AuthTestServices.SupportSessions(db, clock), new SupportReset(db, clock),
             Microsoft.Extensions.Options.Options.Create(new SupportOptions { ApprovalMinutes = 2 }), clock)
         {
             ControllerContext = new ControllerContext { HttpContext = Http(userId, extra) },

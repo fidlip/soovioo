@@ -17,6 +17,8 @@ export class ReferenceApiService {
   /** 6400+ rows — never fetched in full. Returns at most 20 matches; the
    * backend ignores queries under 2 characters. */
   searchMunicipalities(query: string): Observable<Municipality[]> {
-    return this.http.get<Municipality[]>(`${this.baseUrl}/api/municipalities`, { params: { query } });
+    return this.http.get<Municipality[]>(`${this.baseUrl}/api/municipalities`, {
+      params: { query },
+    });
   }
 }

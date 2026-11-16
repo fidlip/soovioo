@@ -104,11 +104,30 @@ public class PhotoStorage(MessageAttachmentStorageService storage)
         {
             return;
         }
-        var (dir, name) = Split(key);
-        foreach (var size in Pixels.Keys)
+        foreach (var file in Files(key))
         {
-            storage.Delete(Path.Combine(dir, FileName(name, size)));
+            storage.Delete(file);
         }
+    }
+
+    /// <summary>The photo's files, as <see cref="MessageAttachmentStorageService"/> names them.</summary>
+    public static IEnumerable<string> Files(string key)
+    {
+        var (dir, name) = Split(key);
+        return Pixels.Keys.Select(size => Path.Combine(dir, FileName(name, size)));
+    }
+
+    /// <summary>The photo a file of <see cref="Files"/> belongs to; null for another file.</summary>
+    public static string? KeyOf(string file)
+    {
+        var slash = file.IndexOf('/');
+        return slash < 0
+            ? null
+            : Pixels.Keys
+                .Select(size => $"-{size.ToString().ToLowerInvariant()}.webp")
+                .Where(suffix => file.EndsWith(suffix) && file[(slash + 1)..].StartsWith("photo-"))
+                .Select(suffix => file[..^suffix.Length])
+                .FirstOrDefault();
     }
 
     /// <summary>What clients put into the photo URL — changes with every

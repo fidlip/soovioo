@@ -43,6 +43,15 @@ public class SupportController(
 
     public const int MaxResultLength = SupportTicket.MaxTextLength;
 
+    public const string CurrentPath = "/api/support-sessions/current";
+
+    /// <summary>Support mode asks now and then whether its session still
+    /// runs — <see cref="SupportSessionGuardMiddleware"/> answers 401 when not.</summary>
+    [HttpGet("api/support-sessions/current")]
+    [Authorize]
+    public IActionResult GetCurrentSession() =>
+        User.HasClaim(c => c.Type == SupportClaims.SessionId) ? NoContent() : BadRequest("Nejste v režimu podpory.");
+
     /// <summary>"Opustit" — called with the support token itself, optionally
     /// with what was done (Markdown), which goes to the ticket's thread.</summary>
     [HttpPost("api/support-sessions/current/end")]

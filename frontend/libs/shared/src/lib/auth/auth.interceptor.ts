@@ -18,7 +18,9 @@ const withBearer = (req: HttpRequest<unknown>, token: string | null) =>
  * fails too, the session is over: `AuthApiService.sessionExpired$` fires and
  * the original 401 propagates. A 403 may mean the role's permissions
  * changed — the session is refreshed in the background so the token (and
- * what the UI offers) catches up.
+ * what the UI offers) catches up. A 401 saying support mode was ended by
+ * someone else isn't refreshed: the tab shows who and why
+ * (`AuthApiService.supportEnded`).
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const tokenStorage = inject(TokenStorage);
@@ -40,6 +42,14 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         !authApi.getSupportInfo()
       ) {
         authApi.refresh().subscribe();
+      }
+      const ended =
+        error instanceof HttpErrorResponse && error.status === 401
+          ? error.error?.supportEnded
+          : null;
+      if (ended) {
+        authApi.notifySupportEnded(ended);
+        return throwError(() => error);
       }
       // Only retry calls that were made with a (now stale) session; an
       // anonymous 401 has nothing to refresh.

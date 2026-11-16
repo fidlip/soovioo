@@ -50,7 +50,8 @@ public class SupportControllerTests
         await db.SaveChangesAsync();
         var controller = new SupportTicketsController(
             db, new FakeCurrentSchoolContext(null, isSuperAdmin: true), new Soovioo.Api.Notifications.Notifier(db, TimeProvider.System),
-            null!, Sessions(db), Microsoft.Extensions.Options.Options.Create(new SupportOptions()), TimeProvider.System)
+            null!, Sessions(db), new SupportReset(db, TimeProvider.System),
+            Microsoft.Extensions.Options.Options.Create(new SupportOptions()), TimeProvider.System)
         {
             ControllerContext = new ControllerContext
             {

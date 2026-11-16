@@ -6,8 +6,9 @@ namespace Soovioo.Api.Messaging;
 /// AttachmentStorage/{schoolId}/{guid}{extension}. The GUID filename avoids
 /// path traversal and collisions; the original name is kept separately on
 /// MessageAttachment.FileName for the download's Content-Disposition
-/// header.</summary>
-public class MessageAttachmentStorageService(IWebHostEnvironment env)
+/// header. In support mode a deleted file stays till the support's
+/// journal goes (<see cref="Support.SupportJournal.DeferFileDeletion"/>).</summary>
+public class MessageAttachmentStorageService(IWebHostEnvironment env, Data.AppDbContext? db = null)
 {
     private string RootPath => Path.Combine(env.ContentRootPath, "AttachmentStorage");
 
@@ -38,6 +39,11 @@ public class MessageAttachmentStorageService(IWebHostEnvironment env)
 
     public void Delete(string relativePath)
     {
+        if (db?.SupportJournal is { } journal)
+        {
+            Support.SupportJournal.DeferFileDeletion(db, journal, relativePath);
+            return;
+        }
         var fullPath = GetFullPath(relativePath);
         if (File.Exists(fullPath))
         {
