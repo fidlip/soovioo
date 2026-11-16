@@ -103,7 +103,7 @@ public class SupportTicketsController(
         if (!ticket.IsOpen)
         {
             return BadRequest(ticket.Status == SupportTicketStatus.Resolved
-                ? "Požadavek je vyřešený — pokud není, vraťte ho do řešení."
+                ? "Požadavek je vyřešený — pokud není, vraťte ho k řešení."
                 : "Požadavek už je uzavřený.");
         }
         var me = await MeAsync();
@@ -212,24 +212,23 @@ public class SupportTicketsController(
         return Ok(await DetailAsync(ticket, withInternal: false));
     }
 
-    /// <summary>"Vrátit do řešení" — not resolved after all: back to its
+    /// <summary>"Vrátit k řešení" — not resolved after all: back to its
     /// assignee (<see cref="SupportTicketStatus.Assigned"/>), or to everyone
-    /// when nobody has it; optionally with a message saying why.</summary>
+    /// when nobody has it; with a message saying why.</summary>
     [HttpPost("api/my-school/support-tickets/{id:int}/return")]
     [RequirePermission(Permission.Administration)]
-    [AuditAction("Požadavek na podporu vrácen do řešení")]
-    public async Task<ActionResult<SupportTicketDetailDto>> ReturnTicket(
-        int id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ReturnSupportTicketRequest? request = null)
+    [AuditAction("Požadavek na podporu vrácen k řešení")]
+    public async Task<ActionResult<SupportTicketDetailDto>> ReturnTicket(int id, ReturnSupportTicketRequest request)
     {
         if (InSupportMode())
         {
             return SupportModeRefused();
         }
-        var text = request?.Text?.Trim();
-        if (!string.IsNullOrEmpty(text) && ValidateText(text) is { } invalid)
+        if (ValidateText(request.Text, "text", "Napište, proč požadavek vracíte k řešení.") is { } invalid)
         {
             return invalid;
         }
+        var text = request.Text!.Trim();
         var ticket = await SchoolTicketAsync(id);
         if (ticket is null)
         {
@@ -237,7 +236,7 @@ public class SupportTicketsController(
         }
         if (ticket.Status != SupportTicketStatus.Resolved)
         {
-            return BadRequest("Vrátit do řešení jde jen vyřešený požadavek.");
+            return BadRequest("Vrátit k řešení jde jen vyřešený požadavek.");
         }
         if (!await MayConfirmAsync(ticket))
         {
@@ -245,13 +244,10 @@ public class SupportTicketsController(
         }
         var me = await MeAsync();
         SetStatus(ticket, ticket.AssigneeUserId is null ? SupportTicketStatus.New : SupportTicketStatus.Assigned, me);
-        if (!string.IsNullOrEmpty(text))
-        {
-            AddEntry(ticket, SupportTicketEntryKind.Message, me, text: text);
-        }
+        AddEntry(ticket, SupportTicketEntryKind.Message, me, text: text);
         await db.SaveChangesAsync();
         await NotifySupportAsync(
-            ticket, $"Škola vrátila požadavek do řešení ({ticket.School!.Name}): {ticket.Title}", text);
+            ticket, $"Škola vrátila požadavek k řešení ({ticket.School!.Name}): {ticket.Title}", text);
         return Ok(await DetailAsync(ticket, withInternal: false));
     }
 
@@ -569,8 +565,48 @@ public class SupportTicketsController(
         await NotifySchoolAsync(
             ticket, $"{StatusTitle(request.Status)}: {ticket.Title}",
             ticket.AutoClosesAt is { } closes
-                ? $"Potvrďte vyřešení, nebo požadavek vraťte do řešení. Jinak se {SchoolClock.Local(closes):d. M. yyyy} uzavře sám."
+                ? $"Potvrďte vyřešení, nebo požadavek vraťte k řešení. Jinak se {SchoolClock.Local(closes):d. M. yyyy} uzavře sám."
                 : null);
+        return Ok(await DetailAsync(ticket, withInternal: true));
+    }
+
+    /// <summary>"Vrátit k řešení" by any SuperAdmin — resolved too early:
+    /// back to its assignee; an optional internal note says why. The
+    /// school's admins hear of it.</summary>
+    [HttpPost("api/support-tickets/{id:int}/return")]
+    [Authorize(Roles = "SuperAdmin")]
+    [AuditAction("Podpora vrátila požadavek k řešení")]
+    public async Task<ActionResult<SupportTicketDetailDto>> ReturnTicketBySupport(
+        int id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ReturnSupportTicketRequest? request = null)
+    {
+        var text = request?.Text?.Trim();
+        if (!string.IsNullOrEmpty(text) && ValidateText(text) is { } invalid)
+        {
+            return invalid;
+        }
+        var ticket = await TicketAsync(id);
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+        AuditContext.Of(HttpContext).SchoolId = ticket.SchoolId;
+        if (ticket.Status != SupportTicketStatus.Resolved)
+        {
+            return BadRequest("Vrátit k řešení jde jen vyřešený požadavek.");
+        }
+        var me = await MeAsync();
+        SetStatus(ticket, ticket.AssigneeUserId is null ? SupportTicketStatus.New : SupportTicketStatus.Assigned, me);
+        if (!string.IsNullOrEmpty(text))
+        {
+            AddEntry(ticket, SupportTicketEntryKind.Note, me, text: text, @internal: true);
+        }
+        await db.SaveChangesAsync();
+        await NotifySchoolAsync(ticket, $"Podpora vrátila požadavek k řešení: {ticket.Title}", null);
+        if (ticket.AssigneeUserId != me.Id)
+        {
+            await NotifyAssigneeAsync(
+                ticket, $"Požadavek vrácen k řešení ({ticket.School!.Name}): {ticket.Title}", text);
+        }
         return Ok(await DetailAsync(ticket, withInternal: true));
     }
 
@@ -1377,7 +1413,8 @@ public record AssignSupportTicketRequest(int? UserId = null, int? TakeOverFrom =
 
 public record CancelSupportTicketRequest(string? Reason);
 
-/// <param name="Text">Why it isn't resolved — goes to the thread as a message.</param>
+/// <param name="Text">Why it isn't resolved — the school's goes to the thread
+/// as a message (required), a SuperAdmin's as an internal note (optional).</param>
 public record ReturnSupportTicketRequest(string? Text);
 
 /// <param name="SchoolAccess">The school's policy (<see cref="School.SupportAccess"/>).</param>

@@ -715,18 +715,22 @@ public class SupportTicketsControllerTests
         using (var db = SchoolDb(w.School.Id))
         {
             var resolved = db.Notifications.Single(n => n.UserId == w.Admin.Id && n.Title.StartsWith("Požadavek vyřešen"));
-            Assert.Equal("Potvrďte vyřešení, nebo požadavek vraťte do řešení. Jinak se 9. 12. 2026 uzavře sám.", resolved.Body);
+            Assert.Equal("Potvrďte vyřešení, nebo požadavek vraťte k řešení. Jinak se 9. 12. 2026 uzavře sám.", resolved.Body);
 
             // Not the author's colleague: the author decides.
             var seen = Ok(await Tickets(db, deputy.Id, w.School.Id).GetSchoolTicket(id)).Ticket;
             Assert.False(seen.CanConfirm);
             Assert.Equal(clock.Now.AddDays(30), seen.AutoClosesAt);
             Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).CloseTicket(id)).Result);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).ReturnTicket(id)).Result);
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id)
+                .ReturnTicket(id, new ReturnSupportTicketRequest("Nefunguje"))).Result);
             Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
                 .AddSchoolMessage(id, new SupportTicketMessageRequest("Ještě"))).Result);
 
             Assert.True(Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Ticket.CanConfirm);
+            // Saying why is required.
+            Assert.IsNotType<OkObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
+                .ReturnTicket(id, new ReturnSupportTicketRequest(" "))).Result);
             var returned = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
                 .ReturnTicket(id, new ReturnSupportTicketRequest(" Import pořád padá ")));
             Assert.Equal(SupportTicketStatus.Assigned, returned.Ticket.Status);
@@ -770,6 +774,34 @@ public class SupportTicketsControllerTests
             Assert.Null(late.ReopenableUntil);
             Assert.False(late.CanConfirm);
             Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).ReopenTicket(id)).Result);
+        }
+    }
+
+    [Fact]
+    public async Task AnySuperAdminReturnsAResolvedTicketToItsAssigneeTheSchoolHearsOfIt()
+    {
+        var w = await SeedAsync();
+        var id = await SchoolTicketAsync(w);
+        using (var db = SuperAdminDb())
+        {
+            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id).ReturnTicketBySupport(id)).Result);
+        }
+        await ResolveAsync(w, id);
+        using (var db = SuperAdminDb())
+        {
+            var returned = Ok(await Tickets(db, w.Other.Id)
+                .ReturnTicketBySupport(id, new ReturnSupportTicketRequest("Chybí ještě 5.B")));
+            Assert.Equal(SupportTicketStatus.Assigned, returned.Ticket.Status);
+            Assert.Equal(w.SuperAdmin.Id, returned.Ticket.AssigneeUserId);
+            Assert.Contains(returned.Entries, e => e.Kind == SupportTicketEntryKind.Note && e.Text == "Chybí ještě 5.B");
+            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Požadavek vrácen k řešení")
+                                                   && n.Body == "Chybí ještě 5.B");
+        }
+        using (var db = SchoolDb(w.School.Id))
+        {
+            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Podpora vrátila"));
+            Assert.DoesNotContain(Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Entries,
+                e => e.Text == "Chybí ještě 5.B");
         }
     }
 

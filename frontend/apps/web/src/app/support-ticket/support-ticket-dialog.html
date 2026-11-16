@@ -179,16 +179,26 @@
       <span class="grow">
         @if (ticket.status === 'Resolved') { @if (side() === 'school') { Podpora
         požadavek vyřešila. @if (ticket.canConfirm) { Potvrďte to, nebo ho
-        vraťte do řešení. } @else { Potvrdí to autor požadavku ({{
+        vraťte k řešení. } @else { Potvrdí to autor požadavku ({{
         ticket.createdByName }}). } } @else { Čeká na potvrzení školou. } @if
         (ticket.autoClosesAt) { Bez reakce se {{ ticket.autoClosesAt |
         dateFormat: 'date' }} uzavře sám. } } @else { Požadavek jde znovu
         otevřít do konce dne {{ reopenLastDay() | dateFormat: 'date' }}. }
       </span>
-      @if (side() === 'school' && !readOnly() && ticket.canConfirm) { @if
+      @if (side() === 'support' && ticket.status === 'Resolved') {
+      <p-button
+        label="Vrátit k řešení"
+        icon="pi pi-undo"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="openReturn()"
+      />
+      } @if (side() === 'school' && !readOnly() && ticket.canConfirm) { @if
       (ticket.status === 'Resolved') {
       <p-button
-        label="Vrátit do řešení"
+        label="Vrátit k řešení"
         icon="pi pi-undo"
         size="small"
         severity="secondary"
@@ -413,22 +423,36 @@
 <p-dialog
   [visible]="returning()"
   (visibleChange)="returning.set($event)"
-  header="Vrátit do řešení"
+  header="Vrátit k řešení"
   [modal]="true"
   styleClass="w-full max-w-lg"
 >
   <form #returnForm="ngForm" (ngSubmit)="returnToSupport()">
+    @if (bySupport()) {
     <p class="mt-0 text-sm text-surface-500">
-      Požadavek se vrátí podpoře k dalšímu řešení. Můžete napsat, co ještě
-      nefunguje.
+      Požadavek se vrátí řešiteli k dalšímu řešení, škola dostane upozornění.
+      Poznámku uvidí jen superadmini.
     </p>
     <app-markdown-editor
-      label="Zpráva podpoře (nepovinná)"
+      label="Interní poznámka (nepovinná)"
       inputId="returnText"
       name="text"
       maxlength="8000"
       [(ngModel)]="returnText"
     />
+    } @else {
+    <p class="mt-0 text-sm text-surface-500">
+      Požadavek se vrátí podpoře k dalšímu řešení. Napište, co ještě nefunguje.
+    </p>
+    <app-markdown-editor
+      label="Důvod vrácení"
+      inputId="returnText"
+      name="text"
+      maxlength="8000"
+      required
+      [(ngModel)]="returnText"
+    />
+    }
     <div class="mt-4 flex justify-end gap-2">
       <p-button
         label="Zpět"
@@ -438,7 +462,7 @@
       />
       <app-submit-button
         [form]="returnForm"
-        label="Vrátit do řešení"
+        label="Vrátit k řešení"
         icon="pi pi-undo"
         [busy]="busy()"
       />
