@@ -108,7 +108,7 @@ test('a school asks for support allowing entering; the assignee works on it in t
   await expect(detail.getByText('Asi chybí úvazky')).toBeVisible();
   await detail.getByRole('switch', { name: /interní/ }).click();
   await detail.getByLabel('Zpráva škole').fill('Máte zadané úvazky?');
-  await detail.getByRole('button', { name: 'Odeslat' }).click();
+  await detail.getByLabel('Zpráva škole').press('Control+Enter');
   await expect(detail.getByText('Máte zadané úvazky?')).toBeVisible();
   // The note is corrected; its change shows under "upraveno".
   const entryAction = async (entry: Locator, action: string) => {

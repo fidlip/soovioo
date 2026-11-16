@@ -12,7 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { ConfirmationService, MenuItem } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Dialog } from '@openng/optimus-ui/dialog';
@@ -538,6 +538,12 @@ export class SupportTicketDialog {
     return entry.kind === 'HandedOver' || entry.kind === 'Assigned'
       ? null
       : entry.text;
+  }
+
+  protected sendByKey(form: NgForm): void {
+    if (form.valid && !this.busy()) {
+      this.send();
+    }
   }
 
   protected send(): void {

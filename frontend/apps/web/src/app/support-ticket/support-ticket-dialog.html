@@ -321,6 +321,8 @@
         required
         [internal]="internal || !ticketOpen()"
         [(ngModel)]="text"
+        (keydown.control.enter)="sendByKey(messageForm)"
+        (keydown.meta.enter)="sendByKey(messageForm)"
       >
         @if (bySupport()) {
         <label
@@ -344,7 +346,9 @@
         <app-submit-button
           [form]="messageForm"
           [label]="internal || !ticketOpen() ? 'Uložit poznámku' : 'Odeslat'"
+          [tooltip]="(internal || !ticketOpen() ? 'Uložit poznámku' : 'Odeslat') + ' (Ctrl+Enter)'"
           icon="pi pi-send"
+          [iconOnly]="true"
           [busy]="busy()"
         />
       </app-markdown-editor>
