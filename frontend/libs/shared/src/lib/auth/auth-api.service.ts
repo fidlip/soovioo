@@ -27,7 +27,9 @@ import { Permission, PermissionScope, RoleRef } from './role.model';
 export type SessionChange =
   | { kind: 'login'; username: string }
   | { kind: 'logout' }
-  | { kind: 'role'; roleName: string };
+  | { kind: 'role'; roleName: string }
+  /** Support mode: now as another of the school's users, or its admin. */
+  | { kind: 'supportAs'; as: string };
 
 /** Support mode ended by someone else (the school, another SuperAdmin):
  * who, when and why (Markdown) — the API says so with the 401. */
@@ -227,8 +229,12 @@ export class AuthApiService {
   }
 
   /** Makes another of `getRoles()` the active one — the backend remembers
-   * it and hands back an access token carrying it. */
+   * it and hands back an access token carrying it. In support mode as a
+   * user, only this session's token changes (the user's account doesn't). */
   switchRole(roleId: number): Observable<void> {
+    if (this.getSupportInfo()?.as) {
+      return this.switchSupportAs(this.getUserId(), roleId);
+    }
     return this.http
       .post<{ token: string }>(`${this.baseUrl}/api/users/me/active-role`, {
         roleId,
@@ -273,10 +279,44 @@ export class AuthApiService {
   }
 
   /** Set while a SuperAdmin acts in a school in support mode (token from
-   * `SupportApiService.startSupportSession`): who and which school. */
-  getSupportInfo(): { by: string; schoolName: string } | null {
+   * `SupportApiService.redeem`): who, which school, and as whom when
+   * entered as one of its users ("učitel Jan Novák"; null = as its admin). */
+  getSupportInfo(): {
+    by: string;
+    schoolName: string;
+    as: string | null;
+  } | null {
     const by = this.getClaim('supportBy');
-    return by ? { by, schoolName: this.getClaim('supportSchool') ?? '' } : null;
+    return by
+      ? {
+          by,
+          schoolName: this.getClaim('supportSchool') ?? '',
+          as: this.getClaim('supportAs'),
+        }
+      : null;
+  }
+
+  /** Support mode: be another of the school's users (in `roleId`, else
+   * their first allowed role), or the admin again without a user — the
+   * same session, a new token. */
+  switchSupportAs(
+    userId: number | null,
+    roleId: number | null = null,
+  ): Observable<void> {
+    return this.http
+      .post<LoginResponse>(`${this.baseUrl}/api/support-sessions/current/as`, {
+        userId,
+        roleId,
+      })
+      .pipe(
+        map((response) => {
+          this.store(response);
+          this.sessionChangedSubject.next({
+            kind: 'supportAs',
+            as: this.getSupportInfo()?.as ?? 'admin školy',
+          });
+        }),
+      );
   }
 
   /** Request options for the endpoints that read or set the refresh cookie

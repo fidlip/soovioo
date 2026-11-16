@@ -79,7 +79,7 @@ const GROUP_SECTIONS: Record<string, string[]> = {
     'classrooms',
     'people',
   ],
-  app: ['users', 'roles', 'visibility', 'notifications', 'support'],
+  app: ['users', 'roles', 'visibility', 'notifications', 'support', 'settings'],
   class: ['students', 'parents'],
 };
 

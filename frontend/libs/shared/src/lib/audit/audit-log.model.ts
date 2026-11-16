@@ -11,6 +11,8 @@ export interface AuditLogEntry {
   role: string | null;
   /** Made in support mode by this SuperAdmin. */
   supportBy: string | null;
+  /** …as one of the school's users ("učitel Jan Novák"); `role` is theirs. */
+  asUserName?: string | null;
   method: string;
   path: string;
   /** Agenda label ("Známky", "Uživatelé"…). */

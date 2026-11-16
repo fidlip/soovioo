@@ -1,4 +1,5 @@
 import type { LinkedAccount } from '../auth/linked-accounts-api.service';
+import type { SupportPresence } from '../support/support.model';
 
 export type NotificationType =
   | 'Grade'
@@ -39,6 +40,9 @@ export interface UnreadCounts {
   messages: number;
   /** The user's accounts at other schools; absent without any. */
   linkedAccounts?: LinkedAccount[] | null;
+  /** SuperAdmins in the school as the user or for their ticket (the
+   * banners); absent without any. */
+  support?: SupportPresence[] | null;
 }
 
 export interface NotificationPage {

@@ -7,6 +7,8 @@ import {
   CreateSuperAdminRequest,
   SchoolSupport,
   SupportAccess,
+  SupportAsScope,
+  SupportAsUser,
   SupportPlan,
   SupportResetPreview,
   SupportTicket,
@@ -143,11 +145,22 @@ export class SupportApiService {
     return this.ticketAction(id, 'request-access');
   }
 
-  /** "Vstoupit do školy" for the ticket. */
-  enterForTicket(id: number): Observable<SupportSessionStart> {
+  /** "Vstoupit do školy" for the ticket — as the school's admin, or as
+   * `as.userId` (in `as.roleId`, else their first allowed role). */
+  enterForTicket(
+    id: number,
+    as: { userId: number; roleId?: number } | null = null,
+  ): Observable<SupportSessionStart> {
     return this.http.post<SupportSessionStart>(
       `${this.baseUrl}/api/support-tickets/${id}/enter`,
-      {},
+      as ?? {},
+    );
+  }
+
+  /** Whom the assignee may enter as (the school's `Users`), the author first. */
+  getEnterAs(id: number): Observable<SupportAsUser[]> {
+    return this.http.get<SupportAsUser[]>(
+      `${this.baseUrl}/api/support-tickets/${id}/enter-as`,
     );
   }
 
@@ -211,15 +224,17 @@ export class SupportApiService {
     );
   }
 
-  /** `allowAccess`: lets the support in for it right away. */
+  /** `allowAccess`: lets the support in for it right away;
+   * `supportAsUserIds`: whom it may enter as (the school's `Users`). */
   createTicket(
     title: string,
     description: string,
     allowAccess: boolean,
+    supportAsUserIds?: number[],
   ): Observable<SupportTicketDetail> {
     return this.http.post<SupportTicketDetail>(
       `${this.baseUrl}/api/my-school/support-tickets`,
-      { title, description, allowAccess },
+      { title, description, allowAccess, supportAsUserIds },
     );
   }
 
@@ -330,6 +345,32 @@ export class SupportApiService {
     );
   }
 
+  setSupportAs(supportAs: SupportAsScope): Observable<SchoolSupport> {
+    return this.http.put<SchoolSupport>(
+      `${this.baseUrl}/api/my-school/support-as`,
+      { scope: supportAs },
+    );
+  }
+
+  /** The school's accounts, to name on a ticket whom the support may be. */
+  getSupportAsUsers(): Observable<SupportAsUser[]> {
+    return this.http.get<SupportAsUser[]>(
+      `${this.baseUrl}/api/my-school/support-as/users`,
+    );
+  }
+
+  /** The users the support may enter as for the ticket; none = only as
+   * the admin. */
+  setTicketSupportAsUsers(
+    id: number,
+    userIds: number[],
+  ): Observable<SupportTicketDetail> {
+    return this.http.put<SupportTicketDetail>(
+      `${this.baseUrl}/api/my-school/support-tickets/${id}/support-as`,
+      { userIds },
+    );
+  }
+
   /** On the school's page: one-time code → support-mode login (also sets
    * the support cookie that keeps it alive across reloads). */
   redeem(
@@ -340,6 +381,26 @@ export class SupportApiService {
       `${this.baseUrl}/api/support-sessions/redeem`,
       { code },
       options,
+    );
+  }
+
+  /** Inside the school: whom the SuperAdmin may switch to. */
+  getSessionUsers(): Observable<SupportAsUser[]> {
+    return this.http.get<SupportAsUser[]>(
+      `${this.baseUrl}/api/support-sessions/current/users`,
+    );
+  }
+
+  /** Inside the school: be another user, another of their roles, or (no
+   * user) the admin again — a new token of the same session. Use
+   * `AuthApiService.switchSupportAs`, which stores it. */
+  switchAs(as: {
+    userId?: number | null;
+    roleId?: number | null;
+  }): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(
+      `${this.baseUrl}/api/support-sessions/current/as`,
+      as,
     );
   }
 

@@ -134,14 +134,10 @@
       <ng-template #groupCell let-entry let-level="level">
         @if (level === 1) {
         <div>{{ who(entry) }}</div>
-        @if (roleLabel(entry.role); as role) {
+        @if (!entry.asUserName && roleLabel(entry.role); as role) {
         <div class="text-xs font-normal text-surface-500">{{ role }}</div>
-        } @if (entry.supportBy) {
-        <p-tag
-          severity="warn"
-          [value]="'podpora (superadmin ' + entry.supportBy + ')'"
-          styleClass="mt-1"
-        />
+        } @if (supportLabel(entry); as support) {
+        <p-tag severity="warn" [value]="support" styleClass="mt-1" />
         } } @else { {{ groups[level].text(entry) }} }
       </ng-template>
 
@@ -309,7 +305,7 @@
         {{ action.at | dateFormat: 'timeWithSeconds' }} @if (action.description)
         { {{ action.description }} } @else {
         <span class="font-mono">{{ action.method }} {{ action.path }}</span>
-        } → {{ action.statusCode }}
+        } @if (action.as) { (jako {{ action.as }}) } → {{ action.statusCode }}
       </li>
       }
     </ul>

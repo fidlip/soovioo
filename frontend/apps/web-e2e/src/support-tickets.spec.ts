@@ -56,10 +56,15 @@ test('a school asks for support allowing entering; the assignee works on it in t
   await expect(detail.getByText('Řeší: superadmin')).toBeVisible();
 
   // The school takes the entering back while the support is in: out at once.
-  // The school opens in a new tab, this one stays at the ticket.
+  // As the ticket's author; the school opens in a new tab, this one stays
+  // at the ticket.
+  await detail.getByRole('button', { name: 'Vstoupit do školy' }).click();
   const [school] = await Promise.all([
     superAdmin.context().waitForEvent('page'),
-    detail.getByRole('button', { name: 'Vstoupit do školy' }).click(),
+    superAdmin
+      .getByRole('dialog', { name: 'Vstoupit jako' })
+      .getByRole('button', { name: 'Alena Správcová – Admin' })
+      .click(),
   ]);
   await expect(school).toHaveURL(/\/skola\/home$/);
   // Writing to the ticket from inside the school. The strip's buttons come
@@ -77,7 +82,7 @@ test('a school asks for support allowing entering; the assignee works on it in t
   await page.getByRole('row').filter({ hasText: title }).click();
   const schoolDetail = page.getByRole('dialog', { name: title });
   await expect(schoolDetail.getByText('Stav: Řeší se')).toBeVisible();
-  await schoolDetail.getByRole('button', { name: 'Odebrat povolení' }).click();
+  await schoolDetail.getByRole('button', { name: /Odebrat$/ }).click();
   await expect(page.getByText('Povolení odebráno.')).toBeVisible();
   // The visit is one item of the thread, the last one unfolded: ended by
   // taking the entering back, with what happened meanwhile.

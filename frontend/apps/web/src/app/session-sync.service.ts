@@ -69,6 +69,14 @@ export class SessionSyncService {
           `V jiné záložce jste přepnuli roli na ${change.roleName}.`,
         );
         break;
+      case 'supportAs':
+        if (
+          change.as === (this.authApi.getSupportInfo()?.as ?? 'admin školy')
+        ) {
+          break;
+        }
+        this.notice.set(`V jiné záložce jste přepnuli na ${change.as}.`);
+        break;
     }
   }
 }

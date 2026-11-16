@@ -4,10 +4,11 @@
   [header]="ticket()?.title ?? ''"
   [modal]="true"
   styleClass="w-full max-w-2xl max-h-[90vh]"
-  [contentStyle]="{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }"
+  [contentStyle]="{ display: 'flex', flexDirection: 'column', overflowY: 'auto' }"
 >
   @if (ticket(); as ticket) {
-  <!-- The header and the writing stay, the thread scrolls between them. -->
+  <!-- The header and the writing stay, the thread scrolls between them;
+    too low for that (a phone), all of it scrolls. -->
   <div class="flex min-h-0 flex-1 flex-col gap-4">
     <!-- The ticket: its state and who takes care of it, with what can be
       done about them. -->
@@ -109,58 +110,97 @@
     <!-- Entering the school -->
     @if (ticketOpen()) {
     <div
-      class="flex flex-wrap items-center gap-2 rounded-md bg-surface-100 px-3 py-2 text-sm dark:bg-surface-800"
-      data-testid="ticket-access"
+      class="flex flex-col gap-2 rounded-md bg-surface-100 px-3 py-2 text-sm dark:bg-surface-800"
     >
-      <i class="pi pi-sign-in text-surface-500"></i>
-      <span class="grow">
-        @switch (ticket.schoolAccess) { @case ('Never') { Škola vstup podpory
-        nepovoluje. } @case ('Always') { Podpora smí do školy vstoupit kdykoliv.
-        } @default { @if (ticket.accessUntil) { Vstup do školy povolen do {{
-        ticket.accessUntil | dateFormat: 'dateTime' }}. } @else if
-        (ticket.accessRequestedAt) { Podpora žádá o vstup do školy ({{
-        ticket.accessRequestedAt | dateFormat: 'dateTime' }}). } @else { Vstup
-        do školy není povolený. } } }
-      </span>
-      @if (side() === 'school' && !readOnly() && ticket.schoolAccess ===
-      'Approval') { @if (ticket.accessUntil) {
-      <p-button
-        label="Odebrat povolení"
-        icon="pi pi-ban"
-        size="small"
-        severity="danger"
-        [outlined]="true"
-        [disabled]="busy()"
-        (onClick)="revokeAccess()"
-      />
-      } @else {
-      <p-button
-        label="Povolit vstup"
-        icon="pi pi-check"
-        size="small"
-        [disabled]="busy()"
-        (onClick)="grantAccess()"
-      />
-      } } @if (side() === 'support' && mine()) { @if (canEnter()) {
-      <p-button
-        label="Vstoupit do školy"
-        icon="pi pi-sign-in"
-        size="small"
-        [disabled]="busy()"
-        (onClick)="enter()"
-      />
-      } @else if (ticket.schoolAccess === 'Approval' &&
-      !ticket.accessRequestedAt) {
-      <p-button
-        label="Požádat o vstup"
-        icon="pi pi-send"
-        size="small"
-        severity="secondary"
-        [outlined]="true"
-        [disabled]="busy()"
-        (onClick)="requestAccess()"
-      />
-      } }
+      <div class="flex items-center gap-2" data-testid="ticket-access">
+        <i class="pi pi-sign-in text-surface-500"></i>
+        <span class="min-w-0 flex-1">
+          @switch (ticket.schoolAccess) { @case ('Never') { Škola vstup
+          nepovoluje. } @case ('Always') { Vstup povolen kdykoliv. } @default {
+          @if (ticket.accessUntil) { Vstup povolen do {{ ticket.accessUntil |
+          dateFormat: 'dateTime' }}. } @else { @if (ticket.accessRequestedAt) {
+          Podpora žádá o vstup ({{ ticket.accessRequestedAt | dateFormat:
+          'dateTime' }}). } @else { Vstup není povolený. } } } }
+        </span>
+        @if (side() === 'school' && !readOnly() && ticket.schoolAccess ===
+        'Approval') { @if (ticket.accessUntil) {
+        <p-button
+          class="shrink-0"
+          label="Odebrat"
+          icon="pi pi-ban"
+          size="small"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="busy()"
+          (onClick)="revokeAccess()"
+        />
+        } @else {
+        <p-button
+          class="shrink-0"
+          label="Povolit vstup"
+          icon="pi pi-check"
+          size="small"
+          [disabled]="busy()"
+          (onClick)="grantAccess()"
+        />
+        } } @if (side() === 'support' && mine()) { @if (canEnter()) {
+        <p-button
+          class="shrink-0"
+          label="Vstoupit do školy"
+          icon="pi pi-sign-in"
+          size="small"
+          [disabled]="busy()"
+          (onClick)="enterClicked()"
+        />
+        @if (ticket.schoolSupportAs === 'Users') {
+        <app-support-as-picker
+          header="Vstoupit jako"
+          (picked)="enter($event)"
+        />
+        } } @else if (ticket.schoolAccess === 'Approval' &&
+        !ticket.accessRequestedAt) {
+        <p-button
+          class="shrink-0"
+          label="Požádat o vstup"
+          icon="pi pi-send"
+          size="small"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="busy()"
+          (onClick)="requestAccess()"
+        />
+        } }
+      </div>
+
+      <!-- The users the support may enter as. -->
+      @if (ticket.schoolSupportAs === 'Users') {
+      <div
+        class="flex items-center gap-2 border-t border-surface-200 pt-2 text-xs text-surface-500 dark:border-surface-700 dark:text-surface-400"
+        data-testid="ticket-support-as"
+      >
+        <i class="pi pi-users text-xs"></i>
+        <span class="min-w-0 flex-1"
+          >Vstup jako: @if (ticket.supportAsUsers?.length) { {{ supportAsNames()
+          }}. } @else { zatím nikdo. }</span
+        >
+        @if (side() === 'school' && !readOnly()) {
+        <p-button
+          class="shrink-0"
+          [label]="ticket.supportAsUsers?.length ? 'Upravit' : 'Vybrat'"
+          icon="pi pi-user-plus"
+          size="small"
+          severity="secondary"
+          [text]="true"
+          [disabled]="busy()"
+          (onClick)="supportAsDialog.open(ticket)"
+        />
+        <app-ticket-support-as-dialog
+          #supportAsDialog
+          (saved)="supportAsSaved($event)"
+        />
+        }
+      </div>
+      }
     </div>
     }
 
@@ -252,7 +292,7 @@
     <!-- The thread -->
     <div
       #thread
-      class="-mx-1 flex min-h-32 flex-1 flex-col gap-4 overflow-y-auto px-1"
+      class="-mx-1 flex min-h-48 flex-1 flex-col gap-4 overflow-y-auto px-1"
       data-testid="ticket-thread"
     >
       @if (ticket.description) {
@@ -757,7 +797,9 @@
         [class.dark:text-surface-200]="(entry.statusCode ?? 0) < 400"
         ><i class="pi pi-pencil text-xs"></i> {{ entry.text }}</span
       >
-      @if ((entry.statusCode ?? 0) >= 400) {
+      @if (entry.as) {
+      <span>jako {{ entry.as }}</span>
+      } @if ((entry.statusCode ?? 0) >= 400) {
       <span class="text-red-600">nepovedlo se</span>
       }
       <span class="ml-auto"

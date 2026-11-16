@@ -3,9 +3,11 @@ import {
   FeedbackApiService,
   LinkedAccount,
   NotificationsApiService,
+  SupportPresence,
 } from '@soovioo/shared';
 
-/** Unread numbers for the bell and the sidebar "Zprávy" badge, in one
+/** Unread numbers for the bell and the sidebar "Zprávy" badge (and the
+ * support-mode banners), in one
  * request — refreshed on every navigation and once a minute
  * (`startBadgeRefresh`), and whenever something gets read. A SuperAdmin's
  * "Zpětná vazba" badge the same way. */
@@ -21,6 +23,11 @@ export class UnreadCountsService {
   readonly linkedAccounts = signal<LinkedAccount[]>([], {
     equal: (a, b) => JSON.stringify(a) === JSON.stringify(b),
   });
+  /** SuperAdmins in the school as the user or for their ticket — the
+   * banners (`AppNotices`), as fresh as the badges. */
+  readonly support = signal<SupportPresence[]>([], {
+    equal: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+  });
   /** SuperAdmin: feedback no one opened yet. */
   readonly feedback = signal(0);
 
@@ -30,12 +37,14 @@ export class UnreadCountsService {
         this.notifications.set(counts.notifications);
         this.messages.set(counts.messages);
         this.linkedAccounts.set(counts.linkedAccounts ?? []);
+        this.support.set(counts.support ?? []);
       },
       // A failed badge isn't worth a console error on every navigation.
       error: () => {
         this.notifications.set(0);
         this.messages.set(0);
         this.linkedAccounts.set([]);
+        this.support.set([]);
       },
     });
   }

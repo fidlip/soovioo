@@ -16,9 +16,9 @@
         @if (support.canChange) { ·
         <a
           [routerLink]="[]"
-          [queryParams]="{ group: 'school', section: 'details' }"
+          [queryParams]="{ group: 'app', section: 'settings' }"
           class="text-primary hover:underline"
-          >změnit v Údajích o škole</a
+          >změnit v Nastavení</a
         >
         }</span
       >
@@ -146,6 +146,11 @@
       />
       Povolit podpoře vstup do školy na {{ duration() }}
     </label>
+    } @if (namesUsers()) {
+    <app-support-as-users-select
+      inputId="ticketSupportAs"
+      [(userIds)]="supportAsUserIds"
+    />
     }
     <div class="flex justify-end">
       <app-submit-button

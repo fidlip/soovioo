@@ -99,12 +99,13 @@ export class LogsPage {
     },
     {
       label: 'Kdo',
-      key: (e) => `${e.userId ?? e.username}|${e.role}|${e.supportBy}`,
+      key: (e) =>
+        `${e.userId ?? e.username}|${e.role}|${e.supportBy}|${e.asUserName}`,
       text: (e) =>
         [
           this.who(e),
-          this.roleLabel(e.role),
-          e.supportBy ? `podpora (superadmin ${e.supportBy})` : null,
+          e.asUserName ? null : this.roleLabel(e.role),
+          this.supportLabel(e),
         ]
           .filter(Boolean)
           .join(' · '),
@@ -246,6 +247,15 @@ export class LogsPage {
 
   protected who(entry: AuditLogEntry): string {
     return entry.userDisplayName ?? entry.username ?? 'nepřihlášený';
+  }
+
+  /** "podpora (superadmin X)", "… jako učitel Jan Novák"; null outside support mode. */
+  protected supportLabel(entry: AuditLogEntry): string | null {
+    if (!entry.supportBy) {
+      return null;
+    }
+    const by = `podpora (superadmin ${entry.supportBy})`;
+    return entry.asUserName ? `${by} jako ${entry.asUserName}` : by;
   }
 
   protected roleLabel(role: string | null): string | null {
