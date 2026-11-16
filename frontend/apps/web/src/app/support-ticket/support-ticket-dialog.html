@@ -311,25 +311,34 @@
 
     <!-- Writing -->
     @if (!readOnly() && (ticketOpen() || bySupport())) {
-    <form #messageForm="ngForm" class="flex flex-col gap-2" (ngSubmit)="send()">
+    <form #messageForm="ngForm" (ngSubmit)="send()">
       <app-markdown-editor
-        [label]="internal ? 'Interní poznámka' : bySupport() ? 'Zpráva škole' : 'Zpráva podpoře'"
+        [label]="internal || !ticketOpen() ? 'Interní poznámka' : bySupport() ? 'Zpráva škole' : 'Zpráva podpoře'"
         inputId="ticketMessage"
         name="text"
         [rows]="3"
         maxlength="8000"
         required
+        [internal]="internal || !ticketOpen()"
         [(ngModel)]="text"
-      />
-      <div class="flex flex-wrap items-center justify-end gap-3">
+      >
         @if (bySupport()) {
-        <label class="mr-auto flex items-center gap-2 text-sm">
+        <label
+          class="mr-auto flex cursor-pointer items-center gap-2 text-sm"
+          [class.text-amber-700]="internal || !ticketOpen()"
+          [class.dark:text-amber-300]="internal || !ticketOpen()"
+          pTooltip="Interní poznámku škola neuvidí."
+          tooltipPosition="top"
+        >
           <p-toggleswitch
             name="internal"
-            [(ngModel)]="internal"
+            [ngModel]="internal || !ticketOpen()"
+            (ngModelChange)="internal = $event"
             [disabled]="!ticketOpen()"
           />
-          Interní poznámka (škola ji neuvidí)
+          <i class="pi pi-lock text-xs"></i>
+          interní
+          <span class="sr-only">(škola ji neuvidí)</span>
         </label>
         }
         <app-submit-button
@@ -338,7 +347,7 @@
           icon="pi pi-send"
           [busy]="busy()"
         />
-      </div>
+      </app-markdown-editor>
     </form>
     }
   </div>

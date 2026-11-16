@@ -1,0 +1,95 @@
+:host {
+  display: block;
+  --editor-background: var(--p-textarea-background);
+  --editor-border: var(--p-textarea-border-color);
+  --internal-background: theme('colors.amber.50');
+  --internal-border: theme('colors.amber.300');
+  --internal-hover-border: theme('colors.amber.400');
+  --internal-focus-border: theme('colors.amber.500');
+}
+
+:host-context(.soovioo-dark) {
+  --internal-background: theme('colors.amber.950');
+  --internal-border: theme('colors.amber.700');
+  --internal-hover-border: theme('colors.amber.600');
+  --internal-focus-border: theme('colors.amber.500');
+}
+
+:host(.internal) {
+  --editor-background: var(--internal-background);
+  --editor-border: var(--internal-border);
+  --p-textarea-background: var(--editor-background);
+  --p-textarea-border-color: var(--editor-border);
+  --p-textarea-hover-border-color: var(--internal-hover-border);
+  --p-textarea-focus-border-color: var(--internal-focus-border);
+}
+
+.tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: -1px;
+  padding-left: 0.5rem;
+}
+
+.tab {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.375rem 0.375rem 0 0;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--p-text-color);
+}
+
+.tab[aria-selected='true'] {
+  /* One pixel taller than its border so it covers the field's top border. */
+  padding-bottom: calc(0.25rem + 1px);
+  border-color: var(--editor-border);
+  background: var(--editor-background);
+  color: var(--p-text-color);
+}
+
+.field {
+  position: relative;
+}
+
+.tabs:has(+ .field :focus-visible, + .field textarea:focus)
+  .tab[aria-selected='true'] {
+  border-color: var(--p-textarea-focus-border-color);
+}
+
+.preview {
+  min-height: 6rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--p-textarea-border-radius);
+  background: var(--editor-background);
+}
+
+.actions {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  left: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.actions:empty {
+  display: none;
+}
+
+.field:has(.actions:not(:empty)) :is(textarea, .preview) {
+  padding-bottom: 3.25rem;
+}
