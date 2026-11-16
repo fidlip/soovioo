@@ -1,19 +1,16 @@
 import { Component, ElementRef, input, signal, viewChild } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Textarea } from '@openng/optimus-ui/textarea';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
-import { FloatField } from '../forms';
 import { Markdown } from './markdown';
 
-/** A text field written in Markdown: "Text" edits, "Náhled" shows it
- * rendered. A form control — `ngModel`, `required`, `maxlength` work on it
- * as on a textarea. Projected content (e.g. a send button) sits inside the
- * field at its bottom; `internal` styles the field as an internal note;
- * `labelInTab` puts the label in place of "Text". */
+/** A text field written in Markdown: the tab with its label edits,
+ * "Náhled" shows it rendered. A form control — `ngModel`, `required`,
+ * `maxlength` work on it as on a textarea. Projected content (e.g. a send button) sits inside the
+ * field at its bottom; `internal` styles the field as an internal note. */
 @Component({
   selector: 'app-markdown-editor',
-  imports: [FloatField, Markdown, NgTemplateOutlet, Textarea, Tooltip],
+  imports: [Markdown, Textarea, Tooltip],
   templateUrl: './markdown-editor.html',
   styleUrl: './markdown-editor.css',
   host: { '[class.internal]': 'internal()' },
@@ -27,7 +24,6 @@ export class MarkdownEditor implements ControlValueAccessor {
   readonly rows = input(5);
   readonly maxlength = input<number | string | null>(null);
   readonly internal = input(false);
-  readonly labelInTab = input(false);
 
   private readonly field = viewChild<ElementRef<HTMLTextAreaElement>>('field');
   protected readonly preview = signal(false);

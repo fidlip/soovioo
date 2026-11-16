@@ -5,12 +5,11 @@ import { FloatLabel } from '@openng/optimus-ui/floatlabel';
  * variant "on") — the label stays visible once the field has a value. `for`
  * is the control's `id` (`inputId` on optimus components); the control
  * needs no placeholder, which would keep the label floated. The control
- * stretches to the field's width, as it would in a flex column. Variant "in"
- * keeps the label inside the field, for fields with tabs on their border. */
+ * stretches to the field's width, as it would in a flex column. */
 @Component({
   selector: 'app-float-field',
   imports: [FloatLabel],
-  template: `<p-floatlabel [variant]="variant()">
+  template: `<p-floatlabel variant="on">
     <ng-content />
     <label [for]="for()">{{ label() }}</label>
   </p-floatlabel>`,
@@ -31,5 +30,4 @@ import { FloatLabel } from '@openng/optimus-ui/floatlabel';
 export class FloatField {
   readonly label = input.required<string>();
   readonly for = input.required<string>();
-  readonly variant = input<'on' | 'in'>('on');
 }

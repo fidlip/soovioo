@@ -1,6 +1,5 @@
 <div class="bar">
   <div class="tabs" role="tablist">
-    @if (labelInTab()) {
     <!-- The field's own label as the tab: clicking it also focuses the
       field, and the required asterisk lands on it. -->
     <label
@@ -15,17 +14,6 @@
       >@if (internal()) {<i class="pi pi-lock mr-1 text-xs"></i>}{{ label()
       }}</label
     >
-    } @else {
-    <button
-      type="button"
-      role="tab"
-      class="tab"
-      [attr.aria-selected]="!preview()"
-      (click)="preview.set(false)"
-    >
-      Text
-    </button>
-    }
     <button
       type="button"
       role="tab"
@@ -48,7 +36,7 @@
   </button>
 </div>
 <div class="field">
-  <ng-template #textarea>
+  <div class="flex flex-col" [class.invisible]="preview()">
     <textarea
       #field
       pTextarea
@@ -61,21 +49,8 @@
       (input)="input($any($event.target).value)"
       (blur)="onTouched()"
     ></textarea>
-  </ng-template>
-  @if (labelInTab()) {
-  <div class="flex flex-col" [class.invisible]="preview()">
-    <ng-container *ngTemplateOutlet="textarea" />
   </div>
-  } @else {
-  <app-float-field
-    [label]="label()"
-    [for]="inputId()"
-    variant="in"
-    [class.invisible]="preview()"
-  >
-    <ng-container *ngTemplateOutlet="textarea" />
-  </app-float-field>
-  } @if (preview()) {
+  @if (preview()) {
   <div class="preview" [attr.aria-label]="label() + ' – náhled'">
     @if (value().trim()) {
     <app-markdown [text]="value()" />
