@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Evidence;
@@ -9,6 +10,13 @@ namespace Soovioo.Api.Evidence;
 public static class StudentRecords
 {
     public const string VariableSymbolTaken = "Tento variabilní symbol už má jiný žák.";
+
+    /// <summary>The emergency contact's field and message when it isn't a
+    /// phone number / e-mail — check before <see cref="ApplyAsync"/>.</summary>
+    public static (string Field, string Message)? ContactError(StudentMatrika matrika) =>
+        !ContactFormats.TryPhone(matrika.ContactPhone, out _) ? ("contactPhone", ContactFormats.InvalidPhone)
+        : !ContactFormats.TryEmail(matrika.ContactEmail, out _) ? ("contactEmail", ContactFormats.InvalidEmail)
+        : null;
 
     /// <summary>Copies the matrika onto <paramref name="student"/>; an empty
     /// variable symbol keeps the current one or generates a new one. Returns
@@ -51,8 +59,10 @@ public static class StudentRecords
         student.PostalCode = matrika.PostalCode;
         student.CatchmentArea = matrika.CatchmentArea;
         student.EnrollmentDate = matrika.EnrollmentDate;
-        student.ContactPhone = matrika.ContactPhone;
-        student.ContactEmail = matrika.ContactEmail;
+        ContactFormats.TryPhone(matrika.ContactPhone, out var contactPhone);
+        ContactFormats.TryEmail(matrika.ContactEmail, out var contactEmail);
+        student.ContactPhone = contactPhone;
+        student.ContactEmail = contactEmail;
         student.DefaultVariableSymbol = variableSymbol;
         return null;
     }

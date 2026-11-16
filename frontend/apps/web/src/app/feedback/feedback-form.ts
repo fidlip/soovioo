@@ -5,15 +5,23 @@ import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Textarea } from '@openng/optimus-ui/textarea';
-import { AuthApiService, FeedbackRequest } from '@soovioo/shared';
-import { FloatField } from '../forms';
+import { AuthApiService, FeedbackRequest, parseEmail } from '@soovioo/shared';
+import { FORM_FIELDS, FloatField } from '../forms';
 import { NotifyService } from '../notify.service';
 
 /** Rating, text and a contact — the demo's feedback dialog and the
  * "Zpětná vazba" card in Nastavení. Starts over once sent. */
 @Component({
   selector: 'app-feedback-form',
-  imports: [FloatField, FormsModule, Button, Checkbox, InputText, Textarea],
+  imports: [
+    ...FORM_FIELDS,
+    FloatField,
+    FormsModule,
+    Button,
+    Checkbox,
+    InputText,
+    Textarea,
+  ],
   templateUrl: './feedback-form.html',
 })
 export class FeedbackForm {
@@ -50,7 +58,9 @@ export class FeedbackForm {
 
   protected canSend(): boolean {
     return (
-      (this.rating() !== null || this.text.trim().length > 0) && !this.sending()
+      (this.rating() !== null || this.text.trim().length > 0) &&
+      parseEmail(this.contactValue()).valid &&
+      !this.sending()
     );
   }
 

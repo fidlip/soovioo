@@ -38,10 +38,18 @@ public class MyProfileController(
     [AuditAction("Upraven vlastní profil")]
     public async Task<ActionResult<MyProfileDto>> UpdateProfile(UpdateMyProfileRequest request)
     {
+        if (!ContactFormats.TryPhone(request.Phone, out var phone))
+        {
+            return this.FieldError("phone", ContactFormats.InvalidPhone);
+        }
+        if (!ContactFormats.TryEmail(request.Email, out var email))
+        {
+            return this.FieldError("email", ContactFormats.InvalidEmail);
+        }
         var user = await CurrentUserAsync();
         var person = await db.EnsurePersonAsync(user);
-        person.Phone = request.Phone;
-        person.Email = request.Email;
+        person.Phone = phone;
+        person.Email = email;
         await db.SaveChangesAsync();
         return Ok(await ToDtoAsync(user));
     }

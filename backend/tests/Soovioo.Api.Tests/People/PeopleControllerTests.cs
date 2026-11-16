@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.Grades;
@@ -56,7 +57,7 @@ public class PeopleControllerTests
         var child = Value(await Controller().AddPerson(new SavePersonRequest("Jan", "Novák", Student: Matrika())));
 
         var person = Value(await Controller().AddPerson(new SavePersonRequest(
-            "Jana", "Nováková", "777", "j@n.cz", new TeacherProfileRequest(
+            "Jana", "Nováková", "777 123 456", "j@n.cz", new TeacherProfileRequest(
                 [new(maths.Id), new(history.Id, 6, 9)], " 1. stupeň ", 22,
                 [
                     new(DayOfWeek.Friday, 1, AvailabilityKind.Avoid), new(DayOfWeek.Wednesday, 2, AvailabilityKind.Unavailable),
@@ -250,5 +251,32 @@ public class PeopleControllerTests
         Assert.False(await db.Persons.AnyAsync());
         Assert.False(await db.ParentStudents.IgnoreQueryFilters().AnyAsync());
         Assert.False(await db.Students.AnyAsync());
+    }
+
+    [Fact]
+    public async Task APersonsContactsAreCheckedAndNormalized()
+    {
+        var person = Value(await Controller().AddPerson(new SavePersonRequest("Jan", "Novák", "+421 905-123-456", "Jan@Skola.CZ")));
+
+        Assert.Equal(("+421 905 123 456", "Jan@skola.cz"), (person.Phone, person.Email));
+    }
+
+    [Fact]
+    public async Task AnInvalidEmailIsRefused()
+    {
+        var result = await Controller().AddPerson(new SavePersonRequest("Jan", "Novák", Email: "jan@skola"));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal([ContactFormats.InvalidEmail], problem.Errors["email"]);
+    }
+
+    [Fact]
+    public async Task APupilsEmergencyContactIsChecked()
+    {
+        var result = await Controller().AddPerson(new SavePersonRequest(
+            "Jan", "Novák", Student: Matrika() with { ContactPhone = "123" }));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal([ContactFormats.InvalidPhone], problem.Errors["contactPhone"]);
     }
 }

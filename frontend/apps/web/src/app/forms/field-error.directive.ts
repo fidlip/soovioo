@@ -140,6 +140,9 @@ function messageFor(errors: ValidationErrors | null): string | null {
   if (errors['email']) {
     return 'Neplatný e-mail';
   }
+  if (errors['phone']) {
+    return 'Neplatný telefon, např. 777 123 456 nebo +421 905 123 456';
+  }
   if (errors['minlength']) {
     return `Alespoň ${errors['minlength'].requiredLength} znaků`;
   }

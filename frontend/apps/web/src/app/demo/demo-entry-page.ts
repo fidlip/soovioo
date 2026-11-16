@@ -21,6 +21,7 @@ import {
   DemoCreated,
   DemoRole,
   SchoolType,
+  parseEmail,
 } from '@soovioo/shared';
 import { catchError, of } from 'rxjs';
 import { SchoolLookupService } from '../school-lookup.service';
@@ -243,10 +244,7 @@ export class DemoEntryPage {
   }
 
   protected emailInvalid(): boolean {
-    return (
-      this.email.trim().length > 0 &&
-      !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email.trim())
-    );
+    return !parseEmail(this.email).valid;
   }
 
   private create(): void {

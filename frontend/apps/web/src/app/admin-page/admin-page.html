@@ -441,6 +441,7 @@
                           type="email"
                           id="schoolEmail"
                           name="schoolEmail"
+                          appEmail
                           [ngModel]="schoolEmail()"
                           (ngModelChange)="schoolEmail.set($event)"
                         />
@@ -451,6 +452,7 @@
                           type="tel"
                           id="schoolPhone"
                           name="schoolPhone"
+                          appPhone
                           [ngModel]="schoolPhone()"
                           (ngModelChange)="schoolPhone.set($event)"
                         />
@@ -577,6 +579,7 @@
                           id="matrikaContactPhone"
                           autocomplete="tel"
                           name="matrikaContactPhone"
+                          appPhone
                           [(ngModel)]="matrikaContactPhone"
                         />
                       </app-float-field>
@@ -587,6 +590,7 @@
                           id="matrikaContactEmail"
                           autocomplete="email"
                           name="matrikaContactEmail"
+                          appEmail
                           [(ngModel)]="matrikaContactEmail"
                         />
                       </app-float-field>

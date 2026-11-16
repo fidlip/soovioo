@@ -165,6 +165,18 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
                 return Conflict(await StudentRecords.RefusalAsync(db, removed, history, profileOnly: true));
             }
         }
+        if (!ContactFormats.TryPhone(request.Phone, out var phone))
+        {
+            return this.FieldError("phone", ContactFormats.InvalidPhone);
+        }
+        if (!ContactFormats.TryEmail(request.Email, out var email))
+        {
+            return this.FieldError("email", ContactFormats.InvalidEmail);
+        }
+        if (request.Student is { } contacts && StudentRecords.ContactError(contacts) is { } contactError)
+        {
+            return this.FieldError(contactError.Field, contactError.Message);
+        }
         if (request.Student is { } matrika && !await db.SchoolClasses.AnyAsync(c => c.Id == matrika.SchoolClassId))
         {
             return this.FieldError("schoolClassId", "Neznámá třída.");
@@ -185,8 +197,8 @@ public class PeopleController(AppDbContext db, ICurrentSchoolContext currentScho
 
         person.FirstName = request.FirstName?.Trim() ?? "";
         person.LastName = request.LastName.Trim();
-        person.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
-        person.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        person.Phone = phone;
+        person.Email = email;
         var schoolId = currentSchool.SchoolId!.Value;
 
         if (request.Teacher is { } teacher)

@@ -127,7 +127,14 @@
 
       <div class="flex items-center gap-2">
         <app-float-field class="min-w-0 flex-1" label="Telefon" for="phone">
-          <input pInputText id="phone" name="phone" [(ngModel)]="phone" />
+          <input
+            pInputText
+            type="tel"
+            id="phone"
+            name="phone"
+            appPhone
+            [(ngModel)]="phone"
+          />
         </app-float-field>
         <app-visibility-control
           [settings]="visibility()"
@@ -138,7 +145,14 @@
 
       <div class="flex items-center gap-2">
         <app-float-field class="min-w-0 flex-1" label="E-mail" for="email">
-          <input pInputText id="email" name="email" [(ngModel)]="email" />
+          <input
+            pInputText
+            type="email"
+            id="email"
+            name="email"
+            appEmail
+            [(ngModel)]="email"
+          />
         </app-float-field>
         <app-visibility-control
           [settings]="visibility()"

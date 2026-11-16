@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 
 namespace Soovioo.Api.Tests.Auth;
@@ -48,10 +49,10 @@ public class MyProfileControllerTests
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var result = await NewController(db, user.Id).UpdateProfile(new UpdateMyProfileRequest("123456789", "a@b.cz"));
+        var result = await NewController(db, user.Id).UpdateProfile(new UpdateMyProfileRequest("777123456", "a@B.cz"));
 
         var dto = Assert.IsType<MyProfileDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal("123456789", dto.Phone);
+        Assert.Equal("+420 777 123 456", dto.Phone);
         Assert.Equal("a@b.cz", dto.Email);
     }
 
@@ -135,5 +136,50 @@ public class MyProfileControllerTests
         var result = await NewController(db, user.Id).SwitchRole(new SwitchRoleRequest(db.Role(UserRole.Admin, SchoolId).Id));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateProfileRefusesAnInvalidPhone()
+    {
+        using var db = NewDb();
+        var user = NewUser(db, "heslo123");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, user.Id).UpdateProfile(new UpdateMyProfileRequest("12 34", null));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal([ContactFormats.InvalidPhone], problem.Errors["phone"]);
+        Assert.False(await db.Persons.AnyAsync(p => p.UserId == user.Id && p.Phone != null));
+    }
+
+    [Fact]
+    public async Task UpdateProfileRefusesAnInvalidEmail()
+    {
+        using var db = NewDb();
+        var user = NewUser(db, "heslo123");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db, user.Id).UpdateProfile(new UpdateMyProfileRequest(null, "a@b"));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal([ContactFormats.InvalidEmail], problem.Errors["email"]);
+    }
+
+    [Fact]
+    public async Task UpdateProfileClearsEmptyContacts()
+    {
+        using var db = NewDb();
+        var user = NewUser(db, "heslo123");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        await NewController(db, user.Id).UpdateProfile(new UpdateMyProfileRequest("777123456", "a@b.cz"));
+
+        var result = await NewController(db, user.Id).UpdateProfile(new UpdateMyProfileRequest("  ", ""));
+
+        var dto = Assert.IsType<MyProfileDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Null(dto.Phone);
+        Assert.Null(dto.Email);
     }
 }
