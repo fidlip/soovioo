@@ -39,7 +39,12 @@ function shownDate(day: Date): { shown: RegExp; typed: string } {
 test.describe.serial('absence excuse workflow', () => {
   let date = { shown: /$^/, typed: '' };
   test.beforeAll(async ({ playwright }) => {
-    const day = pick(relativeToToday(await teachingDays({ playwright }), true));
+    // Not a Monday or a Tuesday: the omluvenky below take those.
+    const day = pick(
+      relativeToToday(await teachingDays({ playwright }), true).filter(
+        (d) => d.getDay() > 2,
+      ),
+    );
     test.skip(!day, 'No past day of lessons in the school year yet.');
     date = shownDate(day as Date);
   });
