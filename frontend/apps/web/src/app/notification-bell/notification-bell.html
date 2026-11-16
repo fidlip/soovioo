@@ -1,4 +1,4 @@
-<p-popover #popover (onShow)="load()">
+<p-popover #popover (onShow)="load()" (onHide)="hidden()">
   <div
     class="flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2"
     role="region"
