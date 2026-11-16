@@ -17,6 +17,7 @@ namespace Soovioo.Api.Auth;
 /// login at <see cref="RedeemCode"/>.</summary>
 [ApiController]
 [AuditArea("Přihlášení")]
+[Support.OwnAccount]
 public class LinkedAccountsController(
     AppDbContext db, AuthSessionService sessions, RefreshTokenService refreshTokens, TimeProvider clock) : ControllerBase
 {

@@ -25,6 +25,15 @@ public class SupportSession
     public int? TicketId { get; set; }
     public SupportTicket? Ticket { get; set; }
 
+    /// <summary>Entered as one of the school's users ("Vstoupit jako…"),
+    /// in one of their roles — null = as the school's admin. Changes when
+    /// the SuperAdmin switches within the session.</summary>
+    public int? AsUserId { get; set; }
+    public int? AsRoleId { get; set; }
+
+    /// <summary>Snapshot, "učitel Jan Novák".</summary>
+    public string? AsName { get; set; }
+
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>The support session can't outlive this (2 h from start).</summary>

@@ -40,6 +40,7 @@ public class ExcusesController(
 
     [HttpPost]
     [AuditAction("Napsána omluvenka")]
+    [Support.NotAsUserInSupport("psát omluvenky", FamilyOnly = true)]
     public async Task<ActionResult<ExcuseResultDto>> CreateExcuse(ExcuseRequest request)
     {
         if (await db.Students.FindAsync(request.StudentId) is not { } student)
@@ -101,6 +102,7 @@ public class ExcusesController(
     /// up to today are approved at once.</summary>
     [HttpPut("{id:int}")]
     [AuditAction("Upravena omluvenka")]
+    [Support.NotAsUserInSupport("psát omluvenky", FamilyOnly = true)]
     public async Task<ActionResult<ExcuseResultDto>> UpdateExcuse(int id, ExcuseRequest request)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)
@@ -250,6 +252,7 @@ public class ExcusesController(
 
     [HttpPost("{id:int}/attachments")]
     [AuditAction("Přiložen soubor k omluvence")]
+    [Support.NotAsUserInSupport("psát omluvenky", FamilyOnly = true)]
     public async Task<ActionResult<ExcuseAttachmentDto>> UploadAttachment(int id, IFormFile file)
     {
         if (await db.Excuses.FindAsync(id) is not { } excuse)

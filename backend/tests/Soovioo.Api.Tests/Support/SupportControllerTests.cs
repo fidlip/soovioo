@@ -81,7 +81,10 @@ public class SupportControllerTests
     {
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
-        var school = new School { Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always };
+        var school = new School
+        {
+            Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always, SupportAs = SupportAsScope.Admin,
+        };
         RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
@@ -163,7 +166,10 @@ public class SupportControllerTests
     {
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
-        var school = new School { Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always };
+        var school = new School
+        {
+            Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always, SupportAs = SupportAsScope.Admin,
+        };
         RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();

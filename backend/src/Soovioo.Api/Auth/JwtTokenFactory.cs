@@ -57,9 +57,14 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
     /// admin, so every tenant filter and role check applies unchanged), with
     /// the support claims marking who's behind it. 15 minutes, renewed via
     /// the support cookie (see Support.SupportSessionService).</summary>
+    /// <param name="asUser">Entered as this user of the school instead
+    /// ("Vstoupit jako…"): the token is theirs — their id, so "my classes",
+    /// "my messages" work — in <paramref name="role"/>, one of
+    /// <paramref name="roles"/>; <paramref name="asName"/> says who for the banner.</param>
     public (string Token, DateTimeOffset ExpiresAt) CreateSupportToken(
-        User superAdmin, School school, Role adminRole, IReadOnlyDictionary<Permission, PermissionScope> permissions,
-        int sessionId, DateTimeOffset? sessionExpiresAt = null)
+        User superAdmin, School school, Role role, IReadOnlyDictionary<Permission, PermissionScope> permissions,
+        int sessionId, DateTimeOffset? sessionExpiresAt = null,
+        User? asUser = null, IReadOnlyList<Role>? roles = null, string? asName = null)
     {
         // Short-lived like normal tokens; the support cookie refreshes it
         // until the session itself ends.
@@ -68,18 +73,25 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
         {
             expires = end.UtcDateTime;
         }
+        var user = asUser ?? superAdmin;
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, superAdmin.Id.ToString()),
-            new(ClaimTypes.Name, superAdmin.Username),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
             new("mustChangePassword", "false"),
             new("schoolId", school.Id.ToString()),
             new("schoolType", school.Type.ToString()),
             new(Support.SupportClaims.SessionId, sessionId.ToString()),
             new(Support.SupportClaims.By, superAdmin.Username),
+            new(Support.SupportClaims.SuperAdminId, superAdmin.Id.ToString()),
             new(Support.SupportClaims.SchoolName, school.Name),
         };
-        claims.AddRange(RoleClaims(adminRole, [adminRole], permissions));
+        if (asUser is not null)
+        {
+            claims.Add(new Claim(Support.SupportClaims.AsUserId, asUser.Id.ToString()));
+            claims.Add(new Claim(Support.SupportClaims.As, asName ?? asUser.Username));
+        }
+        claims.AddRange(RoleClaims(role, roles ?? [role], permissions));
         return (Write(claims, expires), new DateTimeOffset(expires));
     }
 

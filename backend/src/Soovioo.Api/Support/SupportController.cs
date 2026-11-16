@@ -52,6 +52,50 @@ public class SupportController(
     public IActionResult GetCurrentSession() =>
         User.HasClaim(c => c.Type == SupportClaims.SessionId) ? NoContent() : BadRequest("Nejste v režimu podpory.");
 
+    /// <summary>Whom the SuperAdmin inside may switch to ("Vstoupit jako…")
+    /// — as the school and the session's ticket allow.</summary>
+    [HttpGet("api/support-sessions/current/users")]
+    [Authorize]
+    public async Task<ActionResult<IReadOnlyList<SupportAsUserDto>>> GetSessionUsers()
+    {
+        if (await CurrentSessionAsync() is not { } session)
+        {
+            return BadRequest("Nejste v režimu podpory.");
+        }
+        return await SupportAsPolicy.CandidatesAsync(db, session.School!, session.Ticket);
+    }
+
+    /// <summary>Switches whom the SuperAdmin is in the school as — another
+    /// user, another of the user's roles, or the admin (as the school
+    /// allows, see <see cref="SupportAsPolicy"/>) — without
+    /// leaving: the same session, a new token. The token held so far stops
+    /// working (<see cref="SupportSessionGuardMiddleware"/>).</summary>
+    [HttpPost("api/support-sessions/current/as")]
+    [Authorize]
+    [AuditAction("Podpora přepnula, za koho je ve škole")]
+    public async Task<ActionResult<LoginResponse>> SwitchAs(SupportAsRequest request)
+    {
+        if (await CurrentSessionAsync() is not { } session)
+        {
+            return BadRequest("Nejste v režimu podpory.");
+        }
+        if (await supportSessions.SetAsAsync(session, request.UserId, request.RoleId) is { } notAllowed)
+        {
+            return BadRequest(notAllowed);
+        }
+        await db.SaveChangesAsync();
+        AuditContext.Of(HttpContext).Description =
+            $"Podpora je ve škole jako {session.AsName ?? "admin školy"}";
+        return await supportSessions.TokenAsync(session.Id) is { } token ? Ok(token) : BadRequest();
+    }
+
+    private async Task<SupportSession?> CurrentSessionAsync() =>
+        int.TryParse(User.FindFirstValue(SupportClaims.SessionId), out var sessionId)
+            ? await db.SupportSessions.IgnoreQueryFilters()
+                .Include(s => s.School).Include(s => s.Ticket)
+                .FirstOrDefaultAsync(s => s.Id == sessionId)
+            : null;
+
     /// <summary>"Opustit" — called with the support token itself, optionally
     /// with what was done (Markdown), which goes to the ticket's thread.</summary>
     [HttpPost("api/support-sessions/current/end")]
@@ -120,7 +164,7 @@ public class SupportController(
                                 && !a.Path.StartsWith("/api/support-tickets")
                                 && !a.Path.EndsWith("/support-sessions"))
                     .OrderBy(a => a.At)
-                    .Select(a => new SupportActionDto(a.Method, a.Path, a.StatusCode, a.At, a.Description))
+                    .Select(a => new SupportActionDto(a.Method, a.Path, a.StatusCode, a.At, a.Description, a.AsUserName))
                     .ToList()))
             .ToListAsync());
     }
@@ -283,7 +327,9 @@ public record SupportSessionStartDto(int SessionId, string Code, string SchoolSl
 
 public record RedeemSupportCodeRequest(string Code);
 
-public record SupportActionDto(string Method, string Path, int StatusCode, DateTimeOffset At, string? Description);
+/// <param name="As">Made as one of the school's users: who.</param>
+public record SupportActionDto(
+    string Method, string Path, int StatusCode, DateTimeOffset At, string? Description, string? As = null);
 
 /// <param name="Purpose">The title of the ticket it was entered for.</param>
 /// <param name="Result">What was done, written on leaving.</param>

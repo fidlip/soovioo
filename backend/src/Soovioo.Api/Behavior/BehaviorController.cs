@@ -46,6 +46,7 @@ public class BehaviorController(AppDbContext db, ICurrentSchoolContext currentSc
     /// simplification Message.ReadAt already makes).</summary>
     [HttpPost("behavior-records/{id:int}/read")]
     [AuditAction("Potvrzeno přečtení záznamu chování")]
+    [Support.MarksRead]
     public async Task<IActionResult> MarkBehaviorRecordRead(int id)
     {
         var record = await db.BehaviorRecords.FindAsync(id);

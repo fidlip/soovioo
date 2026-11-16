@@ -55,7 +55,7 @@ public class SupportTicketsControllerTests
     {
         var roleId = db.Users.IgnoreQueryFilters().Where(u => u.Id == userId).Select(u => u.ActiveRoleId).Single();
         return new(db, new FakeCurrentSchoolContext(schoolId), new Notifier(db, clock),
-            Microsoft.Extensions.Options.Options.Create(new SupportOptions()))
+            Microsoft.Extensions.Options.Options.Create(new SupportOptions()), clock)
         {
             ControllerContext = new ControllerContext
             {
@@ -69,7 +69,7 @@ public class SupportTicketsControllerTests
     private async Task<World> SeedAsync(SupportAccess access = SupportAccess.Approval)
     {
         using var db = SuperAdminDb();
-        var school = new School { Name = "ZŠ Test", Slug = "test", SupportAccess = access };
+        var school = new School { Name = "ZŠ Test", Slug = "test", SupportAccess = access, SupportAs = SupportAsScope.Admin };
         RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         var superAdmin = new User { Username = "superadmin", PasswordHash = "x", IsSuperAdmin = true };
@@ -929,6 +929,7 @@ public class SupportTicketsControllerTests
         var policy = Ok(await Policy(db, w.Admin.Id, w.School.Id).GetSchoolSupport());
         Assert.Equal(SupportAccess.Approval, policy.Access);
         Assert.Equal(24 * 60, policy.ApprovalMinutes);
+        Assert.Equal(SupportAsScope.Users, new School { Name = "ZŠ", Slug = "zs" }.SupportAs);
     }
 
     [Fact]

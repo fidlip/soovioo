@@ -54,6 +54,7 @@ public class TimetableGenerationController(
 
     /// <summary>The user saw how it ended: its notification is read.</summary>
     [HttpPost("seen")]
+    [Support.MarksRead]
     [RequirePermission(Permission.Timetable)]
     [NoAudit]
     public async Task<IActionResult> Seen(int versionId)

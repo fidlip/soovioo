@@ -97,6 +97,7 @@ public class AbsencesController(
     /// still sends).</summary>
     [HttpPost("{id}/excuse")]
     [AuditAction("Napsána omluvenka")]
+    [Support.NotAsUserInSupport("psát omluvenky", FamilyOnly = true)]
     public async Task<ActionResult> SubmitExcuse(int id, SubmitExcuseRequest request)
     {
         var absence = await db.Absences.FindAsync(id);

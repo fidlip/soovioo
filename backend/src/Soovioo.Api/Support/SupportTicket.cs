@@ -81,6 +81,11 @@ public class SupportTicket
     /// taken back = set to the moment.</summary>
     public DateTimeOffset? AccessUntil { get; set; }
 
+    /// <summary>The school's users the support may enter as for this ticket
+    /// ("Vstoupit jako…"), when the school wants it so
+    /// (<see cref="SupportAsScope.Users"/>); none = not at all then.</summary>
+    public List<int> SupportAsUserIds { get; set; } = [];
+
     /// <summary>The status it had when cancelled — reopening returns it.</summary>
     public SupportTicketStatus? StatusBeforeCancel { get; set; }
 
@@ -130,6 +135,10 @@ public enum SupportTicketEntryKind
     AccessRequested,
     AccessGranted,
     AccessRevoked,
+
+    /// <summary>The school changed whom the support may enter as for the
+    /// ticket; <see cref="SupportTicketEntry.Text"/> names them (null: nobody).</summary>
+    SupportAsChanged,
 
     /// <summary>Leaving the school ("Opustit") — <see cref="SupportTicketEntry.Text"/>
     /// is what was done.</summary>

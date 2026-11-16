@@ -79,9 +79,13 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
 
         var (payloadText, payload) = await ReadPayloadAsync(request);
 
-        var userId = ParseInt(user.FindFirstValue(ClaimTypes.NameIdentifier)) ?? audit?.UserId;
+        // In support mode as a school's user, the token is theirs: the
+        // SuperAdmin behind it is who did it, as whom on the side.
+        var userId = user.ActorId() ?? audit?.UserId;
         var schoolId = ParseInt(user.FindFirstValue("schoolId")) ?? audit?.SchoolId;
-        var username = user.FindFirstValue(ClaimTypes.Name) ?? audit?.Username;
+        var asUserId = ParseInt(user.FindFirstValue(SupportClaims.AsUserId));
+        var username = (asUserId is null ? user.FindFirstValue(ClaimTypes.Name) : user.FindFirstValue(SupportClaims.By))
+                       ?? audit?.Username;
         string? displayName = null;
         if (userId is not null)
         {
@@ -127,6 +131,8 @@ public class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logg
             Role = user.FindFirstValue("roleName") ?? user.FindFirstValue(ClaimTypes.Role),
             SupportSessionId = ParseInt(user.FindFirstValue(SupportClaims.SessionId)) ?? audit?.SupportSessionId,
             SupportBy = user.FindFirstValue(SupportClaims.By) ?? audit?.SupportBy,
+            AsUserId = asUserId,
+            AsUserName = asUserId is null ? null : user.FindFirstValue(SupportClaims.As),
             Method = request.Method,
             Path = request.Path.Value ?? "",
             Area = metadata?.GetMetadata<AuditAreaAttribute>()?.Name ?? AuditCatalog.OtherArea,
