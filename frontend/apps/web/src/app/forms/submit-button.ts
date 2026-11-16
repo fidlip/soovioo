@@ -15,21 +15,24 @@ import { cssEscape, fieldLabelText } from './field-label';
 
 /** Submit button that stays disabled while its form is invalid. Hovering
  * (or focusing) the disabled button lists what's missing in a tooltip and
- * reveals the errors of fields the user hasn't touched yet. */
+ * reveals the errors of fields the user hasn't touched yet. `iconOnly` shows
+ * just the icon; the label is then its accessible name, and `tooltip` the
+ * tooltip of the enabled button. */
 @Component({
   selector: 'app-submit-button',
   imports: [Button, Tooltip],
   template: `<span
     class="inline-flex"
     [class.w-full]="fullWidth()"
-    [pTooltip]="invalid() ? hint() : ''"
+    [pTooltip]="invalid() ? hint() : tooltip()"
     tooltipPosition="top"
     (mouseenter)="reveal()"
     (focusin)="reveal()"
   >
     <p-button
       type="submit"
-      [label]="label()"
+      [label]="iconOnly() ? undefined : label()"
+      [ariaLabel]="iconOnly() ? label() : undefined"
       [icon]="icon()"
       [severity]="severity()"
       [outlined]="outlined()"
@@ -51,6 +54,8 @@ export class SubmitButton {
   readonly outlined = input(false);
   readonly fullWidth = input(false);
   readonly busy = input(false);
+  readonly iconOnly = input(false);
+  readonly tooltip = input('');
 
   private readonly host = inject(ElementRef<HTMLElement>)
     .nativeElement as HTMLElement;
