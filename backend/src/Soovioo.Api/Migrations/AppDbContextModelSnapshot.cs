@@ -2583,6 +2583,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("AsUserId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTimeOffset?>("DisconnectedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("EndReason")
                         .HasColumnType("text");
 

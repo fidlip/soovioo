@@ -134,6 +134,9 @@ test('support mode: every page loads with a clean console', async ({
   await expect(page.locator('main h1')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Odběr' })).toHaveCount(0);
 
+  // Ended from outside, the tab would learn it at once (a 401, see
+  // support-tickets.spec) — it's closed first.
+  await page.close();
   await request.post(`${api}/support-sessions/current/end`, {
     headers: { Authorization: `Bearer ${token}` },
   });

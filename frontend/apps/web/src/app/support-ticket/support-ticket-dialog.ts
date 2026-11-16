@@ -50,6 +50,7 @@ import {
   merge,
 } from 'rxjs';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { LiveService } from '../live.service';
 import { Markdown } from '../markdown/markdown';
 import { MarkdownEditor } from '../markdown/markdown-editor';
 import { NotifyService } from '../notify.service';
@@ -65,7 +66,6 @@ import {
   formatMinutes,
   groupTicketThread,
   hiddenWhenFolded,
-  idleSince,
   visitMinutes,
 } from './ticket-thread';
 
@@ -169,8 +169,11 @@ export class SupportTicketDialog {
     return ids.length ? ids[ids.length - 1] : null;
   });
   protected readonly changesLabel = changesLabel;
-  /** Reloads keep a running visit's time current. */
-  private readonly now = computed(() => (this.detail(), Date.now()));
+  /** Ticks every minute while open — a running visit's time stays current. */
+  private readonly tick = signal(0);
+  private readonly now = computed(
+    () => (this.detail(), this.tick(), Date.now()),
+  );
   /** All the visits together, a running one until now. */
   protected readonly visitsTotal = computed(() => {
     const now = this.now();
@@ -183,7 +186,9 @@ export class SupportTicketDialog {
   });
   private readonly thread = viewChild<ElementRef<HTMLElement>>('thread');
   private readonly injector = inject(Injector);
+  private readonly live = inject(LiveService);
   private polling?: Subscription;
+  private unwatch?: () => void;
   private expiry?: ReturnType<typeof setTimeout>;
 
   constructor() {
@@ -273,28 +278,46 @@ export class SupportTicketDialog {
   }
 
   /** The other side changes the ticket too (allows entering, takes it
-   * back, answers…) and allowing runs out: while open, it reloads now and
-   * then, and when entering stops being allowed. */
+   * back, answers…), a visit goes inactive, and allowing runs out: while
+   * open, it reloads when the live connection says it changed (without
+   * it now and then, and when the tab is back in front), and when entering
+   * stops being allowed. */
   private startRefreshing(): void {
     this.polling?.unsubscribe();
-    // Also right when the tab is back in front — e.g. from the school's.
+    this.unwatch?.();
+    const id = this.ticket()?.id;
+    if (!id) {
+      return;
+    }
+    this.unwatch = this.live.watchTicket(id);
+    const offline = () =>
+      !this.live.connected() && document.visibilityState === 'visible';
     this.polling = merge(
-      interval(15_000),
-      fromEvent(document, 'visibilitychange'),
-    )
-      .pipe(filter(() => document.visibilityState === 'visible'))
-      .subscribe(() => this.reload());
+      this.live.ticket$(id),
+      interval(15_000).pipe(filter(offline)),
+      fromEvent(document, 'visibilitychange').pipe(filter(offline)),
+    ).subscribe(() => this.reload());
+    this.polling.add(
+      interval(60_000).subscribe(() => this.tick.update((t) => t + 1)),
+    );
   }
 
   private stopRefreshing(): void {
     this.polling?.unsubscribe();
     this.polling = undefined;
+    this.unwatch?.();
+    this.unwatch = undefined;
     clearTimeout(this.expiry);
   }
 
   private reload(): void {
     const ticket = this.ticket();
-    if (!ticket || this.busy() || !this.visible()) {
+    if (!ticket || !this.visible()) {
+      return;
+    }
+    // Saving something of its own — the change may be someone else's.
+    if (this.busy()) {
+      setTimeout(() => this.reload(), 1000);
       return;
     }
     this.load(ticket.id).subscribe({
@@ -424,8 +447,9 @@ export class SupportTicketDialog {
   protected visitEndLabel(visit: TicketVisit): string | null {
     switch (visit.end) {
       case 'running': {
-        const idle = idleSince(visit, this.now());
-        return idle ? `bez aktivity od ${formatDate(idle, 'time')}` : 'probíhá';
+        return visit.inactiveSince
+          ? `neaktivní od ${formatDate(visit.inactiveSince, 'time')}`
+          : 'probíhá';
       }
       case 'ended':
         return 'ukončen';

@@ -30,6 +30,7 @@ public class SupportSessionService(
         var code = NewSecret();
         session.StartedAt = now;
         session.ExpiresAt = now + SessionLength;
+        session.DisconnectedAt = now;
         session.HandoffCodeHash = Hash(code);
         session.HandoffExpiresAt = now + HandoffLength;
         db.SupportSessions.Add(session);

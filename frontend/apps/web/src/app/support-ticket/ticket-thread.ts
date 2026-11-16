@@ -8,8 +8,8 @@ export interface TicketVisit {
   from: string;
   /** Null while it runs. */
   to: string | null;
-  /** Its last request. */
-  lastSeen: string | null;
+  /** Running with no tab of it open since then. */
+  inactiveSince: string | null;
   /** How it ended: left ("Opustit"), ended by the school or the ticket
    * closing, run out — or still running. */
   end: 'left' | 'ended' | 'expired' | 'running';
@@ -46,7 +46,7 @@ export function groupTicketThread(
         authorName: entry.authorName,
         from: entry.at,
         to: null,
-        lastSeen: entry.lastSeenAt ?? null,
+        inactiveSince: entry.inactiveSince ?? null,
         end: 'running',
         result: null,
         changes: 0,
@@ -95,23 +95,11 @@ export function hiddenWhenFolded(entry: SupportTicketEntry): boolean {
   );
 }
 
-/** A running visit without a request for this long is likely a tab closed
- * without "Opustit". */
-const IDLE_MINUTES = 15;
-
-/** When a running visit went quiet — null while it's active (or over). */
-export function idleSince(visit: TicketVisit, now: number): string | null {
-  return visit.end === 'running' &&
-    visit.lastSeen &&
-    now - new Date(visit.lastSeen).getTime() > IDLE_MINUTES * 60_000
-    ? visit.lastSeen
-    : null;
-}
-
-/** How long a visit lasted — a running one until `now`, an idle one until
- * its last request. */
+/** How long a visit lasted — a running one until `now`, an inactive one
+ * until its tab closed. */
 export function visitMinutes(visit: TicketVisit, now: number): number {
-  const end = visit.to ?? idleSince(visit, now);
+  const end =
+    visit.to ?? (visit.end === 'running' ? visit.inactiveSince : null);
   const to = end ? new Date(end).getTime() : now;
   return Math.max(0, (to - new Date(visit.from).getTime()) / 60_000);
 }

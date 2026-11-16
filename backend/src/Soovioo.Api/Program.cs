@@ -103,8 +103,15 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<Soovioo.Api.Live.LivePublisher>();
+builder.Services.AddSingleton<Soovioo.Api.Live.LiveChanges>();
+builder.Services.AddSingleton<Soovioo.Api.Support.SupportLiveness>();
+builder.Services.AddScoped<Soovioo.Api.Support.SupportSessionIdleJob>();
+
+builder.Services.AddDbContext<AppDbContext>((services, options) =>
+    options.UseNpgsql(connectionString)
+        .AddInterceptors(services.GetRequiredService<Soovioo.Api.Live.LiveChanges>()));
 
 builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
@@ -148,6 +155,20 @@ builder.Services
             // long haul) — the default 5-minute skew would stretch that by a
             // third.
             ClockSkew = TimeSpan.FromSeconds(30),
+        };
+        // A browser can't put a header on a WebSocket (nor an EventSource),
+        // so the live hub takes the token from the query string.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments(Soovioo.Api.Live.LiveHub.Path)
+                    && context.Request.Query["access_token"] is [{ Length: > 0 } token])
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            },
         };
     });
 builder.Services.AddAuthorization();
@@ -198,6 +219,7 @@ using (var scope = app.Services.CreateScope())
     VariableSymbols.Backfill(db);
     BackfillSchoolIbans(db);
     BackfillMissingPersons(db);
+    Soovioo.Api.Support.SupportLiveness.MarkAllDisconnected(db, TimeProvider.System.GetUtcNow());
 
     // First real Hangfire job in this codebase (Hangfire itself was already
     // wired up via AddHangfire/AddHangfireServer above) — generates each
@@ -223,6 +245,8 @@ using (var scope = app.Services.CreateScope())
         "notification-cleanup", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportTicketAutoCloseJob>(
         "support-ticket-auto-close", job => job.RunAsync(), Cron.Hourly);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportSessionIdleJob>(
+        "support-session-idle", job => job.RunAsync(), Cron.Minutely);
     recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportChangeCleanupJob>(
         "support-change-cleanup", job => job.RunAsync(), Cron.Hourly);
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationDigestJob>(
@@ -251,6 +275,8 @@ app.UseRateLimiter();
 app.UseMiddleware<Soovioo.Api.Audit.AuditMiddleware>();
 
 app.MapControllers();
+app.MapHub<Soovioo.Api.Live.LiveHub>(Soovioo.Api.Live.LiveHub.Path)
+    .WithMetadata(new Soovioo.Api.Audit.NoAuditAttribute());
 
 app.MapHangfireDashboard();
 

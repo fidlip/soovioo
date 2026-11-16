@@ -20,6 +20,7 @@ public class SupportTicketsControllerTests
 
     // Monday 2026-11-09 11:00 Prague.
     private readonly FakeClock clock = new(new DateTimeOffset(2026, 11, 9, 10, 0, 0, TimeSpan.Zero));
+    private readonly Soovioo.Api.Tests.Live.RecordingHub hub = new();
 
     private AppDbContext SuperAdminDb() => new(Options(), new FakeCurrentSchoolContext(null, isSuperAdmin: true));
 
@@ -639,8 +640,118 @@ public class SupportTicketsControllerTests
             Assert.Equal(clock.Now, db.SupportSessions.Single().LastSeenAt);
             var visit = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries
                 .Single(e => e.Kind == SupportTicketEntryKind.SessionStarted);
-            Assert.Equal(clock.Now, visit.LastSeenAt);
+            Assert.Equal(started, visit.InactiveSince);
         }
+    }
+
+    [Fact]
+    public async Task AVisitWithNoTabOpenEndsAQuarterAfterItWentQuietAsOfThen()
+    {
+        var w = await SeedAsync(SupportAccess.Always);
+        var id = await SchoolTicketAsync(w);
+        int sessionId;
+        using (var db = SuperAdminDb())
+        {
+            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
+            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
+            Assert.Equal(clock.Now, db.SupportSessions.Single().DisconnectedAt);
+        }
+        var started = clock.Now;
+        await SetDisconnectedAsync(null);
+        clock.Now = started.AddMinutes(5);
+        await GuardAsync(sessionId);
+        await SetDisconnectedAsync(clock.Now);
+
+        clock.Now = started.AddMinutes(19);
+        using (var db = SuperAdminDb())
+        {
+            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
+            Assert.Equal(started.AddHours(2), db.SupportSessions.Single().ExpiresAt);
+            var visit = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries
+                .Single(e => e.Kind == SupportTicketEntryKind.SessionStarted);
+            Assert.Equal(started.AddMinutes(5), visit.InactiveSince);
+        }
+
+        clock.Now = started.AddMinutes(20);
+        using (var db = SuperAdminDb())
+        {
+            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
+            Assert.Equal(started.AddMinutes(5), db.SupportSessions.Single().ExpiresAt);
+            var entries = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries;
+            Assert.Null(entries.Single(e => e.Kind == SupportTicketEntryKind.SessionStarted).InactiveSince);
+            Assert.Equal(started.AddMinutes(5), entries.Single(e => e.Kind == SupportTicketEntryKind.SessionExpired).At);
+        }
+        Assert.Equal(StatusCodes.Status401Unauthorized, await GuardAsync(sessionId));
+
+        async Task SetDisconnectedAsync(DateTimeOffset? at)
+        {
+            using var db = SuperAdminDb();
+            db.SupportSessions.Single().DisconnectedAt = at;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task AVisitStillMakingRequestsWithoutTheLiveConnectionGoesOn()
+    {
+        var w = await SeedAsync(SupportAccess.Always);
+        var id = await SchoolTicketAsync(w);
+        int sessionId;
+        using (var db = SuperAdminDb())
+        {
+            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
+            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
+        }
+        var started = clock.Now;
+        clock.Now = started.AddMinutes(10);
+        await GuardAsync(sessionId);
+        clock.Now = started.AddMinutes(20);
+        using (var db = SuperAdminDb())
+        {
+            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
+            Assert.Equal(started.AddHours(2), db.SupportSessions.Single().ExpiresAt);
+        }
+        Assert.Equal(StatusCodes.Status200OK, await GuardAsync(sessionId));
+    }
+
+    [Fact]
+    public async Task AVisitRunningOutTellsItsTabTheTicketAndTheBannersOnce()
+    {
+        var w = await SeedAsync(SupportAccess.Always);
+        var id = await SchoolTicketAsync(w);
+        int sessionId;
+        using (var db = SuperAdminDb())
+        {
+            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
+            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
+        }
+        var started = clock.Now;
+        clock.Now = started.AddHours(2).AddSeconds(-30);
+        await GuardAsync(sessionId);
+        using (var db = SuperAdminDb())
+        {
+            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
+        }
+        Assert.Empty(hub.Sent);
+
+        clock.Now = started.AddHours(2).AddSeconds(30);
+        using (var db = SuperAdminDb())
+        {
+            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
+        }
+        Assert.Contains(hub.Sent, s => s.Method == Soovioo.Api.Live.LiveEvents.Support
+                                       && s.To.SequenceEqual([Soovioo.Api.Live.LiveGroups.Session(sessionId)]));
+        Assert.Contains(hub.Sent, s => s.Method == Soovioo.Api.Live.LiveEvents.Ticket);
+        Assert.Contains(hub.Sent, s => s.Method == Soovioo.Api.Live.LiveEvents.Counts
+                                       && s.To.SequenceEqual([w.Admin.Id.ToString()]));
+
+        hub.Sent.Clear();
+        clock.Now = started.AddHours(2).AddMinutes(3);
+        using (var db = SuperAdminDb())
+        {
+            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
+        }
+        Assert.Empty(hub.Sent);
     }
 
     [Fact]

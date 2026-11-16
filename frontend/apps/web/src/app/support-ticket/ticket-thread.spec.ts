@@ -3,7 +3,6 @@ import {
   formatMinutes,
   groupTicketThread,
   hiddenWhenFolded,
-  idleSince,
   visitMinutes,
 } from './ticket-thread';
 
@@ -112,19 +111,17 @@ describe('visit time', () => {
   });
 });
 
-describe('an idle visit', () => {
-  it('is quiet since its last request after 15 minutes, its time ends there', () => {
+describe('an inactive visit', () => {
+  it('lasts until its tab closed', () => {
     const [visit] = groupTicketThread([
       entry('SessionStarted', '2026-11-12T10:00:00Z', {
         sessionId: 1,
-        lastSeenAt: '2026-11-12T10:20:00Z',
+        inactiveSince: '2026-11-12T10:20:00Z',
       }),
     ]).map((i) => i.visit!);
-    const soon = new Date('2026-11-12T10:30:00Z').getTime();
-    const later = new Date('2026-11-12T11:00:00Z').getTime();
-    expect(idleSince(visit, soon)).toBeNull();
-    expect(visitMinutes(visit, soon)).toBe(30);
-    expect(idleSince(visit, later)).toBe('2026-11-12T10:20:00Z');
-    expect(visitMinutes(visit, later)).toBe(20);
+    expect(visit.inactiveSince).toBe('2026-11-12T10:20:00Z');
+    expect(
+      visitMinutes(visit, new Date('2026-11-12T11:00:00Z').getTime()),
+    ).toBe(20);
   });
 });

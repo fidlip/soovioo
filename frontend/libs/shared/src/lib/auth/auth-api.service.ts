@@ -50,11 +50,15 @@ export class AuthApiService {
   private inFlightRefresh: Observable<string | null> | null = null;
   private readonly sessionExpiredSubject = new Subject<void>();
   private readonly sessionChangedSubject = new Subject<SessionChange>();
+  private readonly tokenChangedSubject = new Subject<void>();
 
   /** Fires when a request hit 401 and the session couldn't be refreshed
    * (refresh token expired or revoked) — the app sends the user to login. */
   readonly sessionExpired$ = this.sessionExpiredSubject.asObservable();
   readonly sessionChanged$ = this.sessionChangedSubject.asObservable();
+  /** A new access token was stored, or it was dropped — also a refresh of
+   * the same session. */
+  readonly tokenChanged$ = this.tokenChangedSubject.asObservable();
   /** Set once this tab's support mode was ended by someone else — it stays
    * until the SuperAdmin confirms it. */
   readonly supportEnded = signal<SupportSessionEnded | null>(null);
@@ -122,7 +126,7 @@ export class AuthApiService {
           refreshToken: this.tokenStorage.getRefreshToken(),
           schoolSlug: this.currentSchoolSlug(),
           // Support mode goes on only as the session this tab is in.
-          supportSessionId: Number(this.getClaim('supportSessionId')) || null,
+          supportSessionId: this.getSupportSessionId(),
         },
         this.cookieOptions(),
       )
@@ -144,6 +148,16 @@ export class AuthApiService {
         shareReplay(1),
       );
     return this.inFlightRefresh;
+  }
+
+  /** The access token, refreshed first when it's about to expire — for
+   * what can't go through the HTTP interceptor (the live connection). */
+  async freshToken(): Promise<string | null> {
+    const exp = Number(this.getClaim('exp'));
+    if (exp && exp * 1000 > Date.now() + 30_000) {
+      return this.tokenStorage.getToken();
+    }
+    return firstValueFrom(this.refresh());
   }
 
   /** Web app startup: the access token lives in memory only, so a reload
@@ -296,6 +310,11 @@ export class AuthApiService {
       : null;
   }
 
+  /** The support session this tab is in (support mode), else null. */
+  getSupportSessionId(): number | null {
+    return Number(this.getClaim('supportSessionId')) || null;
+  }
+
   /** Support mode: be another of the school's users (in `roleId`, else
    * their first allowed role), or the admin again without a user — the
    * same session, a new token. */
@@ -338,6 +357,7 @@ export class AuthApiService {
     if (response.refreshToken) {
       this.tokenStorage.setRefreshToken(response.refreshToken);
     }
+    this.tokenChangedSubject.next();
   }
 
   /** Stores a new login's tokens and tells the app who logged in — also
@@ -353,6 +373,7 @@ export class AuthApiService {
   private clearTokens(): void {
     this.tokenStorage.clearToken();
     this.tokenStorage.clearRefreshToken();
+    this.tokenChangedSubject.next();
   }
 
   private getClaim(...keys: string[]): string | null {
