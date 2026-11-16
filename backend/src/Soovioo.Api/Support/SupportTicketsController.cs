@@ -1623,7 +1623,8 @@ public class SupportTicketsController(
             var name = names[s.Id];
             entries.Add(new SupportTicketEntryDto(
                 0, s.StartedAt, SupportTicketEntryKind.SessionStarted, name, true, false, null, null, null, s.Id,
-                LastSeenAt: s.LastSeenAt ?? s.StartedAt, Changes: changes.GetValueOrDefault(s.Id)));
+                InactiveSince: s.EndedAt is null && s.ExpiresAt > now ? s.DisconnectedAt : null,
+                Changes: changes.GetValueOrDefault(s.Id)));
             var left = entries.Any(e => e.Kind == SupportTicketEntryKind.Visit && e.SessionId == s.Id);
             if (!left && (s.EndedAt is not null || s.ExpiresAt <= now))
             {
@@ -1736,8 +1737,8 @@ public record SupportTicketDto(
 /// <param name="StatusCode">With <see cref="SupportTicketEntryKind.SessionAction"/>.</param>
 /// <param name="Request">With <see cref="SupportTicketEntryKind.SessionAction"/>
 /// "METHOD /path" — only for the SuperAdmins.</param>
-/// <param name="LastSeenAt">With <see cref="SupportTicketEntryKind.SessionStarted"/>:
-/// the session's last request (<see cref="SupportSession.LastSeenAt"/>).</param>
+/// <param name="InactiveSince">With <see cref="SupportTicketEntryKind.SessionStarted"/>
+/// while it runs: no tab of it open since then (<see cref="SupportSession.DisconnectedAt"/>).</param>
 /// <param name="Text">Null when deleted (<paramref name="Revisions"/> have it).</param>
 /// <param name="CanEdit">A message or note of the caller's side — they may
 /// change or delete it (a SuperAdmin also retype it).</param>
@@ -1750,7 +1751,7 @@ public record SupportTicketDto(
 public record SupportTicketEntryDto(
     int Id, DateTimeOffset At, SupportTicketEntryKind Kind, string AuthorName, bool BySupport, bool Internal,
     string? Text, SupportTicketStatus? Status, DateTimeOffset? Until, int? SessionId, int? StatusCode = null,
-    string? Request = null, DateTimeOffset? LastSeenAt = null, bool CanEdit = false,
+    string? Request = null, DateTimeOffset? InactiveSince = null, bool CanEdit = false,
     DateTimeOffset? EditedAt = null, bool Deleted = false,
     IReadOnlyList<SupportTicketEntryRevisionDto>? Revisions = null, int Changes = 0, string? As = null);
 

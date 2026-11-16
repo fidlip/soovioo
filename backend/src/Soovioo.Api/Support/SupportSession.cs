@@ -51,9 +51,13 @@ public class SupportSession
     public string? RefreshSecretHash { get; set; }
 
     /// <summary>The last request made with it (to the minute, see
-    /// <see cref="SupportSessionGuardMiddleware"/>) — a tab closed without
-    /// "Opustit" shows as idle since then.</summary>
+    /// <see cref="SupportSessionGuardMiddleware"/>).</summary>
     public DateTimeOffset? LastSeenAt { get; set; }
+
+    /// <summary>No tab of the session is connected since then (none yet:
+    /// since the start) — the ticket shows it as inactive, and it ends after
+    /// a while (<see cref="SupportLiveness"/>). Null while one is.</summary>
+    public DateTimeOffset? DisconnectedAt { get; set; }
 
     /// <summary>Set by "Opustit"; null = left by letting the token expire.</summary>
     public DateTimeOffset? EndedAt { get; set; }

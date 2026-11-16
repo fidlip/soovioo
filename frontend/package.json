@@ -23,6 +23,7 @@
     "@fullcalendar/list": "6.1.22",
     "@fullcalendar/multimonth": "6.1.22",
     "@fullcalendar/timegrid": "6.1.22",
+    "@microsoft/signalr": "10.0.11",
     "@nativescript/angular": "^22.0.0",
     "@nativescript/camera": "7.0.0",
     "@nativescript/firebase-core": "5.0.2",

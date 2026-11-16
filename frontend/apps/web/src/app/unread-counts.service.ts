@@ -7,10 +7,9 @@ import {
 } from '@soovioo/shared';
 
 /** Unread numbers for the bell and the sidebar "Zprávy" badge (and the
- * support-mode banners), in one
- * request — refreshed on every navigation and once a minute
- * (`startBadgeRefresh`), and whenever something gets read. A SuperAdmin's
- * "Zpětná vazba" badge the same way. */
+ * support-mode banners), in one request — refreshed when the live
+ * connection says they changed (`startBadgeRefresh`), and whenever
+ * something gets read. A SuperAdmin's "Zpětná vazba" badge the same way. */
 @Injectable({ providedIn: 'root' })
 export class UnreadCountsService {
   private readonly api = inject(NotificationsApiService);

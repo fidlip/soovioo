@@ -265,8 +265,8 @@ export interface SupportTicketEntry {
   request: string | null;
   /** With SessionAction made as one of the school's users: who. */
   as?: string | null;
-  /** With SessionStarted: the session's last request. */
-  lastSeenAt?: string | null;
+  /** With SessionStarted while it runs: no tab of it open since then. */
+  inactiveSince?: string | null;
   /** With SessionStarted: the session's changes not reset yet, when the
    * caller may reset them. */
   changes?: number;
