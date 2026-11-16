@@ -1,7 +1,7 @@
 <p-card>
   <ng-template #title
     >Vstup podpory do školy<app-info-hint
-      text="Podpora Soovioo může kvůli požadavku vstoupit do školy, aby pomohla s nastavením nebo vyřešila problém — vždy jen ten, kdo požadavek řeší. Každý vstup a všechny změny při něm jsou v Logech. „Po schválení“: vstup povolujete v požadavku, vždy na {{ duration() }}. Mění jen admin školy."
+      text="Podpora Soovioo může kvůli požadavku vstoupit do školy, aby pomohla s nastavením nebo vyřešila problém — vždy jen ten, kdo požadavek řeší. Každý vstup a všechny změny při něm jsou v Lozích. „Po schválení“: vstup povolujete v požadavku, vždy na {{ duration() }}. Mění jen admin školy."
   /></ng-template>
   <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
     <app-float-field label="Superadmin smí vstoupit" for="supportAccess">
@@ -60,7 +60,7 @@
     }
     <app-info-hint
       class="pb-2"
-      text="„Vybraný uživatel“: v požadavku vyberete, za koho smí podpora vstoupit — vás, nebo třeba toho, koho se problém týká. Uvidí aplikaci tak jako on a může jeho jménem měnit data, ale zprávy neodešle a omluvenky nenapíše. „Admin školy“: podpora vstupuje jako admin bez vlastního účtu ve škole. Vše je v Logech."
+      text="„Vybraný uživatel“: v požadavku vyberete, za koho smí podpora vstoupit — vás, nebo třeba toho, koho se problém týká. Uvidí aplikaci tak jako on a může jeho jménem měnit data, ale zprávy neodešle a omluvenky nenapíše. „Admin školy“: podpora vstupuje jako admin bez vlastního účtu ve škole. Vše je v Lozích."
     />
   </form>
 </p-card>
