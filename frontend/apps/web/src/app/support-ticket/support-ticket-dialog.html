@@ -318,7 +318,6 @@
         name="text"
         [rows]="3"
         maxlength="8000"
-        required
         [internal]="internal || !ticketOpen()"
         [labelInTab]="true"
         [(ngModel)]="text"
@@ -348,6 +347,7 @@
           icon="pi pi-send"
           [iconOnly]="true"
           [busy]="busy()"
+          [disabled]="!text.trim()"
         />
       </app-markdown-editor>
     </form>

@@ -36,7 +36,7 @@ import { cssEscape, fieldLabelText } from './field-label';
       [icon]="icon()"
       [severity]="severity()"
       [outlined]="outlined()"
-      [disabled]="invalid() || busy()"
+      [disabled]="invalid() || busy() || disabled()"
       [styleClass]="(fullWidth() ? 'w-full ' : '') + styleClass()"
       [class.w-full]="fullWidth()"
     />
@@ -54,6 +54,9 @@ export class SubmitButton {
   readonly outlined = input(false);
   readonly fullWidth = input(false);
   readonly busy = input(false);
+  /** Disabled on top of an invalid form, e.g. while an optional field it
+   * needs is empty. */
+  readonly disabled = input(false);
   readonly iconOnly = input(false);
   readonly tooltip = input('');
 
