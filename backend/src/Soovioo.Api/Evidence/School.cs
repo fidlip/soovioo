@@ -107,6 +107,10 @@ public class School
     /// <summary>When a SuperAdmin may enter the school in support mode.</summary>
     public Support.SupportAccess SupportAccess { get; set; } = Support.SupportAccess.Approval;
 
+    /// <summary>Whether the support enters as the school's admin, or only
+    /// as a user the ticket names ("Vstoupit jako…").</summary>
+    public Support.SupportAsScope SupportAs { get; set; } = Support.SupportAsScope.Users;
+
     /// <summary>The built-in four (<see cref="Auth.RoleSeeder.AddMissing"/>)
     /// and the school's own.</summary>
     public List<Auth.Role> Roles { get; set; } = [];

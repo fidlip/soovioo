@@ -46,6 +46,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     [HttpPost("api/school-classes/{schoolClassId:int}/messages/broadcast")]
     [RequirePermission(Permission.MessagesBroadcastClass)]
     [AuditAction("Odeslána hromadná zpráva třídě")]
+    [Support.NotAsUserInSupport("posílat zprávy")]
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToClass(int schoolClassId, BroadcastRequest request)
     {
         var schoolClass = await db.SchoolClasses.FindAsync(schoolClassId);
@@ -66,6 +67,7 @@ public class MessageBroadcastController(AppDbContext db, ICurrentSchoolContext c
     [HttpPost("api/messages/broadcast")]
     [RequirePermission(Permission.MessagesBroadcastSchool)]
     [AuditAction("Odeslána hromadná zpráva celé škole")]
+    [Support.NotAsUserInSupport("posílat zprávy")]
     public async Task<ActionResult<BroadcastResultDto>> BroadcastToSchool(BroadcastRequest request)
     {
         var studentIds = await db.Students.Select(s => s.Id).ToListAsync();

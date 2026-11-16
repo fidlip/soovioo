@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
+using Soovioo.Api.People;
 
 namespace Soovioo.Api.Support;
 
@@ -101,8 +102,106 @@ public class SupportSessionService(
     public void ClearCookie(HttpContext http) =>
         http.Response.Cookies.Delete(CookieName, CookieOptionsFor(null));
 
-    private async Task<LoginResponse> RespondAsync(SupportSession session)
+    /// <summary>A new token of the session as it is now — after switching
+    /// whom it is in the school as (<see cref="SetAsAsync"/>).</summary>
+    public async Task<LoginResponse?> TokenAsync(int sessionId)
     {
+        var session = await db.SupportSessions.IgnoreQueryFilters()
+            .Include(s => s.School).Include(s => s.SuperAdminUser)
+            .FirstAsync(s => s.Id == sessionId);
+        return await RespondAsync(session);
+    }
+
+    /// <summary>Makes the session be in the school as <paramref name="userId"/>
+    /// in <paramref name="roleId"/> (none: the role they're in, else their
+    /// first one) — or as the school's admin without a user. Doesn't save;
+    /// the error text when it isn't allowed.</summary>
+    public async Task<string?> SetAsAsync(SupportSession session, int? userId, int? roleId)
+    {
+        if (userId is null)
+        {
+            if (!SupportAsPolicy.AllowsAdmin(await SchoolOfAsync(session)))
+            {
+                return SupportAsPolicy.AdminRefused;
+            }
+            session.AsUserId = null;
+            session.AsRoleId = null;
+            session.AsName = null;
+            return null;
+        }
+        var (user, roles) = await AsUserAsync(session, userId.Value);
+        if (user is null)
+        {
+            return "Uživatel ve škole není.";
+        }
+        if (roles.Count == 0)
+        {
+            return "Jako tento uživatel škola vstup podpory nepovoluje.";
+        }
+        var role = roleId is null
+            ? roles.FirstOrDefault(r => r.Id == user.ActiveRoleId) ?? roles[0]
+            : roles.FirstOrDefault(r => r.Id == roleId);
+        if (role is null)
+        {
+            return "Tuto roli uživatel nemá.";
+        }
+        session.AsUserId = user.Id;
+        session.AsRoleId = role.Id;
+        session.AsName = SupportAsPolicy.Label(role.Name, PersonNames.Display(user));
+        return null;
+    }
+
+    /// <summary>The school's user with their roles in the token's order —
+    /// none when the school and the session's ticket don't let the support be them.</summary>
+    private async Task<(User? User, List<Role> Roles)> AsUserAsync(SupportSession session, int userId)
+    {
+        var user = await db.Users.IgnoreQueryFilters()
+            .Include(u => u.Person).Include(u => u.Roles)
+            .FirstOrDefaultAsync(u => u.Id == userId && u.SchoolId == session.SchoolId && !u.IsSuperAdmin
+                                      && u.DeactivatedAt == null && u.ErasedAt == null);
+        if (user is null)
+        {
+            return (null, []);
+        }
+        var school = await SchoolOfAsync(session);
+        var ticket = session.TicketId is { } ticketId
+            ? await db.SupportTickets.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == ticketId)
+            : null;
+        return (user, !SupportAsPolicy.Allows(school, ticket, user.Id) ? [] : user.Roles
+            .OrderBy(r => r.BuiltIn is null).ThenBy(r => r.BuiltIn).ThenBy(r => r.Name)
+            .ToList());
+    }
+
+    private async Task<Evidence.School> SchoolOfAsync(SupportSession session) =>
+        session.School ?? await db.Schools.IgnoreQueryFilters().FirstAsync(s => s.Id == session.SchoolId);
+
+    /// <summary>Null when the session may be neither whom it was nor the
+    /// admin any more.</summary>
+    private async Task<LoginResponse?> RespondAsync(SupportSession session)
+    {
+        if (session.AsUserId is { } asUserId)
+        {
+            var (user, roles) = await AsUserAsync(session, asUserId);
+            if (user is not null && roles.FirstOrDefault(r => r.Id == session.AsRoleId) is { } role)
+            {
+                var (asToken, _) = tokens.CreateSupportToken(
+                    session.SuperAdminUser!, session.School!, role,
+                    await PermissionAccess.EffectivePermissionsAsync(db, role.Id), session.Id, session.ExpiresAt,
+                    user, roles, session.AsName);
+                return new LoginResponse(
+                    asToken, user.Username, role.Kind.ToString(), session.School!.Name, session.School.Slug);
+            }
+            // Not allowed any more (or gone) — back to the admin, if allowed.
+            if (await SetAsAsync(session, null, null) is not null)
+            {
+                return null;
+            }
+            await db.SaveChangesAsync();
+        }
+        else if (!SupportAsPolicy.AllowsAdmin(await SchoolOfAsync(session)))
+        {
+            return null;
+        }
         var adminRole = await db.Roles.IgnoreQueryFilters()
             .FirstAsync(r => r.SchoolId == session.SchoolId && r.BuiltIn == UserRole.Admin);
         var (token, _) = tokens.CreateSupportToken(

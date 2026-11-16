@@ -6,6 +6,7 @@ using Soovioo.Api.Audit;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
+using Soovioo.Api.Support;
 
 namespace Soovioo.Api.Notifications;
 
@@ -46,19 +47,22 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
         return Ok(new NotificationPageDto(items.Take(PageSize).ToList(), items.Count > PageSize));
     }
 
-    /// <summary>The bell's and the Zprávy badge's numbers and the linked
-    /// accounts' in one request — the app asks on every navigation and once
-    /// a minute.</summary>
+    /// <summary>The bell's and the Zprávy badge's numbers, the linked
+    /// accounts' and the support in the school as someone (the banners) in
+    /// one request — the app asks on every navigation and once a minute.
+    /// In support mode without the linked accounts: they're another school's.</summary>
     [AllowSuperAdmin]
     [HttpGet("unread-counts")]
     public async Task<ActionResult<UnreadCountsDto>> GetUnreadCounts() =>
         Ok(new UnreadCountsDto(
             await Mine().CountAsync(n => n.ReadAt == null),
             await db.CountUnreadConversationsAsync(CurrentUserId()),
-            await db.LinkedAccountsOfAsync(CurrentUserId())));
+            User.InSupportMode() ? null : await db.LinkedAccountsOfAsync(CurrentUserId()),
+            await SupportPresence.OfAsync(db, User, clock.GetUtcNow())));
 
     [AllowSuperAdmin]
     [HttpPost("{id:int}/read")]
+    [Support.MarksRead]
     [NoAudit]
     public async Task<IActionResult> MarkRead(int id)
     {
@@ -74,6 +78,7 @@ public class NotificationsController(AppDbContext db, TimeProvider clock) : Cont
 
     [AllowSuperAdmin]
     [HttpPost("read-all")]
+    [Support.MarksRead]
     [NoAudit]
     public async Task<IActionResult> MarkAllRead()
     {
@@ -297,7 +302,11 @@ public record NotificationDto(
 
 /// <param name="Messages">Conversations with something unread.</param>
 /// <param name="LinkedAccounts">The caller's accounts at other schools, null without any.</param>
-public record UnreadCountsDto(int Notifications, int Messages, IReadOnlyList<LinkedAccountDto>? LinkedAccounts = null);
+/// <param name="Support">SuperAdmins in the school as the caller or for
+/// their ticket, null without any.</param>
+public record UnreadCountsDto(
+    int Notifications, int Messages, IReadOnlyList<LinkedAccountDto>? LinkedAccounts = null,
+    IReadOnlyList<SupportPresenceDto>? Support = null);
 
 public record NotificationPageDto(IReadOnlyList<NotificationDto> Items, bool HasMore);
 

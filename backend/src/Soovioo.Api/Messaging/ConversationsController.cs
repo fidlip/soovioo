@@ -172,6 +172,7 @@ public class ConversationsController(
     /// from <see cref="GetContacts"/>.</summary>
     [HttpPost]
     [AuditAction("Odeslána nová zpráva")]
+    [Support.NotAsUserInSupport("posílat zprávy")]
     public async Task<ActionResult<ConversationDto>> StartConversation(StartConversationRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Subject) || string.IsNullOrWhiteSpace(request.Body))
@@ -232,6 +233,7 @@ public class ConversationsController(
 
     [HttpPost("{id:int}/messages")]
     [AuditAction("Odeslána odpověď")]
+    [Support.NotAsUserInSupport("posílat zprávy")]
     public async Task<ActionResult<MessageDto>> Reply(int id, ReplyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Body))
@@ -269,6 +271,7 @@ public class ConversationsController(
 
     [HttpPost("{id:int}/read")]
     [AuditAction("Přečtena konverzace")]
+    [Support.MarksRead]
     public async Task<IActionResult> MarkRead(int id)
     {
         var participant = await db.ConversationParticipants
@@ -306,6 +309,7 @@ public class ConversationsController(
     /// the message's own sender may attach to it.</summary>
     [HttpPost("{id:int}/messages/{messageId:int}/attachments")]
     [AuditAction("Přiložen soubor ke zprávě")]
+    [Support.NotAsUserInSupport("posílat zprávy")]
     public async Task<ActionResult<MessageAttachmentDto>> UploadAttachment(int id, int messageId, IFormFile file)
     {
         var message = await db.Messages.FirstOrDefaultAsync(m =>

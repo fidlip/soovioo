@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Data;
 
@@ -8,7 +9,8 @@ namespace Soovioo.Api.Support;
 /// for the rest of the token's 15 minutes. Ended by someone else, the 401
 /// says who and why (<see cref="SupportSessionEndedDto"/>). Each request marks the session
 /// as seen (<see cref="SupportSession.LastSeenAt"/>, once a minute at most)
-/// and what it saves goes to the session's journal (<see cref="SupportJournal"/>).</summary>
+/// and what it saves goes to the session's journal (<see cref="SupportJournal"/>).
+/// A token of whom the session isn't in the school as any more is refused too.</summary>
 public class SupportSessionGuardMiddleware(RequestDelegate next)
 {
     private static readonly TimeSpan SeenEvery = TimeSpan.FromMinutes(1);
@@ -29,6 +31,14 @@ public class SupportSessionGuardMiddleware(RequestDelegate next)
                 }
                 return;
             }
+            // Switched to someone else since (another tab, the school
+            // narrowing whom it may be): this token is stale — the 401 makes
+            // the page refresh it for one of the session as it is now.
+            if (!IsAsInSession(context.User, session))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
             // Checking whether it still runs isn't working in it.
             if (!(session.LastSeenAt > now - SeenEvery) && context.Request.Path != SupportController.CurrentPath)
             {
@@ -38,6 +48,13 @@ public class SupportSessionGuardMiddleware(RequestDelegate next)
             db.SupportJournal = SupportJournalScope.Of(session, clock);
         }
         await next(context);
+    }
+
+    private static bool IsAsInSession(ClaimsPrincipal user, SupportSession session)
+    {
+        var asUser = int.TryParse(user.FindFirstValue(SupportClaims.AsUserId), out var id) ? id : (int?)null;
+        return asUser == session.AsUserId
+               && (asUser is null || user.FindFirstValue(Auth.PermissionAccess.RoleIdClaim) == session.AsRoleId?.ToString());
     }
 }
 

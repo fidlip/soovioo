@@ -197,8 +197,8 @@ public static class PermissionAccess
             return new Dictionary<Permission, PermissionScope>();
         }
         // Support mode: the SuperAdmin acts as the school's Admin without
-        // being one of its accounts.
-        var support = user.HasClaim(c => c.Type == Support.SupportClaims.SessionId);
+        // being one of its accounts — unless entered as one of them.
+        var support = Support.SupportClaims.InSupportMode(user) && !Support.SupportClaims.InSupportAsUser(user);
         var cache = RolePermissionCache.Of(db);
         if (cache is not null && cache.TryGet((userId, roleId, support), out var cached))
         {

@@ -229,6 +229,27 @@ public class AuditTests
     }
 
     [Fact]
+    public async Task SupportModeAsAUserIsTheSuperAdminsAsWhomOnTheSide()
+    {
+        using var db = NewDb();
+        var context = Request("DELETE", "/api/classrooms/4", user: Principal(42, "novak", "Staff", 3,
+            new Claim("roleName", "Učitel"),
+            new Claim(SupportClaims.SessionId, "7"), new Claim(SupportClaims.By, "superadmin"),
+            new Claim(SupportClaims.SuperAdminId, "1"), new Claim(SupportClaims.AsUserId, "42"),
+            new Claim(SupportClaims.As, "učitel Jan Novák")),
+            controller: typeof(ClassroomsController), action: nameof(ClassroomsController.DeleteClassroom));
+
+        await Middleware(ctx => { ctx.Response.StatusCode = 204; return Task.CompletedTask; }).InvokeAsync(context, db);
+
+        var entry = Assert.Single(db.AuditLogEntries);
+        Assert.Equal(1, entry.UserId);
+        Assert.Equal("superadmin", entry.Username);
+        Assert.Equal(42, entry.AsUserId);
+        Assert.Equal("učitel Jan Novák", entry.AsUserName);
+        Assert.Equal("Učitel", entry.Role);
+    }
+
+    [Fact]
     public async Task FailedLoginIsLoggedWithTheTriedUsernameAndWithoutThePassword()
     {
         using var db = NewDb();

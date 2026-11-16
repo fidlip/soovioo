@@ -30,6 +30,11 @@ public class AuditLogEntry
     public int? SupportSessionId { get; set; }
     public string? SupportBy { get; set; }
 
+    /// <summary>In support mode as one of the school's users: who (snapshot,
+    /// "učitel Jan Novák"); <see cref="Role"/> is then their role.</summary>
+    public int? AsUserId { get; set; }
+    public string? AsUserName { get; set; }
+
     public required string Method { get; set; }
     public required string Path { get; set; }
 

@@ -173,6 +173,13 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("AsUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AsUserName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<DateTimeOffset>("At")
                         .HasColumnType("timestamp with time zone");
 
@@ -224,6 +231,9 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AsUserId")
+                        .HasFilter("\"AsUserId\" IS NOT NULL");
 
                     b.HasIndex("At");
 
@@ -958,6 +968,11 @@ namespace Soovioo.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("SupportAs")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<int?>("TeacherMaxGapsPerDay")
                         .HasColumnType("integer");
 
@@ -1008,6 +1023,7 @@ namespace Soovioo.Api.Migrations
                             Street = "Školní 8",
                             StudentPhotos = false,
                             SupportAccess = "Approval",
+                            SupportAs = "Users",
                             Type = 0
                         });
                 });
@@ -2557,6 +2573,16 @@ namespace Soovioo.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AsName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int?>("AsRoleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AsUserId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("EndReason")
                         .HasColumnType("text");
 
@@ -2674,6 +2700,10 @@ namespace Soovioo.Api.Migrations
 
                     b.Property<DateTimeOffset?>("StatusChangedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<List<int>>("SupportAsUserIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
 
                     b.Property<string>("Title")
                         .IsRequired()

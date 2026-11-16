@@ -50,7 +50,7 @@ public class AuditLogController(AppDbContext db) : ControllerBase
                 e.Id, e.At, e.SchoolId,
                 db.Schools.Where(s => s.Id == e.SchoolId).Select(s => s.Name).FirstOrDefault(),
                 e.UserId, e.Username, e.UserDisplayName, e.Role, e.SupportBy, e.Method, e.Path, e.Area,
-                e.Description, e.StatusCode, e.RequestBody, e.Result, e.IpAddress))
+                e.Description, e.StatusCode, e.RequestBody, e.Result, e.IpAddress, e.AsUserName))
             .ToListAsync();
         return Ok(new PagedResult<AuditLogEntryDto>(items, total, page, pageSize));
     }
@@ -116,7 +116,8 @@ public class AuditLogController(AppDbContext db) : ControllerBase
         }
         if (filter.UserId is not null)
         {
-            query = query.Where(e => e.UserId == filter.UserId);
+            // Also what the support did as them.
+            query = query.Where(e => e.UserId == filter.UserId || e.AsUserId == filter.UserId);
         }
         if (!string.IsNullOrEmpty(filter.Area))
         {
@@ -156,10 +157,13 @@ public class AuditLogController(AppDbContext db) : ControllerBase
 
 /// <param name="SupportBy">Made in support mode by this SuperAdmin.</param>
 /// <param name="Result">Error message, or the new record's id.</param>
+/// <param name="AsUserName">In support mode as one of the school's users:
+/// who ("učitel Jan Novák"); <paramref name="Role"/> is their role then.</param>
 public record AuditLogEntryDto(
     long Id, DateTimeOffset At, int? SchoolId, string? SchoolName, int? UserId, string? Username,
     string? UserDisplayName, string? Role, string? SupportBy, string Method, string Path, string Area,
-    string? Description, int StatusCode, string? RequestBody, string? Result, string? IpAddress);
+    string? Description, int StatusCode, string? RequestBody, string? Result, string? IpAddress,
+    string? AsUserName = null);
 
 /// <param name="To">Exclusive.</param>
 /// <param name="Action">Exact action, as picked from <c>GET actions</c>.</param>

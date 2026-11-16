@@ -70,7 +70,16 @@ public class SupportTicketsController(
         }
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
         var me = await MeAsync();
+        // Not said: the author — the support sees what they see.
+        var asUserIds = school.SupportAs == SupportAsScope.Users
+            ? request.SupportAsUserIds?.Distinct().ToList() ?? [me.Id]
+            : [];
+        if ((await SupportAsPolicy.AccountsAsync(db, school.Id, asUserIds)).Count != asUserIds.Count)
+        {
+            return this.FieldError("supportAsUserIds", "Neznámý uživatel.");
+        }
         var ticket = await NewTicketAsync(school, me, request.Title!, request.Description, bySupport: false);
+        ticket.SupportAsUserIds = asUserIds;
         if (request.AllowAccess && school.SupportAccess == SupportAccess.Approval)
         {
             AllowAccess(ticket, me);
@@ -411,6 +420,56 @@ public class SupportTicketsController(
                 ticket.SchoolId, [assignee], NotificationType.SupportTicket,
                 $"Škola odebrala povolení vstupu ({ticket.School!.Name}): {ticket.Title}", null, SuperAdminPage,
                 ticket.Id);
+            await db.SaveChangesAsync();
+        }
+        return Ok(await DetailAsync(ticket, withInternal: false));
+    }
+
+    /// <summary>The users the support may enter the school as for this
+    /// ticket ("Vstoupit jako…", <see cref="SupportAsScope.Users"/>) — e.g.
+    /// the author or the one the problem is about; none = not at all.
+    /// Sessions of the ticket in as someone no longer named end.</summary>
+    [HttpPut("api/my-school/support-tickets/{id:int}/support-as")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Změněno, za koho smí podpora k požadavku vstoupit")]
+    public async Task<ActionResult<SupportTicketDetailDto>> SetSupportAsUsers(int id, SetSupportAsUsersRequest request)
+    {
+        if (InSupportMode())
+        {
+            return SupportModeRefused();
+        }
+        var ticket = await SchoolTicketAsync(id);
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+        if (!ticket.IsOpen)
+        {
+            return BadRequest("Požadavek už je uzavřený.");
+        }
+        var school = ticket.School!;
+        var userIds = request.UserIds?.Distinct().ToList() ?? [];
+        if (userIds.Count > 0 && school.SupportAs != SupportAsScope.Users)
+        {
+            return BadRequest("Podpora vstupuje do školy jako admin — uživatele vybírat není potřeba.");
+        }
+        var users = await SupportAsPolicy.AccountsAsync(db, school.Id, userIds);
+        if (users.Count != userIds.Count)
+        {
+            return BadRequest("Neznámý uživatel.");
+        }
+        ticket.SupportAsUserIds = userIds;
+        var names = users.Count == 0 ? null : string.Join(", ", users.Select(u => u.Name));
+        var me = await MeAsync();
+        AddEntry(ticket, SupportTicketEntryKind.SupportAsChanged, me, text: names);
+        await SupportAsPolicy.ApplyToSessionsAsync(db, school, clock.GetUtcNow(), PersonNames.Display(me));
+        await db.SaveChangesAsync();
+        if (ticket.AssigneeUserId is { } assignee)
+        {
+            await notifier.NotifyAsync(
+                ticket.SchoolId, [assignee], NotificationType.SupportTicket,
+                $"Za koho smí podpora vstoupit ({school.Name}): {names ?? "nikdo"}", ticket.Title,
+                SuperAdminPage, ticket.Id);
             await db.SaveChangesAsync();
         }
         return Ok(await DetailAsync(ticket, withInternal: false));
@@ -862,13 +921,34 @@ public class SupportTicketsController(
         return Ok(await DetailAsync(ticket, withInternal: true));
     }
 
+    /// <summary>Whom the assignee may enter the school as besides its admin
+    /// ("Vstoupit jako…"), with the roles — as the school and the ticket allow.</summary>
+    [HttpGet("api/support-tickets/{id:int}/enter-as")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<ActionResult<IReadOnlyList<SupportAsUserDto>>> GetEnterAs(int id)
+    {
+        var ticket = await TicketAsync(id);
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+        if (AssigneeOnly(ticket) is { } refused)
+        {
+            return refused;
+        }
+        return await SupportAsPolicy.CandidatesAsync(db, ticket.School!, ticket);
+    }
+
     /// <summary>"Vstoupit do školy" — the assignee, as far as the school
-    /// lets them in; the ticket is being worked on then. Returns the one-time
-    /// code for the school's page.</summary>
+    /// lets them in; the ticket is being worked on then. As the school's
+    /// admin, or as one of its users the school allows
+    /// (<paramref name="request"/>, <see cref="SupportAsPolicy"/>). Returns
+    /// the one-time code for the school's page.</summary>
     [HttpPost("api/support-tickets/{id:int}/enter")]
     [Authorize(Roles = "SuperAdmin")]
     [AuditAction("Zahájen režim podpory")]
-    public async Task<ActionResult<SupportSessionStartDto>> Enter(int id)
+    public async Task<ActionResult<SupportSessionStartDto>> Enter(
+        int id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] SupportAsRequest? request = null)
     {
         var ticket = await TicketAsync(id);
         if (ticket is null)
@@ -885,21 +965,30 @@ public class SupportTicketsController(
         {
             return BadRequest("Škola vstup podpory nepovoluje.");
         }
+        if (!SupportAsPolicy.AllowsAdmin(school) && ticket.SupportAsUserIds.Count == 0)
+        {
+            return BadRequest("Škola u požadavku zatím nevybrala, za koho smí podpora vstoupit.");
+        }
         if (school.SupportAccess == SupportAccess.Approval && !(ticket.AccessUntil > clock.GetUtcNow()))
         {
             return BadRequest("Vstup musí nejdřív povolit škola.");
         }
         var me = await MeAsync();
-        var inProgress = ticket.Status == SupportTicketStatus.InProgress
-            ? null
-            : SetStatus(ticket, SupportTicketStatus.InProgress, me);
         var session = new SupportSession
         {
             SuperAdminUserId = me.Id,
             SuperAdminUsername = me.Username,
             SchoolId = school.Id,
+            School = school,
             TicketId = ticket.Id,
         };
+        if (await supportSessions.SetAsAsync(session, request?.UserId, request?.RoleId) is { } notAllowed)
+        {
+            return BadRequest(notAllowed);
+        }
+        var inProgress = ticket.Status == SupportTicketStatus.InProgress
+            ? null
+            : SetStatus(ticket, SupportTicketStatus.InProgress, me);
         var code = await supportSessions.StartAsync(session);
         if (inProgress is not null)
         {
@@ -910,6 +999,10 @@ public class SupportTicketsController(
         var audit = AuditContext.Of(HttpContext);
         audit.SupportSessionId = session.Id;
         audit.SupportBy = me.Username;
+        if (session.AsName is not null)
+        {
+            audit.Description = $"Zahájen režim podpory jako {session.AsName}";
+        }
         return Ok(new SupportSessionStartDto(session.Id, code, school.Slug, school.Name, session.ExpiresAt));
     }
 
@@ -1449,7 +1542,9 @@ public class SupportTicketsController(
     /// <param name="mayConfirm">The caller may close, return or reopen it
     /// (the school's side, <see cref="MayConfirmAsync"/>).</param>
     /// <param name="changes">The support's changes the caller may reset (<see cref="DetailAsync"/>).</param>
-    private SupportTicketDto ToDto(SupportTicket t, bool mayConfirm = false, int changes = 0)
+    /// <param name="supportAs">Whom the support may enter as (<see cref="DetailAsync"/>).</param>
+    private SupportTicketDto ToDto(
+        SupportTicket t, bool mayConfirm = false, int changes = 0, IReadOnlyList<SupportAsUserRefDto>? supportAs = null)
     {
         var now = clock.GetUtcNow();
         var open = t.IsOpen;
@@ -1460,7 +1555,8 @@ public class SupportTicketsController(
             t.AssigneeUserId, t.AssigneeName, open && t.DueDate < SchoolClock.Today(clock),
             open ? t.AccessRequestedAt : null, open && t.AccessUntil > now ? t.AccessUntil : null,
             t.AutoClosesAt, reopenable,
-            mayConfirm && (t.Status == SupportTicketStatus.Resolved || reopenable is not null), changes);
+            mayConfirm && (t.Status == SupportTicketStatus.Resolved || reopenable is not null), changes,
+            t.School.SupportAs, supportAs);
     }
 
     /// <summary>The thread with the ticket's support sessions in it: when
@@ -1514,7 +1610,7 @@ public class SupportTicketsController(
             .Select(a => new
             {
                 a.Id, SessionId = a.SupportSessionId!.Value, a.At, a.Method, a.Path, a.StatusCode, a.Area,
-                a.Description,
+                a.Description, a.AsUserName,
             })
             .ToListAsync();
         actions.RemoveAll(a => SupportController.IsEnteringOrLeaving(a.Path));
@@ -1541,10 +1637,10 @@ public class SupportTicketsController(
             0, a.At, SupportTicketEntryKind.SessionAction,
             names[a.SessionId],
             true, false, a.Description ?? $"{a.Area}: změna", null, null, a.SessionId,
-            a.StatusCode, withInternal ? $"{a.Method} {a.Path}" : null)));
+            a.StatusCode, withInternal ? $"{a.Method} {a.Path}" : null, As: a.AsUserName)));
         var mayConfirm = !withInternal && !InSupportMode()
                          && (ticket.Status == SupportTicketStatus.Cancelled || await MayConfirmAsync(ticket));
-        return new SupportTicketDetailDto(ToDto(ticket, mayConfirm, changes.Values.Sum()), entries
+        return new SupportTicketDetailDto(ToDto(ticket, mayConfirm, changes.Values.Sum(), await SupportAsUsersAsync(ticket)), entries
             .OrderBy(e => e.At)
             // At one moment: the visit starts first and ends last.
             .ThenBy(e => e.Kind switch
@@ -1558,12 +1654,19 @@ public class SupportTicketsController(
             .ToList());
     }
 
-    private bool InSupportMode() => User.HasClaim(c => c.Type == SupportClaims.SessionId);
+    private bool InSupportMode() => User.InSupportMode();
+
+    /// <summary>The users the support may enter as for the ticket — while
+    /// the school wants it so, else none; the author first.</summary>
+    private async Task<IReadOnlyList<SupportAsUserRefDto>> SupportAsUsersAsync(SupportTicket ticket) =>
+        (await SupportAsPolicy.CandidatesAsync(db, ticket.School!, ticket))
+            .Select(u => new SupportAsUserRefDto(u.Id, u.Name)).ToList();
 
     private ObjectResult SupportModeRefused() =>
         StatusCode(StatusCodes.Status403Forbidden, "V režimu podpory požadavky spravuje jen škola.");
 
-    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    /// <summary>The SuperAdmin in support mode, also when in as a school's user.</summary>
+    private int CurrentUserId() => User.ActorId()!.Value;
 }
 
 public enum SupportTicketFilter
@@ -1576,7 +1679,10 @@ public enum SupportTicketFilter
 
 /// <param name="AllowAccess">Lets the support in for this ticket right away
 /// (with <see cref="SupportAccess.Approval"/>).</param>
-public record CreateSchoolTicketRequest(string? Title, string? Description, bool AllowAccess = false);
+/// <param name="SupportAsUserIds">Whom the support may enter as
+/// (<see cref="SupportAsScope.Users"/>); null = the author.</param>
+public record CreateSchoolTicketRequest(
+    string? Title, string? Description, bool AllowAccess = false, IReadOnlyList<int>? SupportAsUserIds = null);
 
 public record CreateSupportTicketRequest(int SchoolId, string? Title, string? Description);
 
@@ -1613,13 +1719,16 @@ public record ReturnSupportTicketRequest(string? Text);
 /// may close or return it (resolved), or reopen it.</param>
 /// <param name="ResettableChanges">In the ticket's detail: the support's
 /// changes not reset yet, when the caller may reset them; 0 otherwise.</param>
+/// <param name="SchoolSupportAs">Whether the school lets the support enter as the users a ticket names (<see cref="School.SupportAs"/>).</param>
+/// <param name="SupportAsUsers">In the ticket's detail: the users the support may enter as for it.</param>
 public record SupportTicketDto(
     int Id, int SchoolId, string SchoolName, SupportAccess SchoolAccess, string Title, string Description,
     DateTimeOffset CreatedAt, string CreatedByName, bool CreatedBySupport, string PlanName, DateOnly DueDate,
     SupportTicketStatus Status, DateTimeOffset? StatusChangedAt, int? AssigneeUserId, string? AssigneeName,
     bool Overdue, DateTimeOffset? AccessRequestedAt, DateTimeOffset? AccessUntil,
     DateTimeOffset? AutoClosesAt = null, DateTimeOffset? ReopenableUntil = null, bool CanConfirm = false,
-    int ResettableChanges = 0);
+    int ResettableChanges = 0, SupportAsScope SchoolSupportAs = SupportAsScope.Admin,
+    IReadOnlyList<SupportAsUserRefDto>? SupportAsUsers = null);
 
 /// <param name="Id">0 for the support sessions' entries, which aren't stored.</param>
 /// <param name="Text">With <see cref="SupportTicketEntryKind.SessionAction"/>
@@ -1634,6 +1743,8 @@ public record SupportTicketDto(
 /// change or delete it (a SuperAdmin also retype it).</param>
 /// <param name="Changes">With <see cref="SupportTicketEntryKind.SessionStarted"/>:
 /// the session's changes not reset yet, when the caller may reset them.</param>
+/// <param name="As">With <see cref="SupportTicketEntryKind.SessionAction"/>
+/// made as one of the school's users: who ("učitel Jan Novák").</param>
 /// <param name="EditedAt">Changed afterwards; only for the entry's side and
 /// the SuperAdmins, like <paramref name="Deleted"/> ones and <paramref name="Revisions"/>.</param>
 public record SupportTicketEntryDto(
@@ -1641,7 +1752,7 @@ public record SupportTicketEntryDto(
     string? Text, SupportTicketStatus? Status, DateTimeOffset? Until, int? SessionId, int? StatusCode = null,
     string? Request = null, DateTimeOffset? LastSeenAt = null, bool CanEdit = false,
     DateTimeOffset? EditedAt = null, bool Deleted = false,
-    IReadOnlyList<SupportTicketEntryRevisionDto>? Revisions = null, int Changes = 0);
+    IReadOnlyList<SupportTicketEntryRevisionDto>? Revisions = null, int Changes = 0, string? As = null);
 
 /// <param name="Text">The entry's text before the change.</param>
 public record SupportTicketEntryRevisionDto(
