@@ -4,14 +4,16 @@ import { Textarea } from '@openng/optimus-ui/textarea';
 import { FloatField } from '../forms';
 import { Markdown } from './markdown';
 
-/** A text field written in Markdown: "Napsat" edits, "Náhled" shows it
+/** A text field written in Markdown: "Text" edits, "Náhled" shows it
  * rendered. A form control — `ngModel`, `required`, `maxlength` work on it
- * as on a textarea. */
+ * as on a textarea. Projected content (e.g. a send button) sits inside the
+ * field at its bottom; `internal` styles the field as an internal note. */
 @Component({
   selector: 'app-markdown-editor',
   imports: [FloatField, Markdown, Textarea],
   templateUrl: './markdown-editor.html',
-  host: { class: 'block' },
+  styleUrl: './markdown-editor.css',
+  host: { '[class.internal]': 'internal()' },
   providers: [
     { provide: NG_VALUE_ACCESSOR, useExisting: MarkdownEditor, multi: true },
   ],
@@ -21,6 +23,7 @@ export class MarkdownEditor implements ControlValueAccessor {
   readonly inputId = input.required<string>();
   readonly rows = input(5);
   readonly maxlength = input<number | string | null>(null);
+  readonly internal = input(false);
 
   protected readonly preview = signal(false);
   protected readonly value = signal('');

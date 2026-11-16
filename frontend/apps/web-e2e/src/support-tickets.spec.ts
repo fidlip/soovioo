@@ -100,13 +100,13 @@ test('a school asks for support allowing entering; the assignee works on it in t
   });
 
   // An internal note and a question for the school.
-  await detail.getByText('Interní poznámka (škola ji neuvidí)').click();
+  await detail.getByRole('switch', { name: /interní/ }).click();
   await detail
     .getByLabel('Interní poznámka', { exact: true })
     .fill('Asi chybí úvazky');
   await detail.getByRole('button', { name: 'Uložit poznámku' }).click();
   await expect(detail.getByText('Asi chybí úvazky')).toBeVisible();
-  await detail.getByText('Interní poznámka (škola ji neuvidí)').click();
+  await detail.getByRole('switch', { name: /interní/ }).click();
   await detail.getByLabel('Zpráva škole').fill('Máte zadané úvazky?');
   await detail.getByRole('button', { name: 'Odeslat' }).click();
   await expect(detail.getByText('Máte zadané úvazky?')).toBeVisible();

@@ -20,6 +20,7 @@ import { Menu } from '@openng/optimus-ui/menu';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
 import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
+import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
   AuthApiService,
   DateFormatPipe,
@@ -80,6 +81,7 @@ import {
     Select,
     Tag,
     ToggleSwitch,
+    Tooltip,
   ],
   templateUrl: './support-ticket-dialog.html',
 })
