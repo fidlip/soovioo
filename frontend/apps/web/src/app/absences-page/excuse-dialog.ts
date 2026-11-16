@@ -98,6 +98,7 @@ const SKIPPED_LABEL: Partial<Record<AbsenceStatus, string>> = {
               name="dateFrom"
               required
               [showIcon]="true"
+              [showOnFocus]="false"
               appendTo="body"
             />
           </app-float-field>
