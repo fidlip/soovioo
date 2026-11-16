@@ -220,6 +220,10 @@ public class SupportController(
         user.PasswordHash = Hasher.HashPassword(user, request.Password);
         db.Users.Add(user);
         await db.SaveChangesAsync();
+        if (ContactError(request.Phone, request.Email) is { } contactError)
+        {
+            return contactError;
+        }
         await ApplyPersonAsync(user, request.FirstName, request.LastName, request.Phone, request.Email);
         await db.SaveChangesAsync();
         return Ok(ToDto(user));
@@ -259,6 +263,10 @@ public class SupportController(
         }
 
         user.Username = username;
+        if (ContactError(request.Phone, request.Email) is { } contactError)
+        {
+            return contactError;
+        }
         await ApplyPersonAsync(user, request.FirstName, request.LastName, request.Phone, request.Email);
         var isMe = id == CurrentUserId();
         if (passwordChanged)
@@ -304,13 +312,20 @@ public class SupportController(
         return NoContent();
     }
 
+    private BadRequestObjectResult? ContactError(string? phone, string? email) =>
+        !ContactFormats.TryPhone(phone, out _) ? this.FieldError("phone", ContactFormats.InvalidPhone)
+        : !ContactFormats.TryEmail(email, out _) ? this.FieldError("email", ContactFormats.InvalidEmail)
+        : null;
+
     private async Task ApplyPersonAsync(User user, string? firstName, string? lastName, string? phone, string? email)
     {
         var person = await db.EnsurePersonAsync(user);
         person.FirstName = firstName?.Trim() ?? "";
         person.LastName = string.IsNullOrWhiteSpace(lastName) ? user.Username : lastName.Trim();
-        person.Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
-        person.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        ContactFormats.TryPhone(phone, out var normalizedPhone);
+        ContactFormats.TryEmail(email, out var normalizedEmail);
+        person.Phone = normalizedPhone;
+        person.Email = normalizedEmail;
         user.Person = person;
     }
 

@@ -19,6 +19,10 @@ import {
   digestTimeLabel,
   PhotosApiService,
   StudentPhotoState,
+  INVALID_EMAIL,
+  INVALID_PHONE,
+  parseEmail,
+  parsePhone,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
 import { NavBarComponent } from '../nav-bar/nav-bar.component';
@@ -245,6 +249,14 @@ export class SettingsComponent {
 
   protected saveProfile(): void {
     this.profileMessage.set(null);
+    if (!parsePhone(this.phone).valid) {
+      this.profileMessage.set(INVALID_PHONE);
+      return;
+    }
+    if (!parseEmail(this.email).valid) {
+      this.profileMessage.set(INVALID_EMAIL);
+      return;
+    }
     this.profileApi
       .updateProfile({
         phone: this.phone || undefined,
@@ -253,6 +265,8 @@ export class SettingsComponent {
       .subscribe({
         next: (profile) => {
           this.profile.set(profile);
+          this.phone = profile.phone ?? '';
+          this.email = profile.email ?? '';
           this.profileMessage.set('Uloženo.');
         },
         error: (err) => {

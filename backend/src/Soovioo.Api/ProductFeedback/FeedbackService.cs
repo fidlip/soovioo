@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Demo;
 using Soovioo.Api.Email;
@@ -33,10 +34,9 @@ public class FeedbackService(
         {
             return ("text", "Text je moc dlouhý.");
         }
-        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
-        if (email is not null && (!email.Contains('@') || email.Length > 254))
+        if (!ContactFormats.TryEmail(request.Email, out var email))
         {
-            return ("email", "Neplatný e-mail.");
+            return ("email", ContactFormats.InvalidEmail);
         }
         if (request.Rating is null && text is null)
         {

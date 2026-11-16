@@ -17,7 +17,7 @@ import {
   Student,
   StudentMatrika,
 } from '@soovioo/shared';
-import { FloatField } from '../forms';
+import { FORM_FIELDS, FloatField } from '../forms';
 
 export const GENDER_OPTIONS: { label: string; value: Gender }[] = [
   { label: 'Chlapec', value: 'Male' },
@@ -134,6 +134,7 @@ function toDateOnly(date: Date): string {
 @Component({
   selector: 'app-student-fields',
   imports: [
+    ...FORM_FIELDS,
     FloatField,
     AutoComplete,
     Checkbox,
@@ -285,6 +286,7 @@ function toDateOnly(date: Date): string {
         pInputText
         type="tel"
         name="studentContactPhone"
+        appPhone
         [(ngModel)]="f.contactPhone"
       />
     </app-float-field>
@@ -294,6 +296,7 @@ function toDateOnly(date: Date): string {
         pInputText
         type="email"
         name="studentContactEmail"
+        appEmail
         [(ngModel)]="f.contactEmail"
       />
     </app-float-field>

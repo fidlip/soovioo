@@ -43,7 +43,7 @@ public class DemoSchoolService(
         {
             return "classesPerGrade";
         }
-        if (request.Email is { Length: > 0 } email && !email.Contains('@'))
+        if (!ContactFormats.TryEmail(request.Email, out _))
         {
             return "email";
         }
@@ -94,19 +94,19 @@ public class DemoSchoolService(
             throw;
         }
 
-        if (request.Email is { Length: > 0 } email)
+        if (ContactFormats.TryEmail(request.Email, out var email) && email is not null)
         {
             db.DemoContacts.Add(new DemoContact
             {
                 SchoolId = school.Id,
                 DemoSlug = slug,
-                Email = email.Trim(),
+                Email = email,
                 Consent = request.Consent,
                 Source = "wizard",
                 CreatedAt = now,
             });
             await db.SaveChangesAsync();
-            await TrySendAsync(email.Trim(), $"Vaše demo Soovioo — {school.Name}", LinkEmail(school));
+            await TrySendAsync(email, $"Vaše demo Soovioo — {school.Name}", LinkEmail(school));
         }
 
         return (new DemoCreated(school.Id, slug, school.ExpiresAt!.Value, featured), DemoCreateError.None);

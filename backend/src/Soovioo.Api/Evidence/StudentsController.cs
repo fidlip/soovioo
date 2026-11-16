@@ -124,6 +124,10 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
             Person = new People.Person { FirstName = request.FirstName, LastName = request.LastName, SchoolId = schoolId },
             SchoolId = schoolId,
         };
+        if (StudentRecords.ContactError(request.Matrika) is { } contactError)
+        {
+            return this.FieldError(contactError.Field, contactError.Message);
+        }
         if (await StudentRecords.ApplyAsync(db, student, request.Matrika) is { } error)
         {
             return this.FieldError("defaultVariableSymbol", error);
@@ -163,6 +167,10 @@ public class StudentsController(AppDbContext db, ICurrentSchoolContext currentSc
 
         student.Person!.FirstName = request.FirstName;
         student.Person.LastName = request.LastName;
+        if (StudentRecords.ContactError(request.Matrika) is { } contactError)
+        {
+            return this.FieldError(contactError.Field, contactError.Message);
+        }
         if (await StudentRecords.ApplyAsync(db, student, request.Matrika) is { } error)
         {
             return this.FieldError("defaultVariableSymbol", error);

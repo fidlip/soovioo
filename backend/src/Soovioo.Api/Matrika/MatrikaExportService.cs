@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Auth;
+using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
 
@@ -67,10 +68,26 @@ public class MatrikaExportService(AppDbContext db, ICurrentSchoolContext current
         {
             headerErrors.Add("Chybí telefon na kontaktní osobu.");
         }
+        else if (ContactFormats.TryPhone(contactPhone, out var phone))
+        {
+            contactPhone = phone!;
+        }
+        else
+        {
+            headerErrors.Add($"Telefon na kontaktní osobu: {ContactFormats.InvalidPhone}");
+        }
 
         if (string.IsNullOrWhiteSpace(contactEmail))
         {
             headerErrors.Add("Chybí e-mail na kontaktní osobu.");
+        }
+        else if (ContactFormats.TryEmail(contactEmail, out var email))
+        {
+            contactEmail = email!;
+        }
+        else
+        {
+            headerErrors.Add($"E-mail na kontaktní osobu: {ContactFormats.InvalidEmail}");
         }
 
         if (headerErrors.Count > 0)

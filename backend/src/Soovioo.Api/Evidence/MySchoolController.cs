@@ -99,14 +99,22 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         {
             return this.FieldError("district", "Takový okres neznáme.");
         }
+        if (!ContactFormats.TryEmail(request.Email, out var email))
+        {
+            return this.FieldError("email", ContactFormats.InvalidEmail);
+        }
+        if (!ContactFormats.TryPhone(request.Phone, out var phone))
+        {
+            return this.FieldError("phone", ContactFormats.InvalidPhone);
+        }
 
         school.Street = request.Street;
         school.District = request.District;
         school.City = request.City;
         school.PostalCode = request.PostalCode;
         school.DirectorName = request.DirectorName;
-        school.Email = request.Email;
-        school.Phone = request.Phone;
+        school.Email = email;
+        school.Phone = phone;
         await db.SaveChangesAsync();
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));
