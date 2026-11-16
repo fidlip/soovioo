@@ -28,6 +28,12 @@
   cursor: default;
 }
 
+/* 1.75× an icon's size without making the row taller; centred on the
+ * icons' column, so the name moves a little to the right. */
+.app-user-avatar {
+  margin: -0.375rem 0 -0.375rem -0.5625rem;
+}
+
 /* Icon-only sidebar: just the logout button. */
 @media (min-width: 768px) {
   :host-context(.app-sidebar.collapsed) {

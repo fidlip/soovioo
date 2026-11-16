@@ -19,12 +19,14 @@ import { SchoolContextService, schoolUrl } from '../../school-context';
 import { UnreadCountsService } from '../../unread-counts.service';
 import { SessionActionsService } from '../session-actions.service';
 import { checkOnNavigation } from '../check-on-navigation';
+import { Avatar } from '../../avatar/avatar';
+import { OwnPhotoService } from '../../avatar/own-photo.service';
 
 /** Bottom of the sidebar: who's logged in, as which role, at which school —
  * with switching between them, and logging out. */
 @Component({
   selector: 'app-sidebar-account-menu',
-  imports: [Menu, Tooltip, NgTemplateOutlet],
+  imports: [Menu, Tooltip, NgTemplateOutlet, Avatar],
   templateUrl: './sidebar-account-menu.html',
   styleUrl: './sidebar-account-menu.scss',
 })
@@ -36,9 +38,11 @@ export class SidebarAccountMenu {
   private readonly linkedAccountsApi = inject(LinkedAccountsApiService);
   private readonly schoolContext = inject(SchoolContextService);
   private readonly router = inject(Router);
+  protected readonly ownPhoto = inject(OwnPhotoService);
 
   constructor() {
     checkOnNavigation();
+    this.ownPhoto.load();
   }
 
   /** Shown under the school's name to those who ask the support for help. */

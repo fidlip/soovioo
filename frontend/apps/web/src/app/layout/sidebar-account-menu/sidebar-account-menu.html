@@ -43,8 +43,14 @@
   <span
     class="app-nav-link app-user-name text-surface-700 dark:text-surface-200"
     [title]="username() ?? ''"
-    ><i class="pi pi-user"></i
-    ><span class="app-nav-label truncate">{{ username() }}</span></span
+    >@if (ownPhoto.url(); as photoUrl) {<app-avatar
+      class="app-user-avatar"
+      [name]="username() ?? ''"
+      [photoUrl]="photoUrl"
+      [size]="35"
+    />} @else {<i class="pi pi-user"></i>}<span class="app-nav-label truncate"
+      >{{ username() }}</span
+    ></span
   >
   <button
     type="button"

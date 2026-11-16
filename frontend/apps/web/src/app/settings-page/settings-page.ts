@@ -44,6 +44,7 @@ import { InfoHint } from '../info-hint/info-hint';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { FORM_FIELDS, FloatField } from '../forms';
+import { OwnPhotoService } from '../avatar/own-photo.service';
 import { PhotoEditor } from '../photo-editor/photo-editor';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
@@ -80,6 +81,7 @@ export class SettingsPage {
   private readonly teachingApi = inject(TeachingApiService);
   private readonly eventsApi = inject(EventsApiService);
   private readonly photosApi = inject(PhotosApiService);
+  private readonly ownPhoto = inject(OwnPhotoService);
   private readonly notificationsApi = inject(NotificationsApiService);
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
@@ -365,6 +367,7 @@ export class SettingsPage {
     this.photosApi.uploadUserPhoto(profile.id, file, file.name).subscribe({
       next: ({ photo }) => {
         this.profile.set({ ...profile, photo });
+        this.ownPhoto.set(photo);
         this.notify.success('Fotka nahrána.');
       },
       error: (err) => this.notify.actionFailed('uploadUserPhoto failed', err),
@@ -379,6 +382,7 @@ export class SettingsPage {
     this.photosApi.deleteUserPhoto(profile.id).subscribe({
       next: () => {
         this.profile.set({ ...profile, photo: null });
+        this.ownPhoto.set(null);
         this.notify.success('Fotka smazána.');
       },
       error: (err) => this.notify.actionFailed('deleteUserPhoto failed', err),
@@ -386,6 +390,7 @@ export class SettingsPage {
   }
 
   protected studentPhotoChanged(state: StudentPhotoState): void {
+    this.ownPhoto.set(state.photo);
     this.studentPhotos.update((all) =>
       all.map((s) => (s.studentId === state.studentId ? state : s)),
     );
