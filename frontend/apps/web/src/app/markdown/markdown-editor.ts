@@ -1,6 +1,7 @@
 import { Component, input, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Textarea } from '@openng/optimus-ui/textarea';
+import { Tooltip } from '@openng/optimus-ui/tooltip';
 import { FloatField } from '../forms';
 import { Markdown } from './markdown';
 
@@ -10,7 +11,7 @@ import { Markdown } from './markdown';
  * field at its bottom; `internal` styles the field as an internal note. */
 @Component({
   selector: 'app-markdown-editor',
-  imports: [FloatField, Markdown, Textarea],
+  imports: [FloatField, Markdown, Textarea, Tooltip],
   templateUrl: './markdown-editor.html',
   styleUrl: './markdown-editor.css',
   host: { '[class.internal]': 'internal()' },
