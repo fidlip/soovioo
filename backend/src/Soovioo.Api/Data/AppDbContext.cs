@@ -297,6 +297,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Support.SupportTicket>(e =>
         {
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.StatusBeforeCancel).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Title).HasMaxLength(Support.SupportTicket.MaxTitleLength);
             e.Property(x => x.Description).HasMaxLength(Support.SupportTicket.MaxTextLength);
             e.Property(x => x.CreatedByName).HasMaxLength(200);

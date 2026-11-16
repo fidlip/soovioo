@@ -102,7 +102,9 @@ public class SupportTicketsController(
         }
         if (!ticket.IsOpen)
         {
-            return BadRequest("Požadavek už je uzavřený.");
+            return BadRequest(ticket.Status == SupportTicketStatus.Resolved
+                ? "Požadavek je vyřešený — pokud není, vraťte ho do řešení."
+                : "Požadavek už je uzavřený.");
         }
         var me = await MeAsync();
         AddEntry(ticket, SupportTicketEntryKind.Message, me, text: request.Text!.Trim());
@@ -172,10 +174,123 @@ public class SupportTicketsController(
         }
         var me = await MeAsync();
         var reason = request.Reason!.Trim();
+        ticket.StatusBeforeCancel = ticket.Status;
         var cancelled = SetStatus(ticket, SupportTicketStatus.Cancelled, me, reason);
         await CloseAccessAsync(ticket, cancelled.At);
         await db.SaveChangesAsync();
         await NotifySupportAsync(ticket, $"Škola zrušila požadavek ({ticket.School!.Name}): {ticket.Title}", reason);
+        return Ok(await DetailAsync(ticket, withInternal: false));
+    }
+
+    /// <summary>"Uzavřít" — the school confirms the ticket resolved
+    /// (<see cref="MayConfirmAsync"/>); its assignee hears of it.</summary>
+    [HttpPost("api/my-school/support-tickets/{id:int}/close")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Uzavřen požadavek na podporu")]
+    public async Task<ActionResult<SupportTicketDetailDto>> CloseTicket(int id)
+    {
+        if (InSupportMode())
+        {
+            return SupportModeRefused();
+        }
+        var ticket = await SchoolTicketAsync(id);
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+        if (ticket.Status != SupportTicketStatus.Resolved)
+        {
+            return BadRequest("Uzavřít jde jen vyřešený požadavek.");
+        }
+        if (!await MayConfirmAsync(ticket))
+        {
+            return AuthorOnly(ticket);
+        }
+        SetStatus(ticket, SupportTicketStatus.Closed, await MeAsync());
+        await db.SaveChangesAsync();
+        await NotifyAssigneeAsync(ticket, $"Škola potvrdila vyřešení ({ticket.School!.Name}): {ticket.Title}", null);
+        return Ok(await DetailAsync(ticket, withInternal: false));
+    }
+
+    /// <summary>"Vrátit do řešení" — not resolved after all: back to its
+    /// assignee (<see cref="SupportTicketStatus.Assigned"/>), or to everyone
+    /// when nobody has it; optionally with a message saying why.</summary>
+    [HttpPost("api/my-school/support-tickets/{id:int}/return")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Požadavek na podporu vrácen do řešení")]
+    public async Task<ActionResult<SupportTicketDetailDto>> ReturnTicket(
+        int id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ReturnSupportTicketRequest? request = null)
+    {
+        if (InSupportMode())
+        {
+            return SupportModeRefused();
+        }
+        var text = request?.Text?.Trim();
+        if (!string.IsNullOrEmpty(text) && ValidateText(text) is { } invalid)
+        {
+            return invalid;
+        }
+        var ticket = await SchoolTicketAsync(id);
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+        if (ticket.Status != SupportTicketStatus.Resolved)
+        {
+            return BadRequest("Vrátit do řešení jde jen vyřešený požadavek.");
+        }
+        if (!await MayConfirmAsync(ticket))
+        {
+            return AuthorOnly(ticket);
+        }
+        var me = await MeAsync();
+        SetStatus(ticket, ticket.AssigneeUserId is null ? SupportTicketStatus.New : SupportTicketStatus.Assigned, me);
+        if (!string.IsNullOrEmpty(text))
+        {
+            AddEntry(ticket, SupportTicketEntryKind.Message, me, text: text);
+        }
+        await db.SaveChangesAsync();
+        await NotifySupportAsync(
+            ticket, $"Škola vrátila požadavek do řešení ({ticket.School!.Name}): {ticket.Title}", text);
+        return Ok(await DetailAsync(ticket, withInternal: false));
+    }
+
+    /// <summary>"Znovu otevřít" a closed or cancelled ticket — a mistake,
+    /// till <see cref="SupportTicket.ReopenableUntil"/>: closed goes back to
+    /// <see cref="SupportTicketStatus.Resolved"/> (its 30 days start again),
+    /// cancelled to the status it had. Whoever may close or cancel it.</summary>
+    [HttpPost("api/my-school/support-tickets/{id:int}/reopen")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Znovu otevřen požadavek na podporu")]
+    public async Task<ActionResult<SupportTicketDetailDto>> ReopenTicket(int id)
+    {
+        if (InSupportMode())
+        {
+            return SupportModeRefused();
+        }
+        var ticket = await SchoolTicketAsync(id);
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+        if (!(ticket.ReopenableUntil > clock.GetUtcNow()))
+        {
+            return BadRequest(ticket.Status is SupportTicketStatus.Closed or SupportTicketStatus.Cancelled
+                ? "Lhůta pro znovuotevření uplynula — založte nový požadavek."
+                : "Požadavek není uzavřený.");
+        }
+        var cancelled = ticket.Status == SupportTicketStatus.Cancelled;
+        if (!cancelled && !await MayConfirmAsync(ticket))
+        {
+            return AuthorOnly(ticket);
+        }
+        var status = cancelled
+            ? ticket.StatusBeforeCancel ?? (ticket.AssigneeUserId is null ? SupportTicketStatus.New : SupportTicketStatus.Assigned)
+            : SupportTicketStatus.Resolved;
+        ticket.StatusBeforeCancel = null;
+        SetStatus(ticket, status, await MeAsync());
+        await db.SaveChangesAsync();
+        await NotifySupportAsync(ticket, $"Škola znovu otevřela požadavek ({ticket.School!.Name}): {ticket.Title}", null);
         return Ok(await DetailAsync(ticket, withInternal: false));
     }
 
@@ -274,7 +389,8 @@ public class SupportTicketsController(
         {
             return Ok(await ListAsync(query.OrderByDescending(t => t.CreatedAt)));
         }
-        query = query.Where(t => t.Status != SupportTicketStatus.Resolved && t.Status != SupportTicketStatus.Cancelled);
+        query = query.Where(t => t.Status != SupportTicketStatus.Resolved && t.Status != SupportTicketStatus.Cancelled
+                                 && t.Status != SupportTicketStatus.Closed);
         var me = CurrentUserId();
         query = filter switch
         {
@@ -450,7 +566,11 @@ public class SupportTicketsController(
             await CloseAccessAsync(ticket, changed.At);
         }
         await db.SaveChangesAsync();
-        await NotifySchoolAsync(ticket, $"{StatusTitle(request.Status)}: {ticket.Title}", null);
+        await NotifySchoolAsync(
+            ticket, $"{StatusTitle(request.Status)}: {ticket.Title}",
+            ticket.AutoClosesAt is { } closes
+                ? $"Potvrďte vyřešení, nebo požadavek vraťte do řešení. Jinak se {SchoolClock.Local(closes):d. M. yyyy} uzavře sám."
+                : null);
         return Ok(await DetailAsync(ticket, withInternal: true));
     }
 
@@ -841,6 +961,32 @@ public class SupportTicketsController(
         return db.Users.IgnoreQueryFilters().Include(u => u.Person).FirstAsync(u => u.Id == id);
     }
 
+    /// <summary>Closing, returning or reopening a resolved ticket is up to
+    /// its author — or any of the school's admins when the support opened
+    /// it or the author is no longer the school's admin.</summary>
+    private async Task<bool> MayConfirmAsync(SupportTicket ticket)
+    {
+        var author = await AuthorAdminAsync(ticket);
+        return author is null || author == CurrentUserId();
+    }
+
+    /// <summary>The ticket's author while they're the school's admin.</summary>
+    private async Task<int?> AuthorAdminAsync(SupportTicket ticket)
+    {
+        if (ticket.CreatedBySupport || ticket.CreatedByUserId is not { } author)
+        {
+            return null;
+        }
+        return await db.Users.IgnoreQueryFilters()
+            .AnyAsync(u => u.Id == author && u.SchoolId == ticket.SchoolId
+                           && u.Roles.Any(r => r.BuiltIn == UserRole.Admin))
+            ? author
+            : null;
+    }
+
+    private BadRequestObjectResult AuthorOnly(SupportTicket ticket) =>
+        BadRequest($"O vyřešení rozhoduje autor požadavku ({ticket.CreatedByName}).");
+
     private ActionResult? AssigneeOnly(SupportTicket ticket)
     {
         if (!ticket.IsOpen)
@@ -987,8 +1133,20 @@ public class SupportTicketsController(
         SupportTicketStatus.InProgress => "Požadavek se řeší",
         SupportTicketStatus.WaitingForSchool => "Podpora čeká na vaši odpověď",
         SupportTicketStatus.Resolved => "Požadavek vyřešen",
+        SupportTicketStatus.Closed => "Požadavek uzavřen",
         _ => "Změněn stav požadavku",
     };
+
+    private async Task NotifyAssigneeAsync(SupportTicket ticket, string title, string? body)
+    {
+        if (ticket.AssigneeUserId is { } assignee)
+        {
+            await notifier.NotifyAsync(
+                ticket.SchoolId, [assignee], NotificationType.SupportTicket, title,
+                string.IsNullOrWhiteSpace(body) ? null : Notifier.Preview(body), SuperAdminPage, ticket.Id);
+            await db.SaveChangesAsync();
+        }
+    }
 
     /// <summary>The assignee, or every SuperAdmin while nobody takes care of it.</summary>
     private async Task NotifySupportAsync(SupportTicket ticket, string title, string? body, int? exceptUserId = null)
@@ -1072,18 +1230,23 @@ public class SupportTicketsController(
     private async Task<List<SupportTicketDto>> ListAsync(IQueryable<SupportTicket> query)
     {
         var tickets = await query.Include(t => t.School).Take(ListLength).ToListAsync();
-        return tickets.Select(ToDto).ToList();
+        return tickets.Select(t => ToDto(t)).ToList();
     }
 
-    private SupportTicketDto ToDto(SupportTicket t)
+    /// <param name="mayConfirm">The caller may close, return or reopen it
+    /// (the school's side, <see cref="MayConfirmAsync"/>).</param>
+    private SupportTicketDto ToDto(SupportTicket t, bool mayConfirm = false)
     {
         var now = clock.GetUtcNow();
         var open = t.IsOpen;
+        var reopenable = t.ReopenableUntil > now ? t.ReopenableUntil : null;
         return new SupportTicketDto(
             t.Id, t.SchoolId, t.School!.Name, t.School.SupportAccess, t.Title, t.Description, t.CreatedAt,
             t.CreatedByName, t.CreatedBySupport, t.PlanName, t.DueDate, t.Status, t.StatusChangedAt,
             t.AssigneeUserId, t.AssigneeName, open && t.DueDate < SchoolClock.Today(clock),
-            open ? t.AccessRequestedAt : null, open && t.AccessUntil > now ? t.AccessUntil : null);
+            open ? t.AccessRequestedAt : null, open && t.AccessUntil > now ? t.AccessUntil : null,
+            t.AutoClosesAt, reopenable,
+            mayConfirm && (t.Status == SupportTicketStatus.Resolved || reopenable is not null));
     }
 
     /// <summary>The thread with the ticket's support sessions in it: when
@@ -1162,7 +1325,9 @@ public class SupportTicketsController(
             names[a.SessionId],
             true, false, a.Description ?? $"{a.Area}: změna", null, null, a.SessionId,
             a.StatusCode, withInternal ? $"{a.Method} {a.Path}" : null)));
-        return new SupportTicketDetailDto(ToDto(ticket), entries
+        var mayConfirm = !withInternal && !InSupportMode()
+                         && (ticket.Status == SupportTicketStatus.Cancelled || await MayConfirmAsync(ticket));
+        return new SupportTicketDetailDto(ToDto(ticket, mayConfirm), entries
             .OrderBy(e => e.At)
             // At one moment: the visit starts first and ends last.
             .ThenBy(e => e.Kind switch
@@ -1212,15 +1377,23 @@ public record AssignSupportTicketRequest(int? UserId = null, int? TakeOverFrom =
 
 public record CancelSupportTicketRequest(string? Reason);
 
+/// <param name="Text">Why it isn't resolved — goes to the thread as a message.</param>
+public record ReturnSupportTicketRequest(string? Text);
+
 /// <param name="SchoolAccess">The school's policy (<see cref="School.SupportAccess"/>).</param>
 /// <param name="Overdue">Still open after <paramref name="DueDate"/>.</param>
 /// <param name="AccessRequestedAt">Open and the assignee waits for the school to allow entering.</param>
 /// <param name="AccessUntil">Open and entering allowed until then; null otherwise.</param>
+/// <param name="AutoClosesAt">Resolved: closes by itself then.</param>
+/// <param name="ReopenableUntil">Closed or cancelled and may still be reopened till then.</param>
+/// <param name="CanConfirm">In the ticket's detail for the school: the caller
+/// may close or return it (resolved), or reopen it.</param>
 public record SupportTicketDto(
     int Id, int SchoolId, string SchoolName, SupportAccess SchoolAccess, string Title, string Description,
     DateTimeOffset CreatedAt, string CreatedByName, bool CreatedBySupport, string PlanName, DateOnly DueDate,
     SupportTicketStatus Status, DateTimeOffset? StatusChangedAt, int? AssigneeUserId, string? AssigneeName,
-    bool Overdue, DateTimeOffset? AccessRequestedAt, DateTimeOffset? AccessUntil);
+    bool Overdue, DateTimeOffset? AccessRequestedAt, DateTimeOffset? AccessUntil,
+    DateTimeOffset? AutoClosesAt = null, DateTimeOffset? ReopenableUntil = null, bool CanConfirm = false);
 
 /// <param name="Id">0 for the support sessions' entries, which aren't stored.</param>
 /// <param name="Text">With <see cref="SupportTicketEntryKind.SessionAction"/>
