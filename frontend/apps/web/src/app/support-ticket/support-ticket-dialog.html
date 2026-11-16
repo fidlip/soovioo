@@ -319,7 +319,6 @@
         [rows]="3"
         maxlength="8000"
         [internal]="internal || !ticketOpen()"
-        [labelInTab]="true"
         [(ngModel)]="text"
         (keydown.control.enter)="sendByKey(messageForm)"
         (keydown.meta.enter)="sendByKey(messageForm)"
