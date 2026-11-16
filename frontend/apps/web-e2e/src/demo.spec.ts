@@ -59,6 +59,10 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   await reloaded;
   await expect(page).toHaveURL(new RegExp(`/${slug}/home$`));
   await page.goto(`/${slug}/admin`);
+  // Without data there is no school year: the management is offered one.
+  const wizard = page.getByRole('dialog', { name: /^Založení školního roku/ });
+  await wizard.getByRole('button', { name: 'Zavřít', exact: true }).click();
+  await expect(wizard).toBeHidden();
   // Tabs render lazily — open Osoby: only the demo admin is left.
   await page.getByRole('tab', { name: 'Osoby' }).click();
   await expect(

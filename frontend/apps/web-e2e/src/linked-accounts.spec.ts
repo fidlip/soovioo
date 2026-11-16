@@ -45,8 +45,35 @@ async function twoSchools(request: APIRequestContext, page: Page, tag: string) {
       },
     });
     expect(created.ok()).toBe(true);
+    await foundSchoolYear(request, api, school);
   }
   return schools;
+}
+
+/** The suggested school year, so the admin isn't greeted by its wizard. */
+async function foundSchoolYear(
+  request: APIRequestContext,
+  api: string,
+  school: { slug: string; password: string },
+) {
+  const { token } = await (
+    await request.post(`${api}/auth/login`, {
+      data: {
+        username: 'spravce',
+        password: school.password,
+        schoolSlug: school.slug,
+      },
+    })
+  ).json();
+  const headers = { Authorization: `Bearer ${token}` };
+  const suggestion = await (
+    await request.get(`${api}/school-years/suggestion`, { headers })
+  ).json();
+  const founded = await request.post(`${api}/school-years`, {
+    headers,
+    data: suggestion,
+  });
+  expect(founded.ok()).toBe(true);
 }
 
 /** Picks the school in the dialog and goes to log in there. */

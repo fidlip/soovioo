@@ -1,4 +1,11 @@
 import { expect, test } from './fixtures';
+import {
+  mondaysAndTuesdays,
+  pick,
+  relativeToToday,
+  teachingDays,
+  typed,
+} from './school-days';
 
 async function login(
   page: import('@playwright/test').Page,
@@ -14,26 +21,28 @@ async function login(
   await expect(page).toHaveURL(/\/skola\/absences$/);
 }
 
-/** A random past date, so this run's absence is the only row with it — even
- * against a local database where earlier runs (or other spec files running
- * in parallel) left absences behind. */
-function randomPastDate(): { shown: RegExp; typed: string } {
-  const year = 2001 + Math.floor(Math.random() * 20);
-  const month = 1 + Math.floor(Math.random() * 12);
-  const day = 1 + Math.floor(Math.random() * 28);
-  const pad = (n: number) => `${n}`.padStart(2, '0');
+/** How a day shows in the list, and as typed in the date picker. */
+function shownDate(day: Date): { shown: RegExp; typed: string } {
   return {
     // "1. 2. 2003", but not inside "21. 2. 2003".
-    shown: new RegExp(`(^|\\D)${day}\\. ${month}\\. ${year}`),
-    typed: `${pad(day)}.${pad(month)}.${year}`,
+    shown: new RegExp(
+      `(^|\\D)${day.getDate()}\\. ${day.getMonth() + 1}\\. ${day.getFullYear()}`,
+    ),
+    typed: typed(day),
   };
 }
 
 // One absence goes through its whole life: the teacher records it, the
 // parent excuses it, the teacher approves it — each step depends on the
-// previous one.
+// previous one. On a random past day of lessons (records go only into a
+// school year), so this run's absence is likely the only row with it.
 test.describe.serial('absence excuse workflow', () => {
-  const date = randomPastDate();
+  let date = { shown: /$^/, typed: '' };
+  test.beforeAll(async ({ playwright }) => {
+    const day = pick(relativeToToday(await teachingDays({ playwright }), true));
+    test.skip(!day, 'No past day of lessons in the school year yet.');
+    date = shownDate(day as Date);
+  });
   const row = (page: import('@playwright/test').Page) =>
     page
       .locator('table tbody tr[id^="absence-"]')
@@ -126,20 +135,18 @@ test.describe.serial('absence excuse workflow', () => {
   });
 });
 
-/** A random Monday and the Tuesday after it, as typed in the date picker:
- * in the past, or (`future`) years ahead. */
-function randomMondayAndTuesday(future = false): [string, string] {
-  const date = new Date(
-    (future ? 2080 : 2001) + Math.floor(Math.random() * 15),
-    Math.floor(Math.random() * 12),
-    1 + Math.floor(Math.random() * 28),
+/** A random Monday and the Tuesday after it, days of lessons, as typed in
+ * the date picker: in the past, or (`future`) ahead. */
+async function randomMondayAndTuesday(
+  playwright: import('@playwright/test').PlaywrightWorkerArgs['playwright'],
+  future = false,
+): Promise<[string, string] | undefined> {
+  const pair = pick(
+    mondaysAndTuesdays(
+      relativeToToday(await teachingDays({ playwright }), !future),
+    ),
   );
-  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  const typed = (d: Date) =>
-    `${`${d.getDate()}`.padStart(2, '0')}.${`${d.getMonth() + 1}`.padStart(2, '0')}.${d.getFullYear()}`;
-  const tuesday = new Date(date);
-  tuesday.setDate(date.getDate() + 1);
-  return [typed(date), typed(tuesday)];
+  return pair && [typed(pair[0]), typed(pair[1])];
 }
 
 async function typeDate(
@@ -177,7 +184,12 @@ async function writeExcuse(
 // doctor's note and edits it, the teacher rejects it with a reason the
 // parent then sees.
 test.describe.serial('parent writes an omluvenka', () => {
-  const days = randomMondayAndTuesday();
+  let days: [string, string] = ['', ''];
+  test.beforeAll(async ({ playwright }) => {
+    const pair = await randomMondayAndTuesday(playwright);
+    test.skip(!pair, 'No past Monday and Tuesday of lessons in the year yet.');
+    days = pair as [string, string];
+  });
   const token = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const excuse = (page: import('@playwright/test').Page) =>
     page.locator('tr[id^="excuse-"]').filter({ hasText: token });
@@ -286,13 +298,16 @@ test.describe.serial('parent writes an omluvenka', () => {
 
 test('an omluvenka ahead is approved at the earliest on its day', async ({
   page,
+  playwright,
 }) => {
+  const days = await randomMondayAndTuesday(playwright, true);
+  test.skip(!days, 'No Monday and Tuesday of lessons ahead in the year.');
   const token = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const excuse = page.locator('tr[id^="excuse-"]').filter({ hasText: token });
   await login(page, 'rodic', 'rodic123');
   const dialog = await writeExcuse(
     page,
-    randomMondayAndTuesday(true),
+    days as [string, string],
     `Lázně ${token}`,
   );
   await dialog.locator('button[type="submit"]').click();
