@@ -320,6 +320,7 @@
         maxlength="8000"
         required
         [internal]="internal || !ticketOpen()"
+        [labelInTab]="true"
         [(ngModel)]="text"
         (keydown.control.enter)="sendByKey(messageForm)"
         (keydown.meta.enter)="sendByKey(messageForm)"
@@ -327,8 +328,6 @@
         @if (bySupport()) {
         <label
           class="mr-auto flex cursor-pointer items-center gap-2 text-sm"
-          [class.text-amber-700]="internal || !ticketOpen()"
-          [class.dark:text-amber-300]="internal || !ticketOpen()"
           pTooltip="Interní poznámku škola neuvidí."
           tooltipPosition="top"
         >
@@ -338,8 +337,7 @@
             (ngModelChange)="internal = $event"
             [disabled]="!ticketOpen()"
           />
-          <i class="pi pi-lock text-xs"></i>
-          interní
+          Interní
           <span class="sr-only">(škola ji neuvidí)</span>
         </label>
         }
@@ -354,6 +352,14 @@
       </app-markdown-editor>
     </form>
     }
+    <div class="flex justify-end">
+      <p-button
+        label="Zavřít"
+        severity="secondary"
+        [text]="true"
+        (onClick)="setVisible(false)"
+      />
+    </div>
   </div>
   }
 </p-dialog>

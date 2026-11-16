@@ -6,6 +6,7 @@
   --internal-border: theme('colors.amber.300');
   --internal-hover-border: theme('colors.amber.400');
   --internal-focus-border: theme('colors.amber.500');
+  --internal-text: theme('colors.amber.700');
 }
 
 :host-context(.soovioo-dark) {
@@ -13,6 +14,7 @@
   --internal-border: theme('colors.amber.700');
   --internal-hover-border: theme('colors.amber.600');
   --internal-focus-border: theme('colors.amber.500');
+  --internal-text: theme('colors.amber.300');
 }
 
 :host(.internal) {
@@ -62,6 +64,14 @@
   border-color: var(--editor-border);
   background: var(--editor-background);
   color: var(--p-text-color);
+}
+
+.label-tab {
+  font-weight: 500;
+}
+
+:host(.internal) .label-tab {
+  color: var(--internal-text);
 }
 
 .field {
