@@ -236,7 +236,7 @@ public record SetSchoolTypeRequest(SchoolType Type);
 
 /// <param name="District">One of <see cref="SchoolYears.Districts.All"/>.</param>
 public record SetSchoolDetailsRequest(
-    string? Street, string? City, string? PostalCode, string? DirectorName, string? Email, string? Phone, string? District = null);
+    string Name, string? Street, string? City, string? PostalCode, string? DirectorName, string? Email, string? Phone, string? District = null);
 
 public record SchoolDto(
     int Id,

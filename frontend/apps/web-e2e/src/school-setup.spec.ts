@@ -79,3 +79,71 @@ test("a new school's admin goes through Nastavení školy, then founds the schoo
   });
   expect(school.setupCompletedAt).not.toBeNull();
 });
+
+test('the admin renames the school in Administrace → Škola → Údaje', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/skola/login');
+  const api = apiUrl(page);
+  const superAdmin = await (
+    await request.post(`${api}/auth/login`, {
+      data: { username: 'superadmin', password: 'superadmin123' },
+    })
+  ).json();
+  const slug = `prejmenovani-${Date.now()}`;
+  const password = `${slug}-heslo`;
+  const created = await request.post(`${api}/schools`, {
+    headers: { Authorization: `Bearer ${superAdmin.token}` },
+    data: {
+      name: `Škola ${slug}`,
+      slug,
+      adminUsername: 'spravce',
+      adminPassword: password,
+    },
+  });
+  expect(created.ok()).toBe(true);
+  const { token } = await (
+    await request.post(`${api}/auth/login`, {
+      data: { username: 'spravce', password, schoolSlug: slug },
+    })
+  ).json();
+  const headers = { Authorization: `Bearer ${token}` };
+  const setup = await request.put(`${api}/my-school/setup`, {
+    headers,
+    data: {
+      name: `Škola ${slug}`,
+      type: 'Elementary',
+      reportCardMarkFormat: 'Words',
+    },
+  });
+  expect(setup.ok()).toBe(true);
+  const suggestion = await (
+    await request.get(`${api}/school-years/suggestion`, { headers })
+  ).json();
+  expect(
+    (
+      await request.post(`${api}/school-years`, { headers, data: suggestion })
+    ).ok(),
+  ).toBe(true);
+
+  await page.goto(`/${slug}/login`);
+  await page.locator('#username').fill('spravce');
+  await page.locator('#password').fill(password);
+  await page.getByRole('button', { name: 'Přihlásit se' }).click();
+  await page.getByRole('link', { name: 'Administrace', exact: true }).click();
+
+  const name = page.getByLabel('Název školy');
+  await expect(name).toHaveValue(`Škola ${slug}`);
+  const save = page
+    .locator('form')
+    .filter({ has: name })
+    .getByRole('button', { name: 'Uložit' });
+  await name.fill('');
+  await expect(save).toBeDisabled();
+  await name.fill(`ZŠ ${slug}`);
+  await save.click();
+
+  await expect(page.getByLabel('Název školy')).toHaveValue(`ZŠ ${slug}`);
+  await expect(page.getByText(`ZŠ ${slug}`).first()).toBeVisible();
+});

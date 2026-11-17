@@ -24,7 +24,7 @@ import {
   Tabs,
 } from '@openng/optimus-ui/tabs';
 import { TabScroll } from '../tab-scroll';
-import { forkJoin, Observable, switchMap } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import {
   AppUser,
   AuthApiService,
@@ -528,6 +528,8 @@ export class AdminPage {
   protected addingParentId: number | null = null;
   protected editingParentChildIds: number[] = [];
 
+  protected readonly schoolName = signal('');
+  private savedSchoolName = '';
   protected readonly schoolStreet = signal('');
   protected readonly schoolCity = signal('');
   protected readonly schoolPostalCode = signal('');
@@ -1608,6 +1610,8 @@ export class AdminPage {
       next: (school) => {
         this.matrikaIzo.set(school.izo ?? '');
         this.matrikaRedIzo.set(school.redIzo ?? '');
+        this.schoolName.set(school.name);
+        this.savedSchoolName = school.name;
         this.schoolStreet.set(school.street ?? '');
         this.schoolCity.set(school.city ?? '');
         this.schoolPostalCode.set(school.postalCode ?? '');
@@ -1649,9 +1653,13 @@ export class AdminPage {
       });
   }
 
+  /** A new name, like the type, travels in the access token (`schoolName`
+   * claim) — fetch a fresh one and reload. */
   protected saveSchoolDetails(): void {
+    const renamed = this.schoolName().trim() !== this.savedSchoolName;
     this.mySchoolApi
       .setDetails({
+        name: this.schoolName().trim(),
         street: this.schoolStreet() || null,
         city: this.schoolCity() || null,
         postalCode: this.schoolPostalCode() || null,
@@ -1660,8 +1668,14 @@ export class AdminPage {
         email: this.schoolEmail() || null,
         phone: this.schoolPhone() || null,
       })
+      .pipe(
+        switchMap(() =>
+          renamed ? this.authApi.refresh().pipe(map(() => true)) : of(false),
+        ),
+      )
       .subscribe({
-        next: () => this.loadMySchool(),
+        next: (reload) =>
+          reload ? window.location.reload() : this.loadMySchool(),
         error: (err) => this.showError('setSchoolDetails failed', err),
       });
   }
