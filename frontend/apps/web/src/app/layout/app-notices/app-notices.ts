@@ -24,12 +24,14 @@ import { UnreadCountsService } from '../../unread-counts.service';
 import { SupportPresenceBanners } from '../support-presence/support-presence';
 import { SchoolYearWizard } from '../../school-year-wizard/school-year-wizard';
 import { SessionSyncService } from '../../session-sync.service';
+import { AppVersionService } from '../../app-version.service';
 import { SupportTicketDialog } from '../../support-ticket/support-ticket-dialog';
 import { SupportEndedDialog } from '../support-ended-dialog/support-ended-dialog';
 import { SupportLeaveDialog } from '../support-leave-dialog/support-leave-dialog';
 import { checkOnNavigation } from '../check-on-navigation';
 
-/** Strips on top of every page: this tab's session changed elsewhere, a
+/** Strips on top of every page: a newer version of the app was deployed,
+ * this tab's session changed elsewhere, a
  * SuperAdmin is here in support mode — or in the user's account, or as
  * someone for the user's ticket ("Vstoupit jako…") — or the school has no
  * school year for today. */
@@ -49,6 +51,7 @@ import { checkOnNavigation } from '../check-on-navigation';
 export class AppNotices {
   protected readonly authApi = inject(AuthApiService);
   protected readonly sessionSync = inject(SessionSyncService);
+  protected readonly outdated = inject(AppVersionService).outdated;
 
   private readonly schoolYears = inject(SchoolYearsStore);
   private readonly supportApi = inject(SupportApiService);

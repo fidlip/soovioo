@@ -3,14 +3,20 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { LiveService } from '../../live.service';
 import { DeployedVersion } from './deployed-version';
 
 describe('DeployedVersion', () => {
   function create() {
     TestBed.configureTestingModule({
       imports: [DeployedVersion],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: LiveService, useValue: { connected: signal(false) } },
+      ],
     });
     const fixture = TestBed.createComponent(DeployedVersion);
     const http = TestBed.inject(HttpTestingController);
