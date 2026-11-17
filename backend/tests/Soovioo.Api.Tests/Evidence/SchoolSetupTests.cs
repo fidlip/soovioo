@@ -77,4 +77,26 @@ public class SchoolSetupTests
         Assert.Contains("name", problem.Errors.Keys);
         Assert.Equal("ZŠ Nová", school.Name);
     }
+
+    [Fact]
+    public async Task The_details_rename_the_school()
+    {
+        var result = await new MySchoolController(db, new FakeCurrentSchoolContext(1))
+            .SetDetails(new SetSchoolDetailsRequest(" ZŠ Nová Ves ", null, null, null, null, null, null));
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal("ZŠ Nová Ves", school.Name);
+    }
+
+    [Fact]
+    public async Task The_details_need_a_name()
+    {
+        var result = await new MySchoolController(db, new FakeCurrentSchoolContext(1))
+            .SetDetails(new SetSchoolDetailsRequest("", "Školní 1", null, null, null, null, null));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains("name", problem.Errors.Keys);
+        Assert.Equal("ZŠ Nová", school.Name);
+        Assert.Null(school.Street);
+    }
 }

@@ -381,7 +381,20 @@
                     <form
                       class="flex flex-wrap items-end gap-2"
                       (ngSubmit)="saveSchoolDetails()"
+                      #schoolDetailsForm="ngForm"
                     >
+                      <app-float-field label="Název školy" for="schoolName">
+                        <input
+                          pInputText
+                          id="schoolName"
+                          name="schoolName"
+                          class="w-80"
+                          required
+                          maxlength="200"
+                          [ngModel]="schoolName()"
+                          (ngModelChange)="schoolName.set($event)"
+                        />
+                      </app-float-field>
                       <app-float-field label="Ulice" for="schoolStreet">
                         <input
                           pInputText
@@ -462,6 +475,7 @@
                         label="Uložit"
                         severity="secondary"
                         [outlined]="true"
+                        [disabled]="!!schoolDetailsForm.invalid"
                       />
                     </form>
                   </p-card>

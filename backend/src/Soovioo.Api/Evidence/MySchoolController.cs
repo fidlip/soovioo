@@ -102,13 +102,9 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         var name = request.Name?.Trim();
-        if (string.IsNullOrEmpty(name))
+        if (NameError(name) is { } nameError)
         {
-            return this.FieldError("name", "Vyplňte název školy.");
-        }
-        if (name.Length > MaxNameLength)
-        {
-            return this.FieldError("name", $"Název školy může mít nejvýše {MaxNameLength} znaků.");
+            return nameError;
         }
         if (!Enum.IsDefined(request.Type))
         {
@@ -161,6 +157,11 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 
     private const int MaxNameLength = 200;
 
+    private ActionResult? NameError(string? name) =>
+        string.IsNullOrEmpty(name) ? this.FieldError("name", "Vyplňte název školy.")
+        : name.Length > MaxNameLength ? this.FieldError("name", $"Název školy může mít nejvýše {MaxNameLength} znaků.")
+        : null;
+
     private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>Institutional address/contact/director — used on real
@@ -175,6 +176,11 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
+        var name = request.Name?.Trim();
+        if (NameError(name) is { } nameError)
+        {
+            return nameError;
+        }
         if (request.District is { } district && !SchoolYears.Districts.IsKnown(district))
         {
             return this.FieldError("district", "Takový okres neznáme.");
@@ -188,6 +194,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return this.FieldError("phone", ContactFormats.InvalidPhone);
         }
 
+        school.Name = name!;
         school.Street = request.Street;
         school.District = request.District;
         school.City = request.City;

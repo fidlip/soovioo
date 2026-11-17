@@ -54,6 +54,7 @@ export interface SetSchoolMatrikaIdsRequest {
 }
 
 export interface SetSchoolDetailsRequest {
+  name: string;
   street: string | null;
   city: string | null;
   postalCode: string | null;
@@ -73,7 +74,6 @@ export interface SetSchoolBankAccountRequest {
 
 /** "Nastavení školy" — everything the wizard asks, saved at once. */
 export interface SchoolSetupRequest extends SetSchoolDetailsRequest {
-  name: string;
   type: SchoolType;
   reportCardMarkFormat: ReportCardMarkFormat;
   izo: string | null;
