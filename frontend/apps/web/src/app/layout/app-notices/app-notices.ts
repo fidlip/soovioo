@@ -162,8 +162,11 @@ export class AppNotices {
     });
   }
 
+  /** The new name and type come with a fresh token, and every page reads
+   * them once — a full reload, as when switching the role. The year's
+   * wizard opens after it on its own. */
   protected setupCompleted(): void {
-    this.setupPending.set(null);
+    window.location.reload();
   }
 
   protected foundSchoolYear(): void {

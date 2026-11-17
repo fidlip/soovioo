@@ -55,7 +55,7 @@ async function twoSchools(request: APIRequestContext, page: Page, tag: string) {
 async function setUpSchool(
   request: APIRequestContext,
   api: string,
-  school: { slug: string; password: string },
+  school: { slug: string; name: string; password: string },
 ) {
   const { token } = await (
     await request.post(`${api}/auth/login`, {
@@ -69,7 +69,11 @@ async function setUpSchool(
   const headers = { Authorization: `Bearer ${token}` };
   const setup = await request.put(`${api}/my-school/setup`, {
     headers,
-    data: { type: 'Elementary', reportCardMarkFormat: 'Words' },
+    data: {
+      name: school.name,
+      type: 'Elementary',
+      reportCardMarkFormat: 'Words',
+    },
   });
   expect(setup.ok()).toBe(true);
   const suggestion = await (

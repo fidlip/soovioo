@@ -35,11 +35,11 @@ test("a new school's admin goes through Nastavení školy, then founds the schoo
   await page.locator('#password').fill(`${slug}-heslo`);
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
 
-  const wizard = page.getByRole('dialog', {
-    name: `Nastavení školy Škola ${slug}`,
-  });
+  const wizard = page.getByRole('dialog', { name: 'Nastavení školy' });
   await expect(wizard).toBeVisible();
   await wizard.getByRole('radio', { name: /Střední škola/ }).click();
+  await expect(wizard.getByLabel('Název školy')).toHaveValue(`Škola ${slug}`);
+  await wizard.getByLabel('Název školy').fill(`Gymnázium ${slug}`);
   await wizard.getByLabel('Obec').fill('Blansko');
   await wizard.getByRole('button', { name: 'Další' }).click();
   await wizard.getByLabel('E-mail').fill('neni-email');
@@ -51,6 +51,7 @@ test("a new school's admin goes through Nastavení školy, then founds the schoo
   await wizard.getByRole('button', { name: 'Dokončit' }).click();
 
   await expect(wizard).toBeHidden();
+  await expect(page.getByText(`Gymnázium ${slug}`).first()).toBeVisible();
   await expect(
     page.getByRole('dialog', { name: /Založení školního roku/ }),
   ).toBeVisible();
@@ -70,6 +71,7 @@ test("a new school's admin goes through Nastavení školy, then founds the schoo
     })
   ).json();
   expect(school).toMatchObject({
+    name: `Gymnázium ${slug}`,
     type: 'Secondary',
     city: 'Blansko',
     email: 'skola@example.cz',
