@@ -45,13 +45,14 @@ async function twoSchools(request: APIRequestContext, page: Page, tag: string) {
       },
     });
     expect(created.ok()).toBe(true);
-    await foundSchoolYear(request, api, school);
+    await setUpSchool(request, api, school);
   }
   return schools;
 }
 
-/** The suggested school year, so the admin isn't greeted by its wizard. */
-async function foundSchoolYear(
+/** Nastavení školy done and the suggested school year founded, so the
+ * admin isn't greeted by their wizards. */
+async function setUpSchool(
   request: APIRequestContext,
   api: string,
   school: { slug: string; password: string },
@@ -66,6 +67,11 @@ async function foundSchoolYear(
     })
   ).json();
   const headers = { Authorization: `Bearer ${token}` };
+  const setup = await request.put(`${api}/my-school/setup`, {
+    headers,
+    data: { type: 'Elementary', reportCardMarkFormat: 'Words' },
+  });
+  expect(setup.ok()).toBe(true);
   const suggestion = await (
     await request.get(`${api}/school-years/suggestion`, { headers })
   ).json();

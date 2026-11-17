@@ -56,6 +56,11 @@ public class School
     /// <summary>When the demo school gets deleted (demo schools only).</summary>
     public DateTimeOffset? ExpiresAt { get; set; }
 
+    /// <summary>When the admin went through "Nastavení školy" — until then
+    /// the wizard opens for whoever may administer the school. Schools that
+    /// existed before the wizard, and demos, count as set up.</summary>
+    public DateTimeOffset? SetupCompletedAt { get; set; }
+
     /// <summary>Demo only: the generated users with the most to show
     /// (admin, teacher, parent, pupil) — offered first in the user picker,
     /// and the ones the wizard's "za koho se chcete podívat" logs in as.</summary>

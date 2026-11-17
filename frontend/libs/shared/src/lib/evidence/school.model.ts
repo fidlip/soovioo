@@ -1,3 +1,4 @@
+import { ReportCardMarkFormat } from '../grades/report-card.model';
 import { SchoolType } from './student-term';
 
 export interface School {
@@ -26,6 +27,8 @@ export interface School {
   /** A "Vyzkoušet" demo (listed only with `demos=true`). */
   isDemo: boolean;
   expiresAt: string | null;
+  /** Null until the admin went through "Nastavení školy". */
+  setupCompletedAt: string | null;
 }
 
 export interface CreateSchoolRequest {
@@ -65,6 +68,15 @@ export interface SetSchoolTypeRequest {
 }
 
 export interface SetSchoolBankAccountRequest {
+  bankAccountNumber: string | null;
+}
+
+/** "Nastavení školy" — everything the wizard asks, saved at once. */
+export interface SchoolSetupRequest extends SetSchoolDetailsRequest {
+  type: SchoolType;
+  reportCardMarkFormat: ReportCardMarkFormat;
+  izo: string | null;
+  redIzo: string | null;
   bankAccountNumber: string | null;
 }
 

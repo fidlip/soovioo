@@ -1,0 +1,307 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [header]="'Nastavení školy ' + schoolName()"
+  [modal]="true"
+  [focusOnShow]="false"
+  styleClass="w-full max-w-xl"
+>
+  <p class="mt-0 mb-4 text-sm text-surface-500 dark:text-surface-400">
+    Vítejte v Soovioo. Než se pustíte do práce, projdeme spolu základní údaje o
+    škole. Všechno později změníte v Administraci (Škola → Údaje).
+  </p>
+
+  <div [hidden]="step() !== 'type'" data-testid="setup-step-type">
+    <p class="demo-step-label">
+      Krok {{ stepNumber('type') }} z {{ steps.length }}
+    </p>
+    <h2 class="demo-step-title">Jaký je typ školy?</h2>
+    <div
+      class="grid gap-3 sm:grid-cols-2"
+      role="radiogroup"
+      aria-label="Typ školy"
+    >
+      <button
+        type="button"
+        role="radio"
+        class="demo-option"
+        [class.selected]="type() === 'Elementary'"
+        [attr.aria-checked]="type() === 'Elementary'"
+        (click)="chooseType('Elementary')"
+      >
+        <i class="pi pi-home text-2xl text-primary"></i>
+        <strong>Základní škola</strong>
+        <span>aplikace mluví o žácích</span>
+      </button>
+      <button
+        type="button"
+        role="radio"
+        class="demo-option"
+        [class.selected]="type() === 'Secondary'"
+        [attr.aria-checked]="type() === 'Secondary'"
+        (click)="chooseType('Secondary')"
+      >
+        <i class="pi pi-graduation-cap text-2xl text-primary"></i>
+        <strong>Střední škola</strong>
+        <span>aplikace mluví o studentech</span>
+      </button>
+    </div>
+  </div>
+
+  <form
+    #seatForm="ngForm"
+    [hidden]="step() !== 'seat'"
+    (ngSubmit)="next()"
+    data-testid="setup-step-seat"
+  >
+    <p class="demo-step-label">
+      Krok {{ stepNumber('seat') }} z {{ steps.length }}
+    </p>
+    <h2 class="demo-step-title">Kde škola sídlí?</h2>
+    <p class="mt-0 mb-4 text-sm text-surface-500 dark:text-surface-400">
+      Adresa patří do hlavičky vysvědčení. Podle okresu se školnímu roku nastaví
+      jarní prázdniny.
+    </p>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
+      <app-float-field label="Ulice" for="setupStreet" class="sm:col-span-2">
+        <input
+          pInputText
+          id="setupStreet"
+          name="street"
+          class="w-full"
+          maxlength="200"
+          [(ngModel)]="street"
+        />
+      </app-float-field>
+      <app-float-field label="Obec" for="setupCity">
+        <input
+          pInputText
+          id="setupCity"
+          name="city"
+          class="w-full"
+          maxlength="200"
+          [(ngModel)]="city"
+        />
+      </app-float-field>
+      <app-float-field label="PSČ" for="setupPostalCode">
+        <input
+          pInputText
+          id="setupPostalCode"
+          name="postalCode"
+          class="w-full"
+          maxlength="20"
+          [(ngModel)]="postalCode"
+        />
+      </app-float-field>
+      <app-float-field label="Okres" for="setupDistrict" class="sm:col-span-2">
+        <p-select
+          inputId="setupDistrict"
+          name="district"
+          [options]="districts()"
+          [(ngModel)]="district"
+          [filter]="true"
+          [showClear]="true"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </app-float-field>
+    </div>
+    <div class="demo-nav">
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
+      <p-button
+        type="submit"
+        label="Další"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        [disabled]="!!seatForm.invalid"
+      />
+    </div>
+  </form>
+
+  <form
+    #contactForm="ngForm"
+    [hidden]="step() !== 'contact'"
+    (ngSubmit)="next()"
+    data-testid="setup-step-contact"
+  >
+    <p class="demo-step-label">
+      Krok {{ stepNumber('contact') }} z {{ steps.length }}
+    </p>
+    <h2 class="demo-step-title">Vedení a kontakt</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <app-float-field
+        label="Ředitel/ka"
+        for="setupDirectorName"
+        class="sm:col-span-2"
+      >
+        <input
+          pInputText
+          id="setupDirectorName"
+          name="directorName"
+          class="w-full"
+          maxlength="200"
+          [(ngModel)]="directorName"
+        />
+      </app-float-field>
+      <app-float-field label="E-mail" for="setupEmail">
+        <input
+          pInputText
+          type="email"
+          id="setupEmail"
+          name="email"
+          class="w-full"
+          appEmail
+          [(ngModel)]="email"
+        />
+      </app-float-field>
+      <app-float-field label="Telefon" for="setupPhone">
+        <input
+          pInputText
+          type="tel"
+          id="setupPhone"
+          name="phone"
+          class="w-full"
+          appPhone
+          [(ngModel)]="phone"
+        />
+      </app-float-field>
+    </div>
+    <div class="demo-nav">
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
+      <p-button
+        type="submit"
+        label="Další"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        [disabled]="!!contactForm.invalid"
+      />
+    </div>
+  </form>
+
+  <div
+    [hidden]="step() !== 'reportCards'"
+    data-testid="setup-step-report-cards"
+  >
+    <p class="demo-step-label">
+      Krok {{ stepNumber('reportCards') }} z {{ steps.length }}
+    </p>
+    <h2 class="demo-step-title">Jak se na vysvědčení píše klasifikace?</h2>
+    <p class="mt-0 mb-4 text-sm text-surface-500 dark:text-surface-400">
+      Podle pravidel hodnocení ve školním řádu (§ 15 vyhlášky č. 48/2005 Sb.).
+      Výjimky pro ročník, třídu nebo žáka nastavíte později.
+    </p>
+    <div
+      class="grid gap-3 sm:grid-cols-2"
+      role="radiogroup"
+      aria-label="Klasifikace na vysvědčení"
+    >
+      <button
+        type="button"
+        role="radio"
+        class="demo-option"
+        [class.selected]="markFormat() === 'Words'"
+        [attr.aria-checked]="markFormat() === 'Words'"
+        (click)="chooseMarkFormat('Words')"
+      >
+        <strong>Slovem</strong>
+        <span>výborný, chvalitebný… chování velmi dobré</span>
+      </button>
+      <button
+        type="button"
+        role="radio"
+        class="demo-option"
+        [class.selected]="markFormat() === 'Digits'"
+        [attr.aria-checked]="markFormat() === 'Digits'"
+        (click)="chooseMarkFormat('Digits')"
+      >
+        <strong>Číslem</strong>
+        <span>1, 2… i u chování</span>
+      </button>
+    </div>
+    <div class="demo-nav">
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
+    </div>
+  </div>
+
+  <form
+    #idsForm="ngForm"
+    [hidden]="step() !== 'ids'"
+    (ngSubmit)="save()"
+    data-testid="setup-step-ids"
+  >
+    <p class="demo-step-label">
+      Krok {{ stepNumber('ids') }} z {{ steps.length }}
+    </p>
+    <h2 class="demo-step-title">Identifikátory a platby</h2>
+    <p class="mt-0 mb-4 text-sm text-surface-500 dark:text-surface-400">
+      Nepovinné. IZO a RED_IZO potřebuje export do matriky, na bankovní účet se
+      generuje QR platba u plateb.
+    </p>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <app-float-field label="IZO školy" for="setupIzo">
+        <input
+          pInputText
+          id="setupIzo"
+          name="izo"
+          class="w-full"
+          maxlength="20"
+          [(ngModel)]="izo"
+        />
+      </app-float-field>
+      <app-float-field label="RED_IZO" for="setupRedIzo">
+        <input
+          pInputText
+          id="setupRedIzo"
+          name="redIzo"
+          class="w-full"
+          maxlength="20"
+          [(ngModel)]="redIzo"
+        />
+      </app-float-field>
+      <app-float-field
+        label="Číslo bankovního účtu"
+        for="setupBankAccountNumber"
+        class="sm:col-span-2"
+      >
+        <input
+          pInputText
+          id="setupBankAccountNumber"
+          name="bankAccountNumber"
+          class="w-full"
+          placeholder="IBAN nebo 19-2000145399/0800"
+          [(ngModel)]="bankAccountNumber"
+        />
+      </app-float-field>
+    </div>
+    <div class="demo-nav">
+      <p-button
+        label="Zpět"
+        [text]="true"
+        icon="pi pi-arrow-left"
+        (onClick)="back()"
+      />
+      <p-button
+        type="submit"
+        label="Dokončit"
+        icon="pi pi-check"
+        [loading]="saving()"
+        [disabled]="!!idsForm.invalid"
+      />
+    </div>
+  </form>
+</p-dialog>

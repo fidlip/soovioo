@@ -55,7 +55,8 @@ public class SchoolsController(AppDbContext db) : ControllerBase
                 db.Students.Count(st => st.SchoolId == s.Id),
                 db.Users.Count(u => u.SchoolId == s.Id),
                 s.IsDemo,
-                s.ExpiresAt))
+                s.ExpiresAt,
+                s.SetupCompletedAt))
             .ToListAsync();
 
         return Ok(new PagedResult<SchoolDto>(schools, totalCount, page, pageSize));
@@ -162,7 +163,8 @@ public class SchoolsController(AppDbContext db) : ControllerBase
         await db.Students.CountAsync(s => s.SchoolId == school.Id),
         await db.Users.CountAsync(u => u.SchoolId == school.Id),
         school.IsDemo,
-        school.ExpiresAt);
+        school.ExpiresAt,
+        school.SetupCompletedAt);
 
     /// <summary>Only allowed while the school is still empty (no users at
     /// all — every school gets its first Admin at creation time, so this is
@@ -255,4 +257,5 @@ public record SchoolDto(
     int StudentCount,
     int UserCount,
     bool IsDemo = false,
-    DateTimeOffset? ExpiresAt = null);
+    DateTimeOffset? ExpiresAt = null,
+    DateTimeOffset? SetupCompletedAt = null);

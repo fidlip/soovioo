@@ -802,6 +802,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
                 // "Vyzkoušet" demo schools, see Demo/DemoSlugs.
                 Slug = "skola",
                 CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                SetupCompletedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
                 // RED_IZO/IZO straight from MŠMT's own matrika test-portal
                 // screenshots (the "Osmá testová škola" walkthrough examples),
                 // so this is recognizably a documented test fixture rather
