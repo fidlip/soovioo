@@ -10,6 +10,7 @@ import {
 import { VisibilityRules } from '../people/visibility.model';
 import {
   School,
+  SchoolSetupRequest,
   SetSchoolBankAccountRequest,
   SetSchoolDetailsRequest,
   SetSchoolMatrikaIdsRequest,
@@ -47,6 +48,13 @@ export class MySchoolApiService {
   setBankAccount(request: SetSchoolBankAccountRequest): Observable<School> {
     return this.http.put<School>(
       `${this.baseUrl}/api/my-school/bank-account`,
+      request,
+    );
+  }
+
+  completeSetup(request: SchoolSetupRequest): Observable<School> {
+    return this.http.put<School>(
+      `${this.baseUrl}/api/my-school/setup`,
       request,
     );
   }

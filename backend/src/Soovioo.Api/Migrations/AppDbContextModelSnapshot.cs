@@ -1010,6 +1010,9 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("ReportCardMarkFormat")
                         .HasColumnType("integer");
 
+                    b.Property<DateTimeOffset?>("SetupCompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1078,6 +1081,7 @@ namespace Soovioo.Api.Migrations
                             PushQuietTo = new TimeOnly(7, 0, 0),
                             RedIzo = "700000089",
                             ReportCardMarkFormat = 0,
+                            SetupCompletedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Slug = "skola",
                             StaffSeeStudentNicknames = true,
                             Street = "Školní 8",

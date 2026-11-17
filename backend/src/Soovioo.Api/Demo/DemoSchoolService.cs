@@ -76,6 +76,7 @@ public class DemoSchoolService(
             Type = request.Type,
             IsDemo = true,
             CreatedAt = now,
+            SetupCompletedAt = now,
             ExpiresAt = now.AddDays(options.Value.LifetimeDays),
         };
         RoleSeeder.AddMissing(school);

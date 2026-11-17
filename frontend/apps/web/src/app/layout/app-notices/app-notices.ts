@@ -11,6 +11,8 @@ import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import {
   AuthApiService,
+  MySchoolApiService,
+  School,
   SchoolYearsStore,
   SupportApiService,
 } from '@soovioo/shared';
@@ -23,6 +25,7 @@ import { NotifyService } from '../../notify.service';
 import { UnreadCountsService } from '../../unread-counts.service';
 import { SupportPresenceBanners } from '../support-presence/support-presence';
 import { SchoolYearWizard } from '../../school-year-wizard/school-year-wizard';
+import { SchoolSetupWizard } from '../../school-setup-wizard/school-setup-wizard';
 import { SessionSyncService } from '../../session-sync.service';
 import { AppVersionService } from '../../app-version.service';
 import { SupportTicketDialog } from '../../support-ticket/support-ticket-dialog';
@@ -34,12 +37,14 @@ import { checkOnNavigation } from '../check-on-navigation';
  * this tab's session changed elsewhere, a
  * SuperAdmin is here in support mode — or in the user's account, or as
  * someone for the user's ticket ("Vstoupit jako…") — or the school has no
- * school year for today. */
+ * school year for today. A new school's admin first goes through
+ * "Nastavení školy", the year's wizard comes after it. */
 @Component({
   selector: 'app-notices',
   templateUrl: './app-notices.html',
   styleUrl: './app-notices.scss',
   imports: [
+    SchoolSetupWizard,
     SchoolYearWizard,
     SupportAsPicker,
     SupportPresenceBanners,
@@ -55,6 +60,7 @@ export class AppNotices {
 
   private readonly schoolYears = inject(SchoolYearsStore);
   private readonly supportApi = inject(SupportApiService);
+  private readonly mySchoolApi = inject(MySchoolApiService);
   private readonly notify = inject(NotifyService);
   private readonly schoolContext = inject(SchoolContextService);
   private readonly router = inject(Router);
@@ -62,12 +68,19 @@ export class AppNotices {
   protected readonly supportPresence = inject(UnreadCountsService).support;
 
   private readonly wizard = viewChild(SchoolYearWizard);
+  private readonly setupWizard = viewChild(SchoolSetupWizard);
+  /** The school whose admin hasn't gone through "Nastavení školy" yet;
+   * undefined until known (or for whoever doesn't administer it). */
+  protected readonly setupPending = signal<School | null | undefined>(
+    undefined,
+  );
   /** Who is signed in, as of the last navigation: a school's account (not
    * a SuperAdmin outside support mode) and whether it may found a year. */
   private readonly inSchool = signal(false);
   protected readonly canFound = signal(false);
   private session = '';
   private offered = false;
+  private setupOffered = false;
   /** Signed in at a school that has no school year for today. */
   protected readonly noSchoolYear = computed(
     () => this.inSchool() && this.schoolYears.missing(),
@@ -81,10 +94,25 @@ export class AppNotices {
         takeUntilDestroyed(),
       )
       .subscribe(() => this.syncSession());
-    // Whoever may found the year gets the wizard once, on their own.
+    effect(() => {
+      const wizard = this.setupWizard();
+      const school = this.setupPending();
+      if (wizard && school && !this.setupOffered) {
+        this.setupOffered = true;
+        wizard.open(school);
+      }
+    });
+    // Whoever may found the year gets the wizard once, on their own — once
+    // the school is set up.
     effect(() => {
       const wizard = this.wizard();
-      if (wizard && this.noSchoolYear() && this.canFound() && !this.offered) {
+      if (
+        wizard &&
+        this.noSchoolYear() &&
+        this.canFound() &&
+        this.setupPending() === null &&
+        !this.offered
+      ) {
         this.offered = true;
         wizard.open();
       }
@@ -101,13 +129,41 @@ export class AppNotices {
     if (session !== this.session) {
       this.session = session;
       this.offered = false;
+      this.setupOffered = false;
       this.schoolYears.clear();
+      this.checkSetup();
     }
     this.inSchool.set(role !== null);
     this.canFound.set(role !== null && this.authApi.can('SchoolYear'));
     if (role) {
       this.schoolYears.ensure();
     }
+  }
+
+  /** Support mode doesn't get the wizard — it's the school's own step. */
+  private checkSetup(): void {
+    this.setupPending.set(undefined);
+    if (
+      !this.session ||
+      this.authApi.getSupportInfo() ||
+      !this.authApi.can('Administration')
+    ) {
+      this.setupPending.set(null);
+      return;
+    }
+    const session = this.session;
+    this.mySchoolApi.getMySchool().subscribe({
+      next: (school) => {
+        if (session === this.session) {
+          this.setupPending.set(school.setupCompletedAt ? null : school);
+        }
+      },
+      error: (err) => console.error('getMySchool failed', err),
+    });
+  }
+
+  protected setupCompleted(): void {
+    this.setupPending.set(null);
   }
 
   protected foundSchoolYear(): void {

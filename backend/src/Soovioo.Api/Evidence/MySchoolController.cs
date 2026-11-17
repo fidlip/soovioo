@@ -62,26 +62,94 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
-        // The pupils' role follows "žák"/"student" unless the school renamed it.
-        var pupils = await db.Roles.FirstOrDefaultAsync(r => r.BuiltIn == UserRole.Student);
-        if (pupils is not null && pupils.Name == PermissionCatalog.DefaultName(UserRole.Student, school.Type)
-            && !await db.Roles.AnyAsync(r => r.Name == PermissionCatalog.DefaultName(UserRole.Student, request.Type)))
-        {
-            pupils.Name = PermissionCatalog.DefaultName(UserRole.Student, request.Type);
-        }
-        school.Type = request.Type;
-        // A program of the other type isn't on offer any more.
-        foreach (var schoolClass in await db.SchoolClasses.Where(c => c.RvpProgramCode != null).ToListAsync())
-        {
-            if (RvpCatalog.Find(schoolClass.RvpProgramCode)?.SchoolType != request.Type)
-            {
-                schoolClass.RvpProgramCode = null;
-            }
-        }
+        await ApplyTypeAsync(school, request.Type);
         await db.SaveChangesAsync();
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
+
+    private async Task ApplyTypeAsync(School school, SchoolType type)
+    {
+        // The pupils' role follows "žák"/"student" unless the school renamed it.
+        var pupils = await db.Roles.FirstOrDefaultAsync(r => r.BuiltIn == UserRole.Student);
+        if (pupils is not null && pupils.Name == PermissionCatalog.DefaultName(UserRole.Student, school.Type)
+            && !await db.Roles.AnyAsync(r => r.Name == PermissionCatalog.DefaultName(UserRole.Student, type)))
+        {
+            pupils.Name = PermissionCatalog.DefaultName(UserRole.Student, type);
+        }
+        school.Type = type;
+        // A program of the other type isn't on offer any more.
+        foreach (var schoolClass in await db.SchoolClasses.Where(c => c.RvpProgramCode != null).ToListAsync())
+        {
+            if (RvpCatalog.Find(schoolClass.RvpProgramCode)?.SchoolType != type)
+            {
+                schoolClass.RvpProgramCode = null;
+            }
+        }
+    }
+
+    /// <summary>"Nastavení školy", the wizard a new school's admin goes
+    /// through first: everything at once, then the school counts as set
+    /// up.</summary>
+    [HttpPut("setup")]
+    [AuditAction("Dokončeno nastavení školy")]
+    public async Task<ActionResult<SchoolDto>> CompleteSetup(SchoolSetupRequest request)
+    {
+        var school = await db.Schools.FindAsync(currentSchool.SchoolId!.Value);
+        if (school is null)
+        {
+            return NotFound();
+        }
+
+        if (!Enum.IsDefined(request.Type))
+        {
+            return this.FieldError("type", "Neznámý typ školy.");
+        }
+        if (!Enum.IsDefined(request.ReportCardMarkFormat))
+        {
+            return this.FieldError("reportCardMarkFormat", "Neznámý způsob klasifikace.");
+        }
+        if (request.District is { } district && !SchoolYears.Districts.IsKnown(district))
+        {
+            return this.FieldError("district", "Takový okres neznáme.");
+        }
+        if (!ContactFormats.TryEmail(request.Email, out var email))
+        {
+            return this.FieldError("email", ContactFormats.InvalidEmail);
+        }
+        if (!ContactFormats.TryPhone(request.Phone, out var phone))
+        {
+            return this.FieldError("phone", ContactFormats.InvalidPhone);
+        }
+        string? iban = null;
+        if (!string.IsNullOrWhiteSpace(request.BankAccountNumber))
+        {
+            (iban, var error) = BankAccounts.ToIban(request.BankAccountNumber);
+            if (error is not null)
+            {
+                return this.FieldError("bankAccountNumber", error);
+            }
+        }
+
+        await ApplyTypeAsync(school, request.Type);
+        school.ReportCardMarkFormat = request.ReportCardMarkFormat;
+        school.Street = Trimmed(request.Street);
+        school.City = Trimmed(request.City);
+        school.PostalCode = Trimmed(request.PostalCode);
+        school.District = request.District;
+        school.DirectorName = Trimmed(request.DirectorName);
+        school.Email = email;
+        school.Phone = phone;
+        school.Izo = Trimmed(request.Izo);
+        school.RedIzo = Trimmed(request.RedIzo);
+        school.BankAccountNumber = iban;
+        school.SetupCompletedAt ??= DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        return Ok(await SchoolsController.ToDtoAsync(db, school));
+    }
+
+    private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>Institutional address/contact/director — used on real
     /// documents, not transmitted to matrika itself.</summary>
@@ -377,6 +445,22 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 }
 
 public record SetSchoolBankAccountRequest(string? BankAccountNumber);
+
+/// <param name="District">One of <see cref="SchoolYears.Districts.All"/>.</param>
+/// <param name="BankAccountNumber">IBAN or a Czech account number, see <see cref="SetSchoolBankAccountRequest"/>.</param>
+public record SchoolSetupRequest(
+    SchoolType Type,
+    Grades.ReportCardMarkFormat ReportCardMarkFormat,
+    string? Street,
+    string? City,
+    string? PostalCode,
+    string? District,
+    string? DirectorName,
+    string? Email,
+    string? Phone,
+    string? Izo,
+    string? RedIzo,
+    string? BankAccountNumber);
 
 /// <param name="MarkFormat">See <see cref="School.ReportCardMarkFormat"/>.</param>
 public record ReportCardSettingsDto(Grades.ReportCardMarkFormat MarkFormat);

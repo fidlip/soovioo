@@ -128,4 +128,6 @@
   <app-school-year-wizard />
   }
 </div>
+} @if (setupPending()) {
+<app-school-setup-wizard (completed)="setupCompleted()" />
 }

@@ -128,6 +128,7 @@ public class AuthorizationMapTests
         ["MyProfile.SwitchRole"] = "authenticated + superadmin + own account",
         ["MyProfile.UpdateProfile"] = "authenticated + superadmin + own account",
         ["MySchool.Get"] = "authenticated + perm:Administration",
+        ["MySchool.CompleteSetup"] = "authenticated + perm:Administration",
         ["MySchool.GetNotifications"] = "authenticated + perm:Administration",
         ["MySchool.DeleteAssessmentRule"] = "authenticated + perm:Administration",
         ["MySchool.GetAssessmentRules"] = "authenticated + perm:Administration",
