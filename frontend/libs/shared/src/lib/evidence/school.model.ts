@@ -73,6 +73,7 @@ export interface SetSchoolBankAccountRequest {
 
 /** "Nastavení školy" — everything the wizard asks, saved at once. */
 export interface SchoolSetupRequest extends SetSchoolDetailsRequest {
+  name: string;
   type: SchoolType;
   reportCardMarkFormat: ReportCardMarkFormat;
   izo: string | null;

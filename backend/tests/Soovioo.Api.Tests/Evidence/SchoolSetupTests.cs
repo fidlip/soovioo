@@ -29,8 +29,9 @@ public class SchoolSetupTests
     }
 
     private static SchoolSetupRequest Request(
-        string? email = "skola@nova.cz", string? bankAccount = "19-2000145399/0800", string? district = "Blansko") => new(
-        SchoolType.Secondary, ReportCardMarkFormat.Digits,
+        string? email = "skola@nova.cz", string? bankAccount = "19-2000145399/0800", string? district = "Blansko",
+        string name = " Gymnázium Nová Ves ") => new(
+        name, SchoolType.Secondary, ReportCardMarkFormat.Digits,
         " Školní 1 ", "Nová Ves", "123 45", district, "Mgr. Jana Nová", email, "777 123 456",
         "123456789", "", bankAccount);
 
@@ -41,6 +42,7 @@ public class SchoolSetupTests
 
         var dto = Assert.IsType<SchoolDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.NotNull(dto.SetupCompletedAt);
+        Assert.Equal("Gymnázium Nová Ves", school.Name);
         Assert.Equal(SchoolType.Secondary, school.Type);
         Assert.Equal(ReportCardMarkFormat.Digits, school.ReportCardMarkFormat);
         Assert.Equal("Školní 1", school.Street);
@@ -64,5 +66,15 @@ public class SchoolSetupTests
         Assert.Contains(field, problem.Errors.Keys);
         Assert.Null(school.SetupCompletedAt);
         Assert.Null(school.Street);
+    }
+
+    [Fact]
+    public async Task The_name_is_required()
+    {
+        var result = await new MySchoolController(db, new FakeCurrentSchoolContext(1)).CompleteSetup(Request(name: "  "));
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains("name", problem.Errors.Keys);
+        Assert.Equal("ZŠ Nová", school.Name);
     }
 }

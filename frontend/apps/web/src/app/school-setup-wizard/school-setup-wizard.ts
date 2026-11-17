@@ -23,6 +23,7 @@ const STEPS: SetupStep[] = ['type', 'seat', 'contact', 'reportCards', 'ids'];
 /** Which step asks for a field, so a server error on it shows there. */
 const STEP_OF: Record<string, SetupStep> = {
   type: 'type',
+  name: 'seat',
   street: 'seat',
   city: 'seat',
   postalCode: 'seat',
@@ -64,11 +65,11 @@ export class SchoolSetupWizard {
   protected readonly visible = signal(false);
   protected readonly step = signal<SetupStep>('type');
   protected readonly saving = signal(false);
-  protected readonly schoolName = signal('');
   protected readonly districts = signal<string[]>([]);
 
   protected readonly type = signal<SchoolType>('Elementary');
   protected readonly markFormat = signal<ReportCardMarkFormat>('Words');
+  protected name = '';
   protected street = '';
   protected city = '';
   protected postalCode = '';
@@ -81,7 +82,7 @@ export class SchoolSetupWizard {
   protected bankAccountNumber = '';
 
   open(school: School): void {
-    this.schoolName.set(school.name);
+    this.name = school.name;
     this.type.set(school.type);
     this.street = school.street ?? '';
     this.city = school.city ?? '';
@@ -143,7 +144,6 @@ export class SchoolSetupWizard {
       next: () => {
         this.saving.set(false);
         this.visible.set(false);
-        this.notify.success('Údaje o škole jsou uložené.');
         this.completed.emit();
       },
       error: (err) => {
@@ -164,6 +164,7 @@ export class SchoolSetupWizard {
   private request(): SchoolSetupRequest {
     const text = (value: string) => value.trim() || null;
     return {
+      name: this.name.trim(),
       type: this.type(),
       reportCardMarkFormat: this.markFormat(),
       street: text(this.street),

@@ -101,6 +101,15 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
             return NotFound();
         }
 
+        var name = request.Name?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return this.FieldError("name", "Vyplňte název školy.");
+        }
+        if (name.Length > MaxNameLength)
+        {
+            return this.FieldError("name", $"Název školy může mít nejvýše {MaxNameLength} znaků.");
+        }
         if (!Enum.IsDefined(request.Type))
         {
             return this.FieldError("type", "Neznámý typ školy.");
@@ -132,6 +141,7 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         }
 
         await ApplyTypeAsync(school, request.Type);
+        school.Name = name;
         school.ReportCardMarkFormat = request.ReportCardMarkFormat;
         school.Street = Trimmed(request.Street);
         school.City = Trimmed(request.City);
@@ -148,6 +158,8 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
 
         return Ok(await SchoolsController.ToDtoAsync(db, school));
     }
+
+    private const int MaxNameLength = 200;
 
     private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -449,6 +461,7 @@ public record SetSchoolBankAccountRequest(string? BankAccountNumber);
 /// <param name="District">One of <see cref="SchoolYears.Districts.All"/>.</param>
 /// <param name="BankAccountNumber">IBAN or a Czech account number, see <see cref="SetSchoolBankAccountRequest"/>.</param>
 public record SchoolSetupRequest(
+    string Name,
     SchoolType Type,
     Grades.ReportCardMarkFormat ReportCardMarkFormat,
     string? Street,
