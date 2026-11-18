@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "main": "./src/main.ts",
-  "license": "SEE LICENSE IN <your-license-filename>",
+  "license": "EUPL-1.2",
   "version": "0.0.0",
   "dependencies": {
     "@nativescript/core": "*",
