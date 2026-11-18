@@ -12,7 +12,7 @@ public record SupportPlanDto(string Code, string Name, int ResponseWorkingDays);
 /// <summary>Bound from the <c>SupportPlans</c> config section.</summary>
 public class SupportPlanOptions
 {
-    /// <summary>The plans service, e.g. <c>https://soovioo.cz/api</c>; empty =
+    /// <summary>The backoffice, e.g. <c>http://backoffice:8080</c>; empty =
     /// no service yet, every school has <see cref="Default"/>.</summary>
     public string? BaseUrl { get; set; }
 
@@ -27,7 +27,7 @@ public class SupportPlanOptions
     public string DemoPlanCode { get; set; } = "Demo";
 }
 
-/// <summary>Asks the separate plans service for a school's plan: a demo
+/// <summary>Asks the backoffice for a school's plan: a demo
 /// school's is the demo plan (<c>GET {BaseUrl}/plans/{code}</c>), any other's
 /// the one assigned to it (<c>GET {BaseUrl}/schools/{id}/plan</c>). Never fails:
 /// without the service or for an unknown school or plan it's the configured
