@@ -52,10 +52,10 @@ services:
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cz}
       Smtp__FromName: Soovioo
       Push__FcmServiceAccountJson: ${FCM_SERVICE_ACCOUNT_JSON:-}
-      # Support plans service, a separate stack on this VPS joined to this
+      # Backoffice (support plans etc.), a separate stack on this VPS joined to this
       # network; empty = every school has the default plan.
-      SupportPlans__BaseUrl: ${SUPPORT_PLANS_BASE_URL:-}
-      SupportPlans__ApiKey: ${SUPPORT_PLANS_API_KEY:-}
+      SupportPlans__BaseUrl: ${BACKOFFICE_BASE_URL:-}
+      SupportPlans__ApiKey: ${BACKOFFICE_API_KEY:-}
     volumes:
       - attachments:/app/AttachmentStorage
     logging: *logging
