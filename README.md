@@ -28,7 +28,7 @@ frontend/               Nx workspace (viz frontend/README.md)
   apps/nativescript-mobile/  mobilní aplikace
   libs/shared/          sdílený TS kód (web + mobil)
 .github/workflows/ci.yml  CI — frontend, backend, e2e
-LICENSE                 PolyForm Shield 1.0.0 (viz sekce Licence)
+LICENSE                 EUPL-1.2 (viz sekce Licence)
 CONTRIBUTING.md, CLA.md  jak přispět, licenční ujednání pro přispěvatele
 SECURITY.md             hlášení zranitelností
 ```
@@ -86,18 +86,28 @@ na svůj issue (`Closes #123`).
 
 ## Licence
 
-Zdrojový kód je veřejně dostupný pod licencí [PolyForm Shield 1.0.0](LICENSE). Není to
-open source v užším smyslu (OSI), protože licence zakazuje konkurenční využití.
+Copyright 2026 Filip Šalda (<https://soovioo.cz>). Licensed under the EUPL.
 
-Shrnutí (závazné je jen anglické znění v [LICENSE](LICENSE)):
+Soovioo je open source pod licencí [EUPL-1.2](LICENSE) (European Union Public Licence),
+kterou vydává Evropská komise. Licence má oficiální znění ve všech jazycích EU včetně
+[češtiny](https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
+a všechna jsou si rovnocenná.
 
-- **Smíš**: používat Soovioo pro vlastní potřebu (např. si ho škola nasadí na svém serveru),
-  upravovat ho, forkovat a šířit, pokud zachováš text licence a řádek `Required Notice`.
-- **Nesmíš**: poskytovat produkt nebo službu, která konkuruje Soovioo nebo službám, které
-  autor nad Soovioo nabízí (hosting, instalace, podpora, zakázkový vývoj, školení). Platí
-  to i pro služby poskytované zdarma.
-- Pokud autor některou službu přestane poskytovat, smí ji dál poskytovat kdokoli (oddíl
-  _Discontinued Products_). Školy tak nepřijdou o provoz, když autor skončí.
+Shrnutí (závazný je text licence):
+
+- **Smíš**: Soovioo používat k jakémukoli účelu (např. si ho škola nasadí na vlastním
+  serveru), studovat, upravovat a šířit, i upravené.
+- **Musíš**: zachovat upozornění na autorská práva a licenci. Když upravené Soovioo šíříš
+  nebo ho poskytuješ jiným přes síť (např. jako službu), musíš zpřístupnit zdrojový kód
+  svých úprav pod EUPL-1.2 (nebo pod licencí, kterou EUPL uvádí jako kompatibilní).
+- Licence nedává právo používat název a logo Soovioo.
+
+Verze před přechodem na EUPL-1.2 (commity v historii repozitáře před touto změnou) byly
+vydány pod licencí PolyForm Shield 1.0.0 a ta pro ně dál platí.
+
+Závislosti mají vlastní licence. Upozornění: knihovna [QuestPDF](https://www.questpdf.com/license/)
+(generování PDF) má vlastní licenční podmínky a bezplatná varianta neplatí pro každého.
+Kdo Soovioo provozuje, ať si ověří, zda se na něj vztahuje.
 
 Hosting, instalaci, podporu a zakázkový vývoj nabízí autor na <https://soovioo.cz>, kontakt
 <info@soovioo.cz>. Jak přispět (včetně CLA): [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -105,10 +115,13 @@ Bezpečnostní chyby: [SECURITY.md](SECURITY.md).
 
 ### In English
 
-Soovioo is a school information system for Czech schools, so this README is in Czech. The
-source code is available under the [PolyForm Shield 1.0.0](LICENSE) license. You may use,
-modify, fork and redistribute it, for example to run it for your own school. You may not
-provide any product or service that competes with Soovioo or with the services its author
-provides using it (hosting, installation, support, custom development, training). This is
-source-available software, not OSI open source. For contributing (including the CLA), see
+Soovioo is a school information system for Czech schools, so this README is in Czech. It is
+open source under the [European Union Public Licence v. 1.2](LICENSE) (EUPL-1.2). You may
+use, study, modify and redistribute it, for example to run it for your own school. If you
+distribute a modified version or make it available to others over a network, you must
+publish the source code of your changes under the EUPL-1.2 or a compatible licence. The
+licence does not cover the Soovioo name and logo. Versions released before the switch to
+the EUPL-1.2 remain under the PolyForm Shield 1.0.0 licence. Dependencies have their own
+licences; note that QuestPDF has its own licence terms and its free tier does not apply to
+everyone, so operators should check them. For contributing (including the CLA), see
 [CONTRIBUTING.md](CONTRIBUTING.md). To report security issues, see [SECURITY.md](SECURITY.md).

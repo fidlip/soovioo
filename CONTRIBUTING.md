@@ -32,5 +32,6 @@ If you contribute as part of your job, make sure your employer allows it first.
 
 ## License
 
-Soovioo is released under the [PolyForm Shield 1.0.0](LICENSE) license. See the
-[Licence](README.md#licence) section of the README for a summary.
+Soovioo is released under the [European Union Public Licence v. 1.2](LICENSE) (EUPL-1.2).
+Your contribution is distributed under the same licence. See the [Licence](README.md#licence)
+section of the README for a summary.
