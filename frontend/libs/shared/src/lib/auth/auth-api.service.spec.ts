@@ -251,6 +251,29 @@ describe('AuthApiService', () => {
       expect(expired).toBe(true);
       expect(service.isLoggedIn()).toBe(false);
     });
+
+    it('ends nothing when the refresh after a 401 never reaches the API', () => {
+      tokenStorage.setToken('stale');
+      tokenStorage.setRefreshToken('r1');
+      const http = TestBed.inject(HttpClient);
+      let expired = false;
+      let failed = false;
+      service.sessionExpired$.subscribe(() => (expired = true));
+      http
+        .get('http://test/api/grades')
+        .subscribe({ error: () => (failed = true) });
+
+      httpMock
+        .expectOne('http://test/api/grades')
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      httpMock
+        .expectOne('http://test/api/auth/refresh')
+        .error(new ProgressEvent('abort'));
+
+      expect(failed).toBe(true);
+      expect(expired).toBe(false);
+      expect(service.isLoggedIn()).toBe(true);
+    });
   });
 
   describe('web (refresh token in httpOnly cookie)', () => {

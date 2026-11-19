@@ -1,4 +1,8 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+} from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import {
   Observable,
@@ -10,6 +14,7 @@ import {
   of,
   shareReplay,
   tap,
+  throwError,
 } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url.token';
 import {
@@ -113,7 +118,8 @@ export class AuthApiService {
 
   /** Trades the refresh token for a new access token (rotating the refresh
    * token). Emits the new access token, or null when there's no live
-   * session. Concurrent callers share one request — two parallel rotations
+   * session; fails when the API wasn't reached (offline, or the page is
+   * unloading), which says nothing about the session. Concurrent callers share one request — two parallel rotations
    * of the same token would look like token theft to the backend. */
   refresh(): Observable<string | null> {
     if (!this.viaCookie && !this.tokenStorage.getRefreshToken()) {
@@ -140,7 +146,10 @@ export class AuthApiService {
           this.store(response);
           return response.token;
         }),
-        catchError(() => {
+        catchError((error: unknown) => {
+          if (error instanceof HttpErrorResponse && error.status === 0) {
+            return throwError(() => error);
+          }
           this.clearTokens();
           return of(null);
         }),
@@ -157,14 +166,16 @@ export class AuthApiService {
     if (exp && exp * 1000 > Date.now() + 30_000) {
       return this.tokenStorage.getToken();
     }
-    return firstValueFrom(this.refresh());
+    return firstValueFrom(
+      this.refresh().pipe(catchError(() => of(this.tokenStorage.getToken()))),
+    );
   }
 
   /** Web app startup: the access token lives in memory only, so a reload
    * starts without one — restore it from the refresh cookie before the
    * router's guards run. Never rejects; no session just means logged out. */
   restoreSession(): Promise<unknown> {
-    return firstValueFrom(this.refresh());
+    return firstValueFrom(this.refresh().pipe(catchError(() => of(null))));
   }
 
   /** Called by the interceptor when the API says support mode was ended. */

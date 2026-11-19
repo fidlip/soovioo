@@ -16,7 +16,8 @@ const withBearer = (req: HttpRequest<unknown>, token: string | null) =>
  * Adds the Bearer access token and, when the API answers 401 (the 15-minute
  * token expired), refreshes the session once and retries. If that refresh
  * fails too, the session is over: `AuthApiService.sessionExpired$` fires and
- * the original 401 propagates. A 403 may mean the role's permissions
+ * the original 401 propagates. A refresh that didn't reach the API (the
+ * page is being left, e.g. reloaded) ends nothing. A 403 may mean the role's permissions
  * changed — the session is refreshed in the background so the token (and
  * what the UI offers) catches up. A 401 saying support mode was ended by
  * someone else isn't refreshed: the tab shows who and why
@@ -41,7 +42,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         token &&
         !authApi.getSupportInfo()
       ) {
-        authApi.refresh().subscribe();
+        authApi.refresh().subscribe({ error: () => undefined });
       }
       const ended =
         error instanceof HttpErrorResponse && error.status === 401
