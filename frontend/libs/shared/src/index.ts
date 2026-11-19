@@ -36,6 +36,8 @@ export * from './lib/timetable/week';
 export * from './lib/timetable/timetable-api.service';
 export * from './lib/timetable/substitution.model';
 export * from './lib/timetable/substitutions-api.service';
+export * from './lib/class-book/class-book.model';
+export * from './lib/class-book/class-book-api.service';
 export * from './lib/timetable/timetable-version.model';
 export * from './lib/timetable/timetable-versions-api.service';
 export * from './lib/timetable/teaching.model';

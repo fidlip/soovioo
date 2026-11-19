@@ -12,6 +12,8 @@ export type Permission =
   | 'AbsencesRead'
   | 'AbsencesWrite'
   | 'AbsencesExcuse'
+  | 'ClassBookRead'
+  | 'ClassBookWrite'
   | 'BehaviorRead'
   | 'BehaviorPraise'
   | 'BehaviorClassTeacher'

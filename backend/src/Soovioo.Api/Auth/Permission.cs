@@ -9,6 +9,8 @@ public enum Permission
     AbsencesRead,
     AbsencesWrite,
     AbsencesExcuse,
+    ClassBookRead,
+    ClassBookWrite,
     BehaviorRead,
     BehaviorPraise,
     BehaviorClassTeacher,
@@ -89,6 +91,10 @@ public static class PermissionCatalog
     private static readonly PermissionScope[] Own = [PermissionScope.None, PermissionScope.Own];
     private static readonly PermissionScope[] SchoolOnly = [PermissionScope.None, PermissionScope.School];
     private static readonly PermissionScope[] OwnOrSchool = [PermissionScope.None, PermissionScope.Own, PermissionScope.School];
+    /// <summary>Own: the lessons they teach, ClassTeacher: those too and
+    /// every lesson of the classes they are třídní of.</summary>
+    private static readonly PermissionScope[] OwnClassTeacherOrSchool =
+        [PermissionScope.None, PermissionScope.Own, PermissionScope.ClassTeacher, PermissionScope.School];
     private static readonly PermissionScope[] Classes =
         [PermissionScope.None, PermissionScope.ClassTeacher, PermissionScope.MyClasses, PermissionScope.School];
 
@@ -99,6 +105,8 @@ public static class PermissionCatalog
         new(Permission.AbsencesRead, "Docházka", "Vidět docházku", Classes, Own, Own),
         new(Permission.AbsencesWrite, "Docházka", "Zapsat, upravit a smazat absenci, vyřídit omluvenku", Classes, NoneOnly, NoneOnly),
         new(Permission.AbsencesExcuse, "Docházka", "Omluvit absenci", Classes, Own, Own),
+        new(Permission.ClassBookRead, "Třídní kniha", "Vidět třídní knihu", Classes, NoneOnly, NoneOnly),
+        new(Permission.ClassBookWrite, "Třídní kniha", "Zapsat hodinu", OwnClassTeacherOrSchool, NoneOnly, NoneOnly),
         new(Permission.BehaviorRead, "Chování", "Vidět záznamy chování", Classes, Own, Own),
         new(Permission.BehaviorPraise, "Chování", "Pochvala a poznámka", Classes, NoneOnly, NoneOnly),
         new(Permission.BehaviorClassTeacher, "Chování", "Napomenutí a důtka třídního učitele, chování velmi dobré", Classes, NoneOnly, NoneOnly),
@@ -147,6 +155,8 @@ public static class PermissionCatalog
             [Permission.AbsencesRead] = PermissionScope.MyClasses,
             [Permission.AbsencesWrite] = PermissionScope.MyClasses,
             [Permission.AbsencesExcuse] = PermissionScope.ClassTeacher,
+            [Permission.ClassBookRead] = PermissionScope.MyClasses,
+            [Permission.ClassBookWrite] = PermissionScope.ClassTeacher,
             [Permission.BehaviorRead] = PermissionScope.MyClasses,
             [Permission.BehaviorPraise] = PermissionScope.MyClasses,
             [Permission.BehaviorClassTeacher] = PermissionScope.ClassTeacher,
