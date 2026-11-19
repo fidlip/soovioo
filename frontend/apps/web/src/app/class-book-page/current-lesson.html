@@ -1,0 +1,26 @@
+@if (lesson(); as l) {
+<section
+  class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-primary-200 bg-primary-50 p-3 dark:border-primary-800 dark:bg-primary-950"
+  aria-label="Zápis hodiny"
+  data-testid="current-lesson"
+>
+  <div class="flex flex-col">
+    <span class="text-sm text-surface-600 dark:text-surface-300"
+      >{{ title(l) }}</span
+    >
+    <span class="font-semibold"
+      >{{ l.periodNumber }}. hodina @if (time(l)) { ({{ time(l) }}) } · {{
+      l.subjectName }} · {{ l.who }}</span
+    >
+    @if (written(l)) {
+    <span class="text-xs text-surface-500">Zapsáno</span>
+    }
+  </div>
+  <p-button
+    [label]="written(l) ? 'Upravit zápis' : 'Zapsat hodinu'"
+    [icon]="written(l) ? 'pi pi-pencil' : 'pi pi-check-square'"
+    (onClick)="dialog.open(l)"
+  />
+</section>
+}
+<app-lesson-dialog #dialog (saved)="lesson.set($event)" />

@@ -659,6 +659,32 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("BehaviorRecords");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.ClassBook.LessonAttendance", b =>
+                {
+                    b.Property<int>("LessonRecordId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Minutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("LessonRecordId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("LessonAttendances");
+                });
+
             modelBuilder.Entity("Soovioo.Api.ClassBook.LessonRecord", b =>
                 {
                     b.Property<int>("Id")
@@ -666,6 +692,9 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("AttendanceTakenAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
@@ -3969,6 +3998,25 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.ClassBook.LessonAttendance", b =>
+                {
+                    b.HasOne("Soovioo.Api.ClassBook.LessonRecord", "LessonRecord")
+                        .WithMany("Attendance")
+                        .HasForeignKey("LessonRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Evidence.StudentProfile", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LessonRecord");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("Soovioo.Api.ClassBook.LessonRecord", b =>
                 {
                     b.HasOne("Soovioo.Api.Auth.User", "RecordedBy")
@@ -5341,6 +5389,11 @@ namespace Soovioo.Api.Migrations
             modelBuilder.Entity("Soovioo.Api.Auth.User", b =>
                 {
                     b.Navigation("Person");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.ClassBook.LessonRecord", b =>
+                {
+                    b.Navigation("Attendance");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.Event", b =>

@@ -6,6 +6,7 @@ import {
   ClassBookClass,
   ClassBookDay,
   ClassBookLesson,
+  LessonPupils,
   SaveLessonRequest,
 } from './class-book.model';
 
@@ -29,6 +30,26 @@ export class ClassBookApiService {
       params = params.set('classId', classId);
     }
     return this.http.get<ClassBookDay>(this.url('day'), { params });
+  }
+
+  /** The caller's lesson going on now, else their next one today. */
+  getNow(): Observable<ClassBookLesson | null> {
+    return this.http.get<ClassBookLesson | null>(this.url('now'));
+  }
+
+  getPupils(lesson: ClassBookLesson): Observable<LessonPupils> {
+    let params = new HttpParams()
+      .set('date', lesson.date)
+      .set('periodNumber', lesson.periodNumber);
+    if (lesson.schoolClassId != null) {
+      params = params.set('schoolClassId', lesson.schoolClassId);
+    }
+    if (lesson.studentGroupId != null) {
+      params = params.set('studentGroupId', lesson.studentGroupId);
+    }
+    return this.http.get<LessonPupils>(this.url('lessons/pupils'), {
+      params,
+    });
   }
 
   saveLesson(request: SaveLessonRequest): Observable<ClassBookLesson> {

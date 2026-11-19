@@ -23,6 +23,7 @@ import { Loading } from '../loading/loading';
 import { ExcuseDialog } from '../absences-page/excuse-dialog';
 import { excuseRange } from '../absences-page/excuse-days';
 import { PersonName } from '../person-name/person-name';
+import { CurrentLesson } from '../class-book-page/current-lesson';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,
@@ -103,6 +104,7 @@ interface Widget {
     ButtonDirective,
     Card,
     FormsModule,
+    CurrentLesson,
     ExcuseDialog,
     RouterLink,
     Tag,
