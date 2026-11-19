@@ -120,6 +120,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Country> Countries => Set<Country>();
     public DbSet<District> Districts => Set<District>();
     public DbSet<Municipality> Municipalities => Set<Municipality>();
+    public DbSet<Backoffice.OutboxEvent> OutboxEvents => Set<Backoffice.OutboxEvent>();
+    public DbSet<Backoffice.ProcessedCommand> ProcessedCommands => Set<Backoffice.ProcessedCommand>();
 
     /// <summary>Set in support mode: what is saved goes to the support's
     /// journal (<see cref="Support.SupportJournal"/>).</summary>
@@ -305,6 +307,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<School>().HasIndex(s => s.Slug).IsUnique();
+        modelBuilder.Entity<Backoffice.OutboxEvent>(e =>
+        {
+            e.Property(x => x.Type).HasMaxLength(64);
+            e.Property(x => x.Payload).HasColumnType("jsonb");
+            e.Property(x => x.LastError).HasMaxLength(2000);
+            e.HasIndex(x => x.OccurredAt);
+        });
+        modelBuilder.Entity<Backoffice.ProcessedCommand>(e =>
+        {
+            e.Property(x => x.Type).HasMaxLength(64);
+            e.Property(x => x.Result).HasColumnType("jsonb");
+        });
         modelBuilder.Entity<School>().HasIndex(s => s.ExpiresAt).HasFilter("\"IsDemo\"");
         modelBuilder.Entity<School>().Property(s => s.SupportAccess).HasConversion<string>().HasMaxLength(20);
         modelBuilder.Entity<School>().Property(s => s.SupportAs).HasConversion<string>().HasMaxLength(20);

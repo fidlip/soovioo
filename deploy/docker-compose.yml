@@ -52,10 +52,16 @@ services:
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-noreply@soovioo.cz}
       Smtp__FromName: Soovioo
       Push__FcmServiceAccountJson: ${FCM_SERVICE_ACCOUNT_JSON:-}
-      # Backoffice (support plans etc.), a separate stack on this VPS joined to this
-      # network; empty = every school has the default plan.
-      SupportPlans__BaseUrl: ${BACKOFFICE_BASE_URL:-}
-      SupportPlans__ApiKey: ${BACKOFFICE_API_KEY:-}
+      # Backoffice (support plans, commands), a separate stack on this VPS joined
+      # to this network; empty = not connected, every school has the default plan.
+      Backoffice__BaseUrl: ${BACKOFFICE_BASE_URL:-}
+      Backoffice__InstanceId: ${BACKOFFICE_INSTANCE_ID:-}
+      Backoffice__Secret: ${BACKOFFICE_SECRET:-}
+      # The backoffice's commands come to 8081, reachable only inside Docker;
+      # Caddy proxies just 8080.
+      ASPNETCORE_HTTP_PORTS: "8080;8081"
+      Backoffice__InternalPort: "8081"
+      App__Version: ${IMAGE_TAG:-}
     volumes:
       - attachments:/app/AttachmentStorage
     logging: *logging
