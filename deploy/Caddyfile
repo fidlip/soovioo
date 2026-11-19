@@ -50,3 +50,28 @@
 	}
 	import app
 }
+
+# The backoffice's administration (its own stack, joined to this network as
+# "backoffice"). Only /admin and its API go out; the instances' API, tokens
+# and keys stay inside Docker. Certificate through HTTP-01, as the domain's
+# DNS isn't in Cloudflare.
+{$BACKOFFICE_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	@admin path /admin /admin/* /admin-api/*
+	handle @admin {
+		reverse_proxy backoffice:8080
+	}
+
+	handle {
+		respond 404
+	}
+}

@@ -79,6 +79,7 @@ services:
     environment:
       MAIN_DOMAIN: ${MAIN_DOMAIN}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      BACKOFFICE_DOMAIN: ${BACKOFFICE_DOMAIN:-plany.soovioo.cz}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
