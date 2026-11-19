@@ -53,8 +53,7 @@
 
 # The backoffice's administration (its own stack, joined to this network as
 # "backoffice"). Only /admin and its API go out; the instances' API, tokens
-# and keys stay inside Docker. Certificate through HTTP-01, as the domain's
-# DNS isn't in Cloudflare.
+# and keys stay inside Docker. Certificate through HTTP-01.
 {$BACKOFFICE_DOMAIN} {
 	encode zstd gzip
 	header {
