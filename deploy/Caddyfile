@@ -65,6 +65,8 @@
 		-Server
 	}
 
+	redir / /admin/ 302
+
 	@admin path /admin /admin/* /admin-api/*
 	handle @admin {
 		reverse_proxy backoffice:8080
