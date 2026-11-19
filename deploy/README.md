@@ -18,10 +18,10 @@ Domény:
   (50 nových certifikátů týdně na doménu). Neexistující slug dostane platný certifikát a
   SPA ukáže „škola neexistuje“.
 - `soovioo.cz` — veřejný web, běží zvlášť na hostingu Forpsi; tento stack se ho netýká.
-- `plany.soovioo.cz` (`BACKOFFICE_DOMAIN`) — administrace backoffice (vlastní stack v soukromém
+- `soovioo.online` (`BACKOFFICE_DOMAIN`) — administrace backoffice (vlastní stack v soukromém
   repu, připojený do sítě tohoto jako `backoffice`). Caddy pouští ven jen `/admin` a
-  `/admin-api`, certifikát běžnou HTTP-01 výzvou. Záznamy `A`/`AAAA` u Forpsi v zóně
-  `soovioo.cz` na adresy VPS.
+  `/admin-api`, certifikát běžnou HTTP-01 výzvou. Záznamy `A`/`AAAA` domény na adresy VPS.
+  Samostatná doména, aby administraci nesdílel „site“ s veřejným webem a obchodem pod `soovioo.cz`.
 
 Web volá API na stejném originu (`https://skola.soovioo.cloud/api/...`), takže žádné CORS.
 
