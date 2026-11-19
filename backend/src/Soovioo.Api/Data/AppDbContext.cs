@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Behavior;
+using Soovioo.Api.ClassBook;
 using Soovioo.Api.Events;
 using Soovioo.Api.Evidence;
 using Soovioo.Api.People;
@@ -43,6 +44,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<TeacherAbsence> TeacherAbsences => Set<TeacherAbsence>();
     public DbSet<LessonChange> LessonChanges => Set<LessonChange>();
     public DbSet<SubstitutionDay> SubstitutionDays => Set<SubstitutionDay>();
+    public DbSet<LessonRecord> LessonRecords => Set<LessonRecord>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<SchoolYear> SchoolYears => Set<SchoolYear>();
     public DbSet<GradingPeriod> GradingPeriods => Set<GradingPeriod>();
@@ -541,6 +543,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Classroom).WithMany().HasForeignKey(x => x.ClassroomId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.SchoolId, x.Date });
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<LessonRecord>(e =>
+        {
+            e.Ignore(x => x.Key);
+            e.Property(x => x.Topic).HasMaxLength(500);
+            e.HasOne(x => x.SchoolClass).WithMany().HasForeignKey(x => x.SchoolClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.RecordedBy).WithMany().HasForeignKey(x => x.RecordedById).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.SchoolId, x.Date, x.PeriodNumber, x.SchoolClassId, x.StudentGroupId })
+                .IsUnique()
+                .AreNullsDistinct(false);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<SubstitutionDay>(e =>

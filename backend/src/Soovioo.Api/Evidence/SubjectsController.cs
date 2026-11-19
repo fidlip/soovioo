@@ -123,6 +123,11 @@ public partial class SubjectsController(AppDbContext db, ICurrentSchoolContext c
             return BadRequest("Předmět má zapsané známky — nelze smazat.");
         }
 
+        if (await db.LessonRecords.AnyAsync(r => r.SubjectId == id))
+        {
+            return BadRequest("Předmět má hodiny zapsané v třídní knize — nelze smazat.");
+        }
+
         if (await db.TimetableEntries.AnyAsync(e => e.SubjectId == id))
         {
             return BadRequest("Předmět je v rozvrhu — nelze smazat.");

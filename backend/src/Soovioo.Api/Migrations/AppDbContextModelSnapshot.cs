@@ -659,6 +659,64 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("BehaviorRecords");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.ClassBook.LessonRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("RecordedById")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SchoolClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StudentGroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TeacherId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordedById");
+
+                    b.HasIndex("SchoolClassId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("SchoolId", "Date", "PeriodNumber", "SchoolClassId", "StudentGroupId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("SchoolId", "Date", "PeriodNumber", "SchoolClassId", "StudentGroupId"), false);
+
+                    b.ToTable("LessonRecords");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Demo.DemoContact", b =>
                 {
                     b.Property<int>("Id")
@@ -3909,6 +3967,38 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Soovioo.Api.ClassBook.LessonRecord", b =>
+                {
+                    b.HasOne("Soovioo.Api.Auth.User", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Soovioo.Api.Evidence.SchoolClass", "SchoolClass")
+                        .WithMany()
+                        .HasForeignKey("SchoolClassId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Soovioo.Api.Evidence.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Soovioo.Api.Auth.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RecordedBy");
+
+                    b.Navigation("SchoolClass");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Teacher");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Events.Event", b =>
