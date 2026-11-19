@@ -87,7 +87,7 @@ public class AbsencesController(
         };
         db.Absences.Add(absence);
         await db.SaveChangesAsync();
-        await NotifyFamilyAsync(absence, student, NotificationType.Absence, NewTitle);
+        await new AbsenceNotices(notifier).NewAsync(absence, student);
         await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetAbsences), new { id = absence.Id }, await DtoAsync(absence.Id));
@@ -201,23 +201,6 @@ public class AbsencesController(
         return NoContent();
     }
 
-    private const string NewTitle = "Zapsaná absence";
-
-    private async Task NotifyFamilyAsync(Absence absence, StudentProfile student, NotificationType type, string title) =>
-        await notifier.AddAsync(absence.SchoolId, await DraftsAsync(absence, student, type, title, await notifier.FamilyAsync(student.Id)));
-
-    private async Task<List<NotificationDraft>> DraftsAsync(
-        Absence absence, StudentProfile student, NotificationType type, string title, IEnumerable<int> family)
-    {
-        var periods = absence.Periods.Count > 0 ? $", hodiny {string.Join(", ", absence.Periods)}" : "";
-        var names = await notifier.StudentNamesAsync(student.Id, family);
-        return names
-            .Select(n => new NotificationDraft(
-                n.Key, type, title, $"{n.Value} — {SchoolFormat.Date(absence.Date)}{periods}",
-                "absences", absence.Id, student.Id))
-            .ToList();
-    }
-
     /// <summary>Direct correction of a record (e.g. a teacher logged the
     /// wrong date) — separate from the excuse/review workflow above, which
     /// stays the normal path for actually processing an absence.</summary>
@@ -259,9 +242,7 @@ public class AbsencesController(
         absence.Periods = periods;
         if (changed)
         {
-            var family = await notifier.FamilyAsync(student.Id);
-            await notifier.ChangedAsync(absence.SchoolId, absence.Id, [NotificationType.Absence], family,
-                await DraftsAsync(absence, student, NotificationType.Absence, "Změna absence", family), NewTitle);
+            await new AbsenceNotices(notifier).ChangedAsync(absence, student);
         }
         await db.SaveChangesAsync();
 

@@ -279,7 +279,7 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
 
     /// <summary>The periods the pupil has lessons on each day — of their
     /// class and their groups, with the published substitutions.</summary>
-    private async Task<Dictionary<DateOnly, List<int>>> TimetablePeriodsAsync(StudentProfile student, DateOnly from, DateOnly to)
+    public async Task<Dictionary<DateOnly, List<int>>> TimetablePeriodsAsync(StudentProfile student, DateOnly from, DateOnly to)
     {
         var groups = await db.StudentGroupMembers.Where(m => m.StudentId == student.Id).Select(m => m.StudentGroupId).ToListAsync();
         return (await LessonChanges.OnAsync(db, from, to))

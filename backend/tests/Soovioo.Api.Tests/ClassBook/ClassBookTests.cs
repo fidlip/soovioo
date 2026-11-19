@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Soovioo.Api.Attendance;
 using Soovioo.Api.Auth;
 using Soovioo.Api.ClassBook;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Messaging;
+using Soovioo.Api.Notifications;
 using Soovioo.Api.People;
 using Soovioo.Api.Tests.Auth;
 using Soovioo.Api.Timetable;
@@ -18,17 +21,20 @@ public class ClassBookTests
     private static readonly DateTimeOffset Now = new(2026, 11, 2, 11, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly Monday = new(2026, 11, 2);
 
-    private readonly FakeClock clock = new(Now);
+    private FakeClock clock = new(Now);
     private readonly AppDbContext db;
 
     private readonly SchoolClass classA, classB;
     private readonly Subject maths, czech, music;
     private readonly User novak, mala, kral;
     private readonly StudentGroup choir;
+    private readonly StudentProfile jan, eva, petr;
+    private readonly User parentEva;
 
     /// <summary>Monday: 1st maths in 5.A by Novák, Czech in 5.B by Malá; 2nd
     /// Czech in 5.A by Malá; 3rd music of a choir of both classes by Novák.
-    /// Malá is třídní of 5.A, Král teaches nothing.</summary>
+    /// Malá is třídní of 5.A, Král teaches nothing. Jan and Eva are in 5.A,
+    /// Jan in the choir; Petr in 5.B, in the choir too. Eva has a parent.</summary>
     public ClassBookTests()
     {
         db = new AppDbContext(
@@ -61,6 +67,19 @@ public class ClassBookTests
         choir = new StudentGroup { SchoolId = SchoolId, Name = "Sbor", SubjectId = music.Id, TimetableVersionId = current.Id };
         db.StudentGroups.Add(choir);
         db.SaveChanges();
+        jan = Pupil("Jan", "Adámek", classA);
+        eva = Pupil("Eva", "Bílá", classA);
+        petr = Pupil("Petr", "Cibulka", classB);
+        parentEva = new User
+        {
+            Username = "rodicEva", PasswordHash = "x", SchoolId = SchoolId, ActiveRole = db.Role(UserRole.Parent, SchoolId),
+        };
+        db.Users.Add(parentEva);
+        db.SaveChanges();
+        db.LinkChildAsync(parentEva.Id, eva.Id, SchoolId).GetAwaiter().GetResult();
+        db.StudentGroupMembers.AddRange(
+            new StudentGroupMember { SchoolId = SchoolId, StudentGroupId = choir.Id, StudentId = jan.Id },
+            new StudentGroupMember { SchoolId = SchoolId, StudentGroupId = choir.Id, StudentId = petr.Id });
         db.StudentGroupClasses.AddRange(
             new StudentGroupClass { SchoolId = SchoolId, StudentGroupId = choir.Id, SchoolClassId = classA.Id },
             new StudentGroupClass { SchoolId = SchoolId, StudentGroupId = choir.Id, SchoolClassId = classB.Id });
@@ -78,13 +97,27 @@ public class ClassBookTests
         db.SaveChanges();
     }
 
-    private ClassBookController Controller(User user) =>
-        new(db, new FakeCurrentSchoolContext(SchoolId), clock) { ControllerContext = TestRoles.Context(TestRoles.PrincipalOf(user)) };
-
-    private ClassBookController AdminController() =>
-        new(db, new FakeCurrentSchoolContext(SchoolId), clock)
+    private StudentProfile Pupil(string firstName, string lastName, SchoolClass schoolClass)
+    {
+        var pupil = new StudentProfile
         {
-            ControllerContext = TestRoles.Context(TestRoles.Principal(db, 900, UserRole.Admin)),
+            Person = new Person { FirstName = firstName, LastName = lastName, SchoolId = SchoolId },
+            SchoolClassId = schoolClass.Id, SchoolId = SchoolId,
+        };
+        db.Students.Add(pupil);
+        db.SaveChanges();
+        return pupil;
+    }
+
+    private ClassBookController Controller(User user) => Controller(TestRoles.PrincipalOf(user));
+
+    private ClassBookController AdminController() => Controller(TestRoles.Principal(db, 900, UserRole.Admin));
+
+    private ClassBookController Controller(System.Security.Claims.ClaimsPrincipal principal) =>
+        new(db, new FakeCurrentSchoolContext(SchoolId), clock, new Notifier(db, clock),
+            new MessageAttachmentStorageService(new FakeWebHostEnvironment()), new PhotoAccess(db, new FakeCurrentSchoolContext(SchoolId)))
+        {
+            ControllerContext = TestRoles.Context(principal),
         };
 
     private static T Ok<T>(ActionResult<T> result) => Assert.IsAssignableFrom<T>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -221,4 +254,124 @@ public class ClassBookTests
         Assert.IsType<BadRequestObjectResult>((await Controller(novak).SaveLesson(Maths(new string('a', 501)))).Result);
         Assert.Empty(db.LessonRecords);
     }
+
+    private SaveLessonRequest Attendance(int period, params LessonMarkRequest[] marks) =>
+        new(Monday, period, classA.Id, null, "", marks);
+
+    private static LessonMarkRequest Absent(StudentProfile pupil) => new(pupil.Id, LessonAttendanceStatus.Absent);
+
+    private async Task<LessonPupilsDto> PupilsAsync(int period, int? classId, int? groupId = null) =>
+        Ok(await Controller(novak).GetPupils(Monday, period, classId, groupId));
+
+    private async Task<List<int>?> AbsencePeriodsAsync(StudentProfile pupil) =>
+        (await db.Absences.SingleOrDefaultAsync(a => a.StudentId == pupil.Id))?.Periods;
+
+    [Fact]
+    public async Task A_lessons_pupils_are_the_classs_or_the_groups()
+    {
+        Assert.Equal(["Adámek", "Bílá"], (await PupilsAsync(1, classA.Id)).Pupils.Select(p => p.LastName));
+        Assert.Equal(["Adámek", "Cibulka"], (await PupilsAsync(3, null, choir.Id)).Pupils.Select(p => p.LastName));
+        Assert.False((await PupilsAsync(1, classA.Id)).AttendanceTaken);
+        Assert.IsType<ForbidResult>((await Controller(kral).GetPupils(Monday, 1, classA.Id)).Result);
+    }
+
+    [Fact]
+    public async Task Taking_the_attendance_records_an_absence_only_for_the_absent_and_tells_the_family()
+    {
+        var saved = Ok(await Controller(novak).SaveLesson(Attendance(1, Absent(eva), new(jan.Id, LessonAttendanceStatus.Late, 5))));
+
+        Assert.True(saved.AttendanceTaken);
+        Assert.Equal(["Jan Adámek", "Eva Bílá"], saved.Marks.Select(m => m.StudentName));
+        Assert.Equal(5, saved.Marks[0].Minutes);
+        Assert.Equal([1], await AbsencePeriodsAsync(eva));
+        Assert.Null(await AbsencePeriodsAsync(jan));
+        var notice = Assert.Single(db.Notifications.Where(n => n.Type == NotificationType.Absence));
+        Assert.Equal((parentEva.Id, "Zapsaná absence"), (notice.UserId, notice.Title));
+        var pupils = await PupilsAsync(1, classA.Id);
+        Assert.True(pupils.AttendanceTaken);
+        Assert.Equal([LessonAttendanceStatus.Late, LessonAttendanceStatus.Absent], pupils.Pupils.Select(p => p.Status));
+        // Without a topic the lesson isn't written yet, but its record stays.
+        Assert.Null(saved.Topic);
+        Ok(await Controller(novak).SaveLesson(Maths("")));
+        Assert.Single(db.LessonRecords);
+    }
+
+    [Fact]
+    public async Task Each_lesson_adds_its_period_to_the_days_absence_and_a_pupil_there_takes_it_away()
+    {
+        Ok(await Controller(novak).SaveLesson(Attendance(1, Absent(eva))));
+        Ok(await Controller(mala).SaveLesson(Attendance(2, Absent(eva))));
+        Assert.Equal([1, 2], await AbsencePeriodsAsync(eva));
+
+        Ok(await Controller(novak).SaveLesson(Attendance(1)));
+        Assert.Equal([2], await AbsencePeriodsAsync(eva));
+        var notice = Assert.Single(db.Notifications.Where(n => n.Type == NotificationType.Absence));
+        Assert.Equal("Změna absence", notice.Title);
+        Assert.EndsWith("hodiny 2", notice.Body);
+
+        Ok(await Controller(mala).SaveLesson(Attendance(2, new LessonMarkRequest(eva.Id, LessonAttendanceStatus.Away))));
+        Assert.Empty(db.Absences);
+    }
+
+    [Fact]
+    public async Task An_omluvenka_in_advance_suggests_the_pupil_away_and_being_there_narrows_its_day()
+    {
+        var excuse = new Excuse { SchoolId = SchoolId, StudentId = eva.Id, DateFrom = Monday, DateTo = Monday, Reason = "Lékař" };
+        db.Excuses.Add(excuse);
+        db.Absences.Add(new Absence
+        {
+            SchoolId = SchoolId, StudentId = eva.Id, Date = Monday, Excuse = excuse, Status = AbsenceStatus.PendingExcuse,
+        });
+        await db.SaveChangesAsync();
+
+        var suggested = (await PupilsAsync(1, classA.Id)).Pupils.Single(p => p.StudentId == eva.Id);
+        Assert.Equal("Omluvenka: Lékař", suggested.Suggestion);
+        Assert.Null(suggested.Status);
+
+        // She came for the first lesson after all: the omluvenka is left with her second.
+        Ok(await Controller(novak).SaveLesson(Attendance(1)));
+        var absence = await db.Absences.SingleAsync();
+        Assert.Equal([2], absence.Periods);
+        Assert.Equal(AbsenceStatus.PendingExcuse, absence.Status);
+
+        Ok(await Controller(mala).SaveLesson(Attendance(2)));
+        Assert.Empty(db.Absences);
+        Assert.Empty(db.Excuses);
+    }
+
+    [Fact]
+    public async Task A_pupil_who_left_or_missed_an_earlier_lesson_is_suggested_away()
+    {
+        Ok(await Controller(novak).SaveLesson(Attendance(1, new LessonMarkRequest(eva.Id, LessonAttendanceStatus.LeftEarly, 20), Absent(jan))));
+
+        var pupils = (await PupilsAsync(2, classA.Id)).Pupils;
+        Assert.Equal(["Chyběl(a) v 1. hodině", "Odešel(a) v 1. hodině"], pupils.Select(p => p.Suggestion));
+    }
+
+    [Fact]
+    public async Task Only_the_lessons_pupils_and_minutes_only_of_coming_late_or_leaving()
+    {
+        Assert.IsType<BadRequestObjectResult>((await Controller(novak).SaveLesson(Attendance(1, Absent(petr)))).Result);
+        Assert.IsType<BadRequestObjectResult>(
+            (await Controller(novak).SaveLesson(Attendance(1, new LessonMarkRequest(eva.Id, LessonAttendanceStatus.Absent, 5)))).Result);
+        Assert.IsType<BadRequestObjectResult>(
+            (await Controller(novak).SaveLesson(Attendance(1, new LessonMarkRequest(eva.Id, LessonAttendanceStatus.Late, 0)))).Result);
+        Assert.Empty(db.LessonRecords);
+    }
+
+    [Fact]
+    public async Task Now_is_the_lesson_going_on_else_the_next_one_today()
+    {
+        LessonAt(8, 10);
+        Assert.Equal(1, Ok(await Controller(novak).GetNow()).PeriodNumber);
+        LessonAt(8, 50);
+        Assert.Equal(3, Ok(await Controller(novak).GetNow()).PeriodNumber);
+        LessonAt(11, 0);
+        Assert.IsType<NoContentResult>((await Controller(novak).GetNow()).Result);
+        Assert.IsType<NoContentResult>((await Controller(kral).GetNow()).Result);
+    }
+
+    /// <summary>Monday, that time in Prague (UTC+1 in November).</summary>
+    private void LessonAt(int hour, int minute) => clock = new FakeClock(new DateTimeOffset(2026, 11, 2, hour - 1, minute, 0, TimeSpan.Zero));
 }
+

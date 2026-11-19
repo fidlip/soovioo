@@ -3,28 +3,25 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
-import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
-import { Textarea } from '@openng/optimus-ui/textarea';
 import {
   AuthApiService,
   ClassBookApiService,
   ClassBookClass,
   ClassBookDay,
   ClassBookLesson,
+  LessonAttendanceStatus,
   formatDate,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { toDateOnly } from '../departures/retention-labels';
-import { FORM_FIELDS, FloatField } from '../forms';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
+import { LessonDialog } from './lesson-dialog';
 
 const WEEKDAYS = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
-
-export const TOPIC_MAX_LENGTH = 500;
 
 /** The school day `step` days of school away (weekends skipped). */
 export function nextSchoolDay(date: Date, step: number): Date {
@@ -56,8 +53,34 @@ export function lessonTime(lesson: ClassBookLesson): string {
     : '';
 }
 
+const MARK_LABELS: Record<LessonAttendanceStatus, string> = {
+  Absent: 'Chybí',
+  Late: 'Pozdě',
+  LeftEarly: 'Odchod',
+  Away: 'Mimo třídu',
+};
+
+/** "Chybí: Eva Bílá, Jan Adámek · Pozdě: Petr Cibulka (5 min)", or
+ * "Všichni přítomni". */
+export function attendanceSummary(lesson: ClassBookLesson): string {
+  if (lesson.marks.length === 0) {
+    return 'Všichni přítomni';
+  }
+  return (Object.keys(MARK_LABELS) as LessonAttendanceStatus[])
+    .map((status) => {
+      const names = lesson.marks
+        .filter((m) => m.status === status)
+        .map((m) =>
+          m.minutes ? `${m.studentName} (${m.minutes} min)` : m.studentName,
+        );
+      return names.length ? `${MARK_LABELS[status]}: ${names.join(', ')}` : '';
+    })
+    .filter((part) => part)
+    .join(' · ');
+}
+
 /** Třídní kniha: a class's lessons of a day — or the teacher's own — each
- * with its topic, written by whoever teaches it (the třídní and the
+ * with its topic and who was there, written by whoever teaches it (the třídní and the
  * management any time). `?day=yyyy-MM-dd&class=<id>` opens that day and
  * class. */
 @Component({
@@ -66,15 +89,12 @@ export function lessonTime(lesson: ClassBookLesson): string {
     AppIcon,
     Button,
     DatePicker,
-    Dialog,
-    FloatField,
-    ...FORM_FIELDS,
     FormsModule,
+    LessonDialog,
     Loading,
     Message,
     Select,
     Tag,
-    Textarea,
   ],
   templateUrl: './class-book-page.html',
 })
@@ -82,8 +102,6 @@ export class ClassBookPage {
   private readonly api = inject(ClassBookApiService);
   private readonly notify = inject(NotifyService);
   private readonly auth = inject(AuthApiService);
-
-  protected readonly topicMaxLength = TOPIC_MAX_LENGTH;
 
   protected readonly date = signal(new Date());
   /** Null = the caller's own lessons. */
@@ -100,10 +118,6 @@ export class ClassBookPage {
     const d = this.date();
     return `${WEEKDAYS[d.getDay()]} ${formatDate(toDateOnly(d), 'date')}`;
   });
-
-  protected readonly editing = signal<ClassBookLesson | null>(null);
-  protected topic = '';
-  protected readonly saving = signal(false);
 
   constructor() {
     const query = inject(ActivatedRoute).snapshot.queryParamMap;
@@ -163,47 +177,28 @@ export class ClassBookPage {
     return `${lesson.periodNumber}. hodina · ${lesson.subjectName} · ${lesson.who}`;
   }
 
-  protected edit(lesson: ClassBookLesson): void {
-    this.topic = lesson.topic ?? '';
-    this.editing.set(lesson);
+  protected attendance(lesson: ClassBookLesson): string {
+    return attendanceSummary(lesson);
   }
 
-  protected close(): void {
-    this.editing.set(null);
+  protected written(lesson: ClassBookLesson): boolean {
+    return !!lesson.topic || lesson.attendanceTaken;
   }
 
-  /** Saves the topic; `remove` takes the record back. */
-  protected save(remove = false): void {
-    const lesson = this.editing();
-    if (!lesson) {
-      return;
-    }
-    this.saving.set(true);
-    this.api
-      .saveLesson({
-        date: lesson.date,
-        periodNumber: lesson.periodNumber,
-        schoolClassId: lesson.schoolClassId,
-        studentGroupId: lesson.studentGroupId,
-        topic: remove ? '' : this.topic.trim(),
-      })
-      .subscribe({
-        next: (saved) => {
-          this.saving.set(false);
-          this.editing.set(null);
-          this.day.update(
-            (day) =>
-              day && {
-                ...day,
-                lessons: day.lessons.map((l) => (l === lesson ? saved : l)),
-              },
-          );
+  /** The lesson as just saved. */
+  protected replace(saved: ClassBookLesson): void {
+    const same = (l: ClassBookLesson) =>
+      l.periodNumber === saved.periodNumber &&
+      l.schoolClassId === saved.schoolClassId &&
+      l.studentGroupId === saved.studentGroupId &&
+      l.date === saved.date;
+    this.day.update(
+      (day) =>
+        day && {
+          ...day,
+          lessons: day.lessons.map((l) => (same(l) && !l.gone ? saved : l)),
         },
-        error: (err) => {
-          this.saving.set(false);
-          this.notify.actionFailed('saveLesson failed', err);
-        },
-      });
+    );
   }
 
   private load(): void {

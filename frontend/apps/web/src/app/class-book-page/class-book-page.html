@@ -86,6 +86,13 @@
       <p class="m-0 whitespace-pre-line" data-testid="class-book-topic">
         {{ lesson.topic }}
       </p>
+      } @if (lesson.attendanceTaken) {
+      <span class="text-sm" data-testid="class-book-attendance"
+        >{{ attendance(lesson) }}</span
+      >
+      } @else if (lesson.topic) {
+      <span class="text-sm text-surface-500">Docházka nezapsána</span>
+      } @if (lesson.recordedAt) {
       <span class="text-xs text-surface-500">{{ recorded(lesson) }}</span>
       } @else if (!lesson.gone) {
       <span class="text-sm text-surface-500">Nezapsáno</span>
@@ -93,12 +100,12 @@
     </div>
     @if (lesson.canWrite) {
     <p-button
-      [label]="lesson.topic ? 'Upravit' : 'Zapsat'"
-      [icon]="lesson.topic ? 'pi pi-pencil' : 'pi pi-plus'"
+      [label]="written(lesson) ? 'Upravit' : 'Zapsat'"
+      [icon]="written(lesson) ? 'pi pi-pencil' : 'pi pi-plus'"
       size="small"
-      [outlined]="!!lesson.topic"
-      [ariaLabel]="(lesson.topic ? 'Upravit ' : 'Zapsat ') + heading(lesson)"
-      (onClick)="edit(lesson)"
+      [outlined]="written(lesson)"
+      [ariaLabel]="(written(lesson) ? 'Upravit ' : 'Zapsat ') + heading(lesson)"
+      (onClick)="dialog.open(lesson)"
     />
     }
   </li>
@@ -108,40 +115,4 @@
 <app-loading />
 }
 
-<p-dialog
-  [visible]="editing() !== null"
-  (visibleChange)="$event || close()"
-  (onShow)="topicInput.focus()"
-  [header]="editing() ? heading(editing()!) : ''"
-  [modal]="true"
-  styleClass="w-full max-w-lg"
->
-  <form class="flex flex-col gap-3" #lessonForm="ngForm" (ngSubmit)="save()">
-    <app-float-field label="Téma hodiny" for="lessonTopic">
-      <textarea
-        pTextarea
-        #topicInput
-        id="lessonTopic"
-        name="lessonTopic"
-        rows="4"
-        class="w-full"
-        [(ngModel)]="topic"
-        [maxlength]="topicMaxLength"
-        required
-      ></textarea>
-    </app-float-field>
-    <div class="flex flex-wrap items-center gap-2">
-      <app-submit-button [form]="lessonForm" [busy]="saving()" />
-      @if (editing()?.topic) {
-      <p-button
-        label="Smazat zápis"
-        icon="pi pi-trash"
-        severity="danger"
-        [text]="true"
-        [disabled]="saving()"
-        (onClick)="save(true)"
-      />
-      }
-    </div>
-  </form>
-</p-dialog>
+<app-lesson-dialog #dialog (saved)="replace($event)" />
