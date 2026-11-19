@@ -41,7 +41,7 @@ public class SupportResetTests
 
     private SupportTicketsController Tickets(AppDbContext db, int userId, int? schoolId = null, params Claim[] extra) =>
         new(db, new FakeCurrentSchoolContext(schoolId, isSuperAdmin: schoolId is null), new Notifier(db, clock),
-            new SupportPlanClient(new HttpClient(new StubHandler()),
+            new SupportPlanClient(Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
                 Microsoft.Extensions.Options.Options.Create(new SupportPlanOptions()),
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<SupportPlanClient>.Instance),
             AuthTestServices.SupportSessions(db, clock), new SupportReset(db, clock),
@@ -454,11 +454,5 @@ public class SupportResetTests
                 "Timetable/TimetableGenerationJob.cs",
             ],
             found);
-    }
-
-    private class StubHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
     }
 }

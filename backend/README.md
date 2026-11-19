@@ -57,7 +57,10 @@ se na existující DB neprojeví.
 | `Demo:LifetimeDays`, `Demo:MaxActive` | životnost dema (30 dní), strop současně existujících dem (200) |
 | `Demo:CreatePerIpPerDay`            | nová dema / resety za den z jedné IP (5; v dev 1000)           |
 | `Demo:FeedbackEmail`                | kam chodí zpětná vazba z dem (`info@soovioo.cz`)               |
-| `SupportPlans:BaseUrl`, `SupportPlans:ApiKey`, `SupportPlans:Default`, `SupportPlans:DemoPlanCode` | backoffice, odkud se berou support plány (prázdná URL = všem školám `Default`); demo školy mají plán `DemoPlanCode` (`Demo`); při výpadku platí poslední známý plán, jinak `Default` |
+| `Backoffice:BaseUrl`, `Backoffice:InstanceId`, `Backoffice:Secret` | napojení na backoffice: jeho adresa, id a tajemství instance (token `client_credentials`). Bez nich instance napojená není a backoffice nevolá |
+| `Backoffice:InternalPort`           | port interního rozhraní pro příkazy z backoffice (`POST /internal/v1/commands/{id}`); jen na něm je `/internal`, nic jiného. Nevyplněný = interní rozhraní není |
+| `SupportPlans:Default`, `SupportPlans:DemoPlanCode` | plán školy, kterou backoffice nezná nebo když instance napojená není (`Default`); demo školy mají plán `DemoPlanCode` (`Demo`); při výpadku platí poslední známý plán, jinak `Default` |
+| `App:Version`                       | verze aplikace, kterou instance hlásí backoffice (v Dockeru tag image) |
 
 ## Migrace
 
@@ -85,6 +88,31 @@ Hangfire používá stejnou PostgreSQL databázi. Úlohy se registrují při sta
 jednorázově běží generátor rozvrhu (`TimetableGenerationJob`).
 Dashboard: <http://localhost:5080/hangfire> (výchozí nastavení Hangfire ho pouští jen z
 localhostu).
+
+## Backoffice
+
+Napojená instance (cloud: `Backoffice:*` v konfiguraci) si bere od backoffice token
+(`client_credentials`, `IBackofficeClient`) a s ním:
+
+- plán školy (`SupportPlanClient`, `GET instance-api/v1/schools/{id}/plan`, demo školy
+  `GET instance-api/v1/plans/Demo`),
+- stav instance (`InstanceStateReporter`, `PUT instance-api/v1/state`): verze a školy (id, slug,
+  název, IZO, RED_IZO, demo, založena). Posílá se po startu, po založení, změně nebo smazání
+  školy (`SchoolChangesReport`) a každou hodinu. Nic z vnitřku škol,
+- události (`Outbox`, tabulka `OutboxEvents`): zapisují se ve stejné transakci jako změna a
+  `OutboxJob` je každou minutu posílá na `POST instance-api/v1/events` v pořadí, při chybě s
+  rostoucím odstupem.
+
+Backoffice posílá příkazy na interní port (`Backoffice:InternalPort`, v Dockeru 8081, ven
+nepublikovaný): `POST /internal/v1/commands/{id}` s JWT podepsaným jeho klíčem pro příkazy
+(`aud` = id instance, `command_id` = id příkazu), ověřeným veřejnými klíči z
+`.well-known/jwks.json` backoffice. Příkaz se stejným id se provede jednou (`ProcessedCommands`)
+a dostane stejnou odpověď. Příkazy: `UpdateSchool` (název, IZO, RED_IZO), `DeleteSchool`
+(jako mazání školy v aplikaci: demo celé, jinak jen bez uživatelů), `SchoolPlanChanged`
+(zapomene uložený plán školy). Neznámý příkaz nebo neplatný obsah = `422`, backoffice ho
+neopakuje.
+
+Lokálně instance napojená není, dokud se `Backoffice:*` nevyplní.
 
 ## E-maily (Mailpit)
 

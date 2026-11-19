@@ -41,7 +41,7 @@ public class SupportAsTests
 
     private SupportTicketsController Tickets(AppDbContext db, IEnumerable<Claim> claims, int? schoolId = null) =>
         new(db, new FakeCurrentSchoolContext(schoolId, isSuperAdmin: schoolId is null), new Notifier(db, clock),
-            new SupportPlanClient(new HttpClient(new NoPlans()),
+            new SupportPlanClient(Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
                 Microsoft.Extensions.Options.Options.Create(new SupportPlanOptions()),
                 new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<SupportPlanClient>.Instance),
@@ -333,11 +333,5 @@ public class SupportAsTests
             StatusCodeResult r => r.StatusCode,
             _ => null,
         });
-    }
-
-    private class NoPlans : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
-            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
     }
 }

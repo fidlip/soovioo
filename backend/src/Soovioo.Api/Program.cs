@@ -70,7 +70,20 @@ builder.Services.Configure<Soovioo.Api.Demo.DemoOptions>(builder.Configuration.G
 builder.Services.Configure<Soovioo.Api.Support.SupportOptions>(builder.Configuration.GetSection("Support"));
 builder.Services.Configure<Soovioo.Api.Support.SupportPlanOptions>(builder.Configuration.GetSection("SupportPlans"));
 builder.Services.AddMemoryCache();
-builder.Services.AddHttpClient<Soovioo.Api.Support.SupportPlanClient>(c => c.Timeout = TimeSpan.FromSeconds(5));
+builder.Services.AddScoped<Soovioo.Api.Support.SupportPlanClient>();
+builder.Services.Configure<Soovioo.Api.Backoffice.BackofficeOptions>(builder.Configuration.GetSection("Backoffice"));
+// One client for the app's lifetime: it keeps the instance's token.
+builder.Services.AddSingleton<Soovioo.Api.Backoffice.IBackofficeClient>(services => new Soovioo.Api.Backoffice.BackofficeClient(
+    BackofficeHttp(), services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Soovioo.Api.Backoffice.BackofficeOptions>>(),
+    services.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton(services => new Soovioo.Api.Backoffice.BackofficeKeys(
+    BackofficeHttp(), services.GetRequiredService<Soovioo.Api.Backoffice.IBackofficeClient>(),
+    services.GetRequiredService<TimeProvider>(),
+    services.GetRequiredService<ILogger<Soovioo.Api.Backoffice.BackofficeKeys>>()));
+builder.Services.AddScoped<Soovioo.Api.Backoffice.InstanceStateReporter>();
+builder.Services.AddScoped<Soovioo.Api.Backoffice.OutboxJob>();
+builder.Services.AddScoped<Soovioo.Api.Backoffice.InstanceCommandProcessor>();
+builder.Services.AddSingleton<Soovioo.Api.Backoffice.SchoolChangesReport>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoDataGenerator>();
 builder.Services.AddScoped<Soovioo.Api.Demo.DemoSchoolPurger>();
 builder.Services.AddScoped<Soovioo.Api.Retention.AccountEraser>();
@@ -111,7 +124,9 @@ builder.Services.AddScoped<Soovioo.Api.Support.SupportSessionIdleJob>();
 
 builder.Services.AddDbContext<AppDbContext>((services, options) =>
     options.UseNpgsql(connectionString)
-        .AddInterceptors(services.GetRequiredService<Soovioo.Api.Live.LiveChanges>()));
+        .AddInterceptors(
+            services.GetRequiredService<Soovioo.Api.Live.LiveChanges>(),
+            services.GetRequiredService<Soovioo.Api.Backoffice.SchoolChangesReport>()));
 
 builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
@@ -256,6 +271,15 @@ using (var scope = app.Services.CreateScope())
     recurringJobs.AddOrUpdate<Soovioo.Api.Timetable.TimetableChangeNoticeJob>(
         "timetable-change-notice", job => job.RunAsync(), Soovioo.Api.Timetable.TimetableChangeNoticeJob.Schedule,
         new RecurringJobOptions { TimeZone = SchoolClock.TimeZone });
+    recurringJobs.AddOrUpdate<Soovioo.Api.Backoffice.InstanceStateReporter>(
+        Soovioo.Api.Backoffice.InstanceStateReporter.RecurringJobId, reporter => reporter.ReportAsync(), Cron.Hourly);
+    recurringJobs.AddOrUpdate<Soovioo.Api.Backoffice.OutboxJob>(
+        Soovioo.Api.Backoffice.OutboxJob.RecurringJobId, job => job.RunAsync(), Cron.Minutely);
+    if (scope.ServiceProvider.GetRequiredService<Soovioo.Api.Backoffice.IBackofficeClient>().Connection is not null)
+    {
+        scope.ServiceProvider.GetRequiredService<IBackgroundJobClient>()
+            .Enqueue<Soovioo.Api.Backoffice.InstanceStateReporter>(reporter => reporter.ReportAsync());
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -264,6 +288,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+Soovioo.Api.Backoffice.InternalApi.UseInternalPortSeparation(app);
 app.UseHttpsRedirection();
 
 app.UseCors(app.Environment.IsDevelopment() ? devCorsPolicy : prodCorsPolicy);
@@ -279,8 +304,12 @@ app.MapHub<Soovioo.Api.Live.LiveHub>(Soovioo.Api.Live.LiveHub.Path)
     .WithMetadata(new Soovioo.Api.Audit.NoAuditAttribute());
 
 app.MapHangfireDashboard();
+Soovioo.Api.Backoffice.InternalApi.MapInternalApi(app);
 
 app.Run();
+
+static HttpClient BackofficeHttp() =>
+    new(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) }) { Timeout = TimeSpan.FromSeconds(10) };
 
 static void SeedUsers(AppDbContext db, SeedOptions seed)
 {

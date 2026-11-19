@@ -36,8 +36,8 @@ public class SupportTicketsControllerTests
     };
 
     private static SupportPlanClient Plans(
-        SupportPlanOptions? options = null, HttpMessageHandler? handler = null, IMemoryCache? cache = null) =>
-        new(new HttpClient(handler ?? new StubHandler(HttpStatusCode.NotFound, "")),
+        SupportPlanOptions? options = null, Soovioo.Api.Tests.Backoffice.FakeBackoffice? backoffice = null, IMemoryCache? cache = null) =>
+        new(backoffice ?? Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
             Microsoft.Extensions.Options.Options.Create(options ?? new SupportPlanOptions()),
             cache ?? new MemoryCache(new MemoryCacheOptions()),
             NullLogger<SupportPlanClient>.Instance);
@@ -1057,29 +1057,28 @@ public class SupportTicketsControllerTests
     }
 
     [Fact]
-    public async Task PlanComesFromTheServiceWithTheDefaultForUnknownSchoolsAndFailures()
+    public async Task PlanComesFromTheBackofficeWithTheDefaultForUnknownSchoolsAndFailures()
     {
-        var options = new SupportPlanOptions { BaseUrl = "https://plans.test/api", ApiKey = "k" };
-        var ok = new StubHandler(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}""");
+        var options = new SupportPlanOptions();
+        var ok = Answering(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}""");
         var plan = await Plans(options, ok).GetPlanAsync(School(7));
         Assert.Equal(new SupportPlanDto("Priority", "Prioritní", 1), plan);
-        Assert.Equal("https://plans.test/api/schools/7/plan", ok.Last!.RequestUri!.ToString());
-        Assert.Equal("k", ok.Last.Headers.GetValues("X-Api-Key").Single());
+        Assert.Equal("http://backoffice.test/instance-api/v1/schools/7/plan", ok.Sent.Single().Request.RequestUri!.ToString());
 
-        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, "")).GetPlanAsync(School(7)));
-        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.InternalServerError, "")).GetPlanAsync(School(7)));
-        Assert.Equal(options.Default, await Plans(new SupportPlanOptions()).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, Answering(HttpStatusCode.NotFound)).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, Answering(HttpStatusCode.InternalServerError)).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options).GetPlanAsync(School(7)));
     }
 
     [Fact]
-    public async Task WhenTheServiceFailsTheSchoolKeepsItsLastKnownPlan()
+    public async Task WhenTheBackofficeFailsTheSchoolKeepsItsLastKnownPlan()
     {
-        var options = new SupportPlanOptions { BaseUrl = "https://plans.test/api", ApiKey = "k" };
+        var options = new SupportPlanOptions();
         var cache = new MemoryCache(new MemoryCacheOptions());
         var priority = new SupportPlanDto("Priority", "Prioritní", 1);
-        var ok = new StubHandler(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}""");
-        var down = new StubHandler(HttpStatusCode.InternalServerError, "");
-        var invalid = new StubHandler(HttpStatusCode.OK, """{"code":"","name":"","responseWorkingDays":-1}""");
+        var ok = Answering(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}""");
+        var down = Answering(HttpStatusCode.InternalServerError);
+        var invalid = Answering(HttpStatusCode.OK, """{"code":"","name":"","responseWorkingDays":-1}""");
 
         await Plans(options, ok, cache).GetPlanAsync(School(7));
 
@@ -1087,26 +1086,42 @@ public class SupportTicketsControllerTests
         Assert.Equal(priority, await Plans(options, invalid, cache).GetPlanAsync(School(7)));
         Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(8)));
 
-        Assert.Equal(options.Default, await Plans(options, new StubHandler(HttpStatusCode.NotFound, ""), cache).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, Answering(HttpStatusCode.NotFound), cache).GetPlanAsync(School(7)));
+        Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(7)));
+    }
+
+    [Fact]
+    public async Task APlanTheBackofficeChangedNoLongerStandsInWhenItIsDown()
+    {
+        var options = new SupportPlanOptions();
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var down = Answering(HttpStatusCode.InternalServerError);
+        await Plans(options, Answering(HttpStatusCode.OK, """{"code":"Priority","name":"Prioritní","responseWorkingDays":1}"""), cache)
+            .GetPlanAsync(School(7));
+
+        Plans(options, down, cache).Forget(7);
+
         Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(7)));
     }
 
     [Fact]
     public async Task ADemoSchoolHasTheDemoPlanWhoeverItIs()
     {
-        var options = new SupportPlanOptions { BaseUrl = "https://plans.test/api", ApiKey = "k" };
+        var options = new SupportPlanOptions();
         var cache = new MemoryCache(new MemoryCacheOptions());
         var demo = new SupportPlanDto("Demo", "Demo", 5);
-        var ok = new StubHandler(HttpStatusCode.OK, """{"code":"Demo","name":"Demo","responseWorkingDays":5}""");
+        var ok = Answering(HttpStatusCode.OK, """{"code":"Demo","name":"Demo","responseWorkingDays":5}""");
 
         Assert.Equal(demo, await Plans(options, ok, cache).GetPlanAsync(School(7, isDemo: true)));
-        Assert.Equal("https://plans.test/api/plans/Demo", ok.Last!.RequestUri!.ToString());
-        Assert.Equal("k", ok.Last.Headers.GetValues("X-Api-Key").Single());
+        Assert.Equal("http://backoffice.test/instance-api/v1/plans/Demo", ok.Sent.Single().Request.RequestUri!.ToString());
 
-        var down = new StubHandler(HttpStatusCode.InternalServerError, "");
+        var down = Answering(HttpStatusCode.InternalServerError);
         Assert.Equal(demo, await Plans(options, down, cache).GetPlanAsync(School(8, isDemo: true)));
         Assert.Equal(options.Default, await Plans(options, down, cache).GetPlanAsync(School(8)));
     }
+
+    private static Soovioo.Api.Tests.Backoffice.FakeBackoffice Answering(HttpStatusCode status, string body = "") =>
+        Soovioo.Api.Tests.Backoffice.FakeBackoffice.Answering(status, body);
 
     private static School School(int id, bool isDemo = false) =>
         new() { Id = id, Name = "Škola", Slug = $"skola-{id}", IsDemo = isDemo };
@@ -1118,19 +1133,5 @@ public class SupportTicketsControllerTests
         var http = Http(1, new Claim(SupportClaims.SessionId, sessionId.ToString()));
         await new SupportSessionGuardMiddleware(_ => Task.CompletedTask).InvokeAsync(http, db, clock);
         return http.Response.StatusCode;
-    }
-
-    private class StubHandler(HttpStatusCode status, string body) : HttpMessageHandler
-    {
-        public HttpRequestMessage? Last { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Last = request;
-            return Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
-            });
-        }
     }
 }

@@ -172,29 +172,53 @@ public class SchoolsController(AppDbContext db) : ControllerBase
     /// confirmed, non-generic flow.</summary>
     [HttpDelete("{id:int}")]
     [AuditAction("Smazána škola")]
-    public async Task<IActionResult> DeleteSchool(int id, [FromServices] Demo.DemoSchoolPurger? demoPurger = null)
+    public async Task<IActionResult> DeleteSchool(int id, [FromServices] Demo.DemoSchoolPurger? demoPurger = null) =>
+        await SchoolDeletion.DeleteAsync(db, id, demoPurger) switch
+        {
+            SchoolDeletion.Result.NotFound => NotFound(),
+            SchoolDeletion.Result.HasUsers => BadRequest(SchoolDeletion.HasUsersMessage),
+            _ => NoContent(),
+        };
+}
+
+/// <summary>Deleting a school, from <see cref="SchoolsController"/> and the
+/// backoffice's <c>DeleteSchool</c> command.</summary>
+public static class SchoolDeletion
+{
+    public const string HasUsersMessage = "Škola má uživatele — nelze smazat.";
+
+    public enum Result
+    {
+        Deleted,
+        NotFound,
+        HasUsers,
+    }
+
+    /// <summary>A demo goes with everything in it; any other school only while
+    /// it has no users.</summary>
+    public static async Task<Result> DeleteAsync(AppDbContext db, int id, Demo.DemoSchoolPurger? demoPurger)
     {
         var school = await db.Schools.FindAsync(id);
         if (school is null)
         {
-            return NotFound();
+            return Result.NotFound;
         }
 
         // A demo goes with everything in it — that's what demos are for.
         if (school.IsDemo && demoPurger is not null)
         {
             await demoPurger.PurgeAsync(id, deleteSchool: true);
-            return NoContent();
+            return Result.Deleted;
         }
 
-        if (await db.Users.AnyAsync(u => u.SchoolId == id))
+        if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.SchoolId == id))
         {
-            return BadRequest("Škola má uživatele — nelze smazat.");
+            return Result.HasUsers;
         }
 
         db.Schools.Remove(school);
         await db.SaveChangesAsync();
-        return NoContent();
+        return Result.Deleted;
     }
 }
 
