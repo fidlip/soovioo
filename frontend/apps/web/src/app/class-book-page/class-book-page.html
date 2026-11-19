@@ -1,0 +1,147 @@
+<h1 class="mb-6 flex items-center gap-3">
+  <app-icon name="class-book" />Třídní kniha
+</h1>
+
+<div class="mb-4 flex flex-wrap items-center gap-2">
+  <p-select
+    ariaLabel="Třída"
+    inputId="classBookClass"
+    [options]="classOptions()"
+    optionLabel="name"
+    optionValue="id"
+    [ngModel]="classId()"
+    (ngModelChange)="selectClass($event)"
+    styleClass="min-w-40"
+    data-testid="class-book-class"
+  />
+  <div class="flex items-center gap-2">
+    <p-button
+      icon="pi pi-chevron-left"
+      severity="secondary"
+      [outlined]="true"
+      ariaLabel="Předchozí den"
+      (onClick)="step(-1)"
+    />
+    <p-datePicker
+      inputId="classBookDay"
+      ariaLabel="Den"
+      [ngModel]="date()"
+      (ngModelChange)="goTo($event)"
+      [showIcon]="true"
+      [disabledDays]="[0, 6]"
+      appendTo="body"
+      styleClass="w-40"
+    />
+    <p-button
+      icon="pi pi-chevron-right"
+      severity="secondary"
+      [outlined]="true"
+      ariaLabel="Další den"
+      (onClick)="step(1)"
+    />
+  </div>
+  <span class="font-semibold" data-testid="class-book-day">
+    {{ dateLabel() }}
+  </span>
+</div>
+
+@if (day(); as d) { @if (d.dayOff) {
+<p-message severity="info">Volno: {{ d.dayOff }}.</p-message>
+} @else if (d.lessons.length === 0) {
+<p class="text-surface-500">
+  {{ classId() === null ? 'Tento den neučíte žádnou hodinu.' : 'Tento den nejsou
+  žádné hodiny.' }}
+</p>
+} @else {
+<ul class="m-0 flex list-none flex-col gap-2 p-0">
+  @for (lesson of d.lessons; track $index) {
+  <li
+    class="flex items-start gap-3 rounded border border-surface-200 p-3 dark:border-surface-700"
+    [class.opacity-60]="lesson.gone"
+    data-testid="class-book-lesson"
+  >
+    <div class="flex w-16 shrink-0 flex-col items-center">
+      <span class="text-xl font-semibold">{{ lesson.periodNumber }}.</span>
+      <span class="whitespace-nowrap text-xs text-surface-500"
+        >{{ time(lesson) }}</span
+      >
+    </div>
+    <div class="flex min-w-0 grow flex-col gap-1">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="font-semibold" [class.line-through]="lesson.gone"
+          >{{ lesson.subjectName }}</span
+        >
+        <span class="text-sm text-surface-600 dark:text-surface-300">
+          {{ lesson.who }}@if (lesson.teacherName) { · {{ lesson.teacherName }}
+          }@if (lesson.classroomName) { · {{ lesson.classroomName }} }
+        </span>
+        @if (lesson.label) {
+        <p-tag
+          [value]="lesson.label"
+          [severity]="lesson.gone ? 'secondary' : 'warn'"
+        />
+        }
+      </div>
+      @if (lesson.topic) {
+      <p class="m-0 whitespace-pre-line" data-testid="class-book-topic">
+        {{ lesson.topic }}
+      </p>
+      <span class="text-xs text-surface-500">{{ recorded(lesson) }}</span>
+      } @else if (!lesson.gone) {
+      <span class="text-sm text-surface-500">Nezapsáno</span>
+      }
+    </div>
+    @if (lesson.canWrite) {
+    <p-button
+      [label]="lesson.topic ? 'Upravit' : 'Zapsat'"
+      [icon]="lesson.topic ? 'pi pi-pencil' : 'pi pi-plus'"
+      size="small"
+      [outlined]="!!lesson.topic"
+      [ariaLabel]="(lesson.topic ? 'Upravit ' : 'Zapsat ') + heading(lesson)"
+      (onClick)="edit(lesson)"
+    />
+    }
+  </li>
+  }
+</ul>
+} } @else {
+<app-loading />
+}
+
+<p-dialog
+  [visible]="editing() !== null"
+  (visibleChange)="$event || close()"
+  (onShow)="topicInput.focus()"
+  [header]="editing() ? heading(editing()!) : ''"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  <form class="flex flex-col gap-3" #lessonForm="ngForm" (ngSubmit)="save()">
+    <app-float-field label="Téma hodiny" for="lessonTopic">
+      <textarea
+        pTextarea
+        #topicInput
+        id="lessonTopic"
+        name="lessonTopic"
+        rows="4"
+        class="w-full"
+        [(ngModel)]="topic"
+        [maxlength]="topicMaxLength"
+        required
+      ></textarea>
+    </app-float-field>
+    <div class="flex flex-wrap items-center gap-2">
+      <app-submit-button [form]="lessonForm" [busy]="saving()" />
+      @if (editing()?.topic) {
+      <p-button
+        label="Smazat zápis"
+        icon="pi pi-trash"
+        severity="danger"
+        [text]="true"
+        [disabled]="saving()"
+        (onClick)="save(true)"
+      />
+      }
+    </div>
+  </form>
+</p-dialog>
