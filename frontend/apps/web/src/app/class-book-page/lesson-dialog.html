@@ -1,0 +1,193 @@
+<p-dialog
+  [visible]="lesson() !== null"
+  (visibleChange)="$event || close()"
+  [header]="lesson() ? heading(lesson()!) : ''"
+  [modal]="true"
+  styleClass="w-full max-w-xl"
+  contentStyleClass="px-3 sm:px-5"
+>
+  <form class="flex flex-col gap-4" #lessonForm="ngForm" (ngSubmit)="save()">
+    <app-float-field label="Téma hodiny" for="lessonTopic">
+      <textarea
+        pTextarea
+        id="lessonTopic"
+        name="lessonTopic"
+        rows="2"
+        class="w-full"
+        [(ngModel)]="topic"
+        [maxlength]="topicMaxLength"
+      ></textarea>
+    </app-float-field>
+
+    <section aria-label="Docházka" class="flex flex-col gap-3">
+      @if (pupils(); as p) { @if (p.pupils.length === 0) {
+      <p class="m-0 text-sm text-surface-500">Hodina nemá žádné žáky.</p>
+      } @else {
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="m-0 text-base">
+          Docházka
+          <span class="font-normal text-surface-500"
+            >· chybí {{ absentCount() }} z {{ p.pupils.length }}</span
+          >
+        </h3>
+        <p-selectButton
+          [options]="modeOptions"
+          optionLabel="label"
+          optionValue="value"
+          [allowEmpty]="false"
+          [ngModel]="mode()"
+          (ngModelChange)="setMode($event)"
+          [ngModelOptions]="{ standalone: true }"
+          ariaLabel="Způsob zápisu docházky"
+          size="small"
+        />
+      </div>
+      @if (!p.attendanceTaken && mode() === 'list') {
+      <p class="m-0 text-xs text-surface-500">
+        Všichni jsou přítomní, označte jen výjimky.
+      </p>
+      } @if (mode() === 'list') {
+      <ul class="m-0 flex list-none flex-col p-0">
+        @for (pupil of p.pupils; track pupil.studentId) {
+        <li
+          class="flex flex-col gap-1 border-b border-surface-200 py-2 last:border-b-0 sm:flex-row sm:items-center sm:justify-between dark:border-surface-700"
+          data-testid="lesson-pupil"
+        >
+          <div class="flex min-w-0 items-center gap-2">
+            <app-avatar
+              [name]="pupil.firstName + ' ' + pupil.lastName"
+              [photoUrl]="photoUrl(pupil)"
+              [size]="28"
+            />
+            <div class="flex min-w-0 flex-col">
+              <span class="font-medium">{{ name(pupil) }}</span>
+              @if (pupil.suggestion) {
+              <span class="text-xs text-orange-600"
+                >{{ pupil.suggestion }}</span
+              >
+              }
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <p-selectButton
+              [options]="states"
+              optionLabel="label"
+              optionValue="value"
+              [allowEmpty]="false"
+              [ngModel]="mark(pupil).state"
+              (ngModelChange)="setState(pupil, $event)"
+              [ngModelOptions]="{ standalone: true }"
+              [ariaLabel]="'Docházka: ' + name(pupil)"
+              size="small"
+            >
+              <ng-template #item let-option>
+                <span [title]="option.title">{{ option.label }}</span>
+              </ng-template>
+            </p-selectButton>
+            @if (hasMinutes(mark(pupil).state)) {
+            <p-inputNumber
+              [ngModel]="mark(pupil).minutes"
+              (ngModelChange)="setMinutes(pupil, $event)"
+              [ngModelOptions]="{ standalone: true }"
+              [min]="1"
+              [max]="240"
+              suffix=" min"
+              placeholder="min"
+              [ariaLabel]="'Minuty: ' + name(pupil)"
+              size="small"
+              inputStyleClass="w-20"
+            />
+            }
+          </div>
+        </li>
+        }
+      </ul>
+      } @else if (current(); as pupil) {
+      <div
+        class="flex flex-col items-center gap-3 rounded border border-surface-200 p-4 text-center dark:border-surface-700"
+        data-testid="roll-call"
+      >
+        <span class="text-sm text-surface-500"
+          >{{ index() + 1 }} / {{ p.pupils.length }}</span
+        >
+        <app-avatar
+          [name]="pupil.firstName + ' ' + pupil.lastName"
+          [photoUrl]="photoUrl(pupil)"
+          [size]="72"
+        />
+        <span class="text-2xl font-semibold" data-testid="roll-call-name"
+          >{{ name(pupil) }}</span
+        >
+        @if (pupil.suggestion) {
+        <span class="text-sm text-orange-600">{{ pupil.suggestion }}</span>
+        }
+        <div class="grid w-full grid-cols-2 gap-2">
+          @for (state of states; track state.value) {
+          <p-button
+            [label]="state.button"
+            [title]="state.title"
+            [severity]="state.severity"
+            [outlined]="mark(pupil).state !== state.value"
+            styleClass="w-full"
+            [class]="state.value === 'Present' ? 'col-span-2' : ''"
+            [disabled]="saving()"
+            (onClick)="choose(pupil, state.value)"
+          />
+          }
+        </div>
+        @if (hasMinutes(mark(pupil).state)) {
+        <div class="flex items-center gap-2">
+          <p-inputNumber
+            [ngModel]="mark(pupil).minutes"
+            (ngModelChange)="setMinutes(pupil, $event)"
+            [ngModelOptions]="{ standalone: true }"
+            [min]="1"
+            [max]="240"
+            suffix=" min"
+            placeholder="Minut"
+            [ariaLabel]="'Minuty: ' + name(pupil)"
+            inputStyleClass="w-24"
+          />
+          <p-button
+            label="Další"
+            icon="pi pi-arrow-right"
+            iconPos="right"
+            [disabled]="saving()"
+            (onClick)="next()"
+          />
+        </div>
+        }
+        <p-button
+          label="Zpět"
+          icon="pi pi-arrow-left"
+          [text]="true"
+          size="small"
+          severity="secondary"
+          [disabled]="index() === 0"
+          (onClick)="back()"
+        />
+      </div>
+      } } } @else {
+      <app-loading />
+      }
+    </section>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <app-submit-button
+        [form]="lessonForm"
+        [busy]="saving()"
+        [disabled]="!pupils() || (!topic.trim() && pupils()!.pupils.length === 0)"
+      />
+      @if (lesson()?.topic && !lesson()?.attendanceTaken) {
+      <p-button
+        label="Smazat zápis"
+        icon="pi pi-trash"
+        severity="danger"
+        [text]="true"
+        [disabled]="saving()"
+        (onClick)="save(true)"
+      />
+      }
+    </div>
+  </form>
+</p-dialog>

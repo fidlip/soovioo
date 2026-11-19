@@ -1,5 +1,7 @@
 <h1 class="sr-only">Domů</h1>
 
+<app-current-lesson />
+
 @if (loadError()) {
 <p>Přehled se nepodařilo načíst.</p>
 } @else if (dashboard(); as d) { @if (d.todayOff) {

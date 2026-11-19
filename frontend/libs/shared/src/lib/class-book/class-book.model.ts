@@ -31,6 +31,46 @@ export interface ClassBookLesson {
   recordedAt: string | null;
   /** The caller may write it now. */
   canWrite: boolean;
+  /** The teacher went through the pupils. */
+  attendanceTaken: boolean;
+  /** The pupils not there the whole lesson; the rest were. */
+  marks: LessonMark[];
+}
+
+/** Only `Absent` is an absence in Docházka; `Away` is for the school. */
+export type LessonAttendanceStatus = 'Absent' | 'Late' | 'LeftEarly' | 'Away';
+
+export interface LessonMark {
+  studentId: number;
+  studentName: string;
+  status: LessonAttendanceStatus;
+  /** How late, or how long before the end they left. */
+  minutes: number | null;
+}
+
+export interface LessonPupil {
+  studentId: number;
+  firstName: string;
+  lastName: string;
+  /** Photo token, when the caller may see it. */
+  photo: string | null;
+  /** Null = there (or, before the attendance is taken, not known). */
+  status: LessonAttendanceStatus | null;
+  minutes: number | null;
+  /** Why the pupil is likely away ("Omluvenka: nemoc"). */
+  suggestion: string | null;
+}
+
+export interface LessonPupils {
+  /** False: `suggestion` says who likely isn't there. */
+  attendanceTaken: boolean;
+  pupils: LessonPupil[];
+}
+
+export interface LessonMarkRequest {
+  studentId: number;
+  status: LessonAttendanceStatus;
+  minutes: number | null;
 }
 
 export interface ClassBookDay {
@@ -45,6 +85,8 @@ export interface SaveLessonRequest {
   periodNumber: number;
   schoolClassId: number | null;
   studentGroupId: number | null;
-  /** Empty takes the record back. */
+  /** Empty takes back a record without attendance. */
   topic: string;
+  /** The pupils not there the whole lesson; null leaves it as it is. */
+  attendance: LessonMarkRequest[] | null;
 }

@@ -45,6 +45,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<LessonChange> LessonChanges => Set<LessonChange>();
     public DbSet<SubstitutionDay> SubstitutionDays => Set<SubstitutionDay>();
     public DbSet<LessonRecord> LessonRecords => Set<LessonRecord>();
+    public DbSet<LessonAttendance> LessonAttendances => Set<LessonAttendance>();
     public DbSet<SchoolPeriod> SchoolPeriods => Set<SchoolPeriod>();
     public DbSet<SchoolYear> SchoolYears => Set<SchoolYear>();
     public DbSet<GradingPeriod> GradingPeriods => Set<GradingPeriod>();
@@ -556,6 +557,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
             e.HasIndex(x => new { x.SchoolId, x.Date, x.PeriodNumber, x.SchoolClassId, x.StudentGroupId })
                 .IsUnique()
                 .AreNullsDistinct(false);
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<LessonAttendance>(e =>
+        {
+            e.HasKey(x => new { x.LessonRecordId, x.StudentId });
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(x => x.LessonRecord).WithMany(r => r.Attendance).HasForeignKey(x => x.LessonRecordId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
         });
         modelBuilder.Entity<SubstitutionDay>(e =>
