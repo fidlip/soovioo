@@ -9,9 +9,9 @@ import {
 } from '@angular/core';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { PhotosApiService, StudentPhotoState } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { PhotoEditor } from '../photo-editor/photo-editor';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { StudentPhoto } from '../student-photo/student-photo';
 
 /** Administrace: a pupil's photo and consent (admin, class teacher).

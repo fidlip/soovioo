@@ -29,8 +29,8 @@ import {
 } from '@openng/optimus-ui/tabs';
 import { TabScroll } from '../tab-scroll';
 import { FORM_FIELDS } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
 import { LeaveDialog, LeaveTarget } from './leave-dialog';
 import { StaffLeaveDialog, StaffLeaveTarget } from './staff-leave-dialog';
@@ -40,7 +40,7 @@ import {
   RETENTION_YEAR_FIELDS,
   STAFF_LEAVE_NOTICE_LABELS,
 } from './retention-labels';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 
 /** Administrace → Archiv: pupils leaving or gone, staff who left, and
  * the school's rules for erasing their data (RetentionController). */

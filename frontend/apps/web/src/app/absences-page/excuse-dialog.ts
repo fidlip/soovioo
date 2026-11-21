@@ -25,7 +25,7 @@ import {
 import { concat, last, Observable, of } from 'rxjs';
 import { FilePicker } from '../file-picker/file-picker';
 import { FloatField, FORM_FIELDS } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { excuseFileError, formatFileSize } from './excuse-files';
 import {
   PeriodChips,

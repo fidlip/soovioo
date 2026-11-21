@@ -14,8 +14,8 @@ import {
   SubjectsApiService,
 } from '@soovioo/shared';
 import { FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
 
 /** "Všechny předměty" and "Chování" among the subjects of a rule. */

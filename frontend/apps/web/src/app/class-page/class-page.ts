@@ -16,7 +16,7 @@ import {
 import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 /** Lidé → Třída for parents and pupils: the class's teachers and — as far as

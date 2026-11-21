@@ -1,0 +1,48 @@
+name: UI package
+
+# Publishes @fidlip/soovioo-ui (frontend/libs/ui) to GitHub Packages when its
+# version in libs/ui/package.json isn't published yet. Bump the version to
+# release; the app itself uses the library from source.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - frontend/libs/ui/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: '@fidlip'
+      - id: version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(node -p "require('./libs/ui/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "@fidlip/soovioo-ui@$version" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.version.outputs.published != 'true'
+        run: npm ci
+      - if: steps.version.outputs.published != 'true'
+        run: npx nx build ui
+      - if: steps.version.outputs.published != 'true'
+        working-directory: frontend/dist/libs/ui
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish

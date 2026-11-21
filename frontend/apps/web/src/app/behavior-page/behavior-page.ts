@@ -26,10 +26,10 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { todayString } from '../absences-page/excuse-days';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {

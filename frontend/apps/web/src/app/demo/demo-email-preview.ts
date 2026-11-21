@@ -1,7 +1,7 @@
 import { Component, Injectable, computed, inject, signal } from '@angular/core';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { DemoApiService, DemoEmail } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { SchoolContextService, isDemoSlug } from '../school-context';
 
 /** A demo school sends no e-mail at all (DemoAwareEmailSender keeps it on

@@ -1,4 +1,4 @@
-import { formatNumberWithoutIntl } from '../common/date-format';
+import { formatNumberWithoutIntl } from '@fidlip/soovioo-ui/format';
 import { GradeMainBlock, MainBlock } from './main-block.model';
 import { DayOfWeek } from './timetable-entry.model';
 

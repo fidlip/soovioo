@@ -1,0 +1,28 @@
+{
+  "name": "@fidlip/soovioo-ui",
+  "version": "0.1.0",
+  "description": "Soovioo's shared UI: Markdown, forms, theme, Czech locale and formats.",
+  "license": "EUPL-1.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fidlip/soovioo.git",
+    "directory": "frontend/libs/ui"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "peerDependencies": {
+    "@angular/common": "^22.2.2",
+    "@angular/core": "^22.2.2",
+    "@angular/forms": "^22.2.2",
+    "@angular/platform-browser": "^22.2.2",
+    "@openng/optimus-ui": "^2.0.2",
+    "@openng/optimus-ui-themes": "^2.0.2",
+    "rxjs": "^7.8.0"
+  },
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "marked": "18.1.1"
+  },
+  "sideEffects": false
+}

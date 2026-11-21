@@ -51,9 +51,9 @@ import {
 } from 'rxjs';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { LiveService } from '../live.service';
-import { Markdown } from '../markdown/markdown';
-import { MarkdownEditor } from '../markdown/markdown-editor';
-import { NotifyService } from '../notify.service';
+import { Markdown } from '@fidlip/soovioo-ui';
+import { MarkdownEditor } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { schoolUrl } from '../school-context';
 import {
   SupportAsPick,

@@ -22,7 +22,7 @@ import {
   scopesFor,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 interface AgendaRows {
   agenda: string;

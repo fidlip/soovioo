@@ -39,9 +39,9 @@ import {
 import { AppIcon } from '../app-icon';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { FilePicker } from '../file-picker/file-picker';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 /** Mirrors MessageAttachmentRules on the backend — same allow-list, reused

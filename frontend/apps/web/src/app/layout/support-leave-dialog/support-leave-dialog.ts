@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Button } from '@openng/optimus-ui/button';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { FORM_FIELDS } from '../../forms';
-import { MarkdownEditor } from '../../markdown/markdown-editor';
+import { MarkdownEditor } from '@fidlip/soovioo-ui';
 import { SessionActionsService } from '../session-actions.service';
 
 /** "Opustit" in support mode: what was done, if the SuperAdmin wants to

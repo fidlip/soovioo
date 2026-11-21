@@ -5,8 +5,8 @@ import { Card } from '@openng/optimus-ui/card';
 import { Select } from '@openng/optimus-ui/select';
 import { MySchoolApiService, UnverifiedExcuseApproval } from '@soovioo/shared';
 import { FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** Třídní kniha in Údaje o škole: whether an omluvenka's day is approved
  * before all its lessons are written. */

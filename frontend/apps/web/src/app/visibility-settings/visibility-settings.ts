@@ -11,8 +11,8 @@ import {
   VisibilityRules,
   VisibilityScope,
 } from '@soovioo/shared';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
 import {
   VISIBILITY_AUDIENCE_LABELS,
@@ -24,7 +24,7 @@ import {
   scopesBetween,
   widestScopeFor,
 } from '../visibility-options';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 
 type Bound = 'min' | 'default' | 'max';
 

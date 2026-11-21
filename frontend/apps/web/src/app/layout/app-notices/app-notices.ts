@@ -21,7 +21,7 @@ import {
   SupportAsPick,
   SupportAsPicker,
 } from '../../support-as/support-as-picker';
-import { NotifyService } from '../../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { UnreadCountsService } from '../../unread-counts.service';
 import { SupportPresenceBanners } from '../support-presence/support-presence';
 import { SchoolYearWizard } from '../../school-year-wizard/school-year-wizard';

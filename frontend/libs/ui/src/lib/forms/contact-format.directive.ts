@@ -5,7 +5,7 @@ import {
   ValidationErrors,
   Validator,
 } from '@angular/forms';
-import { parseEmail, parsePhone } from '@soovioo/shared';
+import { parseEmail, parsePhone } from '@fidlip/soovioo-ui/format';
 
 /** An e-mail by the server's rules (an empty value passes). */
 @Directive({

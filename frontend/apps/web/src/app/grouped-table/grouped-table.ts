@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { NameLabel } from '@soovioo/shared';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 /** One grouping level — rows sharing the same `key` (and the same keys on

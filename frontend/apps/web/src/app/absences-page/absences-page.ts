@@ -43,7 +43,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { ClassBook } from '../class-book/class-book';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';

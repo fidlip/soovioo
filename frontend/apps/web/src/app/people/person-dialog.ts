@@ -39,7 +39,7 @@ import {
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
 import {
   StudentFields,
@@ -49,8 +49,8 @@ import {
   studentFormOf,
 } from './student-fields';
 import { personPhotoUrl } from './person-photo';
-import { Loading } from '../loading/loading';
-import { InfoHint } from '../info-hint/info-hint';
+import { Loading } from '@fidlip/soovioo-ui';
+import { InfoHint } from '@fidlip/soovioo-ui';
 import { TeacherAvailability } from './teacher-availability';
 
 export type PersonProfile = 'teacher' | 'parent' | 'student';

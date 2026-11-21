@@ -13,7 +13,7 @@ import {
   NotificationsApiService,
 } from '@soovioo/shared';
 import { LiveService } from '../live.service';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { SchoolContextService } from '../school-context';
 import { UnreadCountsService } from '../unread-counts.service';
 

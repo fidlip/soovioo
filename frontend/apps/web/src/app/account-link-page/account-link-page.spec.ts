@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { AuthApiService, LinkedAccountsApiService } from '@soovioo/shared';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { SchoolContextService } from '../school-context';
 import { AccountLinkDonePage } from './account-link-done-page';
 import { AccountLinkPage } from './account-link-page';

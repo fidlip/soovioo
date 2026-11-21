@@ -7,7 +7,7 @@ import { InputText } from '@openng/optimus-ui/inputtext';
 import { Textarea } from '@openng/optimus-ui/textarea';
 import { AuthApiService, FeedbackRequest, parseEmail } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** Rating, text and a contact — the demo's feedback dialog and the
  * "Zpětná vazba" card in Nastavení. Starts over once sent. */

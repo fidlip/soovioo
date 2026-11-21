@@ -5,8 +5,8 @@ import { Card } from '@openng/optimus-ui/card';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { MainBlockApiService } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** The school's hlavní výukový blok; grades' and classes' are in Učební
  * plán and Třídy, per version. */

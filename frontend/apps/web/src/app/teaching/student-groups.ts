@@ -43,7 +43,7 @@ import {
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
 import { FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 interface DivisionForm {
   id: number | null;

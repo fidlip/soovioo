@@ -27,9 +27,9 @@ import {
 import { Subscription, forkJoin } from 'rxjs';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
-import { Loading } from '../loading/loading';
-import { MarkdownEditor } from '../markdown/markdown-editor';
-import { NotifyService } from '../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { MarkdownEditor } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { SupportTicketDialog } from '../support-ticket/support-ticket-dialog';
 import { ticketStatusSeverity } from '../support-ticket/ticket-status';
 

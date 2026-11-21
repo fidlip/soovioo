@@ -49,7 +49,7 @@ import {
 import { toDateOnlyString } from '../absences-page/student-day-periods';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import {
   FORM_FIELDS,
   FloatField,
@@ -57,7 +57,7 @@ import {
   studentPickOptions,
 } from '../forms';
 import { CALENDAR_LOCALE } from '../locale';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { foldForSearch } from '../text-search';
 import { highlightElement, onLinkedItem } from '../highlight';
 

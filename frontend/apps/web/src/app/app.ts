@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@openng/optimus-ui/confirmdialog';
 import { Toast } from '@openng/optimus-ui/toast';
 import { filter, map } from 'rxjs';
 import { AuthApiService } from '@soovioo/shared';
-import { DarkModeService } from './dark-mode.service';
+import { DarkModeService } from '@fidlip/soovioo-ui';
 import { installPlaceholderTitles } from './placeholder-title';
 import { DemoShell } from './demo/demo-shell';
 import { TestBanner } from './test-banner/test-banner';

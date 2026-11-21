@@ -28,7 +28,7 @@ import {
 import { Avatar } from '../avatar/avatar';
 import { ClearFilters, FloatField } from '../forms';
 import { LeaveDialog, LeaveTarget } from '../departures/leave-dialog';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import {
   StudentPhotoDialog,
   UserPhotoDialog,
@@ -37,7 +37,7 @@ import { TermPipe } from '../term.pipe';
 import { foldForSearch, matchesContact } from '../text-search';
 import { PersonDialog, PersonDialogTarget } from './person-dialog';
 import { personPhotoUrl } from './person-photo';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { NicknameApproval } from '../nickname-approval/nickname-approval';
 
 type Kind = 'teacher' | 'parent' | 'student' | 'noAccount';

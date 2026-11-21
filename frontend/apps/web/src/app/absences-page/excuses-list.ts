@@ -26,7 +26,7 @@ import {
 } from '@soovioo/shared';
 import { ClearFilters, FloatField } from '../forms';
 import { GroupedTable, GroupLevel } from '../grouped-table/grouped-table';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { DayLessons, APPROVAL_BLOCKED, approveBacked } from './day-lessons';
 import { DecisionMenu } from './decision-menu';
 import { excuseFileDownloader, formatFileSize } from './excuse-files';

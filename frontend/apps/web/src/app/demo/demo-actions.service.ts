@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ConfirmationService, MenuItem } from '@openng/optimus-ui/api';
 import { DemoApiService } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { switchMap } from 'rxjs';
 import { demoEntryUrl, schoolUrl } from '../school-context';
 

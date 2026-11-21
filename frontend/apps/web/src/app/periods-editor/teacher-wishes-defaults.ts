@@ -5,8 +5,8 @@ import { Card } from '@openng/optimus-ui/card';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
 import { TeacherWishesApiService } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** The school's default wishes of teachers for the timetable generator —
  * a teacher's own (Osoby) take their place. */

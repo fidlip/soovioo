@@ -72,10 +72,10 @@ import { SchoolContextService } from '../school-context';
 import { TimetableVersionSelection } from './timetable-version-selection';
 import { TermPipe } from '../term.pipe';
 import { ConfirmationService } from '@openng/optimus-ui/api';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { toDateOnly } from '../departures/retention-labels';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { TimetableEditFromDateDialog } from './timetable-edit-from-date-dialog';
 import { versionStatusLabel, versionValidity } from './timetable-versions';
 

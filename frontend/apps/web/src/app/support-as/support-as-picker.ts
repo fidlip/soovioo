@@ -7,7 +7,7 @@ import { Select } from '@openng/optimus-ui/select';
 import { RoleRef, SupportAsUser } from '@soovioo/shared';
 import { Observable } from 'rxjs';
 import { FloatField } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { foldForSearch } from '../text-search';
 
 /** Whom the support is in the school as: a user and one of their roles,

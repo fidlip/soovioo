@@ -1,7 +1,7 @@
 import { Component, inject, input, output } from '@angular/core';
 import { Button } from '@openng/optimus-ui/button';
 import { StudentsApiService } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** A pupil's proposed nickname the school decides — the pupil has no
  * parent in the app (otherwise the parents do, in Mé děti). */

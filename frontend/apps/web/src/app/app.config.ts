@@ -27,11 +27,11 @@ import {
 } from '@soovioo/shared';
 import { environment } from '../environments/environment';
 import { appRoutes } from './app.routes';
-import { OPTIMUS_TRANSLATION } from './locale';
+import { OPTIMUS_TRANSLATION } from '@fidlip/soovioo-ui';
 import { MemoryTokenStorage } from './memory-token-storage';
 import { currentSchoolSlugFromUrl } from './school-context';
-import { serverErrorInterceptor } from './server-error.interceptor';
-import { sooviooTheme } from './theme';
+import { serverErrorInterceptor } from '@fidlip/soovioo-ui';
+import { sooviooTheme } from '@fidlip/soovioo-ui';
 
 registerLocaleData(localeCs);
 

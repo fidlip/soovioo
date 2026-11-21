@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { TeachingApiService, TeachingOverview } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { RvpPanel, rvpAreaChoice } from './rvp-panel';
 
 const subject = { subjectId: 1, subjectName: 'Matematika' };

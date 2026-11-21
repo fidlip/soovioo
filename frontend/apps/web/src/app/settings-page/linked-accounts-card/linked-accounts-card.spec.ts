@@ -5,7 +5,7 @@ import { LinkedAccount, LinkedAccountsApiService } from '@soovioo/shared';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { LinkAccountDialogService } from '../../link-account/link-account-dialog.service';
-import { NotifyService } from '../../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { UnreadCountsService } from '../../unread-counts.service';
 import { LinkedAccountsCard } from './linked-accounts-card';
 
