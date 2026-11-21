@@ -36,7 +36,10 @@
       (onClick)="step(1)"
     />
   </div>
-  <span class="font-semibold" data-testid="class-book-day">
+  <span
+    class="order-last w-full font-semibold sm:order-none sm:w-auto"
+    data-testid="class-book-day"
+  >
     {{ dateLabel() }}
   </span>
   <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
