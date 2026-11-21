@@ -30,10 +30,10 @@ import {
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
-import { InfoHint } from '../info-hint/info-hint';
-import { Loading } from '../loading/loading';
-import { MarkdownEditor } from '../markdown/markdown-editor';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { Loading } from '@fidlip/soovioo-ui';
+import { MarkdownEditor } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { SupportAsUsersSelect } from '../support-as/support-as-users-select';
 import { SupportTicketDialog } from '../support-ticket/support-ticket-dialog';
 import { ticketStatusSeverity } from '../support-ticket/ticket-status';

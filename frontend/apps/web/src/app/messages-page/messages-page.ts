@@ -42,9 +42,9 @@ import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { UnreadCountsService } from '../unread-counts.service';
 import { FilePicker } from '../file-picker/file-picker';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 /** Mirrors MessageAttachmentRules on the backend — client-side only gives

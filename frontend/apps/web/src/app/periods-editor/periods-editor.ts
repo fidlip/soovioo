@@ -6,8 +6,8 @@ import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { SchoolPeriod, SchoolPeriodsApiService } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** Bell schedule (start/end of each period, incl. a "zero" period) —
  * school-wide settings, so it lives in Administrace, not in the timetable. */

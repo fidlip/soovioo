@@ -14,8 +14,8 @@ import {
   digestTimeLabel,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** The school's daily e-mail of notifications — its default time and the
  * kinds nobody can switch off; push — whether it may carry the whole text,

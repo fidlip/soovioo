@@ -5,8 +5,8 @@ import { Card } from '@openng/optimus-ui/card';
 import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import { DateFormatPipe, DemoApiService, DemoContact } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
-import { Loading } from '../loading/loading';
+import { NotifyService } from '@fidlip/soovioo-ui';
+import { Loading } from '@fidlip/soovioo-ui';
 
 /** Správa škol → who left a contact in a "Vyzkoušet" demo (CSV export).
  * Their feedback has its own page (Zpětná vazba). */

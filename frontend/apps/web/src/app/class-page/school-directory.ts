@@ -17,7 +17,7 @@ import {
 import { Subject, debounceTime } from 'rxjs';
 import { Avatar } from '../avatar/avatar';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 /** Lidé → Škola: everyone at the school as far as their "Viditelnost

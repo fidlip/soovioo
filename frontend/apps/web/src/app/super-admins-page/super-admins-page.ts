@@ -10,7 +10,7 @@ import { TableModule } from '@openng/optimus-ui/table';
 import { AuthApiService, SuperAdmin, SupportApiService } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** SuperAdmin's "Superadmini": the accounts that manage the schools. */
 @Component({

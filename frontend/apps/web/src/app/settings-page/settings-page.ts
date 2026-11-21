@@ -36,19 +36,19 @@ import {
   teachingDaysLabel,
   VisibilitySetting,
 } from '@soovioo/shared';
-import { DarkModeService } from '../dark-mode.service';
+import { DarkModeService } from '@fidlip/soovioo-ui';
 import { SchoolContextService, isDemoSlug } from '../school-context';
 import { LinkedAccountsCard } from './linked-accounts-card/linked-accounts-card';
 
-import { InfoHint } from '../info-hint/info-hint';
+import { InfoHint } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { OwnPhotoService } from '../avatar/own-photo.service';
 import { PhotoEditor } from '../photo-editor/photo-editor';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { FeedbackForm } from '../feedback/feedback-form';
 @Component({
   selector: 'app-settings-page',

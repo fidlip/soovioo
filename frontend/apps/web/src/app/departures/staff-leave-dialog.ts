@@ -23,14 +23,14 @@ import {
   qualifiedFirst,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import {
   DAY_LABELS,
   STAFF_LEAVE_NOTICE_LABELS,
   STAFF_LEAVE_REASON_OPTIONS,
   toDateOnly,
 } from './retention-labels';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 
 /** The member of staff whose departure is edited. */
 export interface StaffLeaveTarget {

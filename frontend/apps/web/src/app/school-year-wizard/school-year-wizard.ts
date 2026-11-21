@@ -21,8 +21,8 @@ import {
 } from '@soovioo/shared';
 import { toDateOnlyString } from '../absences-page/student-day-periods';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { Loading } from '../loading/loading';
-import { NotifyService } from '../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 function parseDateOnly(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);

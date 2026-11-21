@@ -39,7 +39,7 @@ import {
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { ReportCardTab } from './report-card-tab';

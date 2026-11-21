@@ -20,10 +20,10 @@ import {
   UpdateSchoolRequest,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { DemoAdminPanel } from './demo-admin-panel';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 
 const DEFAULT_PAGE_SIZE = 10;
 

@@ -9,7 +9,7 @@ import {
   StudentPhotoState,
 } from '@soovioo/shared';
 import { Observable } from 'rxjs';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { PhotoEditor } from '../photo-editor/photo-editor';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';

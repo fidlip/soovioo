@@ -9,7 +9,7 @@ import {
 } from '@soovioo/shared';
 import { toDateOnly } from '../departures/retention-labels';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** Upravit od data: the day a change to the version that applies starts on.
  * Open while `version` is set. */

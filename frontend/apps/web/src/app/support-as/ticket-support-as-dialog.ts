@@ -7,7 +7,7 @@ import {
   SupportTicket,
   SupportTicketDetail,
 } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { SupportAsUsersSelect } from './support-as-users-select';
 
 /** The users the support may enter the school as for one ticket — the

@@ -9,7 +9,7 @@ import {
 } from '@soovioo/shared';
 import { filter, interval, merge } from 'rxjs';
 import { LiveService } from '../../live.service';
-import { Markdown } from '../../markdown/markdown';
+import { Markdown } from '@fidlip/soovioo-ui';
 import { SessionActionsService } from '../session-actions.service';
 
 /** How often support mode asks whether its session still runs while the

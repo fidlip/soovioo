@@ -23,8 +23,8 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../../app-icon';
 import { ClearFilters, FloatField } from '../../forms';
-import { Loading } from '../../loading/loading';
-import { NotifyService } from '../../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { UnreadCountsService } from '../../unread-counts.service';
 
 /** Values recorded before roles became the school's own (now the role's name). */

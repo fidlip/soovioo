@@ -33,8 +33,8 @@ import {
 } from '@soovioo/shared';
 import { todayString } from '../absences-page/excuse-days';
 import { ClearFilters, FloatField } from '../forms';
-import { Loading } from '../loading/loading';
-import { NotifyService } from '../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
 import { VerbalTextDialog } from './verbal-text-dialog';
 

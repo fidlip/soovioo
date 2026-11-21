@@ -13,8 +13,8 @@ import {
   approvalDuration,
 } from '@soovioo/shared';
 import { FloatField } from '../forms';
-import { InfoHint } from '../info-hint/info-hint';
-import { NotifyService } from '../notify.service';
+import { InfoHint } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 /** Vstup podpory do školy in Aplikace → Nastavení: whether the support may
  * enter the school, and as its admin or as a user the ticket names — only

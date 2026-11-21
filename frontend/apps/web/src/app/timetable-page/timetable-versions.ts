@@ -29,9 +29,9 @@ import {
 import { Observable } from 'rxjs';
 import { toDateOnly } from '../departures/retention-labels';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { Loading } from '../loading/loading';
-import { DESKTOP_QUERY, mediaQuery } from '../media-query';
-import { NotifyService } from '../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { DESKTOP_QUERY, mediaQuery } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TimetableVersionSelection } from './timetable-version-selection';
 
 type Severity = 'success' | 'info' | 'warn' | 'secondary';

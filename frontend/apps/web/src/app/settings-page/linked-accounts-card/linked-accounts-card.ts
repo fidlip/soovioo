@@ -4,7 +4,7 @@ import { Button } from '@openng/optimus-ui/button';
 import { Card } from '@openng/optimus-ui/card';
 import { LinkedAccount, LinkedAccountsApiService } from '@soovioo/shared';
 import { LinkAccountDialogService } from '../../link-account/link-account-dialog.service';
-import { NotifyService } from '../../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { UnreadCountsService } from '../../unread-counts.service';
 
 /** Nastavení → Propojené účty: the user's accounts at other schools. */

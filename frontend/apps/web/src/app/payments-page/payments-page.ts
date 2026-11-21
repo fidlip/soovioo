@@ -30,7 +30,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import {
   ClearFilters,
   FloatField,
@@ -38,7 +38,7 @@ import {
   studentClasses,
   studentPickOptions,
 } from '../forms';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { PersonName } from '../person-name/person-name';
 
 type AudienceOption = { value: PaymentAudience; label: string };

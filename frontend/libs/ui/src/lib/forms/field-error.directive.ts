@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, NgControl, ValidationErrors } from '@angular/forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '../infra/notify.service';
 import { labelElementFor } from './field-label';
 
 /** Applied automatically to every named `ngModel` control in a component

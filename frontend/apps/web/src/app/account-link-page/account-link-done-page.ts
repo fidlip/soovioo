@@ -3,7 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { AuthApiService, LinkedAccountsApiService } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { SchoolContextService } from '../school-context';
 
 /** Linking, back at the school where it started: the API finishes it only

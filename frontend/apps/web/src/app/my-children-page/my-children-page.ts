@@ -12,12 +12,12 @@ import {
   StudentPhotoState,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { StudentPhoto } from '../student-photo/student-photo';
 import { VisibilityControl } from '../visibility-control/visibility-control';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import { highlightElement, onLinkedItem } from '../highlight';
-import { FloatField } from '../forms/float-field';
+import { FloatField } from '@fidlip/soovioo-ui';
 
 /** "Mé děti" for parents: their children, their photos, and who sees the
  * children's data — a pupil's "Viditelnost údajů" is the parents' call. */

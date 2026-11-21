@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { LinkableSchool, LinkedAccountsApiService } from '@soovioo/shared';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { LinkAccountDialog } from './link-account-dialog';
 
 /** The protected state and actions, as the template uses them. */

@@ -14,7 +14,7 @@ import {
   formatBankAccount,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 type SetupStep = 'type' | 'seat' | 'contact' | 'reportCards' | 'ids';
 

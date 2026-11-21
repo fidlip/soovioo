@@ -24,8 +24,8 @@ import {
 } from '@soovioo/shared';
 import { Avatar } from '../avatar/avatar';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { Loading } from '../loading/loading';
-import { NotifyService } from '../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 export const TOPIC_MAX_LENGTH = 500;
 

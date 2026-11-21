@@ -18,8 +18,8 @@ import {
 import { SchoolContextService } from '../school-context';
 import { AppIcon, AppIconName } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { NotifyService } from '../notify.service';
-import { Loading } from '../loading/loading';
+import { NotifyService } from '@fidlip/soovioo-ui';
+import { Loading } from '@fidlip/soovioo-ui';
 import { ExcuseDialog } from '../absences-page/excuse-dialog';
 import { excuseRange } from '../absences-page/excuse-days';
 import { PersonName } from '../person-name/person-name';

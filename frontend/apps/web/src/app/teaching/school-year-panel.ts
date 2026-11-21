@@ -11,7 +11,7 @@ import {
   SchoolYearsStore,
 } from '@soovioo/shared';
 import { todayString } from '../absences-page/excuse-days';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 import {
   DIRECTORS_DAYS,
   SchoolYearWizard,

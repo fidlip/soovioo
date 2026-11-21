@@ -20,7 +20,7 @@ import {
   TeachingOverview,
   formatHours,
 } from '@soovioo/shared';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 const AUTOMATIC = 'automatic';
 const NO_AREA = 'none';

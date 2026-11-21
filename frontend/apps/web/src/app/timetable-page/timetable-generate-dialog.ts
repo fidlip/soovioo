@@ -24,8 +24,8 @@ import {
   TimetableVersionsApiService,
 } from '@soovioo/shared';
 import { Subscription, switchMap, takeWhile, timer } from 'rxjs';
-import { Loading } from '../loading/loading';
-import { NotifyService } from '../notify.service';
+import { Loading } from '@fidlip/soovioo-ui';
+import { NotifyService } from '@fidlip/soovioo-ui';
 
 const RUNNING = ['Queued', 'Running'];
 

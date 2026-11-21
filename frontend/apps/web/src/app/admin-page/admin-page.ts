@@ -130,12 +130,12 @@ const SUBJECT_COLOR_PALETTE = [
   '#e2e8f0', // slate
 ];
 
-import { InfoHint } from '../info-hint/info-hint';
+import { InfoHint } from '@fidlip/soovioo-ui';
 import { ClassBookSettings } from './class-book-settings';
 import { ReportCardSettings } from './report-card-settings';
 import { SupportAccessSettings } from './support-access-settings';
 import { ConfirmationService } from '@openng/optimus-ui/api';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { DemoEmailPreviewService } from '../demo/demo-email-preview';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { SchoolNotifications } from '../school-notifications/school-notifications';
@@ -171,7 +171,7 @@ import {
   UserPhotoDialog,
 } from '../photo-dialogs/photo-dialogs';
 import { Tooltip } from '@openng/optimus-ui/tooltip';
-import { Loading } from '../loading/loading';
+import { Loading } from '@fidlip/soovioo-ui';
 @Component({
   selector: 'app-admin-page',
   imports: [

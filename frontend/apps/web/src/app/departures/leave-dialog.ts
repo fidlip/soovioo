@@ -13,7 +13,7 @@ import {
   StudentLeaveReason,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
-import { NotifyService } from '../notify.service';
+import { NotifyService } from '@fidlip/soovioo-ui';
 import { TermPipe } from '../term.pipe';
 import { LEAVE_REASON_OPTIONS, toDateOnly } from './retention-labels';
 
