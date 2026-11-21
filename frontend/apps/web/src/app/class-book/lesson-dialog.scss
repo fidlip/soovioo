@@ -1,0 +1,134 @@
+/* Attendance states in their colours: outlined when not chosen, filled when
+ * chosen. 700 shades on white and 400 shades on dark surfaces keep WCAG AA;
+ * yellow is filled with dark text, as white on it is unreadable. */
+.attendance-Present,
+.p-togglebutton:has(.attendance-Present) {
+  --attendance-color: var(--p-green-700);
+}
+
+.attendance-Absent,
+.p-togglebutton:has(.attendance-Absent) {
+  --attendance-color: var(--p-red-700);
+}
+
+.attendance-Late,
+.p-togglebutton:has(.attendance-Late) {
+  --attendance-color: var(--p-orange-700);
+}
+
+.attendance-LeftEarly,
+.p-togglebutton:has(.attendance-LeftEarly) {
+  --attendance-color: var(--p-yellow-700);
+  --attendance-fill: var(--p-yellow-400);
+  --attendance-on-fill: var(--p-surface-900);
+}
+
+.attendance-Away,
+.p-togglebutton:has(.attendance-Away) {
+  --attendance-color: var(--p-blue-700);
+}
+
+.soovioo-dark {
+  .attendance-Present,
+  .p-togglebutton:has(.attendance-Present) {
+    --attendance-color: var(--p-green-400);
+  }
+
+  .attendance-Absent,
+  .p-togglebutton:has(.attendance-Absent) {
+    --attendance-color: var(--p-red-400);
+  }
+
+  .attendance-Late,
+  .p-togglebutton:has(.attendance-Late) {
+    --attendance-color: var(--p-orange-400);
+  }
+
+  .attendance-LeftEarly,
+  .p-togglebutton:has(.attendance-LeftEarly) {
+    --attendance-color: var(--p-yellow-300);
+    --attendance-fill: var(--p-yellow-300);
+  }
+
+  .attendance-Away,
+  .p-togglebutton:has(.attendance-Away) {
+    --attendance-color: var(--p-blue-400);
+  }
+
+  .p-button.attendance-state,
+  .p-togglebutton:has(.attendance-state) {
+    --attendance-on-fill: var(--p-surface-950);
+  }
+}
+
+.p-button.attendance-state,
+.p-togglebutton:has(.attendance-state) {
+  border: 1px solid var(--attendance-color);
+  background: transparent;
+  color: var(--attendance-color);
+
+  &:not(:disabled):hover {
+    border-color: var(--attendance-color);
+    background: color-mix(in srgb, var(--attendance-color) 10%, transparent);
+    color: var(--attendance-color);
+  }
+
+  &.attendance-state-checked,
+  &.p-togglebutton-checked,
+  &.attendance-state-checked:not(:disabled):hover,
+  &.p-togglebutton-checked:not(:disabled):hover {
+    border-color: var(--attendance-fill, var(--attendance-color));
+    background: var(--attendance-fill, var(--attendance-color));
+    color: var(--attendance-on-fill, #fff);
+  }
+}
+
+.p-togglebutton:has(.attendance-state) .p-togglebutton-content {
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+/* Apart, so each state keeps its own coloured outline; the minutes go
+ * under their state, in the same columns. */
+.attendance-row {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 0.25rem;
+}
+
+.attendance-states.p-selectbutton,
+.attendance-minutes {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.attendance-states.p-selectbutton .p-togglebutton {
+  border-radius: var(--p-togglebutton-border-radius);
+}
+
+/* As wide as its state's button, not its own default width. */
+.attendance-minutes p-inputnumber {
+  contain: inline-size;
+
+  input {
+    padding-inline: 0.25rem;
+    text-align: center;
+  }
+}
+
+/* A phone has all five states across its width. */
+@media (max-width: 639px) {
+  .attendance-row {
+    width: 100%;
+  }
+
+  .attendance-states.p-selectbutton .p-togglebutton {
+    padding-inline: 0;
+  }
+
+  .attendance-states.p-selectbutton .p-togglebutton-content {
+    padding-inline: 0.25rem;
+  }
+}

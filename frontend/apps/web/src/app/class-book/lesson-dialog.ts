@@ -1,4 +1,11 @@
-import { Component, computed, inject, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  output,
+  signal,
+  ViewEncapsulation,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
@@ -36,42 +43,36 @@ export const STATES: {
   label: string;
   button: string;
   title: string;
-  severity: 'primary' | 'danger' | 'secondary';
 }[] = [
   {
     value: 'Present',
     label: 'Zde',
     button: 'Přítomen',
     title: 'Přítomen',
-    severity: 'primary',
   },
   {
     value: 'Absent',
     label: 'Chybí',
     button: 'Nepřítomen',
     title: 'Nepřítomen',
-    severity: 'danger',
   },
   {
     value: 'Late',
     label: 'Pozdě',
     button: 'Pozdní příchod',
     title: 'Pozdní příchod',
-    severity: 'secondary',
   },
   {
     value: 'LeftEarly',
     label: 'Odchod',
     button: 'Odchod z hodiny',
     title: 'Odchod během hodiny',
-    severity: 'secondary',
   },
   {
     value: 'Away',
     label: 'Mimo',
     button: 'Mimo třídu',
     title: 'Mimo třídu ze školních důvodů (soutěž, akce)',
-    severity: 'secondary',
   },
 ];
 
@@ -125,6 +126,8 @@ export function markRequests(
     Textarea,
   ],
   templateUrl: './lesson-dialog.html',
+  styleUrl: './lesson-dialog.scss',
+  encapsulation: ViewEncapsulation.None,
 })
 export class LessonDialog {
   private readonly api = inject(ClassBookApiService);
@@ -138,6 +141,8 @@ export class LessonDialog {
   protected readonly topicMaxLength = TOPIC_MAX_LENGTH;
   protected readonly states = STATES;
   protected readonly hasMinutes = hasMinutes;
+  protected readonly stateColumn = (state: PupilState) =>
+    STATES.findIndex((s) => s.value === state) + 1;
   protected readonly modeOptions = [
     { label: 'Seznam', value: 'list' },
     { label: 'Po jednom', value: 'one' },
