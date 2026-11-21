@@ -68,8 +68,9 @@
               }
             </div>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="attendance-row shrink-0 sm:self-center">
             <p-selectButton
+              class="attendance-states"
               [options]="states"
               optionLabel="label"
               optionValue="value"
@@ -81,22 +82,29 @@
               size="small"
             >
               <ng-template #item let-option>
-                <span [title]="option.title">{{ option.label }}</span>
+                <span
+                  [title]="option.title"
+                  [class]="'attendance-state attendance-' + option.value"
+                  >{{ option.label }}</span
+                >
               </ng-template>
             </p-selectButton>
             @if (hasMinutes(mark(pupil).state)) {
-            <p-inputNumber
-              [ngModel]="mark(pupil).minutes"
-              (ngModelChange)="setMinutes(pupil, $event)"
-              [ngModelOptions]="{ standalone: true }"
-              [min]="1"
-              [max]="240"
-              suffix=" min"
-              placeholder="min"
-              [ariaLabel]="'Minuty: ' + name(pupil)"
-              size="small"
-              inputStyleClass="w-20"
-            />
+            <div class="attendance-minutes">
+              <p-inputNumber
+                [style.grid-column]="stateColumn(mark(pupil).state)"
+                [ngModel]="mark(pupil).minutes"
+                (ngModelChange)="setMinutes(pupil, $event)"
+                [ngModelOptions]="{ standalone: true }"
+                [min]="1"
+                [max]="240"
+                suffix=" min"
+                placeholder="min"
+                [ariaLabel]="'Minuty: ' + name(pupil)"
+                size="small"
+                [fluid]="true"
+              />
+            </div>
             }
           </div>
         </li>
@@ -130,9 +138,13 @@
           <p-button
             [label]="state.button"
             [title]="state.title"
-            [severity]="state.severity"
-            [outlined]="mark(pupil).state !== state.value"
-            styleClass="w-full"
+            [styleClass]="
+              'w-full attendance-state attendance-' +
+              state.value +
+              (mark(pupil).state === state.value
+                ? ' attendance-state-checked'
+                : '')
+            "
             [class]="state.value === 'Present' ? 'col-span-2' : ''"
             [disabled]="saving()"
             (onClick)="choose(pupil, state.value)"
