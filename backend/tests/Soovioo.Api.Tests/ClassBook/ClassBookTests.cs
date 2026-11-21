@@ -142,6 +142,28 @@ public class ClassBookTests
     }
 
     [Fact]
+    public async Task A_lesson_counts_the_classs_pupils_or_the_groups_members()
+    {
+        Pupil("Ivo", "Dvořák", classB);
+
+        var day = await DayAsync(mala, classA.Id);
+
+        Assert.Equal([2, 2, 2], day.Lessons.Select(l => l.PupilCount));
+        Assert.Equal(2, (await DayAsync(mala, classB.Id)).Lessons[0].PupilCount);
+    }
+
+    [Fact]
+    public async Task A_week_is_its_monday_to_friday_from_any_of_its_days()
+    {
+        var week = Ok(await Controller(mala).GetWeek(Monday.AddDays(2), classA.Id));
+
+        Assert.Equal(Enumerable.Range(0, 5).Select(i => Monday.AddDays(i)), week.Select(d => d.Date));
+        Assert.Equal([1, 2, 3], week[0].Lessons.Select(l => l.PeriodNumber));
+        Assert.All(week.Skip(1), d => Assert.Empty(d.Lessons));
+        Assert.IsType<ForbidResult>((await Controller(kral).GetWeek(Monday, classA.Id)).Result);
+    }
+
+    [Fact]
     public async Task Without_a_class_the_teacher_sees_the_lessons_they_teach_that_day()
     {
         var day = await DayAsync(novak, null);

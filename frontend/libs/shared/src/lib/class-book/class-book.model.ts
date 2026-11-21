@@ -35,6 +35,8 @@ export interface ClassBookLesson {
   canWrite: boolean;
   /** The teacher went through the pupils. */
   attendanceTaken: boolean;
+  /** The class's pupils, or the group's members. */
+  pupilCount: number;
   /** The pupils not there the whole lesson; the rest were. */
   marks: LessonMark[];
 }

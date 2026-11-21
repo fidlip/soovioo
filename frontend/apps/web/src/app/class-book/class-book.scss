@@ -1,0 +1,76 @@
+/* Compact: a lesson a row — its number, subject and attendance bar. */
+.class-book-compact-row {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) 40%;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The week: days in columns, periods in rows. */
+.class-book-week {
+  display: grid;
+  gap: 0.25rem;
+  align-items: stretch;
+}
+
+.class-book-week-day {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+
+  span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.class-book-week-period {
+  align-self: center;
+  font-weight: 600;
+}
+
+.class-book-week-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.class-book-week-lesson {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  app-attendance-bar {
+    --attendance-bar-gap: 0;
+    --attendance-bar-height: 0.375rem;
+  }
+}

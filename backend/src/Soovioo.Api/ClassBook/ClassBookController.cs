@@ -55,6 +55,24 @@ public class ClassBookController(
         return Ok(new ClassBookDayDto(date, await DtosAsync(lessons), dayOff));
     }
 
+    /// <summary>The week from <paramref name="from"/> (its Monday) to
+    /// Friday, a day as <see cref="GetDay"/> has it.</summary>
+    [HttpGet("week")]
+    [RequirePermission(Permission.ClassBookRead)]
+    public async Task<ActionResult<List<ClassBookDayDto>>> GetWeek(DateOnly from, int? classId = null)
+    {
+        if (classId is { } id && !await User.ReachesClassAsync(db, Permission.ClassBookRead, id))
+        {
+            return Forbid();
+        }
+        var monday = from.AddDays(-(((int)from.DayOfWeek + 6) % 7));
+        var friday = monday.AddDays(4);
+        var lessons = await DtosAsync(await LessonsAsync(monday, friday, classId));
+        var calendar = await SchoolCalendar.LoadAsync(db, monday, friday);
+        return Ok(Enumerable.Range(0, 5).Select(i => monday.AddDays(i)).Select(date => new ClassBookDayDto(
+            date, [.. lessons.Where(l => l.Date == date)], calendar.Off(date, classId)?.Name)).ToList());
+    }
+
     /// <summary>The caller's lesson going on now, else their next one today
     /// — to take its attendance. None (204) when nothing is left.</summary>
     [HttpGet("now")]
@@ -207,12 +225,16 @@ public class ClassBookController(
 
     /// <summary>The day's lessons of the class, or the caller's; with
     /// <paramref name="all"/> every lesson of the school.</summary>
-    private async Task<List<EffectiveLesson>> LessonsAsync(DateOnly date, int? classId, bool all = false)
+    private Task<List<EffectiveLesson>> LessonsAsync(DateOnly date, int? classId, bool all = false) =>
+        LessonsAsync(date, date, classId, all);
+
+    private async Task<List<EffectiveLesson>> LessonsAsync(DateOnly from, DateOnly to, int? classId, bool all = false)
     {
         var userId = User.UserId();
-        return [.. (await LessonChanges.OnAsync(db, date, date))
+        return [.. (await LessonChanges.OnAsync(db, from, to))
             .Where(l => all || (classId is { } c ? l.ClassIds.Contains(c) : l.TeacherId == userId && !l.Gone))
-            .OrderBy(l => l.Key.Period)
+            .OrderBy(l => l.Key.Date)
+            .ThenBy(l => l.Key.Period)
             .ThenBy(l => l.Gone)];
     }
 
@@ -271,6 +293,18 @@ public class ClassBookController(
                 .Select(a => new { a.StudentId, a.Date, a.Status })
                 .ToListAsync())
             .ToDictionary(a => (a.StudentId, a.Date), a => a.Status);
+        var classIds = lessons.Where(l => l.Key.GroupId is null).Select(l => l.Key.ClassId).OfType<int>().Distinct().ToList();
+        var groupIds = lessons.Select(l => l.Key.GroupId).OfType<int>().Distinct().ToList();
+        var classSizes = (await db.Students
+                .Where(s => classIds.Contains(s.SchoolClassId))
+                .Select(s => s.SchoolClassId)
+                .ToListAsync())
+            .CountBy(id => id).ToDictionary();
+        var groupSizes = (await db.StudentGroupMembers
+                .Where(m => groupIds.Contains(m.StudentGroupId) && db.Students.Any(s => s.Id == m.StudentId))
+                .Select(m => m.StudentGroupId)
+                .ToListAsync())
+            .CountBy(id => id).ToDictionary();
         var result = new List<ClassBookLessonDto>();
         foreach (var lesson in lessons)
         {
@@ -289,6 +323,7 @@ public class ClassBookController(
                 string.IsNullOrEmpty(record?.Topic) ? null : record.Topic, record?.RecordedBy, record?.RecordedAt,
                 access == LessonAccess.Allowed,
                 record?.AttendanceTakenAt is not null,
+                key.GroupId is { } group ? groupSizes.GetValueOrDefault(group) : classSizes.GetValueOrDefault(key.ClassId ?? 0),
                 record?.Marks.Select(m => m.Status == LessonAttendanceStatus.Absent
                         && excused.TryGetValue((m.StudentId, key.Date), out var status)
                     ? m with { ExcuseStatus = status } : m).ToList() ?? []));
@@ -312,13 +347,14 @@ public record ClassBookDayDto(DateOnly Date, IReadOnlyList<ClassBookLessonDto> L
 /// <param name="RecordedAt">When it was last saved (topic or attendance); null while never.</param>
 /// <param name="CanWrite">The caller may write it now.</param>
 /// <param name="AttendanceTaken">The teacher went through the pupils.</param>
+/// <param name="PupilCount">The class's pupils, or the group's members.</param>
 /// <param name="Marks">The pupils not there the whole lesson; the rest were.</param>
 public record ClassBookLessonDto(
     DateOnly Date, int PeriodNumber, int? SchoolClassId, int? StudentGroupId, TimeOnly? StartTime, TimeOnly? EndTime,
     string Who, int SubjectId, string SubjectName, string? SubjectAbbreviation,
     int? TeacherId, string? TeacherName, string? ClassroomName, string Label, bool Gone,
     string? Topic, string? RecordedByName, DateTimeOffset? RecordedAt, bool CanWrite,
-    bool AttendanceTaken, IReadOnlyList<LessonMarkDto> Marks);
+    bool AttendanceTaken, int PupilCount, IReadOnlyList<LessonMarkDto> Marks);
 
 /// <param name="ExcuseStatus">An absent pupil's omluvenka for the day: waiting, approved or rejected.</param>
 public record LessonMarkDto(
