@@ -87,12 +87,6 @@ const schoolRoutes: Route[] = [
     canActivate: [authGuard],
   },
   {
-    path: 'class-book',
-    loadComponent: () =>
-      import('./class-book-page/class-book-page').then((m) => m.ClassBookPage),
-    canActivate: [authGuard],
-  },
-  {
     path: 'timetable',
     loadComponent: () =>
       import('./timetable-page/timetable-page').then((m) => m.TimetablePage),

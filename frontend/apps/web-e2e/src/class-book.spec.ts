@@ -33,7 +33,7 @@ test('the management writes a past lesson: its topic and an absent pupil, then c
   test.slow();
   const slug = await newDemo(page);
   try {
-    await page.goto(`/${slug}/class-book`);
+    await page.goto(`/${slug}/absences`);
     const write = page.getByRole('button', { name: /^Zapsat \d+\. hodina/ });
     const day = page.getByTestId('class-book-day');
     for (let i = 0; i < 30; i++) {
@@ -155,8 +155,12 @@ test("a teacher's třídní kniha opens at the lessons they teach", async ({
   await page.getByRole('button', { name: 'Přihlásit se' }).click();
   await expect(page).toHaveURL(/\/skola\/home$/);
 
-  await page.getByRole('link', { name: 'Třídní kniha' }).first().click();
-  await expect(page).toHaveURL(/\/skola\/class-book$/);
+  await page.getByRole('link', { name: 'Docházka', exact: true }).click();
+  await expect(page).toHaveURL(/\/skola\/absences$/);
+  await expect(page.getByRole('tab', { name: 'Třídní kniha' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   await expect(page.getByTestId('class-book-class')).toContainText(
     'Moje hodiny',
   );

@@ -1,5 +1,5 @@
 import { ClassBookLesson, LessonPupils } from '@soovioo/shared';
-import { attendanceGroups } from './class-book-page';
+import { attendanceGroups } from './class-book';
 import { isOn } from './current-lesson';
 import { initialMarks, markRequests } from './lesson-dialog';
 

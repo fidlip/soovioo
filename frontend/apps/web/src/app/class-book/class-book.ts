@@ -17,7 +17,6 @@ import {
   LessonMark,
   formatDate,
 } from '@soovioo/shared';
-import { AppIcon } from '../app-icon';
 import { toDateOnly } from '../departures/retention-labels';
 import { Loading } from '../loading/loading';
 import { NotifyService } from '../notify.service';
@@ -90,9 +89,8 @@ export function attendanceGroups(
  * management any time). `?day=yyyy-MM-dd&class=<id>` opens that day and
  * class. */
 @Component({
-  selector: 'app-class-book-page',
+  selector: 'app-class-book',
   imports: [
-    AppIcon,
     Button,
     DatePicker,
     FormsModule,
@@ -102,9 +100,9 @@ export function attendanceGroups(
     Select,
     Tag,
   ],
-  templateUrl: './class-book-page.html',
+  templateUrl: './class-book.html',
 })
-export class ClassBookPage {
+export class ClassBook {
   private readonly api = inject(ClassBookApiService);
   private readonly notify = inject(NotifyService);
   private readonly auth = inject(AuthApiService);

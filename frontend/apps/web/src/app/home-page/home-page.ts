@@ -23,7 +23,7 @@ import { Loading } from '../loading/loading';
 import { ExcuseDialog } from '../absences-page/excuse-dialog';
 import { excuseRange } from '../absences-page/excuse-days';
 import { PersonName } from '../person-name/person-name';
-import { CurrentLesson } from '../class-book-page/current-lesson';
+import { CurrentLesson } from '../class-book/current-lesson';
 
 const ABSENCE_STATUS_SEVERITY: Record<
   AbsenceStatus,

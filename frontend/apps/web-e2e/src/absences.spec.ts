@@ -19,6 +19,12 @@ async function login(
   await expect(page).toHaveURL(/\/skola\/home$/);
   await page.getByRole('link', { name: 'Docházka', exact: true }).click();
   await expect(page).toHaveURL(/\/skola\/absences$/);
+  if (username === 'ucitel') {
+    // A teacher starts on the třídní kniha.
+    const classBook = page.getByRole('tab', { name: 'Třídní kniha' });
+    await expect(classBook).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: 'Absence' }).click();
+  }
 }
 
 /** How a day shows in the list, and as typed in the date picker. */

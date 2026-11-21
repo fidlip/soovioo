@@ -5,7 +5,7 @@ import {
   ClassBookApiService,
   ClassBookLesson,
 } from '@soovioo/shared';
-import { lessonTime } from './class-book-page';
+import { lessonTime } from './class-book';
 import { LessonDialog } from './lesson-dialog';
 
 /** Whether the lesson is on at `now` (its times "08:00:00"). */
