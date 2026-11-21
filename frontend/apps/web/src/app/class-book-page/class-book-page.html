@@ -87,9 +87,18 @@
         {{ lesson.topic }}
       </p>
       } @if (lesson.attendanceTaken) {
-      <span class="text-sm" data-testid="class-book-attendance"
-        >{{ attendance(lesson) }}</span
-      >
+      <span class="text-sm" data-testid="class-book-attendance">
+        @if (lesson.marks.length === 0) { Všichni přítomni } @else { @for (group
+        of groups(lesson); track group.label; let lastGroup = $last) { {{
+        group.label }}: @for (mark of group.marks; track mark.studentId; let
+        lastMark = $last) { {{ markName(mark) }} @if (excuseTag(mark); as tag) {
+        <p-tag
+          [value]="tag.label"
+          [severity]="tag.severity"
+          styleClass="px-1 py-0 text-xs"
+        />
+        }{{ lastMark ? '' : ',' }} } @if (!lastGroup) { · } } }
+      </span>
       } @else if (lesson.topic) {
       <span class="text-sm text-surface-500">Docházka nezapsána</span>
       } @if (lesson.recordedAt) {

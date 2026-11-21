@@ -1,5 +1,5 @@
 import { ClassBookLesson, LessonPupils } from '@soovioo/shared';
-import { attendanceSummary } from './class-book-page';
+import { attendanceGroups } from './class-book-page';
 import { isOn } from './current-lesson';
 import { initialMarks, markRequests } from './lesson-dialog';
 
@@ -67,12 +67,16 @@ describe('lesson attendance', () => {
         },
       ],
     } as ClassBookLesson;
-    expect(attendanceSummary(lesson)).toBe(
-      'Chybí: Eva Bílá, Petr Cibulka · Pozdě: Jan Adámek (5 min)',
-    );
-    expect(attendanceSummary({ ...lesson, marks: [] })).toBe(
-      'Všichni přítomni',
-    );
+    expect(
+      attendanceGroups(lesson).map((g) => [
+        g.label,
+        g.marks.map((m) => m.studentName),
+      ]),
+    ).toEqual([
+      ['Chybí', ['Eva Bílá', 'Petr Cibulka']],
+      ['Pozdě', ['Jan Adámek']],
+    ]);
+    expect(attendanceGroups({ ...lesson, marks: [] })).toEqual([]);
   });
 
   it('knows a lesson going on', () => {

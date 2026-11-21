@@ -155,7 +155,14 @@
 </ng-template>
 
 <ng-template #dayDecisions let-excuse>
-  @if (mixed(excuse)) {
+  @if (canReview()) { @for (day of backed(excuse); track day.absenceId) {
+  <div class="mt-1 flex flex-wrap items-center gap-1 text-xs">
+    @if (backed(excuse).length > 1 || excuse.dateFrom !== excuse.dateTo) {
+    <span class="text-surface-500">{{ dayDate(day) }}:</span>
+    }
+    <app-day-lessons [lessons]="day.lessons!" />
+  </div>
+  } } @if (mixed(excuse)) {
   <ul class="m-0 mt-1 list-none p-0 text-xs">
     @for (day of excuse.days; track day.absenceId) {
     <li
@@ -172,17 +179,13 @@
 
 <ng-template #reviewActions let-excuse>
   @if (canReview() && waiting(excuse)) {
-  <span
-    [pTooltip]="
-      approvable(excuse) ? '' : 'Schválit jde nejdříve v den absence.'
-    "
-  >
+  <span [pTooltip]="approvalHint(excuse)">
     <p-button
       [label]="mixed(excuse) ? 'Schválit zbývající dny' : 'Schválit'"
       icon="pi pi-check"
       size="small"
       severity="success"
-      [disabled]="!approvable(excuse)"
+      [disabled]="!approvable(excuse) || blocked(excuse)"
       (onClick)="approve(excuse)"
     />
   </span>

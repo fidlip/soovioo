@@ -1,11 +1,8 @@
+import { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
-// In a demo school of its own: the attendance changes Docházka, which the
-// seeded school's tests count on.
-test('the management writes a past lesson: its topic and an absent pupil, then calls the names one by one', async ({
-  page,
-}) => {
-  test.slow();
+/** A demo school of the test's own, logged in as its management. */
+async function newDemo(page: Page): Promise<string> {
   await page.goto('/demo?new=1');
   await page.getByRole('radio', { name: /Základní škola/ }).click();
   await page.getByRole('radio', { name: /^1/ }).click();
@@ -14,7 +11,27 @@ test('the management writes a past lesson: its topic and an absent pupil, then c
   await expect(page).toHaveURL(/\/demo-[a-z0-9]{11}\/home$/, {
     timeout: 30_000,
   });
-  const slug = new URL(page.url()).pathname.split('/')[1];
+  return new URL(page.url()).pathname.split('/')[1];
+}
+
+async function deleteDemo(page: Page, slug: string): Promise<void> {
+  await page.goto(`/${slug}/home`);
+  await page.getByRole('button', { name: 'Možnosti dema' }).click();
+  await page.getByRole('menuitem', { name: 'Smazat celé demo' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Smazat', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/demo\?new=1$/);
+}
+
+// In a demo school of its own: the attendance changes Docházka, which the
+// seeded school's tests count on.
+test('the management writes a past lesson: its topic and an absent pupil, then calls the names one by one', async ({
+  page,
+}) => {
+  test.slow();
+  const slug = await newDemo(page);
   try {
     await page.goto(`/${slug}/class-book`);
     const write = page.getByRole('button', { name: /^Zapsat \d+\. hodina/ });
@@ -84,14 +101,48 @@ test('the management writes a past lesson: its topic and an absent pupil, then c
       'Všichni přítomni',
     );
   } finally {
-    await page.goto(`/${slug}/home`);
-    await page.getByRole('button', { name: 'Možnosti dema' }).click();
-    await page.getByRole('menuitem', { name: 'Smazat celé demo' }).click();
-    await page
-      .getByRole('alertdialog')
-      .getByRole('button', { name: 'Smazat', exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/demo\?new=1$/);
+    await deleteDemo(page, slug);
+  }
+});
+
+test("an omluvenka's day without its lessons written is approved after a warning, or not at all where the school says so", async ({
+  page,
+}) => {
+  test.slow();
+  const slug = await newDemo(page);
+  try {
+    await page.goto(`/${slug}/absences`);
+    await page.getByRole('tab', { name: 'Omluvenky' }).click();
+    // A waiting day of the demo, its lessons not written.
+    const excuse = page
+      .locator('tr[id^="excuse-"]')
+      .filter({ has: page.getByTestId('day-lessons') })
+      .filter({ hasText: 'nezapsáno' })
+      .first();
+    await expect(excuse).toBeVisible();
+    const id = await excuse.getAttribute('id');
+    const approve = page
+      .locator(`tr[id="${id}"]`)
+      .getByRole('button', { name: 'Schválit' });
+    await approve.click();
+    const warning = page.getByRole('alertdialog', { name: 'Nezapsané hodiny' });
+    await expect(warning).toContainText('V třídní knize chybí zápis');
+    await warning.getByRole('button', { name: 'Zrušit' }).click();
+    await expect(warning).toBeHidden();
+
+    await page.goto(`/${slug}/admin`);
+    await page.getByRole('tab', { name: 'Škola' }).click();
+    await page.locator('#unverifiedExcuseApproval').click();
+    await page.getByRole('option', { name: 'Nepovolit' }).click();
+    const card = page.locator('p-card', { hasText: 'Třídní kniha' });
+    await card.getByRole('button', { name: 'Uložit' }).click();
+    await expect(page.getByText('Uloženo.')).toBeVisible();
+
+    await page.goto(`/${slug}/absences`);
+    await page.getByRole('tab', { name: 'Omluvenky' }).click();
+    await expect(approve).toBeDisabled();
+  } finally {
+    await deleteDemo(page, slug);
   }
 });
 

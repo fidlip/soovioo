@@ -324,6 +324,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         });
         modelBuilder.Entity<School>().HasIndex(s => s.ExpiresAt).HasFilter("\"IsDemo\"");
         modelBuilder.Entity<School>().Property(s => s.SupportAccess).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<School>().Property(s => s.UnverifiedExcuseApproval).HasConversion<string>().HasMaxLength(20);
         modelBuilder.Entity<School>().Property(s => s.SupportAs).HasConversion<string>().HasMaxLength(20);
         modelBuilder.Entity<Support.SupportSession>().Property(s => s.AsName).HasMaxLength(300);
         modelBuilder.Entity<Audit.AuditLogEntry>().Property(e => e.AsUserName).HasMaxLength(300);

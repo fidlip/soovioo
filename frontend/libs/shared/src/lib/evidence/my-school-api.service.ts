@@ -7,6 +7,7 @@ import {
   ReportCardSettings,
   SetAssessmentModeRule,
 } from '../grades/report-card.model';
+import { ClassBookSettings } from '../class-book/class-book.model';
 import { VisibilityRules } from '../people/visibility.model';
 import {
   School,
@@ -68,6 +69,21 @@ export class MySchoolApiService {
   setVisibility(request: VisibilityRules): Observable<VisibilityRules> {
     return this.http.put<VisibilityRules>(
       `${this.baseUrl}/api/my-school/visibility`,
+      request,
+    );
+  }
+
+  getClassBookSettings(): Observable<ClassBookSettings> {
+    return this.http.get<ClassBookSettings>(
+      `${this.baseUrl}/api/my-school/class-book`,
+    );
+  }
+
+  setClassBookSettings(
+    request: ClassBookSettings,
+  ): Observable<ClassBookSettings> {
+    return this.http.put<ClassBookSettings>(
+      `${this.baseUrl}/api/my-school/class-book`,
       request,
     );
   }
