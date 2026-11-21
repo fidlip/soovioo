@@ -58,18 +58,26 @@ test('the management writes a past lesson: its topic and an absent pupil, then c
       new RegExp(`Chybí: .*${firstName} ${lastName}`),
     );
 
-    // Po jednom: everyone there, and after the last one it's saved.
+    // Po jednom: everyone there, and after the last one it's saved. A pupil
+    // with an omluvenka is present only after a yes.
     await page.getByRole('button', { name: `Upravit ${heading}` }).click();
     await dialog.getByText('Po jednom', { exact: true }).click();
     const rollCall = dialog.getByTestId('roll-call');
     const count = Number(
       (await rollCall.getByText(/^1 \/ \d+$/).textContent())!.split('/')[1],
     );
+    const warning = page.getByRole('alertdialog', {
+      name: 'Zapsat jako přítomného?',
+    });
     for (let i = 0; i < count; i++) {
       await expect(rollCall).toContainText(`${i + 1} / ${count}`);
+      const flagged = (await rollCall.locator('.text-orange-600').count()) > 0;
       await rollCall
         .getByRole('button', { name: 'Přítomen', exact: true })
         .click();
+      if (flagged) {
+        await warning.getByRole('button', { name: 'Přítomen' }).click();
+      }
     }
     await expect(dialog).toBeHidden();
     await expect(lessonRow.getByTestId('class-book-attendance')).toHaveText(

@@ -1,5 +1,6 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ConfirmationService } from '@openng/optimus-ui/api';
 import { Button } from '@openng/optimus-ui/button';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputNumber } from '@openng/optimus-ui/inputnumber';
@@ -129,6 +130,7 @@ export class LessonDialog {
   private readonly api = inject(ClassBookApiService);
   private readonly photosApi = inject(PhotosApiService);
   private readonly notify = inject(NotifyService);
+  private readonly confirmation = inject(ConfirmationService);
 
   /** The lesson as saved. */
   readonly saved = output<ClassBookLesson>();
@@ -196,10 +198,44 @@ export class LessonDialog {
     return this.marks()[pupil.studentId] ?? { state: 'Present', minutes: null };
   }
 
+  /** Marking present a pupil something says is away (an omluvenka, an
+   * absence, another lesson) takes a yes; a no puts the mark back. */
   protected setState(pupil: LessonPupil, state: PupilState | null): void {
-    if (state) {
-      this.update(pupil, { state, minutes: this.mark(pupil).minutes });
+    if (!state) {
+      return;
     }
+    const previous = this.mark(pupil);
+    this.update(pupil, { state, minutes: previous.minutes });
+    this.confirmPresent(
+      pupil,
+      state,
+      previous.state,
+      () => undefined,
+      () => this.update(pupil, previous),
+    );
+  }
+
+  private confirmPresent(
+    pupil: LessonPupil,
+    state: PupilState,
+    previous: PupilState,
+    accept: () => void,
+    reject: () => void,
+  ): void {
+    if (state !== 'Present' || previous === 'Present' || !pupil.suggestion) {
+      accept();
+      return;
+    }
+    this.confirmation.confirm({
+      header: 'Zapsat jako přítomného?',
+      message: `${this.name(pupil)}: ${pupil.suggestion}. Opravdu byl(a) na hodině?`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Přítomen',
+      rejectLabel: 'Zpět',
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept,
+      reject,
+    });
   }
 
   protected setMinutes(pupil: LessonPupil, minutes: number | null): void {
@@ -209,10 +245,19 @@ export class LessonDialog {
   /** "Po jednom": the state, and on to the next pupil — unless it needs
    * the minutes first. */
   protected choose(pupil: LessonPupil, state: PupilState): void {
-    this.setState(pupil, state);
-    if (!hasMinutes(state)) {
-      this.next();
-    }
+    const previous = this.mark(pupil);
+    this.confirmPresent(
+      pupil,
+      state,
+      previous.state,
+      () => {
+        this.update(pupil, { state, minutes: previous.minutes });
+        if (!hasMinutes(state)) {
+          this.next();
+        }
+      },
+      () => undefined,
+    );
   }
 
   protected next(): void {

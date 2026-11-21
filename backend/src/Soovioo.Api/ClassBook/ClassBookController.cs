@@ -94,7 +94,8 @@ public class ClassBookController(
         var pupils = await book.PupilsAsync(key);
         var record = await RecordQuery(key).Include(r => r.Attendance).FirstOrDefaultAsync();
         var taken = record?.AttendanceTakenAt is not null;
-        var suggested = taken ? new Dictionary<int, string>() : await book.SuggestedAbsentAsync(key, [.. pupils.Select(p => p.Id)]);
+        // Once taken, the absence is mostly the lesson's own; an omluvenka still tells.
+        var suggested = await book.SuggestedAbsentAsync(key, [.. pupils.Select(p => p.Id)], excusesOnly: taken);
         var photos = await photoAccess.VisibleStudentPhotosAsync(User, pupils);
         return Ok(new LessonPupilsDto(taken, [.. pupils.Select(p =>
         {
