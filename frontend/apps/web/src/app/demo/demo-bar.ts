@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Menu } from '@openng/optimus-ui/menu';
 import { formatDate } from '@soovioo/shared';
@@ -49,8 +49,18 @@ export class DemoBar {
 
   readonly slug = input.required<string>();
   readonly expiresAt = input<string | null>(null);
+  readonly closed = output();
 
-  protected readonly menuItems = computed(() => this.actions.menu(this.slug()));
+  protected readonly menuItems = computed(() => [
+    ...this.actions.menu(this.slug()),
+    { separator: true },
+    {
+      label: 'Zavřít panel',
+      icon: 'pi pi-times',
+      title: 'Panel se znovu zobrazí po obnovení stránky',
+      command: () => this.closed.emit(),
+    },
+  ]);
 
   protected readonly expiryText = computed(() => {
     const expires = this.expiresAt();

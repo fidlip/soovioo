@@ -50,6 +50,13 @@ test('demo: wizard, user picker, delete', async ({ page }) => {
   ).toContainText('V jiné záložce jste se přihlásili jako');
   await other.close();
 
+  // Closing the bar lasts until the page reloads.
+  await page.getByRole('button', { name: 'Možnosti dema' }).click();
+  await page.getByRole('menuitem', { name: 'Zavřít panel' }).click();
+  await expect(page.getByText('Ukázková škola', { exact: true })).toBeHidden();
+  await page.reload();
+  await expect(page.getByText('Ukázková škola', { exact: true })).toBeVisible();
+
   // Empty school: everything goes but the admin account (and the log).
   await page.getByRole('button', { name: 'Možnosti dema' }).click();
   await page.getByRole('menuitem', { name: /Vymazat data/ }).click();
