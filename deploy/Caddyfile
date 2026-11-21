@@ -34,6 +34,10 @@
 		@unhashed not path_regexp -[A-Z0-9]{8}\.(js|css)$
 		header @unhashed Cache-Control "no-cache"
 		try_files {path} /index.html
+		# index.html learns the domain it is served for (main-domain.ts).
+		templates {
+			mime text/html
+		}
 		file_server
 	}
 }
