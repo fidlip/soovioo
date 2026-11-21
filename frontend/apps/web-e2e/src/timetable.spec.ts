@@ -488,3 +488,47 @@ test.describe.serial('timetable version', () => {
     await expect(version).toHaveCount(0);
   });
 });
+
+/** A teacher who may not edit the timetable, switching to a class. */
+async function switchToClass(page: import('@playwright/test').Page) {
+  await page.locator('p-select[name="viewMode"]').click();
+  await page.getByRole('option', { name: 'Třída', exact: true }).click();
+}
+
+test('a class teacher switching to a class sees their own class', async ({
+  page,
+}) => {
+  await login(page, 'ucitel', 'ucitel123');
+  const className = await jansClassName(page);
+  await page
+    .getByRole('navigation', { name: 'Hlavní navigace' })
+    .getByRole('link', { name: 'Rozvrh', exact: true })
+    .click();
+  await switchToClass(page);
+  await expect(page.locator('p-select[name="classPicker"]')).toContainText(
+    className,
+  );
+  await expect(page.getByTestId('timetable-grid')).not.toHaveClass(
+    /opacity-50/,
+  );
+});
+
+test('a teacher of no class switching to a class gets only a greyed grid', async ({
+  page,
+}) => {
+  await page.route('**/api/school-classes', async (route) => {
+    const response = await route.fetch();
+    const classes = (await response.json()) as { classTeacherId: unknown }[];
+    await route.fulfill({
+      response,
+      json: classes.map((c) => ({ ...c, classTeacherId: null })),
+    });
+  });
+  await login(page, 'ucitel', 'ucitel123');
+  await switchToClass(page);
+  await expect(page.getByTestId('timetable-grid')).toHaveClass(/opacity-50/);
+  await expect(
+    page.getByRole('combobox', { name: 'Třída', exact: true }),
+  ).toHaveText(/^\s*$/);
+  await expect(page.getByTestId('timetable-lesson')).toHaveCount(0);
+});
