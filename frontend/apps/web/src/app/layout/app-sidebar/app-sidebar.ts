@@ -6,7 +6,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { AuthApiService, Permission } from '@soovioo/shared';
+import { AuthApiService } from '@soovioo/shared';
 import { AppIcon, AppIconName } from '../../app-icon';
 import { NotificationBell } from '../../notification-bell/notification-bell';
 import { SchoolContextService } from '../../school-context';
@@ -27,8 +27,6 @@ interface NavItem {
   familyOnly?: boolean;
   /** Mé děti — parents only. */
   parentOnly?: boolean;
-  /** Shown only with the permission. */
-  permission?: Permission;
 }
 
 /** Sidebar for a logged-in user, with the mobile top bar that opens it as a
@@ -78,12 +76,6 @@ export class AppSidebar {
       { label: 'Domů', icon: 'home', link: link('home') },
       { label: 'Známky', icon: 'grades', link: link('grades') },
       { label: 'Docházka', icon: 'absences', link: link('absences') },
-      {
-        label: 'Třídní kniha',
-        icon: 'class-book',
-        link: link('class-book'),
-        permission: 'ClassBookRead',
-      },
       { label: 'Rozvrh', icon: 'timetable', link: link('timetable') },
       { label: 'Kalendář', icon: 'events', link: link('events') },
       { label: 'Zprávy', icon: 'messages', link: link('messages') },
@@ -111,9 +103,6 @@ export class AppSidebar {
    * a class teacher of something (restricted view) or not, since that needs
    * an async lookup this synchronous nav check can't do. */
   protected showsNavItem(item: NavItem): boolean {
-    if (item.permission) {
-      return this.authApi.can(item.permission);
-    }
     if (item.parentOnly) {
       return this.authApi.isParent();
     }

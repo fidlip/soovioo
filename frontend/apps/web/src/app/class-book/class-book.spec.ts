@@ -1,5 +1,5 @@
 import { ClassBookLesson } from '@soovioo/shared';
-import { classBookDay, lessonTime, nextSchoolDay } from './class-book-page';
+import { classBookDay, lessonTime, nextSchoolDay } from './class-book';
 
 describe('class book days', () => {
   it('skips the weekend', () => {

@@ -45,6 +45,7 @@ import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
 import { NotifyService } from '../notify.service';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
+import { ClassBook } from '../class-book/class-book';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { formatPeriods, todayString } from './excuse-days';
@@ -78,11 +79,12 @@ const STATUS_LABEL: Record<AbsenceStatus, string> = {
 };
 
 /** The tabs, as `?tab=` has them. */
-export type AbsencesTab = 'absence' | 'omluvenky';
+export type AbsencesTab = 'tridni-kniha' | 'absence' | 'omluvenky';
 
-/** Docházka: Absence (the days a pupil missed) and Omluvenky (why — the
- * family's, approved by the teacher). Staff start on Absence, families on
- * Omluvenky. */
+/** Docházka: Třídní kniha (the lessons as taught, for whoever may see it),
+ * Absence (the days a pupil missed) and Omluvenky (why — the family's,
+ * approved by the teacher). Who sees the třídní kniha starts on it, other
+ * staff on Absence, families on Omluvenky. */
 @Component({
   selector: 'app-absences-page',
   imports: [
@@ -97,6 +99,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
     NgTemplateOutlet,
     TermPipe,
     AppIcon,
+    ClassBook,
     FormsModule,
     Button,
     DatePicker,
@@ -133,15 +136,12 @@ export class AbsencesPage {
   private readonly rejectDialog = viewChild.required(RejectDialog);
   private readonly excusesList = viewChild(ExcusesList);
 
-  protected readonly tab = signal<AbsencesTab>(
-    this.route.snapshot.queryParamMap.get('tab') === 'absence' ||
-      this.route.snapshot.queryParamMap.get('tab') === 'omluvenky'
-      ? (this.route.snapshot.queryParamMap.get('tab') as AbsencesTab)
-      : this.authApi.isStaff()
-        ? 'absence'
-        : 'omluvenky',
-  );
+  protected readonly canSeeClassBook = this.authApi.can('ClassBookRead');
 
+  protected readonly tab = signal<AbsencesTab>(this.initialTab());
+
+  private needsAbsences = false;
+  private needsExcuses = false;
   protected readonly absences = signal<Absence[] | null>(null);
   protected readonly excuses = signal<Excuse[] | null>(null);
   /** The days' omluvenky, for whether they have files. */
@@ -264,7 +264,7 @@ export class AbsencesPage {
   constructor() {
     // Days off change elsewhere too.
     this.schoolYears.reload();
-    this.reload();
+    this.load(this.tab());
     // ?absence= / ?excuse= — opened from a notification.
     onLinkedItem('absence', (id) => {
       this.linked = { kind: 'absence', id };
@@ -276,20 +276,49 @@ export class AbsencesPage {
       this.setTab('omluvenky');
       this.showLinked();
     });
-    this.studentsApi.getStudents().subscribe({
-      next: (students) => this.students.set(students),
-      error: (err) => console.error('getStudents failed', err),
-    });
-    if (this.canManageAbsences()) {
-      this.studentsApi.getReach('AbsencesWrite').subscribe({
-        next: (reach) => this.reach.set(reach),
-        error: (err) => console.error('getReach failed', err),
+  }
+
+  /** What the tab shows, fetched the first time it is opened. Absence
+   * needs the omluvenky too (the reason, the clip). */
+  private load(tab: AbsencesTab): void {
+    if (tab === 'absence' && !this.needsAbsences) {
+      this.needsAbsences = true;
+      this.loadAbsences();
+      this.studentsApi.getStudents().subscribe({
+        next: (students) => this.students.set(students),
+        error: (err) => console.error('getStudents failed', err),
       });
+      if (this.canManageAbsences()) {
+        this.studentsApi.getReach('AbsencesWrite').subscribe({
+          next: (reach) => this.reach.set(reach),
+          error: (err) => console.error('getReach failed', err),
+        });
+      }
     }
+    if (tab !== 'tridni-kniha' && !this.needsExcuses) {
+      this.needsExcuses = true;
+      this.loadExcuses();
+    }
+  }
+
+  private initialTab(): AbsencesTab {
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (
+      tab === 'absence' ||
+      tab === 'omluvenky' ||
+      (tab === 'tridni-kniha' && this.canSeeClassBook)
+    ) {
+      return tab;
+    }
+    if (this.canSeeClassBook) {
+      return 'tridni-kniha';
+    }
+    return this.authApi.isStaff() ? 'absence' : 'omluvenky';
   }
 
   protected setTab(tab: AbsencesTab): void {
     this.tab.set(tab);
+    this.load(tab);
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { tab },
@@ -508,6 +537,15 @@ export class AbsencesPage {
   }
 
   protected reload(): void {
+    if (this.needsAbsences) {
+      this.loadAbsences();
+    }
+    if (this.needsExcuses) {
+      this.loadExcuses();
+    }
+  }
+
+  private loadAbsences(): void {
     this.absencesApi.getAbsences().subscribe({
       next: (absences) => {
         this.absences.set(absences);
@@ -518,6 +556,9 @@ export class AbsencesPage {
         this.absences.set([]);
       },
     });
+  }
+
+  private loadExcuses(): void {
     this.absencesApi.getExcuses().subscribe({
       next: (excuses) => {
         this.excuses.set(excuses);
