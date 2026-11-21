@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import {
   takeUntilDestroyed,
   toObservable,
@@ -21,7 +21,13 @@ import { DemoFeedbackService } from './demo-feedback.service';
   imports: [DemoBar, DemoEmailPreview, DemoFeedbackDialog],
   template: `
     @if (demoSchool(); as demo) {
-      <app-demo-bar [slug]="demo.slug" [expiresAt]="demo.expiresAt" />
+      @if (!barClosed()) {
+        <app-demo-bar
+          [slug]="demo.slug"
+          [expiresAt]="demo.expiresAt"
+          (closed)="barClosed.set(true)"
+        />
+      }
       @if (authApi.isLoggedIn()) {
         <app-demo-feedback-dialog [slug]="demo.slug" />
         <app-demo-email-preview />
@@ -49,6 +55,9 @@ export class DemoShell {
     ),
     { initialValue: null },
   );
+
+  /** Closed from the demo bar's menu, until the page reloads. */
+  protected readonly barClosed = signal(false);
 
   constructor() {
     checkOnNavigation();
