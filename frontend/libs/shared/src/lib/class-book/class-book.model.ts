@@ -1,3 +1,5 @@
+import { AbsenceStatus } from '../attendance/absence.model';
+
 export interface ClassBookClass {
   id: number;
   name: string;
@@ -46,6 +48,8 @@ export interface LessonMark {
   status: LessonAttendanceStatus;
   /** How late, or how long before the end they left. */
   minutes: number | null;
+  /** An absent pupil's omluvenka for the day. */
+  excuseStatus?: AbsenceStatus | null;
 }
 
 export interface LessonPupil {
@@ -89,4 +93,12 @@ export interface SaveLessonRequest {
   topic: string;
   /** The pupils not there the whole lesson; null leaves it as it is. */
   attendance: LessonMarkRequest[] | null;
+}
+
+/** Approving an omluvenka's day whose lessons aren't all written: asked
+ * to confirm, or refused. */
+export type UnverifiedExcuseApproval = 'Warn' | 'Block';
+
+export interface ClassBookSettings {
+  unverifiedExcuseApproval: UnverifiedExcuseApproval;
 }

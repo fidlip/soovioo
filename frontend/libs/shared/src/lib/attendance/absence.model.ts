@@ -2,7 +2,7 @@ import { NameLabel } from '../people/name-label.model';
 export type AbsenceStatus =
   'Unexcused' | 'PendingExcuse' | 'Excused' | 'Rejected';
 
-export interface Absence {
+export interface Absence extends DayBacking {
   id: number;
   studentId: number;
   studentName: string;
@@ -49,7 +49,26 @@ export const EXCUSE_CHANNEL_LABELS: Record<ExcuseChannel, string> = {
 export type ExcuseStatus =
   'Pending' | 'Approved' | 'Rejected' | 'PartlyApproved';
 
-export interface ExcuseDay {
+/** How the třídní kniha has a pupil in a lesson of theirs. */
+export type PupilLessonState =
+  'NotRecorded' | 'Present' | 'Absent' | 'Late' | 'LeftEarly' | 'Away';
+
+export interface PupilLesson {
+  periodNumber: number;
+  /** The subject's abbreviation. */
+  subject: string;
+  state: PupilLessonState;
+}
+
+/** For staff on a day waiting for approval: the pupil's lessons that day in
+ * the třídní kniha, and whether the school refuses approving it before all
+ * are written. */
+export interface DayBacking {
+  lessons?: PupilLesson[] | null;
+  approvalBlocked?: boolean;
+}
+
+export interface ExcuseDay extends DayBacking {
   absenceId: number;
   date: string;
   status: AbsenceStatus;

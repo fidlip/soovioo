@@ -1,3 +1,4 @@
+import { ConfirmationService } from '@openng/optimus-ui/api';
 import {
   ChangeDetectorRef,
   Component,
@@ -47,6 +48,7 @@ import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { formatPeriods, todayString } from './excuse-days';
+import { DayLessons, APPROVAL_BLOCKED, approveBacked } from './day-lessons';
 import { DecisionMenu } from './decision-menu';
 import { ExcuseDialog } from './excuse-dialog';
 import { ExcusesList } from './excuses-list';
@@ -84,6 +86,7 @@ export type AbsencesTab = 'absence' | 'omluvenky';
 @Component({
   selector: 'app-absences-page',
   imports: [
+    DayLessons,
     PersonName,
     DecisionMenu,
     ClearFilters,
@@ -116,6 +119,8 @@ export type AbsencesTab = 'absence' | 'omluvenky';
   templateUrl: './absences-page.html',
 })
 export class AbsencesPage {
+  private readonly confirmation = inject(ConfirmationService);
+  protected readonly approvalBlocked = APPROVAL_BLOCKED;
   protected readonly notify = inject(NotifyService);
   protected readonly noSchoolYear = inject(SchoolYearsStore).missing;
   private readonly absencesApi = inject(AbsencesApiService);
@@ -362,9 +367,18 @@ export class AbsencesPage {
       : undefined;
   }
 
-  /** A day is approved at the earliest that day. */
+  /** A day is approved at the earliest that day — and, where the school
+   * says so, once its lessons are written. */
   protected approvable(absence: Absence): boolean {
-    return absence.date <= todayString();
+    return absence.date <= todayString() && !absence.approvalBlocked;
+  }
+
+  protected approvalHint(absence: Absence): string {
+    return absence.approvalBlocked
+      ? this.approvalBlocked
+      : this.approvable(absence)
+        ? ''
+        : 'Schválit jde nejdříve v den absence.';
   }
 
   protected clearFilters(): void {
@@ -427,10 +441,12 @@ export class AbsencesPage {
   }
 
   protected approve(absence: Absence): void {
-    this.absencesApi.reviewAbsence(absence.id, true).subscribe({
-      next: () => this.reload(),
-      error: (err) => this.notify.actionFailed('reviewAbsence failed', err),
-    });
+    approveBacked(this.confirmation, [absence], () =>
+      this.absencesApi.reviewAbsence(absence.id, true).subscribe({
+        next: () => this.reload(),
+        error: (err) => this.notify.actionFailed('reviewAbsence failed', err),
+      }),
+    );
   }
 
   protected reject(absence: Absence): void {

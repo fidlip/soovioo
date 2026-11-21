@@ -343,6 +343,27 @@ public class MySchoolController(AppDbContext db, ICurrentSchoolContext currentSc
         return Ok(new ReportCardSettingsDto(school.ReportCardMarkFormat));
     }
 
+    [HttpGet("class-book")]
+    public async Task<ActionResult<ClassBookSettingsDto>> GetClassBook()
+    {
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
+        return Ok(new ClassBookSettingsDto(school.UnverifiedExcuseApproval));
+    }
+
+    [HttpPut("class-book")]
+    [AuditAction("Změněno nastavení třídní knihy")]
+    public async Task<ActionResult<ClassBookSettingsDto>> SetClassBook(ClassBookSettingsDto request)
+    {
+        if (!Enum.IsDefined(request.UnverifiedExcuseApproval))
+        {
+            return BadRequest("Neznámá volba.");
+        }
+        var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId!.Value);
+        school.UnverifiedExcuseApproval = request.UnverifiedExcuseApproval;
+        await db.SaveChangesAsync();
+        return Ok(new ClassBookSettingsDto(school.UnverifiedExcuseApproval));
+    }
+
     /// <summary>How ročníky, classes and single pupils are assessed on the
     /// report card otherwise than the school's default.</summary>
     [HttpGet("report-cards/assessment-rules")]
@@ -484,6 +505,9 @@ public record SchoolSetupRequest(
 
 /// <param name="MarkFormat">See <see cref="School.ReportCardMarkFormat"/>.</param>
 public record ReportCardSettingsDto(Grades.ReportCardMarkFormat MarkFormat);
+
+/// <param name="UnverifiedExcuseApproval">See <see cref="School.UnverifiedExcuseApproval"/>.</param>
+public record ClassBookSettingsDto(ClassBook.UnverifiedExcuseApproval UnverifiedExcuseApproval);
 
 /// <param name="SubjectId">Null with <paramref name="Behavior"/> false = all
 /// subjects.</param>

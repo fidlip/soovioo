@@ -130,20 +130,25 @@ public class ExcuseBook(AppDbContext db, Notifier notifier, TimeProvider clock)
     /// days decided.</summary>
     public static List<Absence> Decide(IEnumerable<Absence> days, bool approve, string? note, DateOnly today)
     {
-        var all = days.ToList();
-        var pool = all.Any(a => a.Status == AbsenceStatus.PendingExcuse)
-            ? all.Where(a => a.Status == AbsenceStatus.PendingExcuse)
-            : all;
-        var decided = pool
-            .Where(a => approve ? a.Status != AbsenceStatus.Excused && a.Date <= today : a.Status != AbsenceStatus.Unexcused)
-            .OrderBy(a => a.Date)
-            .ToList();
+        var decided = ToDecide(days, approve, today);
         foreach (var absence in decided)
         {
             absence.Status = approve ? AbsenceStatus.Excused : AbsenceStatus.Rejected;
             absence.ReviewNote = approve ? null : note;
         }
         return decided;
+    }
+
+    /// <summary>The days <see cref="Decide"/> decides, left as they are.</summary>
+    public static List<Absence> ToDecide(IEnumerable<Absence> days, bool approve, DateOnly today)
+    {
+        var all = days.ToList();
+        var pool = all.Any(a => a.Status == AbsenceStatus.PendingExcuse)
+            ? all.Where(a => a.Status == AbsenceStatus.PendingExcuse)
+            : all;
+        return [.. pool
+            .Where(a => approve ? a.Status != AbsenceStatus.Excused && a.Date <= today : a.Status != AbsenceStatus.Unexcused)
+            .OrderBy(a => a.Date)];
     }
 
     /// <summary>The decided days wait again — the family may change the

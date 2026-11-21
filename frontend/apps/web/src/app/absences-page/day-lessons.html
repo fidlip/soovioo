@@ -1,0 +1,20 @@
+<ul
+  class="m-0 flex list-none flex-wrap gap-1 p-0 text-xs"
+  aria-label="Hodiny v třídní knize"
+  data-testid="day-lessons"
+>
+  @for (lesson of lessons(); track lesson.periodNumber) {
+  <li
+    class="rounded border px-1.5 py-0.5"
+    [class]="
+      lesson.state === 'NotRecorded'
+        ? 'border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300'
+        : 'border-surface-300 text-surface-600 dark:border-surface-600 dark:text-surface-300'
+    "
+  >
+    {{ text(lesson) }}
+  </li>
+  } @empty {
+  <li class="text-surface-500">Žádné hodiny v rozvrhu</li>
+  }
+</ul>

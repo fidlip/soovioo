@@ -1,0 +1,30 @@
+<p-card>
+  <ng-template #title>Třídní kniha</ng-template>
+  <h3 class="mb-2 mt-0 flex items-center text-base font-semibold">
+    Schválení omluvenky bez zapsaných hodin<app-info-hint
+      text="Den omluvenky je ověřený, když jsou v třídní knize zapsané všechny hodiny, které žák ten den měl. Za neověřený den může učitel omluvenku schválit po upozornění, nebo ji škola nedovolí schválit, dokud hodiny nejsou zapsané."
+    />
+  </h3>
+  <form class="flex flex-wrap items-end gap-2" (ngSubmit)="save()">
+    <app-float-field label="Neověřený den" for="unverifiedExcuseApproval">
+      <p-select
+        ariaLabel="Schválení omluvenky bez zapsaných hodin"
+        inputId="unverifiedExcuseApproval"
+        [options]="options"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="approval()"
+        (ngModelChange)="approval.set($event)"
+        name="unverifiedExcuseApproval"
+        styleClass="w-64"
+        appendTo="body"
+      />
+    </app-float-field>
+    <p-button
+      type="submit"
+      label="Uložit"
+      severity="secondary"
+      [outlined]="true"
+    />
+  </form>
+</p-card>

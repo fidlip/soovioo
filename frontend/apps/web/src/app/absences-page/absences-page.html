@@ -189,7 +189,9 @@
           title="Omluvenka má přílohu"
           aria-label="Omluvenka má přílohu"
         ></i>
-        } } @if (absence.reviewNote) {
+        } } @if (absence.lessons) {
+        <app-day-lessons class="mt-1 block" [lessons]="absence.lessons" />
+        } @if (absence.reviewNote) {
         <div class="text-xs text-red-700 dark:text-red-300">
           {{ absence.reviewNote }}
         </div>
@@ -206,11 +208,7 @@
         />
         } @if (absence.status === 'PendingExcuse' && canManageAbsences()) {
         <div class="flex gap-2">
-          <span
-            [pTooltip]="
-              approvable(absence) ? '' : 'Schválit jde nejdříve v den absence.'
-            "
-          >
+          <span [pTooltip]="approvalHint(absence)">
             <p-button
               label="Schválit"
               icon="pi pi-check"

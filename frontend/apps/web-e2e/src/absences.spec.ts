@@ -131,7 +131,7 @@ test.describe.serial('absence excuse workflow', () => {
     await login(page, 'ucitel', 'ucitel123');
 
     await row(page).getByRole('button', { name: 'Schválit' }).click();
-    await expect(row(page)).toContainText('Omluveno');
+    await approveDespiteUnrecorded(page, row(page).getByText('Omluveno'));
 
     // Clean up — the random date keeps reruns apart, but there's no need
     // to leave the record in a developer's local database.
@@ -139,6 +139,20 @@ test.describe.serial('absence excuse workflow', () => {
     await expect(row(page)).toHaveCount(0);
   });
 });
+
+/** Approving days whose lessons the třídní kniha doesn't have asks first —
+ * says yes when it does; `done` shows once approved. */
+async function approveDespiteUnrecorded(
+  page: import('@playwright/test').Page,
+  done: import('@playwright/test').Locator,
+) {
+  const warning = page.getByRole('alertdialog', { name: 'Nezapsané hodiny' });
+  await expect(warning.or(done).first()).toBeVisible();
+  if (await warning.isVisible()) {
+    await warning.getByRole('button', { name: 'Schválit' }).click();
+  }
+  await expect(done).toBeVisible();
+}
 
 /** A random Monday and the Tuesday after it, days of lessons, as typed in
  * the date picker: in the past, or (`future`) ahead. */
@@ -273,7 +287,7 @@ test.describe.serial('parent writes an omluvenka', () => {
       await page.getByRole('menuitem', { name: item }).click();
     };
     await decide('Schválit');
-    await expect(excuse(page)).toContainText('Schválena');
+    await approveDespiteUnrecorded(page, excuse(page).getByText('Schválena'));
 
     await decide('Vrátit k posouzení');
     await expect(excuse(page)).toContainText('Čeká na schválení');

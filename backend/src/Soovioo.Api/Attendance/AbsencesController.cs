@@ -40,6 +40,9 @@ public class AbsencesController(
             .Select(AbsenceDto.Projection)
             .ToListAsync();
 
+        var backing = await ExcusesController.BackingAsync(db, User, [.. absences.Select(a => (a.StudentId, a.Date, a.Status))]);
+        absences = [.. absences.Select(a => backing.TryGetValue((a.StudentId, a.Date), out var b)
+            ? a with { Lessons = b.Lessons, ApprovalBlocked = b.Blocked } : a)];
         return Ok(await db.WithStudentLabelsAsync(User, absences, a => a.StudentId, (a, label) => a with { StudentLabel = label }));
     }
 
@@ -163,6 +166,10 @@ public class AbsencesController(
         }
 
         var book = new ExcuseBook(db, notifier, clock);
+        if (request.Approve && await ClassBook.PupilDays.BlockedAsync(db, ExcuseBook.ToDecide([absence], true, book.Today)) is { } blocked)
+        {
+            return BadRequest(blocked);
+        }
         var decided = ExcuseBook.Decide([absence], request.Approve, request.Note?.Trim(), book.Today);
         if (decided.Count == 0)
         {
@@ -301,7 +308,9 @@ public record AbsenceDto(
     IReadOnlyList<int> Periods,
     int? ExcuseId = null,
     string? ReviewNote = null,
-    People.NameLabel? StudentLabel = null)
+    People.NameLabel? StudentLabel = null,
+    IReadOnlyList<ClassBook.PupilLessonDto>? Lessons = null,
+    bool ApprovalBlocked = false)
 {
     public static readonly Expression<Func<Absence, AbsenceDto>> Projection = a => new AbsenceDto(
         a.Id,

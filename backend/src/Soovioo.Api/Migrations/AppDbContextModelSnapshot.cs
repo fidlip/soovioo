@@ -1135,6 +1135,11 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
+                    b.Property<string>("UnverifiedExcuseApproval")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ExpiresAt")
@@ -1175,7 +1180,8 @@ namespace Soovioo.Api.Migrations
                             StudentPhotos = false,
                             SupportAccess = "Approval",
                             SupportAs = "Users",
-                            Type = 0
+                            Type = 0,
+                            UnverifiedExcuseApproval = "Warn"
                         });
                 });
 
