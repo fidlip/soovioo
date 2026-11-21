@@ -142,6 +142,25 @@ jobs:
           path: frontend/dist/.playwright/apps/web-e2e/test-output
           if-no-files-found: ignore
           retention-days: 7
+      # A server that dies mid-run leaves only connection errors in the
+      # tests; its log and the container's memory say why.
+      - name: Server state after failure
+        if: failure()
+        run: |
+          echo "--- processes"; ps aux --sort=-rss | head -20 || true
+          echo "--- memory"; free -m || true
+          echo "--- cgroup memory events"; cat /sys/fs/cgroup/memory.events 2>/dev/null || true
+          echo "--- backend"; tail -100 /tmp/backend.log || true
+          echo "--- frontend"; tail -100 /tmp/frontend.log || true
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            /tmp/backend.log
+            /tmp/frontend.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   # The deployed version and the pull requests it's made of, for the web
   # image.
