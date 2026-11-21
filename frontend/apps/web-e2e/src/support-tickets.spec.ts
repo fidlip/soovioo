@@ -102,7 +102,16 @@ test('a school asks for support allowing entering; the assignee works on it in t
     ended.getByText('Škola odebrala povolení vstupu.'),
   ).toBeVisible();
   const closed = school.waitForEvent('close');
-  await ended.getByRole('button', { name: 'Rozumím' }).click();
+  // The click closes the tab: Playwright may report it gone before the
+  // click itself returns.
+  await ended
+    .getByRole('button', { name: 'Rozumím' })
+    .click()
+    .catch((error) => {
+      if (!school.isClosed()) {
+        throw error;
+      }
+    });
   await closed;
   await superAdmin.bringToFront();
   await expect(detail.getByText('Povolení vstupu odebráno')).toBeVisible({
