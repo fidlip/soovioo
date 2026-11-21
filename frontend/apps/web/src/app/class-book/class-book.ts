@@ -1,10 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Button } from '@openng/optimus-ui/button';
 import { DatePicker } from '@openng/optimus-ui/datepicker';
 import { Message } from '@openng/optimus-ui/message';
 import { Select } from '@openng/optimus-ui/select';
+import { SelectButton } from '@openng/optimus-ui/selectbutton';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
@@ -17,9 +19,12 @@ import {
   LessonMark,
   formatDate,
 } from '@soovioo/shared';
+import { map } from 'rxjs';
 import { toDateOnly } from '../departures/retention-labels';
 import { Loading } from '../loading/loading';
+import { DESKTOP_QUERY, mediaQuery } from '../media-query';
 import { NotifyService } from '../notify.service';
+import { AttendanceBar, barLabel } from './attendance-bar';
 import { LessonDialog } from './lesson-dialog';
 
 const WEEKDAYS = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
@@ -44,6 +49,50 @@ export function classBookDay(value: string | null, now = new Date()): Date {
   return today.getDay() === 0 || today.getDay() === 6
     ? nextSchoolDay(today, -1)
     : today;
+}
+
+/** Monday of the date's week. */
+export function mondayOf(date: Date): Date {
+  const monday = new Date(date);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+}
+
+/** The week by period: the periods any of its days has, each with the
+ * days' lessons then (a class may have several, one per group). */
+export function weekRows(
+  days: ClassBookDay[],
+): { period: number; cells: ClassBookLesson[][] }[] {
+  const periods = [
+    ...new Set(days.flatMap((d) => d.lessons.map((l) => l.periodNumber))),
+  ].sort((a, b) => a - b);
+  return periods.map((period) => ({
+    period,
+    cells: days.map((d) => d.lessons.filter((l) => l.periodNumber === period)),
+  }));
+}
+
+type View = 'detail' | 'compact';
+type Range = 'day' | 'week';
+
+const VIEW_KEY = 'soovioo.classBook.view';
+const RANGE_KEY = 'soovioo.classBook.range';
+
+function stored<T extends string>(key: string, values: T[]): T | null {
+  try {
+    const value = localStorage.getItem(key) as T | null;
+    return value && values.includes(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function store(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Not remembered, then.
+  }
 }
 
 /** "8:00–8:45". */
@@ -87,31 +136,63 @@ export function attendanceGroups(
 /** Třídní kniha: a class's lessons of a day — or the teacher's own — each
  * with its topic and who was there, written by whoever teaches it (the třídní and the
  * management any time). `?day=yyyy-MM-dd&class=<id>` opens that day and
- * class. */
+ * class. Compact (a phone's default): a row a lesson with its attendance as
+ * a bar, a day or a week. */
 @Component({
   selector: 'app-class-book',
   imports: [
+    AttendanceBar,
     Button,
     DatePicker,
     FormsModule,
     LessonDialog,
     Loading,
     Message,
+    NgTemplateOutlet,
     Select,
+    SelectButton,
     Tag,
   ],
   templateUrl: './class-book.html',
+  styleUrl: './class-book.scss',
 })
 export class ClassBook {
   private readonly api = inject(ClassBookApiService);
   private readonly notify = inject(NotifyService);
   private readonly auth = inject(AuthApiService);
+  private readonly dialog = viewChild.required(LessonDialog);
 
   protected readonly date = signal(new Date());
   /** Null = the caller's own lessons. */
   protected readonly classId = signal<number | null>(null);
   protected readonly classes = signal<ClassBookClass[]>([]);
-  protected readonly day = signal<ClassBookDay | null>(null);
+  /** The day, or the week's days. */
+  protected readonly days = signal<ClassBookDay[] | null>(null);
+
+  protected readonly view = signal<View>(
+    stored<View>(VIEW_KEY, ['detail', 'compact']) ??
+      (mediaQuery(DESKTOP_QUERY)() ? 'detail' : 'compact'),
+  );
+  protected readonly range = signal<Range>(
+    stored<Range>(RANGE_KEY, ['day', 'week']) ?? 'day',
+  );
+  protected readonly week = computed(
+    () => this.view() === 'compact' && this.range() === 'week',
+  );
+  /** Days side by side; narrower, one under another. */
+  protected readonly gridFits = mediaQuery('(min-width: 360px)');
+  protected readonly grid = computed(() => weekRows(this.days() ?? []));
+  /** The compact row showing its topic and attendance. */
+  private readonly expanded = signal<string | null>(null);
+
+  protected readonly viewOptions = [
+    { label: 'Podrobně', value: 'detail' },
+    { label: 'Kompaktně', value: 'compact' },
+  ];
+  protected readonly rangeOptions = [
+    { label: 'Den', value: 'day' },
+    { label: 'Týden', value: 'week' },
+  ];
 
   protected readonly classOptions = computed(() => [
     { id: null, name: 'Moje hodiny' },
@@ -120,8 +201,20 @@ export class ClassBook {
 
   protected readonly dateLabel = computed(() => {
     const d = this.date();
+    if (this.week()) {
+      const monday = mondayOf(d);
+      const friday = new Date(monday);
+      friday.setDate(monday.getDate() + 4);
+      return `${formatDate(toDateOnly(monday), 'date')} – ${formatDate(toDateOnly(friday), 'date')}`;
+    }
     return `${WEEKDAYS[d.getDay()]} ${formatDate(toDateOnly(d), 'date')}`;
   });
+
+  protected readonly noLessons = computed(() =>
+    this.classId() === null
+      ? 'Tento den neučíte žádnou hodinu.'
+      : 'Tento den nejsou žádné hodiny.',
+  );
 
   constructor() {
     const query = inject(ActivatedRoute).snapshot.queryParamMap;
@@ -147,11 +240,102 @@ export class ClassBook {
   }
 
   protected step(direction: number): void {
-    this.goTo(nextSchoolDay(this.date(), direction));
+    if (this.week()) {
+      const date = new Date(this.date());
+      date.setDate(date.getDate() + 7 * direction);
+      this.goTo(date);
+    } else {
+      this.goTo(nextSchoolDay(this.date(), direction));
+    }
   }
 
-  protected goTo(date: Date | null): void {
+  protected setView(view: View): void {
+    store(VIEW_KEY, view);
+    this.view.set(view);
+    this.load();
+  }
+
+  protected setRange(range: Range): void {
+    store(RANGE_KEY, range);
+    this.range.set(range);
+    this.load();
+  }
+
+  protected lessonKey(lesson: ClassBookLesson): string {
+    return [
+      lesson.date,
+      lesson.periodNumber,
+      lesson.schoolClassId,
+      lesson.studentGroupId,
+      lesson.gone,
+    ].join('|');
+  }
+
+  protected isExpanded(lesson: ClassBookLesson): boolean {
+    return this.expanded() === this.lessonKey(lesson);
+  }
+
+  /** Writing it for whoever may, else its topic and attendance. */
+  protected tap(lesson: ClassBookLesson): void {
+    if (lesson.canWrite) {
+      this.dialog().open(lesson);
+    } else {
+      const key = this.lessonKey(lesson);
+      this.expanded.update((open) => (open === key ? null : key));
+    }
+  }
+
+  /** As a tap on its day's row, the day shown when there's nothing to
+   * write. */
+  protected openFromWeek(lesson: ClassBookLesson): void {
+    if (lesson.canWrite) {
+      this.dialog().open(lesson);
+      return;
+    }
+    this.range.set('day');
+    this.expanded.set(this.lessonKey(lesson));
+    this.goTo(new Date(`${lesson.date}T00:00:00`), false);
+  }
+
+  /** Its subject and, where it isn't plain, whose lesson. */
+  protected showWho(lesson: ClassBookLesson): boolean {
+    return this.classId() === null || lesson.studentGroupId !== null;
+  }
+
+  protected abbreviation(lesson: ClassBookLesson): string {
+    return lesson.subjectAbbreviation || lesson.subjectName;
+  }
+
+  protected rowLabel(lesson: ClassBookLesson): string {
+    const action = lesson.canWrite
+      ? this.written(lesson)
+        ? 'Upravit '
+        : 'Zapsat '
+      : '';
+    const state = lesson.gone ? lesson.label : barLabel(lesson);
+    return `${action}${this.heading(lesson)}, ${state}`;
+  }
+
+  /** "po 16. 11.". */
+  protected dayLabel(day: ClassBookDay): string {
+    return `${this.weekday(day)} ${this.shortDate(day)}`;
+  }
+
+  protected weekday(day: ClassBookDay): string {
+    return WEEKDAYS[new Date(`${day.date}T00:00:00`).getDay()];
+  }
+
+  /** "16. 11.". */
+  protected shortDate(day: ClassBookDay): string {
+    const date = new Date(`${day.date}T00:00:00`);
+    return `${date.getDate()}. ${date.getMonth() + 1}.`;
+  }
+
+  protected goTo(date: Date | null, collapse = true): void {
     if (date) {
+      if (collapse) {
+        this.expanded.set(null);
+      }
       this.date.set(date);
       this.load();
     }
@@ -206,26 +390,38 @@ export class ClassBook {
       l.schoolClassId === saved.schoolClassId &&
       l.studentGroupId === saved.studentGroupId &&
       l.date === saved.date;
-    this.day.update(
-      (day) =>
-        day && {
+    this.days.update(
+      (days) =>
+        days?.map((day) => ({
           ...day,
           lessons: day.lessons.map((l) => (same(l) && !l.gone ? saved : l)),
-        },
+        })) ?? null,
     );
   }
 
   private load(): void {
-    this.day.set(null);
+    this.days.set(null);
     const date = toDateOnly(this.date());
     const classId = this.classId();
-    this.api.getDay(date, classId).subscribe({
-      next: (day) => {
-        if (date === toDateOnly(this.date()) && classId === this.classId()) {
-          this.day.set(day);
+    const week = this.week();
+    const days = week
+      ? this.api.getWeek(date, classId)
+      : this.api.getDay(date, classId).pipe(map((day) => [day]));
+    days.subscribe({
+      next: (days) => {
+        if (
+          date === toDateOnly(this.date()) &&
+          classId === this.classId() &&
+          week === this.week()
+        ) {
+          this.days.set(days);
         }
       },
-      error: (err) => this.notify.actionFailed('getDay failed', err),
+      error: (err) =>
+        this.notify.actionFailed(
+          week ? 'getWeek failed' : 'getDay failed',
+          err,
+        ),
     });
   }
 }

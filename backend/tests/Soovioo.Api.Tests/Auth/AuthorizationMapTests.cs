@@ -37,6 +37,7 @@ public class AuthorizationMapTests
         ["ClassBook.GetDay"] = "authenticated + perm:ClassBookRead",
         ["ClassBook.GetNow"] = "authenticated + perm:ClassBookWrite",
         ["ClassBook.GetPupils"] = "authenticated + perm:ClassBookRead",
+        ["ClassBook.GetWeek"] = "authenticated + perm:ClassBookRead",
         ["ClassBook.SaveLesson"] = "authenticated + perm:ClassBookWrite",
         ["AuditLog.GetActions"] = "authenticated + perm:AuditLog + superadmin",
         ["AuditLog.GetEntries"] = "authenticated + perm:AuditLog + superadmin",

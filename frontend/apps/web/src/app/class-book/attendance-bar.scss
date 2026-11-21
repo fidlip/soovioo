@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+
+.attendance-bar {
+  display: flex;
+  gap: var(--attendance-bar-gap, 1px);
+  height: var(--attendance-bar-height, 0.5rem);
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--p-surface-300);
+
+  span {
+    flex: 1;
+    background: var(--attendance-fill, var(--attendance-color));
+  }
+}
+
+:host-context(.soovioo-dark) .attendance-bar:not(.taken) {
+  background: var(--p-surface-600);
+}
+
+.attendance-bar.taken {
+  background: transparent;
+}

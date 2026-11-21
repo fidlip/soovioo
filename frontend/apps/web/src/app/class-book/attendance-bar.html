@@ -1,0 +1,12 @@
+<div
+  class="attendance-bar"
+  [class.taken]="segments()"
+  role="img"
+  [attr.aria-label]="label()"
+  [title]="label()"
+  data-testid="attendance-bar"
+>
+  @for (state of segments() ?? []; track $index) {
+  <span [class]="'attendance-' + state"></span>
+  }
+</div>

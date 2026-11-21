@@ -15,7 +15,7 @@
       icon="pi pi-chevron-left"
       severity="secondary"
       [outlined]="true"
-      ariaLabel="Předchozí den"
+      [ariaLabel]="week() ? 'Předchozí týden' : 'Předchozí den'"
       (onClick)="step(-1)"
     />
     <p-datePicker
@@ -32,22 +32,50 @@
       icon="pi pi-chevron-right"
       severity="secondary"
       [outlined]="true"
-      ariaLabel="Další den"
+      [ariaLabel]="week() ? 'Další týden' : 'Další den'"
       (onClick)="step(1)"
     />
   </div>
   <span class="font-semibold" data-testid="class-book-day">
     {{ dateLabel() }}
   </span>
+  <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+    @if (view() === 'compact') {
+    <p-selectButton
+      [options]="rangeOptions"
+      optionLabel="label"
+      optionValue="value"
+      [allowEmpty]="false"
+      [ngModel]="range()"
+      (ngModelChange)="setRange($event)"
+      ariaLabel="Rozsah"
+      size="small"
+    />
+    }
+    <p-selectButton
+      [options]="viewOptions"
+      optionLabel="label"
+      optionValue="value"
+      [allowEmpty]="false"
+      [ngModel]="view()"
+      (ngModelChange)="setView($event)"
+      ariaLabel="Pohled"
+      size="small"
+    />
+  </div>
 </div>
 
-@if (day(); as d) { @if (d.dayOff) {
+@if (days(); as ds) { @if (view() === 'compact') { @if (!week()) {
+<ng-container *ngTemplateOutlet="compactDay; context: { $implicit: ds[0] }" />
+} @else if (gridFits()) {
+<ng-container *ngTemplateOutlet="weekGrid; context: { $implicit: ds }" />
+} @else { @for (d of ds; track d.date) {
+<h3 class="mb-1 mt-3 text-base">{{ dayLabel(d) }}</h3>
+<ng-container *ngTemplateOutlet="compactDay; context: { $implicit: d }" />
+} } } @else if (ds[0]; as d) { @if (d.dayOff) {
 <p-message severity="info">Volno: {{ d.dayOff }}.</p-message>
 } @else if (d.lessons.length === 0) {
-<p class="text-surface-500">
-  {{ classId() === null ? 'Tento den neučíte žádnou hodinu.' : 'Tento den nejsou
-  žádné hodiny.' }}
-</p>
+<p class="text-surface-500">{{ noLessons() }}</p>
 } @else {
 <ul class="m-0 flex list-none flex-col gap-2 p-0">
   @for (lesson of d.lessons; track $index) {
@@ -78,30 +106,9 @@
         />
         }
       </div>
-      @if (lesson.topic) {
-      <p class="m-0 whitespace-pre-line" data-testid="class-book-topic">
-        {{ lesson.topic }}
-      </p>
-      } @if (lesson.attendanceTaken) {
-      <span class="text-sm" data-testid="class-book-attendance">
-        @if (lesson.marks.length === 0) { Všichni přítomni } @else { @for (group
-        of groups(lesson); track group.label; let lastGroup = $last) { {{
-        group.label }}: @for (mark of group.marks; track mark.studentId; let
-        lastMark = $last) { {{ markName(mark) }} @if (excuseTag(mark); as tag) {
-        <p-tag
-          [value]="tag.label"
-          [severity]="tag.severity"
-          styleClass="px-1 py-0 text-xs"
-        />
-        }{{ lastMark ? '' : ',' }} } @if (!lastGroup) { · } } }
-      </span>
-      } @else if (lesson.topic) {
-      <span class="text-sm text-surface-500">Docházka nezapsána</span>
-      } @if (lesson.recordedAt) {
-      <span class="text-xs text-surface-500">{{ recorded(lesson) }}</span>
-      } @else if (!lesson.gone) {
-      <span class="text-sm text-surface-500">Nezapsáno</span>
-      }
+      <ng-container
+        *ngTemplateOutlet="lessonInfo; context: { $implicit: lesson }"
+      />
     </div>
     @if (lesson.canWrite) {
     <p-button
@@ -116,8 +123,128 @@
   </li>
   }
 </ul>
-} } @else {
+} } } @else {
 <app-loading />
 }
+
+<ng-template #lessonInfo let-lesson>
+  @if (lesson.topic) {
+  <p class="m-0 whitespace-pre-line" data-testid="class-book-topic">
+    {{ lesson.topic }}
+  </p>
+  } @if (lesson.attendanceTaken) {
+  <span class="text-sm" data-testid="class-book-attendance">
+    @if (lesson.marks.length === 0) { Všichni přítomni } @else { @for (group of
+    groups(lesson); track group.label; let lastGroup = $last) { {{ group.label
+    }}: @for (mark of group.marks; track mark.studentId; let lastMark = $last) {
+    {{ markName(mark) }} @if (excuseTag(mark); as tag) {
+    <p-tag
+      [value]="tag.label"
+      [severity]="tag.severity"
+      styleClass="px-1 py-0 text-xs"
+    />
+    }{{ lastMark ? '' : ',' }} } @if (!lastGroup) { · } } }
+  </span>
+  } @else if (lesson.topic) {
+  <span class="text-sm text-surface-500">Docházka nezapsána</span>
+  } @if (lesson.recordedAt) {
+  <span class="text-xs text-surface-500">{{ recorded(lesson) }}</span>
+  } @else if (!lesson.gone) {
+  <span class="text-sm text-surface-500">Nezapsáno</span>
+  }
+</ng-template>
+
+<ng-template #compactDay let-d>
+  @if (d.dayOff) {
+  <p-message severity="info">Volno: {{ d.dayOff }}.</p-message>
+  } @else if (d.lessons.length === 0) {
+  <p class="m-0 text-surface-500">{{ noLessons() }}</p>
+  } @else {
+  <ul class="m-0 max-w-2xl list-none p-0">
+    @for (lesson of d.lessons; track lessonKey(lesson)) {
+    <li
+      class="border-b border-surface-200 last:border-b-0 dark:border-surface-700"
+      [class.opacity-60]="lesson.gone"
+      data-testid="class-book-compact-lesson"
+    >
+      <button
+        type="button"
+        class="class-book-compact-row"
+        [attr.aria-label]="rowLabel(lesson)"
+        [attr.aria-expanded]="lesson.canWrite ? null : isExpanded(lesson)"
+        (click)="tap(lesson)"
+      >
+        <span class="font-semibold">{{ lesson.periodNumber }}.</span>
+        <span class="min-w-0 truncate" [class.line-through]="lesson.gone"
+          >{{ lesson.subjectName }}@if (showWho(lesson)) {<span
+            class="text-surface-500"
+          >
+            · {{ lesson.who }}</span
+          >}</span
+        >
+        @if (lesson.gone) {
+        <span class="text-right text-xs text-surface-500"
+          >{{ lesson.label }}</span
+        >
+        } @else {
+        <app-attendance-bar [lesson]="lesson" />
+        }
+      </button>
+      @if (isExpanded(lesson)) {
+      <div class="flex flex-col gap-1 pb-3 pl-8">
+        <ng-container
+          *ngTemplateOutlet="lessonInfo; context: { $implicit: lesson }"
+        />
+      </div>
+      }
+    </li>
+    }
+  </ul>
+  }
+</ng-template>
+
+<ng-template #weekGrid let-ds>
+  <div
+    class="class-book-week w-full max-w-4xl"
+    [style.grid-template-columns]="'1.75rem repeat(' + ds.length + ', minmax(0, 1fr))'"
+    data-testid="class-book-week"
+  >
+    <span></span>
+    @for (d of ds; track d.date) {
+    <div class="class-book-week-day">
+      <span>{{ weekday(d) }}</span>
+      <span class="font-normal">{{ shortDate(d) }}</span>
+      @if (d.dayOff) {
+      <span class="font-normal text-surface-500" [title]="d.dayOff"
+        >{{ d.dayOff }}</span
+      >
+      }
+    </div>
+    } @for (row of grid(); track row.period) {
+    <span class="class-book-week-period">{{ row.period }}.</span>
+    @for (cell of row.cells; track $index) {
+    <div class="class-book-week-cell">
+      @for (lesson of cell; track lessonKey(lesson)) {
+      <button
+        type="button"
+        class="class-book-week-lesson"
+        [class.opacity-60]="lesson.gone"
+        [attr.aria-label]="rowLabel(lesson)"
+        [title]="rowLabel(lesson)"
+        (click)="openFromWeek(lesson)"
+        data-testid="class-book-week-lesson"
+      >
+        <span class="truncate" [class.line-through]="lesson.gone"
+          >{{ abbreviation(lesson) }}</span
+        >
+        @if (!lesson.gone) {
+        <app-attendance-bar [lesson]="lesson" />
+        }
+      </button>
+      }
+    </div>
+    } }
+  </div>
+</ng-template>
 
 <app-lesson-dialog #dialog (saved)="replace($event)" />

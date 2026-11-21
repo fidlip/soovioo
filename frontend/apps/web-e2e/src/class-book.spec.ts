@@ -105,6 +105,70 @@ test('the management writes a past lesson: its topic and an absent pupil, then c
   }
 });
 
+test('on a phone the class book is compact: a lesson a row with its attendance as a bar, a day or a week', async ({
+  page,
+}) => {
+  test.slow();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const slug = await newDemo(page);
+  try {
+    await page.goto(`/${slug}/absences`);
+    await expect(page.getByText('Kompaktně', { exact: true })).toBeVisible();
+    const write = page
+      .getByTestId('class-book-compact-lesson')
+      .getByRole('button', { name: /^Zapsat \d+\. hodina/ });
+    const day = page.getByTestId('class-book-day');
+    for (let i = 0; i < 30; i++) {
+      await expect(page.locator('app-loading')).toHaveCount(0);
+      if ((await write.count()) > 0) {
+        break;
+      }
+      const shown = await day.textContent();
+      await page.getByRole('button', { name: 'Předchozí den' }).click();
+      await expect(day).not.toHaveText(shown!);
+    }
+    test.skip((await write.count()) === 0, 'No past lesson in the demo.');
+    const label = (await write.first().getAttribute('aria-label'))!;
+    const heading = label.replace(/^Zapsat /, '').replace(/, .*$/, '');
+    await expect(write.first()).toHaveAccessibleName(/Docházka nezapsána$/);
+
+    await write.first().click();
+    const dialog = page.getByRole('dialog', { name: heading });
+    const pupils = dialog.getByTestId('lesson-pupil');
+    await expect(pupils.first()).toBeVisible();
+    // With the pupils an omluvenka already marks absent.
+    const count = dialog.getByRole('heading', { name: /chybí \d+ z/ });
+    const before = Number(
+      (await count.textContent())!.match(/chybí (\d+) z/)![1],
+    );
+    const absent = before + 1;
+    await pupils
+      .filter({ hasNot: page.locator('.text-orange-600') })
+      .first()
+      .getByText('Chybí', { exact: true })
+      .click();
+    await expect(count).toContainText(`chybí ${absent} z`);
+    await dialog.getByRole('button', { name: 'Uložit' }).click();
+    await expect(dialog).toBeHidden();
+    const bar = new RegExp(`chybí ${absent}$`);
+    await expect(
+      page.getByRole('button', { name: `Upravit ${heading}, přítomno` }),
+    ).toHaveAccessibleName(bar);
+
+    await page.getByText('Týden', { exact: true }).click();
+    await expect(page.getByTestId('class-book-week')).toBeVisible();
+    await expect(
+      page
+        .getByTestId('class-book-week-lesson')
+        .and(
+          page.getByRole('button', { name: `Upravit ${heading}, přítomno` }),
+        ),
+    ).toHaveAccessibleName(bar);
+  } finally {
+    await deleteDemo(page, slug);
+  }
+});
+
 test("an omluvenka's day without its lessons written is approved after a warning, or not at all where the school says so", async ({
   page,
 }) => {

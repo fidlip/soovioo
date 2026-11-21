@@ -32,6 +32,15 @@ export class ClassBookApiService {
     return this.http.get<ClassBookDay>(this.url('day'), { params });
   }
 
+  /** Monday to Friday of the week of `date`, each day as `getDay`. */
+  getWeek(date: string, classId: number | null): Observable<ClassBookDay[]> {
+    let params = new HttpParams().set('from', date);
+    if (classId != null) {
+      params = params.set('classId', classId);
+    }
+    return this.http.get<ClassBookDay[]>(this.url('week'), { params });
+  }
+
   /** The caller's lesson going on now, else their next one today. */
   getNow(): Observable<ClassBookLesson | null> {
     return this.http.get<ClassBookLesson | null>(this.url('now'));
