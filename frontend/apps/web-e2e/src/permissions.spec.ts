@@ -131,10 +131,10 @@ async function open(
   await waitForApiIdle();
 }
 
-/** Each page's tool, by the page's menu link. */
-const TOOLS: [string, string][] = [
+/** Each page's tool, by the page's menu link (and tab). */
+const TOOLS: [string, string, string?][] = [
   ['Známky', 'Zapsat známku'],
-  ['Docházka', 'Zapsat absenci'],
+  ['Docházka', 'Zapsat absenci', 'Absence'],
   ['Chování', 'Nový záznam'],
   ['Chování', 'Nastavit klasifikaci'],
   ['Domácí úkoly', 'Nový úkol'],
@@ -187,8 +187,11 @@ test('the pages offer exactly what the role may do', async ({
   await expect(
     nav(page).getByRole('link', { name: 'Administrace', exact: true }),
   ).toHaveCount(0);
-  for (const [link, tool] of TOOLS) {
+  for (const [link, tool, tab] of TOOLS) {
     await open(page, link, waitForApiIdle);
+    if (tab) {
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+    }
     await expect(
       page.getByRole('button', { name: tool }),
       `${link}: ${tool}`,
@@ -205,8 +208,11 @@ test('the pages offer exactly what the role may do', async ({
   await expect(
     nav(page).getByRole('link', { name: 'Administrace', exact: true }),
   ).toBeVisible();
-  for (const [link, tool] of TOOLS) {
+  for (const [link, tool, tab] of TOOLS) {
     await open(page, link, waitForApiIdle);
+    if (tab) {
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+    }
     await expect(
       page.getByRole('button', { name: tool }),
       `${link}: ${tool}`,

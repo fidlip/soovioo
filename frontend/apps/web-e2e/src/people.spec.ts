@@ -288,8 +288,8 @@ test('a class teacher’s Rodiče are filtered by name and child', async ({
   await expect(parent).toHaveCount(0);
 });
 
-for (const { link, field, option } of [
-  { link: 'Docházka', field: 'Stav', option: 'Omluveno' },
+for (const { link, tab, field, option } of [
+  { link: 'Docházka', tab: 'Absence', field: 'Stav', option: 'Omluveno' },
   { link: 'Známky', field: 'Předmět', option: null },
   { link: 'Domácí úkoly', field: 'Termín', option: 'Archiv' },
   { link: 'Platby', field: 'Stav', option: 'Zaplaceno' },
@@ -301,6 +301,9 @@ for (const { link, field, option } of [
     await page.getByRole('button', { name: 'Přihlásit se' }).click();
     await expect(page).toHaveURL(/\/skola\/home$/);
     await page.getByRole('link', { name: link, exact: true }).click();
+    if (tab) {
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+    }
     const clear = page.getByRole('button', { name: 'Zrušit filtry' });
     await expect(clear).toHaveCount(0);
     const combobox = page.getByRole('combobox', { name: field, exact: true });
