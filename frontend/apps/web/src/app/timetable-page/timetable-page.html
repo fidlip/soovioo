@@ -208,7 +208,12 @@
   <!-- Two tables sharing one fixed column layout: the header lives outside the
      horizontally scrolling body so it can stick to the page (below the mobile
      top bar) on vertical scroll; its scrollLeft follows the body's. -->
-  <div class="rounded-lg border border-surface-200 dark:border-surface-700">
+  <div
+    class="rounded-lg border border-surface-200 dark:border-surface-700"
+    [class.opacity-50]="noClassPicked()"
+    [class.grayscale]="noClassPicked()"
+    data-testid="timetable-grid"
+  >
     <div
       #headerScroller
       class="sticky z-[5] overflow-hidden rounded-t-lg"

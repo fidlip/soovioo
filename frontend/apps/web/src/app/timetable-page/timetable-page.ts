@@ -277,6 +277,10 @@ export class TimetablePage {
   protected readonly gridReady = computed(
     () => this.periodsLoaded() && this.entriesLoaded(),
   );
+  /** The class view with no class picked: only the empty grid, greyed. */
+  protected readonly noClassPicked = computed(
+    () => this.viewMode() === 'class' && this.selectedClassId() === null,
+  );
 
   /** Only Teacher/Admin ever see this — Parent picks among their own
    * children directly (no "mode"), Student gets no picker at all. */
@@ -742,12 +746,18 @@ export class TimetablePage {
     });
   }
 
-  private loadSchoolClasses(selectFirst: boolean): void {
+  /** Whoever manages the timetable starts on the first class, any other
+   * teacher on the class they are the class teacher of, or on none. */
+  private loadSchoolClasses(select: boolean): void {
     this.schoolClassesApi.getSchoolClasses().subscribe({
       next: (classes) => {
         this.schoolClasses.set(classes);
-        if (selectFirst) {
-          this.selectedClassId.update((id) => id ?? classes[0]?.id ?? null);
+        if (select) {
+          const myId = this.authApi.getUserId();
+          const preselected = this.canManageTimetable()
+            ? classes[0]
+            : classes.find((c) => c.classTeacherId === myId);
+          this.selectedClassId.update((id) => id ?? preselected?.id ?? null);
           this.reload();
         }
       },
