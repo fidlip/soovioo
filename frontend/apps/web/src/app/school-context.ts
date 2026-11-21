@@ -1,7 +1,9 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
-import { environment } from '../environments/environment';
+import { mainDomain as runtimeMainDomain } from './main-domain';
+
+const MAIN_DOMAIN = runtimeMainDomain();
 
 /** Dev fallback when no school is known yet (bare `/`). */
 export const DEFAULT_DEV_SLUG = 'skola';
@@ -17,7 +19,7 @@ export const DEFAULT_DEV_SLUG = 'skola';
  */
 export function isPathBasedTenant(
   hostname: string = window.location.hostname,
-  mainDomain: string = environment.mainDomain,
+  mainDomain: string = MAIN_DOMAIN,
 ): boolean {
   return hostname !== mainDomain && !hostname.endsWith(`.${mainDomain}`);
 }
@@ -32,7 +34,7 @@ export function isPathBasedTenant(
  * a new domain) fails closed to "no tenant" rather than guessing. */
 export function subdomainSlug(
   hostname: string,
-  mainDomain: string = environment.mainDomain,
+  mainDomain: string = MAIN_DOMAIN,
 ): string | null {
   const suffix = `.${mainDomain}`;
   if (!hostname.endsWith(suffix)) {
@@ -88,7 +90,7 @@ export function superAdminUrl(path = 'superadmin'): string {
     return `/${path}`;
   }
   const { protocol, port } = window.location;
-  return `${protocol}//${environment.mainDomain}${port ? `:${port}` : ''}/${path}`;
+  return `${protocol}//${MAIN_DOMAIN}${port ? `:${port}` : ''}/${path}`;
 }
 
 /** Absolute URL of a page of school `slug` — its own subdomain in production. */
@@ -97,7 +99,7 @@ export function schoolUrl(slug: string, path: string): string {
     return `/${slug}/${path}`;
   }
   const { protocol, port } = window.location;
-  return `${protocol}//${slug}.${environment.mainDomain}${port ? `:${port}` : ''}/${path}`;
+  return `${protocol}//${slug}.${MAIN_DOMAIN}${port ? `:${port}` : ''}/${path}`;
 }
 
 @Injectable({ providedIn: 'root' })
