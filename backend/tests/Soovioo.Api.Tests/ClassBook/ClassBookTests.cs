@@ -391,5 +391,79 @@ public class ClassBookTests
 
     /// <summary>Monday, that time in Prague (UTC+1 in November).</summary>
     private void LessonAt(int hour, int minute) => clock = new FakeClock(new DateTimeOffset(2026, 11, 2, hour - 1, minute, 0, TimeSpan.Zero));
+
+    private Excuse PendingExcuse(StudentProfile pupil)
+    {
+        var excuse = new Excuse { SchoolId = SchoolId, StudentId = pupil.Id, DateFrom = Monday, DateTo = Monday, Reason = "Lékař" };
+        db.Excuses.Add(excuse);
+        db.Absences.Add(new Absence
+        {
+            SchoolId = SchoolId, StudentId = pupil.Id, Date = Monday, Excuse = excuse, Status = AbsenceStatus.PendingExcuse,
+        });
+        db.SaveChanges();
+        return excuse;
+    }
+
+    private ExcusesController Excuses(User user) =>
+        new(db, new FakeCurrentSchoolContext(SchoolId), new Notifier(db, clock), clock,
+            new MessageAttachmentStorageService(new FakeWebHostEnvironment()))
+        {
+            ControllerContext = TestRoles.Context(TestRoles.PrincipalOf(user)),
+        };
+
+    private async Task<ExcuseDayDto> ExcuseDayAsync(User user) =>
+        Assert.Single(Assert.Single(Ok(await Excuses(user).GetExcuses())).Days);
+
+    [Fact]
+    public async Task An_omluvenkas_day_shows_the_pupils_lessons_as_the_trida_kniha_has_them()
+    {
+        PendingExcuse(eva);
+        Ok(await Controller(novak).SaveLesson(Attendance(1, Absent(eva))));
+
+        var day = await ExcuseDayAsync(mala);
+
+        Assert.Equal(
+            [(1, "M", PupilLessonState.Absent), (2, "Čj", PupilLessonState.NotRecorded)],
+            day.Lessons!.Select(l => (l.PeriodNumber, l.Subject, l.State)));
+        Assert.False(day.ApprovalBlocked);
+        Assert.Null((await ExcuseDayAsync(parentEva)).Lessons);
+    }
+
+    [Fact]
+    public async Task The_school_may_refuse_approving_a_day_before_all_its_lessons_are_written()
+    {
+        var excuse = PendingExcuse(eva);
+        (await db.Schools.SingleAsync()).UnverifiedExcuseApproval = UnverifiedExcuseApproval.Block;
+        await db.SaveChangesAsync();
+        Ok(await Controller(novak).SaveLesson(Attendance(1, Absent(eva))));
+
+        Assert.True((await ExcuseDayAsync(mala)).ApprovalBlocked);
+        Assert.IsType<BadRequestObjectResult>(await Excuses(mala).ReviewExcuse(excuse.Id, new(true)));
+        Assert.Equal(AbsenceStatus.PendingExcuse, (await db.Absences.SingleAsync()).Status);
+
+        Ok(await Controller(mala).SaveLesson(Attendance(2, Absent(eva))));
+        Assert.False((await ExcuseDayAsync(mala)).ApprovalBlocked);
+        Assert.IsType<NoContentResult>(await Excuses(mala).ReviewExcuse(excuse.Id, new(true)));
+        Assert.Equal(AbsenceStatus.Excused, (await db.Absences.SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task By_default_an_unwritten_day_is_approved_the_teacher_only_warned()
+    {
+        var excuse = PendingExcuse(eva);
+
+        Assert.All((await ExcuseDayAsync(mala)).Lessons!, l => Assert.Equal(PupilLessonState.NotRecorded, l.State));
+        Assert.IsType<NoContentResult>(await Excuses(mala).ReviewExcuse(excuse.Id, new(true)));
+    }
+
+    [Fact]
+    public async Task An_absent_pupils_omluvenka_shows_in_the_trida_kniha()
+    {
+        PendingExcuse(eva);
+
+        var mark = Assert.Single(Ok(await Controller(novak).SaveLesson(Attendance(1, Absent(eva)))).Marks);
+
+        Assert.Equal(AbsenceStatus.PendingExcuse, mark.ExcuseStatus);
+    }
 }
 

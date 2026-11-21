@@ -1,3 +1,4 @@
+import { ConfirmationService } from '@openng/optimus-ui/api';
 import {
   Component,
   computed,
@@ -26,6 +27,7 @@ import {
 import { ClearFilters, FloatField } from '../forms';
 import { GroupedTable, GroupLevel } from '../grouped-table/grouped-table';
 import { NotifyService } from '../notify.service';
+import { DayLessons, APPROVAL_BLOCKED, approveBacked } from './day-lessons';
 import { DecisionMenu } from './decision-menu';
 import { excuseFileDownloader, formatFileSize } from './excuse-files';
 import { RejectDialog } from './reject-dialog';
@@ -56,6 +58,7 @@ export const EXCUSE_STATUS_SEVERITY: Record<
 @Component({
   selector: 'app-excuses-list',
   imports: [
+    DayLessons,
     PersonName,
     ClearFilters,
     DecisionMenu,
@@ -74,6 +77,8 @@ export const EXCUSE_STATUS_SEVERITY: Record<
 export class ExcusesList {
   private readonly absencesApi = inject(AbsencesApiService);
   private readonly authApi = inject(AuthApiService);
+  private readonly confirmation = inject(ConfirmationService);
+  protected readonly approvalBlocked = APPROVAL_BLOCKED;
   private readonly notify = inject(NotifyService);
   private readonly rejectDialog = viewChild.required(RejectDialog);
   protected readonly download = excuseFileDownloader();
@@ -222,10 +227,33 @@ export class ExcusesList {
   }
 
   protected approve(excuse: Excuse): void {
-    this.absencesApi.reviewExcuse(excuse.id, true).subscribe({
-      next: () => this.changed.emit(),
-      error: (err) => this.notify.actionFailed('reviewExcuse failed', err),
-    });
+    approveBacked(this.confirmation, this.backed(excuse), () =>
+      this.absencesApi.reviewExcuse(excuse.id, true).subscribe({
+        next: () => this.changed.emit(),
+        error: (err) => this.notify.actionFailed('reviewExcuse failed', err),
+      }),
+    );
+  }
+
+  /** The waiting days the třídní kniha backs (up to today). */
+  protected backed(excuse: Excuse): ExcuseDay[] {
+    return excuse.days.filter((d) => d.lessons);
+  }
+
+  protected blocked(excuse: Excuse): boolean {
+    return excuse.days.some((d) => d.approvalBlocked);
+  }
+
+  protected approvalHint(excuse: Excuse): string {
+    return this.blocked(excuse)
+      ? this.approvalBlocked
+      : this.approvable(excuse)
+        ? ''
+        : 'Schválit jde nejdříve v den absence.';
+  }
+
+  protected dayDate(day: ExcuseDay): string {
+    return formatDate(day.date, 'date');
   }
 
   protected reject(excuse: Excuse): void {

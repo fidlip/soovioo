@@ -105,6 +105,10 @@ public class School
     /// (§ 15 of vyhláška 48/2005 Sb. leaves it to the school).</summary>
     public Grades.ReportCardMarkFormat ReportCardMarkFormat { get; set; }
 
+    /// <summary>Approving an omluvenka's day whose lessons aren't all
+    /// written in the třídní kniha: asked to confirm, or refused.</summary>
+    public ClassBook.UnverifiedExcuseApproval UnverifiedExcuseApproval { get; set; }
+
     /// <summary>The school's <see cref="Timetable.MainBlock"/>, periods from–to.</summary>
     public int MainBlockFrom { get; set; } = 1;
     public int MainBlockTo { get; set; } = 4;

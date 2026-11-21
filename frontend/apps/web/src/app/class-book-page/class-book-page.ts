@@ -11,8 +11,10 @@ import {
   ClassBookApiService,
   ClassBookClass,
   ClassBookDay,
+  AbsenceStatus,
   ClassBookLesson,
   LessonAttendanceStatus,
+  LessonMark,
   formatDate,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
@@ -60,23 +62,27 @@ const MARK_LABELS: Record<LessonAttendanceStatus, string> = {
   Away: 'Mimo třídu',
 };
 
-/** "Chybí: Eva Bílá, Jan Adámek · Pozdě: Petr Cibulka (5 min)", or
- * "Všichni přítomni". */
-export function attendanceSummary(lesson: ClassBookLesson): string {
-  if (lesson.marks.length === 0) {
-    return 'Všichni přítomni';
-  }
+const EXCUSE_TAGS: Partial<
+  Record<
+    AbsenceStatus,
+    { label: string; severity: 'warn' | 'success' | 'danger' }
+  >
+> = {
+  PendingExcuse: { label: 'omluvenka čeká', severity: 'warn' },
+  Excused: { label: 'omluveno', severity: 'success' },
+  Rejected: { label: 'omluvenka zamítnuta', severity: 'danger' },
+};
+
+/** The marks by state: absent, late, leaving, away. */
+export function attendanceGroups(
+  lesson: ClassBookLesson,
+): { label: string; marks: LessonMark[] }[] {
   return (Object.keys(MARK_LABELS) as LessonAttendanceStatus[])
-    .map((status) => {
-      const names = lesson.marks
-        .filter((m) => m.status === status)
-        .map((m) =>
-          m.minutes ? `${m.studentName} (${m.minutes} min)` : m.studentName,
-        );
-      return names.length ? `${MARK_LABELS[status]}: ${names.join(', ')}` : '';
-    })
-    .filter((part) => part)
-    .join(' · ');
+    .map((status) => ({
+      label: MARK_LABELS[status],
+      marks: lesson.marks.filter((m) => m.status === status),
+    }))
+    .filter((group) => group.marks.length > 0);
 }
 
 /** Třídní kniha: a class's lessons of a day — or the teacher's own — each
@@ -177,8 +183,18 @@ export class ClassBookPage {
     return `${lesson.periodNumber}. hodina · ${lesson.subjectName} · ${lesson.who}`;
   }
 
-  protected attendance(lesson: ClassBookLesson): string {
-    return attendanceSummary(lesson);
+  protected groups(lesson: ClassBookLesson) {
+    return attendanceGroups(lesson);
+  }
+
+  protected markName(mark: LessonMark): string {
+    return mark.minutes
+      ? `${mark.studentName} (${mark.minutes} min)`
+      : mark.studentName;
+  }
+
+  protected excuseTag(mark: LessonMark) {
+    return mark.excuseStatus ? EXCUSE_TAGS[mark.excuseStatus] : undefined;
   }
 
   protected written(lesson: ClassBookLesson): boolean {

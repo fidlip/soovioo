@@ -264,6 +264,13 @@ public class ClassBookController(
                     .ToList(),
             })
             .ToListAsync();
+        var absentIds = records.SelectMany(r => r.Marks.Where(m => m.Status == LessonAttendanceStatus.Absent).Select(m => m.StudentId))
+            .Distinct().ToList();
+        var excused = (await db.Absences
+                .Where(a => dates.Contains(a.Date) && a.ExcuseId != null && absentIds.Contains(a.StudentId))
+                .Select(a => new { a.StudentId, a.Date, a.Status })
+                .ToListAsync())
+            .ToDictionary(a => (a.StudentId, a.Date), a => a.Status);
         var result = new List<ClassBookLessonDto>();
         foreach (var lesson in lessons)
         {
@@ -281,7 +288,10 @@ public class ClassBookController(
                 LessonChangeViews.Label(lesson, names), lesson.Gone,
                 string.IsNullOrEmpty(record?.Topic) ? null : record.Topic, record?.RecordedBy, record?.RecordedAt,
                 access == LessonAccess.Allowed,
-                record?.AttendanceTakenAt is not null, record?.Marks ?? []));
+                record?.AttendanceTakenAt is not null,
+                record?.Marks.Select(m => m.Status == LessonAttendanceStatus.Absent
+                        && excused.TryGetValue((m.StudentId, key.Date), out var status)
+                    ? m with { ExcuseStatus = status } : m).ToList() ?? []));
         }
         return result;
     }
@@ -310,7 +320,10 @@ public record ClassBookLessonDto(
     string? Topic, string? RecordedByName, DateTimeOffset? RecordedAt, bool CanWrite,
     bool AttendanceTaken, IReadOnlyList<LessonMarkDto> Marks);
 
-public record LessonMarkDto(int StudentId, string StudentName, LessonAttendanceStatus Status, int? Minutes);
+/// <param name="ExcuseStatus">An absent pupil's omluvenka for the day: waiting, approved or rejected.</param>
+public record LessonMarkDto(
+    int StudentId, string StudentName, LessonAttendanceStatus Status, int? Minutes,
+    Attendance.AbsenceStatus? ExcuseStatus = null);
 
 /// <param name="AttendanceTaken">False: <see cref="LessonPupilDto.Suggestion"/> says who likely isn't there.</param>
 public record LessonPupilsDto(bool AttendanceTaken, IReadOnlyList<LessonPupilDto> Pupils);

@@ -212,6 +212,10 @@ public class ExcusesController(
 
         var book = Book;
         var days = await db.Absences.Where(a => a.ExcuseId == excuse.Id).ToListAsync();
+        if (request.Approve && await ClassBook.PupilDays.BlockedAsync(db, ExcuseBook.ToDecide(days, true, book.Today)) is { } blocked)
+        {
+            return BadRequest(blocked);
+        }
         var decided = ExcuseBook.Decide(days, request.Approve, request.Note?.Trim(), book.Today);
         if (decided.Count == 0)
         {
@@ -414,6 +418,25 @@ public class ExcusesController(
         excuse.Periods = request.DateFrom == request.DateTo ? AbsencesController.NormalizePeriods(request.Periods)! : [];
     }
 
+    /// <summary>For staff, the třídní kniha's lessons of the days waiting
+    /// for approval (up to today), and whether the school refuses approving
+    /// them before all are written.</summary>
+    public static async Task<Dictionary<(int StudentId, DateOnly Date), (IReadOnlyList<ClassBook.PupilLessonDto> Lessons, bool Blocked)>> BackingAsync(
+        AppDbContext db, ClaimsPrincipal viewer, IReadOnlyCollection<(int StudentId, DateOnly Date, AbsenceStatus Status)> days)
+    {
+        var waiting = days.Where(d => d.Status == AbsenceStatus.PendingExcuse && d.Date <= db.Today)
+            .Select(d => (d.StudentId, d.Date)).Distinct().ToList();
+        if (!viewer.IsStaff() || waiting.Count == 0)
+        {
+            return [];
+        }
+        var block = await db.Students.Where(s => s.Id == waiting[0].StudentId)
+            .Select(s => s.School!.UnverifiedExcuseApproval).FirstOrDefaultAsync() == ClassBook.UnverifiedExcuseApproval.Block;
+        return (await ClassBook.PupilDays.LessonsAsync(db, waiting)).ToDictionary(
+            p => p.Key,
+            p => ((IReadOnlyList<ClassBook.PupilLessonDto>)p.Value, block && !ClassBook.PupilDays.Verified(p.Value)));
+    }
+
     public static async Task<List<ExcuseDto>> DtosAsync(IQueryable<Excuse> query, AppDbContext db, ClaimsPrincipal viewer)
     {
         var rows = await query
@@ -431,9 +454,14 @@ public class ExcusesController(
             })
             .ToListAsync();
         var labels = await db.StudentLabelsAsync(viewer, rows.Select(r => r.StudentId));
+        var backing = await BackingAsync(db, viewer,
+            [.. rows.SelectMany(r => r.Days.Select(d => (r.StudentId, d.Date, d.Status)))]);
         return [.. rows.Select(r => new ExcuseDto(
             r.Id, r.StudentId, $"{r.FirstName} {r.LastName}", r.DateFrom, r.DateTo, r.Periods, r.Reason, r.Channel,
-            ExcuseBook.StatusOf([.. r.Days.Select(d => d.Status)]), r.Days, r.Attachments,
+            ExcuseBook.StatusOf([.. r.Days.Select(d => d.Status)]),
+            [.. r.Days.Select(d => backing.TryGetValue((r.StudentId, d.Date), out var b)
+                ? d with { Lessons = b.Lessons, ApprovalBlocked = b.Blocked } : d)],
+            r.Attachments,
             r.AuthorUsername is null ? null : PersonNames.Display(r.Author, r.AuthorUsername), r.CreatedById, r.CreatedAt,
             labels.GetValueOrDefault(r.StudentId)))];
     }
@@ -450,7 +478,11 @@ public record ExcuseResultDto(int? ExcuseId, IReadOnlyList<SkippedDayDto> Skippe
 /// <summary>A day left out of an omluvenka and the state of what's already there.</summary>
 public record SkippedDayDto(DateOnly Date, AbsenceStatus Status);
 
-public record ExcuseDayDto(int AbsenceId, DateOnly Date, AbsenceStatus Status, string? ReviewNote, IReadOnlyList<int> Periods);
+/// <param name="Lessons">For staff on a day waiting for approval: the pupil's lessons that day in the třídní kniha.</param>
+/// <param name="ApprovalBlocked">The school refuses approving it before all its lessons are written.</param>
+public record ExcuseDayDto(
+    int AbsenceId, DateOnly Date, AbsenceStatus Status, string? ReviewNote, IReadOnlyList<int> Periods,
+    IReadOnlyList<ClassBook.PupilLessonDto>? Lessons = null, bool ApprovalBlocked = false);
 
 public record ExcuseAttachmentDto(int Id, string FileName, string ContentType, long SizeBytes);
 
