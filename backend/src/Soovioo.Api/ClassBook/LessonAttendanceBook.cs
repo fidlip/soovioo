@@ -27,10 +27,11 @@ public class LessonAttendanceBook(AppDbContext db, Notifier notifier, TimeProvid
     /// <summary>Who is likely away, with why: an absence of the day already
     /// covering the lesson (an omluvenka in advance, Docházka), or the
     /// pupil's latest earlier lesson that day missed or left.</summary>
-    public async Task<Dictionary<int, string>> SuggestedAbsentAsync(LessonKey key, IReadOnlyCollection<int> studentIds)
+    public async Task<Dictionary<int, string>> SuggestedAbsentAsync(
+        LessonKey key, IReadOnlyCollection<int> studentIds, bool excusesOnly = false)
     {
         var absences = await db.Absences.Include(a => a.Excuse)
-            .Where(a => a.Date == key.Date && studentIds.Contains(a.StudentId))
+            .Where(a => a.Date == key.Date && studentIds.Contains(a.StudentId) && (!excusesOnly || a.ExcuseId != null))
             .ToListAsync();
         var earlier = (await db.LessonAttendances
                 .Where(a => a.LessonRecord!.Date == key.Date && a.LessonRecord.PeriodNumber < key.Period
@@ -50,7 +51,7 @@ public class LessonAttendanceBook(AppDbContext db, Notifier notifier, TimeProvid
                 result[absence.StudentId] = $"Chyběl(a) v {missed}. hodině";
             }
         }
-        foreach (var studentId in studentIds.Where(id => !result.ContainsKey(id)))
+        foreach (var studentId in studentIds.Where(id => !excusesOnly && !result.ContainsKey(id)))
         {
             if (earlier[studentId].MaxBy(a => a.PeriodNumber) is { Status: LessonAttendanceStatus.LeftEarly } left)
             {

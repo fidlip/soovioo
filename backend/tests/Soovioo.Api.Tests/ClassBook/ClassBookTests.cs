@@ -340,6 +340,24 @@ public class ClassBookTests
     }
 
     [Fact]
+    public async Task Once_taken_only_an_omluvenka_still_tells_of_an_absent_pupil()
+    {
+        var excuse = new Excuse { SchoolId = SchoolId, StudentId = eva.Id, DateFrom = Monday, DateTo = Monday, Reason = "Lékař" };
+        db.Excuses.Add(excuse);
+        db.Absences.Add(new Absence
+        {
+            SchoolId = SchoolId, StudentId = eva.Id, Date = Monday, Excuse = excuse, Status = AbsenceStatus.PendingExcuse,
+        });
+        await db.SaveChangesAsync();
+        Ok(await Controller(novak).SaveLesson(Attendance(1, Absent(eva), Absent(jan))));
+
+        var pupils = (await PupilsAsync(1, classA.Id)).Pupils;
+
+        Assert.Equal("Omluvenka: Lékař", pupils.Single(p => p.StudentId == eva.Id).Suggestion);
+        Assert.Null(pupils.Single(p => p.StudentId == jan.Id).Suggestion);
+    }
+
+    [Fact]
     public async Task A_pupil_who_left_or_missed_an_earlier_lesson_is_suggested_away()
     {
         Ok(await Controller(novak).SaveLesson(Attendance(1, new LessonMarkRequest(eva.Id, LessonAttendanceStatus.LeftEarly, 20), Absent(jan))));
