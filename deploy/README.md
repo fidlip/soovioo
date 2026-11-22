@@ -23,7 +23,8 @@ Domény:
   `/admin-api`, certifikát běžnou HTTP-01 výzvou. Záznamy `A`/`AAAA` domény na adresy VPS.
   Samostatná doména, aby administraci nesdílel „site“ s veřejným webem a obchodem pod `soovioo.cz`.
 - `test.soovioo.cloud` a `<slug>.test.soovioo.cloud` — [testovací instance](#testovací-instance)
-  z větve `test`. Slug `test` je proto pro školy vyhrazený.
+  z větve `test`. Slug `test` je proto pro školy vyhrazený. `test.soovioo.online` — její
+  testovací backoffice.
 
 Web volá API na stejném originu (`https://skola.soovioo.cloud/api/...`), takže žádné CORS.
 
@@ -143,13 +144,17 @@ produkce, a bez záloh.
 - Žádný port nepublikuje. TLS ukončuje produkční Caddy (blok `test.{$MAIN_DOMAIN}` v
   `Caddyfile`, vlastní wildcard certifikát `*.test.soovioo.cloud` přes DNS-01 stejným tokenem)
   a posílá dál na `web` testu, který obsluhuje aplikaci a `/api` v čistém HTTP. Spojuje je
-  interní síť `soovioo-test-proxy`, kterou zakládá produkční stack a kde jsou jen ty dva
-  kontejnery — test nevidí produkční API, databázi ani backoffice.
+  interní síť `soovioo-test-proxy`, kterou zakládá produkční stack a kde je kromě něj jen `web`
+  testu a testovací backoffice — test nevidí produkční API, databázi ani backoffice.
 - DNS: `test.soovioo.cloud` i `<slug>.test.soovioo.cloud` pokrývají stávající záznamy
   `*.soovioo.cloud` (DNS wildcard platí pro libovolnou hloubku, když `test` nemá vlastní záznam).
 - API s `App__MainDomain=test.soovioo.cloud`, `ASPNETCORE_ENVIRONMENT=Production`, bez demo
-  účtů (jen `superadmin`), push (FCM) a backoffice vypnuté. E-maily jdou do Mailpitu:
+  účtů (jen `superadmin`), push (FCM) vypnutý. E-maily jdou do Mailpitu:
   `https://test.soovioo.cloud/mailpit/`, přihlášení z `MAILPIT_UI_AUTH`.
+- Testovací backoffice (vlastní stack z repa backoffice, `/opt/soovioo-backoffice-test`) je
+  v síti testu (`soovioo-test_default`) jako `backoffice`; připojení dává `BACKOFFICE_*` v
+  `/opt/soovioo-test/.env` (prázdné = nepřipojeno). Administrace na `test.soovioo.online`
+  (blok `test.{$BACKOFFICE_DOMAIN}` v `Caddyfile`, HTTP-01; DNS `A`/`AAAA` u Forpsi).
 - Paměťové limity (API 512 MB, Postgres 256 MB, web a Mailpit 128 MB), aby test nevyhladověl
   produkci.
 
