@@ -118,8 +118,8 @@ networks:
     # would show every IPv6 visitor as the gateway address in the audit log.
     # The subnet is a ULA Docker picks itself.
     enable_ipv6: true
-  # Production's Caddy and the test instance's web, nothing else: the test
-  # stack never sees production's API or database. Internal, so it doesn't
+  # Production's Caddy and the test stacks' web and backoffice, nothing else:
+  # they never see production's API or database. Internal, so it doesn't
   # become Caddy's way out.
   test-proxy:
     name: soovioo-test-proxy

@@ -52,7 +52,15 @@ services:
       Smtp__EnableSsl: "false"
       Smtp__FromAddress: noreply@soovioo.cz
       Smtp__FromName: Soovioo (test)
-      # No push (FCM) and no backoffice: their settings stay empty.
+      # No push (FCM): its settings stay empty.
+      # The test backoffice (test.soovioo.online, its own stack joined to
+      # this network); empty = not connected, every school has the default plan.
+      Backoffice__BaseUrl: ${BACKOFFICE_BASE_URL:-}
+      Backoffice__InstanceId: ${BACKOFFICE_INSTANCE_ID:-}
+      Backoffice__Secret: ${BACKOFFICE_SECRET:-}
+      # The backoffice's commands come to 8081, reachable only inside Docker.
+      ASPNETCORE_HTTP_PORTS: "8080;8081"
+      Backoffice__InternalPort: "8081"
       App__Version: ${IMAGE_TAG:-}
     volumes:
       - attachments:/app/AttachmentStorage
