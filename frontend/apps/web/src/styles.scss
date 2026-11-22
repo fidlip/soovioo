@@ -20,6 +20,27 @@ body {
   background: var(--p-surface-950);
 }
 
+/* The test instance (main-domain.ts): a green page, not to be mistaken for
+ * the real one. */
+.soovioo-test {
+  --soovioo-test-background: color-mix(
+    in srgb,
+    var(--p-green-500) 10%,
+    var(--p-content-background)
+  );
+
+  body {
+    background: var(--soovioo-test-background);
+  }
+}
+.soovioo-test.soovioo-dark {
+  --soovioo-test-background: color-mix(
+    in srgb,
+    var(--p-green-500) 10%,
+    var(--p-surface-950)
+  );
+}
+
 /* `text-surface-500` is the app's muted text; on dark cards (surface-900)
  * it's 3.7:1, under WCAG AA. One shade lighter in dark mode passes — except
  * where an element already picks its own `dark:` colour. */
@@ -223,6 +244,9 @@ p-checkbox.ng-invalid.ng-touched .p-checkbox-box {
 }
 .soovioo-dark .p-card {
   --soovioo-page-background: var(--p-surface-950);
+}
+.soovioo-test .p-card {
+  --soovioo-page-background: var(--soovioo-test-background);
 }
 .p-card-title {
   position: absolute;

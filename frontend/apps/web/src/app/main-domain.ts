@@ -14,3 +14,9 @@ export function mainDomain(doc: Document = document): string {
     ? value
     : environment.mainDomain;
 }
+
+/** The test instance runs on `test.<domain>` (schools at
+ * `<slug>.test.<domain>`). */
+export function isTestInstance(domain: string = mainDomain()): boolean {
+  return domain.startsWith('test.');
+}
