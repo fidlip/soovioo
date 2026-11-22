@@ -1,4 +1,4 @@
-import { mainDomain } from './main-domain';
+import { isTestInstance, mainDomain } from './main-domain';
 
 function page(content: string | null): Document {
   const doc = document.implementation.createHTMLDocument();
@@ -20,5 +20,12 @@ describe('mainDomain', () => {
     expect(mainDomain(page(null))).toBe('soovioo.cloud');
     expect(mainDomain(page(''))).toBe('soovioo.cloud');
     expect(mainDomain(page('{{env `MAIN_DOMAIN`}}'))).toBe('soovioo.cloud');
+  });
+});
+
+describe('isTestInstance', () => {
+  it('is the test. domain only', () => {
+    expect(isTestInstance('test.soovioo.cloud')).toBe(true);
+    expect(isTestInstance('soovioo.cloud')).toBe(false);
   });
 });

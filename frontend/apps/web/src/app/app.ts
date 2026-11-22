@@ -19,6 +19,7 @@ import { AuthApiService } from '@soovioo/shared';
 import { DarkModeService } from './dark-mode.service';
 import { installPlaceholderTitles } from './placeholder-title';
 import { DemoShell } from './demo/demo-shell';
+import { TestBanner } from './test-banner/test-banner';
 import { LinkAccountDialog } from './link-account/link-account-dialog';
 import { canLinkAccounts } from './link-account/can-link-accounts';
 import { AppNotices } from './layout/app-notices/app-notices';
@@ -38,6 +39,7 @@ import { SchoolContextService } from './school-context';
     AppNotices,
     AppSidebar,
     DemoShell,
+    TestBanner,
     LinkAccountDialog,
     PublicHeader,
   ],

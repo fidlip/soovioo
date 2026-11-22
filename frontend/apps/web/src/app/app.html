@@ -9,6 +9,7 @@
   [class.with-sidebar]="showSidebar()"
   [class.sidebar-collapsed]="sidebarState.collapsed()"
 >
+  <app-test-banner />
   <app-demo-shell />
   @if (isLoggedIn() && canLinkAccounts()) {
   <app-link-account-dialog />
