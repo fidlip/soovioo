@@ -99,7 +99,8 @@ public class SchoolsControllerTests
     [InlineData("demo")]
     [InlineData("demo-abc")]
     [InlineData("Demo-X")]
-    public async Task AddSchoolRejectsReservedDemoSlugs(string slug)
+    [InlineData("test")]
+    public async Task AddSchoolRejectsReservedSlugs(string slug)
     {
         using var db = NewDb();
 
@@ -109,15 +110,17 @@ public class SchoolsControllerTests
         Assert.Empty(db.Schools);
     }
 
-    [Fact]
-    public async Task UpdateSchoolRejectsRenamingToADemoSlug()
+    [Theory]
+    [InlineData("demo-1")]
+    [InlineData("Test")]
+    public async Task UpdateSchoolRejectsRenamingToAReservedSlug(string slug)
     {
         using var db = NewDb();
         var school = new School { Name = "Škola", Slug = "skola" };
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
-        var result = await new SchoolsController(db).UpdateSchool(school.Id, new UpdateSchoolRequest("Škola", "demo-1"));
+        var result = await new SchoolsController(db).UpdateSchool(school.Id, new UpdateSchoolRequest("Škola", slug));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Equal("skola", school.Slug);

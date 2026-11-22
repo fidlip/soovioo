@@ -1,12 +1,14 @@
 name: CI
 
 # Tests on every push/PR; on main also builds the production images (in
-# parallel with the tests) and deploys them once everything is green.
+# parallel with the tests) and deploys them once everything is green, on
+# test the same for the test instance (test.soovioo.cloud, deploy/test).
 # Server setup and the deploy secrets: deploy/README.md.
 on:
   push:
     branches:
       - main
+      - test
   pull_request:
   workflow_dispatch:
 
@@ -165,7 +167,7 @@ jobs:
   # The deployed version and the pull requests it's made of, for the web
   # image.
   version:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test') && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -185,7 +187,7 @@ jobs:
           retention-days: 7
 
   images:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test') && github.event_name != 'pull_request'
     needs: version
     runs-on: ubuntu-latest
     permissions:
@@ -216,21 +218,27 @@ jobs:
         with:
           context: ${{ matrix.context }}
           push: true
+          # "latest" is production's; the test instance's newest is "test".
           tags: |
-            ghcr.io/fidlip/soovioo-${{ matrix.name }}:latest
+            ghcr.io/fidlip/soovioo-${{ matrix.name }}:${{ github.ref_name == 'main' && 'latest' || 'test' }}
             ghcr.io/fidlip/soovioo-${{ matrix.name }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
   # Copies deploy/ to the server and restarts the stack with this commit's
-  # images — only once every test job above passed.
+  # images — only once every test job above passed. From main production
+  # (/opt/soovioo), from test the test instance (/opt/soovioo-test).
   deploy:
     needs: [frontend, backend, e2e, images]
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.ref_name == 'main' && 'production' || 'test' }}
     concurrency:
-      group: deploy
+      group: deploy-${{ github.ref_name }}
       cancel-in-progress: false
+    env:
+      DEPLOY_DIR: ${{ github.ref_name == 'main' && '/opt/soovioo' || '/opt/soovioo-test' }}
+      DEPLOY_FILES: ${{ github.ref_name == 'main' && 'deploy/docker-compose.yml deploy/Caddyfile' || 'deploy/test/docker-compose.yml deploy/test/Caddyfile' }}
+      APP_URL: ${{ github.ref_name == 'main' && 'https://soovioo.cloud' || 'https://test.soovioo.cloud' }}
     permissions:
       contents: read
       packages: read
@@ -246,22 +254,20 @@ jobs:
           echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
       - name: Copy deploy files
         run: |
-          scp deploy/docker-compose.yml deploy/Caddyfile deploy/deploy.sh \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/soovioo/
+          scp $DEPLOY_FILES deploy/deploy.sh \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DEPLOY_DIR/
       - name: Pull and restart
         # GITHUB_TOKEN (valid only while this job runs) lets the server pull
         # the private images — no long-lived registry credential on the VPS.
         # Sent on stdin, so it never shows up in the server's process list.
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "sh /opt/soovioo/deploy.sh ${{ github.sha }} ${{ github.actor }}"
+            "sh $DEPLOY_DIR/deploy.sh ${{ github.sha }} ${{ github.actor }}"
       # `docker compose up -d` returns before the app is up, so the deploy
       # is green only once the live site serves this commit's web and the
       # API answers. An unknown school is a 404 from the API (after asking
       # the database); a 502 or 500 means it isn't up.
       - name: Check the live app
-        env:
-          APP_URL: https://soovioo.cloud
         run: |
           for attempt in $(seq 1 30); do
             commit=$(curl -fsS "$APP_URL/version.json?check=$attempt" | jq -r .commit) || commit=

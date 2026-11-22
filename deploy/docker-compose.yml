@@ -84,6 +84,10 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    networks:
+      default:
+      # Only to reach the test instance's web (deploy/test), which joins it.
+      test-proxy:
     logging: *logging
 
   # Daily pg_dump, rotated (7 daily, 4 weekly, 6 monthly) into the
@@ -114,6 +118,12 @@ networks:
     # would show every IPv6 visitor as the gateway address in the audit log.
     # The subnet is a ULA Docker picks itself.
     enable_ipv6: true
+  # Production's Caddy and the test instance's web, nothing else: the test
+  # stack never sees production's API or database. Internal, so it doesn't
+  # become Caddy's way out.
+  test-proxy:
+    name: soovioo-test-proxy
+    internal: true
 
 volumes:
   postgres-data:

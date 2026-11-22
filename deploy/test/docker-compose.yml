@@ -1,0 +1,105 @@
+# Test instance stack, on the production VPS in /opt/soovioo-test — see
+# deploy/README.md. Deployed by the deploy job in .github/workflows/ci.yml
+# from the branch "test". Its own database (seed and demos only, never a copy
+# of production), no published port: production's Caddy terminates TLS for
+# test.MAIN_DOMAIN and *.test.MAIN_DOMAIN and passes them to "web" here.
+name: soovioo-test
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soovioo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: soovioo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soovioo -d soovioo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Production shares the VPS: the test instance must not starve it.
+    mem_limit: 256m
+    logging: *logging
+
+  api:
+    image: ghcr.io/fidlip/soovioo-api:${IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Safe only because the port is not published — the way in is
+      # production's Caddy and "web" here.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__Default: Host=postgres;Database=soovioo;Username=soovioo;Password=${POSTGRES_PASSWORD}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set in .env}
+      App__PathBasedTenant: "false"
+      App__MainDomain: ${MAIN_DOMAIN:?set in .env}
+      Seed__SuperAdminPassword: ${SUPERADMIN_PASSWORD:-}
+      # Every e-mail ends up in Mailpit, never in a real mailbox.
+      Smtp__Host: mailpit
+      Smtp__Port: "1025"
+      Smtp__EnableSsl: "false"
+      Smtp__FromAddress: noreply@soovioo.cz
+      Smtp__FromName: Soovioo (test)
+      # No push (FCM) and no backoffice: their settings stay empty.
+      App__Version: ${IMAGE_TAG:-}
+    volumes:
+      - attachments:/app/AttachmentStorage
+    mem_limit: 512m
+    logging: *logging
+
+  # The same image as production's web; plain HTTP, config ./Caddyfile.
+  web:
+    image: ghcr.io/fidlip/soovioo-web:${IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      MAIN_DOMAIN: ${MAIN_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      default:
+      proxy:
+        aliases:
+          - test-web
+    mem_limit: 128m
+    logging: *logging
+
+  # Catches every e-mail; its web UI is at https://MAIN_DOMAIN/mailpit/,
+  # behind its own login.
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    restart: unless-stopped
+    environment:
+      MP_UI_AUTH: ${MAILPIT_UI_AUTH:?set in .env}
+      MP_WEBROOT: mailpit
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 2000
+    volumes:
+      - mailpit-data:/data
+    mem_limit: 128m
+    logging: *logging
+
+networks:
+  # Created by production's stack (deploy/docker-compose.yml); only its
+  # Caddy and "web" here are on it.
+  proxy:
+    name: soovioo-test-proxy
+    external: true
+
+volumes:
+  postgres-data:
+  attachments:
+  mailpit-data:
