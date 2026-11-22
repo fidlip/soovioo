@@ -18,7 +18,7 @@ version=$(TZ=Europe/Prague git show -s --format='%cd-%h' --abbrev=7 \
 prs=$(
   gh pr list --repo "$GITHUB_REPOSITORY" --state merged --base main --limit 40 \
     --json number,title,mergedAt,mergeCommit \
-    --jq 'sort_by(.mergedAt) | reverse | .[] | [.mergeCommit.oid, ({number, title, mergedAt} | tojson)] | @tsv' |
+    --jq 'sort_by(.mergedAt) | reverse | .[] | "\(.mergeCommit.oid)\t\({number, title, mergedAt} | tojson)"' |
     {
       count=0
       while IFS=$'\t' read -r oid pr; do
