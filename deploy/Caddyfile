@@ -4,8 +4,7 @@
 	# Caddy renews on its own.
 }
 
-(app) {
-	encode zstd gzip
+(headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
@@ -17,6 +16,11 @@
 		X-Robots-Tag "noindex, nofollow"
 		-Server
 	}
+}
+
+(app) {
+	encode zstd gzip
+	import headers
 
 	# Same origin as the web app (environment.production in app.config.ts),
 	# so no CORS and the SameSite=Strict auth cookies just work.
@@ -53,6 +57,19 @@
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 	}
 	import app
+}
+
+# The test instance (deploy/test, deployed from the branch "test"): its own
+# stack, whose web serves the app and its API in plain HTTP behind this
+# Caddy. *.{$MAIN_DOMAIN} covers one level only, so the test schools get a
+# wildcard certificate of their own, from the same zone. Being more
+# specific, these addresses win over *.{$MAIN_DOMAIN} above.
+test.{$MAIN_DOMAIN}, *.test.{$MAIN_DOMAIN} {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	import headers
+	reverse_proxy test-web:80
 }
 
 # The backoffice's administration (its own stack, joined to this network as

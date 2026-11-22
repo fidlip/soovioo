@@ -22,6 +22,8 @@ Domény:
   repu, připojený do sítě tohoto jako `backoffice`). Caddy pouští ven jen `/admin` a
   `/admin-api`, certifikát běžnou HTTP-01 výzvou. Záznamy `A`/`AAAA` domény na adresy VPS.
   Samostatná doména, aby administraci nesdílel „site“ s veřejným webem a obchodem pod `soovioo.cz`.
+- `test.soovioo.cloud` a `<slug>.test.soovioo.cloud` — [testovací instance](#testovací-instance)
+  z větve `test`. Slug `test` je proto pro školy vyhrazený.
 
 Web volá API na stejném originu (`https://skola.soovioo.cloud/api/...`), takže žádné CORS.
 
@@ -127,6 +129,40 @@ běží na `demo-<id>.soovioo.cloud` (wildcard certifikát ho pokrývá), denní
 `https://demo.soovioo.cloud`.
 
 Logy: `cd /opt/soovioo && docker compose logs -f api web`.
+
+## Testovací instance
+
+Druhá instance aplikace na stejném VPS, nasazovaná z větve `test`: samostatný compose projekt
+`soovioo-test` v `/opt/soovioo-test` (soubory z `deploy/test/`) s vlastním Postgresem, API,
+přílohami a [Mailpitem](https://mailpit.axllent.org/). Data jen ze seedu a dem — nikdy kopie
+produkce, a bez záloh.
+
+- Push do `test` projde stejným CI jako `main`: testy, image (tagy `test` a SHA commitu), deploy
+  do `/opt/soovioo-test` a kontrola, že `https://test.soovioo.cloud/version.json` ukazuje commit.
+  Postup: `git push --force origin <větev>:test`.
+- Žádný port nepublikuje. TLS ukončuje produkční Caddy (blok `test.{$MAIN_DOMAIN}` v
+  `Caddyfile`, vlastní wildcard certifikát `*.test.soovioo.cloud` přes DNS-01 stejným tokenem)
+  a posílá dál na `web` testu, který obsluhuje aplikaci a `/api` v čistém HTTP. Spojuje je
+  interní síť `soovioo-test-proxy`, kterou zakládá produkční stack a kde jsou jen ty dva
+  kontejnery — test nevidí produkční API, databázi ani backoffice.
+- DNS: `test.soovioo.cloud` i `<slug>.test.soovioo.cloud` pokrývají stávající záznamy
+  `*.soovioo.cloud` (DNS wildcard platí pro libovolnou hloubku, když `test` nemá vlastní záznam).
+- API s `App__MainDomain=test.soovioo.cloud`, `ASPNETCORE_ENVIRONMENT=Production`, bez demo
+  účtů (jen `superadmin`), push (FCM) a backoffice vypnuté. E-maily jdou do Mailpitu:
+  `https://test.soovioo.cloud/mailpit/`, přihlášení z `MAILPIT_UI_AUTH`.
+- Paměťové limity (API 512 MB, Postgres 256 MB, web a Mailpit 128 MB), aby test nevyhladověl
+  produkci.
+
+Příprava (jednou, jako root; produkční stack už musí běžet s `Caddyfile` a sítí z tohoto repa):
+
+```bash
+mkdir -p /opt/soovioo-test && chown deploy:deploy /opt/soovioo-test
+# šablona deploy/test/.env.example, vlastní tajné hodnoty (openssl rand -hex 32)
+nano /opt/soovioo-test/.env && chown deploy:deploy /opt/soovioo-test/.env && chmod 600 /opt/soovioo-test/.env
+```
+
+Pak push do `test`. Logy: `cd /opt/soovioo-test && docker compose logs -f api web`; zrušení
+i s daty: `docker compose down -v`.
 
 ## Zálohy
 
