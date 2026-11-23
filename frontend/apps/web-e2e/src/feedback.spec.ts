@@ -109,18 +109,14 @@ test('feedback: sent from Nastavení and a demo, new until opened, flagged, filt
   await expect(dialog).toBeHidden();
   await expect(row).toContainText('Důležité');
 
-  await page.getByRole('combobox', { name: 'Odkud' }).click();
-  await page.getByRole('option', { name: 'Ze škol' }).click();
+  await chooseFilter(page, 'Odkud', 'Ze škol');
   await expect(page.getByText('Nic neodpovídá filtrům.')).toBeVisible();
-  await page.getByRole('combobox', { name: 'Odkud' }).click();
-  await page.getByRole('option', { name: 'Z dem' }).click();
+  await chooseFilter(page, 'Odkud', 'Z dem');
   await expect(row).toBeVisible();
 
-  await page.getByRole('combobox', { name: 'Stav' }).click();
-  await page.getByRole('option', { name: 'Vyřízené', exact: true }).click();
+  await chooseFilter(page, 'Stav', 'Vyřízené');
   await expect(page.getByText('Nic neodpovídá filtrům.')).toBeVisible();
-  await page.getByRole('combobox', { name: 'Stav' }).click();
-  await page.getByRole('option', { name: 'Důležité', exact: true }).click();
+  await chooseFilter(page, 'Stav', 'Důležité');
   await expect(row).toBeVisible();
 
   await row.click();
@@ -150,3 +146,12 @@ test('feedback: sent from Nastavení and a demo, new until opened, flagged, filt
   await expect(dialog).toContainText('souhlas s kontaktem: ano');
   await expect(dialog.getByLabel('Odpověď e-mailem')).toBeVisible();
 });
+
+/** A filter's option, waiting until its list has closed: reopening the
+ * select while the previous list is still closing finds options that get
+ * detached. */
+async function chooseFilter(page: Page, filter: string, option: string) {
+  await page.getByRole('combobox', { name: filter }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+}
