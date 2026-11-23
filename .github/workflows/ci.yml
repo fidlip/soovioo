@@ -1,14 +1,13 @@
 name: CI
 
-# Tests on every push/PR; on main also builds the production images (in
-# parallel with the tests) and deploys them once everything is green, on
-# test the same for the test instance (test.soovioo.cloud, deploy/test).
+# Tests on every push/PR; on main also builds the images (in parallel with
+# the tests) and deploys them to the test instance (test.soovioo.cloud) once
+# everything is green. Production: a published release (release.yml).
 # Server setup and the deploy secrets: deploy/README.md.
 on:
   push:
     branches:
       - main
-      - test
   pull_request:
   workflow_dispatch:
 
@@ -167,7 +166,7 @@ jobs:
   # The deployed version and the pull requests it's made of, for the web
   # image.
   version:
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test') && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -187,7 +186,7 @@ jobs:
           retention-days: 7
 
   images:
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test') && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: version
     runs-on: ubuntu-latest
     permissions:
@@ -218,97 +217,21 @@ jobs:
         with:
           context: ${{ matrix.context }}
           push: true
-          # "latest" is production's; the test instance's newest is "test".
+          # By commit only; a release adds its version and "latest".
           tags: |
-            ghcr.io/fidlip/soovioo-${{ matrix.name }}:${{ github.ref_name == 'main' && 'latest' || 'test' }}
             ghcr.io/fidlip/soovioo-${{ matrix.name }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
-  # Copies deploy/ to the server and restarts the stack with this commit's
-  # images — only once every test job above passed. From main production
-  # (/opt/soovioo), from test the test instance (/opt/soovioo-test).
+  # The test instance runs every commit of main; production gets these same
+  # images only through a published release (release.yml).
   deploy:
     needs: [frontend, backend, e2e, images]
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'test' }}
-    concurrency:
-      group: deploy-${{ github.ref_name }}
-      cancel-in-progress: false
-    env:
-      DEPLOY_DIR: ${{ github.ref_name == 'main' && '/opt/soovioo' || '/opt/soovioo-test' }}
-      DEPLOY_FILES: ${{ github.ref_name == 'main' && 'deploy/docker-compose.yml deploy/Caddyfile' || 'deploy/test/docker-compose.yml deploy/test/Caddyfile' }}
-      APP_URL: ${{ github.ref_name == 'main' && 'https://soovioo.cloud' || 'https://test.soovioo.cloud' }}
     permissions:
       contents: read
       packages: read
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          sparse-checkout: deploy
-      - name: SSH setup
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-      - name: Copy deploy files
-        run: |
-          scp $DEPLOY_FILES deploy/deploy.sh \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DEPLOY_DIR/
-      - name: Pull and restart
-        # GITHUB_TOKEN (valid only while this job runs) lets the server pull
-        # the private images — no long-lived registry credential on the VPS.
-        # Sent on stdin, so it never shows up in the server's process list.
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "sh $DEPLOY_DIR/deploy.sh ${{ github.sha }} ${{ github.actor }}"
-      # `docker compose up -d` returns before the app is up, so the deploy
-      # is green only once the live site serves this commit's web and the
-      # API answers. An unknown school is a 404 from the API (after asking
-      # the database); a 502 or 500 means it isn't up.
-      - name: Check the live app
-        run: |
-          for attempt in $(seq 1 30); do
-            commit=$(curl -fsS "$APP_URL/version.json?check=$attempt" | jq -r .commit) || commit=
-            page=$(curl -fsS -o /dev/null -w '%{http_code}' "$APP_URL/") || page=
-            api=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/api/public/schools/deploy-check-none") || api=
-            echo "attempt $attempt: commit=$commit page=$page api=$api"
-            if [ "$commit" = "$GITHUB_SHA" ] && [ "$page" = 200 ] && [ "$api" = 404 ]; then
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::error::$APP_URL does not serve $GITHUB_SHA with a working API after 5 minutes"
-          exit 1
-
-  # After a promotion (PR test → main, rebase merge) test and main have the
-  # same content under different commits; test moves to main so the next
-  # change starts from main's history. Only when nothing is lost: if test
-  # already holds something newer, it is left for a rebase by hand.
-  sync-test:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: deploy
-    runs-on: ubuntu-latest
-    # The branch ruleset on test lets only pull requests in, except for a
-    # deploy key (secret TEST_SYNC_KEY, write access) and admins.
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          filter: tree:0
-          fetch-depth: 0
-          ssh-key: ${{ secrets.TEST_SYNC_KEY }}
-      - run: |
-          git fetch origin test
-          test_sha=$(git rev-parse origin/test)
-          if [ "$test_sha" = "$GITHUB_SHA" ]; then
-            echo "test is already main"
-          elif git diff --quiet "$test_sha" "$GITHUB_SHA"; then
-            git push --force-with-lease=test:"$test_sha" origin "$GITHUB_SHA:refs/heads/test"
-            echo "test moved from $test_sha to main ($GITHUB_SHA)"
-          else
-            echo "::warning::test differs from main — not moved; rebase test onto main before its next promotion"
-            git diff --stat "$GITHUB_SHA" "$test_sha"
-          fi
+    uses: ./.github/workflows/deploy.yml
+    with:
+      target: test
+      sha: ${{ github.sha }}
+    secrets: inherit

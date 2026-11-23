@@ -1,8 +1,10 @@
 #!/bin/sh
-# Run on the server by the deploy job in .github/workflows/ci.yml:
-#   echo <registry token> | sh deploy.sh <image tag> <registry user>
-# Rollback by hand to an earlier commit's images (still on the server, or
-# pullable after `docker login ghcr.io`): sh deploy.sh <older sha>
+# Run on the server by .github/workflows/deploy.yml:
+#   echo <registry token> | APP_VERSION=<release> sh deploy.sh <image tag> <registry user>
+# APP_VERSION is the release (RR.M.N) on production, empty on the test
+# instance. Rollback by hand to an earlier release's images (still on the
+# server, or pullable after `docker login ghcr.io`):
+#   APP_VERSION=26.11.0 sh deploy.sh <its commit>
 set -eu
 cd "$(dirname "$0")"
 tag="$1"
@@ -13,8 +15,9 @@ if [ $# -ge 2 ]; then
 fi
 
 # Pin the tag in .env so a manual `docker compose ...` later uses the same images.
-sed -i '/^IMAGE_TAG=/d' .env
+sed -i '/^IMAGE_TAG=/d; /^APP_VERSION=/d' .env
 echo "IMAGE_TAG=$tag" >> .env
+echo "APP_VERSION=${APP_VERSION:-}" >> .env
 
 # Caddy's sites of other stacks (Caddyfile); created here so it is ours, not root's.
 mkdir -p sites

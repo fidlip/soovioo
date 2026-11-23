@@ -42,6 +42,11 @@
 		templates {
 			mime text/html
 		}
+		# version.json's "version" is the release's APP_VERSION when there is one.
+		@version path /version.json
+		templates @version {
+			mime application/json
+		}
 		file_server
 	}
 }
