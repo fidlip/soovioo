@@ -13,6 +13,8 @@ permissions:
 
 jobs:
   check:
+    # A pre-release is not a release of the app; the backoffice ignores it too.
+    if: ${{ !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
