@@ -417,11 +417,21 @@ test.describe.serial('timetable version', () => {
     await page.getByRole('button', { name: 'Upravit rozvrh' }).click();
     const version = versionItem(page, name);
     const button = versionsButton(page);
+    // The versions reload after a change, which can re-render the item while
+    // its button is being clicked: then the list is opened again.
     const publish = async () => {
-      await openVersions(page);
-      await version.getByRole('button', { name: 'Zveřejnit' }).click();
-      await page
-        .getByRole('dialog', { name: 'Zveřejnit verzi rozvrhu' })
+      const dialog = page.getByRole('dialog', {
+        name: 'Zveřejnit verzi rozvrhu',
+      });
+      await expect(async () => {
+        await page.keyboard.press('Escape');
+        await openVersions(page);
+        await version
+          .getByRole('button', { name: 'Zveřejnit' })
+          .click({ timeout: 3000 });
+        await expect(dialog).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 20000 });
+      await dialog
         .getByRole('button', { name: /^(Přesto zveřejnit|Zveřejnit)$/ })
         .click();
     };
