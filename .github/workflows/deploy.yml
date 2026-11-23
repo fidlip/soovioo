@@ -1,0 +1,83 @@
+name: Deploy
+
+# Copies deploy/ to the server and restarts a stack with a commit's images,
+# already built and tested by CI: the test instance after every push to
+# main (ci.yml), production for a published release (release.yml).
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: test or production
+        type: string
+        required: true
+      sha:
+        description: The commit whose images to deploy
+        type: string
+        required: true
+      version:
+        description: The release (RR.M.N), production only
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    concurrency:
+      group: deploy-${{ inputs.target }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_DIR: ${{ inputs.target == 'production' && '/opt/soovioo' || '/opt/soovioo-test' }}
+      DEPLOY_FILES: ${{ inputs.target == 'production' && 'deploy/docker-compose.yml deploy/Caddyfile' || 'deploy/test/docker-compose.yml deploy/test/Caddyfile' }}
+      APP_URL: ${{ inputs.target == 'production' && 'https://soovioo.cloud' || 'https://test.soovioo.cloud' }}
+      SHA: ${{ inputs.sha }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      # The deploy files of the deployed commit, not of whatever runs this.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.sha }}
+          sparse-checkout: deploy
+      - name: SSH setup
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Copy deploy files
+        run: |
+          scp $DEPLOY_FILES deploy/deploy.sh \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DEPLOY_DIR/
+      - name: Pull and restart
+        # GITHUB_TOKEN (valid only while this job runs) lets the server pull
+        # the private images — no long-lived registry credential on the VPS.
+        # Sent on stdin, so it never shows up in the server's process list.
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "APP_VERSION='$VERSION' sh $DEPLOY_DIR/deploy.sh $SHA ${{ github.actor }}"
+      # `docker compose up -d` returns before the app is up, so the deploy
+      # is green only once the live site serves this commit's web (and the
+      # release's version) and the API answers. An unknown school is a 404
+      # from the API (after asking the database); a 502 or 500 means it
+      # isn't up.
+      - name: Check the live app
+        run: |
+          for attempt in $(seq 1 30); do
+            info=$(curl -fsS "$APP_URL/version.json?check=$attempt") || info='{}'
+            commit=$(echo "$info" | jq -r .commit)
+            version=$(echo "$info" | jq -r .version)
+            page=$(curl -fsS -o /dev/null -w '%{http_code}' "$APP_URL/") || page=
+            api=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/api/public/schools/deploy-check-none") || api=
+            echo "attempt $attempt: commit=$commit version=$version page=$page api=$api"
+            if [ "$commit" = "$SHA" ] && { [ -z "$VERSION" ] || [ "$version" = "$VERSION" ]; } \
+              && [ "$page" = 200 ] && [ "$api" = 404 ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$APP_URL does not serve $SHA ${VERSION:+($VERSION) }with a working API after 5 minutes"
+          exit 1

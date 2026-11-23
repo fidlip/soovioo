@@ -19,7 +19,7 @@ Domény:
   SPA ukáže „škola neexistuje“.
 - `soovioo.cz` — veřejný web, běží zvlášť na hostingu Forpsi; tento stack se ho netýká.
 - `test.soovioo.cloud` a `<slug>.test.soovioo.cloud` — [testovací instance](#testovací-instance)
-  z větve `test`. Slug `test` je proto pro školy vyhrazený.
+  s posledním commitem `main`. Slug `test` je proto pro školy vyhrazený.
 
 Web volá API na stejném originu (`https://skola.soovioo.cloud/api/...`), takže žádné CORS.
 
@@ -38,21 +38,33 @@ Adresář zakládá `deploy.sh`, jeho obsah spravují ty stacky a v tomhle repu 
 
 ## Jak se nasazuje
 
-Automaticky po pushi do `main`, ve workflow **CI** (`.github/workflows/ci.yml`):
-job `images` souběžně s testy postaví image `api` a `web` a nahraje je do GHCR
-(`ghcr.io/fidlip/soovioo-*`, tagy `latest` a SHA commitu). Až projdou všechny testy, job
-`deploy` zkopíruje na server `docker-compose.yml`, `Caddyfile` a `deploy.sh` do
-`/opt/soovioo` a spustí `deploy.sh` (pull + restart). Ručně: Actions → CI → Run workflow.
+„Postav jednou, pak povyš“ (#393):
 
-Verze je datum commitu a jeho zkrácený hash (`2026.11.08-13e982d`). Job `version`
-(`.github/scripts/version-json.sh`) ji spolu s posledními PR, které commit obsahuje,
-zapíše do `version.json` v image `web`. Admin a superadmin ji vidí dole v sidebaru.
+1. Push do `main`, workflow **CI** (`.github/workflows/ci.yml`): job `images` souběžně s
+   testy postaví image `api` a `web` (`ghcr.io/fidlip/soovioo-*:<sha>`). Až projdou všechny
+   testy, nasadí je na [testovací instanci](#testovací-instance) (`deploy.yml`). Na produkci
+   se z `main` nic nenasazuje.
+2. Vydání: `scripts/release.sh [-v RR.M.N] [-c <commit>] [-n]` založí **koncept vydání**
+   (draft release) v tomto repu i v backoffice se stejnou verzí. Bez `-c` vezme commit, který
+   běží na testu, bez `-v` další pořadí v měsíci (`26.11.0`, `26.11.1`, …). Poznámky napíše
+   česky Claude Code (`claude -p`) z PR od posledního vydání; `-n` je jen vypíše.
+3. Poznámky upravit na GitHubu a **Publish**. Workflow **Release** (`release.yml`) ověří, že
+   commit je v `main` a jeho CI prošlo, přidá image tagy `RR.M.N` a `latest` a nasadí je na
+   produkci (`deploy.yml`: zkopíruje `docker-compose.yml`, `Caddyfile` a `deploy.sh` do
+   `/opt/soovioo` a spustí `deploy.sh`). Kontrola: `version.json` ukazuje commit i verzi.
+   Environment `production` pouští jen tagy `v*`.
+
+Verze: produkce hlásí vydání (`APP_VERSION` v `.env`: API `App__Version`, web `version.json`
+přes šablonu v Caddy), test datum commitu a jeho hash (`2026.11.08-13e982d`). Job `version`
+(`.github/scripts/version-json.sh`) zapíše do `version.json` v image `web` i poslední PR,
+které commit obsahuje. Admin a superadmin verzi vidí dole v sidebaru.
 
 Na serveru se nic nebuilduje a není tam ani git checkout — jen `/opt/soovioo` s těmi
 třemi soubory a `.env`. Migrace DB se aplikují samy při startu `api`.
 
-Návrat na starší verzi (image z posledního týdne zůstávají na serveru):
-`cd /opt/soovioo && sh deploy.sh <sha starého commitu>`.
+Návrat na starší vydání: znovu spustit workflow Release jeho vydání (Actions → Re-run), nebo
+na serveru `cd /opt/soovioo && APP_VERSION=26.11.0 sh deploy.sh <jeho commit>` (image z
+posledního týdne zůstávají na serveru, starší po `docker login ghcr.io`).
 
 ## Požadavky na VPS
 
@@ -141,15 +153,13 @@ Logy: `cd /opt/soovioo && docker compose logs -f api web`.
 
 ## Testovací instance
 
-Druhá instance aplikace na stejném VPS, nasazovaná z větve `test`: samostatný compose projekt
+Druhá instance aplikace na stejném VPS s posledním commitem `main`: samostatný compose projekt
 `soovioo-test` v `/opt/soovioo-test` (soubory z `deploy/test/`) s vlastním Postgresem, API,
 přílohami a [Mailpitem](https://mailpit.axllent.org/). Data jen ze seedu a dem — nikdy kopie
 produkce, a bez záloh.
 
-- Push do `test` projde stejným CI jako `main`: testy, image (tagy `test` a SHA commitu), deploy
-  do `/opt/soovioo-test` a kontrola, že `https://test.soovioo.cloud/version.json` ukazuje commit.
-  Do `test` se jde jen přes PR (rebase merge), do produkce PR z `test` do `main`; po deployi
-  produkce CI srovná `test` na `main` (job `sync-test`) — viz [CONTRIBUTING.md](../CONTRIBUTING.md#pull-requests).
+- Každý push do `main` se po testech nasadí do `/opt/soovioo-test` s kontrolou, že
+  `https://test.soovioo.cloud/version.json` ukazuje commit. Na produkci jde až ve vydání.
 - Žádný port nepublikuje. TLS ukončuje produkční Caddy (blok `test.{$MAIN_DOMAIN}` v
   `Caddyfile`, vlastní wildcard certifikát `*.test.soovioo.cloud` přes DNS-01 stejným tokenem)
   a posílá dál na `web` testu, který obsluhuje aplikaci a `/api` v čistém HTTP. Spojuje je
@@ -172,7 +182,7 @@ mkdir -p /opt/soovioo-test && chown deploy:deploy /opt/soovioo-test
 nano /opt/soovioo-test/.env && chown deploy:deploy /opt/soovioo-test/.env && chmod 600 /opt/soovioo-test/.env
 ```
 
-Pak push do `test`. Logy: `cd /opt/soovioo-test && docker compose logs -f api web`; zrušení
+Pak push do `main`. Logy: `cd /opt/soovioo-test && docker compose logs -f api web`; zrušení
 i s daty: `docker compose down -v`.
 
 ## Zálohy

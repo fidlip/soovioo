@@ -3,8 +3,10 @@
 # sidebar): the version of the commit being deployed and the pull requests it
 # contains.
 #
-# The version is the commit's date in Prague and its short hash, e.g.
-# 2026.11.08-13e982d — the same commit always gets the same version.
+# A release (RR.M.N) is only known when it's published, after the image is
+# built, so "version" is a Caddy template: the release's APP_VERSION when the
+# deploy sets it (production), otherwise the commit's date in Prague and its
+# short hash, e.g. 2026.11.08-13e982d (the test instance).
 #
 # Needs: full history, GH_TOKEN (pull-requests: read), GITHUB_SHA,
 # GITHUB_REPOSITORY, GITHUB_SERVER_URL.
@@ -31,7 +33,7 @@ prs=$(
 )
 
 jq -n \
-  --arg version "$version" \
+  --arg version "{{or (env \`APP_VERSION\`) \`$version\`}}" \
   --arg commit "$sha" \
   --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \

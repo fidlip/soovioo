@@ -61,7 +61,8 @@ services:
       # Caddy proxies just 8080.
       ASPNETCORE_HTTP_PORTS: "8080;8081"
       Backoffice__InternalPort: "8081"
-      App__Version: ${IMAGE_TAG:-}
+      # The release (RR.M.N) deployed by the "Release" workflow.
+      App__Version: ${APP_VERSION:-${IMAGE_TAG:-}}
     volumes:
       - attachments:/app/AttachmentStorage
     logging: *logging
@@ -78,6 +79,7 @@ services:
       - "443:443/udp"
     environment:
       MAIN_DOMAIN: ${MAIN_DOMAIN}
+      APP_VERSION: ${APP_VERSION:-}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
