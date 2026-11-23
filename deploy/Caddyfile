@@ -72,39 +72,7 @@ test.{$MAIN_DOMAIN}, *.test.{$MAIN_DOMAIN} {
 	reverse_proxy test-web:80
 }
 
-# A backoffice's administration: only /admin and its API go out; the
-# instances' API, tokens and keys stay inside Docker. Argument: its upstream.
-(backoffice) {
-	encode zstd gzip
-	header {
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
-		Referrer-Policy "same-origin"
-		X-Robots-Tag "noindex, nofollow"
-		-Server
-	}
-
-	redir / /admin/ 302
-
-	@admin path /admin /admin/* /admin-api/*
-	handle @admin {
-		reverse_proxy {args[0]}
-	}
-
-	handle {
-		respond 404
-	}
-}
-
-# The backoffice (its own stack, joined to this network as "backoffice").
-# Certificate through HTTP-01.
-{$BACKOFFICE_DOMAIN} {
-	import backoffice backoffice:8080
-}
-
-# The test backoffice, bound to the test instance (its own stack, on the
-# network shared with the test stacks as "test-backoffice").
-test.{$BACKOFFICE_DOMAIN} {
-	import backoffice test-backoffice:8080
-}
+# Sites of other stacks on this VPS: each drops its own file into
+# /opt/soovioo/sites (README.md, Weby dalších stacků) and reloads Caddy.
+# No file yet = nothing imported.
+import /etc/caddy/sites/*.caddy

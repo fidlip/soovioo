@@ -16,6 +16,9 @@ fi
 sed -i '/^IMAGE_TAG=/d' .env
 echo "IMAGE_TAG=$tag" >> .env
 
+# Caddy's sites of other stacks (Caddyfile); created here so it is ours, not root's.
+mkdir -p sites
+
 docker compose pull api web
 docker compose up -d --remove-orphans
 # Old images of the past week stay around for a quick rollback.
