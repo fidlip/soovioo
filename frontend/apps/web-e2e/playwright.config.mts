@@ -26,6 +26,10 @@ export default defineConfig({
   // The preset runs CI on a single worker; the tests don't depend on each
   // other (they pass locally on all cores), and GitHub's runner has 4 vCPUs.
   workers: process.env['CI'] ? 4 : undefined,
+  // A test's time limit (test.slow() triples it). A busy runner (with the API
+  // and the dev server on the same 4 vCPUs) took whole tests past 30 s / 90 s
+  // without any step being stuck; a stuck step still fails on its own limit.
+  timeout: process.env['CI'] ? 60_000 : undefined,
   // Retries still run (and record traces), but a test that only passes on
   // a retry fails the run instead of going unnoticed.
   failOnFlakyTests: !!process.env['CI'],
