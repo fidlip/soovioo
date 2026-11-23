@@ -140,7 +140,8 @@ produkce, a bez záloh.
 
 - Push do `test` projde stejným CI jako `main`: testy, image (tagy `test` a SHA commitu), deploy
   do `/opt/soovioo-test` a kontrola, že `https://test.soovioo.cloud/version.json` ukazuje commit.
-  Postup: `git push --force origin <větev>:test`.
+  Do `test` se jde jen přes PR (rebase merge), do produkce PR z `test` do `main`; po deployi
+  produkce CI srovná `test` na `main` (job `sync-test`) — viz [CONTRIBUTING.md](../CONTRIBUTING.md#pull-requests).
 - Žádný port nepublikuje. TLS ukončuje produkční Caddy (blok `test.{$MAIN_DOMAIN}` v
   `Caddyfile`, vlastní wildcard certifikát `*.test.soovioo.cloud` přes DNS-01 stejným tokenem)
   a posílá dál na `web` testu, který obsluhuje aplikaci a `/api` v čistém HTTP. Spojuje je
