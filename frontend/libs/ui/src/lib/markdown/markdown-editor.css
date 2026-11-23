@@ -2,19 +2,19 @@
   display: block;
   --editor-background: var(--p-textarea-background);
   --editor-border: var(--p-textarea-border-color);
-  --internal-background: theme('colors.amber.50');
-  --internal-border: theme('colors.amber.300');
-  --internal-hover-border: theme('colors.amber.400');
-  --internal-focus-border: theme('colors.amber.500');
-  --internal-text: theme('colors.amber.700');
+  --internal-background: #fffbeb /* amber-50 */;
+  --internal-border: #fcd34d /* amber-300 */;
+  --internal-hover-border: #fbbf24 /* amber-400 */;
+  --internal-focus-border: #f59e0b /* amber-500 */;
+  --internal-text: #b45309 /* amber-700 */;
 }
 
 :host-context(.soovioo-dark) {
-  --internal-background: theme('colors.amber.950');
-  --internal-border: theme('colors.amber.700');
-  --internal-hover-border: theme('colors.amber.600');
-  --internal-focus-border: theme('colors.amber.500');
-  --internal-text: theme('colors.amber.300');
+  --internal-background: #451a03 /* amber-950 */;
+  --internal-border: #b45309 /* amber-700 */;
+  --internal-hover-border: #d97706 /* amber-600 */;
+  --internal-focus-border: #f59e0b /* amber-500 */;
+  --internal-text: #fcd34d /* amber-300 */;
 }
 
 :host(.internal) {
