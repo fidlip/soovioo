@@ -281,3 +281,31 @@ jobs:
           done
           echo "::error::$APP_URL does not serve $GITHUB_SHA with a working API after 5 minutes"
           exit 1
+
+  # After a promotion (PR test → main, rebase merge) test and main have the
+  # same content under different commits; test moves to main so the next
+  # change starts from main's history. Only when nothing is lost: if test
+  # already holds something newer, it is left for a rebase by hand.
+  sync-test:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          filter: tree:0
+          fetch-depth: 0
+      - run: |
+          git fetch origin test
+          test_sha=$(git rev-parse origin/test)
+          if [ "$test_sha" = "$GITHUB_SHA" ]; then
+            echo "test is already main"
+          elif git diff --quiet "$test_sha" "$GITHUB_SHA"; then
+            git push --force-with-lease=test:"$test_sha" origin "$GITHUB_SHA:refs/heads/test"
+            echo "test moved from $test_sha to main ($GITHUB_SHA)"
+          else
+            echo "::warning::test differs from main — not moved; rebase test onto main before its next promotion"
+            git diff --stat "$GITHUB_SHA" "$test_sha"
+          fi
