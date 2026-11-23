@@ -79,9 +79,9 @@ services:
     environment:
       MAIN_DOMAIN: ${MAIN_DOMAIN}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
-      BACKOFFICE_DOMAIN: ${BACKOFFICE_DOMAIN:-soovioo.online}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:
@@ -118,7 +118,7 @@ networks:
     # would show every IPv6 visitor as the gateway address in the audit log.
     # The subnet is a ULA Docker picks itself.
     enable_ipv6: true
-  # Production's Caddy and the test stacks' web and backoffice, nothing else:
+  # Production's Caddy and what it serves of the test stacks, nothing else:
   # they never see production's API or database. Internal, so it doesn't
   # become Caddy's way out.
   test-proxy:

@@ -53,8 +53,7 @@ services:
       Smtp__FromAddress: noreply@soovioo.cz
       Smtp__FromName: Soovioo (test)
       # No push (FCM): its settings stay empty.
-      # The test backoffice (test.soovioo.online, its own stack joined to
-      # this network); empty = not connected, every school has the default plan.
+      # The test backoffice (its own stack joined to this network); empty = not connected, every school has the default plan.
       Backoffice__BaseUrl: ${BACKOFFICE_BASE_URL:-}
       Backoffice__InstanceId: ${BACKOFFICE_INSTANCE_ID:-}
       Backoffice__Secret: ${BACKOFFICE_SECRET:-}
