@@ -1,8 +1,36 @@
 import {
   currentSchoolSlugFromUrl,
   isPathBasedTenant,
+  isSchoolPage,
   subdomainSlug,
 } from './school-context';
+
+describe('isSchoolPage', () => {
+  const mainDomain = 'soovioo.cloud';
+
+  it("counts the bare main domain's school routes as school pages", () => {
+    expect(isSchoolPage('home', null, 'soovioo.cloud', mainDomain)).toBe(true);
+    expect(isSchoolPage('home', null, 'skola.soovioo.cloud', mainDomain)).toBe(
+      true,
+    );
+  });
+
+  it('leaves the SuperAdmin area out in subdomain mode', () => {
+    expect(isSchoolPage('superadmin', null, 'soovioo.cloud', mainDomain)).toBe(
+      false,
+    );
+    expect(
+      isSchoolPage('superadmin/support', null, 'soovioo.cloud', mainDomain),
+    ).toBe(false);
+  });
+
+  it('needs a school slug in path mode', () => {
+    expect(isSchoolPage('home', 'skola', 'localhost', mainDomain)).toBe(true);
+    expect(isSchoolPage('superadmin', null, 'localhost', mainDomain)).toBe(
+      false,
+    );
+  });
+});
 
 describe('isPathBasedTenant', () => {
   it('treats localhost, bare IPs and LAN machine names as path-based', () => {
