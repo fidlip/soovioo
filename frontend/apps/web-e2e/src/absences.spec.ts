@@ -286,11 +286,18 @@ test.describe.serial('parent writes an omluvenka', () => {
     await login(page, 'ucitel', 'ucitel123');
     await page.getByRole('tab', { name: 'Omluvenky' }).click();
 
+    // The list reloads after a decision (also live), which can re-render the
+    // row while its menu is open: then the menu is opened again.
     const decide = async (item: string) => {
-      await excuse(page)
-        .getByRole('button', { name: 'Změnit rozhodnutí' })
-        .click();
-      await page.getByRole('menuitem', { name: item }).click();
+      await expect(async () => {
+        await page.keyboard.press('Escape');
+        await excuse(page)
+          .getByRole('button', { name: 'Změnit rozhodnutí' })
+          .click();
+        await page
+          .getByRole('menuitem', { name: item })
+          .click({ timeout: 3000 });
+      }).toPass({ timeout: 20000 });
     };
     await decide('Schválit');
     await approveDespiteUnrecorded(page, excuse(page).getByText('Schválena'));
