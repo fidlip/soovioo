@@ -290,13 +290,16 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: deploy
     runs-on: ubuntu-latest
+    # The branch ruleset on test lets only pull requests in, except for a
+    # deploy key (secret TEST_SYNC_KEY, write access) and admins.
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v5
         with:
           filter: tree:0
           fetch-depth: 0
+          ssh-key: ${{ secrets.TEST_SYNC_KEY }}
       - run: |
           git fetch origin test
           test_sha=$(git rev-parse origin/test)
