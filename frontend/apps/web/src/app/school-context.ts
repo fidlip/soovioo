@@ -43,6 +43,21 @@ export function subdomainSlug(
   return hostname.slice(0, -suffix.length).split('.')[0] || null;
 }
 
+/** Whether a guarded route is a school's page rather than the SuperAdmin
+ * area: in path mode one under a school slug; in subdomain mode anything
+ * outside `superadmin…`, on a school's subdomain and on the bare main domain
+ * alike (where `/` leads to the school tree's Home). */
+export function isSchoolPage(
+  routePath: string,
+  schoolSlugParam: string | null,
+  hostname: string = window.location.hostname,
+  mainDomain: string = MAIN_DOMAIN,
+): boolean {
+  return isPathBasedTenant(hostname, mainDomain)
+    ? !!schoolSlugParam
+    : !routePath.startsWith('superadmin');
+}
+
 /** The school the current page belongs to, read straight from the URL (no
  * router needed — also used at startup, before routing): the first path
  * segment in path mode (except the SuperAdmin area), the subdomain

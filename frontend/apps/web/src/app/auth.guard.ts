@@ -8,6 +8,7 @@ import {
 import { AuthApiService } from '@soovioo/shared';
 import {
   isPathBasedTenant,
+  isSchoolPage,
   subdomainSlug,
   superAdminUrl,
 } from './school-context';
@@ -68,12 +69,13 @@ export const authGuard: CanActivateFn = (
   // expired, or just a typed URL): the SuperAdmin works in schools only via
   // support mode — back to the SuperAdmin area (the API refuses them on
   // school endpoints anyway, see SuperAdminScopeFilter).
-  const onSchoolPage = isPathBasedTenant()
-    ? !!route.paramMap.get('schoolSlug')
-    : !!subdomainSlug(window.location.hostname) &&
-      !(route.routeConfig?.path ?? '').startsWith('superadmin');
+  const onSchoolPage = isSchoolPage(
+    route.routeConfig?.path ?? '',
+    route.paramMap.get('schoolSlug'),
+  );
   if (onSchoolPage && authApi.isSuperAdmin()) {
-    if (isPathBasedTenant()) {
+    // On the main domain itself the SuperAdmin area is this same app.
+    if (isPathBasedTenant() || !subdomainSlug(window.location.hostname)) {
       return router.createUrlTree(['/', 'superadmin']);
     }
     window.location.href = superAdminUrl();
