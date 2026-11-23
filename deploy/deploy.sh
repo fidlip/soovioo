@@ -7,6 +7,11 @@
 #   APP_VERSION=26.11.0 sh deploy.sh <its commit>
 set -eu
 cd "$(dirname "$0")"
+
+# One deploy at a time on the server, of any stack (app, backoffice, their
+# test instances): parallel pulls and image prunes break each other.
+exec 9>/run/lock/soovioo-deploy.lock
+flock 9
 tag="$1"
 
 if [ $# -ge 2 ]; then
