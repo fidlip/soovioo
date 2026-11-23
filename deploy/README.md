@@ -18,15 +18,23 @@ Domény:
   (50 nových certifikátů týdně na doménu). Neexistující slug dostane platný certifikát a
   SPA ukáže „škola neexistuje“.
 - `soovioo.cz` — veřejný web, běží zvlášť na hostingu Forpsi; tento stack se ho netýká.
-- `soovioo.online` (`BACKOFFICE_DOMAIN`) — administrace backoffice (vlastní stack v soukromém
-  repu, připojený do sítě tohoto jako `backoffice`). Caddy pouští ven jen `/admin` a
-  `/admin-api`, certifikát běžnou HTTP-01 výzvou. Záznamy `A`/`AAAA` domény na adresy VPS.
-  Samostatná doména, aby administraci nesdílel „site“ s veřejným webem a obchodem pod `soovioo.cz`.
 - `test.soovioo.cloud` a `<slug>.test.soovioo.cloud` — [testovací instance](#testovací-instance)
-  z větve `test`. Slug `test` je proto pro školy vyhrazený. `test.soovioo.online` — její
-  testovací backoffice.
+  z větve `test`. Slug `test` je proto pro školy vyhrazený.
 
 Web volá API na stejném originu (`https://skola.soovioo.cloud/api/...`), takže žádné CORS.
+
+### Weby dalších stacků
+
+Porty 80 a 443 má na VPS jen Caddy tohoto stacku, takže TLS ukončuje i pro další stacky na
+stejném serveru, které nejsou v tomhle repu. Každý z nich si při deployi uloží vlastní
+konfiguraci webu do `/opt/soovioo/sites/<název>.caddy` (v kontejneru `/etc/caddy/sites`,
+`Caddyfile` je importuje) a Caddy znovu načte:
+
+```bash
+docker exec soovioo-web-1 caddy reload --config /etc/caddy/Caddyfile
+```
+
+Adresář zakládá `deploy.sh`, jeho obsah spravují ty stacky a v tomhle repu není.
 
 ## Jak se nasazuje
 
@@ -145,17 +153,14 @@ produkce, a bez záloh.
 - Žádný port nepublikuje. TLS ukončuje produkční Caddy (blok `test.{$MAIN_DOMAIN}` v
   `Caddyfile`, vlastní wildcard certifikát `*.test.soovioo.cloud` přes DNS-01 stejným tokenem)
   a posílá dál na `web` testu, který obsluhuje aplikaci a `/api` v čistém HTTP. Spojuje je
-  interní síť `soovioo-test-proxy`, kterou zakládá produkční stack a kde je kromě něj jen `web`
-  testu a testovací backoffice — test nevidí produkční API, databázi ani backoffice.
+  interní síť `soovioo-test-proxy`, kterou zakládá produkční stack a kde jsou kromě něj jen služby
+  testu, které obsluhuje — test nevidí produkční API ani databázi.
 - DNS: `test.soovioo.cloud` i `<slug>.test.soovioo.cloud` pokrývají stávající záznamy
   `*.soovioo.cloud` (DNS wildcard platí pro libovolnou hloubku, když `test` nemá vlastní záznam).
 - API s `App__MainDomain=test.soovioo.cloud`, `ASPNETCORE_ENVIRONMENT=Production`, bez demo
   účtů (jen `superadmin`), push (FCM) vypnutý. E-maily jdou do Mailpitu:
   `https://test.soovioo.cloud/mailpit/`, přihlášení z `MAILPIT_UI_AUTH`.
-- Testovací backoffice (vlastní stack z repa backoffice, `/opt/soovioo-backoffice-test`) je
-  v síti testu (`soovioo-test_default`) jako `backoffice`; připojení dává `BACKOFFICE_*` v
-  `/opt/soovioo-test/.env` (prázdné = nepřipojeno). Administrace na `test.soovioo.online`
-  (blok `test.{$BACKOFFICE_DOMAIN}` v `Caddyfile`, HTTP-01; DNS `A`/`AAAA` u Forpsi).
+- Napojení na backoffice dává `BACKOFFICE_*` v `/opt/soovioo-test/.env` (prázdné = nepřipojeno).
 - Paměťové limity (API 512 MB, Postgres 256 MB, web a Mailpit 128 MB), aby test nevyhladověl
   produkci.
 
