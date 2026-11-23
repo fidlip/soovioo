@@ -70,9 +70,8 @@ test('support mode: a ticket for the school, the school allows entering, the Sup
   page,
   browser,
 }) => {
-  // Two logins, the allowing in between, entering, a reload and leaving:
-  // on a slow CI runner it ran past test.slow()'s 90 s without being stuck.
-  test.setTimeout(180_000);
+  // Two logins and the allowing in between.
+  test.slow();
   const title = `E2E kontrola ${Date.now()}`;
   await page.goto('/superadmin/login');
   await page.locator('#username').fill('superadmin');
