@@ -48,7 +48,8 @@ Adresář zakládá `deploy.sh`, jeho obsah spravují ty stacky a v tomhle repu 
    (draft release) v tomto repu i v backoffice se stejnou verzí. Bez `-c` vezme commit, který
    běží na testu, bez `-v` další pořadí v měsíci (`26.11.0`, `26.11.1`, …). Poznámky napíše
    česky Claude Code (`claude -p`) z PR od posledního vydání; `-n` je jen vypíše.
-3. Poznámky upravit na GitHubu a **Publish**. Workflow **Release** (`release.yml`) ověří, že
+3. Poznámky upravit na GitHubu a oba koncepty publikovat: `scripts/release.sh -p` (zeptá se, `-y` bez
+   ptaní), nebo na GitHubu tužka u konceptu → **Publish release**. Workflow **Release** (`release.yml`) ověří, že
    commit je v `main` a jeho CI prošlo, přidá image tagy `RR.M.N` a `latest` a nasadí je na
    produkci (`deploy.yml`: zkopíruje `docker-compose.yml`, `Caddyfile` a `deploy.sh` do
    `/opt/soovioo` a spustí `deploy.sh`). Kontrola: `version.json` ukazuje commit i verzi.
