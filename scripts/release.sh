@@ -3,15 +3,19 @@
 # same version (GitHub draft releases). Edit the notes on GitHub, then publish
 # them all (-p, or on GitHub: the draft's pencil → Publish release): the
 # "Release" workflow of each repository then puts the commit into production.
+# A change of the website alone is released alone (-W) with a fourth number
+# to the app's latest release: v26.11.12 → v26.11.12.1 → v26.11.12.2.
 #
 #   scripts/release.sh [-v RR.M.N] [-c <commit>] [-b <backoffice commit>] [-w <web commit>] [-n]
-#   scripts/release.sh -p [-v RR.M.N] [-y]
+#   scripts/release.sh -W [-v RR.M.N.K] [-w <web commit>] [-n]
+#   scripts/release.sh -p [-W] [-v RR.M.N[.K]] [-y]
 #
 #   -v  version; default: the next one of this month (26.11.0, 26.11.1, …),
-#       with -p the app's draft
+#       with -W the next fourth number, with -p the app's (-W: the website's) draft
 #   -c  commit of the app; default: the one running on the test instance
 #   -b  commit of the backoffice; default: its newest one deployed to test
 #   -w  commit of the website; default: its newest one deployed to test
+#   -W  the website alone (RR.M.N.K), the app and the backoffice get nothing
 #   -n  only print the notes, create nothing
 #   -p  publish the drafts of the version, the app's first
 #   -y  with -p, don't ask before publishing
@@ -25,17 +29,18 @@ BACKOFFICE_REPO=fidlip/soovioo-backoffice
 WEB_REPO=fidlip/soovioo-web
 TEST_URL=https://test.soovioo.cloud
 
-version='' commit='' backoffice_commit='' web_commit='' dry_run='' publish='' yes=''
-while getopts 'v:c:b:w:npy' opt; do
+version='' commit='' backoffice_commit='' web_commit='' web_only='' dry_run='' publish='' yes=''
+while getopts 'v:c:b:w:Wnpy' opt; do
   case "$opt" in
     v) version="${OPTARG#v}" ;;
     c) commit="$OPTARG" ;;
     b) backoffice_commit="$OPTARG" ;;
     w) web_commit="$OPTARG" ;;
+    W) web_only=1 ;;
     n) dry_run=1 ;;
     p) publish=1 ;;
     y) yes=1 ;;
-    *) sed -n '2,18p' "$0" >&2; exit 2 ;;
+    *) sed -n '2,22p' "$0" >&2; exit 2 ;;
   esac
 done
 
@@ -102,6 +107,45 @@ v Ostatní, nebo je vynech. Nic si nevymýšlej. Vypiš jen markdown poznámek, 
     < "$input" || echo "_(Shrnutí se nepovedlo vygenerovat.)_"
 }
 
+# --- the website ----------------------------------------------------------
+
+# Its commit and notes into $work/web-notes, for the release $tag.
+web_release() {
+  if [ -z "$web_commit" ]; then
+    web_commit=$(gh run list --repo "$WEB_REPO" --workflow CI --branch main \
+      --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+    [ -n "$web_commit" ] || die "$WEB_REPO: no successful CI run on main"
+  fi
+  web_commit=$(full_sha "$WEB_REPO" "$web_commit")
+  check_commit "$WEB_REPO" "$web_commit"
+  all_tags "$WEB_REPO" | grep -qx "$tag" && die "$WEB_REPO already has $tag (perhaps a draft)"
+
+  local web_previous
+  web_previous=$(latest_release "$WEB_REPO")
+  pull_requests "$WEB_REPO" "$web_previous" "$web_commit" > "$work/web-prs"
+  {
+    if [ -n "$web_previous" ] && [ ! -s "$work/web-prs" ]; then
+      echo "Beze změn."
+    else
+      describe "$WEB_REPO" < "$work/web-prs" > "$work/web-input"
+      summarize "webu soovioo.cz $version" "$work/web-input"
+      echo
+      echo "<details><summary>Pull requesty${web_previous:+ od $web_previous}</summary>"
+      echo
+      sed 's/^\([0-9]*\)\t\(.*\)$/- #\1 \2/' "$work/web-prs"
+      echo
+      echo "</details>"
+    fi
+    echo
+    echo "Commit: $web_commit"
+  } > "$work/web-notes"
+}
+
+create_web_draft() {
+  gh release create "$tag" --repo "$WEB_REPO" --draft --target "$web_commit" \
+    --title "Web Soovioo $version" --notes-file "$work/web-notes"
+}
+
 # --- publishing the drafts (-p) ------------------------------------------
 
 # "id<TAB>commit" of the repository's draft of the tag.
@@ -109,6 +153,36 @@ draft() {
   gh api "repos/$1/releases" \
     --jq "[.[] | select(.draft and .tag_name == \"$2\")][0] | select(.) | \"\(.id)\t\(.target_commitish)\""
 }
+
+# Four numbers: a release of the website alone.
+if echo "$version" | grep -Eq '^[0-9]{2}\.[0-9]{1,2}\.[0-9]+\.[0-9]+$'; then
+  web_only=1
+fi
+
+if [ -n "$publish" ] && [ -n "$web_only" ]; then
+  if [ -z "$version" ]; then
+    version=$(gh api "repos/$WEB_REPO/releases" --jq '[.[] | select(.draft) | .tag_name] | .[]' |
+      sed -n 's/^v\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\)$/\1/p')
+    [ -n "$version" ] || die "$WEB_REPO has no draft release RR.M.N.K"
+    [ "$(echo "$version" | wc -l)" = 1 ] || die "$WEB_REPO has several drafts, choose one with -v: $(echo $version)"
+  fi
+  tag="v$version"
+  web_draft=$(draft "$WEB_REPO" "$tag")
+  [ -n "$web_draft" ] || die "$WEB_REPO has no draft $tag"
+  IFS=$'\t' read -r id sha <<< "$web_draft"
+  check_commit "$WEB_REPO" "$sha"
+  echo "$WEB_REPO $tag @ ${sha:0:7}"
+  if [ -z "$yes" ]; then
+    read -r -p "Publish the website into production? [y/N] " answer
+    [ "$answer" = y ] || [ "$answer" = Y ] || die "nothing published"
+  fi
+  gh api -X PATCH "repos/$WEB_REPO/releases/$id" -f tag_name="$tag" -F draft=false -F prerelease=false \
+    --jq '"published \(.html_url)"'
+  echo
+  echo "Release workflow (production deploy):"
+  echo "  https://github.com/$WEB_REPO/actions/workflows/release.yml"
+  exit 0
+fi
 
 if [ -n "$publish" ]; then
   if [ -z "$version" ]; then
@@ -145,6 +219,30 @@ if [ -n "$publish" ]; then
   echo "  https://github.com/$APP_REPO/actions/workflows/release.yml"
   echo "  https://github.com/$BACKOFFICE_REPO/actions/workflows/release.yml"
   echo "  https://github.com/$WEB_REPO/actions/workflows/release.yml"
+  exit 0
+fi
+
+# --- a release of the website alone (-W) ---------------------------------
+
+if [ -n "$web_only" ]; then
+  if [ -z "$version" ]; then
+    base=$(latest_release "$APP_REPO" | sed 's/^v//')
+    [ -n "$base" ] || die "$APP_REPO has no release yet to number the website's by"
+    last=$(all_tags "$WEB_REPO" | sed -n "s/^v${base//./\\.}\.\([0-9]*\)$/\1/p" | sort -n | tail -1)
+    version="$base.$(( ${last:-0} + 1 ))"
+  fi
+  echo "$version" | grep -Eq '^[0-9]{2}\.[0-9]{1,2}\.[0-9]+\.[0-9]+$' || die "$version is not RR.M.N.K"
+  tag="v$version"
+  web_release
+  if [ -n "$dry_run" ]; then
+    echo "=== $WEB_REPO $tag @ $web_commit"
+    cat "$work/web-notes"
+    exit 0
+  fi
+  create_web_draft
+  echo
+  echo "Draft ready — edit the notes, then publish it: scripts/release.sh -p -W"
+  echo "  https://github.com/$WEB_REPO/releases"
   exit 0
 fi
 
@@ -219,35 +317,7 @@ pull_requests "$BACKOFFICE_REPO" "$backoffice_previous" "$backoffice_commit" > "
   echo "Commit: $backoffice_commit"
 } > "$work/bo-notes"
 
-# --- the website: the same version ---------------------------------------
-
-if [ -z "$web_commit" ]; then
-  web_commit=$(gh run list --repo "$WEB_REPO" --workflow CI --branch main \
-    --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
-  [ -n "$web_commit" ] || die "$WEB_REPO: no successful CI run on main"
-fi
-web_commit=$(full_sha "$WEB_REPO" "$web_commit")
-check_commit "$WEB_REPO" "$web_commit"
-all_tags "$WEB_REPO" | grep -qx "$tag" && die "$WEB_REPO already has $tag (perhaps a draft)"
-
-web_previous=$(latest_release "$WEB_REPO")
-pull_requests "$WEB_REPO" "$web_previous" "$web_commit" > "$work/web-prs"
-{
-  if [ -n "$web_previous" ] && [ ! -s "$work/web-prs" ]; then
-    echo "Beze změn."
-  else
-    describe "$WEB_REPO" < "$work/web-prs" > "$work/web-input"
-    summarize "webu soovioo.cz $version" "$work/web-input"
-    echo
-    echo "<details><summary>Pull requesty${web_previous:+ od $web_previous}</summary>"
-    echo
-    sed 's/^\([0-9]*\)\t\(.*\)$/- #\1 \2/' "$work/web-prs"
-    echo
-    echo "</details>"
-  fi
-  echo
-  echo "Commit: $web_commit"
-} > "$work/web-notes"
+web_release
 
 if [ -n "$dry_run" ]; then
   echo "=== $APP_REPO $tag @ $commit"
@@ -265,8 +335,7 @@ gh release create "$tag" --repo "$APP_REPO" --draft --target "$commit" \
   --title "Soovioo $version" --notes-file "$work/app-notes"
 gh release create "$tag" --repo "$BACKOFFICE_REPO" --draft --target "$backoffice_commit" \
   --title "Soovioo backoffice $version" --notes-file "$work/bo-notes"
-gh release create "$tag" --repo "$WEB_REPO" --draft --target "$web_commit" \
-  --title "Web Soovioo $version" --notes-file "$work/web-notes"
+create_web_draft
 echo
 echo "Drafts ready — edit the notes, then publish them all: scripts/release.sh -p"
 echo "  https://github.com/$APP_REPO/releases"
