@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Drafts a release of Soovioo and of its backoffice with the same version
-# (GitHub draft releases). Edit the notes on GitHub, then publish both (-p,
-# or on GitHub: the draft's pencil → Publish release): the "Release" workflow
-# of each repository then puts the commit into production.
+# Drafts a release of Soovioo, of its backoffice and of its website with the
+# same version (GitHub draft releases). Edit the notes on GitHub, then publish
+# them all (-p, or on GitHub: the draft's pencil → Publish release): the
+# "Release" workflow of each repository then puts the commit into production.
 #
-#   scripts/release.sh [-v RR.M.N] [-c <commit>] [-b <backoffice commit>] [-n]
+#   scripts/release.sh [-v RR.M.N] [-c <commit>] [-b <backoffice commit>] [-w <web commit>] [-n]
 #   scripts/release.sh -p [-v RR.M.N] [-y]
 #
 #   -v  version; default: the next one of this month (26.11.0, 26.11.1, …),
 #       with -p the app's draft
 #   -c  commit of the app; default: the one running on the test instance
 #   -b  commit of the backoffice; default: its newest one deployed to test
+#   -w  commit of the website; default: its newest one deployed to test
 #   -n  only print the notes, create nothing
 #   -p  publish the drafts of the version, the app's first
 #   -y  with -p, don't ask before publishing
@@ -21,18 +22,20 @@ set -euo pipefail
 
 APP_REPO=fidlip/soovioo
 BACKOFFICE_REPO=fidlip/soovioo-backoffice
+WEB_REPO=fidlip/soovioo-web
 TEST_URL=https://test.soovioo.cloud
 
-version='' commit='' backoffice_commit='' dry_run='' publish='' yes=''
-while getopts 'v:c:b:npy' opt; do
+version='' commit='' backoffice_commit='' web_commit='' dry_run='' publish='' yes=''
+while getopts 'v:c:b:w:npy' opt; do
   case "$opt" in
     v) version="${OPTARG#v}" ;;
     c) commit="$OPTARG" ;;
     b) backoffice_commit="$OPTARG" ;;
+    w) web_commit="$OPTARG" ;;
     n) dry_run=1 ;;
     p) publish=1 ;;
     y) yes=1 ;;
-    *) sed -n '2,17p' "$0" >&2; exit 2 ;;
+    *) sed -n '2,18p' "$0" >&2; exit 2 ;;
   esac
 done
 
@@ -118,18 +121,21 @@ if [ -n "$publish" ]; then
   app_draft=$(draft "$APP_REPO" "$tag")
   backoffice_draft=$(draft "$BACKOFFICE_REPO" "$tag")
   [ -n "$app_draft" ] || die "$APP_REPO has no draft $tag"
+  web_draft=$(draft "$WEB_REPO" "$tag")
   [ -n "$backoffice_draft" ] || die "$BACKOFFICE_REPO has no draft $tag"
-  for repo_draft in "$APP_REPO	$app_draft" "$BACKOFFICE_REPO	$backoffice_draft"; do
+  [ -n "$web_draft" ] || die "$WEB_REPO has no draft $tag"
+  drafts=("$APP_REPO	$app_draft" "$BACKOFFICE_REPO	$backoffice_draft" "$WEB_REPO	$web_draft")
+  for repo_draft in "${drafts[@]}"; do
     IFS=$'\t' read -r repo _ sha <<< "$repo_draft"
     check_commit "$repo" "$sha"
     echo "$repo $tag @ ${sha:0:7}"
   done
   if [ -z "$yes" ]; then
-    read -r -p "Publish both into production? [y/N] " answer
+    read -r -p "Publish all three into production? [y/N] " answer
     [ "$answer" = y ] || [ "$answer" = Y ] || die "nothing published"
   fi
   # The tag_name again, or GitHub may drop it from an edited draft.
-  for repo_draft in "$APP_REPO	$app_draft" "$BACKOFFICE_REPO	$backoffice_draft"; do
+  for repo_draft in "${drafts[@]}"; do
     IFS=$'\t' read -r repo id _ <<< "$repo_draft"
     gh api -X PATCH "repos/$repo/releases/$id" -f tag_name="$tag" -F draft=false -F prerelease=false \
       --jq '"published \(.html_url)"'
@@ -138,6 +144,7 @@ if [ -n "$publish" ]; then
   echo "Release workflows (production deploys, one after another on the server):"
   echo "  https://github.com/$APP_REPO/actions/workflows/release.yml"
   echo "  https://github.com/$BACKOFFICE_REPO/actions/workflows/release.yml"
+  echo "  https://github.com/$WEB_REPO/actions/workflows/release.yml"
   exit 0
 fi
 
@@ -212,12 +219,45 @@ pull_requests "$BACKOFFICE_REPO" "$backoffice_previous" "$backoffice_commit" > "
   echo "Commit: $backoffice_commit"
 } > "$work/bo-notes"
 
+# --- the website: the same version ---------------------------------------
+
+if [ -z "$web_commit" ]; then
+  web_commit=$(gh run list --repo "$WEB_REPO" --workflow CI --branch main \
+    --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+  [ -n "$web_commit" ] || die "$WEB_REPO: no successful CI run on main"
+fi
+web_commit=$(full_sha "$WEB_REPO" "$web_commit")
+check_commit "$WEB_REPO" "$web_commit"
+all_tags "$WEB_REPO" | grep -qx "$tag" && die "$WEB_REPO already has $tag (perhaps a draft)"
+
+web_previous=$(latest_release "$WEB_REPO")
+pull_requests "$WEB_REPO" "$web_previous" "$web_commit" > "$work/web-prs"
+{
+  if [ -n "$web_previous" ] && [ ! -s "$work/web-prs" ]; then
+    echo "Beze změn."
+  else
+    describe "$WEB_REPO" < "$work/web-prs" > "$work/web-input"
+    summarize "webu soovioo.cz $version" "$work/web-input"
+    echo
+    echo "<details><summary>Pull requesty${web_previous:+ od $web_previous}</summary>"
+    echo
+    sed 's/^\([0-9]*\)\t\(.*\)$/- #\1 \2/' "$work/web-prs"
+    echo
+    echo "</details>"
+  fi
+  echo
+  echo "Commit: $web_commit"
+} > "$work/web-notes"
+
 if [ -n "$dry_run" ]; then
   echo "=== $APP_REPO $tag @ $commit"
   cat "$work/app-notes"
   echo
   echo "=== $BACKOFFICE_REPO $tag @ $backoffice_commit"
   cat "$work/bo-notes"
+  echo
+  echo "=== $WEB_REPO $tag @ $web_commit"
+  cat "$work/web-notes"
   exit 0
 fi
 
@@ -225,7 +265,10 @@ gh release create "$tag" --repo "$APP_REPO" --draft --target "$commit" \
   --title "Soovioo $version" --notes-file "$work/app-notes"
 gh release create "$tag" --repo "$BACKOFFICE_REPO" --draft --target "$backoffice_commit" \
   --title "Soovioo backoffice $version" --notes-file "$work/bo-notes"
+gh release create "$tag" --repo "$WEB_REPO" --draft --target "$web_commit" \
+  --title "Web Soovioo $version" --notes-file "$work/web-notes"
 echo
-echo "Drafts ready — edit the notes, then publish both: scripts/release.sh -p"
+echo "Drafts ready — edit the notes, then publish them all: scripts/release.sh -p"
 echo "  https://github.com/$APP_REPO/releases"
 echo "  https://github.com/$BACKOFFICE_REPO/releases"
+echo "  https://github.com/$WEB_REPO/releases"
