@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # Drafts a release of Soovioo and of its backoffice with the same version
-# (GitHub draft releases). Edit the notes on GitHub and publish them: the
-# "Release" workflow of each repository then puts the commit into production.
+# (GitHub draft releases). Edit the notes on GitHub, then publish both (-p,
+# or on GitHub: the draft's pencil → Publish release): the "Release" workflow
+# of each repository then puts the commit into production.
 #
 #   scripts/release.sh [-v RR.M.N] [-c <commit>] [-b <backoffice commit>] [-n]
+#   scripts/release.sh -p [-v RR.M.N] [-y]
 #
-#   -v  version; default: the next one of this month (26.11.0, 26.11.1, …)
+#   -v  version; default: the next one of this month (26.11.0, 26.11.1, …),
+#       with -p the app's draft
 #   -c  commit of the app; default: the one running on the test instance
 #   -b  commit of the backoffice; default: its newest one deployed to test
 #   -n  only print the notes, create nothing
+#   -p  publish the drafts of the version, the app's first
+#   -y  with -p, don't ask before publishing
 #
 # Needs: gh (logged in), jq, curl, and claude (Claude Code) for the summary
 # of the changes; without claude the notes are just the list of pull requests.
@@ -18,14 +23,16 @@ APP_REPO=fidlip/soovioo
 BACKOFFICE_REPO=fidlip/soovioo-backoffice
 TEST_URL=https://test.soovioo.cloud
 
-version='' commit='' backoffice_commit='' dry_run=''
-while getopts 'v:c:b:n' opt; do
+version='' commit='' backoffice_commit='' dry_run='' publish='' yes=''
+while getopts 'v:c:b:npy' opt; do
   case "$opt" in
     v) version="${OPTARG#v}" ;;
     c) commit="$OPTARG" ;;
     b) backoffice_commit="$OPTARG" ;;
     n) dry_run=1 ;;
-    *) sed -n '2,13p' "$0" >&2; exit 2 ;;
+    p) publish=1 ;;
+    y) yes=1 ;;
+    *) sed -n '2,17p' "$0" >&2; exit 2 ;;
   esac
 done
 
@@ -91,6 +98,48 @@ a Ostatní (jen sekce, které mají obsah), krátké odrážky, ke každé čís
 v Ostatní, nebo je vynech. Nic si nevymýšlej. Vypiš jen markdown poznámek, bez úvodu." \
     < "$input" || echo "_(Shrnutí se nepovedlo vygenerovat.)_"
 }
+
+# --- publishing the drafts (-p) ------------------------------------------
+
+# "id<TAB>commit" of the repository's draft of the tag.
+draft() {
+  gh api "repos/$1/releases" \
+    --jq "[.[] | select(.draft and .tag_name == \"$2\")][0] | select(.) | \"\(.id)\t\(.target_commitish)\""
+}
+
+if [ -n "$publish" ]; then
+  if [ -z "$version" ]; then
+    version=$(gh api "repos/$APP_REPO/releases" --jq '[.[] | select(.draft) | .tag_name] | .[]' |
+      sed -n 's/^v//p')
+    [ -n "$version" ] || die "$APP_REPO has no draft release"
+    [ "$(echo "$version" | wc -l)" = 1 ] || die "$APP_REPO has several drafts, choose one with -v: $(echo $version)"
+  fi
+  tag="v$version"
+  app_draft=$(draft "$APP_REPO" "$tag")
+  backoffice_draft=$(draft "$BACKOFFICE_REPO" "$tag")
+  [ -n "$app_draft" ] || die "$APP_REPO has no draft $tag"
+  [ -n "$backoffice_draft" ] || die "$BACKOFFICE_REPO has no draft $tag"
+  for repo_draft in "$APP_REPO	$app_draft" "$BACKOFFICE_REPO	$backoffice_draft"; do
+    IFS=$'\t' read -r repo _ sha <<< "$repo_draft"
+    check_commit "$repo" "$sha"
+    echo "$repo $tag @ ${sha:0:7}"
+  done
+  if [ -z "$yes" ]; then
+    read -r -p "Publish both into production? [y/N] " answer
+    [ "$answer" = y ] || [ "$answer" = Y ] || die "nothing published"
+  fi
+  # The tag_name again, or GitHub may drop it from an edited draft.
+  for repo_draft in "$APP_REPO	$app_draft" "$BACKOFFICE_REPO	$backoffice_draft"; do
+    IFS=$'\t' read -r repo id _ <<< "$repo_draft"
+    gh api -X PATCH "repos/$repo/releases/$id" -f tag_name="$tag" -F draft=false -F prerelease=false \
+      --jq '"published \(.html_url)"'
+  done
+  echo
+  echo "Release workflows (production deploys, one after another on the server):"
+  echo "  https://github.com/$APP_REPO/actions/workflows/release.yml"
+  echo "  https://github.com/$BACKOFFICE_REPO/actions/workflows/release.yml"
+  exit 0
+fi
 
 # --- the app -------------------------------------------------------------
 
@@ -177,6 +226,6 @@ gh release create "$tag" --repo "$APP_REPO" --draft --target "$commit" \
 gh release create "$tag" --repo "$BACKOFFICE_REPO" --draft --target "$backoffice_commit" \
   --title "Soovioo backoffice $version" --notes-file "$work/bo-notes"
 echo
-echo "Drafts ready — edit the notes and publish (the app and the backoffice separately):"
+echo "Drafts ready — edit the notes, then publish both: scripts/release.sh -p"
 echo "  https://github.com/$APP_REPO/releases"
 echo "  https://github.com/$BACKOFFICE_REPO/releases"
