@@ -55,6 +55,10 @@ Adresář zakládá `deploy.sh`, jeho obsah spravují ty stacky a v tomhle repu 
    produkci (`deploy.yml`: zkopíruje `docker-compose.yml`, `Caddyfile` a `deploy.sh` do
    `/opt/soovioo` a spustí `deploy.sh`). Kontrola: `version.json` ukazuje commit i verzi.
    Environment `production` pouští jen tagy `v*`.
+4. Změna jen na webu (`soovioo-web`): `scripts/release.sh -W [-w <commit>] [-n]` založí koncept
+   vydání jen webu se čtvrtým číslem k poslednímu vydání aplikace (`v26.11.12` → `v26.11.12.1`
+   → `v26.11.12.2`), aplikace a backoffice novou verzi nedostanou; publikovat
+   `scripts/release.sh -p -W`. Testovací web a nasazení webu: README `soovioo-web`.
 
 Verze: produkce hlásí vydání (`APP_VERSION` v `.env`: API `App__Version`, web `version.json`
 přes šablonu v Caddy), test datum commitu a jeho hash (`2026.11.08-13e982d`). Job `version`
