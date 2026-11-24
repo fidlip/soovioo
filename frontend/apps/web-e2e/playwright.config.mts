@@ -36,6 +36,9 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL,
+    // The schools' time zone, as the API's: in UTC (CI) the browser's "today"
+    // is a day behind after midnight in Prague.
+    timezoneId: 'Europe/Prague',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
