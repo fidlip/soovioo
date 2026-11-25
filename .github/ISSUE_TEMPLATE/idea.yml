@@ -1,29 +1,28 @@
-name: Idea / Nápad
-description: A new feature or an improvement. / Nová funkce nebo vylepšení.
+name: Idea
+description: A new feature or an improvement.
 type: Feature
 labels: [enhancement, needs-discussion]
 body:
   - type: markdown
     attributes:
       value: |
-        Issues are public: no personal data of pupils, parents or staff. /
-        Hlášení je veřejné: nepište osobní údaje žáků, rodičů ani zaměstnanců.
+        Issues are public: no personal data of pupils, parents or staff.
   - type: textarea
     id: problem
     attributes:
-      label: What problem does it solve? / Jaký problém to řeší?
+      label: What problem does it solve?
       description: Who needs it and why (role, situation).
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposal / Návrh
+      label: Proposal
       description: How it could work.
     validations:
       required: true
   - type: textarea
     id: notes
     attributes:
-      label: Notes / Poznámky
+      label: Notes
       description: Alternatives, open questions, links.

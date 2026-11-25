@@ -1,36 +1,34 @@
-name: Bug / Chyba
-description: Something doesn't work as it should. / Něco nefunguje, jak má.
+name: Bug
+description: Something doesn't work as it should.
 type: Bug
 body:
   - type: markdown
     attributes:
       value: |
         **Do not report security issues here** — see [SECURITY.md](https://github.com/fidlip/soovioo/blob/main/SECURITY.md).
-        Bezpečnostní problémy sem nehlaste, viz [SECURITY.md](https://github.com/fidlip/soovioo/blob/main/SECURITY.md).
 
-        Issues are public: no personal data of pupils, parents or staff. /
-        Hlášení je veřejné: nepište osobní údaje žáků, rodičů ani zaměstnanců.
+        Issues are public: no personal data of pupils, parents or staff.
   - type: textarea
     id: steps
     attributes:
-      label: What did you do? / Co jste udělali?
+      label: What did you do?
       description: Steps to reproduce, page, role (admin, teacher, parent, student…).
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: What did you expect? / Co jste čekali?
+      label: What did you expect?
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: What happened instead? / Co se stalo místo toho?
+      label: What happened instead?
       description: Error messages, screenshots.
     validations:
       required: true
   - type: input
     id: env
     attributes:
-      label: Browser / device / Prohlížeč / zařízení
+      label: Browser / device
