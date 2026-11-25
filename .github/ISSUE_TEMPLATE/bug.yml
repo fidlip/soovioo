@@ -5,8 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Do not report security issues here** — see [SECURITY.md](blob/main/SECURITY.md).
-        Bezpečnostní problémy sem nehlaste, viz SECURITY.md.
+        **Do not report security issues here** — see [SECURITY.md](https://github.com/fidlip/soovioo/blob/main/SECURITY.md).
+        Bezpečnostní problémy sem nehlaste, viz [SECURITY.md](https://github.com/fidlip/soovioo/blob/main/SECURITY.md).
+
+        Issues are public: no personal data of pupils, parents or staff. /
+        Hlášení je veřejné: nepište osobní údaje žáků, rodičů ani zaměstnanců.
   - type: textarea
     id: steps
     attributes:
