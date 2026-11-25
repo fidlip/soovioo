@@ -98,7 +98,8 @@ describe() {
 summarize() {
   local what=$1 input=$2
   command -v claude >/dev/null || return 0
-  claude -p "Napiš česky poznámky k vydání $what pro správce škol a operátory. \
+  # No tools nor MCP servers: it only rewrites the input, it must not go looking around.
+  claude -p --tools "" --strict-mcp-config -- "Napiš česky poznámky k vydání $what pro správce škol a operátory. \
 Vstup jsou pull requesty, které vydání obsahuje. Piš z pohledu uživatele, ne vývojáře: \
 co je nového, co se opravilo, co se změnilo v ovládání. Seskup do sekcí Novinky, Opravy \
 a Ostatní (jen sekce, které mají obsah), krátké odrážky, ke každé číslo PR (#123). \
@@ -268,15 +269,19 @@ echo "$app_tags" | grep -qx "$tag" && die "$APP_REPO already has $tag (perhaps a
 
 previous=$(latest_release "$APP_REPO")
 pull_requests "$APP_REPO" "$previous" "$commit" > "$work/app-prs"
-describe "$APP_REPO" < "$work/app-prs" > "$work/app-input"
 {
-  summarize "Soovioo $version" "$work/app-input"
-  echo
-  echo "<details><summary>Pull requesty${previous:+ od $previous}</summary>"
-  echo
-  sed 's/^\([0-9]*\)\t\(.*\)$/- #\1 \2/' "$work/app-prs"
-  echo
-  echo "</details>"
+  if [ -n "$previous" ] && [ ! -s "$work/app-prs" ]; then
+    echo "Beze změn."
+  else
+    describe "$APP_REPO" < "$work/app-prs" > "$work/app-input"
+    summarize "Soovioo $version" "$work/app-input"
+    echo
+    echo "<details><summary>Pull requesty${previous:+ od $previous}</summary>"
+    echo
+    sed 's/^\([0-9]*\)\t\(.*\)$/- #\1 \2/' "$work/app-prs"
+    echo
+    echo "</details>"
+  fi
   echo
   echo "Commit: $commit"
 } > "$work/app-notes"
