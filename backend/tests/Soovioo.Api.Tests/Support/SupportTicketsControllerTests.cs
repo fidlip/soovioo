@@ -49,7 +49,8 @@ public class SupportTicketsControllerTests
         AppDbContext db, int userId, int schoolId, IBackofficeTickets? tickets = null, params Claim[] extra) =>
         new(db, new FakeCurrentSchoolContext(schoolId), tickets ?? backoffice,
             Plans(new SupportPlanOptions { Default = new SupportPlanDto("Paid", "Placený", 2) }),
-            new SupportReset(db, clock), hub.Publisher(), clock)
+            new SupportReset(db, clock), hub.Publisher(), clock, AuthTestServices.SupportKeys(db, clock),
+            Microsoft.Extensions.Options.Options.Create(new SupportOptions()))
         {
             ControllerContext = new ControllerContext { HttpContext = Http(userId, extra) },
         };

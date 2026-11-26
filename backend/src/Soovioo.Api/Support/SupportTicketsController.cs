@@ -21,7 +21,8 @@ namespace Soovioo.Api.Support;
 [AuditArea("Podpora")]
 public class SupportTicketsController(
     AppDbContext db, ICurrentSchoolContext currentSchool, IBackofficeTickets tickets, SupportPlanClient plans,
-    SupportReset reset, LivePublisher live, TimeProvider clock)
+    SupportReset reset, LivePublisher live, TimeProvider clock, SupportKeys keys,
+    Microsoft.Extensions.Options.IOptions<SupportOptions> supportOptions)
     : ControllerBase
 {
     public const int MaxTitleLength = 200;
@@ -319,8 +320,69 @@ public class SupportTicketsController(
                 return refused;
             }
             var ticket = await tickets.ActAsync(SchoolId, id, await MeAsync(), method, action, body);
+            if (ticket.Status is SupportTicketStatus.Resolved or SupportTicketStatus.Closed or SupportTicketStatus.Cancelled)
+            {
+                await keys.ExpireAsync(SchoolId, ticket.Id);
+                await db.SaveChangesAsync();
+            }
             await live.TicketsAsync(SchoolId, [ticket.Id]);
             return Ok(await DetailAsync(ticket));
+        }
+        catch (Exception e) when (e is TicketRefusedException or SupportUnavailableException)
+        {
+            return Failed(e);
+        }
+    }
+
+    /// <summary>The school's admin approves the support's key: till when and as whom it may
+    /// enter. Only the admin, not the support inside.</summary>
+    [HttpPost("api/my-school/support-tickets/{id:int}/access/{keyId:int}/approve")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Schválen klíč podpory pro vstup do školy")]
+    public Task<ActionResult<SupportTicketDetailDto>> ApproveAccess(int id, int keyId, ApproveSupportAccessRequest request) =>
+        DecideAccessAsync(id, keyId, async (key, school, me, name) =>
+            await keys.ApproveAsync(key, school, me, name, request.Until, request.UserIds));
+
+    [HttpPost("api/my-school/support-tickets/{id:int}/access/{keyId:int}/reject")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Zamítnut vstup podpory do školy")]
+    public Task<ActionResult<SupportTicketDetailDto>> RejectAccess(int id, int keyId, SupportAccessNoteRequest? request) =>
+        DecideAccessAsync(id, keyId, (key, _, me, name) => Task.FromResult(keys.Reject(key, me, name, request?.Note)));
+
+    /// <summary>The key stops working; the support inside leaves at once.</summary>
+    [HttpPost("api/my-school/support-tickets/{id:int}/access/{keyId:int}/revoke")]
+    [RequirePermission(Permission.Administration)]
+    [AuditAction("Odvolán klíč podpory pro vstup do školy")]
+    public Task<ActionResult<SupportTicketDetailDto>> RevokeAccess(int id, int keyId) =>
+        DecideAccessAsync(id, keyId, (key, _, me, name) => keys.RevokeAsync(key, me, name));
+
+    private async Task<ActionResult<SupportTicketDetailDto>> DecideAccessAsync(
+        int id, int keyId, Func<SupportAccessKey, Evidence.School, User, string, Task<string?>> decide)
+    {
+        if (Refused() is { } refused)
+        {
+            return refused;
+        }
+        if (!await IsAdminAsync(CurrentUserId()))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "O vstupu podpory rozhoduje admin školy.");
+        }
+        var key = await db.SupportAccessKeys.FirstOrDefaultAsync(k => k.Id == keyId && k.TicketId == id && k.SchoolId == SchoolId);
+        if (key is null)
+        {
+            return NotFound();
+        }
+        var school = await db.Schools.FirstAsync(s => s.Id == SchoolId);
+        var me = await db.Users.Include(u => u.Person).FirstAsync(u => u.Id == CurrentUserId());
+        if (await decide(key, school, me, PersonNames.Display(me)) is { } error)
+        {
+            return BadRequest(error);
+        }
+        await db.SaveChangesAsync();
+        await live.TicketsAsync(SchoolId, [id]);
+        try
+        {
+            return Ok(await DetailAsync(await tickets.GetAsync(SchoolId, id)));
         }
         catch (Exception e) when (e is TicketRefusedException or SupportUnavailableException)
         {
@@ -595,6 +657,7 @@ public class SupportTicketsController(
             a.Description ?? $"{a.Area}: změna", null, null, a.SessionId, a.StatusCode, As: a.AsUserName)));
 
         var reopenable = ticket.ReopenableUntil > now ? ticket.ReopenableUntil : null;
+        var access = await AccessAsync(ticket.Id, now);
         var mayConfirm = ticket.Status == SupportTicketStatus.Cancelled || await MayConfirmAsync(ticket);
         return new SupportTicketDetailDto(
             new SupportTicketDto(
@@ -616,7 +679,34 @@ public class SupportTicketsController(
                 })
                 .ThenBy(e => e.Id)
                 .ToList(),
-            ticket.Time);
+            ticket.Time,
+            access);
+    }
+
+    /// <summary>The ticket's newest key with whom it names.</summary>
+    private async Task<SupportAccessKeyDto?> AccessAsync(int ticketId, DateTimeOffset now)
+    {
+        var key = await db.SupportAccessKeys.AsNoTracking()
+            .Where(k => k.TicketId == ticketId && k.SchoolId == SchoolId)
+            .OrderByDescending(k => k.CreatedAt).ThenByDescending(k => k.Id)
+            .FirstOrDefaultAsync();
+        if (key is null)
+        {
+            return null;
+        }
+        var ids = key.RequestedAsUserIds.Concat(key.ApprovedAsUserIds).Distinct().ToList();
+        var names = (await db.Users.IgnoreQueryFilters().Include(u => u.Person)
+                .Where(u => ids.Contains(u.Id)).ToListAsync())
+            .ToDictionary(u => u.Id, PersonNames.Display);
+        List<SupportAsUserRefDto> Refs(List<int> userIds) =>
+            [.. userIds.Where(names.ContainsKey).Select(i => new SupportAsUserRefDto(i, names[i]))];
+        var school = await db.Schools.FirstAsync(s => s.Id == SchoolId);
+        return new SupportAccessKeyDto(
+            key.Id, key.Status, key.Fingerprint, key.OperatorName, key.Reason, key.CreatedAt, Refs(key.RequestedAsUserIds),
+            key.DecidedAt, key.DecidedByName, key.ApprovedUntil, Refs(key.ApprovedAsUserIds), key.DecisionNote,
+            key.Usable(now),
+            CanDecide: !User.InSupportMode() && await IsAdminAsync(CurrentUserId()),
+            school.SupportAs, supportOptions.Value.ApprovalMinutes);
     }
 }
 
@@ -678,4 +768,26 @@ public record SupportTicketEntryDto(
     int Changes = 0, string? As = null);
 
 /// <param name="Time">The backoffice's: the ticket's support time, estimates and the school's month.</param>
-public record SupportTicketDetailDto(SupportTicketDto Ticket, IReadOnlyList<SupportTicketEntryDto> Entries, JsonElement Time);
+/// <param name="Access">The support's newest key for entering for the ticket.</param>
+public record SupportTicketDetailDto(
+    SupportTicketDto Ticket, IReadOnlyList<SupportTicketEntryDto> Entries, JsonElement Time,
+    SupportAccessKeyDto? Access = null);
+
+/// <param name="Status">Pending: the school decides.</param>
+/// <param name="Fingerprint">Of the public key the school approves.</param>
+/// <param name="RequestedAs">Whom the support asked to be; empty: the school chooses.</param>
+/// <param name="ApprovedAs">Whom the school lets the support be; empty: its admin.</param>
+/// <param name="Usable">Approved and not run out: the support may enter.</param>
+/// <param name="CanDecide">The caller is the school's admin (not the support inside).</param>
+/// <param name="SupportAs">The school's choice whom the support enters as.</param>
+/// <param name="ApprovalMinutes">The approval's default length.</param>
+public record SupportAccessKeyDto(
+    int Id, SupportAccessKeyStatus Status, string Fingerprint, string OperatorName, string? Reason,
+    DateTimeOffset CreatedAt, IReadOnlyList<SupportAsUserRefDto> RequestedAs, DateTimeOffset? DecidedAt,
+    string? DecidedByName, DateTimeOffset? ApprovedUntil, IReadOnlyList<SupportAsUserRefDto> ApprovedAs,
+    string? DecisionNote, bool Usable, bool CanDecide, SupportAsScope SupportAs, int ApprovalMinutes);
+
+/// <param name="UserIds">Whom the support may be (the school lets it in only as named users).</param>
+public record ApproveSupportAccessRequest(DateTimeOffset Until, IReadOnlyList<int>? UserIds = null);
+
+public record SupportAccessNoteRequest(string? Note);

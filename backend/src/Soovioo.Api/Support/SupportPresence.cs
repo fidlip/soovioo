@@ -20,9 +20,7 @@ public static class SupportPresence
             return null;
         }
         var sessions = await db.SupportSessions.IgnoreQueryFilters().AsNoTracking()
-            .Include(s => s.SuperAdminUser).ThenInclude(u => u!.Person)
             .Where(s => s.SchoolId == schoolId && s.EndedAt == null && s.ExpiresAt > now && s.AsUserId != null
-                        && s.HandoffCodeHash == null
                         && (s.AsUserId == me
                             || s.TicketAuthorUserId == me))
             .OrderBy(s => s.StartedAt)
@@ -33,7 +31,7 @@ public static class SupportPresence
             {
                 var asMe = s.AsUserId == me;
                 return new SupportPresenceDto(
-                    s.Id, asMe, s.SuperAdminUser is { } u ? PersonNames.Display(u) : s.SuperAdminUsername,
+                    s.Id, asMe, s.SuperAdminUsername,
                     s.AsName ?? "", s.StartedAt, asMe ? null : s.TicketId, asMe ? null : s.TicketTitle);
             }).ToList();
     }

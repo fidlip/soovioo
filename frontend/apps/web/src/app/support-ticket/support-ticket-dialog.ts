@@ -53,6 +53,7 @@ import {
   hiddenWhenFolded,
   visitMinutes,
 } from './ticket-thread';
+import { TicketAccess } from './ticket-access';
 import { TicketTime } from './ticket-time';
 
 /** The school's support ticket with its thread (kept in the backoffice):
@@ -73,6 +74,7 @@ import { TicketTime } from './ticket-time';
     NgTemplateOutlet,
     Menu,
     Tag,
+    TicketAccess,
     TicketTime,
   ],
   templateUrl: './support-ticket-dialog.html',
@@ -302,9 +304,11 @@ export class SupportTicketDialog {
       case 'AccessRequested':
         return 'Žádost o vstup do školy';
       case 'AccessGranted':
-        return 'Vstup do školy povolen';
+        return 'Vstup do školy schválen';
+      case 'AccessRejected':
+        return 'Vstup do školy zamítnut';
       case 'AccessRevoked':
-        return 'Povolení vstupu odebráno';
+        return 'Vstup do školy odvolán';
       case 'SupportAsChanged':
         return 'Změněno, za koho smí podpora vstoupit';
       case 'SessionStarted':
@@ -540,7 +544,7 @@ export class SupportTicketDialog {
     this.act((id) => this.api.reopenTicket(id), 'Požadavek znovu otevřen.');
   }
 
-  /** The time section changed the ticket (an estimate decided, a dispute…). */
+  /** The time or access section changed the ticket (an estimate decided, a key approved…). */
   protected timeChanged(detail: SupportTicketDetail): void {
     this.detail.set(detail);
     this.changed.emit(detail.ticket);

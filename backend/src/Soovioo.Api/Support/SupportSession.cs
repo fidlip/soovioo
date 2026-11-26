@@ -14,7 +14,7 @@ public class SupportSession
     public int? SuperAdminUserId { get; set; }
     public User? SuperAdminUser { get; set; }
 
-    /// <summary>Snapshot, survives the account's deletion.</summary>
+    /// <summary>Who is inside: the operator's name from the key's request (snapshot).</summary>
     public required string SuperAdminUsername { get; set; }
 
     public int SchoolId { get; set; }
@@ -49,15 +49,14 @@ public class SupportSession
     /// <summary>The support session can't outlive this (2 h from start).</summary>
     public DateTimeOffset ExpiresAt { get; set; }
 
-    /// <summary>SHA-256 of the one-time code that carries the session over to
-    /// the school's page (its own subdomain in production) — redeemable once,
-    /// within <see cref="HandoffExpiresAt"/>.</summary>
-    public string? HandoffCodeHash { get; set; }
-    public DateTimeOffset? HandoffExpiresAt { get; set; }
+    /// <summary>The key the school approved that it was entered with.</summary>
+    public int? AccessKeyId { get; set; }
+
+    /// <summary>The backoffice's operator inside (their name is <see cref="SuperAdminUsername"/>).</summary>
+    public int? OperatorId { get; set; }
 
     /// <summary>SHA-256 of the secret in the <c>soovioo_support</c> cookie set
-    /// when the code is redeemed — lets a reload of the school's page get a
-    /// fresh support token. Null until redeemed.</summary>
+    /// on entering — lets a reload of the school's page get a fresh support token.</summary>
     public string? RefreshSecretHash { get; set; }
 
     /// <summary>The last request made with it (to the minute, see

@@ -111,8 +111,8 @@ public class SupportAsTests
     };
 
     /// <summary>Entering for the ticket as <paramref name="userId"/> (none =
-    /// the admin): the one-time code, or why not.</summary>
-    private async Task<(string? Code, string? Refused)> EnterAsync(World w, int? userId = null, int? roleId = null)
+    /// the admin): the login, or why not.</summary>
+    private async Task<(LoginResponse? Login, string? Refused)> EnterAsync(World w, int? userId = null, int? roleId = null)
     {
         using var db = SuperAdminDb();
         var session = NewSession(w);
@@ -122,16 +122,15 @@ public class SupportAsTests
         {
             return (null, refused);
         }
-        return (await sessions.StartAsync(session), null);
+        await sessions.StartAsync(session);
+        return (await sessions.BeginAsync(new DefaultHttpContext(), session), null);
     }
 
-    /// <summary>Entered and redeemed: the token's claims.</summary>
+    /// <summary>Entered: the token's claims.</summary>
     private async Task<List<Claim>> TokenAsync(World w, int? userId = null, int? roleId = null)
     {
-        var (code, refused) = await EnterAsync(w, userId, roleId);
+        var (login, refused) = await EnterAsync(w, userId, roleId);
         Assert.Null(refused);
-        using var db = SuperAdminDb();
-        var login = await AuthTestServices.SupportSessions(db, clock).RedeemAsync(new DefaultHttpContext(), code!);
         return new JwtSecurityTokenHandler().ReadJwtToken(login!.Token).Claims.ToList();
     }
 

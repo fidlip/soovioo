@@ -217,17 +217,56 @@ export class SupportApiService {
     );
   }
 
-  /** On the school's page: one-time code → support-mode login (also sets
-   * the support cookie that keeps it alive across reloads). */
-  redeem(
-    code: string,
+  /** On the school's page: the support's entry signed with the key the
+   * school approved → support-mode login (also sets the support cookie). */
+  enter(
+    entry: string,
     options: { withCredentials?: boolean } = {},
   ): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(
-      `${this.baseUrl}/api/support-sessions/redeem`,
-      { code },
+      `${this.baseUrl}/api/support-sessions/enter`,
+      { entry },
       options,
     );
+  }
+
+  /** The school's admin lets the support in with its key: till when, as whom. */
+  approveAccess(
+    ticketId: number,
+    keyId: number,
+    until: string,
+    userIds: number[],
+  ): Observable<SupportTicketDetail> {
+    return this.http.post<SupportTicketDetail>(
+      `${this.accessUrl(ticketId, keyId)}/approve`,
+      { until, userIds },
+    );
+  }
+
+  rejectAccess(
+    ticketId: number,
+    keyId: number,
+    note: string,
+  ): Observable<SupportTicketDetail> {
+    return this.http.post<SupportTicketDetail>(
+      `${this.accessUrl(ticketId, keyId)}/reject`,
+      { note },
+    );
+  }
+
+  /** The key stops working; the support inside leaves at once. */
+  revokeAccess(
+    ticketId: number,
+    keyId: number,
+  ): Observable<SupportTicketDetail> {
+    return this.http.post<SupportTicketDetail>(
+      `${this.accessUrl(ticketId, keyId)}/revoke`,
+      {},
+    );
+  }
+
+  private accessUrl(ticketId: number, keyId: number): string {
+    return `${this.baseUrl}/api/my-school/support-tickets/${ticketId}/access/${keyId}`;
   }
 
   /** Inside the school: whom the SuperAdmin may switch to. */

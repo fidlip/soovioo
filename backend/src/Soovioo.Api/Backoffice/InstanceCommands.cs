@@ -43,7 +43,8 @@ public class InstanceCommandProcessor(
     TimeProvider clock,
     ILogger<InstanceCommandProcessor> logger,
     Demo.DemoSchoolPurger? demoPurger = null,
-    Support.SupportTicketChanges? ticketChanges = null)
+    Support.SupportTicketChanges? ticketChanges = null,
+    Support.SupportKeys? supportKeys = null)
 {
     public const string Issuer = "soovioo-backoffice";
     public const string CommandIdClaim = "command_id";
@@ -118,6 +119,9 @@ public class InstanceCommandProcessor(
         "DeleteSchool" => DeleteSchoolAsync(payload),
         "SchoolPlanChanged" => Task.FromResult(SchoolPlanChanged(payload)),
         Support.SupportTicketChanges.Command when ticketChanges is not null => ticketChanges.HandleAsync(payload),
+        Support.SupportKeys.RequestCommand when supportKeys is not null => supportKeys.ReceiveAsync(payload),
+        Support.SupportKeys.ChallengeCommand when supportKeys is not null => supportKeys.ChallengeAsync(payload),
+        Support.SupportKeys.EndCommand when supportKeys is not null => supportKeys.EndAsync(payload),
         _ => Task.FromResult(CommandAnswer.Refused($"Unknown command {type}.")),
     };
 
