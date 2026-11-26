@@ -23,15 +23,12 @@ import {
   DateFormatPipe,
   SchoolsApiService,
   SupportApiService,
-  SupportSession,
-  changesLabel,
   formatDate,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '@fidlip/soovioo-ui';
-import { Markdown } from '@fidlip/soovioo-ui';
 
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'superadmin',
@@ -59,7 +56,6 @@ const ROLE_LABELS: Record<string, string> = {
     FormsModule,
     GroupedTable,
     Loading,
-    Markdown,
     NgTemplateOutlet,
     Paginator,
     Select,
@@ -132,8 +128,6 @@ export class LogsPage {
   private entriesRequest: Subscription | undefined;
   protected readonly actionSuggestions = signal<string[]>([]);
 
-  protected readonly supportSessions = signal<SupportSession[] | null>(null);
-
   constructor() {
     this.loadFilterOptions();
     this.reload();
@@ -144,13 +138,6 @@ export class LogsPage {
             result.items.map((s) => ({ id: s.id, name: s.name })),
           ),
         error: (err) => console.error('getSchools failed', err),
-      });
-      this.supportApi.getSupportSessions().subscribe({
-        next: (sessions) => this.supportSessions.set(sessions),
-        error: (err) => {
-          console.error('getSupportSessions failed', err);
-          this.supportSessions.set([]);
-        },
       });
     }
   }
@@ -274,8 +261,6 @@ export class LogsPage {
       return body;
     }
   }
-
-  protected readonly changesLabel = changesLabel;
 
   private loadFilterOptions(): void {
     this.auditApi.getFilterOptions(this.filterSchoolId).subscribe({

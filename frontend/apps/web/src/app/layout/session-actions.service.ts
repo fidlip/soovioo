@@ -2,10 +2,10 @@ import { Injectable, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { AuthApiService, SupportApiService } from '@soovioo/shared';
-import { SchoolContextService, superAdminUrl } from '../school-context';
+import { SchoolContextService } from '../school-context';
 import {
-  hasSupportReturn,
-  supportReturnPath,
+  forgetSupportTab,
+  isSupportTab,
 } from '../support-enter-page/support-return';
 
 /** Leaving the session: logging out, ending support mode, and back to the
@@ -21,10 +21,10 @@ export class SessionActionsService {
     // The refresh cookie expired or was revoked (logout elsewhere, password
     // change) while this tab was open — back to the login form.
     this.authApi.sessionExpired$.pipe(takeUntilDestroyed()).subscribe(() =>
-      // Support mode ended (the school took the approval back, or it
-      // expired) — back to the SuperAdmin page entering started from.
-      hasSupportReturn()
-        ? backToSuperAdmin()
+      // Support mode ended (the school revoked the key, or it expired) —
+      // the tab the backoffice opened is done.
+      isSupportTab()
+        ? this.closeSupportTab()
         : this.router.navigate(
             this.router.url.startsWith('/superadmin')
               ? ['/superadmin/login']
@@ -34,26 +34,36 @@ export class SessionActionsService {
   }
 
   /** Ends support mode: closes the audited session (with what was done,
-   * when written), then the SuperAdmin's own session comes back from the
-   * refresh cookie. */
+   * when written), then the tab the backoffice opened is done. */
   leaveSupport(result?: string): void {
     this.supportApi
       .endCurrentSession(result, { withCredentials: true })
       .subscribe({
-        next: backToSuperAdmin,
-        error: backToSuperAdmin,
+        next: () => this.closeSupportTab(),
+        error: () => this.closeSupportTab(),
       });
   }
 
-  /** Back from support mode ended by someone else, once the SuperAdmin
-   * read why. */
+  /** Support mode ended by someone else, once the support read why. */
   returnFromSupport(): void {
-    backToSuperAdmin();
+    this.closeSupportTab();
+  }
+
+  /** The tab the backoffice opened closes — the operator's own tab is
+   * still at the ticket. One that can't close loads the school's login. */
+  private closeSupportTab(): void {
+    forgetSupportTab();
+    const login = this.router.serializeUrl(
+      this.router.createUrlTree(this.schoolContext.link('login')),
+    );
+    window.close();
+    // A full load: nothing of the support's token stays in memory.
+    setTimeout(() => (window.location.href = login), 300);
   }
 
   logout(): void {
     if (this.authApi.getSupportInfo()) {
-      // Logging out here would end the SuperAdmin's own session too.
+      // Support mode: leaving ends the audited session.
       this.leaveSupport();
       return;
     }
@@ -63,14 +73,4 @@ export class SessionActionsService {
       wasSuperAdmin ? ['/superadmin/login'] : this.schoolContext.link('login'),
     );
   }
-}
-
-/** The tab entering opened closes — the SuperAdmin's own tab is still at the
- * ticket. One that can't close (opened otherwise) loads the SuperAdmin page
- * entering started from (main domain in production), whose own session
- * comes back from the refresh cookie. */
-function backToSuperAdmin(): void {
-  const back = superAdminUrl(supportReturnPath());
-  window.close();
-  setTimeout(() => (window.location.href = back), 300);
 }

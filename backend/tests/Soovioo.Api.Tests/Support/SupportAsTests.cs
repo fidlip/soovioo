@@ -40,7 +40,7 @@ public class SupportAsTests
     }
 
     private SupportPolicyController Policy(AppDbContext db, User admin) =>
-        new(db, new FakeCurrentSchoolContext(admin.SchoolId), new Notifier(db, clock),
+        new(db, new FakeCurrentSchoolContext(admin.SchoolId),
             Microsoft.Extensions.Options.Options.Create(new SupportOptions()), clock)
         {
             ControllerContext = new ControllerContext { HttpContext = Http(UserClaims(admin.Id, admin.ActiveRoleId)) },

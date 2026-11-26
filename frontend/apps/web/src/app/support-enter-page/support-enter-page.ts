@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthApiService, SupportApiService } from '@soovioo/shared';
 import { SchoolContextService } from '../school-context';
-import { rememberSupportReturn } from './support-return';
+import { markSupportTab } from './support-return';
 
 /** Landing page of the backoffice's "Vstoupit" on the school's own page
  * (its subdomain in production): posts the entry from the URL fragment —
@@ -32,7 +32,7 @@ export class SupportEnterPage {
   constructor() {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
     const entry = fragment.get('entry');
-    rememberSupportReturn(null);
+    markSupportTab();
     // Single-use anyway — don't leave it in history/address bar.
     history.replaceState(null, '', window.location.pathname);
     if (!entry) {
