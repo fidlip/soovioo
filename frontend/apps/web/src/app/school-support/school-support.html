@@ -69,6 +69,7 @@
         </td>
         <td class="px-4 py-2">
           <p-tag
+            class="whitespace-nowrap"
             [value]="statusLabel(ticket.status)"
             [severity]="severity(ticket.status)"
           />
@@ -94,6 +95,7 @@
             >{{ ticket.title }}</span
           >
           <p-tag
+            class="whitespace-nowrap"
             [value]="statusLabel(ticket.status)"
             [severity]="severity(ticket.status)"
           />
