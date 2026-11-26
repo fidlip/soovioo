@@ -13,26 +13,22 @@ import { Card } from '@openng/optimus-ui/card';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
-import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
   DateFormatPipe,
   SUPPORT_ACCESS_LABELS,
-  SUPPORT_TICKET_STATUS_LABELS,
   SchoolSupport,
   SupportAccess,
   SupportApiService,
   SupportTicket,
-  SupportTicketStatus,
   SupportTicketSummary,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
-import { GroupedTable, InfoHint } from '@fidlip/soovioo-ui';
+import { GroupedTable, InfoHint, TicketStatusTag } from '@fidlip/soovioo-ui';
 import { MarkdownEditor } from '@fidlip/soovioo-ui';
 import { NotifyService } from '@fidlip/soovioo-ui';
 import { SupportTicketDialog } from '../support-ticket/support-ticket-dialog';
-import { ticketStatusSeverity } from '../support-ticket/ticket-status';
 
 /** The school's support tickets, kept in the backoffice (asking the support
  * for help, talked over in each ticket's thread); whether the support may
@@ -55,7 +51,7 @@ import { ticketStatusSeverity } from '../support-ticket/ticket-status';
     MarkdownEditor,
     RouterLink,
     SupportTicketDialog,
-    Tag,
+    TicketStatusTag,
   ],
   templateUrl: './school-support.html',
 })
@@ -166,11 +162,6 @@ export class SchoolSupportSection {
     );
   }
 
-  protected statusLabel(status: SupportTicketStatus): string {
-    return SUPPORT_TICKET_STATUS_LABELS[status];
-  }
-
-  protected readonly severity = ticketStatusSeverity;
   protected readonly ticketKey = (ticket: SupportTicketSummary) => ticket.id;
   protected readonly ticketElementId = (ticket: SupportTicketSummary) =>
     'support-ticket-' + ticket.id;

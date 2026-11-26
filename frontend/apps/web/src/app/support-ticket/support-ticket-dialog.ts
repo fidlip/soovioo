@@ -18,7 +18,6 @@ import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Menu } from '@openng/optimus-ui/menu';
-import { Tag } from '@openng/optimus-ui/tag';
 import {
   DateFormatPipe,
   SUPPORT_RESET_ACTION_LABELS,
@@ -29,7 +28,6 @@ import {
   SupportTicket,
   SupportTicketDetail,
   SupportTicketEntry,
-  SupportTicketStatus,
   changesLabel,
   formatDate,
   isTicketOpen,
@@ -44,8 +42,12 @@ import {
 } from 'rxjs';
 import { FORM_FIELDS } from '../forms';
 import { LiveService } from '../live.service';
-import { Markdown, MarkdownEditor, NotifyService } from '@fidlip/soovioo-ui';
-import { ticketStatusSeverity } from './ticket-status';
+import {
+  Markdown,
+  MarkdownEditor,
+  NotifyService,
+  TicketStatusTag,
+} from '@fidlip/soovioo-ui';
 import {
   TicketVisit,
   formatMinutes,
@@ -73,7 +75,7 @@ import { TicketTime } from './ticket-time';
     MarkdownEditor,
     NgTemplateOutlet,
     Menu,
-    Tag,
+    TicketStatusTag,
     TicketAccess,
     TicketTime,
   ],
@@ -267,12 +269,6 @@ export class SupportTicketDialog {
     const el = this.thread()?.nativeElement;
     return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 8;
   }
-
-  protected statusLabel(status: SupportTicketStatus): string {
-    return SUPPORT_TICKET_STATUS_LABELS[status];
-  }
-
-  protected readonly severity = ticketStatusSeverity;
 
   /** The line a system entry shows. */
   protected entryLabel(entry: SupportTicketEntry): string {

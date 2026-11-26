@@ -11,6 +11,8 @@ templates use Tailwind classes: a consumer's Tailwind `content` has to include
 
 Only generic UI belongs here: nothing that needs the app's services (school, sign-in), nothing of
 the operator's logic.
+The one exception is what both sides show the same: a support ticket's status (names, colors,
+tag).
 
 ## Release
 

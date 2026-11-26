@@ -13,11 +13,7 @@
     <!-- The ticket: its state and who takes care of it, with what can be
       done about them. -->
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-      <p-tag
-        class="whitespace-nowrap"
-        [value]="statusLabel(ticket.status)"
-        [severity]="severity(ticket.status)"
-      />
+      <app-ticket-status-tag [status]="ticket.status" />
       <span class="text-surface-500"
         >Řeší:
         <span class="text-surface-700 dark:text-surface-200"
