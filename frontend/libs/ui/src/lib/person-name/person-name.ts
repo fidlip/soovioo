@@ -1,5 +1,14 @@
 import { Component, input } from '@angular/core';
-import { NameLabel } from '@soovioo/shared';
+
+/** How a pupil or parent appears to the caller when it isn't just their
+ * full name — see the app's backend `People/NameLabels.cs`. Absent = the
+ * full name. */
+export interface NameLabel {
+  /** Shown prominently: a nickname, or a parent's child's first name. */
+  primary: string;
+  /** The full name, shown subdued; null = `primary` alone. */
+  secondary: string | null;
+}
 
 /** A pupil's or parent's name as the caller sees it (`NameLabel` from the
  * API): a nickname prominent with the full name subdued — next to it or

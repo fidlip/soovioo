@@ -24,8 +24,12 @@
           ? 'border-surface-200 dark:border-surface-700'
           : 'border-surface-100 dark:border-surface-800'
       "
-      [class.cursor-pointer]="rowDetail()"
+      [class.cursor-pointer]="rowsClick()"
+      [class.hover:bg-surface-50]="clickable()"
+      [class.dark:hover:bg-surface-800]="clickable()"
+      [attr.tabindex]="clickable() ? 0 : null"
       (click)="onRowClick(item.row)"
+      (keydown.enter)="onRowEnter($event, item.row)"
     >
       @for (level of groups(); track $index; let i = $index) {
       <td
@@ -94,14 +98,19 @@
 <ng-template #leafRows let-leaves>
   <ul class="m-0 list-none p-0">
     @for (row of leaves; track rowKey()(row)) {
-    <!-- A pointer shortcut only: keyboard users toggle the detail with a
-         button inside the row (see #rowDetail), as on desktop. -->
+    <!-- With a #rowDetail a pointer shortcut only: keyboard users toggle
+         the detail with a button inside the row, as on desktop. A
+         `clickable` row takes focus and Enter itself. -->
     <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
     <li
       [attr.id]="rowElementId()(row)"
       class="border-b border-surface-100 px-3 py-2 last:border-b-0 dark:border-surface-800"
-      [class.cursor-pointer]="rowDetail()"
+      [class.cursor-pointer]="rowsClick()"
+      [class.hover:bg-surface-50]="clickable()"
+      [class.dark:hover:bg-surface-800]="clickable()"
+      [attr.tabindex]="clickable() ? 0 : null"
       (click)="onRowClick(row)"
+      (keydown.enter)="onRowEnter($event, row)"
     >
       <ng-container
         *ngTemplateOutlet="mobileRow() ?? null; context: { $implicit: row }"

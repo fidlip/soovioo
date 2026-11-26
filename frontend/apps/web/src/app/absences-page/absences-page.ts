@@ -46,7 +46,7 @@ import { TermPipe } from '../term.pipe';
 import { NotifyService } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { ClassBook } from '../class-book/class-book';
-import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
+import { GroupLevel, GroupedTable } from '@fidlip/soovioo-ui';
 import { highlightElement, onLinkedItem } from '../highlight';
 import { formatPeriods, todayString } from './excuse-days';
 import { DayLessons, APPROVAL_BLOCKED, approveBacked } from './day-lessons';
@@ -59,7 +59,7 @@ import {
   StudentDayPeriods,
   toDateOnlyString,
 } from './student-day-periods';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 
 const STATUS_SEVERITY: Record<
   AbsenceStatus,

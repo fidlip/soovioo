@@ -39,7 +39,7 @@ import {
   studentPickOptions,
 } from '../forms';
 import { Loading } from '@fidlip/soovioo-ui';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 
 type AudienceOption = { value: PaymentAudience; label: string };
 type PaidFilter = 'all' | 'unpaid' | 'paid';

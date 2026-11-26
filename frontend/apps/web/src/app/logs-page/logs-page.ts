@@ -26,7 +26,7 @@ import {
   formatDate,
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
-import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
+import { GroupLevel, GroupedTable } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField } from '../forms';
 import { Loading } from '@fidlip/soovioo-ui';
 

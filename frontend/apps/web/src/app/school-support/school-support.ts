@@ -13,7 +13,6 @@ import { Card } from '@openng/optimus-ui/card';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { InputText } from '@openng/optimus-ui/inputtext';
-import { TableModule } from '@openng/optimus-ui/table';
 import { Tag } from '@openng/optimus-ui/tag';
 import {
   AuthApiService,
@@ -29,8 +28,7 @@ import {
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
-import { InfoHint } from '@fidlip/soovioo-ui';
-import { Loading } from '@fidlip/soovioo-ui';
+import { GroupedTable, InfoHint } from '@fidlip/soovioo-ui';
 import { MarkdownEditor } from '@fidlip/soovioo-ui';
 import { NotifyService } from '@fidlip/soovioo-ui';
 import { SupportTicketDialog } from '../support-ticket/support-ticket-dialog';
@@ -53,11 +51,10 @@ import { ticketStatusSeverity } from '../support-ticket/ticket-status';
     FormsModule,
     InfoHint,
     InputText,
-    Loading,
+    GroupedTable,
     MarkdownEditor,
     RouterLink,
     SupportTicketDialog,
-    TableModule,
     Tag,
   ],
   templateUrl: './school-support.html',
@@ -174,6 +171,9 @@ export class SchoolSupportSection {
   }
 
   protected readonly severity = ticketStatusSeverity;
+  protected readonly ticketKey = (ticket: SupportTicketSummary) => ticket.id;
+  protected readonly ticketElementId = (ticket: SupportTicketSummary) =>
+    'support-ticket-' + ticket.id;
 
   private apply(support: SchoolSupport): void {
     this.support.set(support);

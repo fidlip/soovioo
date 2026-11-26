@@ -22,7 +22,7 @@ import { NotifyService } from '@fidlip/soovioo-ui';
 import { Loading } from '@fidlip/soovioo-ui';
 import { ExcuseDialog } from '../absences-page/excuse-dialog';
 import { excuseRange } from '../absences-page/excuse-days';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 import { CurrentLesson } from '../class-book/current-lesson';
 
 const ABSENCE_STATUS_SEVERITY: Record<
