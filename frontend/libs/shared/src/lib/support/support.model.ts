@@ -1,31 +1,5 @@
 import { RoleRef } from '../auth/role.model';
 
-export interface SupportAction {
-  method: string;
-  path: string;
-  statusCode: number;
-  at: string;
-  /** "Zapsána známka – Jan Novák"; null = show method + path. */
-  description: string | null;
-  /** Made as one of the school's users: who ("učitel Jan Novák"). */
-  as?: string | null;
-}
-
-/** Audit log row: a SuperAdmin's visit to a school and what they changed. */
-export interface SupportSession {
-  id: number;
-  superAdminUsername: string;
-  schoolId: number;
-  schoolName: string;
-  startedAt: string;
-  endedAt: string | null;
-  /** The title of the ticket it was entered for. */
-  purpose: string | null;
-  /** What was done, written on leaving (Markdown). */
-  result: string | null;
-  actions: SupportAction[];
-}
-
 /** A SuperAdmin account — an ordinary user without a school, with the same
  * name/contact fields (Person) as everyone else. */
 export interface SuperAdmin {

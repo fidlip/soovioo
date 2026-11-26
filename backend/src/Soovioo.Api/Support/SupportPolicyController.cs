@@ -19,7 +19,7 @@ namespace Soovioo.Api.Support;
 [ApiController]
 [AuditArea("Podpora")]
 public class SupportPolicyController(
-    AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, IOptions<SupportOptions> options,
+    AppDbContext db, ICurrentSchoolContext currentSchool, IOptions<SupportOptions> options,
     TimeProvider clock, IBackofficeTickets? tickets = null, SupportKeys? keys = null)
     : ControllerBase
 {
@@ -32,7 +32,7 @@ public class SupportPolicyController(
     }
 
     /// <summary>The school's admin, not in support mode — the SuperAdmin
-    /// can't let themselves in; the SuperAdmins hear of the change.</summary>
+    /// can't let themselves in. Never revokes the support's keys.</summary>
     [HttpPut("api/my-school/support-access")]
     [RequirePermission(Permission.Administration)]
     [AuditAction("Změněn přístup podpory do školy")]
@@ -61,22 +61,13 @@ public class SupportPolicyController(
                 await keys.RevokeAllAsync(school.Id, me, People.PersonNames.Display(me));
             }
             await db.SaveChangesAsync();
-            var superAdmins = await db.Users.IgnoreQueryFilters()
-                .Where(u => u.IsSuperAdmin && u.SchoolId == null)
-                .Select(u => u.Id)
-                .ToListAsync();
-            await notifier.NotifyAsync(
-                school.Id, superAdmins, NotificationType.SupportTicket,
-                $"{school.Name}: vstup podpory do školy — {Label(request.Access)}", null, "superadmin");
-            await db.SaveChangesAsync();
         }
         return Ok(await DtoAsync(school));
     }
 
     /// <summary>Whether the support enters as the school's admin, or only as
-    /// a user the ticket names ("Vstoupit jako…"). The SuperAdmins hear of
-    /// it; their sessions in the school as no longer allowed switch to the
-    /// admin, or end.</summary>
+    /// a user the ticket names ("Vstoupit jako…"). The support's sessions in
+    /// the school as no longer allowed switch to the admin, or end.</summary>
     [HttpPut("api/my-school/support-as")]
     [RequirePermission(Permission.Administration)]
     [AuditAction("Změněno, za koho podpora do školy vstupuje")]
@@ -99,16 +90,6 @@ public class SupportPolicyController(
         {
             school.SupportAs = request.Scope;
             await SupportAsPolicy.ApplyToSessionsAsync(db, school, clock.GetUtcNow(), await MyNameAsync());
-            await db.SaveChangesAsync();
-            var superAdmins = await db.Users.IgnoreQueryFilters()
-                .Where(u => u.IsSuperAdmin && u.SchoolId == null)
-                .Select(u => u.Id)
-                .ToListAsync();
-            await notifier.NotifyAsync(
-                school.Id, superAdmins, NotificationType.SupportTicket,
-                $"{school.Name}: vstup podpory — "
-                + (request.Scope == SupportAsScope.Users ? "jen jako uživatel vybraný u požadavku" : "jako admin školy"),
-                null, "superadmin");
             await db.SaveChangesAsync();
         }
         return Ok(await DtoAsync(school));
@@ -137,13 +118,6 @@ public class SupportPolicyController(
     private async Task<bool> IsAdminAsync() =>
         int.TryParse(User.FindFirstValue(PermissionAccess.RoleIdClaim), out var roleId)
         && await db.Roles.AnyAsync(r => r.Id == roleId && r.BuiltIn == UserRole.Admin);
-
-    private static string Label(SupportAccess access) => access switch
-    {
-        SupportAccess.Always => "kdykoliv",
-        SupportAccess.Never => "nikdy",
-        _ => "po schválení",
-    };
 }
 
 public record SetSupportAccessRequest(SupportAccess Access);

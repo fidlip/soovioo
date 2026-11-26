@@ -265,7 +265,6 @@ public class AuthorizationMapTests
         ["Support.GetCurrentSession"] = "authenticated",
         ["Support.GetSessionUsers"] = "authenticated",
         ["Support.GetSuperAdmins"] = "roles:SuperAdmin",
-        ["Support.GetSupportSessions"] = "roles:SuperAdmin",
         ["Support.Enter"] = "anonymous",
         ["Support.SwitchAs"] = "authenticated",
         ["Support.UpdateSuperAdmin"] = "roles:SuperAdmin",

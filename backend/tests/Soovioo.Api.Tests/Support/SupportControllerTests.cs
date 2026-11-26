@@ -136,39 +136,6 @@ public class SupportControllerTests
     }
 
     [Fact]
-    public async Task SupportSessionListsTheChangesFromTheAuditLogWithoutEnteringAndLeaving()
-    {
-        using var db = NewDb();
-        var superAdmin = await SuperAdminAsync(db);
-        var school = new School
-        {
-            Name = "ZŠ Test", Slug = "test", SupportAccess = SupportAccess.Always, SupportAs = SupportAsScope.Admin,
-        };
-        RoleSeeder.AddMissing(school);
-        db.Schools.Add(school);
-        await db.SaveChangesAsync();
-        var started = await EnterAsync(db, superAdmin, school);
-        db.AuditLogEntries.AddRange(
-            new Soovioo.Api.Audit.AuditLogEntry
-            {
-                SupportSessionId = started.Id, Method = "POST", Path = "/api/grades", Area = "Známky",
-                Description = "Zapsána známka", StatusCode = 200,
-            },
-            new Soovioo.Api.Audit.AuditLogEntry
-            {
-                SupportSessionId = started.Id, Method = "POST", Path = "/api/support-sessions/current/end",
-                Area = "Podpora", StatusCode = 204,
-            });
-        await db.SaveChangesAsync();
-
-        var sessions = Assert.IsAssignableFrom<IEnumerable<SupportSessionDto>>(Assert.IsType<OkObjectResult>(
-            (await As(db, superAdmin).GetSupportSessions()).Result).Value);
-
-        var action = Assert.Single(Assert.Single(sessions).Actions);
-        Assert.Equal("Zapsána známka", action.Description);
-    }
-
-    [Fact]
     public async Task BuiltInSuperAdminCannotBeDeletedOrRenamedByAnotherSuperAdmin()
     {
         using var db = NewDb();

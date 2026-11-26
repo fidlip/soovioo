@@ -12,8 +12,8 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Support;
 
-/// <summary>Support sessions — entering with the school's key, leaving, the
-/// log — and managing the SuperAdmin accounts.</summary>
+/// <summary>Support sessions — entering with the school's key, switching
+/// whom it is, leaving — and managing the SuperAdmin accounts.</summary>
 [ApiController]
 [AuditArea("Podpora")]
 public class SupportController(
@@ -136,33 +136,7 @@ public class SupportController(
         return NoContent();
     }
 
-    /// <summary>Audit log for the SuperAdmin page — newest first.</summary>
-    [HttpGet("api/support-sessions")]
-    [Authorize(Roles = "SuperAdmin")]
-    public async Task<ActionResult<IEnumerable<SupportSessionDto>>> GetSupportSessions(int? schoolId = null)
-    {
-        var query = db.SupportSessions.AsQueryable();
-        if (schoolId is not null)
-        {
-            query = query.Where(s => s.SchoolId == schoolId);
-        }
-        return Ok(await query
-            .OrderByDescending(s => s.StartedAt)
-            .Take(50)
-            .Select(s => new SupportSessionDto(
-                s.Id, s.SuperAdminUsername, s.SchoolId, s.School!.Name, s.StartedAt, s.EndedAt,
-                s.TicketTitle, s.Result,
-                db.AuditLogEntries
-                    .Where(a => a.SupportSessionId == s.Id && !a.Path.StartsWith("/api/support-sessions")
-                                && !a.Path.StartsWith("/api/support-tickets")
-                                && !a.Path.EndsWith("/support-sessions"))
-                    .OrderBy(a => a.At)
-                    .Select(a => new SupportActionDto(a.Method, a.Path, a.StatusCode, a.At, a.Description, a.AsUserName))
-                    .ToList()))
-            .ToListAsync());
-    }
-
-    /// <summary>Entering (the ticket's "enter", redeeming the code) and
+    /// <summary>Entering and
     /// leaving are logged with the session, but aren't changes in the
     /// school (the log's query spells it out for SQL).</summary>
     public static bool IsEnteringOrLeaving(string path) =>
@@ -331,16 +305,6 @@ public class SupportController(
 
 /// <param name="Entry">The fragment's <c>entry</c>: the payload and its signature.</param>
 public record EnterSupportRequest(string? Entry);
-
-/// <param name="As">Made as one of the school's users: who.</param>
-public record SupportActionDto(
-    string Method, string Path, int StatusCode, DateTimeOffset At, string? Description, string? As = null);
-
-/// <param name="Purpose">The title of the ticket it was entered for.</param>
-/// <param name="Result">What was done, written on leaving.</param>
-public record SupportSessionDto(
-    int Id, string SuperAdminUsername, int SchoolId, string SchoolName, DateTimeOffset StartedAt,
-    DateTimeOffset? EndedAt, string? Purpose, string? Result, IReadOnlyList<SupportActionDto> Actions);
 
 public record EndSupportSessionRequest(string? Result);
 

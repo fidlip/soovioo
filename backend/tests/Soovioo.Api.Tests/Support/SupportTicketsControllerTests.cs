@@ -62,7 +62,7 @@ public class SupportTicketsControllerTests
     private SupportPolicyController Policy(AppDbContext db, int userId, int schoolId, params Claim[] extra)
     {
         var roleId = db.Users.IgnoreQueryFilters().Where(u => u.Id == userId).Select(u => u.ActiveRoleId).Single();
-        return new(db, new FakeCurrentSchoolContext(schoolId), new Notifier(db, clock),
+        return new(db, new FakeCurrentSchoolContext(schoolId),
             Microsoft.Extensions.Options.Options.Create(new SupportOptions()), clock)
         {
             ControllerContext = new ControllerContext
@@ -353,18 +353,6 @@ public class SupportTicketsControllerTests
             Assert.Contains(entries, e => e.Kind == nameof(SupportTicketEntryKind.SessionStarted) && e.SessionId == sessionId);
             Assert.DoesNotContain(entries, e => e.Kind == nameof(SupportTicketEntryKind.SessionEnded));
         }
-        using (var db = SuperAdminDb())
-        {
-            var support = new SupportController(
-                db, AuthTestServices.SupportSessions(db, clock), AuthTestServices.RefreshTokens(db, clock), clock)
-            {
-                ControllerContext = new ControllerContext { HttpContext = Http(w.SuperAdmin.Id) },
-            };
-            var session = Assert.Single(Assert.IsAssignableFrom<IEnumerable<SupportSessionDto>>(
-                Assert.IsType<OkObjectResult>((await support.GetSupportSessions()).Result).Value));
-            Assert.Equal("Import **opraven**", session.Result);
-            Assert.Equal("Import žáků", session.Purpose);
-        }
     }
 
     [Fact]
@@ -468,7 +456,7 @@ public class SupportTicketsControllerTests
     }
 
     [Fact]
-    public async Task OnlyTheSchoolsAdminLetsTheSupportInAndTheSuperAdminsHearOfIt()
+    public async Task OnlyTheSchoolsAdminLetsTheSupportIn()
     {
         var w = await SeedAsync();
         using var db = SchoolDb(w.School.Id);
@@ -480,12 +468,8 @@ public class SupportTicketsControllerTests
         Assert.True(Ok(await Policy(db, w.Admin.Id, w.School.Id).GetSchoolSupport()).CanChange);
         Assert.Equal(SupportAccess.Always, Ok(await Policy(db, w.Admin.Id, w.School.Id)
             .SetAccess(new SetSupportAccessRequest(SupportAccess.Always))).Access);
-        var heard = db.Notifications.IgnoreQueryFilters().Where(n => n.Type == NotificationType.SupportTicket).ToList();
-        Assert.Equal([w.SuperAdmin.Id, w.Other.Id], heard.Select(n => n.UserId).Order());
-        Assert.All(heard, n => Assert.Equal("ZŠ Test: vstup podpory do školy — kdykoliv", n.Title));
-        // Saving it unchanged tells nobody anything.
-        Ok(await Policy(db, w.Admin.Id, w.School.Id).SetAccess(new SetSupportAccessRequest(SupportAccess.Always)));
-        Assert.Equal(2, db.Notifications.IgnoreQueryFilters().Count(n => n.Type == NotificationType.SupportTicket));
+        // Nobody outside the school hears of it.
+        Assert.Empty(db.Notifications.IgnoreQueryFilters().Where(n => n.Type == NotificationType.SupportTicket));
     }
 
     [Fact]

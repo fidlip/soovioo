@@ -16,7 +16,6 @@ import {
   SupportTicketSummary,
   SupportTimeCategory,
   SuperAdmin,
-  SupportSession,
   UpdateSuperAdminRequest,
 } from './support.model';
 
@@ -304,12 +303,6 @@ export class SupportApiService {
       `${this.baseUrl}/api/support-sessions/current/end`,
       { result: result ?? null },
       options,
-    );
-  }
-
-  getSupportSessions(): Observable<SupportSession[]> {
-    return this.http.get<SupportSession[]>(
-      `${this.baseUrl}/api/support-sessions`,
     );
   }
 
