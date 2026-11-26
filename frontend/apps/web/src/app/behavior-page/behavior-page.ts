@@ -30,7 +30,7 @@ import { NotifyService } from '@fidlip/soovioo-ui';
 import { todayString } from '../absences-page/excuse-days';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { Loading } from '@fidlip/soovioo-ui';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 
 const RECORD_TYPE_LABELS: Record<BehaviorRecordType, string> = {
   Pochvala: 'Pochvala',

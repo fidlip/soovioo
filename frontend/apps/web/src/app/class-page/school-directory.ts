@@ -18,7 +18,7 @@ import { Subject, debounceTime } from 'rxjs';
 import { Avatar } from '../avatar/avatar';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { Loading } from '@fidlip/soovioo-ui';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 
 /** Lidé → Škola: everyone at the school as far as their "Viditelnost
  * údajů" reaches the viewer — the API leaves the rest out. Searched,

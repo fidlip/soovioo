@@ -1,18 +1,15 @@
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Component,
-  DestroyRef,
   TemplateRef,
   computed,
   contentChild,
-  inject,
   input,
   output,
-  signal,
 } from '@angular/core';
-import { NameLabel } from '@soovioo/shared';
-import { Loading } from '@fidlip/soovioo-ui';
-import { PersonName } from '../person-name/person-name';
+import { DESKTOP_QUERY, mediaQuery } from '../infra/media-query';
+import { Loading } from '../loading/loading';
+import { NameLabel, PersonName } from '../person-name/person-name';
 
 /** One grouping level — rows sharing the same `key` (and the same keys on
  * every level above) belong to one group. */
@@ -42,8 +39,6 @@ interface GroupNode<T> {
   rows: T[];
 }
 
-const DESKTOP_QUERY = '(min-width: 768px)';
-
 /** Table for rows pre-sorted by their group keys (no paid grid offers this
  * for free — AG Grid has row grouping only in Enterprise, Optimus/PrimeNG's
  * p-table groups by a single field). Desktop: one table, group columns first,
@@ -54,7 +49,9 @@ const DESKTOP_QUERY = '(min-width: 768px)';
  * `#rowCells` (their `<td>`s, context = row) and `#mobileRow` (one row on
  * mobile, context = row). Optional: `#groupCell` (a group value, context =
  * row + `level` index; default = the level's `text`) and `#rowDetail` (shown
- * under a row while `isExpanded(row)`; rows then emit `rowClick`). */
+ * under a row while `isExpanded(row)`; rows then emit `rowClick`).
+ * With `clickable` the whole row opens what it stands for (`rowClick`), by
+ * mouse and by keyboard (Tab, Enter) — no link inside it needed. */
 @Component({
   selector: 'app-grouped-table',
   imports: [Loading, NgTemplateOutlet, PersonName],
@@ -71,6 +68,8 @@ export class GroupedTable<T> {
   readonly loading = input(false);
   /** With a `#rowDetail` template: which rows show their detail. */
   readonly isExpanded = input<(row: T) => boolean>(() => false);
+  /** Every row emits `rowClick` — it opens what it stands for. */
+  readonly clickable = input(false);
   readonly rowClick = output<T>();
 
   protected readonly headerCells =
@@ -84,7 +83,10 @@ export class GroupedTable<T> {
   protected readonly rowDetail =
     contentChild<TemplateRef<{ $implicit: T }>>('rowDetail');
 
-  protected readonly isDesktop = signal(true);
+  protected readonly isDesktop = mediaQuery(DESKTOP_QUERY);
+  protected readonly rowsClick = computed(
+    () => this.clickable() || !!this.rowDetail(),
+  );
 
   protected readonly groupedRows = computed<GroupedRow<T>[]>(() => {
     const groups = this.groups();
@@ -106,28 +108,20 @@ export class GroupedTable<T> {
   });
 
   protected onRowClick(row: T): void {
-    if (this.rowDetail()) {
+    if (this.rowsClick()) {
+      this.rowClick.emit(row);
+    }
+  }
+
+  /** Enter on a focused clickable row — not on a control inside it. */
+  protected onRowEnter(event: Event, row: T): void {
+    if (this.clickable() && event.target === event.currentTarget) {
+      event.preventDefault();
       this.rowClick.emit(row);
     }
   }
 
   protected readonly tree = computed(() => this.buildTree(this.rows(), 0));
-
-  constructor() {
-    const media =
-      typeof window !== 'undefined' && window.matchMedia
-        ? window.matchMedia(DESKTOP_QUERY)
-        : null;
-    if (media) {
-      this.isDesktop.set(media.matches);
-      const listener = (e: MediaQueryListEvent) =>
-        this.isDesktop.set(e.matches);
-      media.addEventListener('change', listener);
-      inject(DestroyRef).onDestroy(() =>
-        media.removeEventListener('change', listener),
-      );
-    }
-  }
 
   /** Consecutive runs, not a global group-by — rows come pre-sorted and the
    * desktop table must show the same order. */

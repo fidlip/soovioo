@@ -40,60 +40,76 @@
       Podpora je teď nedostupná, zkuste to později.
     </p>
     }
-    <p-table [value]="tickets() ?? []" dataKey="id">
-      <ng-template #header>
-        <tr>
-          <th>Odesláno</th>
-          <th>Požadavek</th>
-          <th>Termín</th>
-          <th>Stav</th>
-          <th>Řeší</th>
-        </tr>
+    <app-grouped-table
+      [rows]="tickets() ?? []"
+      [rowKey]="ticketKey"
+      [rowElementId]="ticketElementId"
+      [loading]="!tickets()"
+      [clickable]="true"
+      emptyMessage="Zatím žádné požadavky."
+      (rowClick)="detail.open($event.id)"
+    >
+      <ng-template #headerCells>
+        <th class="px-4 py-3 font-semibold">Požadavek</th>
+        <th class="px-4 py-3 font-semibold">Stav</th>
+        <th class="px-4 py-3 font-semibold">Termín</th>
+        <th class="px-4 py-3 font-semibold">Řeší</th>
+        <th class="px-4 py-3 font-semibold">Naposledy</th>
       </ng-template>
-      <ng-template #body let-ticket>
-        <tr
-          [id]="'support-ticket-' + ticket.id"
-          class="cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800"
-          (click)="detail.open(ticket.id)"
-        >
-          <td class="whitespace-nowrap text-surface-500">
-            {{ ticket.createdAt | dateFormat: 'dateTime' }}
-            <div class="text-xs">
-              {{ ticket.createdByName }}@if (ticket.createdBySupport) {
-              (podpora) }
-            </div>
-          </td>
-          <td>
-            <button
-              type="button"
-              class="text-left font-medium hover:underline"
-              (click)="$event.stopPropagation(); detail.open(ticket.id)"
-            >
-              {{ ticket.title }}
-            </button>
-          </td>
-          <td class="whitespace-nowrap" [class.text-red-600]="ticket.overdue">
-            {{ ticket.dueDate | dateFormat: 'date' }}
-          </td>
-          <td>
-            <p-tag
-              [value]="statusLabel(ticket.status)"
-              [severity]="severity(ticket.status)"
-            />
-          </td>
-          <td class="text-surface-500">{{ ticket.assigneeName ?? '—' }}</td>
-        </tr>
+      <ng-template #rowCells let-ticket>
+        <td class="px-4 py-2">
+          <div class="font-medium text-surface-900 dark:text-surface-0">
+            {{ ticket.title }}
+          </div>
+          <div class="text-xs text-surface-500">
+            #{{ ticket.id }} · {{ ticket.createdByName }}@if
+            (ticket.createdBySupport) { (podpora) } · {{ ticket.createdAt |
+            dateFormat: 'date' }}
+          </div>
+        </td>
+        <td class="px-4 py-2">
+          <p-tag
+            [value]="statusLabel(ticket.status)"
+            [severity]="severity(ticket.status)"
+          />
+        </td>
+        <td class="whitespace-nowrap px-4 py-2">
+          <span
+            [class.text-red-600]="ticket.overdue"
+            [class.dark:text-red-400]="ticket.overdue"
+            >{{ ticket.dueDate | dateFormat: 'date' }}</span
+          >
+          @if (ticket.overdue) {
+          <div class="text-xs text-red-600 dark:text-red-400">po termínu</div>
+          }
+        </td>
+        <td class="px-4 py-2">{{ ticket.assigneeName ?? '–' }}</td>
+        <td class="whitespace-nowrap px-4 py-2">
+          {{ ticket.lastActivityAt | dateFormat: 'dayMonthTime' }}
+        </td>
       </ng-template>
-      <ng-template #emptymessage>
-        <tr>
-          <td colspan="5" class="py-6 text-center text-surface-500">
-            @if (tickets()) { Zatím žádné požadavky. } @else {
-            <app-loading class="justify-center" />
-            }
-          </td>
-        </tr>
+      <ng-template #mobileRow let-ticket>
+        <div class="flex items-start justify-between gap-2">
+          <span class="font-medium text-surface-900 dark:text-surface-0"
+            >{{ ticket.title }}</span
+          >
+          <p-tag
+            [value]="statusLabel(ticket.status)"
+            [severity]="severity(ticket.status)"
+          />
+        </div>
+        <div class="text-xs text-surface-500">
+          #{{ ticket.id }} · termín
+          <span
+            [class.text-red-600]="ticket.overdue"
+            [class.dark:text-red-400]="ticket.overdue"
+            >{{ ticket.dueDate | dateFormat: 'date' }}@if (ticket.overdue) {, po
+            termínu }</span
+          >
+          · řeší {{ ticket.assigneeName ?? '–' }}
+        </div>
       </ng-template>
-    </p-table>
+    </app-grouped-table>
   </p-card>
 </div>
 

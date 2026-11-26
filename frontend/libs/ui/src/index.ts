@@ -1,4 +1,5 @@
 export * from './lib/forms';
+export * from './lib/grouped-table/grouped-table';
 export * from './lib/info-hint/info-hint';
 export * from './lib/infra/media-query';
 export * from './lib/infra/notify.service';
@@ -7,5 +8,6 @@ export * from './lib/loading/loading';
 export * from './lib/locale/locale';
 export * from './lib/markdown/markdown';
 export * from './lib/markdown/markdown-editor';
+export * from './lib/person-name/person-name';
 export * from './lib/theme/dark-mode.service';
 export * from './lib/theme/theme';

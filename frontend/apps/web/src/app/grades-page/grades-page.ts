@@ -38,7 +38,7 @@ import {
 } from '@soovioo/shared';
 import { AppIcon } from '../app-icon';
 import { TermPipe } from '../term.pipe';
-import { GroupLevel, GroupedTable } from '../grouped-table/grouped-table';
+import { GroupLevel, GroupedTable } from '@fidlip/soovioo-ui';
 import { NotifyService } from '@fidlip/soovioo-ui';
 import { ClearFilters, FloatField, FORM_FIELDS } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';

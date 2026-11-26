@@ -25,14 +25,14 @@ import {
   nameText,
 } from '@soovioo/shared';
 import { ClearFilters, FloatField } from '../forms';
-import { GroupedTable, GroupLevel } from '../grouped-table/grouped-table';
+import { GroupedTable, GroupLevel } from '@fidlip/soovioo-ui';
 import { NotifyService } from '@fidlip/soovioo-ui';
 import { DayLessons, APPROVAL_BLOCKED, approveBacked } from './day-lessons';
 import { DecisionMenu } from './decision-menu';
 import { excuseFileDownloader, formatFileSize } from './excuse-files';
 import { RejectDialog } from './reject-dialog';
 import { excuseRange, formatPeriods, todayString } from './excuse-days';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 
 export const EXCUSE_STATUS_LABEL: Record<ExcuseStatus, string> = {
   Pending: 'Čeká na schválení',

@@ -17,7 +17,7 @@ import { Avatar } from '../avatar/avatar';
 import { TermPipe } from '../term.pipe';
 import { FloatField } from '../forms';
 import { Loading } from '@fidlip/soovioo-ui';
-import { PersonName } from '../person-name/person-name';
+import { PersonName } from '@fidlip/soovioo-ui';
 
 /** Lidé → Třída for parents and pupils: the class's teachers and — as far as
  * everyone's "Viditelnost údajů" shares them — their contacts, the class
