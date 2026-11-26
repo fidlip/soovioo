@@ -1,4 +1,10 @@
-import { TICKET_STATUS_LABELS, TicketStatus } from '@fidlip/soovioo-ui';
+import {
+  TICKET_STATUS_LABELS,
+  TICKET_TIME_CATEGORY_LABELS,
+  TicketStatus,
+  TicketTimeCategory,
+  formatTicketMinutes,
+} from '@fidlip/soovioo-ui';
 import { RoleRef } from '../auth/role.model';
 
 /** A SuperAdmin account — an ordinary user without a school, with the same
@@ -200,14 +206,9 @@ export interface SupportTicketEntry {
 }
 
 /** What the time spent on a ticket is: our fault, the plan's hours, or a paid service. */
-export type SupportTimeCategory = 'Bug' | 'Support' | 'Service';
+export type SupportTimeCategory = TicketTimeCategory;
 
-export const SUPPORT_TIME_CATEGORY_LABELS: Record<SupportTimeCategory, string> =
-  {
-    Bug: 'Chyba aplikace (nepočítá se)',
-    Support: 'Podpora (z hodin plánu)',
-    Service: 'Placená služba',
-  };
+export const SUPPORT_TIME_CATEGORY_LABELS = TICKET_TIME_CATEGORY_LABELS;
 
 export interface SupportTimeDispute {
   id: number;
@@ -322,16 +323,7 @@ export interface SupportTicketDetail {
   access: SupportAccessKey | null;
 }
 
-/** 75 → "1 h 15 min". */
-export function formatSupportMinutes(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return hours === 0
-    ? `${rest} min`
-    : rest === 0
-      ? `${hours} h`
-      : `${hours} h ${rest} min`;
-}
+export const formatSupportMinutes = formatTicketMinutes;
 
 export function changesLabel(count: number): string {
   return `${count} ${count === 1 ? 'změna' : count >= 2 && count <= 4 ? 'změny' : 'změn'}`;

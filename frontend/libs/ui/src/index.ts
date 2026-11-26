@@ -11,4 +11,5 @@ export * from './lib/markdown/markdown-editor';
 export * from './lib/person-name/person-name';
 export * from './lib/theme/dark-mode.service';
 export * from './lib/theme/theme';
-export * from './lib/ticket-status/ticket-status';
+export * from './lib/support-ticket/ticket-status';
+export * from './lib/support-ticket/ticket-time';
