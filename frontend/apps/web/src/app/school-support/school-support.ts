@@ -2,7 +2,6 @@ import {
   Component,
   Injector,
   afterNextRender,
-  computed,
   inject,
   signal,
   viewChild,
@@ -26,7 +25,7 @@ import {
   SupportApiService,
   SupportTicket,
   SupportTicketStatus,
-  approvalDuration,
+  SupportTicketSummary,
 } from '@soovioo/shared';
 import { FORM_FIELDS, FloatField } from '../forms';
 import { highlightElement, onLinkedItem } from '../highlight';
@@ -34,13 +33,12 @@ import { InfoHint } from '@fidlip/soovioo-ui';
 import { Loading } from '@fidlip/soovioo-ui';
 import { MarkdownEditor } from '@fidlip/soovioo-ui';
 import { NotifyService } from '@fidlip/soovioo-ui';
-import { SupportAsUsersSelect } from '../support-as/support-as-users-select';
 import { SupportTicketDialog } from '../support-ticket/support-ticket-dialog';
 import { ticketStatusSeverity } from '../support-ticket/ticket-status';
 
-/** The school's support tickets (asking the SuperAdmins for help, talked
- * over in each ticket's thread, entering allowed per ticket); whether the
- * support may enter the school at all is set in Aplikace → Nastavení
+/** The school's support tickets, kept in the backoffice (asking the support
+ * for help, talked over in each ticket's thread); whether the support may
+ * enter the school at all is set in Aplikace → Nastavení
  * (SupportAccessSettings). `?ticket=<id>` (a notification's link) opens one. */
 @Component({
   selector: 'app-school-support',
@@ -59,7 +57,6 @@ import { ticketStatusSeverity } from '../support-ticket/ticket-status';
     MarkdownEditor,
     RouterLink,
     SupportTicketDialog,
-    SupportAsUsersSelect,
     TableModule,
     Tag,
   ],
@@ -72,22 +69,14 @@ export class SchoolSupportSection {
   private readonly injector = inject(Injector);
 
   protected readonly support = signal<SchoolSupport | null>(null);
-  protected readonly access = signal<SupportAccess>('Approval');
-  protected readonly duration = computed(() =>
-    approvalDuration(this.support()?.approvalMinutes ?? 24 * 60),
-  );
-  protected readonly tickets = signal<SupportTicket[] | null>(null);
+  protected readonly tickets = signal<SupportTicketSummary[] | null>(null);
+  /** The backoffice can't be reached: nothing to show nor send now. */
+  protected readonly unavailable = signal(false);
   protected readonly ticketDialogVisible = signal(false);
+  protected readonly sending = signal(false);
   protected ticketTitle = '';
   protected ticketDescription = '';
-  protected allowAccess = true;
-  protected supportAsUserIds: number[] = [];
-  /** Whom the support may enter as is named on the ticket. */
-  protected readonly namesUsers = computed(() => {
-    const support = this.support();
-    return support?.access !== 'Never' && support?.supportAs === 'Users';
-  });
-  private readonly myId = inject(AuthApiService).getUserId();
+  protected estimateRequested = false;
 
   /** In support mode the SuperAdmin can only look — the school decides. */
   protected readonly readOnly =
@@ -115,6 +104,7 @@ export class SchoolSupportSection {
   private reload(highlight?: number): void {
     this.api.getSchoolTickets().subscribe({
       next: (tickets) => {
+        this.unavailable.set(false);
         this.tickets.set(tickets);
         if (highlight) {
           highlightElement(`support-ticket-${highlight}`);
@@ -122,6 +112,7 @@ export class SchoolSupportSection {
       },
       error: (err) => {
         console.error('getSchoolTickets failed', err);
+        this.unavailable.set(true);
         this.tickets.update((t) => t ?? []);
       },
     });
@@ -131,36 +122,50 @@ export class SchoolSupportSection {
     return SUPPORT_ACCESS_LABELS[access];
   }
 
+  /** A draft not sent stays for the next try. */
   protected openTicketDialog(): void {
-    this.ticketTitle = '';
-    this.ticketDescription = '';
-    this.allowAccess = true;
-    this.supportAsUserIds = this.myId ? [this.myId] : [];
     this.notify.clear();
     this.ticketDialogVisible.set(true);
   }
 
   protected createTicket(): void {
+    this.sending.set(true);
     this.api
       .createTicket(
         this.ticketTitle.trim(),
         this.ticketDescription.trim(),
-        this.access() === 'Approval' && this.allowAccess,
-        this.namesUsers() ? this.supportAsUserIds : [],
+        this.estimateRequested,
       )
       .subscribe({
-        next: (detail) => {
-          this.tickets.update((tickets) => [detail.ticket, ...(tickets ?? [])]);
+        next: () => {
+          this.sending.set(false);
+          this.ticketTitle = '';
+          this.ticketDescription = '';
+          this.estimateRequested = false;
           this.ticketDialogVisible.set(false);
           this.notify.success('Požadavek odeslán podpoře.');
+          this.reload();
         },
-        error: (err) => this.notify.actionFailed('createTicket failed', err),
+        error: (err) => {
+          this.sending.set(false);
+          this.notify.actionFailed('createTicket failed', err);
+        },
       });
   }
 
   protected changed(ticket: SupportTicket): void {
     this.tickets.update((tickets) =>
-      (tickets ?? []).map((t) => (t.id === ticket.id ? ticket : t)),
+      (tickets ?? []).map((t) =>
+        t.id === ticket.id
+          ? {
+              ...t,
+              title: ticket.title,
+              status: ticket.status,
+              assigneeName: ticket.assigneeName,
+              overdue: ticket.overdue,
+            }
+          : t,
+      ),
     );
   }
 
@@ -172,6 +177,5 @@ export class SchoolSupportSection {
 
   private apply(support: SchoolSupport): void {
     this.support.set(support);
-    this.access.set(support.access);
   }
 }

@@ -13,9 +13,9 @@ public enum SupportAsScope
     /// <summary>As an admin of the school without being one of its accounts.</summary>
     Admin,
 
-    /// <summary>Only as one of the users a ticket names
-    /// (<see cref="SupportTicket.SupportAsUserIds"/>, its author may name
-    /// themselves), in any of their roles — not as an admin of no one.</summary>
+    /// <summary>Only as one of the users the school named for the ticket
+    /// (<see cref="SupportSession.SupportAsUserIds"/>), in any of their
+    /// roles — not as an admin of no one.</summary>
     Users,
 }
 
@@ -23,24 +23,24 @@ public enum SupportAsScope
 /// school wants it so — only one of the users named on the ticket.</summary>
 public static class SupportAsPolicy
 {
-    public static bool Allows(School school, SupportTicket? ticket, int userId) =>
-        school.SupportAs == SupportAsScope.Users && ticket?.SupportAsUserIds.Contains(userId) == true;
+    public static bool Allows(School school, SupportSession session, int userId) =>
+        school.SupportAs == SupportAsScope.Users && session.SupportAsUserIds.Contains(userId);
 
     /// <summary>As the school's admin, without a user.</summary>
     public static bool AllowsAdmin(School school) => school.SupportAs == SupportAsScope.Admin;
 
     public const string AdminRefused = "Škola povoluje vstup jen jako uživatel vybraný u požadavku.";
 
-    /// <summary>The ticket's users the support may enter as, with their
-    /// roles: its author first (when the school's admin asked), the rest by name.</summary>
-    public static async Task<List<SupportAsUserDto>> CandidatesAsync(AppDbContext db, School school, SupportTicket? ticket)
+    /// <summary>The users the support may be in the session, with their
+    /// roles: the ticket's author first, the rest by name.</summary>
+    public static async Task<List<SupportAsUserDto>> CandidatesAsync(AppDbContext db, School school, SupportSession session)
     {
-        if (school.SupportAs != SupportAsScope.Users || ticket is null || ticket.SupportAsUserIds.Count == 0)
+        if (school.SupportAs != SupportAsScope.Users || session.SupportAsUserIds.Count == 0)
         {
             return [];
         }
-        var users = await AccountsAsync(db, school.Id, ticket.SupportAsUserIds);
-        var author = ticket.CreatedBySupport ? null : ticket.CreatedByUserId;
+        var users = await AccountsAsync(db, school.Id, session.SupportAsUserIds);
+        var author = session.TicketAuthorUserId;
         return [.. users.Where(u => u.Id == author), .. users.Where(u => u.Id != author)];
     }
 
@@ -83,12 +83,11 @@ public static class SupportAsPolicy
     public static async Task ApplyToSessionsAsync(AppDbContext db, School school, DateTimeOffset now, string by)
     {
         var sessions = await db.SupportSessions.IgnoreQueryFilters()
-            .Include(s => s.Ticket)
             .Where(s => s.SchoolId == school.Id && s.EndedAt == null && s.ExpiresAt > now)
             .ToListAsync();
         foreach (var session in sessions)
         {
-            if (session.AsUserId is { } asUserId ? Allows(school, session.Ticket, asUserId) : AllowsAdmin(school))
+            if (session.AsUserId is { } asUserId ? Allows(school, session, asUserId) : AllowsAdmin(school))
             {
                 continue;
             }

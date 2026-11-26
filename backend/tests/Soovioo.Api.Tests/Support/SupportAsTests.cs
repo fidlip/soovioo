@@ -39,18 +39,6 @@ public class SupportAsTests
         return claims;
     }
 
-    private SupportTicketsController Tickets(AppDbContext db, IEnumerable<Claim> claims, int? schoolId = null) =>
-        new(db, new FakeCurrentSchoolContext(schoolId, isSuperAdmin: schoolId is null), new Notifier(db, clock),
-            new SupportPlanClient(Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
-                Microsoft.Extensions.Options.Options.Create(new SupportPlanOptions()),
-                new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<SupportPlanClient>.Instance),
-            AuthTestServices.SupportSessions(db, clock), new SupportReset(db, clock),
-            Microsoft.Extensions.Options.Options.Create(new SupportOptions()), clock)
-        {
-            ControllerContext = new ControllerContext { HttpContext = Http(claims) },
-        };
-
     private SupportPolicyController Policy(AppDbContext db, User admin) =>
         new(db, new FakeCurrentSchoolContext(admin.SchoolId), new Notifier(db, clock),
             Microsoft.Extensions.Options.Options.Create(new SupportOptions()), clock)
@@ -95,15 +83,7 @@ public class SupportAsTests
         var teacher2 = Account("mala", "Eva", "Malá", UserRole.Teacher);
         var student = Account("zak", "Petr", "Žák", UserRole.Student);
         await db.SaveChangesAsync();
-        var ticket = new SupportTicket
-        {
-            SchoolId = school.Id, CreatedByUserId = admin.Id, CreatedByName = "Řehoř Ředitel", Title = "Rozvrh",
-            Description = "", PlanName = "Free", AssigneeUserId = superAdmin.Id, AssigneeName = "superadmin",
-            Status = SupportTicketStatus.Assigned,
-        };
-        db.SupportTickets.Add(ticket);
-        await db.SaveChangesAsync();
-        return new World(school, superAdmin, admin, teacher, teacher2, student, ticket.Id);
+        return new World(school, superAdmin, admin, teacher, teacher2, student, 3);
     }
 
     private async Task SchoolAllowsAsync(World w, SupportAsScope scope)
@@ -112,33 +92,46 @@ public class SupportAsTests
         Assert.IsType<OkObjectResult>((await Policy(db, w.Admin).SetSupportAs(new SetSupportAsRequest(scope))).Result);
     }
 
-    private async Task<ActionResult<SupportTicketDetailDto>> NameOnTicketAsync(World w, params int[] userIds)
-    {
-        using var db = SchoolDb(w.School.Id);
-        return await Tickets(db, UserClaims(w.Admin.Id, w.Admin.ActiveRoleId), w.School.Id)
-            .SetSupportAsUsers(w.TicketId, new SetSupportAsUsersRequest(userIds));
-    }
+    /// <summary>Whom the school let the support be for the ticket — the
+    /// sessions started from now on carry it.</summary>
+    private List<int> named = [];
+
+    private void NameOnTicket(params int[] userIds) => named = [.. userIds];
 
     private async Task<IReadOnlyList<SupportAsUserDto>> CandidatesAsync(World w)
     {
         using var db = SuperAdminDb();
-        return Assert.IsAssignableFrom<IReadOnlyList<SupportAsUserDto>>(
-            (await Tickets(db, UserClaims(w.SuperAdmin.Id)).GetEnterAs(w.TicketId)).Value);
+        return await SupportAsPolicy.CandidatesAsync(db, db.Schools.Single(), NewSession(w));
     }
 
-    private async Task<ActionResult<SupportSessionStartDto>> EnterAsync(World w, int? userId = null, int? roleId = null)
+    private SupportSession NewSession(World w) => new()
+    {
+        SuperAdminUserId = w.SuperAdmin.Id, SuperAdminUsername = "superadmin", SchoolId = w.School.Id,
+        TicketId = w.TicketId, TicketTitle = "Rozvrh", TicketAuthorUserId = w.Admin.Id, SupportAsUserIds = named,
+    };
+
+    /// <summary>Entering for the ticket as <paramref name="userId"/> (none =
+    /// the admin): the one-time code, or why not.</summary>
+    private async Task<(string? Code, string? Refused)> EnterAsync(World w, int? userId = null, int? roleId = null)
     {
         using var db = SuperAdminDb();
-        return await Tickets(db, UserClaims(w.SuperAdmin.Id)).Enter(w.TicketId, new SupportAsRequest(userId, roleId));
+        var session = NewSession(w);
+        session.School = db.Schools.Single();
+        var sessions = AuthTestServices.SupportSessions(db, clock);
+        if (await sessions.SetAsAsync(session, userId, roleId) is { } refused)
+        {
+            return (null, refused);
+        }
+        return (await sessions.StartAsync(session), null);
     }
 
     /// <summary>Entered and redeemed: the token's claims.</summary>
     private async Task<List<Claim>> TokenAsync(World w, int? userId = null, int? roleId = null)
     {
-        var started = Assert.IsType<SupportSessionStartDto>(
-            Assert.IsType<OkObjectResult>((await EnterAsync(w, userId, roleId)).Result).Value);
+        var (code, refused) = await EnterAsync(w, userId, roleId);
+        Assert.Null(refused);
         using var db = SuperAdminDb();
-        var login = await AuthTestServices.SupportSessions(db, clock).RedeemAsync(new DefaultHttpContext(), started.Code);
+        var login = await AuthTestServices.SupportSessions(db, clock).RedeemAsync(new DefaultHttpContext(), code!);
         return new JwtSecurityTokenHandler().ReadJwtToken(login!.Token).Claims.ToList();
     }
 
@@ -150,14 +143,14 @@ public class SupportAsTests
         var w = await SeedAsync();
         // Nobody named yet: no way in.
         Assert.Empty(await CandidatesAsync(w));
-        Assert.IsType<BadRequestObjectResult>((await EnterAsync(w)).Result);
-        Assert.IsType<BadRequestObjectResult>((await EnterAsync(w, w.Teacher.Id)).Result);
+        Assert.NotNull((await EnterAsync(w)).Refused);
+        Assert.NotNull((await EnterAsync(w, w.Teacher.Id)).Refused);
 
-        Assert.IsType<OkObjectResult>((await NameOnTicketAsync(w, w.Teacher.Id)).Result);
+        NameOnTicket(w.Teacher.Id);
         // Not as the admin of no one, nor as someone not named.
-        Assert.IsType<BadRequestObjectResult>((await EnterAsync(w)).Result);
-        Assert.IsType<BadRequestObjectResult>((await EnterAsync(w, w.Student.Id)).Result);
-        Assert.IsType<OkObjectResult>((await EnterAsync(w, w.Teacher.Id)).Result);
+        Assert.NotNull((await EnterAsync(w)).Refused);
+        Assert.NotNull((await EnterAsync(w, w.Student.Id)).Refused);
+        Assert.Null((await EnterAsync(w, w.Teacher.Id)).Refused);
     }
 
     [Fact]
@@ -165,9 +158,9 @@ public class SupportAsTests
     {
         var w = await SeedAsync();
         await SchoolAllowsAsync(w, SupportAsScope.Admin);
-        Assert.IsType<BadRequestObjectResult>((await NameOnTicketAsync(w, w.Teacher.Id)).Result);
+        NameOnTicket(w.Teacher.Id);
         Assert.Empty(await CandidatesAsync(w));
-        Assert.IsType<BadRequestObjectResult>((await EnterAsync(w, w.Teacher.Id)).Result);
+        Assert.NotNull((await EnterAsync(w, w.Teacher.Id)).Refused);
 
         var claims = await TokenAsync(w);
         Assert.Equal(w.SuperAdmin.Id.ToString(), Claim(claims, ClaimTypes.NameIdentifier));
@@ -176,35 +169,10 @@ public class SupportAsTests
     }
 
     [Fact]
-    public async Task ANewTicketNamesItsAuthorUnlessTheyNameOthersAndTheAuthorComesFirst()
-    {
-        var w = await SeedAsync();
-        using var db = SchoolDb(w.School.Id);
-        var tickets = Tickets(db, UserClaims(w.Admin.Id, w.Admin.ActiveRoleId), w.School.Id);
-
-        var mine = Assert.IsType<SupportTicketDetailDto>(Assert.IsType<OkObjectResult>(
-            (await tickets.CreateSchoolTicket(new CreateSchoolTicketRequest("Rozvrh", ""))).Result).Value);
-        Assert.Equal([w.Admin.Id], mine.Ticket.SupportAsUsers!.Select(u => u.Id));
-
-        var both = Assert.IsType<SupportTicketDetailDto>(Assert.IsType<OkObjectResult>(
-            (await tickets.CreateSchoolTicket(new CreateSchoolTicketRequest(
-                "Známky", "", SupportAsUserIds: [w.Teacher.Id, w.Admin.Id]))).Result).Value);
-        Assert.Equal([w.Admin.Id, w.Teacher.Id], both.Ticket.SupportAsUsers!.Select(u => u.Id));
-
-        var none = Assert.IsType<SupportTicketDetailDto>(Assert.IsType<OkObjectResult>(
-            (await tickets.CreateSchoolTicket(new CreateSchoolTicketRequest("Nic", "", SupportAsUserIds: []))).Result).Value);
-        Assert.Empty(none.Ticket.SupportAsUsers!);
-    }
-
-    [Fact]
     public async Task AsAUserTheTicketNamesTheTokenIsTheirsInAnyOfTheirRoles()
     {
         var w = await SeedAsync();
-        var detail = Assert.IsType<SupportTicketDetailDto>(Assert.IsType<OkObjectResult>(
-            (await NameOnTicketAsync(w, w.Teacher.Id)).Result).Value);
-        Assert.Equal(["Jan Novák"], detail.Ticket.SupportAsUsers!.Select(u => u.Name));
-        Assert.Equal("Jan Novák",
-            detail.Entries.Single(e => e.Kind == SupportTicketEntryKind.SupportAsChanged).Text);
+        NameOnTicket(w.Teacher.Id);
         var candidate = Assert.Single(await CandidatesAsync(w));
         Assert.Equal(["Rodič", "Učitel"], candidate.Roles.Select(r => r.Name).Order());
 
@@ -220,20 +188,10 @@ public class SupportAsTests
     }
 
     [Fact]
-    public async Task NoLongerNamedTheSessionEndsWithTheAdminAllowedItIsTheAdminAgain()
+    public async Task WithTheAdminAllowedASessionAsAUserIsTheAdminAgain()
     {
         var w = await SeedAsync();
-        Assert.IsType<OkObjectResult>((await NameOnTicketAsync(w, w.Teacher.Id, w.Teacher2.Id)).Result);
-        var first = int.Parse(Claim(await TokenAsync(w, w.Teacher2.Id), SupportClaims.SessionId)!);
-        Assert.IsType<OkObjectResult>((await NameOnTicketAsync(w, w.Teacher.Id)).Result);
-        using (var db = SuperAdminDb())
-        {
-            var session = db.SupportSessions.Single(s => s.Id == first);
-            Assert.NotNull(session.EndedAt);
-            Assert.Equal(SupportAsPolicy.ChangedReason, session.EndReason);
-            Assert.Equal("Řehoř Ředitel", session.EndedBy);
-        }
-
+        NameOnTicket(w.Teacher.Id);
         var second = int.Parse(Claim(await TokenAsync(w, w.Teacher.Id), SupportClaims.SessionId)!);
         await SchoolAllowsAsync(w, SupportAsScope.Admin);
         using (var db = SuperAdminDb())
@@ -249,7 +207,7 @@ public class SupportAsTests
     public async Task SwitchingWithinTheSessionGivesANewTokenAndTheOldOneStopsWorking()
     {
         var w = await SeedAsync();
-        Assert.IsType<OkObjectResult>((await NameOnTicketAsync(w, w.Student.Id, w.Teacher.Id)).Result);
+        NameOnTicket(w.Student.Id, w.Teacher.Id);
         var claims = await TokenAsync(w, w.Teacher.Id);
         var sessionId = int.Parse(Claim(claims, SupportClaims.SessionId)!);
 
@@ -283,7 +241,7 @@ public class SupportAsTests
     public async Task TheUserAndTheTicketsAuthorSeeTheSupportInTheirAccount()
     {
         var w = await SeedAsync();
-        Assert.IsType<OkObjectResult>((await NameOnTicketAsync(w, w.Teacher.Id)).Result);
+        NameOnTicket(w.Teacher.Id);
         await TokenAsync(w, w.Teacher.Id);
 
         using var db = SchoolDb(w.School.Id);

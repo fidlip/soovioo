@@ -20,10 +20,20 @@ public class SupportSession
     public int SchoolId { get; set; }
     public School? School { get; set; }
 
-    /// <summary>The support ticket it was entered for (null only for
-    /// sessions from before tickets).</summary>
+    /// <summary>The support ticket (the backoffice's id) it was entered for
+    /// (null only for sessions from before tickets).</summary>
     public int? TicketId { get; set; }
-    public SupportTicket? Ticket { get; set; }
+
+    /// <summary>The ticket's title when it was entered — for the banners.</summary>
+    public string? TicketTitle { get; set; }
+
+    /// <summary>The ticket's author (the school's user) — they see the
+    /// support in the school as someone else for their ticket.</summary>
+    public int? TicketAuthorUserId { get; set; }
+
+    /// <summary>Whom the school let the support be for the ticket
+    /// (<see cref="SupportAsScope.Users"/>).</summary>
+    public List<int> SupportAsUserIds { get; set; } = [];
 
     /// <summary>Entered as one of the school's users ("Vstoupit jako…"),
     /// in one of their roles — null = as the school's admin. Changes when

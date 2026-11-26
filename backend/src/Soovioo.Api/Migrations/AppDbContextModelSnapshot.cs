@@ -2784,8 +2784,19 @@ namespace Soovioo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.PrimitiveCollection<List<int>>("SupportAsUserIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<int?>("TicketAuthorUserId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("TicketId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TicketTitle")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 
@@ -2793,92 +2804,7 @@ namespace Soovioo.Api.Migrations
 
                     b.HasIndex("SuperAdminUserId");
 
-                    b.HasIndex("TicketId");
-
                     b.ToTable("SupportSessions");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportTicket", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTimeOffset?>("AccessRequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("AccessUntil")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("AssigneeName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int?>("AssigneeUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedByName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<bool>("CreatedBySupport")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.Property<DateOnly>("DueDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("PlanName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<int>("SchoolId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("StatusBeforeCancel")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTimeOffset?>("StatusChangedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.PrimitiveCollection<List<int>>("SupportAsUserIds")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssigneeUserId");
-
-                    b.HasIndex("SchoolId", "CreatedAt");
-
-                    b.HasIndex("Status", "DueDate");
-
-                    b.ToTable("SupportTickets");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportTicketEntry", b =>
@@ -2897,21 +2823,6 @@ namespace Soovioo.Api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<int?>("AuthorUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("BySupport")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("EditedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("Internal")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2923,10 +2834,6 @@ namespace Soovioo.Api.Migrations
                     b.Property<int?>("SessionId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Status")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<string>("Text")
                         .HasMaxLength(8000)
                         .HasColumnType("character varying(8000)");
@@ -2934,55 +2841,11 @@ namespace Soovioo.Api.Migrations
                     b.Property<int>("TicketId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTimeOffset?>("Until")
-                        .HasColumnType("timestamp with time zone");
-
                     b.HasKey("Id");
 
                     b.HasIndex("TicketId", "At");
 
                     b.ToTable("SupportTicketEntries");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportTicketEntryRevision", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int?>("AuthorUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Change")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("EntryId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SchoolId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Text")
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EntryId");
-
-                    b.ToTable("SupportTicketEntryRevisions", (string)null);
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.ClassCurriculumItem", b =>
@@ -4921,12 +4784,6 @@ namespace Soovioo.Api.Migrations
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Soovioo.Api.Support.SupportTicket", null)
-                        .WithMany()
-                        .HasForeignKey("TicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
@@ -4942,47 +4799,9 @@ namespace Soovioo.Api.Migrations
                         .HasForeignKey("SuperAdminUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Soovioo.Api.Support.SupportTicket", "Ticket")
-                        .WithMany()
-                        .HasForeignKey("TicketId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("School");
 
                     b.Navigation("SuperAdminUser");
-
-                    b.Navigation("Ticket");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportTicket", b =>
-                {
-                    b.HasOne("Soovioo.Api.Evidence.School", "School")
-                        .WithMany()
-                        .HasForeignKey("SchoolId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("School");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportTicketEntry", b =>
-                {
-                    b.HasOne("Soovioo.Api.Support.SupportTicket", "Ticket")
-                        .WithMany()
-                        .HasForeignKey("TicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Ticket");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportTicketEntryRevision", b =>
-                {
-                    b.HasOne("Soovioo.Api.Support.SupportTicketEntry", null)
-                        .WithMany("Revisions")
-                        .HasForeignKey("EntryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.ClassCurriculumItem", b =>
@@ -5489,11 +5308,6 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("DaysOff");
 
                     b.Navigation("Periods");
-                });
-
-            modelBuilder.Entity("Soovioo.Api.Support.SupportTicketEntry", b =>
-                {
-                    b.Navigation("Revisions");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Timetable.GroupDivision", b =>

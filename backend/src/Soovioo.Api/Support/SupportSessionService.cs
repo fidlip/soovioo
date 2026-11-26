@@ -165,10 +165,7 @@ public class SupportSessionService(
             return (null, []);
         }
         var school = await SchoolOfAsync(session);
-        var ticket = session.TicketId is { } ticketId
-            ? await db.SupportTickets.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == ticketId)
-            : null;
-        return (user, !SupportAsPolicy.Allows(school, ticket, user.Id) ? [] : user.Roles
+        return (user, !SupportAsPolicy.Allows(school, session, user.Id) ? [] : user.Roles
             .OrderBy(r => r.BuiltIn is null).ThenBy(r => r.BuiltIn).ThenBy(r => r.Name)
             .ToList());
     }

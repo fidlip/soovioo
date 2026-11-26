@@ -37,35 +37,21 @@ public class SupportControllerTests
             },
         };
 
-    /// <summary>"Vstoupit do školy" on a ticket the SuperAdmin takes care of.</summary>
+    /// <summary>A support session started for a ticket, as entering it does.</summary>
     private static async Task<(SupportSessionStartDto Started, HttpContext Http)> EnterAsync(
         AppDbContext db, User superAdmin, School school)
     {
-        var ticket = new SupportTicket
+        var session = new SupportSession
         {
-            SchoolId = school.Id, CreatedByName = "Ředitel", Title = "Rozvrh", Description = "", PlanName = "Free",
-            AssigneeUserId = superAdmin.Id, AssigneeName = superAdmin.Username, Status = SupportTicketStatus.Assigned,
+            SuperAdminUserId = superAdmin.Id, SuperAdminUsername = superAdmin.Username, SchoolId = school.Id,
+            School = school, TicketId = 3, TicketTitle = "Rozvrh",
         };
-        db.SupportTickets.Add(ticket);
-        await db.SaveChangesAsync();
-        var controller = new SupportTicketsController(
-            db, new FakeCurrentSchoolContext(null, isSuperAdmin: true), new Soovioo.Api.Notifications.Notifier(db, TimeProvider.System),
-            null!, Sessions(db), new SupportReset(db, TimeProvider.System),
-            Microsoft.Extensions.Options.Options.Create(new SupportOptions()), TimeProvider.System)
+        var code = await Sessions(db).StartAsync(session);
+        var http = new DefaultHttpContext
         {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext
-                {
-                    User = new ClaimsPrincipal(new ClaimsIdentity([
-                        new Claim(ClaimTypes.NameIdentifier, superAdmin.Id.ToString()),
-                    ])),
-                },
-            },
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, superAdmin.Id.ToString())])),
         };
-        var started = Assert.IsType<SupportSessionStartDto>(
-            Assert.IsType<OkObjectResult>((await controller.Enter(ticket.Id)).Result).Value);
-        return (started, controller.HttpContext);
+        return (new SupportSessionStartDto(session.Id, code, school.Slug, school.Name, session.ExpiresAt), http);
     }
 
     private static async Task<User> SuperAdminAsync(AppDbContext db, string username = "superadmin")
@@ -89,12 +75,8 @@ public class SupportControllerTests
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
-        var (started, enterHttp) = await EnterAsync(db, superAdmin, school);
+        var (started, _) = await EnterAsync(db, superAdmin, school);
         Assert.Equal("test", started.SchoolSlug);
-        // Logged under the school, so its admin sees it too.
-        var startAudit = Soovioo.Api.Audit.AuditContext.Of(enterHttp);
-        Assert.Equal(school.Id, startAudit.SchoolId);
-        Assert.Equal(started.SessionId, startAudit.SupportSessionId);
         Assert.NotEqual(started.Code, Assert.Single(db.SupportSessions).HandoffCodeHash);
 
         // Redeemed on the school's page — anonymous there.

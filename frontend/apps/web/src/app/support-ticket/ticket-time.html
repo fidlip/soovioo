@@ -1,0 +1,254 @@
+@if (time(); as time) { @if (!empty() || mayRequestEstimate()) {
+<div
+  class="flex flex-col gap-2 rounded-md bg-surface-100 px-3 py-2 text-sm dark:bg-surface-800"
+  data-testid="ticket-time"
+>
+  @if (waitingForEstimate()) {
+  <div class="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+    <i class="pi pi-hourglass"></i>
+    Podpora pošle odhad práce, než začne.
+  </div>
+  } @if (mayRequestEstimate()) {
+  <div class="flex flex-wrap items-center gap-2">
+    <i class="pi pi-calculator text-surface-500"></i>
+    <span class="grow text-surface-500"
+      >Chcete vědět předem, kolik to bude stát?</span
+    >
+    <p-button
+      label="Chci nejdřív odhad"
+      icon="pi pi-calculator"
+      size="small"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="requestEstimate()"
+    />
+  </div>
+  }
+
+  <!-- The support's estimates: approved, rejected, waiting for the admin. -->
+  @for (estimate of time.estimates; track estimate.id) {
+  <div
+    class="flex flex-col gap-1 border-t border-surface-200 pt-2 first:border-t-0 first:pt-0 dark:border-surface-700"
+    data-testid="ticket-estimate"
+  >
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span class="font-medium"
+        >Odhad práce: {{ minutes(estimate.minutes) }}, {{ amount(estimate.price)
+        }}</span
+      >
+      <span class="text-surface-500"
+        >· {{ categoryLabel(estimate.category) }} · {{ estimate.operatorName
+        }}</span
+      >
+      <p-tag
+        class="ml-auto"
+        [value]="estimateStatus(estimate.status).label"
+        [severity]="estimateStatus(estimate.status).severity"
+      />
+    </div>
+    @if (estimate.note) {
+    <app-markdown [text]="estimate.note" />
+    } @if (estimate.decidedByName) {
+    <div class="text-xs text-surface-500">
+      {{ estimate.status === 'Approved' ? 'Schválil(a)' : 'Rozhodl(a)' }} {{
+      estimate.decidedByName }} {{ estimate.decidedAt | dateFormat: 'dateTime'
+      }}@if (estimate.decisionNote) {: {{ estimate.decisionNote }} }
+    </div>
+    } @if (estimate.status === 'Pending' && !readOnly()) { @if
+    (ticket().canDecideEstimates) {
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Odmítnout"
+        icon="pi pi-times"
+        size="small"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="busy()"
+        (onClick)="openDecision(estimate, false)"
+      />
+      <p-button
+        label="Schválit"
+        icon="pi pi-check"
+        size="small"
+        [disabled]="busy()"
+        (onClick)="openDecision(estimate, true)"
+      />
+    </div>
+    } @else {
+    <div class="text-xs text-surface-500">O odhadu rozhoduje admin školy.</div>
+    } }
+  </div>
+  }
+
+  <!-- Logged time and how it counts. -->
+  @if (time.entries.length) {
+  <div
+    class="flex flex-col gap-1 border-t border-surface-200 pt-2 first:border-t-0 first:pt-0 dark:border-surface-700"
+  >
+    <div class="flex flex-wrap gap-x-3 text-surface-500">
+      <span class="font-medium text-surface-700 dark:text-surface-200"
+        >Čas podpory</span
+      >
+      @if (time.supportMinutes) {
+      <span>z hodin plánu {{ minutes(time.supportMinutes) }}</span>
+      } @if (time.serviceMinutes) {
+      <span>placená služba {{ minutes(time.serviceMinutes) }}</span>
+      } @if (time.bugMinutes) {
+      <span>chyba aplikace {{ minutes(time.bugMinutes) }} (nepočítá se)</span>
+      }
+    </div>
+    <ul class="m-0 flex list-none flex-col gap-1 p-0">
+      @for (entry of time.entries; track entry.id) {
+      <li class="flex flex-col" data-testid="ticket-time-entry">
+        <div class="flex flex-wrap items-center gap-x-2">
+          <span>{{ entry.date | dateFormat: 'date' }}</span>
+          <span>{{ minutes(entry.minutes) }}</span>
+          <span class="text-surface-500"
+            >· {{ categoryLabel(entry.countedAs) }} · {{ entry.operatorName
+            }}</span
+          >
+          @if (mayDispute(entry)) {
+          <p-button
+            class="ml-auto"
+            label="Nesouhlasím"
+            size="small"
+            severity="secondary"
+            [text]="true"
+            [disabled]="busy()"
+            (onClick)="openDispute(entry)"
+          />
+          }
+        </div>
+        @if (entry.dispute; as dispute) {
+        <div class="pl-4 text-xs text-surface-500">
+          @switch (dispute.status) { @case ('Open') { Rozporováno ({{
+          dispute.byName }}): podle školy {{
+          categoryLabel(dispute.proposedCategory) }} — čeká na podporu. } @case
+          ('Accepted') { Rozporování přijato: {{
+          categoryLabel(dispute.proposedCategory) }}. } @default { Rozporování
+          odmítnuto@if (dispute.decisionNote) {: {{ dispute.decisionNote }} }. }
+          }
+        </div>
+        }
+      </li>
+      }
+    </ul>
+  </div>
+  }
+
+  <!-- The school's month. -->
+  @if (time.month; as month) { @if (!empty()) {
+  <div
+    class="border-t border-surface-200 pt-2 text-xs text-surface-500 dark:border-surface-700"
+    data-testid="ticket-time-month"
+  >
+    Hodiny plánu tento měsíc: zbývá {{ minutes(month.remainingMinutes) }} z {{
+    minutes(month.includedMinutes + month.carriedMinutes) }}. @if
+    (month.overMinutes) { Nad plán {{ minutes(month.overMinutes) }}. } @if
+    (month.amount) { K úhradě {{ amount(month.amount) }}. }
+  </div>
+  } }
+</div>
+} }
+
+<p-dialog
+  [visible]="!!deciding()"
+  (visibleChange)="$event || deciding.set(null)"
+  [header]="deciding()?.approve ? 'Schválit odhad' : 'Odmítnout odhad'"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (deciding(); as decision) {
+  <form #decideForm="ngForm" (ngSubmit)="decide()">
+    <p class="mt-0 text-sm text-surface-500">
+      {{ minutes(decision.estimate.minutes) }}, {{
+      amount(decision.estimate.price) }} — {{
+      categoryLabel(decision.estimate.category) }}. @if (decision.approve) {
+      Schválením souhlasíte, že podpora tuto práci provede a vyúčtuje. } @else {
+      Podpora tuto práci neprovede. Napište, proč odhad odmítáte. }
+    </p>
+    <app-markdown-editor
+      [label]="decision.approve ? 'Poznámka (nepovinná)' : 'Důvod'"
+      inputId="estimateNote"
+      name="note"
+      [rows]="3"
+      maxlength="2000"
+      [required]="!decision.approve"
+      [(ngModel)]="decisionNote"
+    />
+    <div class="mt-4 flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="deciding.set(null)"
+      />
+      <app-submit-button
+        [form]="decideForm"
+        [label]="decision.approve ? 'Schválit' : 'Odmítnout'"
+        [icon]="decision.approve ? 'pi pi-check' : 'pi pi-times'"
+        [severity]="decision.approve ? undefined : 'danger'"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="!!disputing()"
+  (visibleChange)="$event || disputing.set(null)"
+  header="Nesouhlasím s kategorií"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (disputing(); as entry) {
+  <form
+    #disputeForm="ngForm"
+    class="flex flex-col gap-3"
+    (ngSubmit)="dispute()"
+  >
+    <p class="m-0 text-sm text-surface-500">
+      {{ entry.date | dateFormat: 'date' }}, {{ minutes(entry.minutes) }} —
+      podpora zapsala jako {{ categoryLabel(entry.category) }}. Dokud se k tomu
+      nevyjádří, počítá se podle vás.
+    </p>
+    <app-float-field label="Podle nás je to" for="disputeCategory">
+      <p-select
+        inputId="disputeCategory"
+        name="category"
+        [options]="disputeOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [(ngModel)]="disputeCategory"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </app-float-field>
+    <app-markdown-editor
+      label="Proč"
+      inputId="disputeReason"
+      name="reason"
+      [rows]="3"
+      maxlength="2000"
+      required
+      [(ngModel)]="disputeReason"
+    />
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="disputing.set(null)"
+      />
+      <app-submit-button
+        [form]="disputeForm"
+        label="Odeslat"
+        icon="pi pi-send"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>

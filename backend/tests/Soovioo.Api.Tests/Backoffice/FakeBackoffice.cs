@@ -30,13 +30,18 @@ internal class FakeBackoffice : IBackofficeClient
     };
 
     public async Task<HttpResponseMessage?> SendAsync(
-        HttpMethod method, string path, HttpContent? content = null, CancellationToken cancellationToken = default)
+        HttpMethod method, string path, HttpContent? content = null, CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<string, string>? headers = null)
     {
         if (Connection is null)
         {
             return null;
         }
         var request = new HttpRequestMessage(method, new Uri(Connection.BaseUrl, path)) { Content = content };
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+        {
+            request.Headers.Add(name, value);
+        }
         Sent.Add((request, content is null ? "" : await content.ReadAsStringAsync(cancellationToken)));
         return Respond(request);
     }

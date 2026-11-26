@@ -163,7 +163,7 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
             case Feedback when entry.State != EntityState.Modified || IsModified(entry, nameof(Feedback.SeenAt)):
                 batch.Feedback = true;
                 break;
-            case SupportTicket or SupportTicketEntry or SupportChange:
+            case SupportTicketEntry or SupportChange:
                 batch.Tickets.Add(entry.Entity);
                 break;
             case AuditLogEntry { SupportSessionId: { } sessionId }:
@@ -253,21 +253,21 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
         var tickets = batch.Tickets
             .Select(t => t switch
             {
-                SupportTicket ticket => ticket.Id,
-                SupportTicketEntry entry => entry.TicketId,
-                SupportChange change => change.TicketId,
-                _ => 0,
+                SupportTicketEntry entry => (entry.SchoolId, entry.TicketId),
+                SupportChange change => (change.SchoolId, change.TicketId),
+                _ => (0, 0),
             })
-            .Concat(batch.Connections.Select(s => s.TicketId ?? 0))
+            .Concat(batch.Connections.Select(s => (s.SchoolId, s.TicketId ?? 0)))
             .ToHashSet();
         if (batch.AuditSessions.Count > 0)
         {
-            tickets.UnionWith(await db.SupportSessions.IgnoreQueryFilters().AsNoTracking()
-                .Where(s => batch.AuditSessions.Contains(s.Id) && s.TicketId != null)
-                .Select(s => s.TicketId!.Value)
-                .ToListAsync());
+            tickets.UnionWith((await db.SupportSessions.IgnoreQueryFilters().AsNoTracking()
+                    .Where(s => batch.AuditSessions.Contains(s.Id) && s.TicketId != null)
+                    .Select(s => new { s.SchoolId, TicketId = s.TicketId!.Value })
+                    .ToListAsync())
+                .Select(s => (s.SchoolId, s.TicketId)));
         }
-        tickets.Remove(0);
+        tickets.RemoveWhere(t => t.Item2 == 0);
 
         if (users.Count > 0)
         {

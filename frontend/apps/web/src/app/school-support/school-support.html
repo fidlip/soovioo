@@ -2,7 +2,7 @@
   <p-card>
     <ng-template #title
       >Požadavky na podporu<app-info-hint
-        text="Požadavek dostane podpora Soovioo. Termín vyřízení se řídí support plánem školy. V požadavku si s podporou píšete a povolujete jí vstup do školy."
+        text="Požadavek dostane podpora Soovioo. Termín vyřízení se řídí support plánem školy. V požadavku si s podporou píšete, vidíte čas, který mu věnovala, a schvalujete odhady práce navíc."
     /></ng-template>
     <div class="mb-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
       @if (support(); as support) {
@@ -22,7 +22,7 @@
         >
         }</span
       >
-      } @if (!readOnly) {
+      } @if (!readOnly && !unavailable()) {
       <p-button
         label="Nový požadavek"
         icon="pi pi-plus"
@@ -31,6 +31,15 @@
       />
       }
     </div>
+    @if (unavailable()) {
+    <p
+      class="m-0 mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+      role="alert"
+      data-testid="support-unavailable"
+    >
+      Podpora je teď nedostupná, zkuste to později.
+    </p>
+    }
     <p-table [value]="tickets() ?? []" dataKey="id">
       <ng-template #header>
         <tr>
@@ -62,20 +71,9 @@
             >
               {{ ticket.title }}
             </button>
-            @if (ticket.accessRequestedAt) {
-            <div class="text-xs font-medium text-amber-700 dark:text-amber-300">
-              Podpora žádá o vstup do školy
-            </div>
-            } @else if (ticket.accessUntil) {
-            <div class="text-xs text-surface-500">
-              Vstup podpory povolen do {{ ticket.accessUntil | dateFormat:
-              'dateTime' }}
-            </div>
-            }
           </td>
-          <td class="whitespace-nowrap">
+          <td class="whitespace-nowrap" [class.text-red-600]="ticket.overdue">
             {{ ticket.dueDate | dateFormat: 'date' }}
-            <div class="text-xs text-surface-500">{{ ticket.planName }}</div>
           </td>
           <td>
             <p-tag
@@ -101,7 +99,6 @@
 
 <app-support-ticket-dialog
   #detail
-  side="school"
   [readOnly]="readOnly"
   (changed)="changed($event)"
 />
@@ -136,27 +133,21 @@
       maxlength="8000"
       [(ngModel)]="ticketDescription"
     />
-    @if (access() === 'Approval') {
     <label class="flex items-center gap-2 text-sm">
       <p-checkbox
-        inputId="ticketAllowAccess"
-        name="allowAccess"
+        inputId="ticketEstimateRequested"
+        name="estimateRequested"
         [binary]="true"
-        [(ngModel)]="allowAccess"
+        [(ngModel)]="estimateRequested"
       />
-      Povolit podpoře vstup do školy na {{ duration() }}
+      Chci nejdřív odhad práce, než podpora začne
     </label>
-    } @if (namesUsers()) {
-    <app-support-as-users-select
-      inputId="ticketSupportAs"
-      [(userIds)]="supportAsUserIds"
-    />
-    }
     <div class="flex justify-end">
       <app-submit-button
         [form]="ticketForm"
         label="Odeslat"
         icon="pi pi-send"
+        [busy]="sending()"
       />
     </div>
   </form>

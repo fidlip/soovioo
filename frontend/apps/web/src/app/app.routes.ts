@@ -194,14 +194,6 @@ const superAdminRoutes: Route[] = [
     canActivate: [authGuard],
   },
   {
-    path: 'superadmin/support',
-    loadComponent: () =>
-      import('./support-tickets-page/support-tickets-page').then(
-        (m) => m.SupportTicketsPage,
-      ),
-    canActivate: [authGuard],
-  },
-  {
     path: 'superadmin/superadmins',
     loadComponent: () =>
       import('./super-admins-page/super-admins-page').then(

@@ -18,11 +18,14 @@ public class LivePublisher(IHubContext<LiveHub> hub, ILogger<LivePublisher> logg
 
     public Task FeedbackAsync() => SendAsync(hub.Clients.Group(LiveGroups.SuperAdmins), LiveEvents.Feedback);
 
-    public async Task TicketsAsync(IEnumerable<int> ticketIds)
+    public Task TicketsAsync(int schoolId, IEnumerable<int> ticketIds) =>
+        TicketsAsync(ticketIds.Select(id => (schoolId, id)));
+
+    public async Task TicketsAsync(IEnumerable<(int SchoolId, int TicketId)> tickets)
     {
-        foreach (var id in ticketIds)
+        foreach (var (schoolId, id) in tickets)
         {
-            await SendAsync(hub.Clients.Group(LiveGroups.Ticket(id)), LiveEvents.Ticket, id);
+            await SendAsync(hub.Clients.Group(LiveGroups.Ticket(schoolId, id)), LiveEvents.Ticket, id);
         }
     }
 
@@ -37,12 +40,11 @@ public class LivePublisher(IHubContext<LiveHub> hub, ILogger<LivePublisher> logg
         {
             return;
         }
-        var users = sessions.SelectMany(s => new[] { s.Session.AsUserId, s.AsUserBefore }).OfType<int>().ToHashSet();
-        var tickets = sessions.Select(s => s.Session.TicketId).OfType<int>().Distinct().ToList();
-        users.UnionWith(await db.SupportTickets.IgnoreQueryFilters().AsNoTracking()
-            .Where(t => tickets.Contains(t.Id) && !t.CreatedBySupport && t.CreatedByUserId != null)
-            .Select(t => t.CreatedByUserId!.Value)
-            .ToListAsync());
+        var users = sessions
+            .SelectMany(s => new[] { s.Session.AsUserId, s.AsUserBefore, s.Session.TicketAuthorUserId })
+            .OfType<int>().ToHashSet();
+        var tickets = sessions.Where(s => s.Session.TicketId is not null)
+            .Select(s => (s.Session.SchoolId, s.Session.TicketId!.Value)).Distinct().ToList();
         await CountsAsync(users);
         await TicketsAsync(tickets);
         await SendAsync(

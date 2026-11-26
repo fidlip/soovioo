@@ -100,12 +100,12 @@ public class LiveChangesTests
         using var db = Db();
         db.SupportTicketEntries.Add(new SupportTicketEntry
         {
-            TicketId = 3, SchoolId = 1, Kind = SupportTicketEntryKind.Message, AuthorName = "Ředitel",
+            TicketId = 3, SchoolId = 1, Kind = SupportTicketEntryKind.Reset, AuthorName = "Ředitel",
         });
         db.Feedback.Add(new Feedback { Text = "Super" });
         await db.SaveChangesAsync();
 
-        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual(["ticket:3"]));
+        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual(["ticket:1:3"]));
         Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Feedback && s.To.SequenceEqual([LiveGroups.SuperAdmins]));
     }
 
@@ -113,14 +113,9 @@ public class LiveChangesTests
     public async Task ASessionEndingTellsItsTabTheTicketAndWhomItWasInAs()
     {
         using var db = Db();
-        db.SupportTickets.Add(new SupportTicket
-        {
-            Id = 3, SchoolId = 1, CreatedByUserId = 8, CreatedByName = "Ředitel", Title = "Rozvrh", Description = "",
-            PlanName = "Free",
-        });
         var session = new SupportSession
         {
-            SuperAdminUsername = "superadmin", SchoolId = 1, TicketId = 3, AsUserId = 9,
+            SuperAdminUsername = "superadmin", SchoolId = 1, TicketId = 3, TicketAuthorUserId = 8, AsUserId = 9,
             ExpiresAt = DateTimeOffset.UtcNow.AddHours(2),
         };
         db.SupportSessions.Add(session);
@@ -134,7 +129,7 @@ public class LiveChangesTests
         session.EndedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Counts && s.To.Order().SequenceEqual(["8", "9"]));
-        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual(["ticket:3"]));
+        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual(["ticket:1:3"]));
         Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Support && s.To.SequenceEqual([LiveGroups.Session(session.Id)]));
 
         hub.Sent.Clear();

@@ -1,16 +1,5 @@
 import { RoleRef } from '../auth/role.model';
 
-/** Result of entering a school in support mode — `code` is a one-time code
- * (valid 1 minute) the school's own page redeems via
- * `SupportApiService.redeem` for an Admin session in that school. */
-export interface SupportSessionStart {
-  code: string;
-  sessionId: number;
-  schoolSlug: string;
-  schoolName: string;
-  expiresAt: string;
-}
-
 export interface SupportAction {
   method: string;
   path: string;
@@ -85,6 +74,8 @@ export interface SchoolSupport {
   canChange: boolean;
   /** Whom the support enters as. */
   supportAs: SupportAsScope;
+  /** The instance has the support (is connected to a backoffice). */
+  available: boolean;
 }
 
 /** Whom the support enters the school as: its admin, or only a user the
@@ -169,80 +160,69 @@ export interface SupportPlan {
   responseWorkingDays: number;
 }
 
-/** A case of support for a school — asked by its admin or opened by a
- * SuperAdmin; due by the school's support plan. */
-export interface SupportTicket {
+/** A school's ticket in its list. */
+export interface SupportTicketSummary {
   id: number;
-  schoolId: number;
-  schoolName: string;
-  /** The school's policy. */
-  schoolAccess: SupportAccess;
   title: string;
-  /** Markdown. */
-  description: string;
-  createdAt: string;
-  createdByName: string;
-  /** Opened by a SuperAdmin for the school. */
-  createdBySupport: boolean;
-  /** The school's plan when it was created. */
-  planName: string;
-  /** `yyyy-MM-dd`. */
-  dueDate: string;
   status: SupportTicketStatus;
-  statusChangedAt: string | null;
-  assigneeUserId: number | null;
-  assigneeName: string | null;
-  /** Still open after `dueDate`. */
+  createdAt: string;
+  dueDate: string;
   overdue: boolean;
-  /** Open and the assignee waits for the school to allow entering. */
-  accessRequestedAt: string | null;
-  /** Open and entering allowed until then; null otherwise. */
-  accessUntil: string | null;
-  /** Resolved: closes by itself then. */
-  autoClosesAt?: string | null;
-  /** Closed or cancelled and may still be reopened till then. */
-  reopenableUntil?: string | null;
-  /** In the detail for the school: the caller may close or return it
-   * (resolved), or reopen it. */
-  canConfirm?: boolean;
-  /** In the detail: the support's changes not reset yet, when the caller
-   * may reset them; 0 otherwise. */
-  resettableChanges?: number;
-  /** Whom the school lets the support enter as. */
-  schoolSupportAs?: SupportAsScope;
-  /** In the detail: the users the support may enter as for the ticket
-   * (with `Users`), the author first. */
-  supportAsUsers?: { id: number; name: string }[] | null;
+  createdByName: string;
+  createdBySupport: boolean;
+  assigneeName: string | null;
+  lastActivityAt: string;
 }
 
+export interface SupportTicket {
+  id: number;
+  title: string;
+  description: string;
+  status: SupportTicketStatus;
+  createdAt: string;
+  statusChangedAt: string | null;
+  createdByName: string;
+  createdBySupport: boolean;
+  planName: string;
+  dueDate: string;
+  overdue: boolean;
+  assigneeName: string | null;
+  /** Resolved: closes by itself then. */
+  autoClosesAt: string | null;
+  /** Closed or cancelled and may still be reopened till then. */
+  reopenableUntil: string | null;
+  /** The caller may close or return it (resolved), or reopen it. */
+  canConfirm: boolean;
+  /** The support's changes not reset yet, when the caller may reset them. */
+  resettableChanges: number;
+  /** The caller is the school's admin: decides the support's estimates. */
+  canDecideEstimates: boolean;
+}
+
+/** The backoffice's kinds (and the school's: `Visit`, `Reset` and the
+ * support sessions, put in by the API with id 0). */
 export type SupportTicketEntryKind =
   | 'Message'
-  /** The SuperAdmins' own — the school doesn't see it. */
-  | 'Note'
   | 'Created'
   | 'Assigned'
-  /** Back to the pool, with a summary (internal). */
   | 'Released'
-  /** Given to another SuperAdmin — text is their name. */
   | 'HandedOver'
-  /** With Cancelled, text is why. */
   | 'StatusChanged'
+  | 'EstimateRequested'
   | 'AccessRequested'
   | 'AccessGranted'
   | 'AccessRevoked'
-  /** The school changed whom the support may enter as — text names
-   * them, null = nobody. */
   | 'SupportAsChanged'
-  /** Leaving the school ("Opustit") — text is what was done. */
+  | 'TimeCategoryChanged'
+  | 'TimeDisputed'
+  | 'TimeDisputeDecided'
+  | 'EstimateProposed'
+  | 'EstimateApproved'
+  | 'EstimateRejected'
   | 'Visit'
-  /** The support's changes reset — text says how it went; sessionId when
-   * of one session. */
   | 'Reset'
-  // The ticket's support sessions, put in by the API (id 0):
   | 'SessionStarted'
-  /** A change in the school — text says it in words. */
   | 'SessionAction'
-  /** Ended without leaving — allowing taken back, the ticket closed. */
   | 'SessionEnded'
   | 'SessionExpired';
 
@@ -252,69 +232,115 @@ export interface SupportTicketEntry {
   kind: SupportTicketEntryKind;
   authorName: string;
   bySupport: boolean;
-  internal: boolean;
-  /** Markdown. */
   text: string | null;
   status: SupportTicketStatus | null;
   until: string | null;
-  /** The support session it belongs to. */
   sessionId: number | null;
-  /** With SessionAction. */
   statusCode: number | null;
-  /** With SessionAction, "METHOD /path" — only for the SuperAdmins. */
-  request: string | null;
-  /** With SessionAction made as one of the school's users: who. */
   as?: string | null;
-  /** With SessionStarted while it runs: no tab of it open since then. */
   inactiveSince?: string | null;
-  /** With SessionStarted: the session's changes not reset yet, when the
-   * caller may reset them. */
   changes?: number;
-  /** A message or note of the caller's side — they may change or delete
-   * it (a SuperAdmin also retype it). */
   canEdit?: boolean;
-  /** Changed afterwards — only for the entry's side and the SuperAdmins,
-   * like deleted entries and the revisions. */
   editedAt?: string | null;
-  /** Deleted (text null — the revisions have it). */
   deleted?: boolean;
-  /** Oldest first. */
-  revisions?: SupportTicketEntryRevision[] | null;
 }
 
-export type SupportTicketEntryChange =
-  'Edited' | 'Deleted' | 'MadeInternal' | 'MadePublic';
+/** What the time spent on a ticket is: our fault, the plan's hours, or a paid service. */
+export type SupportTimeCategory = 'Bug' | 'Support' | 'Service';
 
-export const SUPPORT_TICKET_ENTRY_CHANGE_LABELS: Record<
-  SupportTicketEntryChange,
-  string
-> = {
-  Edited: 'upraveno',
-  Deleted: 'smazáno',
-  MadeInternal: 'změněno na interní poznámku',
-  MadePublic: 'posláno škole',
-};
+export const SUPPORT_TIME_CATEGORY_LABELS: Record<SupportTimeCategory, string> =
+  {
+    Bug: 'Chyba aplikace (nepočítá se)',
+    Support: 'Podpora (z hodin plánu)',
+    Service: 'Placená služba',
+  };
 
-export interface SupportTicketEntryRevision {
-  at: string;
-  change: SupportTicketEntryChange;
-  authorName: string;
-  /** Markdown — the text before the change. */
-  text: string | null;
+export interface SupportTimeDispute {
+  id: number;
+  status: 'Open' | 'Accepted' | 'Rejected';
+  proposedCategory: SupportTimeCategory;
+  reason: string;
+  byName: string;
+  createdAt: string;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
 }
 
-/** Where a ticket is worked on: by the SuperAdmins, by one inside the
- * school (the visit's ticket), by the school. */
-export type SupportTicketScope = 'support' | 'session' | 'school';
+/** `category` as logged; `countedAs` differs while a dispute is open. */
+export interface SupportTimeEntry {
+  id: number;
+  date: string;
+  minutes: number;
+  category: SupportTimeCategory;
+  countedAs: SupportTimeCategory;
+  operatorName: string;
+  dispute: SupportTimeDispute | null;
+}
+
+export type SupportEstimateStatus =
+  'Pending' | 'Approved' | 'Rejected' | 'Withdrawn';
+
+export interface SupportEstimate {
+  id: number;
+  category: SupportTimeCategory;
+  minutes: number;
+  price: number;
+  note: string | null;
+  operatorName: string;
+  createdAt: string;
+  status: SupportEstimateStatus;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+}
+
+/** The school's support time in a month. */
+export interface SupportMonthUsage {
+  month: string;
+  planName: string | null;
+  includedMinutes: number;
+  carriedMinutes: number;
+  supportMinutes: number;
+  remainingMinutes: number;
+  overMinutes: number;
+  serviceMinutes: number;
+  unapprovedMinutes: number;
+  amount: number;
+}
+
+/** The ticket's time as counted (rounded per category) and the school's month. */
+export interface SupportTicketTime {
+  bugMinutes: number;
+  supportMinutes: number;
+  serviceMinutes: number;
+  entries: SupportTimeEntry[];
+  estimates: SupportEstimate[];
+  month: SupportMonthUsage;
+  hourlyRate: number;
+  estimateRequested: boolean;
+  approvedMinutes: number;
+  loggedMinutes: number;
+  estimateExhausted: boolean;
+}
 
 export interface SupportTicketDetail {
   ticket: SupportTicket;
   entries: SupportTicketEntry[];
+  time: SupportTicketTime;
 }
 
-export type SupportTicketFilter = 'Open' | 'Mine' | 'Unassigned' | 'All';
+/** 75 → "1 h 15 min". */
+export function formatSupportMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours === 0
+    ? `${rest} min`
+    : rest === 0
+      ? `${hours} h`
+      : `${hours} h ${rest} min`;
+}
 
-/** "1 změna", "3 změny", "5 změn". */
 export function changesLabel(count: number): string {
   return `${count} ${count === 1 ? 'změna' : count >= 2 && count <= 4 ? 'změny' : 'změn'}`;
 }

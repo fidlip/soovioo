@@ -90,13 +90,6 @@ export class SuperAdminPage {
     });
   }
 
-  /** Entering a school is for a ticket — its tickets, or a new one. */
-  protected schoolTickets(school: School): void {
-    this.router.navigate(['/superadmin/support'], {
-      queryParams: { school: school.id },
-    });
-  }
-
   protected onPageChange(event: PaginatorState): void {
     this.page.set((event.page ?? 0) + 1);
     this.pageSize.set(event.rows ?? DEFAULT_PAGE_SIZE);

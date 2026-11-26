@@ -32,8 +32,8 @@ public static class SupportJournal
     /// already — not the school's data a reset could return.</summary>
     private static readonly HashSet<Type> NotJournaled =
     [
-        typeof(Audit.AuditLogEntry), typeof(SupportSession), typeof(SupportChange), typeof(SupportTicket),
-        typeof(SupportTicketEntry), typeof(SupportTicketEntryRevision), typeof(Auth.RefreshToken),
+        typeof(Audit.AuditLogEntry), typeof(SupportSession), typeof(SupportChange),
+        typeof(SupportTicketEntry), typeof(Auth.RefreshToken),
         typeof(Notifications.PushDevice), typeof(Notifications.Notification), typeof(Demo.DemoEmail),
         typeof(Demo.DemoContact), typeof(ProductFeedback.Feedback), typeof(ProductFeedback.FeedbackReply),
         typeof(Timetable.TimetableGeneration),

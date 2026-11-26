@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.Live;
 using Soovioo.Api.Notifications;
 using Soovioo.Api.Support;
 using Soovioo.Api.Tests.Auth;
@@ -21,6 +23,7 @@ public class SupportTicketsControllerTests
     // Monday 2026-11-09 11:00 Prague.
     private readonly FakeClock clock = new(new DateTimeOffset(2026, 11, 9, 10, 0, 0, TimeSpan.Zero));
     private readonly Soovioo.Api.Tests.Live.RecordingHub hub = new();
+    private readonly FakeBackofficeTickets backoffice = new();
 
     private AppDbContext SuperAdminDb() => new(Options(), new FakeCurrentSchoolContext(null, isSuperAdmin: true));
 
@@ -36,20 +39,23 @@ public class SupportTicketsControllerTests
     };
 
     private static SupportPlanClient Plans(
-        SupportPlanOptions? options = null, Soovioo.Api.Tests.Backoffice.FakeBackoffice? backoffice = null, IMemoryCache? cache = null) =>
-        new(backoffice ?? Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
+        SupportPlanOptions? options = null, Soovioo.Api.Tests.Backoffice.FakeBackoffice? client = null, IMemoryCache? cache = null) =>
+        new(client ?? Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
             Microsoft.Extensions.Options.Options.Create(options ?? new SupportPlanOptions()),
             cache ?? new MemoryCache(new MemoryCacheOptions()),
             NullLogger<SupportPlanClient>.Instance);
 
-    private SupportTicketsController Tickets(AppDbContext db, int userId, int? schoolId = null, params Claim[] extra) =>
-        new(db, new FakeCurrentSchoolContext(schoolId, isSuperAdmin: schoolId is null), new Notifier(db, clock),
+    private SupportTicketsController Tickets(
+        AppDbContext db, int userId, int schoolId, IBackofficeTickets? tickets = null, params Claim[] extra) =>
+        new(db, new FakeCurrentSchoolContext(schoolId), tickets ?? backoffice,
             Plans(new SupportPlanOptions { Default = new SupportPlanDto("Paid", "Placený", 2) }),
-            AuthTestServices.SupportSessions(db, clock), new SupportReset(db, clock),
-            Microsoft.Extensions.Options.Options.Create(new SupportOptions { ApprovalMinutes = 2 }), clock)
+            new SupportReset(db, clock), hub.Publisher(), clock)
         {
             ControllerContext = new ControllerContext { HttpContext = Http(userId, extra) },
         };
+
+    private SupportTicketsController School(AppDbContext db, World w, User? user = null, params Claim[] extra) =>
+        Tickets(db, (user ?? w.Admin).Id, w.School.Id, null, extra);
 
     /// <summary>With the user's active role, as their token has it.</summary>
     private SupportPolicyController Policy(AppDbContext db, int userId, int schoolId, params Claim[] extra)
@@ -65,8 +71,9 @@ public class SupportTicketsControllerTests
         };
     }
 
-    private record World(School School, User SuperAdmin, User Other, User Admin);
+    private record World(School School, User SuperAdmin, User Other, User Admin, User Deputy, User Teacher);
 
+    /// <summary>Two admins, and a teacher with Administrace who isn't one.</summary>
     private async Task<World> SeedAsync(SupportAccess access = SupportAccess.Approval)
     {
         using var db = SuperAdminDb();
@@ -77,24 +84,44 @@ public class SupportTicketsControllerTests
         var other = new User { Username = "druhy", PasswordHash = "x", IsSuperAdmin = true };
         db.Users.AddRange(superAdmin, other);
         await db.SaveChangesAsync();
-        var admin = new User
+        var adminRole = school.Roles.Single(r => r.BuiltIn == UserRole.Admin);
+        var teacherRole = school.Roles.Single(r => r.BuiltIn == UserRole.Teacher);
+        User Account(string name, Role role) => new()
         {
-            Username = "reditel", PasswordHash = "x", SchoolId = school.Id,
-            ActiveRole = school.Roles.Single(r => r.BuiltIn == UserRole.Admin),
+            Username = name, PasswordHash = "x", SchoolId = school.Id, ActiveRole = role, Roles = [role],
         };
-        db.Users.Add(admin);
+        var admin = Account("reditel", adminRole);
+        var deputy = Account("zastupce", adminRole);
+        var teacher = Account("ucitel", teacherRole);
+        db.Users.AddRange(admin, deputy, teacher);
         await db.SaveChangesAsync();
-        return new World(school, superAdmin, other, admin);
+        return new World(school, superAdmin, other, admin, deputy, teacher);
     }
 
     private static T Ok<T>(ActionResult<T> result) =>
         Assert.IsAssignableFrom<T>(Assert.IsType<OkObjectResult>(result.Result).Value);
 
-    private async Task<int> SchoolTicketAsync(World w, bool allowAccess = false)
+    private static ObjectResult Problem<T>(ActionResult<T> result) => Assert.IsAssignableFrom<ObjectResult>(result.Result);
+
+    private async Task<int> SchoolTicketAsync(World w, User? author = null)
     {
         using var db = SchoolDb(w.School.Id);
-        return Ok(await Tickets(db, w.Admin.Id, w.School.Id)
-            .CreateSchoolTicket(new CreateSchoolTicketRequest("Import žáků", "Z **Bakalářů**", allowAccess))).Ticket.Id;
+        return Ok(await School(db, w, author)
+            .CreateSchoolTicket(new CreateSchoolTicketRequest("Import žáků", "Z **Bakalářů**"))).Ticket.Id;
+    }
+
+    private async Task<int> SessionAsync(World w, int ticketId)
+    {
+        using var db = SuperAdminDb();
+        var session = new SupportSession
+        {
+            SuperAdminUserId = w.SuperAdmin.Id, SuperAdminUsername = "superadmin", SchoolId = w.School.Id,
+            TicketId = ticketId, TicketTitle = "Import žáků", TicketAuthorUserId = w.Admin.Id,
+            StartedAt = clock.Now, ExpiresAt = clock.Now.AddHours(2), DisconnectedAt = clock.Now,
+        };
+        db.SupportSessions.Add(session);
+        await db.SaveChangesAsync();
+        return session.Id;
     }
 
     [Fact]
@@ -102,306 +129,200 @@ public class SupportTicketsControllerTests
     {
         var w = await SeedAsync();
         using var db = SchoolDb(w.School.Id);
-        Assert.Equal(new SupportPlanDto("Paid", "Placený", 2), await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolPlan());
+        Assert.Equal(new SupportPlanDto("Paid", "Placený", 2), await School(db, w).GetSchoolPlan());
     }
 
     [Fact]
-    public async Task TicketGoesFromTheSchoolThroughItsAssigneeToResolvedWithTheThreadOnBothSides()
+    public async Task TheSchoolAsksAndAnswersInTheBackofficeAsItsUserWithTheThreadTheBackofficeKeeps()
     {
         var w = await SeedAsync();
-        using (var db = SchoolDb(w.School.Id))
-        {
-            Assert.IsNotType<OkObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
-                .CreateSchoolTicket(new CreateSchoolTicketRequest(" ", "x"))).Result);
-        }
-        var id = await SchoolTicketAsync(w);
+        using var db = SchoolDb(w.School.Id);
+        Assert.IsType<BadRequestObjectResult>((await School(db, w)
+            .CreateSchoolTicket(new CreateSchoolTicketRequest(" ", "x"))).Result);
+        Assert.IsType<BadRequestObjectResult>((await School(db, w)
+            .CreateSchoolTicket(new CreateSchoolTicketRequest(new string('x', 201), "x"))).Result);
+        Assert.Empty(backoffice.Calls);
 
-        using (var db = SuperAdminDb())
-        {
-            // Unassigned: every SuperAdmin hears of it.
-            var notification = db.Notifications.Single(n => n.UserId == w.SuperAdmin.Id);
-            Assert.Equal(NotificationType.SupportTicket, notification.Type);
-            Assert.Equal($"superadmin/support?ticket={id}", NotificationLinks.For(notification));
-            Assert.Single(db.Notifications.Where(n => n.UserId == w.Other.Id));
+        var created = Ok(await School(db, w)
+            .CreateSchoolTicket(new CreateSchoolTicketRequest(" Import žáků ", "Z **Bakalářů**", EstimateRequested: true)));
+        var id = created.Ticket.Id;
+        var call = Assert.Single(backoffice.Calls);
+        Assert.Equal((w.School.Id, "create", new TicketActor(w.Admin.Id, "reditel"), "Import žáků"),
+            (call.SchoolId, call.Action, call.By, call.Body));
+        Assert.Equal(["Created", "EstimateRequested"], created.Entries.Select(e => e.Kind));
 
-            var ticket = Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets(SupportTicketFilter.Unassigned)));
-            Assert.Equal(SupportTicketStatus.New, ticket.Status);
-            Assert.Equal("Placený", ticket.PlanName);
-            Assert.Equal(new DateOnly(2026, 11, 11), ticket.DueDate);
+        Assert.IsType<BadRequestObjectResult>((await School(db, w).AddSchoolMessage(id, new SupportTicketMessageRequest(" "))).Result);
+        backoffice.Support(id, t => t with { Entries = [.. t.Entries, backoffice.Entry("Message", "Pavel z podpory", true, "Pošlete export")] });
+        var answered = Ok(await School(db, w, w.Deputy).AddSchoolMessage(id, new SupportTicketMessageRequest(" Posílám ")));
+        Assert.Equal(new TicketActor(w.Deputy.Id, "zastupce"), backoffice.Calls[^1].By);
+        Assert.Equal("""{"text":"Posílám"}""", backoffice.Calls[^1].Body);
+        var support = answered.Entries.Single(e => e.BySupport);
+        Assert.False(support.CanEdit);
+        // A colleague with the same role may change it, as the author may.
+        Assert.True(answered.Entries.Single(e => e.Text == "Posílám").CanEdit);
+        Assert.True(Ok(await School(db, w).GetSchoolTicket(id)).Entries.Single(e => e.Text == "Posílám").CanEdit);
+        Assert.False(Ok(await School(db, w, w.Teacher).GetSchoolTicket(id)).Entries.Single(e => e.Text == "Posílám").CanEdit);
 
-            // Only the assignee changes the state; others still write to it.
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id)
-                .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.InProgress))).Result);
-            var assigned = Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id)).Ticket;
-            Assert.Equal(SupportTicketStatus.Assigned, assigned.Status);
-            Assert.Equal(w.SuperAdmin.Id, assigned.AssigneeUserId);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id).AssignTicket(id)).Result);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id)
-                .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.Resolved))).Result);
-            Ok(await Tickets(db, w.Other.Id).AddMessage(id, new SupportTicketMessageRequest("Zkus import znovu", Internal: true)));
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Interní poznámka"));
-            Assert.Empty(Ok(await Tickets(db, w.Other.Id).GetTickets(SupportTicketFilter.Mine)));
-            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets(SupportTicketFilter.Mine)));
-
-            Ok(await Tickets(db, w.SuperAdmin.Id).AddMessage(id, new SupportTicketMessageRequest("Pošlete export?")));
-            Ok(await Tickets(db, w.SuperAdmin.Id)
-                .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.WaitingForSchool)));
-        }
-
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var detail = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id));
-            Assert.Equal("superadmin", detail.Ticket.AssigneeName);
-            Assert.DoesNotContain(detail.Entries, e => e.Internal);
-            Assert.Contains(detail.Entries, e => e.Kind == SupportTicketEntryKind.Message && e.Text == "Pošlete export?");
-            var answered = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
-                .AddSchoolMessage(id, new SupportTicketMessageRequest("Posláno")));
-            Assert.Equal(SupportTicketStatus.Assigned, answered.Ticket.Status);
-        }
-
-        using (var db = SuperAdminDb())
-        {
-            // The assignee only now — not everyone.
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Odpověď školy"));
-            Assert.DoesNotContain(db.Notifications, n => n.UserId == w.Other.Id && n.Title.StartsWith("Odpověď školy"));
-            var detail = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id));
-            Assert.Contains(detail.Entries, e => e.Kind == SupportTicketEntryKind.Note);
-
-            clock.Now = clock.Now.AddDays(3);
-            Assert.True(Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets())).Overdue);
-            var resolved = Ok(await Tickets(db, w.SuperAdmin.Id)
-                .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.Resolved))).Ticket;
-            Assert.False(resolved.Overdue);
-            Assert.Empty(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
-            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets(SupportTicketFilter.All)));
-            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets(SupportTicketFilter.All, w.School.Id)));
-            Assert.Empty(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets(SupportTicketFilter.All, w.School.Id + 1)));
-            // Closed: no more messages to the school, notes still.
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id)
-                .AddMessage(id, new SupportTicketMessageRequest("Ještě"))).Result);
-            Ok(await Tickets(db, w.Other.Id).AddMessage(id, new SupportTicketMessageRequest("Poznámka", Internal: true)));
-        }
-
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var updates = db.Notifications
-                .Where(n => n.UserId == w.Admin.Id && n.Type == NotificationType.SupportTicketUpdate).ToList();
-            // An unread one about the same ticket is replaced by the newer.
-            Assert.Equal("Požadavek vyřešen: Import žáků", Assert.Single(updates).Title);
-            Assert.Equal($"admin?group=app&section=support&ticket={id}", NotificationLinks.For(updates[0]));
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
-                .CancelTicket(id, new CancelSupportTicketRequest("Už ne"))).Result);
-        }
+        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual([LiveGroups.Ticket(w.School.Id, id)]));
+        var listed = Assert.Single(Ok(await School(db, w).GetSchoolTickets()));
+        Assert.Equal(("Import žáků", SupportTicketStatus.New), (listed.Title, listed.Status));
     }
 
     [Fact]
-    public async Task ReleasingNeedsASummaryAndPutsTheTicketBackForTheOthers()
+    public async Task OnlyTheAuthorsRoleChangesAMessageAndNeverTheSupports()
     {
         var w = await SeedAsync();
         var id = await SchoolTicketAsync(w);
-        using var db = SuperAdminDb();
-        Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-        Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id)
-            .ReleaseTicket(id, new ReleaseSupportTicketRequest("x"))).Result);
-        Assert.IsNotType<OkObjectResult>((await Tickets(db, w.SuperAdmin.Id)
-            .ReleaseTicket(id, new ReleaseSupportTicketRequest(" "))).Result);
+        backoffice.Support(id, t => t with { Entries = [.. t.Entries, backoffice.Entry("Message", "Pavel z podpory", true, "Hotovo?")] });
+        using var db = SchoolDb(w.School.Id);
+        var mine = Ok(await School(db, w).AddSchoolMessage(id, new SupportTicketMessageRequest("Ještě ne"))).Entries
+            .Single(e => e.Text == "Ještě ne").Id;
+        var theirs = backoffice.Tickets[id].Entries.Single(e => e.BySupport).Id;
+        var calls = backoffice.Calls.Count;
 
-        var released = Ok(await Tickets(db, w.SuperAdmin.Id)
-            .ReleaseTicket(id, new ReleaseSupportTicketRequest("Import prověřen, chyba v exportu")));
-        Assert.Null(released.Ticket.AssigneeUserId);
-        Assert.Equal(SupportTicketStatus.New, released.Ticket.Status);
-        var summary = released.Entries.Single(e => e.Kind == SupportTicketEntryKind.Released);
-        Assert.True(summary.Internal);
-        Assert.Contains(db.Notifications, n => n.UserId == w.Other.Id && n.Title.StartsWith("Požadavek vrácen"));
-        Assert.DoesNotContain(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Požadavek vrácen"));
-        Assert.Equal(w.Other.Id, Ok(await Tickets(db, w.Other.Id).AssignTicket(id)).Ticket.AssigneeUserId);
+        Assert.IsType<BadRequestObjectResult>((await School(db, w, w.Teacher)
+            .EditSchoolEntry(id, mine, new EditSupportTicketEntryRequest("Hotovo"))).Result);
+        Assert.IsType<NotFoundResult>((await School(db, w).DeleteSchoolEntry(id, theirs)).Result);
+        Assert.Equal(calls, backoffice.Calls.Count);
+
+        Assert.Equal("Hotovo", Ok(await School(db, w, w.Deputy)
+            .EditSchoolEntry(id, mine, new EditSupportTicketEntryRequest(" Hotovo "))).Entries.Single(e => e.Id == mine).Text);
+        Assert.True(Ok(await School(db, w).DeleteSchoolEntry(id, mine)).Entries.Single(e => e.Id == mine).Deleted);
     }
 
     [Fact]
-    public async Task HandingOverGivesTheTicketToAnotherSuperAdminWhoHearsOfIt()
+    public async Task TheAuthorConfirmsAResolvedTicketAnyAdminWhenTheAuthorIsNoLongerOne()
     {
         var w = await SeedAsync();
         var id = await SchoolTicketAsync(w);
-        using var db = SuperAdminDb();
-        Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id)
-            .AssignTicket(id, new AssignSupportTicketRequest(w.Admin.Id))).Result);
+        backoffice.Support(id, t => t with { Status = SupportTicketStatus.Resolved });
+        using (var db = SchoolDb(w.School.Id))
+        {
+            Assert.False(Ok(await School(db, w, w.Deputy).GetSchoolTicket(id)).Ticket.CanConfirm);
+            Assert.Equal("O vyřešení rozhoduje autor požadavku (reditel).", Assert.IsType<BadRequestObjectResult>(
+                (await School(db, w, w.Deputy).CloseTicket(id)).Result).Value);
+            Assert.True(Ok(await School(db, w).GetSchoolTicket(id)).Ticket.CanConfirm);
+            Assert.IsType<BadRequestObjectResult>((await School(db, w).ReturnTicket(id, new ReturnSupportTicketRequest(""))).Result);
+            Assert.Equal(SupportTicketStatus.Assigned, Ok(await School(db, w)
+                .ReturnTicket(id, new ReturnSupportTicketRequest("Nefunguje to"))).Ticket.Status);
+        }
 
-        var handed = Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id, new AssignSupportTicketRequest(w.Other.Id)));
-        Assert.Equal(w.Other.Id, handed.Ticket.AssigneeUserId);
-        Assert.Equal(SupportTicketStatus.Assigned, handed.Ticket.Status);
-        var entry = handed.Entries.Single(e => e.Kind == SupportTicketEntryKind.HandedOver);
-        Assert.Equal("druhy", entry.Text);
-        Assert.Equal("superadmin", entry.AuthorName);
-        Assert.Contains(db.Notifications, n => n.UserId == w.Other.Id && n.Title.StartsWith("Předán vám požadavek"));
-        // Taken care of — not to be taken or handed over again.
-        Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id).AssignTicket(id)).Result);
+        backoffice.Support(id, t => t with { Status = SupportTicketStatus.Resolved });
+        using (var db = SchoolDb(w.School.Id))
+        {
+            var author = db.Users.Include(u => u.Roles).Single(u => u.Id == w.Admin.Id);
+            author.Roles = [db.Roles.Single(r => r.SchoolId == w.School.Id && r.BuiltIn == UserRole.Teacher)];
+            await db.SaveChangesAsync();
+            Assert.Equal(SupportTicketStatus.Closed, Ok(await School(db, w, w.Deputy).CloseTicket(id)).Ticket.Status);
+        }
     }
 
     [Fact]
-    public async Task AnotherSuperAdminTakesTheTicketFromItsAssigneeWhoHearsOfItAndWhoseVisitEnds()
+    public async Task CancellingEndsTheVisitsAndInSupportModeTheSchoolManagesNothing()
     {
         var w = await SeedAsync(SupportAccess.Always);
         var id = await SchoolTicketAsync(w);
-        using var db = SuperAdminDb();
-        Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-        Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id));
-        // Not one's own, and only from the assignee one saw.
-        Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id)
-            .AssignTicket(id, new AssignSupportTicketRequest(TakeOverFrom: w.SuperAdmin.Id))).Result);
-        Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id)
-            .AssignTicket(id, new AssignSupportTicketRequest(TakeOverFrom: w.Other.Id))).Result);
-
-        clock.Now = clock.Now.AddMinutes(3);
-        var taken = Ok(await Tickets(db, w.Other.Id)
-            .AssignTicket(id, new AssignSupportTicketRequest(TakeOverFrom: w.SuperAdmin.Id)));
-        Assert.Equal(w.Other.Id, taken.Ticket.AssigneeUserId);
-        Assert.Equal(SupportTicketStatus.Assigned, taken.Ticket.Status);
-        var entry = taken.Entries.Last(e => e.Kind == SupportTicketEntryKind.Assigned);
-        Assert.Equal("superadmin", entry.Text);
-        Assert.Equal("druhy", entry.AuthorName);
-        Assert.Equal(clock.Now, db.SupportSessions.Single().EndedAt);
-        Assert.Contains(db.Notifications,
-            n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Požadavek vám převzal(a) druhy"));
-    }
-
-    [Fact]
-    public async Task SuperAdminOpensATicketForASchoolAndTakesCareOfIt()
-    {
-        var w = await SeedAsync();
-        using (var db = SuperAdminDb())
-        {
-            Assert.IsNotType<OkObjectResult>((await Tickets(db, w.SuperAdmin.Id)
-                .CreateTicket(new CreateSupportTicketRequest(w.School.Id + 1, "Kontrola", ""))).Result);
-            var detail = Ok(await Tickets(db, w.SuperAdmin.Id)
-                .CreateTicket(new CreateSupportTicketRequest(w.School.Id, "Kontrola rozvrhu", "Chybí **úvazky**")));
-            Assert.True(detail.Ticket.CreatedBySupport);
-            Assert.Equal(w.SuperAdmin.Id, detail.Ticket.AssigneeUserId);
-            Assert.Equal(SupportTicketStatus.Assigned, detail.Ticket.Status);
-        }
-        using (var schoolDb = SchoolDb(w.School.Id))
-        {
-            var ticket = Assert.Single(Ok(await Tickets(schoolDb, w.Admin.Id, w.School.Id).GetSchoolTickets()));
-            Assert.Equal("Kontrola rozvrhu", ticket.Title);
-            Assert.Contains(schoolDb.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Podpora založila"));
-        }
-    }
-
-    [Fact]
-    public async Task WithApprovalOnlyTheAssigneeEntersWhileTheTicketAllowsItAndRevokingEndsTheVisit()
-    {
-        var w = await SeedAsync();
-        var id = await SchoolTicketAsync(w, allowAccess: true);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            var ticket = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Ticket;
-            Assert.Equal(clock.Now.AddMinutes(2), ticket.AccessUntil);
-            // Allowed, but only for whoever takes care of it.
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id).Enter(id)).Result);
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id).Enter(id)).Result);
-            var started = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id));
-            Assert.Equal("test", started.SchoolSlug);
-            sessionId = started.SessionId;
-            Assert.Equal(id, db.SupportSessions.Single().TicketId);
-            Assert.Equal(SupportTicketStatus.InProgress, db.SupportTickets.Single().Status);
-            // Made by entering — it goes with the visit.
-            Assert.Equal(sessionId, db.SupportTicketEntries
-                .Single(e => e.Status == SupportTicketStatus.InProgress).SessionId);
-            // Already allowed — nothing to ask for.
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id).RequestAccess(id)).Result);
-        }
-        Assert.Equal(StatusCodes.Status200OK, await GuardAsync(sessionId));
+        var sessionId = await SessionAsync(w, id);
         using (var db = SchoolDb(w.School.Id))
         {
-            db.AuditLogEntries.AddRange(
-                new Soovioo.Api.Audit.AuditLogEntry
-                {
-                    At = clock.Now.AddMinutes(1), SchoolId = w.School.Id, SupportSessionId = sessionId,
-                    Method = "PUT", Path = "/api/grades/1", Area = "Známky", Description = "Upravena známka",
-                    StatusCode = 200,
-                },
-                // Logged before it had a description.
-                new Soovioo.Api.Audit.AuditLogEntry
-                {
-                    At = clock.Now.AddMinutes(1), SchoolId = w.School.Id, SupportSessionId = sessionId,
-                    Method = "POST", Path = "/api/timetable-versions/3/generation", Area = "Rozvrh", StatusCode = 202,
-                },
-                // Entering isn't a change in the school.
-                new Soovioo.Api.Audit.AuditLogEntry
-                {
-                    At = clock.Now, SchoolId = w.School.Id, SupportSessionId = sessionId,
-                    Method = "POST", Path = $"/api/support-tickets/{id}/enter", Area = "support", StatusCode = 200,
-                });
-            await db.SaveChangesAsync();
-        }
+            var supportMode = new Claim(SupportClaims.SessionId, sessionId.ToString());
+            Assert.Equal(StatusCodes.Status403Forbidden, Problem(await School(db, w, null, supportMode)
+                .CreateSchoolTicket(new CreateSchoolTicketRequest("A", ""))).StatusCode);
+            Assert.Equal(StatusCodes.Status403Forbidden, Problem(await School(db, w, null, supportMode)
+                .AddSchoolMessage(id, new SupportTicketMessageRequest("A"))).StatusCode);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>((await Policy(db, w.Admin.Id, w.School.Id, supportMode)
+                .SetAccess(new SetSupportAccessRequest(SupportAccess.Always))).Result).StatusCode);
 
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var refused = await Tickets(db, w.Admin.Id, w.School.Id, new Claim(SupportClaims.SessionId, "1")).RevokeAccess(id);
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(refused.Result).StatusCode);
-            var revoked = Ok(await Tickets(db, w.Admin.Id, w.School.Id).RevokeAccess(id));
-            Assert.Null(revoked.Ticket.AccessUntil);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).RevokeAccess(id)).Result);
-            // The visit is in the thread on the school's side, in time order.
-            var visit = revoked.Entries.Where(e => e.SessionId == sessionId).ToList();
-            Assert.Equal(
-                [SupportTicketEntryKind.SessionStarted, SupportTicketEntryKind.StatusChanged,
-                    SupportTicketEntryKind.SessionEnded, SupportTicketEntryKind.SessionAction,
-                    SupportTicketEntryKind.SessionAction],
-                visit.Select(e => e.Kind));
-            // In words; the requests are the SuperAdmins' only.
-            Assert.Equal(["Upravena známka", "Rozvrh: změna"], visit.Skip(3).Select(e => e.Text));
-            Assert.Equal(200, visit[3].StatusCode);
-            Assert.All(visit, e => Assert.Null(e.Request));
-            Assert.Equal(revoked.Entries.OrderBy(e => e.At), revoked.Entries);
+            Assert.IsType<BadRequestObjectResult>((await School(db, w).CancelTicket(id, new CancelSupportTicketRequest(" "))).Result);
+            Assert.Equal(SupportTicketStatus.Cancelled, Ok(await School(db, w)
+                .CancelTicket(id, new CancelSupportTicketRequest(" Vyřešili jsme sami "))).Ticket.Status);
+            Assert.Equal("""{"reason":"Vyřešili jsme sami"}""", backoffice.Calls[^1].Body);
+            Assert.IsType<BadRequestObjectResult>((await School(db, w).CancelTicket(id, new CancelSupportTicketRequest("Znovu"))).Result);
         }
         Assert.Equal(StatusCodes.Status401Unauthorized, await GuardAsync(sessionId));
-
         using (var db = SuperAdminDb())
         {
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola odebrala"));
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id).Enter(id)).Result);
-            var asked = Ok(await Tickets(db, w.SuperAdmin.Id).RequestAccess(id));
-            Assert.Equal(
-                ["PUT /api/grades/1", "POST /api/timetable-versions/3/generation"],
-                asked.Entries.Where(e => e.Kind == SupportTicketEntryKind.SessionAction).Select(e => e.Request));
-            Assert.Equal(clock.Now, asked.Ticket.AccessRequestedAt);
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Podpora žádá o vstup"));
-            var granted = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GrantAccess(id));
-            Assert.Null(granted.Ticket.AccessRequestedAt);
-            Assert.Equal(clock.Now.AddMinutes(2), granted.Ticket.AccessUntil);
-        }
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id));
-            clock.Now = clock.Now.AddMinutes(3);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id).Enter(id)).Result);
-            Assert.Null(Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Ticket.AccessUntil);
+            var session = db.SupportSessions.Single();
+            Assert.Equal("reditel", session.EndedBy);
+            Assert.Equal("Škola požadavek zrušila.\n\n**Důvod:** Vyřešili jsme sami", session.EndReason);
         }
     }
 
-    [Theory]
-    [InlineData(SupportAccess.Always, true)]
-    [InlineData(SupportAccess.Never, false)]
-    public async Task AlwaysNeedsNoAllowingNeverLetsNobodyIn(SupportAccess access, bool entersRightAway)
+    [Fact]
+    public async Task OnlyTheSchoolsAdminDecidesTheSupportsEstimates()
     {
-        var w = await SeedAsync(access);
-        var id = await SchoolTicketAsync(w, allowAccess: true);
-        using (var db = SuperAdminDb())
+        var w = await SeedAsync();
+        var id = await SchoolTicketAsync(w);
+        using var db = SchoolDb(w.School.Id);
+        Assert.False(Ok(await School(db, w, w.Teacher).GetSchoolTicket(id)).Ticket.CanDecideEstimates);
+        Assert.Equal(StatusCodes.Status403Forbidden, Problem(await School(db, w, w.Teacher)
+            .ApproveEstimate(id, 5, new EstimateDecisionRequest(null))).StatusCode);
+
+        Assert.True(Ok(await School(db, w).GetSchoolTicket(id)).Ticket.CanDecideEstimates);
+        Ok(await School(db, w).RejectEstimate(id, 5, new EstimateDecisionRequest(" Moc drahé ")));
+        Assert.Equal(("POST estimates/5/reject", """{"note":"Moc drahé"}"""), (backoffice.Calls[^1].Action, backoffice.Calls[^1].Body));
+        Ok(await School(db, w, w.Teacher).DisputeTime(id, 7, new DisputeTimeRequest("Bug", " Chyba aplikace ")));
+        Assert.Equal(("POST time/7/dispute", """{"category":"Bug","reason":"Chyba aplikace"}"""),
+            (backoffice.Calls[^1].Action, backoffice.Calls[^1].Body));
+        Ok(await School(db, w, w.Teacher).RequestEstimate(id));
+        Assert.Equal("POST request-estimate", backoffice.Calls[^1].Action);
+    }
+
+    [Fact]
+    public async Task TheBackofficesRefusalReachesTheSchoolAndWithoutItTheSupportIsUnavailable()
+    {
+        var w = await SeedAsync();
+        var id = await SchoolTicketAsync(w);
+        using var db = SchoolDb(w.School.Id);
+        var refused = Problem(await School(db, w).CloseTicket(id));
+        Assert.Equal(StatusCodes.Status409Conflict, refused.StatusCode);
+        Assert.Equal("Uzavřít jde jen vyřešený požadavek.", Assert.IsType<ProblemDetails>(refused.Value).Detail);
+        Assert.Equal(StatusCodes.Status404NotFound, Problem(await School(db, w).GetSchoolTicket(id + 1)).StatusCode);
+
+        backoffice.Down = true;
+        var down = Problem(await School(db, w).GetSchoolTickets());
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, down.StatusCode);
+        Assert.Equal(SupportTicketsController.Unavailable, Assert.IsType<ProblemDetails>(down.Value).Detail);
+
+        var none = Problem(await Tickets(db, w.Admin.Id, w.School.Id, FakeBackofficeTickets.NotConnected()).GetSchoolTickets());
+        Assert.Equal(StatusCodes.Status404NotFound, none.StatusCode);
+    }
+
+    [Fact]
+    public async Task WhatTheSupportDidTheSchoolsAdminsHearOfAndAnOpenDetailReloads()
+    {
+        var w = await SeedAsync();
+        var id = await SchoolTicketAsync(w);
+        backoffice.Support(id, t => t with
         {
-            Assert.Null(Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Ticket.AccessUntil);
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            Assert.Equal(entersRightAway, (await Tickets(db, w.SuperAdmin.Id).Enter(id)).Result is OkObjectResult);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.SuperAdmin.Id).RequestAccess(id)).Result);
-        }
+            Status = SupportTicketStatus.WaitingForSchool,
+            Entries = [.. t.Entries, backoffice.Entry("Message", "Pavel z podpory", true, "Pošlete **export**")],
+        });
+        var entryId = backoffice.Tickets[id].Entries[^1].Id;
+        hub.Sent.Clear();
         using (var db = SchoolDb(w.School.Id))
         {
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).GrantAccess(id)).Result);
+            var changes = new SupportTicketChanges(db, backoffice, new Notifier(db, clock), hub.Publisher(),
+                NullLogger<SupportTicketChanges>.Instance);
+            Assert.Equal(StatusCodes.Status200OK, (await changes.HandleAsync(Payload("Message", entryId))).StatusCode);
+            Assert.Equal(
+                [(w.Admin.Id, "Zpráva od podpory: Import žáků", "Pošlete **export**", id), (w.Deputy.Id, "Zpráva od podpory: Import žáků", "Pošlete **export**", id)],
+                Heard(db));
+            Assert.Equal(StatusCodes.Status200OK, (await changes.HandleAsync(Payload("StatusChanged"))).StatusCode);
+            Assert.All(Heard(db), n => Assert.Equal("Podpora čeká na vaši odpověď: Import žáků", n.Title));
+            Assert.Equal(StatusCodes.Status200OK, (await changes.HandleAsync(Payload("Time"))).StatusCode);
+            Assert.Equal(StatusCodes.Status422UnprocessableEntity, (await changes.HandleAsync(
+                JsonDocument.Parse($$"""{"ticketId":{{id}},"schoolId":999,"change":"Message"}""").RootElement)).StatusCode);
         }
+        Assert.Equal(3, hub.Sent.Count(s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual([LiveGroups.Ticket(w.School.Id, id)])));
+
+        List<(int UserId, string Title, string? Body, int? TargetId)> Heard(AppDbContext db) => db.Notifications
+            .IgnoreQueryFilters().Where(n => n.Type == NotificationType.SupportTicketUpdate && n.ReadAt == null)
+            .OrderBy(n => n.UserId).Select(n => new { n.UserId, n.Title, n.Body, n.TargetId }).ToList()
+            .Select(n => (n.UserId, n.Title, n.Body, n.TargetId)).ToList();
+
+        JsonElement Payload(string change, int? entry = null) => JsonDocument.Parse(JsonSerializer.Serialize(
+            new { ticketId = id, schoolId = w.School.Id, change, status = "WaitingForSchool", entryId = entry })).RootElement;
     }
 
     [Fact]
@@ -409,12 +330,7 @@ public class SupportTicketsControllerTests
     {
         var w = await SeedAsync(SupportAccess.Always);
         var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-        }
+        var sessionId = await SessionAsync(w, id);
         using (var db = SchoolDb(w.School.Id))
         {
             SupportController Leaving() => new(
@@ -426,14 +342,15 @@ public class SupportTicketsControllerTests
                 },
             };
             Assert.IsNotType<NoContentResult>(await Leaving().EndCurrentSession(
-                new EndSupportSessionRequest(new string('x', SupportTicket.MaxTextLength + 1))));
+                new EndSupportSessionRequest(new string('x', SupportTicketsController.MaxTextLength + 1))));
             Assert.IsType<NoContentResult>(await Leaving().EndCurrentSession(
                 new EndSupportSessionRequest("  Import **opraven** ")));
 
-            var visit = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Entries
-                .Single(e => e.Kind == SupportTicketEntryKind.Visit);
-            Assert.Equal("Import **opraven**", visit.Text);
-            Assert.True(visit.BySupport);
+            var entries = Ok(await School(db, w).GetSchoolTicket(id)).Entries;
+            var visit = entries.Single(e => e.Kind == nameof(SupportTicketEntryKind.Visit));
+            Assert.Equal(("Import **opraven**", true, sessionId), (visit.Text, visit.BySupport, visit.SessionId));
+            Assert.Contains(entries, e => e.Kind == nameof(SupportTicketEntryKind.SessionStarted) && e.SessionId == sessionId);
+            Assert.DoesNotContain(entries, e => e.Kind == nameof(SupportTicketEntryKind.SessionEnded));
         }
         using (var db = SuperAdminDb())
         {
@@ -450,181 +367,11 @@ public class SupportTicketsControllerTests
     }
 
     [Fact]
-    public async Task InTheSchoolTheSuperAdminReadsAndWritesToTheTicketOfTheVisit()
-    {
-        var w = await SeedAsync(SupportAccess.Always);
-        var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            Ok(await Tickets(db, w.SuperAdmin.Id).AddMessage(id, new SupportTicketMessageRequest("Tajné", Internal: true)));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var supportMode = new Claim(SupportClaims.SessionId, sessionId.ToString());
-            Assert.IsType<NotFoundResult>((await Tickets(db, w.Admin.Id, w.School.Id).GetSessionTicket()).Result);
-            var ticket = Ok(await Tickets(db, w.SuperAdmin.Id, w.School.Id, supportMode).GetSessionTicket());
-            Assert.Equal(id, ticket.Ticket.Id);
-            Assert.Contains(ticket.Entries, e => e.Text == "Tajné");
-
-            var noted = Ok(await Tickets(db, w.SuperAdmin.Id, w.School.Id, supportMode)
-                .AddSessionMessage(new SupportTicketMessageRequest("Zkouším import", Internal: true)));
-            Assert.Contains(noted.Entries, e => e.Kind == SupportTicketEntryKind.Note && e.Text == "Zkouším import");
-            var sent = Ok(await Tickets(db, w.SuperAdmin.Id, w.School.Id, supportMode)
-                .AddSessionMessage(new SupportTicketMessageRequest("Pošlete soubor?")));
-            var message = sent.Entries.Single(e => e.Text == "Pošlete soubor?");
-            Assert.True(message.BySupport);
-            Assert.Equal("superadmin", message.AuthorName);
-            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Zpráva od podpory"));
-        }
-    }
-
-    [Fact]
-    public async Task ASuperAdminMakesAMessageANoteAndBackTheSchoolsNotificationsFollow()
-    {
-        var w = await SeedAsync();
-        var id = await SchoolTicketAsync(w);
-        int noteId;
-        using (var db = SuperAdminDb())
-        {
-            var noted = Ok(await Tickets(db, w.SuperAdmin.Id)
-                .AddMessage(id, new SupportTicketMessageRequest("Zkusíme import znovu", Internal: true)));
-            var note = noted.Entries.Single(e => e.Kind == SupportTicketEntryKind.Note);
-            noteId = note.Id;
-            Assert.True(note.CanEdit);
-            Assert.False(Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries
-                .Single(e => e.Kind == SupportTicketEntryKind.Created).CanEdit);
-
-            // Any SuperAdmin, not only the author.
-            var published = Ok(await Tickets(db, w.Other.Id)
-                .SetEntryInternal(id, noteId, new SetSupportTicketEntryInternalRequest(false)));
-            var message = published.Entries.Single(e => e.Id == noteId);
-            Assert.Equal(SupportTicketEntryKind.Message, message.Kind);
-            Assert.False(message.Internal);
-            Assert.Equal(clock.Now, message.EditedAt);
-            var change = Assert.Single(message.Revisions!);
-            Assert.Equal(SupportTicketEntryChange.MadePublic, change.Change);
-            Assert.Equal("druhy", change.AuthorName);
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var seen = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Entries.Single(e => e.Id == noteId);
-            Assert.Equal("Zkusíme import znovu", seen.Text);
-            // The school doesn't learn it was a note, nor may change it.
-            Assert.Null(seen.EditedAt);
-            Assert.Null(seen.Revisions);
-            Assert.False(seen.CanEdit);
-            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Zpráva od podpory"));
-        }
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).SetEntryInternal(id, noteId, new SetSupportTicketEntryInternalRequest(true)));
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            Assert.DoesNotContain(Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Entries,
-                e => e.Id == noteId);
-            Assert.DoesNotContain(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Zpráva od podpory"));
-        }
-    }
-
-    [Fact]
-    public async Task TheAuthorsSideEditsAndDeletesAMessageTheChangesShownToItAndTheSuperAdmins()
-    {
-        var w = await SeedAsync();
-        var id = await SchoolTicketAsync(w);
-        User colleague, teacher;
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var roles = db.Roles.ToList();
-            colleague = new User
-            {
-                Username = "zastupce", PasswordHash = "x", SchoolId = w.School.Id,
-                ActiveRole = roles.Single(r => r.BuiltIn == UserRole.Admin),
-            };
-            teacher = new User
-            {
-                Username = "ucitel", PasswordHash = "x", SchoolId = w.School.Id,
-                ActiveRole = roles.Single(r => r.BuiltIn == UserRole.Teacher),
-            };
-            db.Users.AddRange(colleague, teacher);
-            await db.SaveChangesAsync();
-        }
-        int messageId;
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var sent = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
-                .AddSchoolMessage(id, new SupportTicketMessageRequest("Importujeme z Bakalářů")));
-            messageId = sent.Entries.Single(e => e.Kind == SupportTicketEntryKind.Message).Id;
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, teacher.Id, w.School.Id)
-                .EditSchoolEntry(id, messageId, new EditSupportTicketEntryRequest("Jinak"))).Result);
-            Assert.False(Ok(await Tickets(db, teacher.Id, w.School.Id).GetSchoolTicket(id)).Entries
-                .Single(e => e.Id == messageId).CanEdit);
-
-            // A colleague with the same role — the support, having read it, hears of it again.
-            foreach (var read in db.Notifications.IgnoreQueryFilters().Where(n => n.UserId == w.SuperAdmin.Id))
-            {
-                read.ReadAt = clock.Now;
-            }
-            await db.SaveChangesAsync();
-            clock.Now = clock.Now.AddMinutes(5);
-            var edited = Ok(await Tickets(db, colleague.Id, w.School.Id)
-                .EditSchoolEntry(id, messageId, new EditSupportTicketEntryRequest("Importujeme z Excelu")))
-                .Entries.Single(e => e.Id == messageId);
-            Assert.Equal("Importujeme z Excelu", edited.Text);
-            Assert.True(edited.CanEdit);
-            var change = Assert.Single(edited.Revisions!);
-            Assert.Equal(SupportTicketEntryChange.Edited, change.Change);
-            Assert.Equal("Importujeme z Bakalářů", change.Text);
-            Assert.Equal("zastupce", change.AuthorName);
-            var other = Ok(await Tickets(db, teacher.Id, w.School.Id).GetSchoolTicket(id)).Entries
-                .Single(e => e.Id == messageId);
-            Assert.Null(other.Revisions);
-            Assert.Null(other.EditedAt);
-        }
-        using (var db = SuperAdminDb())
-        {
-            // The support's notification says what it says now.
-            var answer = Assert.Single(db.Notifications,
-                n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Odpověď školy"));
-            Assert.Equal("Importujeme z Excelu", answer.Body);
-            Assert.Null(answer.ReadAt);
-            Assert.IsType<NotFoundResult>((await Tickets(db, w.SuperAdmin.Id)
-                .EditEntry(id, messageId, new EditSupportTicketEntryRequest("x"))).Result);
-            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries
-                .Single(e => e.Id == messageId).Revisions!);
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var deleted = Ok(await Tickets(db, w.Admin.Id, w.School.Id).DeleteSchoolEntry(id, messageId))
-                .Entries.Single(e => e.Id == messageId);
-            Assert.True(deleted.Deleted);
-            Assert.Null(deleted.Text);
-            Assert.False(deleted.CanEdit);
-            Assert.Equal(2, deleted.Revisions!.Count);
-            Assert.DoesNotContain(Ok(await Tickets(db, teacher.Id, w.School.Id).GetSchoolTicket(id)).Entries,
-                e => e.Id == messageId);
-        }
-        using (var db = SuperAdminDb())
-        {
-            Assert.True(Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries.Single(e => e.Id == messageId).Deleted);
-            Assert.DoesNotContain(db.Notifications, n => n.Title.StartsWith("Odpověď školy"));
-        }
-    }
-
-    [Fact]
     public async Task EachRequestOfAVisitMarksItSeenOnceAMinute()
     {
         var w = await SeedAsync(SupportAccess.Always);
         var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-        }
+        var sessionId = await SessionAsync(w, id);
         var started = clock.Now;
         Assert.Equal(StatusCodes.Status200OK, await GuardAsync(sessionId));
         clock.Now = started.AddSeconds(30);
@@ -635,11 +382,11 @@ public class SupportTicketsControllerTests
         }
         clock.Now = started.AddMinutes(20);
         await GuardAsync(sessionId);
-        using (var db = SuperAdminDb())
+        using (var db = SchoolDb(w.School.Id))
         {
-            Assert.Equal(clock.Now, db.SupportSessions.Single().LastSeenAt);
-            var visit = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries
-                .Single(e => e.Kind == SupportTicketEntryKind.SessionStarted);
+            Assert.Equal(clock.Now, db.SupportSessions.IgnoreQueryFilters().Single().LastSeenAt);
+            var visit = Ok(await School(db, w).GetSchoolTicket(id)).Entries
+                .Single(e => e.Kind == nameof(SupportTicketEntryKind.SessionStarted));
             Assert.Equal(started, visit.InactiveSince);
         }
     }
@@ -649,13 +396,7 @@ public class SupportTicketsControllerTests
     {
         var w = await SeedAsync(SupportAccess.Always);
         var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-            Assert.Equal(clock.Now, db.SupportSessions.Single().DisconnectedAt);
-        }
+        var sessionId = await SessionAsync(w, id);
         var started = clock.Now;
         await SetDisconnectedAsync(null);
         clock.Now = started.AddMinutes(5);
@@ -667,9 +408,6 @@ public class SupportTicketsControllerTests
         {
             await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
             Assert.Equal(started.AddHours(2), db.SupportSessions.Single().ExpiresAt);
-            var visit = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries
-                .Single(e => e.Kind == SupportTicketEntryKind.SessionStarted);
-            Assert.Equal(started.AddMinutes(5), visit.InactiveSince);
         }
 
         clock.Now = started.AddMinutes(20);
@@ -677,9 +415,12 @@ public class SupportTicketsControllerTests
         {
             await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
             Assert.Equal(started.AddMinutes(5), db.SupportSessions.Single().ExpiresAt);
-            var entries = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(id)).Entries;
-            Assert.Null(entries.Single(e => e.Kind == SupportTicketEntryKind.SessionStarted).InactiveSince);
-            Assert.Equal(started.AddMinutes(5), entries.Single(e => e.Kind == SupportTicketEntryKind.SessionExpired).At);
+        }
+        using (var db = SchoolDb(w.School.Id))
+        {
+            var entries = Ok(await School(db, w).GetSchoolTicket(id)).Entries;
+            Assert.Null(entries.Single(e => e.Kind == nameof(SupportTicketEntryKind.SessionStarted)).InactiveSince);
+            Assert.Equal(started.AddMinutes(5), entries.Single(e => e.Kind == nameof(SupportTicketEntryKind.SessionExpired)).At);
         }
         Assert.Equal(StatusCodes.Status401Unauthorized, await GuardAsync(sessionId));
 
@@ -692,39 +433,12 @@ public class SupportTicketsControllerTests
     }
 
     [Fact]
-    public async Task AVisitStillMakingRequestsWithoutTheLiveConnectionGoesOn()
-    {
-        var w = await SeedAsync(SupportAccess.Always);
-        var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-        }
-        var started = clock.Now;
-        clock.Now = started.AddMinutes(10);
-        await GuardAsync(sessionId);
-        clock.Now = started.AddMinutes(20);
-        using (var db = SuperAdminDb())
-        {
-            await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
-            Assert.Equal(started.AddHours(2), db.SupportSessions.Single().ExpiresAt);
-        }
-        Assert.Equal(StatusCodes.Status200OK, await GuardAsync(sessionId));
-    }
-
-    [Fact]
     public async Task AVisitRunningOutTellsItsTabTheTicketAndTheBannersOnce()
     {
         var w = await SeedAsync(SupportAccess.Always);
         var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-        }
+        var sessionId = await SessionAsync(w, id);
+        hub.Sent.Clear();
         var started = clock.Now;
         clock.Now = started.AddHours(2).AddSeconds(-30);
         await GuardAsync(sessionId);
@@ -739,11 +453,9 @@ public class SupportTicketsControllerTests
         {
             await new SupportSessionIdleJob(db, hub.Publisher(), clock).RunAsync();
         }
-        Assert.Contains(hub.Sent, s => s.Method == Soovioo.Api.Live.LiveEvents.Support
-                                       && s.To.SequenceEqual([Soovioo.Api.Live.LiveGroups.Session(sessionId)]));
-        Assert.Contains(hub.Sent, s => s.Method == Soovioo.Api.Live.LiveEvents.Ticket);
-        Assert.Contains(hub.Sent, s => s.Method == Soovioo.Api.Live.LiveEvents.Counts
-                                       && s.To.SequenceEqual([w.Admin.Id.ToString()]));
+        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Support && s.To.SequenceEqual([LiveGroups.Session(sessionId)]));
+        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual([LiveGroups.Ticket(w.School.Id, id)]));
+        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Counts && s.To.SequenceEqual([w.Admin.Id.ToString()]));
 
         hub.Sent.Clear();
         clock.Now = started.AddHours(2).AddMinutes(3);
@@ -755,269 +467,13 @@ public class SupportTicketsControllerTests
     }
 
     [Fact]
-    public async Task CancellingEndsTheVisitsAndInSupportModeTheSchoolManagesNothing()
-    {
-        var w = await SeedAsync(SupportAccess.Always);
-        var id = await SchoolTicketAsync(w);
-        int sessionId;
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            sessionId = Ok(await Tickets(db, w.SuperAdmin.Id).Enter(id)).SessionId;
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var supportMode = new Claim(SupportClaims.SessionId, sessionId.ToString());
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id, supportMode)
-                .CreateSchoolTicket(new CreateSchoolTicketRequest("A", ""))).Result).StatusCode);
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id, supportMode)
-                .AddSchoolMessage(id, new SupportTicketMessageRequest("A"))).Result).StatusCode);
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>((await Policy(db, w.Admin.Id, w.School.Id, supportMode)
-                .SetAccess(new SetSupportAccessRequest(SupportAccess.Always))).Result).StatusCode);
-            Assert.Equal(SupportAccess.Never, Ok(await Policy(db, w.Admin.Id, w.School.Id)
-                .SetAccess(new SetSupportAccessRequest(SupportAccess.Never))).Access);
-
-            Assert.IsNotType<OkObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
-                .CancelTicket(id, new CancelSupportTicketRequest(" "))).Result);
-            var cancelled = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
-                .CancelTicket(id, new CancelSupportTicketRequest(" Vyřešili jsme sami ")));
-            Assert.Equal(SupportTicketStatus.Cancelled, cancelled.Ticket.Status);
-            var entry = cancelled.Entries.Single(e => e.Status == SupportTicketStatus.Cancelled);
-            Assert.Equal("Vyřešili jsme sami", entry.Text);
-        }
-        Assert.Equal(StatusCodes.Status401Unauthorized, await GuardAsync(sessionId));
-        using (var db = SuperAdminDb())
-        {
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola zrušila")
-                                                   && n.Body == "Vyřešili jsme sami");
-            Assert.Empty(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
-        }
-    }
-
-    private async Task<User> AnotherAdminAsync(World w)
-    {
-        using var db = SuperAdminDb();
-        var adminRole = db.Roles.Single(r => r.SchoolId == w.School.Id && r.BuiltIn == UserRole.Admin);
-        var admin = new User { Username = "zastupce", PasswordHash = "x", SchoolId = w.School.Id, ActiveRole = adminRole };
-        db.Users.Add(admin);
-        await db.SaveChangesAsync();
-        return admin;
-    }
-
-    private async Task ResolveAsync(World w, int id)
-    {
-        using var db = SuperAdminDb();
-        if (db.SupportTickets.Single(t => t.Id == id).AssigneeUserId is null)
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-        }
-        Ok(await Tickets(db, w.SuperAdmin.Id)
-            .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.Resolved)));
-    }
-
-    [Fact]
-    public async Task TheAuthorClosesOrReturnsAResolvedTicketAndMayReopenItTillTheEndOfTheNextWorkingDay()
-    {
-        var w = await SeedAsync();
-        var deputy = await AnotherAdminAsync(w);
-        var id = await SchoolTicketAsync(w);
-        await ResolveAsync(w, id);
-
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var resolved = db.Notifications.Single(n => n.UserId == w.Admin.Id && n.Title.StartsWith("Požadavek vyřešen"));
-            Assert.Equal("Potvrďte vyřešení, nebo požadavek vraťte k řešení. Jinak se 9. 12. 2026 uzavře sám.", resolved.Body);
-
-            // Not the author's colleague: the author decides.
-            var seen = Ok(await Tickets(db, deputy.Id, w.School.Id).GetSchoolTicket(id)).Ticket;
-            Assert.False(seen.CanConfirm);
-            Assert.Equal(clock.Now.AddDays(30), seen.AutoClosesAt);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).CloseTicket(id)).Result);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id)
-                .ReturnTicket(id, new ReturnSupportTicketRequest("Nefunguje"))).Result);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
-                .AddSchoolMessage(id, new SupportTicketMessageRequest("Ještě"))).Result);
-
-            Assert.True(Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Ticket.CanConfirm);
-            // Saying why is required.
-            Assert.IsNotType<OkObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id)
-                .ReturnTicket(id, new ReturnSupportTicketRequest(" "))).Result);
-            var returned = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
-                .ReturnTicket(id, new ReturnSupportTicketRequest(" Import pořád padá ")));
-            Assert.Equal(SupportTicketStatus.Assigned, returned.Ticket.Status);
-            Assert.Null(returned.Ticket.AutoClosesAt);
-            Assert.Contains(returned.Entries, e => e.Kind == SupportTicketEntryKind.Message && e.Text == "Import pořád padá");
-        }
-        using (var db = SuperAdminDb())
-        {
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola vrátila")
-                                                   && n.Body == "Import pořád padá");
-            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
-        }
-
-        await ResolveAsync(w, id);
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var closed = Ok(await Tickets(db, w.Admin.Id, w.School.Id).CloseTicket(id)).Ticket;
-            Assert.Equal(SupportTicketStatus.Closed, closed.Status);
-            // Monday 11:00 → till the end of Tuesday, Prague.
-            Assert.Equal(new DateTimeOffset(2026, 11, 10, 23, 0, 0, TimeSpan.Zero), closed.ReopenableUntil);
-            Assert.True(closed.CanConfirm);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).CloseTicket(id)).Result);
-        }
-        using (var db = SuperAdminDb())
-        {
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola potvrdila"));
-            Assert.Empty(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, deputy.Id, w.School.Id).ReopenTicket(id)).Result);
-            clock.Now = clock.Now.AddDays(1);
-            var reopened = Ok(await Tickets(db, w.Admin.Id, w.School.Id).ReopenTicket(id)).Ticket;
-            Assert.Equal(SupportTicketStatus.Resolved, reopened.Status);
-            Assert.Equal(clock.Now.AddDays(30), reopened.AutoClosesAt);
-
-            Ok(await Tickets(db, w.Admin.Id, w.School.Id).CloseTicket(id));
-            // Closed on Tuesday: the window ends with Wednesday.
-            clock.Now = new DateTimeOffset(2026, 11, 11, 23, 0, 0, TimeSpan.Zero);
-            var late = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Ticket;
-            Assert.Null(late.ReopenableUntil);
-            Assert.False(late.CanConfirm);
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Admin.Id, w.School.Id).ReopenTicket(id)).Result);
-        }
-    }
-
-    [Fact]
-    public async Task AnySuperAdminReturnsAResolvedTicketToItsAssigneeTheSchoolHearsOfIt()
-    {
-        var w = await SeedAsync();
-        var id = await SchoolTicketAsync(w);
-        using (var db = SuperAdminDb())
-        {
-            Assert.IsType<BadRequestObjectResult>((await Tickets(db, w.Other.Id).ReturnTicketBySupport(id)).Result);
-        }
-        await ResolveAsync(w, id);
-        using (var db = SuperAdminDb())
-        {
-            var returned = Ok(await Tickets(db, w.Other.Id)
-                .ReturnTicketBySupport(id, new ReturnSupportTicketRequest("Chybí ještě 5.B")));
-            Assert.Equal(SupportTicketStatus.Assigned, returned.Ticket.Status);
-            Assert.Equal(w.SuperAdmin.Id, returned.Ticket.AssigneeUserId);
-            Assert.Contains(returned.Entries, e => e.Kind == SupportTicketEntryKind.Note && e.Text == "Chybí ještě 5.B");
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Požadavek vrácen k řešení")
-                                                   && n.Body == "Chybí ještě 5.B");
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Podpora vrátila"));
-            Assert.DoesNotContain(Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id)).Entries,
-                e => e.Text == "Chybí ještě 5.B");
-        }
-    }
-
-    [Fact]
-    public async Task AnyAdminConfirmsATicketTheSupportOpenedOrWhoseAuthorIsNoLongerAdmin()
-    {
-        var w = await SeedAsync();
-        var deputy = await AnotherAdminAsync(w);
-        int bySupport;
-        using (var db = SuperAdminDb())
-        {
-            bySupport = Ok(await Tickets(db, w.SuperAdmin.Id)
-                .CreateTicket(new CreateSupportTicketRequest(w.School.Id, "Kontrola", ""))).Ticket.Id;
-        }
-        var byDeputy = await SchoolTicketAsync(w);
-        await ResolveAsync(w, bySupport);
-        await ResolveAsync(w, byDeputy);
-        using (var db = SuperAdminDb())
-        {
-            db.Users.Remove(db.Users.Single(u => u.Id == w.Admin.Id));
-            await db.SaveChangesAsync();
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            Assert.Equal(SupportTicketStatus.Closed,
-                Ok(await Tickets(db, deputy.Id, w.School.Id).CloseTicket(bySupport)).Ticket.Status);
-            Assert.Equal(SupportTicketStatus.Closed,
-                Ok(await Tickets(db, deputy.Id, w.School.Id).CloseTicket(byDeputy)).Ticket.Status);
-        }
-    }
-
-    [Fact]
-    public async Task ACancelledTicketIsReopenedByAnyAdminToTheStatusItHadPastAHoliday()
-    {
-        // Monday 2026-11-16; Tuesday the 17th is a public holiday.
-        clock.Now = new DateTimeOffset(2026, 11, 16, 10, 0, 0, TimeSpan.Zero);
-        var w = await SeedAsync();
-        var deputy = await AnotherAdminAsync(w);
-        var id = await SchoolTicketAsync(w);
-        using (var db = SuperAdminDb())
-        {
-            Ok(await Tickets(db, w.SuperAdmin.Id).AssignTicket(id));
-            Ok(await Tickets(db, w.SuperAdmin.Id)
-                .SetTicketStatus(id, new SetSupportTicketStatusRequest(SupportTicketStatus.WaitingForSchool)));
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var cancelled = Ok(await Tickets(db, w.Admin.Id, w.School.Id)
-                .CancelTicket(id, new CancelSupportTicketRequest("Omylem"))).Ticket;
-            Assert.Equal(new DateTimeOffset(2026, 11, 18, 23, 0, 0, TimeSpan.Zero), cancelled.ReopenableUntil);
-            Assert.True(Ok(await Tickets(db, deputy.Id, w.School.Id).GetSchoolTicket(id)).Ticket.CanConfirm);
-
-            clock.Now = new DateTimeOffset(2026, 11, 18, 22, 0, 0, TimeSpan.Zero);
-            var reopened = Ok(await Tickets(db, deputy.Id, w.School.Id).ReopenTicket(id));
-            Assert.Equal(SupportTicketStatus.WaitingForSchool, reopened.Ticket.Status);
-            Assert.Equal(SupportTicketStatus.WaitingForSchool, reopened.Entries.Last(e => e.Status != null).Status);
-        }
-        using (var db = SuperAdminDb())
-        {
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola znovu otevřela"));
-            Assert.Single(Ok(await Tickets(db, w.SuperAdmin.Id).GetTickets()));
-        }
-    }
-
-    [Fact]
-    public async Task AResolvedTicketClosesByItselfAfterThirtyDays()
-    {
-        var w = await SeedAsync();
-        var id = await SchoolTicketAsync(w);
-        var open = await SchoolTicketAsync(w);
-        await ResolveAsync(w, id);
-        using (var db = SuperAdminDb())
-        {
-            clock.Now = clock.Now.AddDays(30).AddMinutes(-1);
-            await new SupportTicketAutoCloseJob(db, new Notifier(db, clock), clock).RunAsync();
-            Assert.Equal(SupportTicketStatus.Resolved, db.SupportTickets.Single(t => t.Id == id).Status);
-
-            clock.Now = clock.Now.AddMinutes(1);
-            await new SupportTicketAutoCloseJob(db, new Notifier(db, clock), clock).RunAsync();
-            Assert.Equal(SupportTicketStatus.Closed, db.SupportTickets.Single(t => t.Id == id).Status);
-            Assert.Equal(SupportTicketStatus.New, db.SupportTickets.Single(t => t.Id == open).Status);
-        }
-        using (var db = SchoolDb(w.School.Id))
-        {
-            var detail = Ok(await Tickets(db, w.Admin.Id, w.School.Id).GetSchoolTicket(id));
-            var entry = detail.Entries.Last(e => e.Kind == SupportTicketEntryKind.StatusChanged);
-            Assert.Equal(SupportTicketStatus.Closed, entry.Status);
-            Assert.Equal(SupportTicketAutoCloseJob.AuthorName, entry.AuthorName);
-            Assert.NotNull(detail.Ticket.ReopenableUntil);
-            Assert.Contains(db.Notifications, n => n.UserId == w.Admin.Id && n.Title.StartsWith("Požadavek uzavřen automaticky"));
-        }
-    }
-
-    [Fact]
     public async Task OnlyTheSchoolsAdminLetsTheSupportInAndTheSuperAdminsHearOfIt()
     {
         var w = await SeedAsync();
         using var db = SchoolDb(w.School.Id);
         // Administrace given to another role isn't enough.
-        var deputyRole = new Role { Name = "Zástupce", Kind = RoleKind.Staff, SchoolId = w.School.Id };
-        var deputy = new User { Username = "zastupce", PasswordHash = "x", SchoolId = w.School.Id, ActiveRole = deputyRole };
-        db.Users.Add(deputy);
-        await db.SaveChangesAsync();
-        Assert.False(Ok(await Policy(db, deputy.Id, w.School.Id).GetSchoolSupport()).CanChange);
-        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>((await Policy(db, deputy.Id, w.School.Id)
+        Assert.False(Ok(await Policy(db, w.Teacher.Id, w.School.Id).GetSchoolSupport()).CanChange);
+        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>((await Policy(db, w.Teacher.Id, w.School.Id)
             .SetAccess(new SetSupportAccessRequest(SupportAccess.Always))).Result).StatusCode);
 
         Assert.True(Ok(await Policy(db, w.Admin.Id, w.School.Id).GetSchoolSupport()).CanChange);
@@ -1054,6 +510,30 @@ public class SupportTicketsControllerTests
         Assert.DoesNotContain(NotificationType.SupportTicketUpdate, NotificationsController.TypesFor([Built(UserRole.Teacher)]));
         Assert.DoesNotContain(NotificationType.SupportTicketUpdate, NotificationsController.TypesFor([Built(UserRole.Parent)]));
         Assert.DoesNotContain(NotificationType.SupportTicket, NotificationsController.TypesFor([Built(UserRole.Admin)]));
+    }
+
+    [Fact]
+    public async Task TheClientCallsTheBackofficeAsTheSchoolsUserAndPassesItsRefusalOn()
+    {
+        var client = Soovioo.Api.Tests.Backoffice.FakeBackoffice.Answering(
+            HttpStatusCode.Conflict, """{"status":409,"detail":"Požadavek už je uzavřený."}""");
+        var tickets = new BackofficeTickets(client, NullLogger<BackofficeTickets>.Instance);
+        var refused = await Assert.ThrowsAsync<TicketRefusedException>(() => tickets.ActAsync(
+            7, 12, new TicketActor(3, "Jana Nováková"), HttpMethod.Post, "messages", new { text = "Ahoj" }));
+        Assert.Equal((409, "Požadavek už je uzavřený."), (refused.Status, refused.Message));
+        var (request, body) = client.Sent.Single();
+        Assert.Equal("http://backoffice.test/instance-api/v1/schools/7/tickets/12/messages", request.RequestUri!.ToString());
+        Assert.Equal("""{"text":"Ahoj"}""", body);
+        var actor = request.Headers.GetValues(BackofficeTickets.ActorHeader).Single();
+        Assert.Equal("""{"userId":3,"name":"Jana Nováková"}""",
+            System.Text.Encoding.UTF8.GetString(System.Buffers.Text.Base64Url.DecodeFromChars(actor)));
+
+        var down = new BackofficeTickets(
+            Soovioo.Api.Tests.Backoffice.FakeBackoffice.Answering(HttpStatusCode.BadGateway), NullLogger<BackofficeTickets>.Instance);
+        Assert.True((await Assert.ThrowsAsync<SupportUnavailableException>(() => down.ListAsync(7))).Connected);
+        var none = new BackofficeTickets(
+            Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(), NullLogger<BackofficeTickets>.Instance);
+        Assert.False((await Assert.ThrowsAsync<SupportUnavailableException>(() => none.ListAsync(7))).Connected);
     }
 
     [Fact]

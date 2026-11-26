@@ -11,174 +11,27 @@ import {
   SupportAsUser,
   SupportPlan,
   SupportResetPreview,
-  SupportTicket,
+  SupportMonthUsage,
   SupportTicketDetail,
-  SupportTicketFilter,
-  SupportTicketScope,
-  SupportTicketStatus,
+  SupportTicketSummary,
+  SupportTimeCategory,
   SuperAdmin,
   SupportSession,
-  SupportSessionStart,
   UpdateSuperAdminRequest,
 } from './support.model';
 
 /** SuperAdmin support mode and SuperAdmin accounts — see SupportController;
- * support tickets — SupportTicketsController; the school's policy —
- * SupportPolicyController. */
+ * the school's support tickets (kept in the backoffice) —
+ * SupportTicketsController; the school's policy — SupportPolicyController. */
 @Injectable({ providedIn: 'root' })
 export class SupportApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  // ---- SuperAdmin: tickets ----
+  // ---- The school's tickets, kept in the backoffice ----
 
-  getTickets(
-    filter: SupportTicketFilter = 'Open',
-    schoolId?: number | null,
-  ): Observable<SupportTicket[]> {
-    return this.http.get<SupportTicket[]>(
-      `${this.baseUrl}/api/support-tickets`,
-      { params: schoolId ? { filter, schoolId } : { filter } },
-    );
-  }
-
-  getTicket(id: number): Observable<SupportTicketDetail> {
-    return this.http.get<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-tickets/${id}`,
-    );
-  }
-
-  /** Opened for a school — the caller takes care of it. */
-  createTicketForSchool(
-    schoolId: number,
-    title: string,
-    description: string,
-  ): Observable<SupportTicketDetail> {
-    return this.http.post<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-tickets`,
-      { schoolId, title, description },
-    );
-  }
-
-  /** "Převzít", or with `userId` of another SuperAdmin "Předat". */
-  assignTicket(id: number, userId?: number): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, 'assign', userId ? { userId } : {});
-  }
-
-  /** "Převzít od" — from the assignee the caller sees (`fromUserId`). */
-  takeOverTicket(
-    id: number,
-    fromUserId: number,
-  ): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, 'assign', { takeOverFrom: fromUserId });
-  }
-
-  /** A message of the support made an internal note, or a note a message
-   * to the school (which hears of it). */
-  setTicketEntryInternal(
-    id: number,
-    entryId: number,
-    internal: boolean,
-  ): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, `entries/${entryId}/internal`, { internal });
-  }
-
-  /** A message or note of the caller's side changed — `ticketId` is
-   * ignored in support mode (the visit's ticket). */
-  editTicketEntry(
-    scope: SupportTicketScope,
-    ticketId: number,
-    entryId: number,
-    text: string,
-  ): Observable<SupportTicketDetail> {
-    return this.http.put<SupportTicketDetail>(
-      this.entryUrl(scope, ticketId, entryId),
-      { text },
-    );
-  }
-
-  deleteTicketEntry(
-    scope: SupportTicketScope,
-    ticketId: number,
-    entryId: number,
-  ): Observable<SupportTicketDetail> {
-    return this.http.delete<SupportTicketDetail>(
-      this.entryUrl(scope, ticketId, entryId),
-    );
-  }
-
-  private entryUrl(
-    scope: SupportTicketScope,
-    ticketId: number,
-    entryId: number,
-  ): string {
-    const ticket = {
-      support: `api/support-tickets/${ticketId}`,
-      session: 'api/support-sessions/current/ticket',
-      school: `api/my-school/support-tickets/${ticketId}`,
-    }[scope];
-    return `${this.baseUrl}/${ticket}/entries/${entryId}`;
-  }
-
-  /** "Přerušit práci" — back to the pool with a summary. */
-  releaseTicket(id: number, summary: string): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, 'release', { summary });
-  }
-
-  setTicketStatus(
-    id: number,
-    status: SupportTicketStatus,
-  ): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, 'status', { status });
-  }
-
-  /** `internal`: a note only the SuperAdmins see. */
-  addTicketMessage(
-    id: number,
-    text: string,
-    internal: boolean,
-  ): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, 'messages', { text, internal });
-  }
-
-  requestTicketAccess(id: number): Observable<SupportTicketDetail> {
-    return this.ticketAction(id, 'request-access');
-  }
-
-  /** "Vstoupit do školy" for the ticket — as the school's admin, or as
-   * `as.userId` (in `as.roleId`, else their first allowed role). */
-  enterForTicket(
-    id: number,
-    as: { userId: number; roleId?: number } | null = null,
-  ): Observable<SupportSessionStart> {
-    return this.http.post<SupportSessionStart>(
-      `${this.baseUrl}/api/support-tickets/${id}/enter`,
-      as ?? {},
-    );
-  }
-
-  /** Whom the assignee may enter as (the school's `Users`), the author first. */
-  getEnterAs(id: number): Observable<SupportAsUser[]> {
-    return this.http.get<SupportAsUser[]>(
-      `${this.baseUrl}/api/support-tickets/${id}/enter-as`,
-    );
-  }
-
-  private ticketAction(
-    id: number,
-    action: string,
-    body: object = {},
-  ): Observable<SupportTicketDetail> {
-    return this.http.post<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-tickets/${id}/${action}`,
-      body,
-    );
-  }
-
-  // ---- The school's admin ----
-
-  getSchoolTickets(): Observable<SupportTicket[]> {
-    return this.http.get<SupportTicket[]>(
+  getSchoolTickets(): Observable<SupportTicketSummary[]> {
+    return this.http.get<SupportTicketSummary[]>(
       `${this.baseUrl}/api/my-school/support-tickets`,
     );
   }
@@ -189,32 +42,11 @@ export class SupportApiService {
     );
   }
 
-  /** In support mode: the ticket the visit is for, its whole thread included. */
-  getSessionTicket(): Observable<SupportTicketDetail> {
-    return this.http.get<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-sessions/current/ticket`,
-    );
-  }
-
-  /** In support mode: a message to the school or an internal note. */
-  addSessionTicketMessage(
-    text: string,
-    internal: boolean,
-  ): Observable<SupportTicketDetail> {
-    return this.http.post<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-sessions/current/ticket/messages`,
-      { text, internal },
-    );
-  }
-
-  /** In support mode: a message made an internal note, or back. */
-  setSessionEntryInternal(
-    entryId: number,
-    internal: boolean,
-  ): Observable<SupportTicketDetail> {
-    return this.http.post<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-sessions/current/ticket/entries/${entryId}/internal`,
-      { internal },
+  /** The school's support time in a month (`yyyy-MM`, none = this one). */
+  getSchoolUsage(month?: string): Observable<SupportMonthUsage> {
+    return this.http.get<SupportMonthUsage>(
+      `${this.baseUrl}/api/my-school/support-usage`,
+      { params: month ? { month } : {} },
     );
   }
 
@@ -224,17 +56,15 @@ export class SupportApiService {
     );
   }
 
-  /** `allowAccess`: lets the support in for it right away;
-   * `supportAsUserIds`: whom it may enter as (the school's `Users`). */
+  /** `estimateRequested`: the support sends an estimate before any work. */
   createTicket(
     title: string,
     description: string,
-    allowAccess: boolean,
-    supportAsUserIds?: number[],
+    estimateRequested = false,
   ): Observable<SupportTicketDetail> {
     return this.http.post<SupportTicketDetail>(
       `${this.baseUrl}/api/my-school/support-tickets`,
-      { title, description, allowAccess, supportAsUserIds },
+      { title, description, estimateRequested },
     );
   }
 
@@ -243,6 +73,27 @@ export class SupportApiService {
     text: string,
   ): Observable<SupportTicketDetail> {
     return this.schoolTicketAction(id, 'messages', { text });
+  }
+
+  /** A message of the caller's side changed. */
+  editTicketEntry(
+    ticketId: number,
+    entryId: number,
+    text: string,
+  ): Observable<SupportTicketDetail> {
+    return this.http.put<SupportTicketDetail>(
+      `${this.baseUrl}/api/my-school/support-tickets/${ticketId}/entries/${entryId}`,
+      { text },
+    );
+  }
+
+  deleteTicketEntry(
+    ticketId: number,
+    entryId: number,
+  ): Observable<SupportTicketDetail> {
+    return this.http.delete<SupportTicketDetail>(
+      `${this.baseUrl}/api/my-school/support-tickets/${ticketId}/entries/${entryId}`,
+    );
   }
 
   /** `resetChanges`: the support's changes are reset first. */
@@ -259,52 +110,9 @@ export class SupportApiService {
     return this.schoolTicketAction(id, 'close');
   }
 
-  /** Resolved → back to its assignee; `text` (required) goes to the thread. */
+  /** Resolved → back to the support; `text` (required) goes to the thread. */
   returnTicket(id: number, text: string): Observable<SupportTicketDetail> {
     return this.schoolTicketAction(id, 'return', { text });
-  }
-
-  /** A SuperAdmin's: resolved → back to its assignee; `text` is an
-   * optional internal note. */
-  returnTicketBySupport(
-    id: number,
-    text: string,
-  ): Observable<SupportTicketDetail> {
-    return this.http.post<SupportTicketDetail>(
-      `${this.baseUrl}/api/support-tickets/${id}/return`,
-      { text: text || null },
-    );
-  }
-
-  /** What resetting the support's changes would do — of the ticket, or of
-   * `sessionId` only; the school's side ('school') or the assignee's. */
-  previewReset(
-    scope: 'support' | 'school',
-    id: number,
-    sessionId: number | null,
-  ): Observable<SupportResetPreview> {
-    return this.http.get<SupportResetPreview>(`${this.resetUrl(scope, id)}`, {
-      params: sessionId ? { sessionId } : {},
-    });
-  }
-
-  /** `reason`: required of the school. Running sessions of the ticket end. */
-  resetChanges(
-    scope: 'support' | 'school',
-    id: number,
-    sessionId: number | null,
-    reason: string,
-  ): Observable<SupportTicketDetail> {
-    return this.http.post<SupportTicketDetail>(this.resetUrl(scope, id), {
-      sessionId,
-      reason: reason || null,
-    });
-  }
-
-  private resetUrl(scope: 'support' | 'school', id: number): string {
-    return scope === 'school'
-      ? `${this.baseUrl}/api/my-school/support-tickets/${id}/reset`
-      : `${this.baseUrl}/api/support-tickets/${id}/reset`;
   }
 
   /** Closed or cancelled → as it was, while `reopenableUntil` lasts. */
@@ -312,13 +120,63 @@ export class SupportApiService {
     return this.schoolTicketAction(id, 'reopen');
   }
 
-  grantTicketAccess(id: number): Observable<SupportTicketDetail> {
-    return this.schoolTicketAction(id, 'grant-access');
+  /** The support sends an estimate before any work. */
+  requestEstimate(id: number): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(id, 'request-estimate');
   }
 
-  /** Sessions entered for the ticket end at once. */
-  revokeTicketAccess(id: number): Observable<SupportTicketDetail> {
-    return this.schoolTicketAction(id, 'revoke-access');
+  /** The school's admin decides the support's estimate. */
+  decideEstimate(
+    id: number,
+    estimateId: number,
+    approve: boolean,
+    note: string,
+  ): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(
+      id,
+      `estimates/${estimateId}/${approve ? 'approve' : 'reject'}`,
+      { note: note || null },
+    );
+  }
+
+  /** The school disagrees with the category of logged time. */
+  disputeTime(
+    id: number,
+    timeId: number,
+    category: SupportTimeCategory,
+    reason: string,
+  ): Observable<SupportTicketDetail> {
+    return this.schoolTicketAction(id, `time/${timeId}/dispute`, {
+      category,
+      reason,
+    });
+  }
+
+  /** What resetting the support's changes would do — of the ticket, or of
+   * `sessionId` only. */
+  previewReset(
+    id: number,
+    sessionId: number | null,
+  ): Observable<SupportResetPreview> {
+    return this.http.get<SupportResetPreview>(this.resetUrl(id), {
+      params: sessionId ? { sessionId } : {},
+    });
+  }
+
+  /** Running sessions of the ticket end. */
+  resetChanges(
+    id: number,
+    sessionId: number | null,
+    reason: string,
+  ): Observable<SupportTicketDetail> {
+    return this.http.post<SupportTicketDetail>(this.resetUrl(id), {
+      sessionId,
+      reason,
+    });
+  }
+
+  private resetUrl(id: number): string {
+    return `${this.baseUrl}/api/my-school/support-tickets/${id}/reset`;
   }
 
   private schoolTicketAction(
@@ -352,22 +210,10 @@ export class SupportApiService {
     );
   }
 
-  /** The school's accounts, to name on a ticket whom the support may be. */
+  /** The school's accounts, to name whom the support may be. */
   getSupportAsUsers(): Observable<SupportAsUser[]> {
     return this.http.get<SupportAsUser[]>(
       `${this.baseUrl}/api/my-school/support-as/users`,
-    );
-  }
-
-  /** The users the support may enter as for the ticket; none = only as
-   * the admin. */
-  setTicketSupportAsUsers(
-    id: number,
-    userIds: number[],
-  ): Observable<SupportTicketDetail> {
-    return this.http.put<SupportTicketDetail>(
-      `${this.baseUrl}/api/my-school/support-tickets/${id}/support-as`,
-      { userIds },
     );
   }
 
