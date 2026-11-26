@@ -1,3 +1,4 @@
+import { TICKET_STATUS_LABELS, TicketStatus } from '@fidlip/soovioo-ui';
 import { RoleRef } from '../auth/role.model';
 
 /** A SuperAdmin account — an ordinary user without a school, with the same
@@ -97,31 +98,9 @@ export function approvalDuration(minutes: number): string {
   return `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
 }
 
-export type SupportTicketStatus =
-  | 'New'
-  /** Has a SuperAdmin taking care of it. */
-  | 'Assigned'
-  /** Being worked on right now. */
-  | 'InProgress'
-  /** The support asked; the school's answer brings it back to Assigned. */
-  | 'WaitingForSchool'
-  /** Done by the support — the school closes or returns it; closes by
-   * itself after 30 days. */
-  | 'Resolved'
-  | 'Cancelled'
-  /** Confirmed by the school, or closed by itself. */
-  | 'Closed';
+export type SupportTicketStatus = TicketStatus;
 
-export const SUPPORT_TICKET_STATUS_LABELS: Record<SupportTicketStatus, string> =
-  {
-    New: 'Nový',
-    Assigned: 'Přiřazeno',
-    InProgress: 'Řeší se',
-    WaitingForSchool: 'Čeká na školu',
-    Resolved: 'Vyřešeno',
-    Cancelled: 'Zrušeno',
-    Closed: 'Uzavřeno',
-  };
+export const SUPPORT_TICKET_STATUS_LABELS = TICKET_STATUS_LABELS;
 
 export function isTicketOpen(status: SupportTicketStatus): boolean {
   return status !== 'Resolved' && status !== 'Cancelled' && status !== 'Closed';

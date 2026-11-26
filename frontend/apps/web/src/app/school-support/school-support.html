@@ -68,11 +68,7 @@
           </div>
         </td>
         <td class="px-4 py-2">
-          <p-tag
-            class="whitespace-nowrap"
-            [value]="statusLabel(ticket.status)"
-            [severity]="severity(ticket.status)"
-          />
+          <app-ticket-status-tag [status]="ticket.status" />
         </td>
         <td class="whitespace-nowrap px-4 py-2">
           <span
@@ -94,11 +90,7 @@
           <span class="font-medium text-surface-900 dark:text-surface-0"
             >{{ ticket.title }}</span
           >
-          <p-tag
-            class="whitespace-nowrap"
-            [value]="statusLabel(ticket.status)"
-            [severity]="severity(ticket.status)"
-          />
+          <app-ticket-status-tag [status]="ticket.status" />
         </div>
         <div class="text-xs text-surface-500">
           #{{ ticket.id }} · termín
