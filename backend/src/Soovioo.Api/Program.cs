@@ -71,6 +71,8 @@ builder.Services.Configure<Soovioo.Api.Support.SupportOptions>(builder.Configura
 builder.Services.Configure<Soovioo.Api.Support.SupportPlanOptions>(builder.Configuration.GetSection("SupportPlans"));
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<Soovioo.Api.Support.SupportPlanClient>();
+builder.Services.AddScoped<Soovioo.Api.Support.IBackofficeTickets, Soovioo.Api.Support.BackofficeTickets>();
+builder.Services.AddScoped<Soovioo.Api.Support.SupportTicketChanges>();
 builder.Services.Configure<Soovioo.Api.Backoffice.BackofficeOptions>(builder.Configuration.GetSection("Backoffice"));
 // One client for the app's lifetime: it keeps the instance's token.
 builder.Services.AddSingleton<Soovioo.Api.Backoffice.IBackofficeClient>(services => new Soovioo.Api.Backoffice.BackofficeClient(
@@ -258,8 +260,7 @@ using (var scope = app.Services.CreateScope())
         "retention-daily", job => job.RunAsync(), Cron.Daily);
     recurringJobs.AddOrUpdate<Soovioo.Api.Notifications.NotificationCleanupJob>(
         "notification-cleanup", job => job.RunAsync(), Cron.Daily);
-    recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportTicketAutoCloseJob>(
-        "support-ticket-auto-close", job => job.RunAsync(), Cron.Hourly);
+    recurringJobs.RemoveIfExists("support-ticket-auto-close");
     recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportSessionIdleJob>(
         "support-session-idle", job => job.RunAsync(), Cron.Minutely);
     recurringJobs.AddOrUpdate<Soovioo.Api.Support.SupportChangeCleanupJob>(

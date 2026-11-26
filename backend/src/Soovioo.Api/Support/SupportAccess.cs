@@ -4,12 +4,12 @@ namespace Soovioo.Api.Support;
 
 /// <summary>When a SuperAdmin may enter the school in support mode — the
 /// school's choice (<see cref="School.SupportAccess"/>). Entering is always
-/// for a <see cref="SupportTicket"/>.</summary>
+/// for a support ticket.</summary>
 public enum SupportAccess
 {
     Always,
 
-    /// <summary>While the ticket's entering is allowed (<see cref="SupportTicket.AccessUntil"/>).</summary>
+    /// <summary>While the school allows it for the ticket.</summary>
     Approval,
     Never,
 }

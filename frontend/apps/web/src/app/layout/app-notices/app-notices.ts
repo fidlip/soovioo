@@ -28,7 +28,6 @@ import { SchoolYearWizard } from '../../school-year-wizard/school-year-wizard';
 import { SchoolSetupWizard } from '../../school-setup-wizard/school-setup-wizard';
 import { SessionSyncService } from '../../session-sync.service';
 import { AppVersionService } from '../../app-version.service';
-import { SupportTicketDialog } from '../../support-ticket/support-ticket-dialog';
 import { SupportEndedDialog } from '../support-ended-dialog/support-ended-dialog';
 import { SupportLeaveDialog } from '../support-leave-dialog/support-leave-dialog';
 import { checkOnNavigation } from '../check-on-navigation';
@@ -50,7 +49,6 @@ import { checkOnNavigation } from '../check-on-navigation';
     SupportPresenceBanners,
     SupportEndedDialog,
     SupportLeaveDialog,
-    SupportTicketDialog,
   ],
 })
 export class AppNotices {

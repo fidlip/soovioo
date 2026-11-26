@@ -39,7 +39,8 @@ public interface IBackofficeClient
     /// backoffice) with the instance's token, getting a new one when the
     /// backoffice no longer takes it. Null when not connected.</summary>
     Task<HttpResponseMessage?> SendAsync(
-        HttpMethod method, string path, HttpContent? content = null, CancellationToken cancellationToken = default);
+        HttpMethod method, string path, HttpContent? content = null, CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<string, string>? headers = null);
 }
 
 public class BackofficeClient(HttpClient http, IOptions<BackofficeOptions> options, TimeProvider clock) : IBackofficeClient
@@ -63,24 +64,26 @@ public class BackofficeClient(HttpClient http, IOptions<BackofficeOptions> optio
             : null;
 
     public async Task<HttpResponseMessage?> SendAsync(
-        HttpMethod method, string path, HttpContent? content = null, CancellationToken cancellationToken = default)
+        HttpMethod method, string path, HttpContent? content = null, CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<string, string>? headers = null)
     {
         if (Connection is null)
         {
             return null;
         }
-        var response = await SendWithTokenAsync(method, path, content, renew: false, cancellationToken);
+        var response = await SendWithTokenAsync(method, path, content, headers, renew: false, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
         {
             return response;
         }
         // Expired early, or the backoffice's key changed.
         response.Dispose();
-        return await SendWithTokenAsync(method, path, content, renew: true, cancellationToken);
+        return await SendWithTokenAsync(method, path, content, headers, renew: true, cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendWithTokenAsync(
-        HttpMethod method, string path, HttpContent? content, bool renew, CancellationToken cancellationToken)
+        HttpMethod method, string path, HttpContent? content, IReadOnlyDictionary<string, string>? headers, bool renew,
+        CancellationToken cancellationToken)
     {
         var accessToken = await TokenAsync(renew, cancellationToken);
         var request = new HttpRequestMessage(method, new Uri(Connection!.BaseUrl, path.TrimStart('/')))
@@ -89,6 +92,10 @@ public class BackofficeClient(HttpClient http, IOptions<BackofficeOptions> optio
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.Add(ProtocolHeader, ProtocolVersion.ToString());
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+        {
+            request.Headers.Add(name, value);
+        }
         return await http.SendAsync(request, cancellationToken);
     }
 

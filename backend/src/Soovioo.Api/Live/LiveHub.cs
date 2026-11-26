@@ -13,7 +13,7 @@ namespace Soovioo.Api.Live;
 /// through the API as before. A user's tabs get their own events (by the
 /// token's user, see <see cref="LivePublisher"/>), a SuperAdmin's the
 /// SuperAdmins' ones, a tab in support mode its session's, and a ticket's
-/// detail the ticket's while it watches it. A tab in support mode keeps its
+/// detail the ticket's (within the school) while it watches it. A tab in support mode keeps its
 /// session alive (<see cref="SupportLiveness"/>).</summary>
 [Authorize]
 public class LiveHub(AppDbContext db, SupportLiveness liveness) : Hub
@@ -49,32 +49,38 @@ public class LiveHub(AppDbContext db, SupportLiveness liveness) : Hub
     /// session's in support mode, the school's own for its admins.</summary>
     public async Task WatchTicket(int ticketId)
     {
-        if (await MayWatchAsync(ticketId))
+        if (await SchoolOfAsync(ticketId) is { } schoolId)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, LiveGroups.Ticket(ticketId));
+            await Groups.AddToGroupAsync(Context.ConnectionId, LiveGroups.Ticket(schoolId, ticketId));
         }
     }
 
-    public Task UnwatchTicket(int ticketId) =>
-        Groups.RemoveFromGroupAsync(Context.ConnectionId, LiveGroups.Ticket(ticketId));
+    public async Task UnwatchTicket(int ticketId)
+    {
+        if (await SchoolOfAsync(ticketId) is { } schoolId)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, LiveGroups.Ticket(schoolId, ticketId));
+        }
+    }
 
-    private async Task<bool> MayWatchAsync(int ticketId)
+    /// <summary>The school whose ticket the caller may watch: the session's
+    /// in support mode, else the caller's school for its admins — the
+    /// tickets are the backoffice's, the group is the school's.</summary>
+    private async Task<int?> SchoolOfAsync(int ticketId)
     {
         var user = Context.User!;
         if (SessionOf(user) is { } sessionId)
         {
             return await db.SupportSessions.IgnoreQueryFilters()
-                .AnyAsync(s => s.Id == sessionId && s.TicketId == ticketId);
-        }
-        if (user.IsInRole(nameof(UserRole.SuperAdmin)))
-        {
-            return true;
+                .Where(s => s.Id == sessionId && s.TicketId == ticketId)
+                .Select(s => (int?)s.SchoolId)
+                .FirstOrDefaultAsync();
         }
         // The token's permissions: a hub call has no request for the
         // per-school query filters to go by.
-        return int.TryParse(user.FindFirstValue("schoolId"), out var schoolId)
-               && HasAdministration(user)
-               && await db.SupportTickets.IgnoreQueryFilters().AnyAsync(t => t.Id == ticketId && t.SchoolId == schoolId);
+        return int.TryParse(user.FindFirstValue("schoolId"), out var schoolId) && HasAdministration(user)
+            ? schoolId
+            : null;
     }
 
     private static bool HasAdministration(ClaimsPrincipal user) =>
@@ -92,7 +98,7 @@ public static class LiveGroups
 
     public static string Session(int sessionId) => $"session:{sessionId}";
 
-    public static string Ticket(int ticketId) => $"ticket:{ticketId}";
+    public static string Ticket(int schoolId, int ticketId) => $"ticket:{schoolId}:{ticketId}";
 }
 
 /// <summary>What the client is told — names of its handlers.</summary>

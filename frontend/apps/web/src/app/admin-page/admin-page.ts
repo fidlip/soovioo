@@ -58,6 +58,7 @@ import {
   StudentsApiService,
   Subject,
   SubjectsApiService,
+  SupportApiService,
   UpdateUserRequest,
   UsersApiService,
   formatIban,
@@ -246,6 +247,7 @@ export class AdminPage {
   private readonly peopleApi = inject(PeopleApiService);
   private readonly matrikaApi = inject(MatrikaApiService);
   private readonly referenceApi = inject(ReferenceApiService);
+  private readonly supportApi = inject(SupportApiService);
 
   protected readonly accessLevel = signal<AccessLevel>('loading');
   /** Only populated (and only relevant) for accessLevel 'classTeacher' —
@@ -330,12 +332,19 @@ export class AdminPage {
 
   protected readonly canSeeLogs = this.authApi.can('AuditLog');
 
+  /** An instance without the support (not connected to a backoffice) has
+   * no Podpora nor its Nastavení; unknown until asked, they show. */
+  protected readonly supportAvailable = signal(true);
+
   /** Aplikace holds just Logy for whoever may see them without being Admin. */
   private sectionsOf(group: string): string[] {
-    const sections = GROUP_SECTIONS[group] ?? [];
+    const all = GROUP_SECTIONS[group] ?? [];
     if (group !== 'app') {
-      return sections;
+      return all;
     }
+    const sections = this.supportAvailable()
+      ? all
+      : all.filter((s) => s !== 'support' && s !== 'settings');
     const logs = this.canSeeLogs ? ['logs'] : [];
     return this.accessLevel() === 'admin' ? [...sections, ...logs] : logs;
   }
@@ -579,6 +588,10 @@ export class AdminPage {
       this.reloadAll();
       this.loadMySchool();
       this.loadRoles();
+      this.supportApi.getSchoolSupport().subscribe({
+        next: (support) => this.supportAvailable.set(support.available),
+        error: (err) => console.error('getSchoolSupport failed', err),
+      });
       this.referenceApi.getCountries().subscribe({
         next: (countries) => this.countries.set(countries),
         error: (err) => console.error('getCountries failed', err),

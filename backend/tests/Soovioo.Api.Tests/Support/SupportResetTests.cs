@@ -39,13 +39,14 @@ public class SupportResetTests
         return db;
     }
 
-    private SupportTicketsController Tickets(AppDbContext db, int userId, int? schoolId = null, params Claim[] extra) =>
-        new(db, new FakeCurrentSchoolContext(schoolId, isSuperAdmin: schoolId is null), new Notifier(db, clock),
+    private readonly FakeBackofficeTickets backoffice = new();
+
+    private SupportTicketsController Tickets(AppDbContext db, int userId, int schoolId, params Claim[] extra) =>
+        new(db, new FakeCurrentSchoolContext(schoolId), backoffice,
             new SupportPlanClient(Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
                 Microsoft.Extensions.Options.Options.Create(new SupportPlanOptions()),
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<SupportPlanClient>.Instance),
-            AuthTestServices.SupportSessions(db, clock), new SupportReset(db, clock),
-            Microsoft.Extensions.Options.Options.Create(new SupportOptions()), clock)
+            new SupportReset(db, clock), new Soovioo.Api.Tests.Live.RecordingHub().Publisher(), clock)
         {
             ControllerContext = new ControllerContext
             {
@@ -82,15 +83,8 @@ public class SupportResetTests
         var admin2 = new User { Username = "zastupce", PasswordHash = "x", SchoolId = school.Id, ActiveRole = adminRole, Roles = [adminRole] };
         db.Users.AddRange(admin, admin2);
         await db.SaveChangesAsync();
-        var ticket = new SupportTicket
-        {
-            SchoolId = school.Id, CreatedByUserId = admin.Id, CreatedByName = "reditel", Title = "Třídy",
-            Description = "", PlanName = "Free", Status = SupportTicketStatus.InProgress,
-            AssigneeUserId = superAdmin.Id, AssigneeName = "superadmin", CreatedAt = clock.Now,
-        };
-        db.SupportTickets.Add(ticket);
-        await db.SaveChangesAsync();
-        w = new World(school, superAdmin, other, admin, admin2, ticket.Id, 0);
+        var ticketId = backoffice.Seed(school.Id, new TicketActor(admin.Id, "reditel"), SupportTicketStatus.InProgress);
+        w = new World(school, superAdmin, other, admin, admin2, ticketId, 0);
         w = w with { SessionId = await SessionAsync() };
     }
 
@@ -165,7 +159,7 @@ public class SupportResetTests
         {
             var detail = Ok(await School(db).ResetSchoolTicket(w.TicketId, new ResetSupportChangesRequest(Reason: "Chyba")));
             Assert.Equal(0, detail.Ticket.ResettableChanges);
-            var entry = Assert.Single(detail.Entries, e => e.Kind == SupportTicketEntryKind.Reset);
+            var entry = Assert.Single(detail.Entries, e => e.Kind == nameof(SupportTicketEntryKind.Reset));
             Assert.Equal("**Důvod:** Chyba\n\nVráceno záznamů: 5.", entry.Text);
         }
         using (var db = SchoolDb())
@@ -212,7 +206,7 @@ public class SupportResetTests
             Assert.Null(preview.Single(i => i.Type == "Akce").Skipped);
 
             var entry = Ok(await School(db).ResetSchoolTicket(w.TicketId, new ResetSupportChangesRequest(Reason: "Chyba")))
-                .Entries.Single(e => e.Kind == SupportTicketEntryKind.Reset);
+                .Entries.Single(e => e.Kind == nameof(SupportTicketEntryKind.Reset));
             Assert.StartsWith("**Důvod:** Chyba\n\nVráceno záznamů: 1.\n\nNevráceno (2):\n- ", entry.Text);
         }
         using (var db = SchoolDb())
@@ -242,27 +236,27 @@ public class SupportResetTests
             (await db.Classrooms.SingleAsync(c => c.Id == classroomId)).Name = "U1c";
             await db.SaveChangesAsync();
         }
-        using (var db = SuperAdminDb())
+        using (var db = SchoolDb())
         {
-            var detail = Ok(await Tickets(db, w.SuperAdmin.Id).GetTicket(w.TicketId));
+            var detail = Ok(await School(db).GetSchoolTicket(w.TicketId));
             Assert.Equal(3, detail.Ticket.ResettableChanges);
-            Assert.Equal(1, detail.Entries.Single(e => e.Kind == SupportTicketEntryKind.SessionStarted && e.SessionId == w.SessionId).Changes);
+            Assert.Equal(1, detail.Entries.Single(e => e.Kind == nameof(SupportTicketEntryKind.SessionStarted) && e.SessionId == w.SessionId).Changes);
 
             // The first session's change was changed again by the second.
-            var first = Ok(await Tickets(db, w.SuperAdmin.Id).PreviewReset(w.TicketId, w.SessionId)).Items;
+            var first = Ok(await School(db).PreviewSchoolReset(w.TicketId, w.SessionId)).Items;
             Assert.Equal(SupportReset.ChangedLaterBySupport, Assert.Single(first).Skipped);
 
-            var after = Ok(await Tickets(db, w.SuperAdmin.Id).ResetTicket(w.TicketId, new ResetSupportChangesRequest(second)));
-            Assert.Equal(second, after.Entries.Single(e => e.Kind == SupportTicketEntryKind.Reset).SessionId);
+            var after = Ok(await School(db).ResetSchoolTicket(w.TicketId, new ResetSupportChangesRequest(second, "Chyba")));
+            Assert.Equal(second, after.Entries.Single(e => e.Kind == nameof(SupportTicketEntryKind.Reset)).SessionId);
         }
         using (var db = SchoolDb())
         {
             Assert.Equal("5.A", db.SchoolClasses.Single(c => c.Id == classId).Name);
             Assert.Equal("U1b", db.Classrooms.Single(c => c.Id == classroomId).Name);
         }
-        using (var db = SuperAdminDb())
+        using (var db = SchoolDb())
         {
-            Ok(await Tickets(db, w.SuperAdmin.Id).ResetTicket(w.TicketId, new ResetSupportChangesRequest()));
+            Ok(await School(db).ResetSchoolTicket(w.TicketId, new ResetSupportChangesRequest(Reason: "Celé")));
         }
         using (var db = SchoolDb())
         {
@@ -271,7 +265,7 @@ public class SupportResetTests
     }
 
     [Fact]
-    public async Task OnlyTheAssigneeAndTheAuthorResetAnOpenTicketOutsideSupportMode()
+    public async Task OnlyTheAuthorResetsAnOpenTicketOutsideSupportMode()
     {
         await SeedAsync();
         var (classroomId, _, _) = await SchoolDataAsync();
@@ -286,13 +280,9 @@ public class SupportResetTests
         Assert.IsType<ObjectResult>((await Tickets(school, w.Admin.Id, w.School.Id,
             new Claim(SupportClaims.SessionId, w.SessionId.ToString())).ResetSchoolTicket(w.TicketId, new(Reason: "Chyba"))).Result);
         Assert.IsType<NotFoundResult>((await School(school).PreviewSchoolReset(w.TicketId, w.SessionId + 100)).Result);
-        using var support = SuperAdminDb();
-        Assert.IsType<BadRequestObjectResult>((await Tickets(support, w.Other.Id).PreviewReset(w.TicketId)).Result);
 
-        var ticket = support.SupportTickets.Single();
-        ticket.Status = SupportTicketStatus.Closed;
-        await support.SaveChangesAsync();
-        Assert.IsType<BadRequestObjectResult>((await Tickets(support, w.SuperAdmin.Id).PreviewReset(w.TicketId)).Result);
+        backoffice.Support(w.TicketId, t => t with { Status = SupportTicketStatus.Closed });
+        Assert.IsType<BadRequestObjectResult>((await School(school).PreviewSchoolReset(w.TicketId)).Result);
         using var later = SchoolDb();
         Assert.IsType<BadRequestObjectResult>((await School(later).ResetSchoolTicket(w.TicketId, new(Reason: "Chyba"))).Result);
     }
@@ -333,17 +323,15 @@ public class SupportResetTests
 
             var cancelled = Ok(await School(db).CancelTicket(w.TicketId, new CancelSupportTicketRequest("Už ne", ResetChanges: true)));
             Assert.Equal(SupportTicketStatus.Cancelled, cancelled.Ticket.Status);
-            Assert.Equal(
-                [SupportTicketEntryKind.Reset, SupportTicketEntryKind.StatusChanged],
-                cancelled.Entries.Where(e => e.Kind is SupportTicketEntryKind.Reset or SupportTicketEntryKind.StatusChanged)
-                    .Select(e => e.Kind).ToList());
+            Assert.Single(cancelled.Entries, e => e.Kind == nameof(SupportTicketEntryKind.Reset));
             Assert.Equal("U1", db.Classrooms.Single(c => c.Id == classroomId).Name);
         }
 
-        // Cancelled Monday: reopenable till Tuesday's end (Prague).
+        // Cancelled Monday: reopenable till Tuesday's end (Prague), as the backoffice says.
+        backoffice.Support(w.TicketId, t => t with { ReopenableUntil = new DateTimeOffset(2026, 11, 10, 23, 0, 0, TimeSpan.Zero) });
         using (var db = SuperAdminDb())
         {
-            var job = new SupportChangeCleanupJob(db, new MessageAttachmentStorageService(env), clock);
+            var job = new SupportChangeCleanupJob(db, backoffice, new MessageAttachmentStorageService(env), clock);
             clock.Now = new DateTimeOffset(2026, 11, 10, 22, 0, 0, TimeSpan.Zero);
             await job.RunAsync();
             Assert.NotEmpty(db.SupportChanges);
@@ -372,7 +360,7 @@ public class SupportResetTests
                 (await School(db).ResetSchoolTicket(w.TicketId, new ResetSupportChangesRequest(Reason: " "))).Result);
             var detail = Ok(await School(db).ResetSchoolTicket(
                 w.TicketId, new ResetSupportChangesRequest(w.SessionId, "Rozbilo to rozvrh")));
-            Assert.Contains(detail.Entries, e => e.Kind == SupportTicketEntryKind.SessionEnded && e.SessionId == w.SessionId);
+            Assert.Contains(detail.Entries, e => e.Kind == nameof(SupportTicketEntryKind.SessionEnded) && e.SessionId == w.SessionId);
         }
         using (var db = SuperAdminDb())
         {
@@ -380,8 +368,6 @@ public class SupportResetTests
             Assert.Equal(clock.Now, session.EndedAt);
             Assert.Equal("reditel", session.EndedBy);
             Assert.Equal("Změny podpory byly resetovány.\n\n**Důvod:** Rozbilo to rozvrh", session.EndReason);
-            Assert.Contains(db.Notifications, n => n.UserId == w.SuperAdmin.Id && n.Title.StartsWith("Škola resetovala změny podpory")
-                                                 && n.Body == "Rozbilo to rozvrh");
 
             // The tab inside learns it with its next request.
             var http = new DefaultHttpContext

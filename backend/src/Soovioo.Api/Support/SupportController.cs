@@ -13,9 +13,7 @@ using Soovioo.Api.People;
 namespace Soovioo.Api.Support;
 
 /// <summary>SuperAdmin support: support sessions — redeeming the code,
-/// leaving, the log (entering is for a ticket, see
-/// <see cref="SupportTicketsController.Enter"/>) — and managing the
-/// SuperAdmin accounts.</summary>
+/// leaving, the log — and managing the SuperAdmin accounts.</summary>
 [ApiController]
 [AuditArea("Podpora")]
 public class SupportController(
@@ -41,7 +39,7 @@ public class SupportController(
             : Ok(response);
     }
 
-    public const int MaxResultLength = SupportTicket.MaxTextLength;
+    public const int MaxResultLength = SupportTicketsController.MaxTextLength;
 
     public const string CurrentPath = "/api/support-sessions/current";
 
@@ -62,7 +60,7 @@ public class SupportController(
         {
             return BadRequest("Nejste v režimu podpory.");
         }
-        return await SupportAsPolicy.CandidatesAsync(db, session.School!, session.Ticket);
+        return await SupportAsPolicy.CandidatesAsync(db, session.School!, session);
     }
 
     /// <summary>Switches whom the SuperAdmin is in the school as — another
@@ -92,7 +90,7 @@ public class SupportController(
     private async Task<SupportSession?> CurrentSessionAsync() =>
         int.TryParse(User.FindFirstValue(SupportClaims.SessionId), out var sessionId)
             ? await db.SupportSessions.IgnoreQueryFilters()
-                .Include(s => s.School).Include(s => s.Ticket)
+                .Include(s => s.School)
                 .FirstOrDefaultAsync(s => s.Id == sessionId)
             : null;
 
@@ -122,17 +120,13 @@ public class SupportController(
             session.Result = string.IsNullOrEmpty(result) ? null : result;
             if (session.TicketId is { } ticketId)
             {
-                var author = await db.Users.IgnoreQueryFilters().Include(u => u.Person)
-                    .FirstOrDefaultAsync(u => u.Id == session.SuperAdminUserId);
                 db.SupportTicketEntries.Add(new SupportTicketEntry
                 {
                     TicketId = ticketId,
                     SchoolId = session.SchoolId,
                     At = now,
                     Kind = SupportTicketEntryKind.Visit,
-                    AuthorUserId = session.SuperAdminUserId,
-                    AuthorName = author is null ? session.SuperAdminUsername : PersonNames.Display(author),
-                    BySupport = true,
+                    AuthorName = session.SuperAdminUsername,
                     Text = session.Result,
                     SessionId = session.Id,
                 });
@@ -158,7 +152,7 @@ public class SupportController(
             .Take(50)
             .Select(s => new SupportSessionDto(
                 s.Id, s.SuperAdminUsername, s.SchoolId, s.School!.Name, s.StartedAt, s.EndedAt,
-                s.Ticket != null ? s.Ticket.Title : null, s.Result,
+                s.TicketTitle, s.Result,
                 db.AuditLogEntries
                     .Where(a => a.SupportSessionId == s.Id && !a.Path.StartsWith("/api/support-sessions")
                                 && !a.Path.StartsWith("/api/support-tickets")

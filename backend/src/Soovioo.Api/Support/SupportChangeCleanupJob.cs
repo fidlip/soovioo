@@ -6,22 +6,43 @@ namespace Soovioo.Api.Support;
 
 /// <summary>Hourly Hangfire job (registered in Program.cs) — the journal of
 /// a closed or cancelled ticket (<see cref="SupportChange"/>, personal data)
-/// goes once the ticket can't be reopened
-/// (<see cref="SupportTicket.ReopenableUntil"/>), with the files its sessions
-/// deleted that no row holds.</summary>
-public class SupportChangeCleanupJob(AppDbContext db, MessageAttachmentStorageService storage, TimeProvider clock)
+/// goes once the backoffice no longer lets it be reopened
+/// (<see cref="BackofficeTicket.ReopenableUntil"/>) or no longer has it, with
+/// the files its sessions deleted that no row holds. While the backoffice
+/// can't be reached, it stays.</summary>
+public class SupportChangeCleanupJob(
+    AppDbContext db, IBackofficeTickets tickets, MessageAttachmentStorageService storage, TimeProvider clock)
 {
     public async Task RunAsync()
     {
-        var now = clock.GetUtcNow();
-        var journaled = await db.SupportChanges.IgnoreQueryFilters().Select(c => c.TicketId).Distinct().ToListAsync();
-        var tickets = await db.SupportTickets.IgnoreQueryFilters()
-            .Where(t => journaled.Contains(t.Id)
-                        && (t.Status == SupportTicketStatus.Closed || t.Status == SupportTicketStatus.Cancelled))
-            .ToListAsync();
-        foreach (var ticket in tickets.Where(t => t.ReopenableUntil <= now))
+        if (!tickets.Connected)
         {
-            var changes = db.SupportChanges.IgnoreQueryFilters().Where(c => c.TicketId == ticket.Id);
+            return;
+        }
+        var now = clock.GetUtcNow();
+        var journaled = await db.SupportChanges.IgnoreQueryFilters()
+            .Select(c => new { c.SchoolId, c.TicketId }).Distinct().ToListAsync();
+        foreach (var ticket in journaled)
+        {
+            try
+            {
+                var current = await tickets.GetAsync(ticket.SchoolId, ticket.TicketId);
+                if (current.Status is not (SupportTicketStatus.Closed or SupportTicketStatus.Cancelled)
+                    || current.ReopenableUntil > now)
+                {
+                    continue;
+                }
+            }
+            catch (TicketRefusedException e) when (e.Status == StatusCodes.Status404NotFound)
+            {
+                // Gone with its school in the backoffice.
+            }
+            catch (Exception e) when (e is TicketRefusedException or SupportUnavailableException)
+            {
+                continue;
+            }
+            var changes = db.SupportChanges.IgnoreQueryFilters()
+                .Where(c => c.SchoolId == ticket.SchoolId && c.TicketId == ticket.TicketId);
             var files = await changes.Where(c => c.Operation == SupportChangeOperation.FileDeleted)
                 .Select(c => c.KeyJson).Distinct().ToListAsync();
             foreach (var path in files)

@@ -18,15 +18,10 @@ import { Button } from '@openng/optimus-ui/button';
 import { Checkbox } from '@openng/optimus-ui/checkbox';
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Menu } from '@openng/optimus-ui/menu';
-import { Select } from '@openng/optimus-ui/select';
 import { Tag } from '@openng/optimus-ui/tag';
-import { ToggleSwitch } from '@openng/optimus-ui/toggleswitch';
-import { Tooltip } from '@openng/optimus-ui/tooltip';
 import {
-  AuthApiService,
   DateFormatPipe,
   SUPPORT_RESET_ACTION_LABELS,
-  SUPPORT_TICKET_ENTRY_CHANGE_LABELS,
   SUPPORT_TICKET_STATUS_LABELS,
   SupportApiService,
   SupportResetItem,
@@ -34,9 +29,7 @@ import {
   SupportTicket,
   SupportTicketDetail,
   SupportTicketEntry,
-  SupportTicketEntryRevision,
   SupportTicketStatus,
-  SuperAdmin,
   changesLabel,
   formatDate,
   isTicketOpen,
@@ -49,17 +42,9 @@ import {
   interval,
   merge,
 } from 'rxjs';
-import { FORM_FIELDS, FloatField } from '../forms';
+import { FORM_FIELDS } from '../forms';
 import { LiveService } from '../live.service';
-import { Markdown } from '@fidlip/soovioo-ui';
-import { MarkdownEditor } from '@fidlip/soovioo-ui';
-import { NotifyService } from '@fidlip/soovioo-ui';
-import { schoolUrl } from '../school-context';
-import {
-  SupportAsPick,
-  SupportAsPicker,
-} from '../support-as/support-as-picker';
-import { TicketSupportAsDialog } from '../support-as/ticket-support-as-dialog';
+import { Markdown, MarkdownEditor, NotifyService } from '@fidlip/soovioo-ui';
 import { ticketStatusSeverity } from './ticket-status';
 import {
   TicketVisit,
@@ -68,12 +53,12 @@ import {
   hiddenWhenFolded,
   visitMinutes,
 } from './ticket-thread';
+import { TicketTime } from './ticket-time';
 
-/** A support ticket with its thread — for the SuperAdmins (`side`
- * "support": taking it over, its state, asking to enter and entering,
- * internal notes), a SuperAdmin inside the school ("session": the visit's
- * ticket, only writing to it) or the school's admins ("school": answering,
- * allowing entering, cancelling; no internal entries). */
+/** The school's support ticket with its thread (kept in the backoffice):
+ * answering, closing or returning it, cancelling, the support's time and
+ * estimates, and what the support did inside the school — its visits and
+ * their reset. */
 @Component({
   selector: 'app-support-ticket-dialog',
   imports: [
@@ -81,19 +66,14 @@ import {
     Checkbox,
     DateFormatPipe,
     Dialog,
-    FloatField,
     ...FORM_FIELDS,
     FormsModule,
     Markdown,
     MarkdownEditor,
     NgTemplateOutlet,
     Menu,
-    Select,
-    SupportAsPicker,
     Tag,
-    TicketSupportAsDialog,
-    ToggleSwitch,
-    Tooltip,
+    TicketTime,
   ],
   templateUrl: './support-ticket-dialog.html',
 })
@@ -101,11 +81,8 @@ export class SupportTicketDialog {
   private readonly api = inject(SupportApiService);
   private readonly notify = inject(NotifyService);
   private readonly confirmation = inject(ConfirmationService);
-  private readonly myId = inject(AuthApiService).getUserId();
 
-  readonly side = input.required<'support' | 'session' | 'school'>();
-  protected readonly bySupport = computed(() => this.side() !== 'school');
-  /** The school's side in support mode: looking only. */
+  /** In support mode: looking only. */
   readonly readOnly = input(false);
   /** The ticket as it is after a change — for the list. */
   readonly changed = output<SupportTicket>();
@@ -114,9 +91,6 @@ export class SupportTicketDialog {
   protected readonly visible = signal(false);
   protected readonly busy = signal(false);
   protected text = '';
-  protected internal = false;
-  protected readonly releasing = signal(false);
-  protected summary = '';
   protected readonly cancelling = signal(false);
   protected cancelReason = '';
   /** Cancelling resets the support's changes first. */
@@ -136,26 +110,10 @@ export class SupportTicketDialog {
   );
   protected readonly returning = signal(false);
   protected returnText = '';
-  /** The message or note being changed in place. */
+  /** The message being changed in place. */
   protected readonly editing = signal<number | null>(null);
   protected editText = '';
   protected readonly entryMenuItems = signal<MenuItem[]>([]);
-  /** Messages with their list of changes shown. */
-  protected readonly changesShown = signal(new Set<number>());
-  /** Who "Převzít" gives it to: me (null) or, "Předat", another SuperAdmin. */
-  protected assignee: number | null = null;
-  protected readonly superAdmins = signal<SuperAdmin[]>([]);
-  protected readonly assigneeOptions = computed(() => [
-    { value: null, label: 'Já' },
-    ...this.superAdmins()
-      .filter((a) => a.id !== this.myId)
-      .map((a) => ({ value: a.id as number | null, label: a.name })),
-  ]);
-  /** The SuperAdmins' "Volání API": each change's request under it. */
-  protected readonly showRequests = signal(readShowRequests());
-  protected readonly hasRequests = computed(
-    () => !!this.detail()?.entries.some((e) => e.request),
-  );
   protected readonly items = computed(() =>
     groupTicketThread(this.detail()?.entries ?? []),
   );
@@ -189,7 +147,6 @@ export class SupportTicketDialog {
   private readonly live = inject(LiveService);
   private polling?: Subscription;
   private unwatch?: () => void;
-  private expiry?: ReturnType<typeof setTimeout>;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.stopRefreshing());
@@ -200,23 +157,12 @@ export class SupportTicketDialog {
     const ticket = this.ticket();
     return !!ticket && isTicketOpen(ticket.status);
   });
-  /** The ticket's own controls (state, taking over, cancelling) — not
-   * from inside the school, not when only looking. */
   protected readonly canManage = computed(
-    () => this.ticketOpen() && !this.readOnly() && this.side() !== 'session',
+    () => this.ticketOpen() && !this.readOnly(),
   );
-  protected readonly mine = computed(
-    () => this.ticket()?.assigneeUserId === this.myId,
-  );
-  protected readonly statusActions = computed(() =>
-    STATUS_ACTIONS.filter((a) => a.status !== this.ticket()?.status),
-  );
-  /** The support's changes the caller may reset — not from inside the
-   * school, not when only looking. */
+  /** The support's changes the caller may reset — not when only looking. */
   protected readonly resettable = computed(() =>
-    this.readOnly() || this.side() === 'session'
-      ? 0
-      : (this.ticket()?.resettableChanges ?? 0),
+    this.readOnly() ? 0 : (this.ticket()?.resettableChanges ?? 0),
   );
   /** The last day reopening is possible (it ends at its midnight). */
   protected readonly reopenLastDay = computed(() => {
@@ -224,33 +170,13 @@ export class SupportTicketDialog {
     return until ? new Date(new Date(until).getTime() - 1).toISOString() : null;
   });
 
-  /** Entering allowed right now — by the school's policy or the ticket. */
-
-  protected readonly canEnter = computed(() => {
-    const ticket = this.ticket();
-    return (
-      !!ticket &&
-      (ticket.schoolAccess === 'Always' ||
-        (ticket.schoolAccess === 'Approval' && !!ticket.accessUntil))
-    );
-  });
-
-  /** `id` of the ticket — not with "session", which has its own. */
-  open(id = 0): void {
+  open(id: number): void {
     this.text = '';
-    this.internal = false;
-    this.assignee = null;
     this.folds.set(new Map());
     this.notify.clear();
-    if (this.side() === 'support' && this.superAdmins().length === 0) {
-      this.api.getSuperAdmins().subscribe({
-        next: (admins) => this.superAdmins.set(admins),
-        error: () => this.superAdmins.set([]),
-      });
-    }
-    this.load(id).subscribe({
+    this.api.getSchoolTicket(id).subscribe({
       next: (detail) => {
-        this.show(detail);
+        this.detail.set(detail);
         this.visible.set(true);
         this.scrollToNewest();
         this.startRefreshing();
@@ -266,22 +192,10 @@ export class SupportTicketDialog {
     }
   }
 
-  private load(id: number): Observable<SupportTicketDetail> {
-    switch (this.side()) {
-      case 'support':
-        return this.api.getTicket(id);
-      case 'session':
-        return this.api.getSessionTicket();
-      default:
-        return this.api.getSchoolTicket(id);
-    }
-  }
-
-  /** The other side changes the ticket too (allows entering, takes it
-   * back, answers…), a visit goes inactive, and allowing runs out: while
-   * open, it reloads when the live connection says it changed (without
-   * it now and then, and when the tab is back in front), and when entering
-   * stops being allowed. */
+  /** The support changes the ticket too (answers, logs time, sends an
+   * estimate…), a visit goes inactive: while open, it reloads when the live
+   * connection says it changed (without it now and then, and when the tab
+   * is back in front). */
   private startRefreshing(): void {
     this.polling?.unsubscribe();
     this.unwatch?.();
@@ -307,7 +221,6 @@ export class SupportTicketDialog {
     this.polling = undefined;
     this.unwatch?.();
     this.unwatch = undefined;
-    clearTimeout(this.expiry);
   }
 
   private reload(): void {
@@ -320,11 +233,11 @@ export class SupportTicketDialog {
       setTimeout(() => this.reload(), 1000);
       return;
     }
-    this.load(ticket.id).subscribe({
+    this.api.getSchoolTicket(ticket.id).subscribe({
       next: (detail) => {
         if (this.visible() && !this.busy()) {
           const atNewest = this.atNewest();
-          this.show(detail);
+          this.detail.set(detail);
           if (atNewest) {
             this.scrollToNewest();
           }
@@ -353,28 +266,6 @@ export class SupportTicketDialog {
     return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 8;
   }
 
-  private show(detail: SupportTicketDetail): void {
-    this.detail.set(detail);
-    clearTimeout(this.expiry);
-    const until = detail.ticket.accessUntil;
-    if (until) {
-      const wait = new Date(until).getTime() - Date.now() + 1000;
-      // setTimeout overflows past ~24.8 days.
-      if (wait < 2 ** 31 - 1) {
-        this.expiry = setTimeout(() => this.reload(), Math.max(wait, 0));
-      }
-    }
-  }
-
-  protected setShowRequests(show: boolean): void {
-    this.showRequests.set(show);
-    try {
-      localStorage.setItem(SHOW_REQUESTS_KEY, show ? '1' : '0');
-    } catch {
-      // Only a convenience.
-    }
-  }
-
   protected statusLabel(status: SupportTicketStatus): string {
     return SUPPORT_TICKET_STATUS_LABELS[status];
   }
@@ -387,13 +278,27 @@ export class SupportTicketDialog {
       case 'Created':
         return 'Požadavek založen';
       case 'Assigned':
-        return entry.text ? `Převzato od: ${entry.text}` : 'Převzato';
+        return 'Převzato podporou';
       case 'Released':
-        return 'Práce přerušena — vráceno k převzetí';
+        return 'Podpora požadavek vrátila k převzetí';
       case 'HandedOver':
-        return `Předáno: ${entry.text ?? ''}`;
+        return 'Předáno jinému řešiteli';
       case 'StatusChanged':
         return `Stav: ${entry.status ? SUPPORT_TICKET_STATUS_LABELS[entry.status] : ''}`;
+      case 'EstimateRequested':
+        return 'Škola chce nejdřív odhad práce';
+      case 'EstimateProposed':
+        return 'Podpora poslala odhad práce';
+      case 'EstimateApproved':
+        return 'Odhad práce schválen';
+      case 'EstimateRejected':
+        return 'Odhad práce odmítnut';
+      case 'TimeCategoryChanged':
+        return 'Podpora změnila kategorii času';
+      case 'TimeDisputed':
+        return 'Kategorie času rozporována';
+      case 'TimeDisputeDecided':
+        return 'Podpora rozhodla o rozporování času';
       case 'AccessRequested':
         return 'Žádost o vstup do školy';
       case 'AccessGranted':
@@ -401,9 +306,7 @@ export class SupportTicketDialog {
       case 'AccessRevoked':
         return 'Povolení vstupu odebráno';
       case 'SupportAsChanged':
-        return entry.text
-          ? 'Podpora smí vstoupit jako'
-          : 'Podpora nemá vybráno, za koho smí vstoupit';
+        return 'Změněno, za koho smí podpora vstoupit';
       case 'SessionStarted':
         return 'Vstup do školy';
       case 'Visit':
@@ -461,7 +364,7 @@ export class SupportTicketDialog {
   }
 
   protected hasEntryActions(entry: SupportTicketEntry): boolean {
-    return !!entry.canEdit && !this.readOnly();
+    return !!entry.canEdit && !this.readOnly() && this.ticketOpen();
   }
 
   protected openEntryMenu(
@@ -469,26 +372,12 @@ export class SupportTicketDialog {
     entry: SupportTicketEntry,
     menu: Menu,
   ): void {
-    const open = this.ticketOpen();
     this.entryMenuItems.set([
-      ...(entry.internal || open
-        ? [
-            {
-              label: 'Upravit',
-              icon: 'pi pi-pencil',
-              command: () => this.startEdit(entry),
-            },
-          ]
-        : []),
-      ...(entry.bySupport && (!entry.internal || open)
-        ? [
-            {
-              label: entry.internal ? 'Poslat škole' : 'Změnit na interní',
-              icon: entry.internal ? 'pi pi-send' : 'pi pi-lock',
-              command: () => this.retype(entry),
-            },
-          ]
-        : []),
+      {
+        label: 'Upravit',
+        icon: 'pi pi-pencil',
+        command: () => this.startEdit(entry),
+      },
       {
         label: 'Smazat',
         icon: 'pi pi-trash',
@@ -510,7 +399,7 @@ export class SupportTicketDialog {
       return;
     }
     this.run(
-      this.api.editTicketEntry(this.side(), ticket.id, entry.id, text),
+      this.api.editTicketEntry(ticket.id, entry.id, text),
       () => this.editing.set(null),
       false,
     );
@@ -521,14 +410,10 @@ export class SupportTicketDialog {
     if (!ticket) {
       return;
     }
-    const note = entry.internal;
     this.confirmation.confirm({
-      header: note ? 'Smazat poznámku' : 'Smazat zprávu',
-      message: note
-        ? 'Poznámka zmizí, superadmini v jejích změnách uvidí, co v ní stálo.'
-        : entry.bySupport
-          ? 'Škola zprávu přestane vidět a zmizí i upozornění na ni. Co už odešlo e-mailem nebo do telefonu, se vzít zpět nedá. Superadmini v jejích změnách uvidí, co v ní stálo.'
-          : 'Zpráva zmizí. Podpora a kolegové se stejnou rolí v jejích změnách uvidí, co v ní stálo.',
+      header: 'Smazat zprávu',
+      message:
+        'Zpráva zmizí. Podpora a kolegové se stejnou rolí uvidí, že tu byla.',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Smazat',
       acceptButtonProps: { severity: 'danger' },
@@ -536,70 +421,18 @@ export class SupportTicketDialog {
       rejectButtonProps: { severity: 'secondary', outlined: true },
       accept: () =>
         this.run(
-          this.api.deleteTicketEntry(this.side(), ticket.id, entry.id),
-          () =>
-            this.notify.success(note ? 'Poznámka smazána.' : 'Zpráva smazána.'),
-          false,
-        ),
-    });
-  }
-
-  protected toggleChanges(entry: SupportTicketEntry): void {
-    this.changesShown.update((shown) => {
-      const next = new Set(shown);
-      if (!next.delete(entry.id)) {
-        next.add(entry.id);
-      }
-      return next;
-    });
-  }
-
-  protected changeLabel(revision: SupportTicketEntryRevision): string {
-    return SUPPORT_TICKET_ENTRY_CHANGE_LABELS[revision.change];
-  }
-
-  /** The text a change replaced or removed — the others keep it. */
-  protected changeText(revision: SupportTicketEntryRevision): string | null {
-    return revision.change === 'Edited' || revision.change === 'Deleted'
-      ? revision.text
-      : null;
-  }
-
-  private retype(entry: SupportTicketEntry): void {
-    const ticket = this.ticket();
-    if (!ticket) {
-      return;
-    }
-    const internal = !entry.internal;
-    this.confirmation.confirm({
-      header: internal ? 'Změnit na interní poznámku' : 'Poslat škole',
-      message: internal
-        ? 'Škola zprávu přestane vidět a zmizí i upozornění na ni. Co už odešlo e-mailem nebo do telefonu, se vzít zpět nedá.'
-        : 'Poznámka se stane zprávou škole: škola ji uvidí a dostane upozornění.',
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: internal ? 'Změnit na interní' : 'Poslat škole',
-      rejectLabel: 'Zpět',
-      rejectButtonProps: { severity: 'secondary', outlined: true },
-      accept: () =>
-        this.run(
-          this.side() === 'session'
-            ? this.api.setSessionEntryInternal(entry.id, internal)
-            : this.api.setTicketEntryInternal(ticket.id, entry.id, internal),
-          () =>
-            this.notify.success(
-              internal ? 'Změněno na interní poznámku.' : 'Posláno škole.',
-            ),
+          this.api.deleteTicketEntry(ticket.id, entry.id),
+          () => this.notify.success('Zpráva smazána.'),
           false,
         ),
     });
   }
 
   protected isText(entry: SupportTicketEntry): boolean {
-    return entry.kind === 'Message' || entry.kind === 'Note';
+    return entry.kind === 'Message';
   }
 
-  /** The text under a system entry — taking and handing over name the
-   * other SuperAdmin in their label already. */
+  /** The text under a system entry. */
   protected entryText(entry: SupportTicketEntry): string | null {
     return entry.kind === 'HandedOver' || entry.kind === 'Assigned'
       ? null
@@ -618,96 +451,9 @@ export class SupportTicketDialog {
     if (!ticket || !text) {
       return;
     }
-    const internal = this.internal;
-    this.run(
-      this.side() === 'support'
-        ? this.api.addTicketMessage(ticket.id, text, internal)
-        : this.side() === 'session'
-          ? this.api.addSessionTicketMessage(text, internal)
-          : this.api.addSchoolTicketMessage(ticket.id, text),
-      () => {
-        this.text = '';
-      },
-    );
-  }
-
-  protected assign(): void {
-    const to = this.assignee;
-    this.act(
-      (id) => this.api.assignTicket(id, to ?? undefined),
-      to ? 'Požadavek předán.' : undefined,
-      () => (this.assignee = null),
-    );
-  }
-
-  /** From another SuperAdmin taking care of it. */
-  protected takeOver(): void {
-    const ticket = this.ticket();
-    const from = ticket?.assigneeUserId;
-    if (!ticket || !from) {
-      return;
-    }
-    this.confirmation.confirm({
-      header: `Převzít od ${ticket.assigneeName}`,
-      message: `Požadavek teď řeší ${ticket.assigneeName} a může na něm právě pracovat. Převzetím o něj přijde: pokud je zrovna ve škole, jeho vstup hned skončí a neuložená práce se ztratí. Dostane o tom upozornění, škola uvidí nového řešitele.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Převzít',
-      acceptButtonProps: { severity: 'danger' },
-      rejectLabel: 'Zpět',
-      rejectButtonProps: { severity: 'secondary', outlined: true },
-      accept: () =>
-        this.act(
-          (id) => this.api.takeOverTicket(id, from),
-          'Požadavek převzat.',
-        ),
+    this.run(this.api.addSchoolTicketMessage(ticket.id, text), () => {
+      this.text = '';
     });
-  }
-
-  protected setStatus(status: SupportTicketStatus): void {
-    const set = () =>
-      this.act((id) => this.api.setTicketStatus(id, status), 'Stav změněn.');
-    if (status !== 'Resolved') {
-      set();
-      return;
-    }
-    this.confirmation.confirm({
-      header: 'Vyřešeno',
-      message:
-        'Vstup do školy kvůli požadavku skončí. Škola dostane upozornění a vyřešení potvrdí, nebo požadavek vrátí k řešení; bez reakce se za 30 dní uzavře sám.',
-      icon: 'pi pi-check-circle',
-      acceptLabel: 'Vyřešeno',
-      rejectLabel: 'Zpět',
-      rejectButtonProps: { severity: 'secondary', outlined: true },
-      accept: set,
-    });
-  }
-
-  protected openRelease(): void {
-    this.summary = '';
-    this.releasing.set(true);
-  }
-
-  protected release(): void {
-    this.act(
-      (id) => this.api.releaseTicket(id, this.summary.trim()),
-      'Požadavek vrácen k převzetí.',
-      () => this.releasing.set(false),
-    );
-  }
-
-  protected requestAccess(): void {
-    this.act(
-      (id) => this.api.requestTicketAccess(id),
-      'Žádost o vstup odeslána škole.',
-    );
-  }
-
-  protected grantAccess(): void {
-    this.act((id) => this.api.grantTicketAccess(id), 'Vstup povolen.');
-  }
-
-  protected revokeAccess(): void {
-    this.act((id) => this.api.revokeTicketAccess(id), 'Povolení odebráno.');
   }
 
   protected openCancel(): void {
@@ -750,7 +496,7 @@ export class SupportTicketDialog {
     if (!ticket) {
       return;
     }
-    this.api.previewReset(this.resetScope(), ticket.id, sessionId).subscribe({
+    this.api.previewReset(ticket.id, sessionId).subscribe({
       next: (preview) => this.resetPreview.set(preview),
       error: (err) => {
         this.resetting.set(null);
@@ -763,20 +509,10 @@ export class SupportTicketDialog {
   protected reset(): void {
     const sessionId = this.resetting()?.sessionId ?? null;
     this.act(
-      (id) =>
-        this.api.resetChanges(
-          this.resetScope(),
-          id,
-          sessionId,
-          this.resetReason.trim(),
-        ),
+      (id) => this.api.resetChanges(id, sessionId, this.resetReason.trim()),
       'Změny podpory resetovány.',
       () => this.resetting.set(null),
     );
-  }
-
-  private resetScope(): 'support' | 'school' {
-    return this.side() === 'school' ? 'school' : 'support';
   }
 
   protected resetActionLabel(item: SupportResetItem): string {
@@ -794,10 +530,7 @@ export class SupportTicketDialog {
 
   protected returnToSupport(): void {
     this.act(
-      (id) =>
-        this.bySupport()
-          ? this.api.returnTicketBySupport(id, this.returnText.trim())
-          : this.api.returnTicket(id, this.returnText.trim()),
+      (id) => this.api.returnTicket(id, this.returnText.trim()),
       'Požadavek vrácen k řešení.',
       () => this.returning.set(false),
     );
@@ -807,70 +540,10 @@ export class SupportTicketDialog {
     this.act((id) => this.api.reopenTicket(id), 'Požadavek znovu otevřen.');
   }
 
-  private readonly enterAsPicker = viewChild(SupportAsPicker);
-
-  protected readonly supportAsNames = computed(() =>
-    (this.ticket()?.supportAsUsers ?? []).map((u) => u.name).join(', '),
-  );
-
-  /** The school changed whom the support may enter as. */
-  protected supportAsSaved(detail: SupportTicketDetail): void {
-    this.show(detail);
+  /** The time section changed the ticket (an estimate decided, a dispute…). */
+  protected timeChanged(detail: SupportTicketDetail): void {
+    this.detail.set(detail);
     this.changed.emit(detail.ticket);
-  }
-
-  /** "Vstoupit do školy": as the school's admin, or as whom the ticket
-   * names — then picked first. */
-  protected enterClicked(): void {
-    const ticket = this.ticket();
-    if (ticket?.schoolSupportAs === 'Users') {
-      this.enterAsPicker()?.open(this.api.getEnterAs(ticket.id));
-    } else {
-      this.enter();
-    }
-  }
-
-  /** An audited, 2-hour session in the school (support mode) as its admin
-   * — or as one of its users (`as`); the own SuperAdmin
-   * session comes back on "Opustit", here at the ticket. */
-  protected enter(as: SupportAsPick | null = null): void {
-    const ticket = this.ticket();
-    if (!ticket) {
-      return;
-    }
-    // The school opens in a new tab, this one stays at the ticket. Opened
-    // right on the click: after the request it'd be blocked as a pop-up.
-    const tab = window.open('', '_blank');
-    this.busy.set(true);
-    this.api
-      .enterForTicket(
-        ticket.id,
-        as?.userId
-          ? { userId: as.userId, roleId: as.roleId ?? undefined }
-          : null,
-      )
-      .subscribe({
-        next: (session) => {
-          // The school's page (its own subdomain in production). The one-time
-          // code rides in the fragment, which never reaches any server log;
-          // `back` is for a tab that can't close itself on leaving.
-          const back = `superadmin/support?ticket=${ticket.id}`;
-          const url = `${schoolUrl(session.schoolSlug, 'support/enter')}#code=${session.code}&back=${encodeURIComponent(back)}`;
-          if (tab) {
-            tab.location.href = url;
-            this.busy.set(false);
-            this.reload();
-          } else {
-            window.location.href = url;
-          }
-        },
-        error: (err) => {
-          tab?.close();
-          this.busy.set(false);
-          this.notify.actionFailed('enterForTicket failed', err);
-          this.open(ticket.id);
-        },
-      });
   }
 
   private act(
@@ -899,7 +572,7 @@ export class SupportTicketDialog {
     call.subscribe({
       next: (detail) => {
         this.busy.set(false);
-        this.show(detail);
+        this.detail.set(detail);
         if (scroll) {
           this.scrollToNewest();
         }
@@ -913,24 +586,3 @@ export class SupportTicketDialog {
     });
   }
 }
-
-const SHOW_REQUESTS_KEY = 'supportTicket.showRequests';
-
-function readShowRequests(): boolean {
-  try {
-    return localStorage.getItem(SHOW_REQUESTS_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-/** What the assignee may set — school's answer returns it to Assigned. */
-const STATUS_ACTIONS: {
-  status: SupportTicketStatus;
-  label: string;
-  icon: string;
-}[] = [
-  { status: 'InProgress', label: 'Řeším', icon: 'pi pi-play' },
-  { status: 'WaitingForSchool', label: 'Čekám na školu', icon: 'pi pi-clock' },
-  { status: 'Resolved', label: 'Vyřešeno', icon: 'pi pi-check' },
-];

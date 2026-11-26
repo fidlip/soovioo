@@ -18,13 +18,11 @@ function entry(
     kind,
     authorName: 'superadmin',
     bySupport: true,
-    internal: false,
     text: null,
     status: null,
     until: null,
     sessionId: null,
     statusCode: null,
-    request: null,
     ...more,
   };
 }

@@ -20,7 +20,7 @@ namespace Soovioo.Api.Support;
 [AuditArea("Podpora")]
 public class SupportPolicyController(
     AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, IOptions<SupportOptions> options,
-    TimeProvider clock)
+    TimeProvider clock, IBackofficeTickets? tickets = null)
     : ControllerBase
 {
     [HttpGet("api/my-school/support")]
@@ -117,7 +117,7 @@ public class SupportPolicyController(
 
     private async Task<SchoolSupportDto> DtoAsync(School school) =>
         new(school.SupportAccess, options.Value.ApprovalMinutes, !InSupportMode() && await IsAdminAsync(),
-            school.SupportAs);
+            school.SupportAs, tickets?.Connected == true);
 
     private bool InSupportMode() => User.InSupportMode();
 
@@ -145,4 +145,6 @@ public record SetSupportAccessRequest(SupportAccess Access);
 /// <param name="ApprovalMinutes">How long allowing entering for a ticket lasts.</param>
 /// <param name="CanChange">The caller is the school's admin (and not the support inside it).</param>
 /// <param name="SupportAs">Whether the support may enter also as the users a ticket names.</param>
-public record SchoolSupportDto(SupportAccess Access, int ApprovalMinutes, bool CanChange, SupportAsScope SupportAs);
+/// <param name="Available">The instance has the support (is connected to a backoffice).</param>
+public record SchoolSupportDto(
+    SupportAccess Access, int ApprovalMinutes, bool CanChange, SupportAsScope SupportAs, bool Available);
