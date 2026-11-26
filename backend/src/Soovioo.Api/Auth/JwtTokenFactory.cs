@@ -64,7 +64,7 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
     public (string Token, DateTimeOffset ExpiresAt) CreateSupportToken(
         User superAdmin, School school, Role role, IReadOnlyDictionary<Permission, PermissionScope> permissions,
         int sessionId, DateTimeOffset? sessionExpiresAt = null,
-        User? asUser = null, IReadOnlyList<Role>? roles = null, string? asName = null)
+        User? asUser = null, IReadOnlyList<Role>? roles = null, string? asName = null, string? byName = null)
     {
         // Short-lived like normal tokens; the support cookie refreshes it
         // until the session itself ends.
@@ -82,7 +82,7 @@ public class JwtTokenFactory(IOptions<JwtOptions> jwtOptions)
             new("schoolId", school.Id.ToString()),
             new("schoolType", school.Type.ToString()),
             new(Support.SupportClaims.SessionId, sessionId.ToString()),
-            new(Support.SupportClaims.By, superAdmin.Username),
+            new(Support.SupportClaims.By, byName ?? superAdmin.Username),
             new(Support.SupportClaims.SuperAdminId, superAdmin.Id.ToString()),
             new(Support.SupportClaims.SchoolName, school.Name),
         };

@@ -20,7 +20,7 @@ namespace Soovioo.Api.Support;
 [AuditArea("Podpora")]
 public class SupportPolicyController(
     AppDbContext db, ICurrentSchoolContext currentSchool, Notifier notifier, IOptions<SupportOptions> options,
-    TimeProvider clock, IBackofficeTickets? tickets = null)
+    TimeProvider clock, IBackofficeTickets? tickets = null, SupportKeys? keys = null)
     : ControllerBase
 {
     [HttpGet("api/my-school/support")]
@@ -54,6 +54,12 @@ public class SupportPolicyController(
         if (school.SupportAccess != request.Access)
         {
             school.SupportAccess = request.Access;
+            if (request.Access == SupportAccess.Never && keys is not null)
+            {
+                var id = User.UserId();
+                var me = await db.Users.Include(u => u.Person).FirstAsync(u => u.Id == id);
+                await keys.RevokeAllAsync(school.Id, me, People.PersonNames.Display(me));
+            }
             await db.SaveChangesAsync();
             var superAdmins = await db.Users.IgnoreQueryFilters()
                 .Where(u => u.IsSuperAdmin && u.SchoolId == null)

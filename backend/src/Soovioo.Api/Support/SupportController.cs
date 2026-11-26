@@ -12,8 +12,8 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Support;
 
-/// <summary>SuperAdmin support: support sessions — redeeming the code,
-/// leaving, the log — and managing the SuperAdmin accounts.</summary>
+/// <summary>Support sessions — entering with the school's key, leaving, the
+/// log — and managing the SuperAdmin accounts.</summary>
 [ApiController]
 [AuditArea("Podpora")]
 public class SupportController(
@@ -26,17 +26,16 @@ public class SupportController(
     /// deleted or renamed by anyone, so there's always a way back in.</summary>
     public const string BuiltInUsername = "superadmin";
 
-    /// <summary>One-time code → support access token + support cookie.
-    /// Anonymous: on a school's subdomain there's no session yet.</summary>
-    [HttpPost("api/support-sessions/redeem")]
+    /// <summary>The support's entry signed with the ticket's key the school approved
+    /// (<see cref="SupportKeys.EnterAsync"/>) → support access token + support cookie.
+    /// Anonymous: on a school's page there's no session yet.</summary>
+    [HttpPost("api/support-sessions/enter")]
     [AllowAnonymous]
     [AuditAction("Vstup do školy v režimu podpory")]
-    public async Task<ActionResult<LoginResponse>> Redeem(RedeemSupportCodeRequest request)
+    public async Task<ActionResult<LoginResponse>> Enter(EnterSupportRequest request, [FromServices] SupportKeys keys)
     {
-        var response = await supportSessions.RedeemAsync(HttpContext, request.Code);
-        return response is null
-            ? BadRequest("Odkaz pro vstup do školy je neplatný nebo vypršel.")
-            : Ok(response);
+        var response = await keys.EnterAsync(HttpContext, request.Entry);
+        return response is null ? BadRequest(SupportKeys.Invalid) : Ok(response);
     }
 
     public const int MaxResultLength = SupportTicketsController.MaxTextLength;
@@ -330,11 +329,8 @@ public class SupportController(
     private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-/// <param name="Code">One-time, valid 1 minute — redeem at
-/// <c>POST /api/support-sessions/redeem</c> from the school's page.</param>
-public record SupportSessionStartDto(int SessionId, string Code, string SchoolSlug, string SchoolName, DateTimeOffset ExpiresAt);
-
-public record RedeemSupportCodeRequest(string Code);
+/// <param name="Entry">The fragment's <c>entry</c>: the payload and its signature.</param>
+public record EnterSupportRequest(string? Entry);
 
 /// <param name="As">Made as one of the school's users: who.</param>
 public record SupportActionDto(

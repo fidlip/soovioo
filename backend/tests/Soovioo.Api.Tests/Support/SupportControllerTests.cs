@@ -38,20 +38,15 @@ public class SupportControllerTests
         };
 
     /// <summary>A support session started for a ticket, as entering it does.</summary>
-    private static async Task<(SupportSessionStartDto Started, HttpContext Http)> EnterAsync(
-        AppDbContext db, User superAdmin, School school)
+    private static async Task<SupportSession> EnterAsync(AppDbContext db, User superAdmin, School school)
     {
         var session = new SupportSession
         {
-            SuperAdminUserId = superAdmin.Id, SuperAdminUsername = superAdmin.Username, SchoolId = school.Id,
+            SuperAdminUserId = superAdmin.Id, SuperAdminUsername = "Jana Operátorka", SchoolId = school.Id,
             School = school, TicketId = 3, TicketTitle = "Rozvrh",
         };
-        var code = await Sessions(db).StartAsync(session);
-        var http = new DefaultHttpContext
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, superAdmin.Id.ToString())])),
-        };
-        return (new SupportSessionStartDto(session.Id, code, school.Slug, school.Name, session.ExpiresAt), http);
+        await Sessions(db).StartAsync(session);
+        return session;
     }
 
     private static async Task<User> SuperAdminAsync(AppDbContext db, string username = "superadmin")
@@ -63,7 +58,7 @@ public class SupportControllerTests
     }
 
     [Fact]
-    public async Task SupportCodeIsRedeemedOnceForAnAdminTokenAndTheCookieRefreshesOnlyThatSchool()
+    public async Task EnteringGivesAnAdminTokenAndTheCookieRefreshesOnlyThatSchool()
     {
         using var db = NewDb();
         var superAdmin = await SuperAdminAsync(db);
@@ -75,29 +70,26 @@ public class SupportControllerTests
         db.Schools.Add(school);
         await db.SaveChangesAsync();
 
-        var (started, _) = await EnterAsync(db, superAdmin, school);
-        Assert.Equal("test", started.SchoolSlug);
-        Assert.NotEqual(started.Code, Assert.Single(db.SupportSessions).HandoffCodeHash);
+        var session = await EnterAsync(db, superAdmin, school);
 
-        // Redeemed on the school's page — anonymous there.
+        // On the school's page — anonymous there.
         var http = new DefaultHttpContext();
-        var login = await Sessions(db).RedeemAsync(http, started.Code);
+        var login = await Sessions(db).BeginAsync(http, session);
         Assert.NotNull(login);
         var redeemAudit = Soovioo.Api.Audit.AuditContext.Of(http);
         Assert.Equal(school.Id, redeemAudit.SchoolId);
         Assert.Equal(superAdmin.Id, redeemAudit.UserId);
-        Assert.Equal("superadmin", redeemAudit.SupportBy);
+        Assert.Equal("Jana Operátorka", redeemAudit.SupportBy);
         var claims = new JwtSecurityTokenHandler().ReadJwtToken(login!.Token).Claims.ToList();
         Assert.Contains(claims, c => c.Type == ClaimTypes.Role && c.Value == "Staff");
         Assert.Contains(claims, c => c.Type == "roleName" && c.Value == "Admin");
         Assert.Contains(claims, c => c.Type == "perms" && c.Value.Contains("Administration:School"));
         Assert.Contains(claims, c => c.Type == "schoolId" && c.Value == school.Id.ToString());
-        Assert.Contains(claims, c => c.Type == SupportClaims.By && c.Value == "superadmin");
+        Assert.Contains(claims, c => c.Type == SupportClaims.By && c.Value == "Jana Operátorka");
         var setCookie = http.Response.Headers.SetCookie.ToString();
         Assert.StartsWith(SupportSessionService.CookieName + "=", setCookie);
         var secret = setCookie.Split(';')[0].Split('=')[1];
 
-        Assert.Null(await Sessions(db).RedeemAsync(new DefaultHttpContext(), started.Code));
 
         HttpRequest RefreshRequest()
         {
@@ -155,16 +147,16 @@ public class SupportControllerTests
         RoleSeeder.AddMissing(school);
         db.Schools.Add(school);
         await db.SaveChangesAsync();
-        var (started, _) = await EnterAsync(db, superAdmin, school);
+        var started = await EnterAsync(db, superAdmin, school);
         db.AuditLogEntries.AddRange(
             new Soovioo.Api.Audit.AuditLogEntry
             {
-                SupportSessionId = started.SessionId, Method = "POST", Path = "/api/grades", Area = "Známky",
+                SupportSessionId = started.Id, Method = "POST", Path = "/api/grades", Area = "Známky",
                 Description = "Zapsána známka", StatusCode = 200,
             },
             new Soovioo.Api.Audit.AuditLogEntry
             {
-                SupportSessionId = started.SessionId, Method = "POST", Path = "/api/support-sessions/current/end",
+                SupportSessionId = started.Id, Method = "POST", Path = "/api/support-sessions/current/end",
                 Area = "Podpora", StatusCode = 204,
             });
         await db.SaveChangesAsync();

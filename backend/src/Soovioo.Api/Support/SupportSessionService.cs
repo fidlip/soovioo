@@ -9,9 +9,9 @@ using Soovioo.Api.People;
 
 namespace Soovioo.Api.Support;
 
-/// <summary>Support mode across origins. The SuperAdmin page gets a one-time
-/// code; the school's page (same app, possibly another subdomain) redeems it
-/// for a support access token plus a <c>soovioo_support</c> cookie, which
+/// <summary>Support mode across origins. The school's entry page posts the
+/// support's signed entry (<see cref="SupportKeys.EnterAsync"/>) for a support
+/// access token plus a <c>soovioo_support</c> cookie, which
 /// <see cref="AuthController.Refresh"/> honours for that school only — so a
 /// reload stays in support mode and the SuperAdmin's own session
 /// (<c>soovioo_refresh</c>) is never touched.</summary>
@@ -21,38 +21,22 @@ public class SupportSessionService(
     public const string CookieName = "soovioo_support";
     private const string CookiePath = "/api";
     public static readonly TimeSpan SessionLength = TimeSpan.FromHours(2);
-    public static readonly TimeSpan HandoffLength = TimeSpan.FromMinutes(1);
 
-    /// <summary>Starts the session; returns the one-time code (only its hash is stored).</summary>
-    public async Task<string> StartAsync(SupportSession session)
+    /// <summary>Starts the session (saved).</summary>
+    public async Task StartAsync(SupportSession session)
     {
         var now = clock.GetUtcNow();
-        var code = NewSecret();
         session.StartedAt = now;
         session.ExpiresAt = now + SessionLength;
         session.DisconnectedAt = now;
-        session.HandoffCodeHash = Hash(code);
-        session.HandoffExpiresAt = now + HandoffLength;
         db.SupportSessions.Add(session);
         await db.SaveChangesAsync();
-        return code;
     }
 
-    /// <summary>Code → support login (token + cookie), or null when the code
-    /// is unknown, used, expired or the session is over.</summary>
-    public async Task<LoginResponse?> RedeemAsync(HttpContext http, string code)
+    /// <summary>The started session's login on the school's page: its token and the
+    /// <c>soovioo_support</c> cookie that keeps it over reloads.</summary>
+    public async Task<LoginResponse?> BeginAsync(HttpContext http, SupportSession session)
     {
-        var now = clock.GetUtcNow();
-        var hash = Hash(code);
-        var session = await db.SupportSessions.IgnoreQueryFilters()
-            .Include(s => s.School).Include(s => s.SuperAdminUser)
-            .FirstOrDefaultAsync(s => s.HandoffCodeHash == hash);
-        if (session is null || session.HandoffExpiresAt < now || session.EndedAt is not null
-            || session.ExpiresAt < now || session.SuperAdminUser is null || session.School is null)
-        {
-            return null;
-        }
-
         // Anonymous request — the audit log learns whose entry it is here.
         var audit = AuditContext.Of(http);
         audit.SchoolId = session.SchoolId;
@@ -61,12 +45,11 @@ public class SupportSessionService(
         audit.SupportBy = session.SuperAdminUsername;
 
         var secret = NewSecret();
-        session.HandoffCodeHash = null; // one use only
-        session.HandoffExpiresAt = null;
         session.RefreshSecretHash = Hash(secret);
         await db.SaveChangesAsync();
-
         http.Response.Cookies.Append(CookieName, secret, CookieOptionsFor(session.ExpiresAt));
+        await db.Entry(session).Reference(s => s.School).LoadAsync();
+        await db.Entry(session).Reference(s => s.SuperAdminUser).LoadAsync();
         return await RespondAsync(session);
     }
 
@@ -185,7 +168,7 @@ public class SupportSessionService(
                 var (asToken, _) = tokens.CreateSupportToken(
                     session.SuperAdminUser!, session.School!, role,
                     await PermissionAccess.EffectivePermissionsAsync(db, role.Id), session.Id, session.ExpiresAt,
-                    user, roles, session.AsName);
+                    user, roles, session.AsName, session.SuperAdminUsername);
                 return new LoginResponse(
                     asToken, user.Username, role.Kind.ToString(), session.School!.Name, session.School.Slug);
             }
@@ -204,7 +187,8 @@ public class SupportSessionService(
             .FirstAsync(r => r.SchoolId == session.SchoolId && r.BuiltIn == UserRole.Admin);
         var (token, _) = tokens.CreateSupportToken(
             session.SuperAdminUser!, session.School!, adminRole,
-            await PermissionAccess.EffectivePermissionsAsync(db, adminRole.Id), session.Id, session.ExpiresAt);
+            await PermissionAccess.EffectivePermissionsAsync(db, adminRole.Id), session.Id, session.ExpiresAt,
+            byName: session.SuperAdminUsername);
         return new LoginResponse(
             token, session.SuperAdminUser!.Username, nameof(RoleKind.Staff), session.School!.Name, session.School.Slug);
     }

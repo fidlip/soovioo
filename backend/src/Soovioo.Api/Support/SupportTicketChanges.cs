@@ -13,7 +13,7 @@ namespace Soovioo.Api.Support;
 /// and an open detail of it reloads.</summary>
 public class SupportTicketChanges(
     AppDbContext db, IBackofficeTickets tickets, Notifier notifier, LivePublisher live,
-    ILogger<SupportTicketChanges> logger)
+    ILogger<SupportTicketChanges> logger, SupportKeys? keys = null)
 {
     public const string Command = "TicketChanged";
 
@@ -39,6 +39,12 @@ public class SupportTicketChanges(
         if (!await db.Schools.IgnoreQueryFilters().AnyAsync(s => s.Id == change.SchoolId))
         {
             return CommandAnswer.Refused($"School {change.SchoolId} doesn't exist.");
+        }
+        if (change.Status is SupportTicketStatus.Resolved or SupportTicketStatus.Closed or SupportTicketStatus.Cancelled
+            && keys is not null)
+        {
+            await keys.ExpireAsync(change.SchoolId, change.TicketId);
+            await db.SaveChangesAsync();
         }
         await live.TicketsAsync(change.SchoolId, [change.TicketId]);
         if (change.Change is Changes.Time)

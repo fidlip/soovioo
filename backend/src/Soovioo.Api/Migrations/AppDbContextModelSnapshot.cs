@@ -2670,6 +2670,92 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("SchoolYears");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Support.SupportAccessKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.PrimitiveCollection<List<int>>("ApprovedAsUserIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<DateTimeOffset?>("ApprovedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DecidedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("DecidedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DecisionNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("OperatorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OperatorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.PrimitiveCollection<List<int>>("RequestedAsUserIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<int>("SchoolId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int?>("TicketAuthorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TicketTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "Fingerprint")
+                        .IsUnique();
+
+                    b.HasIndex("SchoolId", "TicketId", "CreatedAt");
+
+                    b.ToTable("SupportAccessKeys");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Support.SupportChange", b =>
                 {
                     b.Property<long>("Id")
@@ -2722,6 +2808,38 @@ namespace Soovioo.Api.Migrations
                     b.ToTable("SupportChanges");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Support.SupportEntryChallenge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AsUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("KeyId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.HasIndex("KeyId");
+
+                    b.ToTable("SupportEntryChallenges");
+                });
+
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>
                 {
                     b.Property<int>("Id")
@@ -2729,6 +2847,9 @@ namespace Soovioo.Api.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AccessKeyId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("AsName")
                         .HasMaxLength(300)
@@ -2755,14 +2876,11 @@ namespace Soovioo.Api.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("HandoffCodeHash")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("HandoffExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset?>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("OperatorId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("RefreshSecretHash")
                         .HasColumnType("text");
@@ -4777,6 +4895,15 @@ namespace Soovioo.Api.Migrations
                     b.Navigation("School");
                 });
 
+            modelBuilder.Entity("Soovioo.Api.Support.SupportAccessKey", b =>
+                {
+                    b.HasOne("Soovioo.Api.Evidence.School", null)
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Soovioo.Api.Support.SupportChange", b =>
                 {
                     b.HasOne("Soovioo.Api.Support.SupportSession", null)
@@ -4784,6 +4911,17 @@ namespace Soovioo.Api.Migrations
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Soovioo.Api.Support.SupportEntryChallenge", b =>
+                {
+                    b.HasOne("Soovioo.Api.Support.SupportAccessKey", "Key")
+                        .WithMany()
+                        .HasForeignKey("KeyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Key");
                 });
 
             modelBuilder.Entity("Soovioo.Api.Support.SupportSession", b =>

@@ -46,7 +46,8 @@ public class SupportResetTests
             new SupportPlanClient(Soovioo.Api.Tests.Backoffice.FakeBackoffice.NotConnected(),
                 Microsoft.Extensions.Options.Options.Create(new SupportPlanOptions()),
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<SupportPlanClient>.Instance),
-            new SupportReset(db, clock), new Soovioo.Api.Tests.Live.RecordingHub().Publisher(), clock)
+            new SupportReset(db, clock), new Soovioo.Api.Tests.Live.RecordingHub().Publisher(), clock,
+            AuthTestServices.SupportKeys(db, clock), Microsoft.Extensions.Options.Options.Create(new SupportOptions()))
         {
             ControllerContext = new ControllerContext
             {

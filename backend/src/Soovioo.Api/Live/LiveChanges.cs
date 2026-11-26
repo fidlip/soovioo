@@ -29,7 +29,7 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
     private static readonly string[] SessionStateProperties =
     [
         nameof(SupportSession.EndedAt), nameof(SupportSession.ExpiresAt), nameof(SupportSession.AsUserId),
-        nameof(SupportSession.AsRoleId), nameof(SupportSession.HandoffCodeHash),
+        nameof(SupportSession.AsRoleId),
     ];
 
     private readonly ConditionalWeakTable<DbContext, State> states = new();

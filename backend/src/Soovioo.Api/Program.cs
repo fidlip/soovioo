@@ -73,6 +73,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<Soovioo.Api.Support.SupportPlanClient>();
 builder.Services.AddScoped<Soovioo.Api.Support.IBackofficeTickets, Soovioo.Api.Support.BackofficeTickets>();
 builder.Services.AddScoped<Soovioo.Api.Support.SupportTicketChanges>();
+builder.Services.AddScoped<Soovioo.Api.Support.SupportKeys>();
 builder.Services.Configure<Soovioo.Api.Backoffice.BackofficeOptions>(builder.Configuration.GetSection("Backoffice"));
 // One client for the app's lifetime: it keeps the instance's token.
 builder.Services.AddSingleton<Soovioo.Api.Backoffice.IBackofficeClient>(services => new Soovioo.Api.Backoffice.BackofficeClient(

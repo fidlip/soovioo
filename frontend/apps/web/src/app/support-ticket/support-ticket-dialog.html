@@ -101,8 +101,14 @@
       />
       } }
     </div>
+    } @if (detail()!.access; as access) {
+    <app-ticket-access
+      [ticketId]="ticket.id"
+      [access]="access"
+      [readOnly]="readOnly()"
+      (changed)="timeChanged($event)"
+    />
     }
-
     <app-ticket-time
       [ticket]="ticket"
       [time]="detail()!.time"

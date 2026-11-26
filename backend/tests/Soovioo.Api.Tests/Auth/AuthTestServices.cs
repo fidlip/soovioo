@@ -24,4 +24,12 @@ internal static class AuthTestServices
 
     public static Soovioo.Api.Support.SupportSessionService SupportSessions(AppDbContext db, TimeProvider? clock = null) =>
         new(db, TokenFactory, Options.Create(new AuthCookieOptions()), clock ?? TimeProvider.System);
+
+    /// <summary>On a connected instance whose school pages are http://localhost:4200/{slug}.</summary>
+    public static Soovioo.Api.Support.SupportKeys SupportKeys(
+        AppDbContext db, TimeProvider? clock = null, Soovioo.Api.Backoffice.IBackofficeClient? backoffice = null) =>
+        new(db, backoffice ?? new Soovioo.Api.Tests.Backoffice.FakeBackoffice(), SupportSessions(db, clock),
+            Options.Create(new Soovioo.Api.Support.SupportOptions()),
+            Options.Create(new AppLinkOptions { PathBasedTenant = true, FrontendBaseUrl = "http://localhost:4200" }),
+            clock ?? TimeProvider.System);
 }

@@ -1,0 +1,189 @@
+@if (access(); as access) {
+<div
+  class="flex flex-col gap-2 rounded-md border px-3 py-2 text-sm"
+  [class.border-amber-300]="access.status === 'Pending'"
+  [class.border-surface-200]="access.status !== 'Pending'"
+  [class.dark:border-surface-700]="access.status !== 'Pending'"
+  data-testid="ticket-access"
+>
+  <div class="flex flex-wrap items-center gap-2">
+    <i class="pi pi-key text-surface-500"></i>
+    <span class="grow font-medium"
+      >{{ access.operatorName }} žádá o vstup do školy</span
+    >
+    <p-tag
+      [value]="statusLabel(access.status, access.usable)"
+      [severity]="statusSeverity(access.status, access.usable)"
+    />
+  </div>
+  @if (!over()) {
+  <p class="m-0 text-surface-600 dark:text-surface-300">
+    Podpora vstoupí jen s klíčem, který jste schválili. Můžete ho kdykoli
+    odvolat.
+  </p>
+  } @if (access.reason) {
+  <app-markdown [text]="access.reason" />
+  }
+  <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+    @if (access.status === 'Pending') {
+    <dt class="text-surface-500">Jako</dt>
+    <dd class="m-0">
+      {{ access.requestedAs.length ? names(access.requestedAs) : 'vyberete vy'
+      }}
+    </dd>
+    } @if (access.status === 'Approved') {
+    <dt class="text-surface-500">Platí do</dt>
+    <dd class="m-0">{{ access.approvedUntil | dateFormat: 'dateTime' }}</dd>
+    <dt class="text-surface-500">Jako</dt>
+    <dd class="m-0">
+      {{ access.approvedAs.length ? names(access.approvedAs) : 'admin školy' }}
+    </dd>
+    } @if (access.decidedByName && access.status !== 'Pending') {
+    <dt class="text-surface-500">Rozhodl(a)</dt>
+    <dd class="m-0">
+      {{ access.decidedByName }}, {{ access.decidedAt | dateFormat: 'dateTime'
+      }}
+    </dd>
+    }
+    <dt class="text-surface-500">Otisk klíče</dt>
+    <dd class="m-0 break-all font-mono">{{ access.fingerprint }}</dd>
+  </dl>
+  @if (mayDecide()) { @if (access.status === 'Pending') {
+  <div class="flex justify-end gap-2">
+    <p-button
+      label="Zamítnout"
+      icon="pi pi-times"
+      size="small"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="openReject()"
+    />
+    <p-button
+      label="Schválit"
+      icon="pi pi-check"
+      size="small"
+      [disabled]="busy()"
+      (onClick)="openApprove()"
+    />
+  </div>
+  } @else if (access.status === 'Approved') {
+  <div class="flex justify-end gap-2">
+    @if (access.usable) {
+    <p-button
+      label="Změnit"
+      size="small"
+      severity="secondary"
+      [text]="true"
+      [disabled]="busy()"
+      (onClick)="openApprove()"
+    />
+    }
+    <p-button
+      label="Odvolat"
+      icon="pi pi-ban"
+      size="small"
+      severity="danger"
+      [outlined]="true"
+      [disabled]="busy()"
+      (onClick)="revoke()"
+    />
+  </div>
+  } } @else if (access.status === 'Pending') {
+  <div class="text-xs text-surface-500">O vstupu rozhoduje admin školy.</div>
+  }
+</div>
+}
+
+<p-dialog
+  [visible]="approving()"
+  (visibleChange)="$event || approving.set(false)"
+  header="Schválit vstup podpory"
+  [modal]="true"
+  [focusOnShow]="false"
+  styleClass="w-full max-w-lg"
+>
+  @if (approving()) {
+  <form
+    #approveForm="ngForm"
+    class="flex flex-col gap-3"
+    (ngSubmit)="approve()"
+  >
+    <p class="m-0 text-sm text-surface-500">
+      Uložíte veřejný klíč podpory s otiskem
+      <span class="break-all font-mono">{{ access().fingerprint }}</span>. Jen s
+      ním podpora do školy vstoupí, a jen do zvolené doby. Kdykoli ho můžete
+      odvolat.
+    </p>
+    <app-float-field label="Platí do" for="accessUntil">
+      <p-datePicker
+        inputId="accessUntil"
+        name="until"
+        [(ngModel)]="until"
+        [showTime]="true"
+        [minDate]="minDate"
+        appendTo="body"
+        required
+      />
+    </app-float-field>
+    @if (access().supportAs === 'Users') {
+    <app-support-as-users-select inputId="accessUsers" [(userIds)]="userIds" />
+    } @else {
+    <p class="m-0 text-sm text-surface-500">
+      Podpora vstoupí jako admin školy (Nastavení → Podpora).
+    </p>
+    }
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="approving.set(false)"
+      />
+      <app-submit-button
+        [form]="approveForm"
+        label="Schválit"
+        icon="pi pi-check"
+        [busy]="busy()"
+        [disabled]="access().supportAs === 'Users' && !userIds.length"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="rejecting()"
+  (visibleChange)="$event || rejecting.set(false)"
+  header="Zamítnout vstup podpory"
+  [modal]="true"
+  styleClass="w-full max-w-lg"
+>
+  @if (rejecting()) {
+  <form #rejectForm="ngForm" (ngSubmit)="reject()">
+    <app-markdown-editor
+      label="Proč (nepovinné)"
+      inputId="accessRejectNote"
+      name="note"
+      [rows]="3"
+      maxlength="2000"
+      [(ngModel)]="rejectNote"
+    />
+    <div class="mt-4 flex justify-end gap-2">
+      <p-button
+        label="Zpět"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="rejecting.set(false)"
+      />
+      <app-submit-button
+        [form]="rejectForm"
+        label="Zamítnout"
+        icon="pi pi-times"
+        severity="danger"
+        [busy]="busy()"
+      />
+    </div>
+  </form>
+  }
+</p-dialog>

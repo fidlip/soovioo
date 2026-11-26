@@ -60,6 +60,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
     public DbSet<Support.SupportSession> SupportSessions => Set<Support.SupportSession>();
     public DbSet<Support.SupportTicketEntry> SupportTicketEntries => Set<Support.SupportTicketEntry>();
     public DbSet<Support.SupportChange> SupportChanges => Set<Support.SupportChange>();
+    public DbSet<Support.SupportAccessKey> SupportAccessKeys => Set<Support.SupportAccessKey>();
+    public DbSet<Support.SupportEntryChallenge> SupportEntryChallenges => Set<Support.SupportEntryChallenge>();
     public DbSet<Audit.AuditLogEntry> AuditLogEntries => Set<Audit.AuditLogEntry>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSchoolClass> EventSchoolClasses => Set<EventSchoolClass>();
@@ -328,6 +330,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentSchool
         modelBuilder.Entity<Audit.AuditLogEntry>().Property(e => e.AsUserName).HasMaxLength(300);
         modelBuilder.Entity<Support.SupportSession>().Property(s => s.Result).HasMaxLength(Support.SupportTicketsController.MaxTextLength);
         modelBuilder.Entity<Support.SupportSession>().Property(s => s.TicketTitle).HasMaxLength(Support.SupportTicketsController.MaxTitleLength);
+        modelBuilder.Entity<Support.SupportAccessKey>(e =>
+        {
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.TicketTitle).HasMaxLength(200);
+            e.Property(x => x.Fingerprint).HasMaxLength(64);
+            e.Property(x => x.OperatorName).HasMaxLength(200);
+            e.Property(x => x.DecidedByName).HasMaxLength(200);
+            e.Property(x => x.Reason).HasMaxLength(Support.SupportKeys.MaxReasonLength);
+            e.Property(x => x.DecisionNote).HasMaxLength(Support.SupportKeys.MaxReasonLength);
+            e.HasOne<Evidence.School>().WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.SchoolId, x.TicketId, x.CreatedAt });
+            e.HasIndex(x => new { x.SchoolId, x.Fingerprint }).IsUnique();
+            e.HasQueryFilter(x => currentSchool.IsSuperAdmin || x.SchoolId == currentSchool.SchoolId);
+        });
+        modelBuilder.Entity<Support.SupportEntryChallenge>(e =>
+        {
+            e.Property(x => x.Hash).HasMaxLength(64);
+            e.HasIndex(x => x.Hash).IsUnique();
+            e.HasOne(x => x.Key).WithMany().HasForeignKey(x => x.KeyId).OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<Support.SupportTicketEntry>(e =>
         {
             e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);

@@ -212,6 +212,7 @@ export type SupportTicketEntryKind =
   | 'AccessRequested'
   | 'AccessGranted'
   | 'AccessRevoked'
+  | 'AccessRejected'
   | 'SupportAsChanged'
   | 'TimeCategoryChanged'
   | 'TimeDisputed'
@@ -324,10 +325,48 @@ export interface SupportTicketTime {
   estimateExhausted: boolean;
 }
 
+export type SupportAccessKeyStatus =
+  'Pending' | 'Approved' | 'Rejected' | 'Revoked' | 'Expired';
+
+/** The support's key for entering the school for a ticket: the backoffice
+ * keeps its private part, the school approves the public one and may
+ * revoke it any time (as SSH's authorized_keys). */
+export interface SupportAccessKey {
+  id: number;
+  status: SupportAccessKeyStatus;
+  /** Of the public key, `SHA256:…`. */
+  fingerprint: string;
+  operatorName: string;
+  reason: string | null;
+  createdAt: string;
+  /** Whom the support asked to be; empty: the school chooses. */
+  requestedAs: SupportAsUserRef[];
+  decidedAt: string | null;
+  decidedByName: string | null;
+  approvedUntil: string | null;
+  /** Whom the school lets the support be; empty: its admin. */
+  approvedAs: SupportAsUserRef[];
+  decisionNote: string | null;
+  /** Approved and not run out: the support may enter. */
+  usable: boolean;
+  /** The caller is the school's admin (not the support inside). */
+  canDecide: boolean;
+  supportAs: SupportAsScope;
+  /** The approval's default length. */
+  approvalMinutes: number;
+}
+
+export interface SupportAsUserRef {
+  id: number;
+  name: string;
+}
+
 export interface SupportTicketDetail {
   ticket: SupportTicket;
   entries: SupportTicketEntry[];
   time: SupportTicketTime;
+  /** The support's newest key for the ticket. */
+  access: SupportAccessKey | null;
 }
 
 /** 75 → "1 h 15 min". */
