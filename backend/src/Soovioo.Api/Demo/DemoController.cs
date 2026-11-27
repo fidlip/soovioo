@@ -194,7 +194,7 @@ public class DemoController(AppDbContext db, DemoSchoolService demos, DemoSchool
             return NotFound();
         }
         AuditContext.Of(HttpContext).SchoolId = school.Id;
-        if (await feedback.SaveAsync(school, null, request) is { } error)
+        if (await feedback.SendAsync(school, null, request) is { } error)
         {
             return this.FieldError(error.Field, error.Message);
         }

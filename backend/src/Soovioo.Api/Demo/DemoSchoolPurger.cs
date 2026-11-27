@@ -129,22 +129,11 @@ public class DemoSchoolPurger(AppDbContext db, MessageAttachmentStorageService s
         return true;
     }
 
-    /// <summary>Contacts and feedback e-mails stay only with consent.</summary>
+    /// <summary>The visitor's e-mail goes with the demo; one with consent to be contacted
+    /// lives on in the backoffice (Kontakty).</summary>
     private async Task ForgetVisitorAsync(int schoolId)
     {
-        await DeleteAsync(db.DemoContacts.Where(c => c.SchoolId == schoolId && !c.Consent));
-        foreach (var contact in await db.DemoContacts.Where(c => c.SchoolId == schoolId).ToListAsync())
-        {
-            contact.SchoolId = null;
-        }
-        foreach (var feedback in await db.Feedback.Where(f => f.SchoolId == schoolId).ToListAsync())
-        {
-            feedback.SchoolId = null;
-            if (!feedback.Consent)
-            {
-                feedback.Email = null;
-            }
-        }
+        await DeleteAsync(db.DemoContacts.Where(c => c.SchoolId == schoolId));
         await db.SaveChangesAsync();
     }
 

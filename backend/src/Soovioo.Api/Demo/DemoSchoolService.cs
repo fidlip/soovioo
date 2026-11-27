@@ -26,12 +26,14 @@ public class DemoSchoolService(
     DemoDataGenerator generator,
     DemoSchoolPurger purger,
     [FromKeyedServices(SmtpEmailSender.Key)] IEmailSender smtp,
+    Backoffice.IBackofficeClient backoffice,
     IOptions<AppLinkOptions> links,
     IOptions<DemoOptions> options,
     TimeProvider time,
     ILogger<DemoSchoolService> logger)
 {
     public const int MaxNameLength = 100;
+    public const string DemoContactCreated = "DemoContactCreated";
 
     public static string? Validate(DemoSetupRequest request)
     {
@@ -106,6 +108,14 @@ public class DemoSchoolService(
                 Source = "wizard",
                 CreatedAt = now,
             });
+            // Who may be contacted is the backoffice's (Kontakty); here the e-mail lives only with the demo.
+            if (request.Consent)
+            {
+                Backoffice.Outbox.Add(db, backoffice, DemoContactCreated, new
+                {
+                    schoolId = school.Id, schoolName = school.Name, demoSlug = slug, email, at = now,
+                }, time);
+            }
             await db.SaveChangesAsync();
             await TrySendAsync(email, $"Vaše demo Soovioo — {school.Name}", LinkEmail(school));
         }

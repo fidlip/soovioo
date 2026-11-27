@@ -122,10 +122,10 @@ export class SettingsPage {
     this.ownAccount && !this.authApi.isSuperAdmin();
   protected readonly feedUrl = signal<string | null>(null);
 
-  /** "Zpětná vazba" to the Soovioo team — a school's own users only. */
+  /** "Zpětná vazba" to the Soovioo team — a school's own users only, and
+   * only where the instance sends it to the backoffice. */
   protected readonly feedbackOpen = signal(false);
-  protected readonly showFeedback =
-    !this.authApi.isSuperAdmin() && !this.authApi.getSupportInfo();
+  protected readonly showFeedback = signal(false);
   protected readonly isStudent = this.authApi.isStudent();
   protected readonly isStaffUser = this.authApi.isStaff();
   private readonly feedbackApi = inject(FeedbackApiService);
@@ -252,6 +252,13 @@ export class SettingsPage {
         error: (err) => console.error('getVisibility failed', err),
       });
       this.loadNotificationSettings();
+    }
+
+    if (!this.authApi.isSuperAdmin() && !this.authApi.getSupportInfo()) {
+      this.feedbackApi.availability().subscribe({
+        next: (result) => this.showFeedback.set(result.available),
+        error: () => this.showFeedback.set(false),
+      });
     }
 
     if (this.showCalendarFeed) {

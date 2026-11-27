@@ -1,9 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+using Soovioo.Api.Backoffice;
 using Soovioo.Api.Common;
 using Soovioo.Api.Data;
 using Soovioo.Api.Demo;
-using Soovioo.Api.Email;
 using Soovioo.Api.Evidence;
 
 namespace Soovioo.Api.ProductFeedback;
@@ -11,20 +10,23 @@ namespace Soovioo.Api.ProductFeedback;
 /// <param name="Role">Which role the user was looking through.</param>
 public record FeedbackRequest(int? Rating, string? Text, string? Email, bool Consent = false, string? Role = null);
 
-/// <summary>Stores feedback from a school or a demo and forwards it to
-/// <see cref="DemoOptions.FeedbackEmail"/>.</summary>
-public class FeedbackService(
-    AppDbContext db,
-    [FromKeyedServices(SmtpEmailSender.Key)] IEmailSender smtp,
-    IOptions<DemoOptions> options,
-    TimeProvider time,
-    ILogger<FeedbackService> logger)
+/// <summary>Sends feedback from a school or a demo to the backoffice (Kontakty) through the
+/// outbox; nothing of it stays here. An instance not connected to a backoffice has nowhere to
+/// send it, the form isn't shown there.</summary>
+public class FeedbackService(AppDbContext db, IBackofficeClient backoffice, TimeProvider time)
 {
     public const int MaxTextLength = 4000;
+    public const string FeedbackSent = "FeedbackSent";
+
+    public bool Available => backoffice.Connection is not null;
 
     /// <returns>The field and message when the request is refused.</returns>
-    public async Task<(string Field, string Message)?> SaveAsync(School school, int? userId, FeedbackRequest request)
+    public async Task<(string Field, string Message)?> SendAsync(School school, int? userId, FeedbackRequest request)
     {
+        if (!Available)
+        {
+            return ("text", "Zpětnou vazbu teď nejde poslat.");
+        }
         if (request.Rating is < 1 or > 5)
         {
             return ("rating", "Hodnocení je 1 až 5.");
@@ -43,21 +45,26 @@ public class FeedbackService(
             return ("text", "Napište nám aspoň pár slov, nebo vyberte hodnocení.");
         }
 
-        var feedback = new Feedback
+        var consent = request.Consent && email is not null;
+        var now = time.GetUtcNow();
+        var user = userId is { } id
+            ? await db.Users.Include(u => u.Person).FirstOrDefaultAsync(u => u.Id == id)
+            : null;
+        // The e-mail only with consent to be answered: the backoffice keeps nothing else of it.
+        Outbox.Add(db, backoffice, FeedbackSent, new
         {
-            SchoolId = school.Id,
-            SchoolName = school.Name,
-            DemoSlug = school.IsDemo ? school.Slug : null,
-            UserId = userId,
-            Rating = request.Rating,
-            Text = text,
-            Email = email,
-            Consent = request.Consent && email is not null,
-            Role = request.Role,
-            CreatedAt = time.GetUtcNow(),
-        };
-        db.Feedback.Add(feedback);
-        // A demo visitor's contact is kept like the wizard's.
+            schoolId = school.Id,
+            schoolName = school.Name,
+            demoSlug = school.IsDemo ? school.Slug : null,
+            userId = user?.Id,
+            userName = user is null ? null : People.PersonNames.Display(user),
+            role = request.Role,
+            rating = request.Rating,
+            text,
+            email = consent ? email : null,
+            at = now,
+        }, time);
+        // A demo visitor's e-mail gets the demo's reminders like the wizard's.
         if (school.IsDemo && email is not null
             && !await db.DemoContacts.AnyAsync(c => c.SchoolId == school.Id && c.Email == email))
         {
@@ -66,41 +73,12 @@ public class FeedbackService(
                 SchoolId = school.Id,
                 DemoSlug = school.Slug,
                 Email = email,
-                Consent = feedback.Consent,
+                Consent = consent,
                 Source = "feedback",
-                CreatedAt = feedback.CreatedAt,
+                CreatedAt = now,
             });
         }
         await db.SaveChangesAsync();
-
-        var stars = Stars(feedback.Rating);
-        var from = school.IsDemo
-            ? $"<strong>Demo:</strong> {Html(school.Name)} ({school.Slug}, {school.Type})"
-            : $"<strong>Škola:</strong> {Html(school.Name)} ({school.Slug})";
-        try
-        {
-            await smtp.SendAsync(
-                options.Value.FeedbackEmail,
-                $"Zpětná vazba {(school.IsDemo ? "z dema" : "ze školy")} ({stars})",
-                $"""
-                <p>{from}<br>
-                <strong>Role:</strong> {Html(feedback.Role ?? "?")}<br>
-                <strong>Hodnocení:</strong> {stars}<br>
-                <strong>E-mail:</strong> {Html(feedback.Email ?? "—")} (souhlas s kontaktem: {(feedback.Consent ? "ano" : "ne")})</p>
-                <p style="white-space: pre-wrap">{Html(feedback.Text ?? "")}</p>
-                """);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Feedback {Id} wasn't forwarded to the team.", feedback.Id);
-        }
         return null;
     }
-
-    public static string Stars(int? rating) =>
-        rating is { } r ? new string('★', r) + new string('☆', 5 - r) : "bez hodnocení";
-
-    /// <summary>Escapes markup only — Czech letters stay readable.</summary>
-    public static string Html(string text) =>
-        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 }

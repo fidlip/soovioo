@@ -108,9 +108,6 @@ public static class LiveEvents
     /// or the support in the school changed (the unread-counts request).</summary>
     public const string Counts = "counts";
 
-    /// <summary>A SuperAdmin's "Zpětná vazba" badge.</summary>
-    public const string Feedback = "feedback";
-
     /// <summary>A ticket (its id) or its thread changed.</summary>
     public const string Ticket = "ticket";
 

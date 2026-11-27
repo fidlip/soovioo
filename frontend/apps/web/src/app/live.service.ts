@@ -26,7 +26,6 @@ export class LiveService {
   private readonly watched = new Map<number, number>();
 
   private readonly countsSubject = new Subject<void>();
-  private readonly feedbackSubject = new Subject<void>();
   private readonly ticketSubject = new Subject<number>();
   private readonly supportSubject = new Subject<void>();
 
@@ -34,8 +33,6 @@ export class LiveService {
   /** The bell's, Zprávy's, the linked accounts' numbers or the support
    * banners changed. */
   readonly counts$ = this.countsSubject.asObservable();
-  /** SuperAdmin: the "Zpětná vazba" badge. */
-  readonly feedback$ = this.feedbackSubject.asObservable();
   /** Support mode: the session changed (ended, switched whom it's in as). */
   readonly support$ = this.supportSubject.asObservable();
 
@@ -115,7 +112,6 @@ export class LiveService {
       .configureLogging(LogLevel.None)
       .build();
     connection.on('counts', () => this.countsSubject.next());
-    connection.on('feedback', () => this.feedbackSubject.next());
     connection.on('ticket', (id: number) => this.ticketSubject.next(id));
     connection.on('support', () => this.supportSubject.next());
     connection.onreconnecting(() => this.connected.set(false));
@@ -151,7 +147,6 @@ export class LiveService {
       this.ticketSubject.next(id);
     }
     this.countsSubject.next();
-    this.feedbackSubject.next();
     this.supportSubject.next();
   }
 

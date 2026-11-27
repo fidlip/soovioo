@@ -1,6 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
 import {
-  FeedbackApiService,
   LinkedAccount,
   NotificationsApiService,
   SupportPresence,
@@ -9,11 +8,10 @@ import {
 /** Unread numbers for the bell and the sidebar "Zprávy" badge (and the
  * support-mode banners), in one request — refreshed when the live
  * connection says they changed (`startBadgeRefresh`), and whenever
- * something gets read. A SuperAdmin's "Zpětná vazba" badge the same way. */
+ * something gets read. */
 @Injectable({ providedIn: 'root' })
 export class UnreadCountsService {
   private readonly api = inject(NotificationsApiService);
-  private readonly feedbackApi = inject(FeedbackApiService);
 
   readonly notifications = signal(0);
   readonly messages = signal(0);
@@ -27,8 +25,6 @@ export class UnreadCountsService {
   readonly support = signal<SupportPresence[]>([], {
     equal: (a, b) => JSON.stringify(a) === JSON.stringify(b),
   });
-  /** SuperAdmin: feedback no one opened yet. */
-  readonly feedback = signal(0);
 
   refresh(): void {
     this.api.getUnreadCounts().subscribe({
@@ -45,13 +41,6 @@ export class UnreadCountsService {
         this.linkedAccounts.set([]);
         this.support.set([]);
       },
-    });
-  }
-
-  refreshFeedback(): void {
-    this.feedbackApi.unseenCount().subscribe({
-      next: (count) => this.feedback.set(count),
-      error: () => this.feedback.set(0),
     });
   }
 }

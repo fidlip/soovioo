@@ -8,7 +8,6 @@ using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
-using Soovioo.Api.ProductFeedback;
 using Soovioo.Api.Support;
 
 namespace Soovioo.Api.Live;
@@ -46,7 +45,6 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
     private sealed class Batch
     {
         public readonly HashSet<int> Users = [];
-        public bool Feedback;
         public readonly List<object> Tickets = [];
         public readonly List<Message> Messages = [];
         public readonly HashSet<Guid> LinkGroups = [];
@@ -54,13 +52,12 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
         public readonly List<(SupportSession Session, int? AsUserBefore)> Sessions = [];
         public readonly List<SupportSession> Connections = [];
 
-        public bool IsEmpty => Users.Count == 0 && !Feedback && Tickets.Count == 0 && Messages.Count == 0
+        public bool IsEmpty => Users.Count == 0 && Tickets.Count == 0 && Messages.Count == 0
                                && LinkGroups.Count == 0 && AuditSessions.Count == 0 && Sessions.Count == 0 && Connections.Count == 0;
 
         public void Add(Batch other)
         {
             Users.UnionWith(other.Users);
-            Feedback |= other.Feedback;
             Tickets.AddRange(other.Tickets);
             Messages.AddRange(other.Messages);
             LinkGroups.UnionWith(other.LinkGroups);
@@ -159,9 +156,6 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
                 break;
             case Message m:
                 batch.Messages.Add(m);
-                break;
-            case Feedback when entry.State != EntityState.Modified || IsModified(entry, nameof(Feedback.SeenAt)):
-                batch.Feedback = true;
                 break;
             case SupportTicketEntry or SupportChange:
                 batch.Tickets.Add(entry.Entity);
@@ -274,10 +268,6 @@ public class LiveChanges(LivePublisher publisher, ILogger<LiveChanges> logger)
             users.UnionWith((await db.LinkedWithAsync(users)).Values.SelectMany(ids => ids));
         }
         await publisher.CountsAsync(users);
-        if (batch.Feedback)
-        {
-            await publisher.FeedbackAsync();
-        }
         await publisher.TicketsAsync(tickets);
         await publisher.SessionsAsync(db, batch.Sessions);
     }

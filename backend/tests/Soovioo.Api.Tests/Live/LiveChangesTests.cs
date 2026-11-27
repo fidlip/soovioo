@@ -5,7 +5,6 @@ using Soovioo.Api.Data;
 using Soovioo.Api.Live;
 using Soovioo.Api.Messaging;
 using Soovioo.Api.Notifications;
-using Soovioo.Api.ProductFeedback;
 using Soovioo.Api.Support;
 
 namespace Soovioo.Api.Tests.Live;
@@ -95,18 +94,16 @@ public class LiveChangesTests
     }
 
     [Fact]
-    public async Task ATicketsThreadTellsItsDetailAndFeedbackTheSuperAdmins()
+    public async Task ATicketsThreadTellsItsDetail()
     {
         using var db = Db();
         db.SupportTicketEntries.Add(new SupportTicketEntry
         {
             TicketId = 3, SchoolId = 1, Kind = SupportTicketEntryKind.Reset, AuthorName = "Ředitel",
         });
-        db.Feedback.Add(new Feedback { Text = "Super" });
         await db.SaveChangesAsync();
 
         Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Ticket && s.To.SequenceEqual(["ticket:1:3"]));
-        Assert.Contains(hub.Sent, s => s.Method == LiveEvents.Feedback && s.To.SequenceEqual([LiveGroups.SuperAdmins]));
     }
 
     [Fact]

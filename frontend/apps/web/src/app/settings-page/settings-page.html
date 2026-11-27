@@ -1,6 +1,6 @@
 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
   <h1 class="mb-0">Nastavení</h1>
-  @if (showFeedback) {
+  @if (showFeedback()) {
   <p-button
     label="Zpětná vazba"
     icon="pi pi-comment"
@@ -11,7 +11,7 @@
   }
 </div>
 
-@if (showFeedback) {
+@if (showFeedback()) {
 <p-dialog
   [visible]="feedbackOpen()"
   (visibleChange)="feedbackOpen.set($event)"

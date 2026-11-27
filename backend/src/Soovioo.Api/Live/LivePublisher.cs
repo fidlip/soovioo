@@ -16,8 +16,6 @@ public class LivePublisher(IHubContext<LiveHub> hub, ILogger<LivePublisher> logg
             ? Task.CompletedTask
             : SendAsync(hub.Clients.Users(userIds.Select(id => id.ToString()).ToList()), LiveEvents.Counts);
 
-    public Task FeedbackAsync() => SendAsync(hub.Clients.Group(LiveGroups.SuperAdmins), LiveEvents.Feedback);
-
     public Task TicketsAsync(int schoolId, IEnumerable<int> ticketIds) =>
         TicketsAsync(ticketIds.Select(id => (schoolId, id)));
 

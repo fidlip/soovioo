@@ -25,10 +25,4 @@ export function startBadgeRefresh(hideHeader: Signal<boolean>): void {
       takeUntilDestroyed(),
     )
     .subscribe(() => unread.refresh());
-  merge(live.feedback$, offline)
-    .pipe(
-      filter(() => authApi.isLoggedIn() && authApi.isSuperAdmin()),
-      takeUntilDestroyed(),
-    )
-    .subscribe(() => unread.refreshFeedback());
 }
