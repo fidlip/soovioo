@@ -56,7 +56,6 @@ se na existující DB neprojeví.
 | `Cors:AllowedOrigins`               | povolené originy mimo Development (v dev se povolí jakýkoli)   |
 | `Demo:LifetimeDays`, `Demo:MaxActive` | životnost dema (30 dní), strop současně existujících dem (200) |
 | `Demo:CreatePerIpPerDay`            | nová dema / resety za den z jedné IP (5; v dev 1000)           |
-| `Demo:FeedbackEmail`                | kam chodí zpětná vazba z dem (`info@soovioo.cz`)               |
 | `Backoffice:BaseUrl`, `Backoffice:InstanceId`, `Backoffice:Secret` | napojení na backoffice: jeho adresa, id a tajemství instance (token `client_credentials`). Bez nich instance napojená není a backoffice nevolá |
 | `Backoffice:InternalPort`           | port interního rozhraní pro příkazy z backoffice (`POST /internal/v1/commands/{id}`); jen na něm je `/internal`, nic jiného. Nevyplněný = interní rozhraní není |
 | `SupportPlans:Default`, `SupportPlans:DemoPlanCode` | plán školy, kterou backoffice nezná nebo když instance napojená není (`Default`); demo školy mají plán `DemoPlanCode` (`Demo`); při výpadku platí poslední známý plán, jinak `Default` |

@@ -8,8 +8,8 @@ import { DateFormatPipe, DemoApiService, DemoContact } from '@soovioo/shared';
 import { NotifyService } from '@fidlip/soovioo-ui';
 import { Loading } from '@fidlip/soovioo-ui';
 
-/** Správa škol → who left a contact in a "Vyzkoušet" demo (CSV export).
- * Their feedback has its own page (Zpětná vazba). */
+/** Správa škol → who left a contact in a "Vyzkoušet" demo, while the demo lives (CSV export).
+ * Their feedback, and contacts with consent, go to the backoffice (Kontakty). */
 @Component({
   selector: 'app-demo-admin-panel',
   imports: [

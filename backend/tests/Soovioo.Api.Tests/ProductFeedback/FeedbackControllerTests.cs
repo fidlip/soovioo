@@ -1,15 +1,16 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
+using Soovioo.Api.Auth;
 using Soovioo.Api.Data;
-using Soovioo.Api.Demo;
 using Soovioo.Api.Evidence;
+using Soovioo.Api.People;
 using Soovioo.Api.ProductFeedback;
 using Soovioo.Api.Support;
 using Soovioo.Api.Tests.Auth;
+using Soovioo.Api.Tests.Backoffice;
 
 namespace Soovioo.Api.Tests.ProductFeedback;
 
@@ -23,13 +24,18 @@ public class FeedbackControllerTests
             new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
             new FakeCurrentSchoolContext(school.Id));
         db.Schools.Add(school);
+        db.Users.Add(new User
+        {
+            Id = 7, SchoolId = school.Id, Username = "jan", PasswordHash = "x",
+            Person = new Person { SchoolId = school.Id, FirstName = "Jan", LastName = "Novák" },
+        });
         db.SaveChanges();
         return db;
     }
 
-    private static FeedbackController Controller(AppDbContext db, FakeEmailSender mail, params Claim[] extra) =>
+    private static FeedbackController Controller(AppDbContext db, FakeBackoffice? backoffice = null, params Claim[] extra) =>
         new(db, new FakeCurrentSchoolContext(db.Schools.Single().Id),
-            new FeedbackService(db, mail, Options.Create(new DemoOptions()), new FakeClock(Now), NullLogger<FeedbackService>.Instance))
+            new FeedbackService(db, backoffice ?? new FakeBackoffice(), new FakeClock(Now)))
         {
             ControllerContext = new ControllerContext
             {
@@ -41,65 +47,75 @@ public class FeedbackControllerTests
             },
         };
 
-    [Fact]
-    public async Task SchoolUsersFeedbackIsKeptWithTheSchoolAndTheSenderAndForwarded()
+    private static JsonElement Sent(AppDbContext db)
     {
-        using var db = Db(new School { Id = 5, Name = "ZŠ Lipová", Slug = "lipova" });
-        var mail = new FakeEmailSender();
-
-        var result = await Controller(db, mail).Send(
-            new FeedbackRequest(5, "  Rozvrh je super.  ", "jan@example.com", Consent: true, Role: "Učitel"));
-
-        Assert.IsType<NoContentResult>(result);
-        var feedback = await db.Feedback.SingleAsync();
-        Assert.Equal((5, "ZŠ Lipová", 7), (feedback.SchoolId!.Value, feedback.SchoolName, feedback.UserId!.Value));
-        Assert.Null(feedback.DemoSlug);
-        Assert.Equal("Rozvrh je super.", feedback.Text);
-        Assert.True(feedback.Consent);
-        Assert.Equal(Now, feedback.CreatedAt);
-        Assert.Empty(db.DemoContacts);
-        var (to, subject, body) = Assert.Single(mail.Sent);
-        Assert.Equal("info@soovioo.cz", to);
-        Assert.Equal("Zpětná vazba ze školy (★★★★★)", subject);
-        Assert.Contains("ZŠ Lipová", body);
+        var sent = db.OutboxEvents.Single();
+        Assert.Equal(FeedbackService.FeedbackSent, sent.Type);
+        return JsonDocument.Parse(sent.Payload).RootElement;
     }
 
     [Fact]
-    public async Task ConsentNeedsAnEmail()
+    public async Task SchoolUsersFeedbackGoesToTheBackofficeWithTheSchoolAndTheSender()
     {
         using var db = Db(new School { Id = 5, Name = "ZŠ Lipová", Slug = "lipova" });
 
-        await Controller(db, new FakeEmailSender()).Send(new FeedbackRequest(3, null, " ", Consent: true));
+        var result = await Controller(db).Send(
+            new FeedbackRequest(5, "  Rozvrh je super.  ", "jan@example.com", Consent: true, Role: "Učitel"));
 
-        var feedback = await db.Feedback.SingleAsync();
-        Assert.Null(feedback.Email);
-        Assert.False(feedback.Consent);
+        Assert.IsType<NoContentResult>(result);
+        var sent = Sent(db);
+        Assert.Equal((5, "ZŠ Lipová"), (sent.GetProperty("schoolId").GetInt32(), sent.GetProperty("schoolName").GetString()));
+        Assert.Equal((7, "Jan Novák", "Učitel"),
+            (sent.GetProperty("userId").GetInt32(), sent.GetProperty("userName").GetString(), sent.GetProperty("role").GetString()));
+        Assert.Equal(JsonValueKind.Null, sent.GetProperty("demoSlug").ValueKind);
+        Assert.Equal(("Rozvrh je super.", 5), (sent.GetProperty("text").GetString(), sent.GetProperty("rating").GetInt32()));
+        Assert.Equal("jan@example.com", sent.GetProperty("email").GetString());
+        Assert.Empty(db.DemoContacts);
+    }
+
+    [Fact]
+    public async Task TheEmailGoesOnlyWithConsent()
+    {
+        using var db = Db(new School { Id = 5, Name = "ZŠ Lipová", Slug = "lipova" });
+
+        await Controller(db).Send(new FeedbackRequest(3, null, "jan@example.com", Consent: false));
+
+        Assert.Equal(JsonValueKind.Null, Sent(db).GetProperty("email").ValueKind);
     }
 
     [Fact]
     public async Task EmptyFeedbackIsRefused()
     {
         using var db = Db(new School { Id = 5, Name = "ZŠ Lipová", Slug = "lipova" });
-        var mail = new FakeEmailSender();
 
-        Assert.IsType<BadRequestObjectResult>(await Controller(db, mail).Send(new FeedbackRequest(null, "  ", null)));
-        Assert.IsType<BadRequestObjectResult>(await Controller(db, mail).Send(new FeedbackRequest(6, "x", null)));
+        Assert.IsType<BadRequestObjectResult>(await Controller(db).Send(new FeedbackRequest(null, "  ", null)));
+        Assert.IsType<BadRequestObjectResult>(await Controller(db).Send(new FeedbackRequest(6, "x", null)));
 
-        Assert.Empty(db.Feedback);
-        Assert.Empty(mail.Sent);
+        Assert.Empty(db.OutboxEvents);
     }
 
     [Fact]
-    public async Task FromADemoItIsTheDemosFeedback()
+    public async Task WithoutABackofficeThereIsNoFeedback()
+    {
+        using var db = Db(new School { Id = 5, Name = "ZŠ Lipová", Slug = "lipova" });
+        var controller = Controller(db, FakeBackoffice.NotConnected());
+
+        Assert.False(controller.Get().Value!.Available);
+        Assert.IsType<BadRequestObjectResult>(await controller.Send(new FeedbackRequest(5, "x", null)));
+        Assert.Empty(db.OutboxEvents);
+        Assert.True(Controller(db).Get().Value!.Available);
+    }
+
+    [Fact]
+    public async Task FromADemoItIsTheDemosFeedbackAndTheEmailGetsTheDemosReminders()
     {
         using var db = Db(new School { Id = 5, Name = "Demo", Slug = "demo-x", IsDemo = true });
-        var mail = new FakeEmailSender();
 
-        await Controller(db, mail).Send(new FeedbackRequest(4, "Líbí", "v@example.com", Consent: true));
+        await Controller(db).Send(new FeedbackRequest(4, "Líbí", "v@example.com", Consent: true));
 
-        Assert.Equal("demo-x", (await db.Feedback.SingleAsync()).DemoSlug);
-        Assert.Equal("feedback", (await db.DemoContacts.SingleAsync()).Source);
-        Assert.StartsWith("Zpětná vazba z dema", Assert.Single(mail.Sent).Subject);
+        Assert.Equal("demo-x", Sent(db).GetProperty("demoSlug").GetString());
+        var contact = await db.DemoContacts.SingleAsync();
+        Assert.Equal(("feedback", true), (contact.Source, contact.Consent));
     }
 
     [Fact]
@@ -107,10 +123,10 @@ public class FeedbackControllerTests
     {
         using var db = Db(new School { Id = 5, Name = "ZŠ Lipová", Slug = "lipova" });
 
-        var result = await Controller(db, new FakeEmailSender(), new Claim(SupportClaims.SessionId, "1"))
+        var result = await Controller(db, extra: new Claim(SupportClaims.SessionId, "1"))
             .Send(new FeedbackRequest(5, "x", null));
 
         Assert.IsType<ForbidResult>(result);
-        Assert.Empty(db.Feedback);
+        Assert.Empty(db.OutboxEvents);
     }
 }

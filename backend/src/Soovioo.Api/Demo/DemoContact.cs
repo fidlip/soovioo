@@ -2,9 +2,8 @@ namespace Soovioo.Api.Demo;
 
 /// <summary>The visitor's e-mail left in the demo wizard or the feedback
 /// dialog: the demo's link goes there, and a reminder 7 days and 1 day
-/// before the demo is deleted. Outlives the demo only with
-/// <see cref="Consent"/> to be contacted (GDPR) — <see cref="SchoolId"/> is
-/// then cleared, the slug stays as a reference.</summary>
+/// before the demo is deleted. Deleted with the demo; with <see cref="Consent"/>
+/// to be contacted the backoffice got it (DemoContactCreated, Kontakty).</summary>
 public class DemoContact
 {
     public int Id { get; set; }

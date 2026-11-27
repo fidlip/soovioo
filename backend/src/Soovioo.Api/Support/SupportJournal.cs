@@ -35,7 +35,7 @@ public static class SupportJournal
         typeof(Audit.AuditLogEntry), typeof(SupportSession), typeof(SupportChange),
         typeof(SupportTicketEntry), typeof(Auth.RefreshToken),
         typeof(Notifications.PushDevice), typeof(Notifications.Notification), typeof(Demo.DemoEmail),
-        typeof(Demo.DemoContact), typeof(ProductFeedback.Feedback), typeof(ProductFeedback.FeedbackReply),
+        typeof(Demo.DemoContact),
         typeof(Timetable.TimetableGeneration),
     ];
 

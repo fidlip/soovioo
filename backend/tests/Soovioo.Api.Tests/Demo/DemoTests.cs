@@ -13,6 +13,7 @@ using Soovioo.Api.ProductFeedback;
 using Soovioo.Api.Timetable;
 using Soovioo.Api.Timetable.Rvp;
 using Soovioo.Api.Tests.Auth;
+using Soovioo.Api.Tests.Backoffice;
 
 namespace Soovioo.Api.Tests.Demo;
 
@@ -72,6 +73,7 @@ public class DemoTests
             new DemoDataGenerator(db),
             new DemoSchoolPurger(db, storage ?? new MessageAttachmentStorageService(new FakeWebHostEnvironment())),
             mail,
+            new FakeBackoffice(),
             Options.Create(new AppLinkOptions { PathBasedTenant = true, FrontendBaseUrl = "http://localhost:4200" }),
             Options.Create(new DemoOptions { MaxActive = 3 }),
             new FakeClock(now ?? Now),
@@ -419,6 +421,11 @@ public class DemoTests
         Assert.Equal(4, school.DemoFeaturedUserIds!.Count);
         var contact = await db.DemoContacts.SingleAsync();
         Assert.True(contact.Consent);
+        // With consent the backoffice gets it (Kontakty).
+        var sent = await db.OutboxEvents.SingleAsync();
+        Assert.Equal(DemoSchoolService.DemoContactCreated, sent.Type);
+        Assert.Contains("\"email\":\"navstevnik@example.com\"", sent.Payload);
+        Assert.Contains($"\"demoSlug\":\"{demo.Slug}\"", sent.Payload);
         var (to, _, body) = Assert.Single(mail.Sent);
         Assert.Equal("navstevnik@example.com", to);
         Assert.Contains($"http://localhost:4200/{demo.Slug}/login", body);
@@ -538,7 +545,7 @@ public class DemoTests
     }
 
     [Fact]
-    public async Task FeedbackIsStoredMailedAndForgottenWithTheDemo()
+    public async Task FeedbackGoesToTheBackofficeAndTheVisitorsEmailIsForgottenWithTheDemo()
     {
         using var db = NewDb();
         var school = new School { Name = "Demo", Slug = "demo-fb", IsDemo = true, ExpiresAt = Now.AddDays(30) };
@@ -557,21 +564,19 @@ public class DemoTests
         Assert.IsType<BadRequestObjectResult>(await controller.Feedback("demo-fb", new FeedbackRequest(null, " ", null)));
         Assert.IsType<NoContentResult>(await controller.Feedback("demo-fb", new FeedbackRequest(4, "Líbí se mi rozvrh.", "a@example.com", Consent: false, Role: "Teacher")));
 
-        var feedback = await db.Feedback.SingleAsync();
-        Assert.Equal(4, feedback.Rating);
-        Assert.Equal("demo-fb", feedback.DemoSlug);
-        Assert.Equal("Demo", feedback.SchoolName);
-        Assert.Null(feedback.UserId);
+        var sent = await db.OutboxEvents.SingleAsync();
+        Assert.Equal(FeedbackService.FeedbackSent, sent.Type);
+        using var payload = System.Text.Json.JsonDocument.Parse(sent.Payload);
+        Assert.Equal(4, payload.RootElement.GetProperty("rating").GetInt32());
+        Assert.Equal("demo-fb", payload.RootElement.GetProperty("demoSlug").GetString());
+        Assert.Equal("Demo", payload.RootElement.GetProperty("schoolName").GetString());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, payload.RootElement.GetProperty("userId").ValueKind);
+        // No consent to be answered: the backoffice doesn't get the e-mail.
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, payload.RootElement.GetProperty("email").ValueKind);
         Assert.Equal("feedback", (await db.DemoContacts.SingleAsync()).Source);
-        var (to, subject, body) = Assert.Single(mail.Sent);
-        Assert.Equal("info@soovioo.cz", to);
-        Assert.Contains("★★★★☆", subject);
-        Assert.Contains("Líbí se mi rozvrh.", body);
+        Assert.Empty(mail.Sent);
 
         await new DemoSchoolPurger(db, new MessageAttachmentStorageService(new FakeWebHostEnvironment())).PurgeAsync(school.Id, deleteSchool: true);
-        var kept = await db.Feedback.SingleAsync();
-        Assert.Null(kept.Email);
-        Assert.Null(kept.SchoolId);
         Assert.Empty(db.DemoContacts);
     }
 
@@ -603,5 +608,5 @@ public class DemoTests
         };
 
     private static FeedbackService Feedback(AppDbContext db, FakeEmailSender mail) =>
-        new(db, mail, Options.Create(new DemoOptions()), new FakeClock(Now), NullLogger<FeedbackService>.Instance);
+        new(db, new FakeBackoffice(), new FakeClock(Now));
 }

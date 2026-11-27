@@ -17,6 +17,10 @@ namespace Soovioo.Api.ProductFeedback;
 public class FeedbackController(AppDbContext db, ICurrentSchoolContext currentSchool, FeedbackService feedback)
     : ControllerBase
 {
+    /// <summary>Whether the form is shown: the instance sends feedback to its backoffice.</summary>
+    [HttpGet]
+    public ActionResult<FeedbackAvailability> Get() => new FeedbackAvailability(feedback.Available);
+
     [HttpPost]
     [AuditAction("Odeslána zpětná vazba")]
     public async Task<IActionResult> Send(FeedbackRequest request)
@@ -27,10 +31,12 @@ public class FeedbackController(AppDbContext db, ICurrentSchoolContext currentSc
             return Forbid();
         }
         var school = await db.Schools.FirstAsync(s => s.Id == currentSchool.SchoolId);
-        if (await feedback.SaveAsync(school, User.UserId(), request) is { } error)
+        if (await feedback.SendAsync(school, User.UserId(), request) is { } error)
         {
             return this.FieldError(error.Field, error.Message);
         }
         return NoContent();
     }
 }
+
+public record FeedbackAvailability(bool Available);
